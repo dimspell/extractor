@@ -100,7 +100,7 @@ jobs:
         run: |
           mkdir -p "$ARCHIVE"/
           cp "$BIN" "$ARCHIVE"/
-          cp {README.md} "$ARCHIVE"/
+     #     cp {README.md} "$ARCHIVE"/
 
       - name: Build archive (Windows)
         shell: bash
