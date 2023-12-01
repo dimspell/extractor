@@ -1,13 +1,12 @@
-use crate::references::{read_extra_ini, read_extra_ref, read_ini};
 use crate::sprite::{rgb16_565_produce_color, save_sequence, Color, ImageInfo, SequenceInfo};
-use crate::{references, tileset};
+use crate::{ tileset};
 
 use super::sprite;
 use crate::tileset::{mix_color, plot_tile, Tile, TILE_HEIGHT};
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::{ImageBuffer, Rgb};
 use std::collections::HashMap;
-use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
+use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
 pub fn extract(input_map_file: &Path,

@@ -7,9 +7,7 @@ use crate::database::{
 use database::{save_dialogs, save_party_pgps};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
-use std::io::{prelude::*};
 use std::{io::{self}};
-use std::ops::Deref;
 
 pub mod database;
 pub mod map;
@@ -218,8 +216,8 @@ fn main() {
             match &ref_args.command {
                 Some(RefCommands::AllMaps { input }) => {
                     let input_path = &Path::new(input);
-                    let _ = references::read_all_map_ini(input_path).expect("ERROR: could not read file");
-                    // TODO: Export data to JSON file
+                    let data = references::read_all_map_ini(input_path).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Map { input }) => {
                     // let map_inis = references::read_map_ini(&Path::new("sample-data/Ref/Map.ini"))?;

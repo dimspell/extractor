@@ -1,11 +1,11 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::*;
 use encoding_rs::{EUC_KR, WINDOWS_1250};
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use std::io::{prelude::*, Cursor};
 use std::io::{BufRead, BufReader, Result, Seek, SeekFrom};
-use std::num::{IntErrorKind, ParseIntError};
+use std::num::{IntErrorKind};
 use std::{fs::File, path::Path};
+use serde::{Deserialize, Serialize};
 
 struct OnMapSpriteInfo {
     x: i32,
@@ -227,7 +227,7 @@ pub fn read_party_pgps(source_path: &Path) -> Result<Vec<PartyPgp>> {
     Ok(pgps)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
     pub id: i32,
     pub map_filename: String,
@@ -1726,7 +1726,6 @@ pub fn read_party_level_db(source_path: &Path) -> Result<()> {
 }
 
 pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
-
     let file = File::open(source_path)?;
 
     let metadata = file.metadata()?;
