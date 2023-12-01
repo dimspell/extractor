@@ -10,8 +10,12 @@ use std::collections::HashMap;
 use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
-pub fn extract(save_map_sprites: bool) -> Result<()> {
-    let file = File::open(&Path::new("sample-data/Map/cat1.map"))?;
+pub fn extract(input_map_file: &Path,
+               input_btl_file: &Path,
+               input_gtl_file: &Path,
+               output_path: &Path,
+               save_map_sprites: &bool) -> Result<()> {
+    let file = File::open(input_map_file)?;
 
     let metadata = file.metadata()?;
     println!("File len: {:?}", metadata.len());
@@ -64,15 +68,15 @@ pub fn extract(save_map_sprites: bool) -> Result<()> {
     println!("Finished at: {:?}", reader.seek(SeekFrom::Current(0))?);
 
     // Save sprites
-    if save_map_sprites {
+    if *save_map_sprites {
         for i in 0..internal_sprites.len() {
             let frames = &internal_sprites[i].frame_infos;
             save_sequence(&mut reader, frames, i.try_into().unwrap(), &"cat1".to_string())?;
         }
     }
 
-    let btl_tileset = tileset::extract(&Path::new("sample-data/Map/cat1.btl"))?;
-    let gtl_tileset = tileset::extract(&Path::new("sample-data/Map/cat1.gtl"))?;
+    let btl_tileset = tileset::extract(input_btl_file)?;
+    let gtl_tileset = tileset::extract(input_gtl_file)?;
 
     // TODO: Read ini files
 
@@ -89,6 +93,7 @@ pub fn extract(save_map_sprites: bool) -> Result<()> {
     // TODO: Generate map
     generate_map(
         &mut reader,
+        output_path,
         &map_model,
         true,
         &gtl_tiles,
@@ -107,6 +112,7 @@ pub fn extract(save_map_sprites: bool) -> Result<()> {
 
 fn generate_map(
     reader: &mut BufReader<File>,
+    output_path: &Path,
     model: &MapModel,
     occlusion: bool,
     gtl_tiles: &HashMap<Coords, i32>,
@@ -178,7 +184,7 @@ fn generate_map(
 
     plot_roofs(&mut imgbuf, model, occlusion, btl_tiles, btl_tileset);
 
-    imgbuf.save(format!("image.png")).unwrap();
+    imgbuf.save(output_path).unwrap();
 
     Ok(())
 }

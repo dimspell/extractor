@@ -6,10 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-byteorder = "1.4.3"
-image = "0.24.6"
-encoding_rs = "0.8.32"
+byteorder = "1.5.0"
+image = "0.24.7"
+encoding_rs = "0.8.33"
 encoding_rs_io = "0.1.7"
+clap = { version = "4.4.10", features = ["derive"] }
 
 [dependencies.rusqlite]
 version = "0.30.0"

@@ -61,8 +61,7 @@ fn create_mask() -> [[i32; 32]; 2] {
 }
 
 pub fn plot_all_tiles(tiles: &Vec<Tile>) {
-    // for tile_index in 0..TILE_PIXEL_NUMBER {
-    for tile_index in 5..10 {
+    for tile_index in 0..TILE_PIXEL_NUMBER {
         let tile = &tiles[tile_index as usize];
 
         let mut imgbuf = image::ImageBuffer::new(TILE_WIDTH, TILE_HEIGHT);
