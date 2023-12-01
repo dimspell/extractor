@@ -1,0 +1,16 @@
+INSERT INTO monster_inis(id,
+                        name,
+                        sprite_filename,
+                        attack,
+                        hit,
+                        death,
+                        walking,
+                        casting_magic)
+VALUES (?1,
+        ?2,
+        ?3,
+        ?4,
+        ?5,
+        ?6,
+        ?7,
+        ?8)
