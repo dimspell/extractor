@@ -20,13 +20,13 @@ jobs:
       - name: Show the version
         run: |
           echo "version is: $VERSION"
-      #- name: Check that tag version and Cargo.toml version are the same
-      #  shell: bash
-      #  run: |
-      #    if ! grep -q "version = \"v$VERSION\"" Cargo.toml; then
-      #      echo "version does not match Cargo.toml" >&2
-      #      exit 1
-      #    fi
+      - name: Check that tag version and Cargo.toml version are the same
+        shell: bash
+        run: |
+          if ! grep -q "version = \"v$VERSION\"" Cargo.toml; then
+            echo "version does not match Cargo.toml" >&2
+            exit 1
+          fi
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,8 +50,6 @@ jobs:
       CROSS_VERSION: v0.2.5
       # Emit backtraces on panics.
       RUST_BACKTRACE: 1
-      # Build static releases with PCRE2.
-      PCRE2_SYS_STATIC: 1
     strategy:
       fail-fast: false
       matrix:
@@ -87,7 +85,7 @@ jobs:
       - name: Build release binary
         shell: bash
         run: |
-          ${{ env.CARGO }} build --verbose --release --features pcre2 ${{ env.TARGET_FLAGS }}
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
           bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
           echo "BIN=$bin" >> $GITHUB_ENV
 
