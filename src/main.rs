@@ -215,45 +215,56 @@ fn main() {
         Some(Commands::Ref(ref_args)) => {
             match &ref_args.command {
                 Some(RefCommands::AllMaps { input }) => {
-                    let input_path = &Path::new(input);
-                    let data = references::read_all_map_ini(input_path).expect("ERROR: could not read file");
+                    let data = references::read_all_map_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Map { input }) => {
-                    // let map_inis = references::read_map_ini(&Path::new("sample-data/Ref/Map.ini"))?;
+                    let data = references::read_map_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Extra { input }) => {
-                    // let extras = references::read_extra_ini(&Path::new("sample-data/Extra.ini"))?;
+                    let data = references::read_extra_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Event { input }) => {
-                    // let events = references::read_event_ini(&Path::new("sample-data/Event.ini"))?;
+                    let data = references::read_event_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Monster { input }) => {
-                    // let monster_inis = references::read_monster_ini(&Path::new("sample-data/Monster.ini"))?;
+                    let data = references::read_monster_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Npc { input }) => {
-                    // let npc_inis = references::read_npc_ini(&Path::new("sample-data/Npc.ini"))?;
+                    let data = references::read_npc_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Wave { input }) => {
-                    // let wave_inis = references::read_wave_ini(&Path::new("sample-data/Wave.ini"))?;
+                    let data = references::read_wave_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::DrawItem { input }) => {
-                    // let draw_items = references::read_draw_items(&Path::new("sample-data/Ref/DRAWITEM.ref"))?;
+                    let data = references::read_draw_items(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Dialog { input }) => {
-                    // let dialogs = references::read_dialogs(&Path::new("sample-data/NpcInGame/Dlgcat1.dlg"))?;
+                    let data = references::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyRef { input }) => {
-                    // let party_refs = references::read_part_refs(&Path::new("sample-data/Ref/PartyRef.ref"))?;
+                    let data = references::read_part_refs(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyPgp { input }) => {
-                    // let party_pgps = references::read_party_pgps(&Path::new("sample-data/NpcInGame/PartyPgp.pgp"))?;
+                    let data = references::read_party_pgps(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyDialog { input }) => {
-                    // let dialogs = references::read_dialogs(&Path::new("sample-data/NpcInGame/PartyDlg.dlg"))?;
+                    let data = references::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Weapons { input }) => {
-                    // let weapons = references::read_weapons_db(&Path::new("sample-data/CharacterInGame/weaponItem.db"))?;
+                    let data = references::read_weapons_db(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::MultiMagic { input }) => {
                     // references::read_mutli_magic_db(&Path::new("sample-data/MagicInGame/MulMagic.db"))?;

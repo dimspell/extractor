@@ -120,6 +120,7 @@ pub fn read_party_ini_db() {
 //     Ok(map_inis)
 // }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Dialog {
     // Dialogs on map (translated from Korean)
     //
@@ -184,7 +185,7 @@ pub fn read_dialogs(source_path: &Path) -> Result<Vec<Dialog>> {
     Ok(dlgs)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PartyPgp {
     pub id: i32,
     pub dialog_text: Option<String>,
@@ -279,7 +280,7 @@ pub fn read_all_map_ini(source_path: &Path) -> Result<Vec<Map>> {
     Ok(maps)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MapIni {
     pub id: i32,                           // id
     pub event_id_on_camera_move: i32,      // event that occurs when camera moves
@@ -338,7 +339,7 @@ pub fn read_map_ini(source_path: &Path) -> Result<Vec<MapIni>> {
     Ok(map_inis)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Extra {
     pub id: i32,
     pub sprite_filename: Option<String>,
@@ -395,13 +396,13 @@ enum EventType {
     // 8 continues event, when previous event is successful
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
     pub event_id: i32,
     pub previous_event_id: i32,
     pub event_type_id: i32,
     pub event_filename: Option<String>,
-    pub counter: i32, // // N counter
+    pub counter: i32, // N counter
 }
 
 pub fn read_event_ini(source_path: &Path) -> Result<Vec<Event>> {
@@ -444,7 +445,7 @@ pub fn read_event_ini(source_path: &Path) -> Result<Vec<Event>> {
     Ok(events)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MonsterIni {
     pub id: i32,
     pub name: Option<String>,
@@ -501,7 +502,7 @@ pub fn read_monster_ini(source_path: &Path) -> Result<Vec<MonsterIni>> {
     Ok(monsters)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NpcIni {
     pub id: i32,
     pub sprite_filename: Option<String>,
@@ -543,7 +544,7 @@ pub fn read_npc_ini(source_path: &Path) -> Result<Vec<NpcIni>> {
     Ok(npc_inis)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WaveIni {
     pub id: i32,
     pub snf_filename: Option<String>,
@@ -585,7 +586,7 @@ pub fn read_wave_ini(source_path: &Path) -> Result<Vec<WaveIni>> {
     Ok(waves_inis)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PartyRef {
     pub id: i32,
     pub full_name: Option<String>,
@@ -642,7 +643,7 @@ pub fn read_part_refs(source_path: &Path) -> Result<Vec<PartyRef>> {
     Ok(party_refs)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DrawItem {
     pub map_id: i32,
     pub x_coord: i32,
@@ -1547,7 +1548,7 @@ pub fn read_store_db(source_path: &Path) -> Result<Vec<Store>> {
     Ok(store)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct WeaponItem {
     pub id: i32,
     pub name: String,
