@@ -1188,10 +1188,10 @@ pub fn read_monster_ref(source_path: &Path) -> Result<Vec<MonsterRef>> {
 pub struct Monster {
     pub id: i32,
     pub name: String,
-    pub pz_max: i32,
-    pub pz_min: i32,
-    pub pm_max: i32,
-    pub pm_min: i32,
+    pub health_points_max: i32,
+    pub health_points_min: i32,
+    pub magic_points_max: i32,
+    pub magic_points_min: i32,
     pub walk_speed: i32,
     pub to_hit_max: i32,
     pub to_hit_min: i32,
@@ -1245,10 +1245,10 @@ pub fn read_monster_db(source_path: &Path) -> Result<Vec<Monster>> {
         let dst = EUC_KR.decode(&buffer);
         let name = dst.0.trim_end_matches("\0").trim();
 
-        let pz_max = reader.read_i32::<LittleEndian>()?;
-        let pz_min = reader.read_i32::<LittleEndian>()?;
-        let pm_max = reader.read_i32::<LittleEndian>()?;
-        let pm_min = reader.read_i32::<LittleEndian>()?;
+        let health_points_max = reader.read_i32::<LittleEndian>()?;
+        let health_points_min = reader.read_i32::<LittleEndian>()?;
+        let magic_points_max = reader.read_i32::<LittleEndian>()?;
+        let magic_points_min = reader.read_i32::<LittleEndian>()?;
 
         let walk_speed = reader.read_i32::<LittleEndian>()?;
 
@@ -1298,10 +1298,10 @@ pub fn read_monster_db(source_path: &Path) -> Result<Vec<Monster>> {
         monsters.push(Monster {
             id: i,
             name: name.to_string(),
-            pz_max,
-            pz_min,
-            pm_max,
-            pm_min,
+            health_points_max,
+            health_points_min,
+            magic_points_max,
+            magic_points_min,
             walk_speed,
             to_hit_max,
             to_hit_min,
