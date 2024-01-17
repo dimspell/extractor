@@ -282,14 +282,22 @@ pub fn read_all_map_ini(source_path: &Path) -> Result<Vec<Map>> {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapIni {
-    pub id: i32,                           // id
-    pub event_id_on_camera_move: i32,      // event that occurs when camera moves
-    pub start_pos_x: i32,                  // start position X
-    pub start_pos_y: i32,                  // start position Y
-    pub map_id: i32,                       // map id
-    pub monsters_filename: Option<String>, // monsters filename
-    pub npc_filename: Option<String>,      // NPC filename
-    pub extra_filename: Option<String>,    // extra filename
+    pub id: i32,
+    // id
+    pub event_id_on_camera_move: i32,
+    // event that occurs when camera moves
+    pub start_pos_x: i32,
+    // start position X
+    pub start_pos_y: i32,
+    // start position Y
+    pub map_id: i32,
+    // map id
+    pub monsters_filename: Option<String>,
+    // monsters filename
+    pub npc_filename: Option<String>,
+    // NPC filename
+    pub extra_filename: Option<String>,
+    // extra filename
     pub cd_music_track_number: i32,        // CD music track number
 }
 
@@ -450,10 +458,14 @@ pub struct MonsterIni {
     pub id: i32,
     pub name: Option<String>,
     pub sprite_filename: Option<String>,
-    pub attack: i32,        // animation sequence number
-    pub hit: i32,           // animation sequence number
-    pub death: i32,         // animation sequence number
-    pub walking: i32,       // animation sequence number
+    pub attack: i32,
+    // animation sequence number
+    pub hit: i32,
+    // animation sequence number
+    pub death: i32,
+    // animation sequence number
+    pub walking: i32,
+    // animation sequence number
     pub casting_magic: i32, // animation sequence number
 }
 
@@ -1172,7 +1184,7 @@ pub fn read_monster_ref(source_path: &Path) -> Result<Vec<MonsterRef>> {
     Ok(refs)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Monster {
     pub id: i32,
     pub name: String,
@@ -1180,36 +1192,36 @@ pub struct Monster {
     pub pz_min: i32,
     pub pm_max: i32,
     pub pm_min: i32,
-    pub speed: i32,
-    pub stat2_max: i32,
-    pub stat2_min: i32,
-    pub stats3_max: i32,
-    pub stats3_min: i32,
-    pub stats4_max: i32,
-    pub stats4_min: i32,
+    pub walk_speed: i32,
+    pub to_hit_max: i32,
+    pub to_hit_min: i32,
+    pub to_dodge_max: i32,
+    pub to_dodge_min: i32,
+    pub offense_max: i32,
+    pub offense_min: i32,
+    pub defense_max: i32,
+    pub defense_min: i32,
+    pub magic_attack_max: i32,
+    pub magic_attack_min: i32,
     pub is_undead: i32,
     pub has_blood: i32,
-    pub attack_type: i32,
-    pub exp_max: i32,
-    pub exp_min: i32,
-    pub gold_max: i32,
-    pub gold_min: i32,
-    pub goblin_king: i32,
-    pub archer: i32,
-    pub magic_stat1: i32,
-    pub magic_stat2: i32,
-    pub magic_stat3: i32,
-    pub red_dragon: i32,
-    pub non_magic_stat1: i32,
-    pub non_magic_stat2: i32,
-    pub non_magic_stat3: i32,
-    pub unknown_stat1: i32,
-    pub unknown_stat2: i32,
-    pub unknown_stat3: i32,
-    pub unknown_stat4: i32,
-    pub unknown_stat5: i32,
-    pub unknown_stat6: i32,
-    pub unknown_stat7: i32,
+    pub ai_type: i32,
+    pub exp_gain_max: i32,
+    pub exp_gain_min: i32,
+    pub gold_drop_max: i32,
+    pub gold_drop_min: i32,
+    pub detection_sight_size: i32,
+    pub distance_range_size: i32,
+    pub known_spell_slot1: i32,
+    pub known_spell_slot2: i32,
+    pub known_spell_slot3: i32,
+    pub is_oversize: i32,
+    pub magic_level: i32,
+    pub special_attack: i32,
+    pub special_attack_chance: i32,
+    pub special_attack_duration: i32,
+    pub boldness: i32,
+    pub attack_speed: i32,
 }
 
 pub fn read_monster_db(source_path: &Path) -> Result<Vec<Monster>> {
@@ -1238,49 +1250,50 @@ pub fn read_monster_db(source_path: &Path) -> Result<Vec<Monster>> {
         let pm_max = reader.read_i32::<LittleEndian>()?;
         let pm_min = reader.read_i32::<LittleEndian>()?;
 
-        let speed = reader.read_i32::<LittleEndian>()?;
-        let stat2_max = reader.read_i32::<LittleEndian>()?;
-        let stat2_min = reader.read_i32::<LittleEndian>()?;
+        let walk_speed = reader.read_i32::<LittleEndian>()?;
 
-        let unknown_stat1 = reader.read_i32::<LittleEndian>()?; // always = 10
-        let unknown_stat2 = reader.read_i32::<LittleEndian>()?; // always = 10
+        let to_hit_max = reader.read_i32::<LittleEndian>()?;
+        let to_hit_min = reader.read_i32::<LittleEndian>()?;
 
-        let stats3_max = reader.read_i32::<LittleEndian>()?;
-        let stats3_min = reader.read_i32::<LittleEndian>()?;
+        let to_dodge_max = reader.read_i32::<LittleEndian>()?; // always = 10
+        let to_dodge_min = reader.read_i32::<LittleEndian>()?; // always = 10
 
-        let stats4_max = reader.read_i32::<LittleEndian>()?;
-        let stats4_min = reader.read_i32::<LittleEndian>()?;
+        let offense_max = reader.read_i32::<LittleEndian>()?;
+        let offense_min = reader.read_i32::<LittleEndian>()?;
 
-        let unknown_stat3 = reader.read_i32::<LittleEndian>()?; // max
-        let unknown_stat4 = reader.read_i32::<LittleEndian>()?; // min
+        let defense_max = reader.read_i32::<LittleEndian>()?;
+        let defense_min = reader.read_i32::<LittleEndian>()?;
+
+        let magic_attack_max = reader.read_i32::<LittleEndian>()?; // max
+        let magic_attack_min = reader.read_i32::<LittleEndian>()?; // min
 
         let is_undead = reader.read_i32::<LittleEndian>()?; // "0 or 1"
         let has_blood = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
-        let attack_type = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
+        let ai_type = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
 
-        let exp_max = reader.read_i32::<LittleEndian>()?;
-        let exp_min = reader.read_i32::<LittleEndian>()?;
+        let exp_gain_max = reader.read_i32::<LittleEndian>()?;
+        let exp_gain_min = reader.read_i32::<LittleEndian>()?;
 
-        let gold_max = reader.read_i32::<LittleEndian>()?;
-        let gold_min = reader.read_i32::<LittleEndian>()?;
+        let gold_drop_max = reader.read_i32::<LittleEndian>()?;
+        let gold_drop_min = reader.read_i32::<LittleEndian>()?;
 
-        let goblin_king = reader.read_i32::<LittleEndian>()?; // "9 or 10 - only goblin king have 10"
-        let archer = reader.read_i32::<LittleEndian>()?; // "1 or 6 if archer
+        let detection_sight_size = reader.read_i32::<LittleEndian>()?; // "9 or 10 - only goblin king have 10"
+        let distance_range_size = reader.read_i32::<LittleEndian>()?; // "1 or 6 if archer
 
-        let magic_stat1 = reader.read_i32::<LittleEndian>()?;
-        let magic_stat2 = reader.read_i32::<LittleEndian>()?;
-        let magic_stat3 = reader.read_i32::<LittleEndian>()?;
+        let known_spell_slot1 = reader.read_i32::<LittleEndian>()?;
+        let known_spell_slot2 = reader.read_i32::<LittleEndian>()?;
+        let known_spell_slot3 = reader.read_i32::<LittleEndian>()?;
 
-        let red_dragon = reader.read_i32::<LittleEndian>()?; // redDragon, balrog, beholder, = 1
+        let is_oversize = reader.read_i32::<LittleEndian>()?; // redDragon, balrog, beholder, = 1
 
-        let unknown_stat5 = reader.read_i32::<LittleEndian>()?; // always = 1
+        let magic_level = reader.read_i32::<LittleEndian>()?; // always = 1
 
-        let non_magic_stat1 = reader.read_i32::<LittleEndian>()?;
-        let non_magic_stat2 = reader.read_i32::<LittleEndian>()?;
-        let non_magic_stat3 = reader.read_i32::<LittleEndian>()?;
+        let special_attack = reader.read_i32::<LittleEndian>()?; // 0 = none, 1 = bat/zombie/biteworm, 2 = basilisk
+        let special_attack_chance = reader.read_i32::<LittleEndian>()?;
+        let special_attack_duration = reader.read_i32::<LittleEndian>()?;
 
-        let unknown_stat6 = reader.read_i32::<LittleEndian>()?; // always = 10
-        let unknown_stat7 = reader.read_i32::<LittleEndian>()?;
+        let boldness = reader.read_i32::<LittleEndian>()?; // always = 10
+        let attack_speed = reader.read_i32::<LittleEndian>()?;
 
         monsters.push(Monster {
             id: i,
@@ -1289,36 +1302,36 @@ pub fn read_monster_db(source_path: &Path) -> Result<Vec<Monster>> {
             pz_min,
             pm_max,
             pm_min,
-            speed,
-            stat2_max,
-            stat2_min,
-            stats3_max,
-            stats3_min,
-            stats4_max,
-            stats4_min,
+            walk_speed,
+            to_hit_max,
+            to_hit_min,
+            to_dodge_max,
+            to_dodge_min,
+            offense_max,
+            offense_min,
+            defense_max,
+            defense_min,
+            magic_attack_max,
+            magic_attack_min,
             is_undead,
             has_blood,
-            attack_type,
-            exp_max,
-            exp_min,
-            gold_max,
-            gold_min,
-            goblin_king,
-            archer,
-            magic_stat1,
-            magic_stat2,
-            magic_stat3,
-            red_dragon,
-            non_magic_stat1,
-            non_magic_stat2,
-            non_magic_stat3,
-            unknown_stat1,
-            unknown_stat2,
-            unknown_stat3,
-            unknown_stat4,
-            unknown_stat5,
-            unknown_stat6,
-            unknown_stat7,
+            ai_type,
+            exp_gain_max,
+            exp_gain_min,
+            gold_drop_max,
+            gold_drop_min,
+            detection_sight_size,
+            distance_range_size,
+            known_spell_slot1,
+            known_spell_slot2,
+            known_spell_slot3,
+            is_oversize,
+            magic_level,
+            special_attack,
+            special_attack_chance,
+            special_attack_duration,
+            boldness,
+            attack_speed,
         })
     }
 

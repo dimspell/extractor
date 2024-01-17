@@ -279,7 +279,8 @@ fn main() {
                     // let npcrefs = references::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
                 }
                 Some(RefCommands::Monsters { input }) => {
-                    // let monsters = references::read_monster_db(&Path::new("sample-data/MonsterInGame/Monster.db"))?;
+                    let data = references::read_monster_db(&Path::new(input)).expect("ERROR: could not read file");
+                    println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::MonsterRef { input }) => {
                     // let monster_refs =
