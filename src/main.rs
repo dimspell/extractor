@@ -11,12 +11,13 @@ use std::{io::{self}};
 
 pub mod database;
 pub mod map;
-pub mod references;
 pub mod snf;
 pub mod sprite;
 pub mod tileset;
+mod references;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use crate::references::{all_map_ini, dialog, draw_item, edit_item_db, event_ini, event_item_db, extra_ini, extra_ref, heal_item_db, map_ini, misc_item_db, monster_db, monster_ini, monster_ref, npc_ini, npc_ref, party_pgp, party_ref, store_db, wave_ini, weapons_db};
 
 #[derive(Parser)]
 #[command(about = "Tool to extract assets from the Dispel game")]
@@ -46,13 +47,13 @@ enum Commands {
     Sprite {
         input: String,
         #[arg(
-        long,
-        require_equals = true,
-        value_name = "MODE",
-        num_args = 0..=1,
-        default_value_t = SpriteMode::Sprite,
-        default_missing_value = "always",
-        value_enum
+            long,
+            require_equals = true,
+            value_name = "MODE",
+            num_args = 0..=1,
+            default_value_t = SpriteMode::Sprite,
+            default_missing_value = "always",
+            value_enum
         )]
         mode: SpriteMode,
     },
@@ -215,55 +216,55 @@ fn main() {
         Some(Commands::Ref(ref_args)) => {
             match &ref_args.command {
                 Some(RefCommands::AllMaps { input }) => {
-                    let data = references::read_all_map_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = all_map_ini::read_all_map_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Map { input }) => {
-                    let data = references::read_map_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = map_ini::read_map_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Extra { input }) => {
-                    let data = references::read_extra_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = extra_ini::read_extra_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Event { input }) => {
-                    let data = references::read_event_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = event_ini::read_event_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Monster { input }) => {
-                    let data = references::read_monster_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = monster_ini::read_monster_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Npc { input }) => {
-                    let data = references::read_npc_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = npc_ini::read_npc_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Wave { input }) => {
-                    let data = references::read_wave_ini(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = wave_ini::read_wave_ini(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::DrawItem { input }) => {
-                    let data = references::read_draw_items(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = draw_item::read_draw_items(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Dialog { input }) => {
-                    let data = references::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = dialog::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyRef { input }) => {
-                    let data = references::read_part_refs(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = party_ref::read_part_refs(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyPgp { input }) => {
-                    let data = references::read_party_pgps(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = party_pgp::read_party_pgps(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::PartyDialog { input }) => {
-                    let data = references::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = dialog::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::Weapons { input }) => {
-                    let data = references::read_weapons_db(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = weapons_db::read_weapons_db(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::MultiMagic { input }) => {
@@ -279,7 +280,7 @@ fn main() {
                     // let npcrefs = references::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
                 }
                 Some(RefCommands::Monsters { input }) => {
-                    let data = references::read_monster_db(&Path::new(input)).expect("ERROR: could not read file");
+                    let data = monster_db::read_monster_db(&Path::new(input)).expect("ERROR: could not read file");
                     println!("{}", serde_json::to_string(&data).expect("ERROR: could not encode JSON"));
                 }
                 Some(RefCommands::MonsterRef { input }) => {
@@ -325,35 +326,35 @@ fn main() {
 }
 
 fn save_all() -> io::Result<()> {
-    let maps = references::read_all_map_ini(&Path::new("sample-data/AllMap.ini"))?;
-    let map_inis = references::read_map_ini(&Path::new("sample-data/Ref/Map.ini"))?;
-    let extras = references::read_extra_ini(&Path::new("sample-data/Extra.ini"))?;
-    let events = references::read_event_ini(&Path::new("sample-data/Event.ini"))?;
-    let monster_inis = references::read_monster_ini(&Path::new("sample-data/Monster.ini"))?;
-    let npc_inis = references::read_npc_ini(&Path::new("sample-data/Npc.ini"))?;
-    let wave_inis = references::read_wave_ini(&Path::new("sample-data/Wave.ini"))?;
-    let party_refs = references::read_part_refs(&Path::new("sample-data/Ref/PartyRef.ref"))?;
-    let draw_items = references::read_draw_items(&Path::new("sample-data/Ref/DRAWITEM.ref"))?;
-    let party_pgps = references::read_party_pgps(&Path::new("sample-data/NpcInGame/PartyPgp.pgp"))?;
-    let dialogs = references::read_dialogs(&Path::new("sample-data/NpcInGame/Dlgcat1.dlg"))?;
+    let maps = all_map_ini::read_all_map_ini(&Path::new("sample-data/AllMap.ini"))?;
+    let map_inis = map_ini::read_map_ini(&Path::new("sample-data/Ref/Map.ini"))?;
+    let extras = extra_ini::read_extra_ini(&Path::new("sample-data/Extra.ini"))?;
+    let events = event_ini::read_event_ini(&Path::new("sample-data/Event.ini"))?;
+    let monster_inis = monster_ini::read_monster_ini(&Path::new("sample-data/Monster.ini"))?;
+    let npc_inis = npc_ini::read_npc_ini(&Path::new("sample-data/Npc.ini"))?;
+    let wave_inis = wave_ini::read_wave_ini(&Path::new("sample-data/Wave.ini"))?;
+    let party_refs = party_ref::read_part_refs(&Path::new("sample-data/Ref/PartyRef.ref"))?;
+    let draw_items = draw_item::read_draw_items(&Path::new("sample-data/Ref/DRAWITEM.ref"))?;
+    let party_pgps = party_pgp::read_party_pgps(&Path::new("sample-data/NpcInGame/PartyPgp.pgp"))?;
+    let dialogs = dialog::read_dialogs(&Path::new("sample-data/NpcInGame/Dlgcat1.dlg"))?;
 
     let weapons =
-        references::read_weapons_db(&Path::new("sample-data/CharacterInGame/weaponItem.db"))?;
-    let stores = references::read_store_db(&Path::new("sample-data/CharacterInGame/STORE.DB"))?;
-    let npcrefs = references::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
-    let monsters = references::read_monster_db(&Path::new("sample-data/MonsterInGame/Monster.db"))?;
+        weapons_db::read_weapons_db(&Path::new("sample-data/CharacterInGame/weaponItem.db"))?;
+    let stores = store_db::read_store_db(&Path::new("sample-data/CharacterInGame/STORE.DB"))?;
+    let npcrefs = npc_ref::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
+    let monsters = monster_db::read_monster_db(&Path::new("sample-data/MonsterInGame/Monster.db"))?;
     let monster_refs =
-        references::read_monster_ref(&Path::new("sample-data/MonsterInGame/Mondun01.ref"))?;
+        monster_ref::read_monster_ref(&Path::new("sample-data/MonsterInGame/Mondun01.ref"))?;
     let misc_items =
-        references::read_misc_item_db(&Path::new("sample-data/CharacterInGame/MiscItem.db"))?;
+        misc_item_db::read_misc_item_db(&Path::new("sample-data/CharacterInGame/MiscItem.db"))?;
     let heal_items =
-        references::read_heal_item_db(&Path::new("sample-data/CharacterInGame/HealItem.db"))?;
+        heal_item_db::read_heal_item_db(&Path::new("sample-data/CharacterInGame/HealItem.db"))?;
     let extra_refs =
-        references::read_extra_ref(&Path::new("sample-data/ExtraInGame/Extdun01.ref"))?;
+        extra_ref::read_extra_ref(&Path::new("sample-data/ExtraInGame/Extdun01.ref"))?;
     let event_items =
-        references::read_event_item_db(&Path::new("sample-data/CharacterInGame/EventItem.db"))?;
+        event_item_db::read_event_item_db(&Path::new("sample-data/CharacterInGame/EventItem.db"))?;
     let edit_items =
-        references::read_edit_item_db(&Path::new("sample-data/CharacterInGame/EditItem.db"))?;
+        edit_item_db::read_edit_item_db(&Path::new("sample-data/CharacterInGame/EditItem.db"))?;
 
     let conn = Connection::open("database.sqlite").unwrap();
 
