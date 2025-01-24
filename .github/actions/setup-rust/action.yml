@@ -7,23 +7,19 @@ inputs:
     required: false
     description: "Rust toolchain, e.g. 'stable' or 'nightly'"
     default: stable
-  cache-key:
+  components:
     required: false
-    description: "Extra key to resolve cache"
-    default: ''
+    description: Comma-separated string of additional components to install e.g. "clippy, rustfmt"
+
 
 runs:
   using: "composite"
   steps:
-    - name: "Install Rust"
+    - name: "Install Rust toolchain"
       run: |
         rustup toolchain install ${{ inputs.toolchain }} --profile minimal --no-self-update
-        rustup default ${{ inputs.toolchain }}
+        rustup default ${{ inputs.rust }}
       shell: bash
-
-    #    - uses: Swatinem/rust-cache@v2
-    #      with:
-    #        shared-key: ${{ inputs.cache-key }}
 
     - name: "Set environment variables used by toolchain"
       run: |
@@ -32,4 +28,12 @@ runs:
         echo RUST_BACKTRACE=1 >> $GITHUB_ENV
 
         rustc --version --verbose
+      shell: bash
+
+    - name: "Install Rust components"
+      if: ${{ inputs.components != '' }}
+      run: |
+        rustup component add $(for c in ${components//,/ }; do echo -n ' ' $c; done)
+      env:
+        components: ${{ inputs.components }}
       shell: bash

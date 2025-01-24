@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RUST_TOOLCHAIN: stable
+  RUST_TOOLCHAIN: 1.82.0
 
 jobs:
   compile:
@@ -24,6 +24,7 @@ jobs:
         uses: dimspell/dispel-extractor/.github/actions/setup-rust@master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
 
       - uses: actions/cache@v4
         id: cache
