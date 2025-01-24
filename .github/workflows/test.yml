@@ -1,0 +1,41 @@
+name: Test
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.base_ref }}
+  cancel-in-progress: true
+
+env:
+  RUST_TOOLCHAIN: stable
+
+jobs:
+  compile:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install Rust
+        uses: dimspell/dispel-extractor/.github/actions/setup-rust@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - uses: actions/cache@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ./target/
+          key: test-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}-compile
+          restore-keys: |
+            test-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}-compile
+
+      - run: cargo build
