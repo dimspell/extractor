@@ -18,7 +18,7 @@ runs:
     - name: "Install Rust"
       run: |
         rustup toolchain install ${{ inputs.toolchain }} --profile minimal --no-self-update
-        rustup default ${{ inputs.rust }}
+        rustup default ${{ inputs.toolchain }}
       shell: bash
 
     #    - uses: Swatinem/rust-cache@v2
