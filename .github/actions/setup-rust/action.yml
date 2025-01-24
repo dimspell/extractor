@@ -18,7 +18,7 @@ runs:
     - name: "Install Rust toolchain"
       run: |
         rustup toolchain install ${{ inputs.toolchain }} --profile minimal --no-self-update
-        rustup default ${{ inputs.rust }}
+        rustup default ${{ inputs.toolchain }}
       shell: bash
 
     - name: "Set environment variables used by toolchain"
