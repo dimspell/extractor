@@ -5,7 +5,7 @@ on:
       - master
 
 concurrency:
-  group: ${{ github.base_ref }}
+  group: ${{ github.ref }}
   cancel-in-progress: true
 
 env:
