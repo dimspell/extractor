@@ -7,9 +7,12 @@ inputs:
     required: false
     description: "Rust toolchain, e.g. 'stable' or 'nightly'"
     default: stable
+  target:
+    required: false
+    description: "Comma-separated string of the targets to install e.g. 'aarch64-apple-darwin, x86_64-pc-windows-msvc'"
   components:
     required: false
-    description: Comma-separated string of additional components to install e.g. "clippy, rustfmt"
+    description: "Comma-separated string of additional components to install e.g. 'clippy, rustfmt'"
 
 
 runs:
@@ -17,8 +20,14 @@ runs:
   steps:
     - name: "Install Rust toolchain"
       run: |
-        rustup toolchain install ${{ inputs.toolchain }} --profile minimal --no-self-update
+        components=$(for c in ${components//,/ }; do echo -n ' --component' $c; done)
+        targets=$(for t in ${targets//,/ }; do echo -n ' --target' $t; done)
+        
+        rustup toolchain install ${{ inputs.toolchain }} $targets $components --profile minimal --no-self-update
         rustup default ${{ inputs.toolchain }}
+      env:
+        components: ${{ inputs.components }}
+        targets: ${{ inputs.targets }}
       shell: bash
 
     - name: "Set environment variables used by toolchain"
@@ -28,13 +37,4 @@ runs:
         echo RUST_BACKTRACE=1 >> $GITHUB_ENV
 
         rustc --version --verbose
-      shell: bash
-
-    - name: "Install Rust components"
-      if: ${{ inputs.components != '' }}
-      run: |
-        components=$(for c in ${components//,/ }; do echo -n ' ' $c; done)
-        rustup component add $components
-      env:
-        components: ${{ inputs.components }}
       shell: bash

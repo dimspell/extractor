@@ -24,6 +24,8 @@ jobs:
         uses: dimspell/dispel-extractor/.github/actions/setup-rust@master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: clippy, rustfmt
+          targets: aarch64-unknown-linux-musl
 
       - uses: actions/cache@v4
         id: cache
