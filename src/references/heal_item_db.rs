@@ -1,13 +1,14 @@
-use std::{fs::File, path::Path};
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
+use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::{EUC_KR, WINDOWS_1250};
+use encoding_rs::EUC_KR;
+use serde::Serialize;
 
-use crate::references::references::read_mapper;
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct HealItem {
     pub id: i32,
     pub name: String,
@@ -40,8 +41,7 @@ pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
     for i in 0..elements {
         let mut buffer = [0u8; 30];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let name = dst.0.trim_end_matches("\0").trim();
+        let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
         let mut buffer = [0u8; 202];
         reader.read_exact(&mut buffer)?;

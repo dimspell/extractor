@@ -1,28 +1,29 @@
-use std::{fs::File, path::Path};
-use std::io::BufReader;
 use std::io::prelude::*;
+use std::io::BufReader;
+use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use encoding_rs::WINDOWS_1250;
+use serde::Serialize;
 
-use crate::references::references::read_mapper;
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct EditItem {
     pub index: i32,
     pub name: String,
     pub description: String,
     pub base_price: i16,
-    pub pz: i16,
-    pub pm: i16,
-    pub sil: i16,
-    pub zw: i16,
-    pub mm: i16,
-    pub tf: i16,
-    pub unk: i16,
-    pub trf: i16,
-    pub atk: i16,
-    pub obr: i16,
+    pub health_points: i16,
+    pub magic_points: i16,
+    pub strength: i16,
+    pub agility: i16,
+    pub wisdom: i16,
+    pub constitution: i16,
+    pub to_dodge: i16,
+    pub to_hit: i16,
+    pub offense: i16,
+    pub defense: i16,
     pub item_destroying_power: i16,
     pub modifies_item: u8,
     pub additional_effect: i16,
@@ -46,13 +47,11 @@ pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {
     for i in 0..elements {
         let mut buffer = [0u8; 30];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let name = dst.0.trim_end_matches("\0").trim();
+        let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
         let mut buffer = [0u8; 202];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let description = dst.0.trim_end_matches("\0").trim();
+        let description = read_null_terminated_windows_1250(&buffer).unwrap();
 
         let base_price = reader.read_i16::<LittleEndian>()?;
 
@@ -83,16 +82,16 @@ pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {
             name: name.to_string(),
             description: description.to_string(),
             base_price,
-            pz,
-            pm,
-            sil,
-            zw,
-            mm,
-            tf,
-            unk,
-            trf,
-            atk,
-            obr,
+            health_points: pz,
+            magic_points: pm,
+            strength: sil,
+            agility: zw,
+            wisdom: mm,
+            constitution: tf,
+            to_dodge: unk,
+            to_hit: trf,
+            offense: atk,
+            defense: obr,
             item_destroying_power,
             modifies_item,
             additional_effect,

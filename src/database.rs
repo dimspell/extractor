@@ -1,7 +1,5 @@
 // use std::io::Write;
 
-
-use rusqlite::{params, Connection, Result};
 use crate::references::all_map_ini::Map;
 use crate::references::dialog::Dialog;
 use crate::references::draw_item::DrawItem;
@@ -23,7 +21,7 @@ use crate::references::party_ref::PartyRef;
 use crate::references::store_db::{Store, StoreProduct};
 use crate::references::wave_ini::WaveIni;
 use crate::references::weapons_db::WeaponItem;
-
+use rusqlite::{params, Connection, Result};
 
 pub fn save_npc_refs(conn: &Connection, npc_refs: &Vec<NPC>) -> Result<()> {
     conn.execute(include_str!("queries/create_table_npc_refs.sql"), ())?;
@@ -184,16 +182,16 @@ fn add_edit_item(conn: &Connection, item: &EditItem) -> Result<()> {
             item.name,
             item.description,
             item.base_price,
-            item.pz,
-            item.pm,
-            item.sil,
-            item.zw,
-            item.mm,
-            item.tf,
-            item.unk,
-            item.trf,
-            item.atk,
-            item.obr,
+            item.health_points,
+            item.magic_points,
+            item.strength,
+            item.agility,
+            item.wisdom,
+            item.to_hit,
+            item.to_dodge,
+            item.to_hit,
+            item.offense,
+            item.defense,
             item.item_destroying_power,
             item.modifies_item,
             item.additional_effect,
