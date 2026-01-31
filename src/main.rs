@@ -6,6 +6,7 @@ use crate::database::{
 };
 use crate::references::misc_item_db::read_misc_item_db;
 use crate::references::npc_ref::read_npc_ref;
+use crate::references::references::read_mutli_magic_db;
 use database::{save_dialogs, save_party_pgps};
 use rusqlite::Connection;
 use std::io::{self};
@@ -343,7 +344,12 @@ fn main() {
                     );
                 }
                 Some(RefCommands::MultiMagic { input }) => {
-                    // references::read_mutli_magic_db(&Path::new("sample-data/MagicInGame/MulMagic.db"))?;
+                    let data =
+                        read_mutli_magic_db(&Path::new(input)).expect("ERROR: could not read file");
+                    println!(
+                        "{}",
+                        serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                    );
                 }
                 Some(RefCommands::Store { input }) => {
                     let data = store_db::read_store_db(&Path::new(input))
