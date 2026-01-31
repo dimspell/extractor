@@ -103,19 +103,18 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
 }
 
 pub fn plot_tileset_map(tiles: &Vec<Tile>, out_path: &str) {
-    let w = 10;
+    let count = tiles.len() as f64;
+    let w = count.sqrt().ceil() as u32;
+    let h = (count / w as f64).ceil() as u32;
 
-    let h = (tiles.len() as f64 / 10.0).ceil();
-    let h: i32 = h as i32;
-
-    println!("{}, {}", tiles.len(), h * w);
-    let width: u32 = TILE_WIDTH * w as u32;
-    let height: u32 = TILE_HEIGHT * h as u32;
+    println!("Tiles: {}, Atlas size: {}x{} tiles", tiles.len(), w, h);
+    let width: u32 = TILE_WIDTH * w;
+    let height: u32 = TILE_HEIGHT * h;
     let mut bitmap = image::ImageBuffer::new(width, height);
 
     let mut tile_index = 0;
-    for y in 0..h as u32 {
-        for x in 0..w as u32 {
+    for y in 0..h {
+        for x in 0..w {
             if tiles.len() == tile_index {
                 break;
             }
