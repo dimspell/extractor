@@ -10,7 +10,7 @@ use serde::Serialize;
 
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
     // Find the first null byte (or use a fixed length if no null terminator)
-    let (data, _) = bytes.split_last().ok_or("Empty input")?;
+    let (_data, _) = bytes.split_last().ok_or("Empty input")?;
     let data_len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
 
     // Decode the Windows-1250 portion before the null terminator
@@ -131,7 +131,7 @@ pub fn read_event_npc_ref(source_path: &Path) -> Result<Vec<EventNpcRef>> {
             .encoding(Some(WINDOWS_1250))
             .build(f),
     );
-    let mut npc_refs: Vec<EventNpcRef> = Vec::new();
+    let npc_refs: Vec<EventNpcRef> = Vec::new();
     for line in reader.lines() {
         match line {
             Ok(line) => {
@@ -214,7 +214,7 @@ pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
         PROPERTY_ITEM_SIZE * elements
     );
 
-    for i in 0..elements {
+    for _i in 0..elements {
         let mut buffer = [0u8; 90];
         reader.read_exact(&mut buffer)?;
         println!("{:?}", buffer);

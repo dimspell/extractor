@@ -4,7 +4,6 @@ use std::{fs::File, path::Path};
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]

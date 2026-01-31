@@ -5,7 +5,6 @@ use crate::database::{
     save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
-use crate::references::npc_ref::read_npc_ref;
 use crate::references::references::{read_event_npc_ref, read_mutli_magic_db, read_party_level_db};
 use database::{save_dialogs, save_party_pgps};
 use rusqlite::Connection;

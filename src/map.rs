@@ -270,9 +270,9 @@ fn plot_base(
 fn plot_objects(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     reader: &mut BufReader<File>,
-    model: &MapModel,
-    occlusion: bool,
-    btl_tiles: &HashMap<Coords, i32>,
+    _model: &MapModel,
+    _occlusion: bool,
+    _btl_tiles: &HashMap<Coords, i32>,
     btl_tileset: &Vec<Tile>,
     tiled_info: &Vec<TiledObjectInfo>,
     internal_sprites: &Vec<SequenceInfo>,

@@ -3,7 +3,6 @@ use std::io::BufReader;
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
