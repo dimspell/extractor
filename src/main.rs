@@ -367,8 +367,12 @@ fn main() {
                     );
                 }
                 Some(RefCommands::MonsterRef { input }) => {
-                    // let monster_refs =
-                    //     references::read_monster_ref(&Path::new("sample-data/MonsterInGame/Mondun01.ref"))?;
+                    let data = monster_ref::read_monster_ref(&Path::new(input))
+                        .expect("ERROR: could not read file");
+                    println!(
+                        "{}",
+                        serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                    );
                 }
                 Some(RefCommands::MiscItem { input }) => {
                     let data =

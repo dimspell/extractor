@@ -1,10 +1,11 @@
-use std::{fs::File, path::Path};
 use std::io::BufReader;
+use std::{fs::File, path::Path};
 
-use byteorder::{LittleEndian, ReadBytesExt};
 use crate::references::references::read_mapper;
+use byteorder::{LittleEndian, ReadBytesExt};
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct MonsterRef {
     pub index: i32,
     pub file_id: i32,
