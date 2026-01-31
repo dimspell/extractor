@@ -387,12 +387,14 @@ fn main() {
                     );
                 }
                 Some(RefCommands::ExtraRef { input }) => {
-                    // let extra_refs =
-                    //     references::read_extra_ref(&Path::new("sample-data/ExtraInGame/Extdun01.ref"))?;
+                    let data = extra_ref::read_extra_ref(&Path::new(input))
+                        .expect("ERROR: could not read file");
+                    println!(
+                        "{}",
+                        serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                    );
                 }
                 Some(RefCommands::EventItems { input }) => {
-                    // let event_items =
-                    //     references::read_event_item_db(&Path::new("sample-data/CharacterInGame/EventItem.db"))?;
                     let data = event_item_db::read_event_item_db(&Path::new(input))
                         .expect("ERROR: could not read file");
                     println!(
