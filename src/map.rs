@@ -89,6 +89,8 @@ pub fn extract(input_map_file: &Path,
     // read_ini(&Path::new("sample-data/Npc.ini"))?;
     // read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
 
+    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+
     // TODO: Generate map
     generate_map(
         &mut reader,
@@ -104,6 +106,7 @@ pub fn extract(input_map_file: &Path,
         &sprite_blocks,
         &collisions,
         &events,
+        map_id,
     )?;
 
     Ok(())
@@ -123,7 +126,23 @@ fn generate_map(
     sprite_blocks: &Vec<SpriteInfoBlock>,
     collisions: &HashMap<Coords, bool>,
     events: &HashMap<Coords, EventBlock>,
+    map_id: &str,
 ) -> Result<()> {
+    // Save to database
+    println!("Saving map_tiles...");
+    let conn_res = rusqlite::Connection::open("database.sqlite");
+    if let Ok(conn) = conn_res {
+        let _ = crate::database::save_map_tiles(
+            &conn,
+            map_id,
+            gtl_tiles,
+            btl_tiles,
+            collisions,
+            events,
+            model.tiled_map_width,
+            model.tiled_map_height,
+        );
+    }
     let image_width = if occlusion {
         model.occluded_map_in_pixels_width
     } else {
@@ -666,11 +685,11 @@ fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObjectIn
 }
 
 #[derive(Copy, Clone, Debug)]
-struct EventBlock {
-    x: i32,
-    y: i32,
+pub struct EventBlock {
+    pub x: i32,
+    pub y: i32,
     unknown: i16,
-    event_id: i16,
+    pub event_id: i16,
 }
 
 fn read_events_block(

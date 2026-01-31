@@ -8,7 +8,6 @@ use crate::references::misc_item_db::read_misc_item_db;
 use crate::references::references::{read_event_npc_ref, read_mutli_magic_db, read_party_level_db};
 use database::{save_dialogs, save_party_pgps};
 use rusqlite::Connection;
-use std::io::{self};
 use std::path::{Path, PathBuf};
 
 pub mod database;
@@ -449,60 +448,108 @@ fn main() {
     }
 }
 
-fn save_all() -> io::Result<()> {
-    let maps = all_map_ini::read_all_map_ini(&Path::new("sample-data/AllMap.ini"))?;
-    let map_inis = map_ini::read_map_ini(&Path::new("sample-data/Ref/Map.ini"))?;
-    let extras = extra_ini::read_extra_ini(&Path::new("sample-data/Extra.ini"))?;
-    let events = event_ini::read_event_ini(&Path::new("sample-data/Event.ini"))?;
-    let monster_inis = monster_ini::read_monster_ini(&Path::new("sample-data/Monster.ini"))?;
-    let npc_inis = npc_ini::read_npc_ini(&Path::new("sample-data/Npc.ini"))?;
-    let wave_inis = wave_ini::read_wave_ini(&Path::new("sample-data/Wave.ini"))?;
-    let party_refs = party_ref::read_part_refs(&Path::new("sample-data/Ref/PartyRef.ref"))?;
-    let draw_items = draw_item::read_draw_items(&Path::new("sample-data/Ref/DRAWITEM.ref"))?;
-    let party_pgps = party_pgp::read_party_pgps(&Path::new("sample-data/NpcInGame/PartyPgp.pgp"))?;
-    let dialogs = dialog::read_dialogs(&Path::new("sample-data/NpcInGame/Dlgcat1.dlg"))?;
+fn save_all() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Saving all data...");
 
+    let conn = Connection::open("database.sqlite")?;
+
+    println!("Saving maps...");
+    let maps = all_map_ini::read_all_map_ini(&Path::new("fixtures/Dispel/AllMap.ini"))?;
+    save_maps(&conn, &maps)?;
+    println!("Saving map_inis...");
+    let map_inis = map_ini::read_map_ini(&Path::new("fixtures/Dispel/Ref/Map.ini"))?;
+    save_map_inis(&conn, &map_inis)?;
+    println!("Saving extras...");
+    let extras = extra_ini::read_extra_ini(&Path::new("fixtures/Dispel/Extra.ini"))?;
+    save_extras(&conn, &extras)?;
+    println!("Saving events...");
+    let events = event_ini::read_event_ini(&Path::new("fixtures/Dispel/Event.ini"))?;
+    save_events(&conn, &events)?;
+    println!("Saving monster_inis...");
+    let monster_inis = monster_ini::read_monster_ini(&Path::new("fixtures/Dispel/Monster.ini"))?;
+    save_monster_inis(&conn, &monster_inis)?;
+    println!("Saving npc_inis...");
+    let npc_inis = npc_ini::read_npc_ini(&Path::new("fixtures/Dispel/Npc.ini"))?;
+    save_npc_inis(&conn, &npc_inis)?;
+    println!("Saving wave_inis...");
+    let wave_inis = wave_ini::read_wave_ini(&Path::new("fixtures/Dispel/Wave.ini"))?;
+    save_wave_inis(&conn, &wave_inis)?;
+    println!("Saving party_refs...");
+    let party_refs = party_ref::read_part_refs(&Path::new("fixtures/Dispel/Ref/PartyRef.ref"))?;
+    save_party_refs(&conn, &party_refs)?;
+    println!("Saving draw_items...");
+    let draw_items = draw_item::read_draw_items(&Path::new("fixtures/Dispel/Ref/DRAWITEM.ref"))?;
+    save_draw_items(&conn, &draw_items)?;
+    println!("Saving party_pgps...");
+    let party_pgps = party_pgp::read_party_pgps(&Path::new("fixtures/Dispel/NpcInGame/PartyPgp.pgp"))?;
+    save_party_pgps(&conn, &party_pgps)?;
+    println!("Saving dialogs...");
+    let dialogs = dialog::read_dialogs(&Path::new("fixtures/Dispel/NpcInGame/Dlgcat1.dlg"))?;
+    save_dialogs(&conn, &dialogs)?;
+
+    println!("Saving weapons...");
     let weapons =
-        weapons_db::read_weapons_db(&Path::new("sample-data/CharacterInGame/weaponItem.db"))?;
-    let stores = store_db::read_store_db(&Path::new("sample-data/CharacterInGame/STORE.DB"))?;
-    let npcrefs = npc_ref::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
-    let monsters = monster_db::read_monster_db(&Path::new("sample-data/MonsterInGame/Monster.db"))?;
+        weapons_db::read_weapons_db(&Path::new("fixtures/Dispel/CharacterInGame/weaponItem.db"))?;
+    save_weapons(&conn, &weapons)?;
+    println!("Saving stores...");
+    let stores = store_db::read_store_db(&Path::new("fixtures/Dispel/CharacterInGame/STORE.DB"))?;
+    save_stores(&conn, &stores)?;
+    println!("Saving npcrefs...");
+    let npcrefs = npc_ref::read_npc_ref(&Path::new("fixtures/Dispel/NpcInGame/Npccat1.ref"))?;
+    save_npc_refs(&conn, &npcrefs)?;
+    // println!("Saving monsters...");
+    // let monsters = monster_db::read_monster_db(&Path::new("fixtures/Dispel/MonsterInGame/Monster.db"))?;
+    // save_monsters(&conn, &monsters)?;
+    println!("Saving monster_refs...");
     let monster_refs =
-        monster_ref::read_monster_ref(&Path::new("sample-data/MonsterInGame/Mondun01.ref"))?;
-    let misc_items =
-        misc_item_db::read_misc_item_db(&Path::new("sample-data/CharacterInGame/MiscItem.db"))?;
+        monster_ref::read_monster_ref(&Path::new("fixtures/Dispel/MonsterInGame/Mondun01.ref"))?;
+    save_monster_refs(&conn, &monster_refs)?;
+    // println!("Saving misc_items...");
+    // let misc_items =
+    //     misc_item_db::read_misc_item_db(&Path::new("fixtures/Dispel/CharacterInGame/MiscItem.db"))?;
+    // save_misc_items(&conn, &misc_items)?;
+    println!("Saving heal_items...");
     let heal_items =
-        heal_item_db::read_heal_item_db(&Path::new("sample-data/CharacterInGame/HealItem.db"))?;
-    let extra_refs = extra_ref::read_extra_ref(&Path::new("sample-data/ExtraInGame/Extdun01.ref"))?;
+        heal_item_db::read_heal_item_db(&Path::new("fixtures/Dispel/CharacterInGame/HealItem.db"))?;
+    save_heal_items(&conn, &heal_items)?;
+    println!("Saving extra_refs...");
+    let extra_refs = extra_ref::read_extra_ref(&Path::new("fixtures/Dispel/ExtraInGame/Extdun01.ref"))?;
+    save_extra_refs(&conn, &extra_refs)?;
+    println!("Saving event_items...");
     let event_items =
-        event_item_db::read_event_item_db(&Path::new("sample-data/CharacterInGame/EventItem.db"))?;
+        event_item_db::read_event_item_db(&Path::new("fixtures/Dispel/CharacterInGame/EventItem.db"))?;
+    save_event_items(&conn, &event_items)?;
+    println!("Saving edit_items...");
     let edit_items =
-        edit_item_db::read_edit_item_db(&Path::new("sample-data/CharacterInGame/EditItem.db"))?;
+        edit_item_db::read_edit_item_db(&Path::new("fixtures/Dispel/CharacterInGame/EditItem.db"))?;
+    save_edit_items(&conn, &edit_items)?;
 
-    let conn = Connection::open("database.sqlite").unwrap();
+    // println!("Saving map_tiles...");
+    // let map_tiles =
+    //     map_tile_db::read_map_tile_db(&Path::new("fixtures/Dispel/Map/cat1.map"))?;
+    // save_map_tiles(&conn, &map_tiles)?;
+    // save_maps(&conn, &maps).unwrap();
+    // save_events(&conn, &events).unwrap();
+    // save_extras(&conn, &extras).unwrap();
+    // save_monster_inis(&conn, &monster_inis).unwrap();
+    // save_npc_inis(&conn, &npc_inis).unwrap();
+    // save_wave_inis(&conn, &wave_inis).unwrap();
+    // save_map_inis(&conn, &map_inis).unwrap();
+    // save_party_refs(&conn, &party_refs).unwrap();
+    // save_draw_items(&conn, &draw_items).unwrap();
+    // save_party_pgps(&conn, &party_pgps).unwrap();
+    // save_dialogs(&conn, &dialogs).unwrap();
 
-    save_maps(&conn, &maps).unwrap();
-    save_events(&conn, &events).unwrap();
-    save_extras(&conn, &extras).unwrap();
-    save_monster_inis(&conn, &monster_inis).unwrap();
-    save_npc_inis(&conn, &npc_inis).unwrap();
-    save_wave_inis(&conn, &wave_inis).unwrap();
-    save_map_inis(&conn, &map_inis).unwrap();
-    save_party_refs(&conn, &party_refs).unwrap();
-    save_draw_items(&conn, &draw_items).unwrap();
-    save_party_pgps(&conn, &party_pgps).unwrap();
-    save_dialogs(&conn, &dialogs).unwrap();
-
-    save_monsters(&conn, &monsters).unwrap();
-    save_stores(&conn, &stores).unwrap();
-    save_weapons(&conn, &weapons).unwrap();
-    save_npc_refs(&conn, &npcrefs).unwrap();
-    save_monster_refs(&conn, &monster_refs).unwrap();
-    save_misc_items(&conn, &misc_items).unwrap();
-    save_heal_items(&conn, &heal_items).unwrap();
-    save_extra_refs(&conn, &extra_refs).unwrap();
-    save_event_items(&conn, &event_items).unwrap();
-    save_edit_items(&conn, &edit_items).unwrap();
+    // save_monsters(&conn, &monsters).unwrap();
+    // save_stores(&conn, &stores).unwrap();
+    // save_weapons(&conn, &weapons).unwrap();
+    // save_npc_refs(&conn, &npcrefs).unwrap();
+    // save_monster_refs(&conn, &monster_refs).unwrap();
+    // save_misc_items(&conn, &misc_items).unwrap();
+    // save_heal_items(&conn, &heal_items).unwrap();
+    // save_extra_refs(&conn, &extra_refs).unwrap();
+    // save_event_items(&conn, &event_items).unwrap();
+    // save_edit_items(&conn, &edit_items).unwrap();
 
     conn.close().unwrap();
 

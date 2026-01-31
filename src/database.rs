@@ -1,4 +1,5 @@
 // use std::io::Write;
+use std::collections::HashMap;
 
 use crate::references::all_map_ini::Map;
 use crate::references::dialog::Dialog;
@@ -607,5 +608,45 @@ fn add_dialog(conn: &Connection, dialog: &Dialog) -> Result<()> {
             dialog.event_id,
         ],
     )?;
+    Ok(())
+}
+pub fn save_map_tiles(
+    conn: &Connection,
+    map_id: &str,
+    gtl_tiles: &HashMap<crate::map::Coords, i32>,
+    btl_tiles: &HashMap<crate::map::Coords, i32>,
+    collisions: &HashMap<crate::map::Coords, bool>,
+    events: &HashMap<crate::map::Coords, crate::map::EventBlock>,
+    width: i32,
+    height: i32,
+) -> Result<()> {
+    conn.execute(include_str!("queries/create_table_map_tiles.sql"), ())?;
+
+    let mut stmt = conn.prepare(include_str!("queries/insert_map_tile.sql"))?;
+
+    for y in 0..height {
+        for x in 0..width {
+            let coords = (x, y);
+            let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
+            let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
+            let collision = collisions.get(&coords).cloned().unwrap_or(false);
+            let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+
+            if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
+                continue;
+            }
+
+            stmt.execute(params![
+                map_id,
+                x,
+                y,
+                gtl_id,
+                btl_id,
+                collision,
+                event_id as i32,
+            ])?;
+        }
+    }
+
     Ok(())
 }
