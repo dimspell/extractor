@@ -212,8 +212,14 @@ fn plot_base(
 ) {
     let map_diagonal_tiles = model.tiled_map_width + model.tiled_map_height;
 
-    for y in 0..model.tiled_map_height {
-        for x in 0..model.tiled_map_width {
+    let width = model.tiled_map_width;
+    let height = model.tiled_map_height;
+
+    for diff in -(width - 1)..height {
+        let start_x = 0.max(-diff);
+        let end_x = (width - 1).min(height - 1 - diff);
+        for x in start_x..=end_x {
+            let y = x + diff;
             let coords: Coords = (x, y);
             let gtl_tile_id = gtl_tiles.get(&coords);
 
@@ -280,23 +286,52 @@ fn plot_objects(
     offset_x: i32,
     offset_y: i32,
 ) -> Result<()> {
-    // sprites
+    enum Kind {
+        Sprite(usize),
+        TiledObject(usize),
+    }
+    struct Item {
+        ground_y: i32,
+        kind: Kind,
+    }
+    let mut items = Vec::new();
+
     for i in 0..sprite_blocks.len() {
-        let sprite_block = &sprite_blocks[i];
-        plot_single_sprite(
-            imgbuf,
-            reader,
-            sprite_block,
-            internal_sprites,
-            offset_x,
-            offset_y,
-        )?;
+        let block = &sprite_blocks[i];
+        let sequence = &internal_sprites[block.sprite_id as usize];
+        let sprite = &sequence.frame_infos[0];
+        let ground_y = block.sprite_y + sprite.height as i32;
+        items.push(Item {
+            ground_y,
+            kind: Kind::Sprite(i),
+        });
     }
 
-    // walls
     for i in 0..tiled_info.len() {
-        let tiled_info = &tiled_info[i];
-        plot_single_tiled_object(imgbuf, tiled_info, btl_tileset, offset_x, offset_y);
+        let info = &tiled_info[i];
+        let ground_y = info.y + (info.ids.len() as i32 * TILE_HEIGHT as i32);
+        items.push(Item {
+            ground_y,
+            kind: Kind::TiledObject(i),
+        });
+    }
+
+    items.sort_by_key(|it| it.ground_y);
+
+    for item in items {
+        match item.kind {
+            Kind::Sprite(i) => plot_single_sprite(
+                imgbuf,
+                reader,
+                &sprite_blocks[i],
+                internal_sprites,
+                offset_x,
+                offset_y,
+            )?,
+            Kind::TiledObject(i) => {
+                plot_single_tiled_object(imgbuf, &tiled_info[i], btl_tileset, offset_x, offset_y)
+            }
+        }
     }
 
     Ok(())
@@ -381,8 +416,14 @@ fn plot_roofs(
 ) {
     let map_diagonal_tiles = model.tiled_map_width + model.tiled_map_height;
 
-    for y in 0..model.tiled_map_height {
-        for x in 0..model.tiled_map_width {
+    let width = model.tiled_map_width;
+    let height = model.tiled_map_height;
+
+    for diff in -(width - 1)..height {
+        let start_x = 0.max(-diff);
+        let end_x = (width - 1).min(height - 1 - diff);
+        for x in start_x..=end_x {
+            let y = x + diff;
             let coords: Coords = (x, y);
             let btl_tile_id = match btl_tiles.get(&coords) {
                 None => 0,
