@@ -5,6 +5,7 @@ use crate::database::{
     save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
+use crate::references::npc_ref::read_npc_ref;
 use database::{save_dialogs, save_party_pgps};
 use rusqlite::Connection;
 use std::io::{self};
@@ -356,7 +357,12 @@ fn main() {
                     // todo let event_npc_refs = references::read_event_npc_ref(&Path::new("sample-data/NpcInGame/Eventnpc.ref"))?;
                 }
                 Some(RefCommands::NpcRef { input }) => {
-                    // let npcrefs = references::read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
+                    let data = npc_ref::read_npc_ref(&Path::new(input))
+                        .expect("ERROR: could not read file");
+                    println!(
+                        "{}",
+                        serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                    );
                 }
                 Some(RefCommands::Monsters { input }) => {
                     let data = monster_db::read_monster_db(&Path::new(input))
