@@ -1,13 +1,13 @@
-use std::{fs::File, path::Path};
-use std::io::{Cursor, prelude::*};
+use std::io::{prelude::*, Cursor};
 use std::io::{BufReader, Seek, SeekFrom};
+use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::WINDOWS_1250;
+use serde::Serialize;
 
-use crate::references::references::read_mapper;
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Store {
     pub index: i32,
     pub store_name: String,
@@ -38,8 +38,7 @@ pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
         // name
         let mut buffer = [0u8; 32];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let name = dst.0.trim_end_matches("\0").trim();
+        let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
         let inn_night_cost = reader.read_i32::<LittleEndian>()?;
         let mut some_unknown_number = 0;
@@ -71,20 +70,17 @@ pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
         // text
         let mut buffer = [0u8; 512];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let invitation = dst.0.trim_end_matches("\0").trim();
+        let invitation = read_null_terminated_windows_1250(&buffer).unwrap();
 
         // haggle_success
         let mut buffer = [0u8; 128];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let haggle_success = dst.0.trim_end_matches("\0").trim();
+        let haggle_success = read_null_terminated_windows_1250(&buffer).unwrap();
 
         // haggle_fail
         let mut buffer = [0u8; 128];
         reader.read_exact(&mut buffer)?;
-        let dst = WINDOWS_1250.decode(&buffer);
-        let haggle_fail = dst.0.trim_end_matches("\0").trim();
+        let haggle_fail = read_null_terminated_windows_1250(&buffer).unwrap();
 
         let item = Store {
             index: i as i32,

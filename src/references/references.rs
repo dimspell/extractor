@@ -1,10 +1,41 @@
-use std::{fs::File, path::Path};
-use std::io::{Cursor, prelude::*};
+use std::io::{prelude::*, Cursor};
 use std::io::{BufRead, BufReader, Result, Seek, SeekFrom};
 use std::num::IntErrorKind;
+use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::EUC_KR;
+use encoding_rs::{Encoding, EUC_KR, WINDOWS_1250};
+
+pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
+    // Find the first null byte (or use a fixed length if no null terminator)
+    let (data, _) = bytes.split_last().ok_or("Empty input")?;
+    let data_len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+
+    // Decode the Windows-1250 portion before the null terminator
+    let out = WINDOWS_1250.decode(&bytes[..data_len]);
+    // .(|e| format!("Decoding error: {}", e))?;
+
+    let decoded = out.0;
+    let had_errors = out.2;
+
+    if had_errors {
+        return Err("Invalid Windows-1250 sequence".to_string());
+    }
+
+    Ok(decoded.to_string())
+}
+
+// test {
+//     // Simulate a null-terminated Windows-1250 string (e.g., "Ahoj" + \0)
+//     let raw_bytes = b"Ahoj\0Test"; // "Ahoj" in Windows-1250 is [0xC3, 0x9Ah, 0xF3, 0x9Ah, 0xF3, 0x9Ah] (but this is UTF-8; adjust for actual Windows-1250)
+//                                    // For Windows-1250, "Ahoj" is [0xE1, 0xF3, 0xE8, 0xF8, 0xE9] (example; check actual encoding)
+//                                    // let actual_windows_1250_bytes = vec![0xE1, 0xF3, 0xE8, 0xF8, 0xE9, 0x00]; // Replace with real bytes
+
+//     match read_null_terminated_windows_1250(raw_bytes) {
+//         Ok(s) => println!("Decoded: {}", s),
+//         Err(e) => eprintln!("Error: {}", e),
+//     }
+// }
 
 struct OnMapSpriteInfo {
     x: i32,
@@ -117,11 +148,9 @@ pub fn read_party_ini_db() {
 //     Ok(map_inis)
 // }
 
-
 fn read_multi_monster_db() {
     todo!();
 }
-
 
 pub fn read_party_level_db(source_path: &Path) -> Result<()> {
     // 5760
@@ -177,7 +206,13 @@ pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
 
     let pos = reader.seek(SeekFrom::Current(0))?;
-    println!("{:?} {:?} {:?} {:?}", file_len, elements, pos, PROPERTY_ITEM_SIZE * elements);
+    println!(
+        "{:?} {:?} {:?} {:?}",
+        file_len,
+        elements,
+        pos,
+        PROPERTY_ITEM_SIZE * elements
+    );
 
     for i in 0..elements {
         let mut buffer = [0u8; 90];
