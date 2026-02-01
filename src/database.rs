@@ -624,6 +624,11 @@ pub fn save_map_tiles(
 
     let mut stmt = conn.prepare(include_str!("queries/insert_map_tile.sql"))?;
 
+    let offset_x = width / 2;
+    let offset_y = height / 2;
+
+    println!("Inserting map tiles for map {}, width {}, height {}", map_id, width, height);
+
     for y in 0..height {
         for x in 0..width {
             let coords = (x, y);
@@ -638,8 +643,8 @@ pub fn save_map_tiles(
 
             stmt.execute(params![
                 map_id,
-                x,
-                y,
+                y - offset_y,
+                x - offset_x,
                 gtl_id,
                 btl_id,
                 collision,
