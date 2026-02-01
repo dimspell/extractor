@@ -772,3 +772,201 @@ fn read_roof_tiles(
 
     Ok(btl_tiles)
 }
+
+/// Renders a map image from SQLite database and atlas PNG files.
+/// 
+/// # Arguments
+/// * `database_path` - Path to the SQLite database file
+/// * `map_id` - Map identifier (e.g., "cat1")
+/// * `gtl_atlas_path` - Path to the ground tileset atlas PNG
+/// * `btl_atlas_path` - Path to the building/roof tileset atlas PNG
+/// * `atlas_columns` - Number of tiles per row in the atlas
+/// * `output_path` - Path to save the output PNG
+pub fn render_from_database(
+    database_path: &Path,
+    map_id: &str,
+    gtl_atlas_path: &Path,
+    btl_atlas_path: &Path,
+    atlas_columns: u32,
+    output_path: &Path,
+) -> Result<()> {
+    use image::RgbaImage;
+    use rusqlite::Connection;
+
+    println!("Loading atlases...");
+    let gtl_atlas = image::open(gtl_atlas_path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let btl_atlas = image::open(btl_atlas_path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    println!("Opening database...");
+    let conn = Connection::open(database_path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    // Query bounds of the map
+    let (min_x, max_x, min_y, max_y): (i32, i32, i32, i32) = conn
+        .query_row(
+            "SELECT MIN(x), MAX(x), MIN(y), MAX(y) FROM map_tiles WHERE map_id = ?",
+            [map_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    let map_width = max_x - min_x + 1;
+    let map_height = max_y - min_y + 1;
+    let map_diagonal = map_width + map_height;
+
+    println!(
+        "Map bounds: x=[{}, {}], y=[{}, {}], size={}x{}",
+        min_x, max_x, min_y, max_y, map_width, map_height
+    );
+
+    // Calculate image dimensions (isometric projection)
+    let image_width = (map_diagonal * TILE_HORIZONTAL_OFFSET_HALF) as u32;
+    let image_height = (map_diagonal * TILE_HEIGHT_HALF) as u32;
+
+    println!("Creating image: {}x{} pixels", image_width, image_height);
+    let mut imgbuf: RgbaImage = image::ImageBuffer::new(image_width, image_height);
+
+    // Query all tiles
+    let mut stmt = conn
+        .prepare("SELECT x, y, gtl_tile_id, btl_tile_id FROM map_tiles WHERE map_id = ?")
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    let tile_iter = stmt
+        .query_map([map_id], |row| {
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, i32>(3)?,
+            ))
+        })
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    let tile_width = tileset::TILE_WIDTH;
+    let tile_height = tileset::TILE_HEIGHT;
+
+    println!("Rendering tiles...");
+    let mut tile_count = 0;
+
+    for tile_result in tile_iter {
+        let (x, y, gtl_id, btl_id) = tile_result
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+        // Adjust coordinates relative to map origin
+        let adjusted_x = x - min_x;
+        let adjusted_y = y - min_y;
+
+        // Calculate isometric position
+        let (dest_x, dest_y) =
+            convert_map_coords_to_image_coords(adjusted_x, adjusted_y, map_diagonal);
+
+        // Render ground tile (GTL)
+        if gtl_id > 0 {
+            let atlas_x = (gtl_id as u32 % atlas_columns) * tile_width;
+            let atlas_y = (gtl_id as u32 / atlas_columns) * tile_height;
+
+            plot_atlas_tile(
+                &mut imgbuf,
+                &gtl_atlas,
+                atlas_x,
+                atlas_y,
+                tile_width,
+                tile_height,
+                dest_x,
+                dest_y,
+            );
+        }
+
+        // Render building/roof tile (BTL)
+        if btl_id > 0 {
+            let atlas_x = (btl_id as u32 % atlas_columns) * tile_width;
+            let atlas_y = (btl_id as u32 / atlas_columns) * tile_height;
+
+            plot_atlas_tile(
+                &mut imgbuf,
+                &btl_atlas,
+                atlas_x,
+                atlas_y,
+                tile_width,
+                tile_height,
+                dest_x,
+                dest_y,
+            );
+        }
+
+        tile_count += 1;
+    }
+
+    println!("Rendered {} tiles", tile_count);
+    println!("Saving to {:?}...", output_path);
+    imgbuf
+        .save(output_path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    println!("Done!");
+    Ok(())
+}
+
+/// Copies a tile from an atlas image to the destination image buffer
+fn plot_atlas_tile(
+    dest: &mut image::RgbaImage,
+    atlas: &image::DynamicImage,
+    src_x: u32,
+    src_y: u32,
+    tile_w: u32,
+    tile_h: u32,
+    dest_x: i32,
+    dest_y: i32,
+) {
+    use image::GenericImageView;
+
+    // Bounds checking
+    if dest_x < 0 || dest_y < 0 {
+        return;
+    }
+    let dest_x = dest_x as u32;
+    let dest_y = dest_y as u32;
+
+    if dest_x + tile_w > dest.width() || dest_y + tile_h > dest.height() {
+        return;
+    }
+    if src_x + tile_w > atlas.width() || src_y + tile_h > atlas.height() {
+        return;
+    }
+
+    // Copy pixels with alpha blending
+    for py in 0..tile_h {
+        for px in 0..tile_w {
+            let pixel = atlas.get_pixel(src_x + px, src_y + py);
+            let alpha = pixel[3];
+
+            // Skip fully transparent pixels
+            if alpha == 0 {
+                continue;
+            }
+
+            // For fully opaque pixels, just overwrite
+            if alpha == 255 {
+                dest.put_pixel(dest_x + px, dest_y + py, pixel);
+            } else {
+                // Alpha blend
+                let existing = dest.get_pixel(dest_x + px, dest_y + py);
+                let blend = |src: u8, dst: u8, a: u8| -> u8 {
+                    let src = src as u32;
+                    let dst = dst as u32;
+                    let a = a as u32;
+                    ((src * a + dst * (255 - a)) / 255) as u8
+                };
+                let blended = image::Rgba([
+                    blend(pixel[0], existing[0], alpha),
+                    blend(pixel[1], existing[1], alpha),
+                    blend(pixel[2], existing[2], alpha),
+                    255,
+                ]);
+                dest.put_pixel(dest_x + px, dest_y + py, blended);
+            }
+        }
+    }
+}

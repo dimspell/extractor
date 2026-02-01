@@ -138,6 +138,33 @@ enum MapCommands {
         #[arg(short, long)]
         save_sprites: bool,
     },
+    /// Render a map from SQLite database
+    #[command(about = "Render map from database", long_about = "Renders a map image using tile data from SQLite database and atlas PNG files.")]
+    FromDb {
+        /// Path to the SQLite database file
+        #[arg(short, long, default_value = "database.sqlite")]
+        database: String,
+
+        /// Map ID to render (e.g., "cat1")
+        #[arg(short, long)]
+        map_id: String,
+
+        /// Path to the ground tileset atlas PNG
+        #[arg(long)]
+        gtl_atlas: String,
+
+        /// Path to the building/roof tileset atlas PNG
+        #[arg(long)]
+        btl_atlas: String,
+
+        /// Number of tiles per row in the atlas (default: 48)
+        #[arg(long, default_value = "48")]
+        atlas_columns: u32,
+
+        /// Path to save the output PNG
+        #[arg(short, long)]
+        output: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -288,6 +315,25 @@ fn main() {
                     save_sprites,
                 )
                 .expect("ERROR: could not render map");
+            }
+            Some(MapCommands::FromDb {
+                database,
+                map_id,
+                gtl_atlas,
+                btl_atlas,
+                atlas_columns,
+                output,
+            }) => {
+                println!("Rendering map from database...");
+                map::render_from_database(
+                    &Path::new(database),
+                    map_id,
+                    &Path::new(gtl_atlas),
+                    &Path::new(btl_atlas),
+                    *atlas_columns,
+                    &Path::new(output),
+                )
+                .expect("ERROR: could not render map from database");
             }
             None => {}
         },
