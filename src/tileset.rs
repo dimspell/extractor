@@ -103,9 +103,13 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
 }
 
 pub fn plot_tileset_map(tiles: &Vec<Tile>, out_path: &str) {
-    let count = tiles.len() as f64;
-    let w = count.sqrt().ceil() as u32;
-    let h = (count / w as f64).ceil() as u32;
+    // Flexible atlas size to make it square
+    // let count = tiles.len() as f64;
+    // let w = count.sqrt().ceil() as u32;
+    // let h = (count / w as f64).ceil() as u32;
+
+    let w = 48; // Fixed 48 tiles per row
+    let h = (tiles.len() as f64 / w as f64).ceil() as u32;
 
     println!("Tiles: {}, Atlas size: {}x{} tiles", tiles.len(), w, h);
     let width: u32 = TILE_WIDTH * w;
