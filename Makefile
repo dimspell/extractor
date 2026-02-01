@@ -12,10 +12,15 @@ sprite-animation:
 		--input="fixtures/Dispel/CharacterInGame/M_BODY1.SPR" \
 		--output=""
 
-map-atlas:
+map-atlas-btl:
 	cargo run -- map atlas \
 		"fixtures/Dispel/Map/cat1.btl" \
 		"cat1.btl.png"
+
+map-atlas-gtl:
+	cargo run -- map atlas \
+		"fixtures/Dispel/Map/cat1.gtl" \
+		"cat1.gtl.png"
 
 map-render:
 	cargo run -- map render \
