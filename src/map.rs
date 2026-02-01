@@ -92,7 +92,7 @@ pub fn extract(input_map_file: &Path,
     let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
 
     // TODO: Generate map
-    generate_map(
+    render_map(
         &mut reader,
         output_path,
         &map_model,
@@ -112,7 +112,7 @@ pub fn extract(input_map_file: &Path,
     Ok(())
 }
 
-fn generate_map(
+fn render_map(
     reader: &mut BufReader<File>,
     output_path: &Path,
     model: &MapModel,
