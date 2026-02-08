@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::references::all_map_ini::Map;
 use crate::references::dialog::Dialog;
+use crate::references::dialogue_text::DialogueText;
 use crate::references::draw_item::DrawItem;
 use crate::references::edit_item_db::EditItem;
 use crate::references::event_ini::Event;
@@ -27,6 +28,7 @@ use rusqlite::{params, Connection, Result};
 
 pub fn initialize_database(conn: &Connection) -> Result<()> {
     let tables = vec![
+        "dialogue_texts",
         "dialogs",
         "draw_items",
         "edit_items",
@@ -87,6 +89,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_dialogue_texts.sql"))?;
 
     Ok(())
 }
@@ -474,6 +477,32 @@ pub fn save_map_metadata(
         ],
     )?;
 
+    Ok(())
+}
+
+pub fn save_dialogue_texts(
+    conn: &Connection,
+    file_name: &str,
+    texts: &Vec<DialogueText>,
+) -> Result<()> {
+    for text in texts {
+        add_dialogue_text(conn, file_name, text)?;
+    }
+    Ok(())
+}
+
+fn add_dialogue_text(conn: &Connection, file_name: &str, text: &DialogueText) -> Result<()> {
+    conn.execute(
+        include_str!("queries/insert_dialogue_text.sql"),
+        params![
+            file_name,
+            text.id,
+            text.text,
+            text.comment,
+            text.param1,
+            text.param2,
+        ],
+    )?;
     Ok(())
 }
 

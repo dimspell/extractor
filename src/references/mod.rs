@@ -1,5 +1,6 @@
 pub mod all_map_ini;
 pub mod dialog;
+pub mod dialogue_text;
 pub mod draw_item;
 pub mod edit_item_db;
 pub mod event_ini;

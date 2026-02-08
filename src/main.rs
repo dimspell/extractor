@@ -1,8 +1,9 @@
 use crate::database::{
-    initialize_database, save_dialogs, save_draw_items, save_edit_items, save_event_items,
-    save_event_npc_refs, save_events, save_extra_refs, save_extras, save_heal_items, save_map_inis,
-    save_maps, save_misc_items, save_monster_inis, save_monster_refs, save_monsters, save_npc_inis,
-    save_npc_refs, save_party_pgps, save_party_refs, save_stores, save_wave_inis, save_weapons,
+    initialize_database, save_dialogs, save_dialogue_texts, save_draw_items, save_edit_items,
+    save_event_items, save_event_npc_refs, save_events, save_extra_refs, save_extras,
+    save_heal_items, save_map_inis, save_maps, save_misc_items, save_monster_inis,
+    save_monster_refs, save_monsters, save_npc_inis, save_npc_refs, save_party_pgps,
+    save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
 use crate::references::references::{read_mutli_magic_db, read_party_level_db};
@@ -15,11 +16,11 @@ mod references;
 pub mod snf;
 pub mod sprite;
 pub mod tileset;
-
 use crate::references::{
-    all_map_ini, dialog, draw_item, edit_item_db, event_ini, event_item_db, event_npc_ref,
-    extra_ini, extra_ref, heal_item_db, map_ini, misc_item_db, monster_db, monster_ini,
-    monster_ref, npc_ini, npc_ref, party_pgp, party_ref, store_db, wave_ini, weapons_db,
+    all_map_ini, dialog, dialogue_text, draw_item, edit_item_db, event_ini, event_item_db,
+    event_npc_ref, extra_ini, extra_ref, heal_item_db, map_ini, misc_item_db, monster_db,
+    monster_ini, monster_ref, npc_ini, npc_ref, party_pgp, party_ref, store_db, wave_ini,
+    weapons_db,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -728,6 +729,28 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     for dialog_file in dialog_files {
         let dialogs = dialog::read_dialogs(&main_path.join(dialog_file))?;
         save_dialogs(&conn, dialog_file, &dialogs)?;
+    }
+
+    let pgp_files = [
+        "NpcInGame/PartyPgp.pgp",
+        "NpcInGame/Pgpcat1.pgp",
+        "NpcInGame/Pgpcat2.pgp",
+        "NpcInGame/Pgpcat3.pgp",
+        "NpcInGame/Pgpcatp.pgp",
+        "NpcInGame/Pgpdun04.pgp",
+        "NpcInGame/Pgpdun07.pgp",
+        "NpcInGame/Pgpdun08.pgp",
+        "NpcInGame/Pgpdun10.pgp",
+        "NpcInGame/Pgpdun19.pgp",
+        "NpcInGame/Pgpdun22.pgp",
+        "NpcInGame/Pgpmap1.pgp",
+        "NpcInGame/Pgpmap2.pgp",
+        "NpcInGame/Pgpmap3.pgp",
+    ];
+    println!("Saving dialogue texts...");
+    for pgp_file in pgp_files {
+        let texts = dialogue_text::read_dialogue_texts(&main_path.join(pgp_file))?;
+        save_dialogue_texts(&conn, pgp_file, &texts)?;
     }
 
     println!("Saving weapons...");
