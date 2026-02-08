@@ -805,13 +805,23 @@ pub fn render_from_database(
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     // Query bounds of the map
-    let (min_x, max_x, min_y, max_y): (i32, i32, i32, i32) = conn
+    let bounds: (Option<i32>, Option<i32>, Option<i32>, Option<i32>) = conn
         .query_row(
             "SELECT MIN(x), MAX(x), MIN(y), MAX(y) FROM map_tiles WHERE map_id = ?",
             [map_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    let (min_x, max_x, min_y, max_y) = match bounds {
+        (Some(min_x), Some(max_x), Some(min_y), Some(max_y)) => (min_x, max_x, min_y, max_y),
+        _ => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Map '{}' not found in database or has no tiles", map_id),
+            ));
+        }
+    };
 
     let map_width = max_x - min_x + 1;
     let map_height = max_y - min_y + 1;
