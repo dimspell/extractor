@@ -658,3 +658,50 @@ pub fn save_map_tiles(
 
     Ok(())
 }
+
+pub fn save_map_objects(
+    conn: &Connection,
+    map_id: &str,
+    tiled_infos: &Vec<crate::map::TiledObjectInfo>,
+) -> Result<()> {
+    conn.execute(include_str!("queries/create_table_map_objects.sql"), ())?;
+
+    let mut stmt = conn.prepare(include_str!("queries/insert_map_object.sql"))?;
+
+    for (obj_idx, info) in tiled_infos.iter().enumerate() {
+        for (stack_order, btl_id) in info.ids.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                obj_idx as i32,
+                info.x,
+                info.y,
+                *btl_id as i32,
+                stack_order as i32,
+            ])?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn save_map_sprites(
+    conn: &Connection,
+    map_id: &str,
+    sprite_blocks: &Vec<crate::map::SpriteInfoBlock>,
+) -> Result<()> {
+    conn.execute(include_str!("queries/create_table_map_sprites.sql"), ())?;
+
+    let mut stmt = conn.prepare(include_str!("queries/insert_map_sprite.sql"))?;
+
+    for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
+        stmt.execute(params![
+            map_id,
+            sprite_idx as i32,
+            block.sprite_x,
+            block.sprite_y,
+            block.sprite_id as i32,
+        ])?;
+    }
+
+    Ok(())
+}

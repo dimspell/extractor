@@ -56,11 +56,9 @@ pub fn extract(input_map_file: &Path,
         read_tiles_and_access_block(&mut reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
-    let pos = reader.seek(SeekFrom::Current(0))?;
-    let skip = (tiled_map_height * tiled_map_width * 4 * 3)
-        .try_into()
-        .unwrap();
-    if pos > skip {
+    let current_pos = reader.seek(SeekFrom::Current(0))?;
+    let file_len = metadata.len();
+    if current_pos + (tiled_map_width * tiled_map_height * 4) as u64 <= file_len {
         btl_tiles = read_roof_tiles(&mut reader, tiled_map_width, tiled_map_height)?;
     }
 
@@ -142,6 +140,8 @@ fn render_map(
             model.tiled_map_width,
             model.tiled_map_height,
         );
+        let _ = crate::database::save_map_objects(&conn, map_id, tiled_infos);
+        let _ = crate::database::save_map_sprites(&conn, map_id, sprite_blocks);
     }
     let image_width = if occlusion {
         model.occluded_map_in_pixels_width
@@ -574,10 +574,10 @@ fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct SpriteInfoBlock {
-    sprite_id: usize,
-    sprite_x: i32,
-    sprite_y: i32,
+pub struct SpriteInfoBlock {
+    pub sprite_id: usize,
+    pub sprite_x: i32,
+    pub sprite_y: i32,
     // sprite_bottom_right_x: i32,
     // sprite_bottom_right_y: i32,
 }
@@ -619,10 +619,11 @@ fn sprite_info_block(
     Ok(info)
 }
 
-struct TiledObjectInfo {
-    ids: Vec<i16>,
-    x: i32,
-    y: i32,
+#[derive(Clone, Debug)]
+pub struct TiledObjectInfo {
+    pub ids: Vec<i16>,
+    pub x: i32,
+    pub y: i32,
 }
 
 fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObjectInfo>> {
