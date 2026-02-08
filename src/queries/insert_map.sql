@@ -4,9 +4,4 @@ INSERT OR REPLACE INTO maps(id,
                  pgp_filename,
                  dlg_filename,
                  is_light)
-VALUES (?1,
-        ?2,
-        ?3,
-        ?4,
-        ?5,
-        ?6)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)

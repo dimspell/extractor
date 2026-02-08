@@ -37,6 +37,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "extras",
         "heal_items",
         "map_inis",
+        "map_metadata",
         "map_objects",
         "map_sprites",
         "map_tiles",
@@ -85,6 +86,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
 
     Ok(())
 }
@@ -449,6 +451,29 @@ fn add_map(conn: &Connection, map: &Map) -> Result<()> {
             map.is_light,
         ],
     )?;
+    Ok(())
+}
+
+pub fn save_map_metadata(
+    conn: &Connection,
+    map_id: &str,
+    model: &crate::map::MapModel,
+) -> Result<()> {
+    conn.execute(
+        include_str!("queries/insert_map_metadata.sql"),
+        params![
+            map_id,
+            model.tiled_map_width,
+            model.tiled_map_height,
+            model.map_width_in_pixels,
+            model.map_height_in_pixels,
+            model.map_non_occluded_start_x,
+            model.map_non_occluded_start_y,
+            model.occluded_map_in_pixels_width,
+            model.occluded_map_in_pixels_height,
+        ],
+    )?;
+
     Ok(())
 }
 

@@ -609,9 +609,43 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Importing all .map files...");
     let map_dir = main_path.join("Map");
     if map_dir.exists() {
-        for entry in std::fs::read_dir(map_dir)? {
-            let entry = entry?;
-            let path = entry.path();
+        let map_files = [
+            "cat1.map",
+            "cat2.map",
+            "cat3.map",
+            "catp.map",
+            "dun01.map",
+            "dun02.map",
+            "dun03.map",
+            "dun04.map",
+            "dun05.map",
+            "dun06.map",
+            "dun07.map",
+            "dun08.map",
+            "dun09.map",
+            "dun10.map",
+            "dun11.map",
+            "dun12.map",
+            "dun13.map",
+            "dun14.map",
+            "dun15.map",
+            "dun16.map",
+            "dun17.map",
+            "dun18.map",
+            "dun19.map",
+            "dun20.map",
+            "dun21.map",
+            "dun22.map",
+            "dun23.map",
+            "dun24.map",
+            "dun25.map",
+            // "final.map",
+            "map1.map",
+            "map2.map",
+            "map3.map",
+        ];
+        for entry in map_files {
+            let path = map_dir.join(entry);
             if path.extension().and_then(|s| s.to_str()) == Some("map") {
                 let map_id = path.file_stem().unwrap().to_str().unwrap();
                 if map_id == "map4" {

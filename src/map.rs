@@ -145,6 +145,9 @@ pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData)
     crate::database::save_map_sprites(conn, map_id, &data.sprite_blocks)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
+    crate::database::save_map_metadata(conn, map_id, &data.model)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
     Ok(())
 }
 
@@ -487,14 +490,14 @@ fn plot_roofs(
 
 #[derive(Copy, Clone, Debug)]
 pub struct MapModel {
-    tiled_map_width: i32,
-    tiled_map_height: i32,
-    map_width_in_pixels: i32,
-    map_height_in_pixels: i32,
-    map_non_occluded_start_x: i32,
-    map_non_occluded_start_y: i32,
-    occluded_map_in_pixels_width: i32,
-    occluded_map_in_pixels_height: i32,
+    pub tiled_map_width: i32,
+    pub tiled_map_height: i32,
+    pub map_width_in_pixels: i32,
+    pub map_height_in_pixels: i32,
+    pub map_non_occluded_start_x: i32,
+    pub map_non_occluded_start_y: i32,
+    pub occluded_map_in_pixels_width: i32,
+    pub occluded_map_in_pixels_height: i32,
 }
 
 fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
@@ -816,6 +819,7 @@ pub fn render_from_database(
 ) -> Result<()> {
     use image::RgbaImage;
     use rusqlite::Connection;
+    use std::collections::HashMap;
 
     println!("Loading atlases...");
     let gtl_atlas = image::open(gtl_atlas_path)
@@ -862,11 +866,13 @@ pub fn render_from_database(
     println!("Creating image: {}x{} pixels", image_width, image_height);
     let mut imgbuf: RgbaImage = image::ImageBuffer::new(image_width, image_height);
 
-    // Query all tiles
+    // Load data from DB
+    println!("Fetching tiles and objects...");
+    let mut gtl_tiles = HashMap::new();
+    let mut btl_tiles = HashMap::new();
     let mut stmt = conn
         .prepare("SELECT x, y, gtl_tile_id, btl_tile_id FROM map_tiles WHERE map_id = ?")
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-
     let tile_iter = stmt
         .query_map([map_id], |row| {
             Ok((
@@ -878,68 +884,144 @@ pub fn render_from_database(
         })
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
-    let tile_width = tileset::TILE_WIDTH;
-    let tile_height = tileset::TILE_HEIGHT;
-
-    println!("Rendering tiles...");
-    let mut tile_count = 0;
-
-    for tile_result in tile_iter {
-        let (x, y, gtl_id, btl_id) = tile_result
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
-
-        // Adjust coordinates relative to map origin
-        let adjusted_x = x - min_x;
-        let adjusted_y = y - min_y;
-
-        // Calculate isometric position
-        let (dest_x, dest_y) =
-            convert_map_coords_to_image_coords(adjusted_x, adjusted_y, map_diagonal);
-
-        // Render ground tile (GTL)
-        if gtl_id > 0 {
-            let atlas_x = (gtl_id as u32 % atlas_columns) * tile_width;
-            let atlas_y = (gtl_id as u32 / atlas_columns) * tile_height;
-
-            plot_atlas_tile(
-                &mut imgbuf,
-                &gtl_atlas,
-                atlas_x,
-                atlas_y,
-                tile_width,
-                tile_height,
-                dest_x,
-                dest_y,
-            );
+    for row in tile_iter {
+        let (x, y, gtl, btl) =
+            row.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        if gtl > 0 {
+            gtl_tiles.insert((x, y), gtl);
         }
+        if btl > 0 {
+            btl_tiles.insert((x, y), btl);
+        }
+    }
 
-        // Render building/roof tile (BTL)
-        if btl_id > 0 {
-            let atlas_x = (btl_id as u32 % atlas_columns) * tile_width;
-            let atlas_y = (btl_id as u32 / atlas_columns) * tile_height;
+    let mut stmt = conn
+        .prepare("SELECT x, y, btl_tile_id, object_index FROM map_objects WHERE map_id = ? ORDER BY object_index, stack_order")
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    let object_iter = stmt
+        .query_map([map_id], |row| {
+            Ok((
+                row.get::<_, i32>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, i32>(3)?,
+            ))
+        })
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
+    let mut objects_map: HashMap<i32, TiledObjectInfo> = HashMap::new();
+    for row in object_iter {
+        let (x, y, tile_id, idx) =
+            row.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        let entry = objects_map.entry(idx).or_insert(TiledObjectInfo {
+            ids: Vec::new(),
+            x,
+            y,
+        });
+        entry.ids.push(tile_id as i16);
+    }
+    let mut objects: Vec<TiledObjectInfo> = objects_map.into_values().collect();
+
+    // Query map dimensions from map_metadata table
+    let dims: (Option<i32>, Option<i32>) = conn
+        .query_row(
+            "SELECT tiled_width, tiled_height FROM map_metadata WHERE map_id = ?",
+            [map_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap_or((None, None));
+
+    let (width, height) = match dims {
+        (Some(w), Some(h)) if w > 0 && h > 0 => (w, h),
+        _ => {
+            println!("WARNING: Map dimensions not found in map_metadata, falling back to bounds");
+            (map_width, map_height)
+        }
+    };
+    let diagonal = width + height;
+    let offset_x_tiles = width / 2;
+    let offset_y_tiles = height / 2;
+
+    // Recalculate image dimensions based on original map size
+    let image_width = (diagonal * TILE_HORIZONTAL_OFFSET_HALF) as u32;
+    let image_height = (diagonal * TILE_HEIGHT_HALF) as u32;
+
+    if image_width != imgbuf.width() || image_height != imgbuf.height() {
+        println!(
+            "Resizing image to match original dimensions: {}x{}",
+            image_width, image_height
+        );
+        imgbuf = image::ImageBuffer::new(image_width, image_height);
+    }
+
+    println!("Rendering pass 1: Ground...");
+    for ((real_x, real_y), &gtl_id) in gtl_tiles.iter() {
+        let x = real_x + offset_x_tiles;
+        let y = real_y + offset_y_tiles;
+        let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
+        let atlas_x = (gtl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
+        let atlas_y = (gtl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
+        plot_atlas_tile(
+            &mut imgbuf,
+            &gtl_atlas,
+            atlas_x,
+            atlas_y,
+            tileset::TILE_WIDTH,
+            tileset::TILE_HEIGHT,
+            dest_x,
+            dest_y,
+        );
+    }
+
+    println!("Rendering pass 2: Objects...");
+    // Sort objects by ground y
+    objects.sort_by_key(|o| o.y + (o.ids.len() as i32 * tileset::TILE_HEIGHT as i32));
+    for obj in objects {
+        for (i, &btl_id) in obj.ids.iter().enumerate() {
+            if btl_id <= 0 {
+                continue;
+            }
+            let atlas_x = (btl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
+            let atlas_y = (btl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
+            let x = obj.x;
+            let y = obj.y + (i as i32 * tileset::TILE_HEIGHT as i32);
             plot_atlas_tile(
                 &mut imgbuf,
                 &btl_atlas,
                 atlas_x,
                 atlas_y,
-                tile_width,
-                tile_height,
-                dest_x,
-                dest_y,
+                tileset::TILE_WIDTH,
+                tileset::TILE_HEIGHT,
+                x,
+                y,
             );
         }
-
-        tile_count += 1;
     }
 
-    println!("Rendered {} tiles", tile_count);
+    println!("Rendering pass 3: Roofs...");
+    for ((real_x, real_y), &btl_id) in btl_tiles.iter() {
+        let x = real_x + offset_x_tiles;
+        let y = real_y + offset_y_tiles;
+        let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
+        let atlas_x = (btl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
+        let atlas_y = (btl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
+        plot_atlas_tile(
+            &mut imgbuf,
+            &btl_atlas,
+            atlas_x,
+            atlas_y,
+            tileset::TILE_WIDTH,
+            tileset::TILE_HEIGHT,
+            dest_x,
+            dest_y,
+        );
+    }
+
     println!("Saving to {:?}...", output_path);
     imgbuf
         .save(output_path)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
-    println!("Done!");
     Ok(())
 }
 
