@@ -16,6 +16,7 @@ pub mod monster_ini;
 pub mod monster_ref;
 pub mod npc_ini;
 pub mod npc_ref;
+pub mod party_level_db;
 pub mod party_pgp;
 pub mod party_ref;
 pub mod references;

@@ -6,7 +6,8 @@ use crate::database::{
     save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
-use crate::references::references::{read_mutli_magic_db, read_party_level_db};
+use crate::references::party_level_db::read_party_level_db;
+use crate::references::references::read_mutli_magic_db;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 

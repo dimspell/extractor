@@ -119,47 +119,6 @@ fn read_multi_monster_db() {
     todo!();
 }
 
-pub fn read_party_level_db(source_path: &Path) -> Result<()> {
-    // 5760
-    // Divisors of number 5760: 1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 15, 16, 18, 20, 24, 30, 32, 36, 40, 45, 48, 60, 64, 72, 80, 90, 96, 120, 128, 144, 160, 180, 192, 240, 288, 320, 360, 384, 480, 576, 640, 720, 960, 1152, 1440, 1920, 2880, 5760
-
-    let file = File::open(source_path)?;
-
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
-
-    let mut reader = BufReader::new(file);
-
-    // let mut buffer: Vec<u8> = Vec::new();
-    // reader.read_to_end(&mut buffer)?;
-    // let dst = WINDOWS_1250.decode(&buffer);
-    // println!("{:?}", buffer.len());
-    // println!("{:?}", dst.0);
-    // let pos = reader.seek(SeekFrom::Current(0))?;
-    // println!("{file_len} {pos}");
-
-    const COUNTER_SIZE: u8 = 0;
-    const PROPERTY_ITEM_SIZE: i32 = 180 * 4;
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-
-    // let pos = reader.seek(SeekFrom::Current(0))?;
-
-    println!("{elements}");
-
-    for i in 0..16 {
-        let mut buffer = [0u8; 360];
-        reader.read_exact(&mut buffer)?;
-
-        let cursor = Cursor::new(&buffer);
-        println!("{i} {cursor:?}");
-
-        let dst = EUC_KR.decode(&buffer);
-        println!("{:?}", dst.0);
-    }
-
-    Ok(())
-}
-
 pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     let file = File::open(source_path)?;
 
