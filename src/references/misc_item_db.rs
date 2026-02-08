@@ -1,5 +1,5 @@
 use std::io::BufReader;
-use std::io::{prelude::*, Cursor};
+use std::io::prelude::*;
 use std::{fs::File, path::Path};
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
@@ -33,7 +33,7 @@ pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
     for i in 0..elements {
         let mut buffer = [0u8; 30];
         reader.read_exact(&mut buffer)?;
-        let name = read_null_terminated_windows_1250(&buffer).unwrap();
+        let name = read_null_terminated_windows_1250(&buffer).unwrap_or_else(|_| "Unknown".to_string());
 
         let mut buffer = [0u8; 202];
         reader.read_exact(&mut buffer)?;
@@ -42,16 +42,8 @@ pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
 
         let base_price = reader.read_i32::<LittleEndian>()?;
 
-        let mut buffer = [0u8; 20];
-        reader.read_exact(&mut buffer)?;
-        let cursor = Cursor::new(&buffer);
-
-        let dst = EUC_KR.decode(&buffer);
-        let dst = dst.0.trim_end_matches("\0");
-        let dst = dst.trim_start_matches("\0");
-        // let name = dst.0.trim_end_matches("\0").trim();
-
-        println!("{name} {description} {:?}, {dst:?}", cursor);
+        let mut _buffer = [0u8; 20];
+        reader.read_exact(&mut _buffer)?;
 
         items.push(MiscItem {
             id: i,

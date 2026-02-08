@@ -307,6 +307,7 @@ fn add_store_product(conn: &Connection, store: &Store, store_product: &StoreProd
 }
 
 pub fn save_monsters(conn: &Connection, monsters: &Vec<Monster>) -> Result<()> {
+    conn.execute("DROP TABLE IF EXISTS monsters;", ())?;
     conn.execute(include_str!("queries/create_table_monsters.sql"), ())?;
 
     for monster in monsters {

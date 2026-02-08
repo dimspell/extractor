@@ -599,17 +599,17 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving npcrefs...");
     let npcrefs = npc_ref::read_npc_ref(&Path::new("fixtures/Dispel/NpcInGame/Npccat1.ref"))?;
     save_npc_refs(&conn, &npcrefs)?;
-    // println!("Saving monsters...");
-    // let monsters = monster_db::read_monster_db(&Path::new("fixtures/Dispel/MonsterInGame/Monster.db"))?;
-    // save_monsters(&conn, &monsters)?;
+    println!("Saving monsters...");
+    let monsters = monster_db::read_monster_db(&Path::new("fixtures/Dispel/MonsterInGame/Monster.db"))?;
+    save_monsters(&conn, &monsters)?;
     println!("Saving monster_refs...");
     let monster_refs =
         monster_ref::read_monster_ref(&Path::new("fixtures/Dispel/MonsterInGame/Mondun01.ref"))?;
     save_monster_refs(&conn, &monster_refs)?;
-    // println!("Saving misc_items...");
-    // let misc_items =
-    //     misc_item_db::read_misc_item_db(&Path::new("fixtures/Dispel/CharacterInGame/MiscItem.db"))?;
-    // save_misc_items(&conn, &misc_items)?;
+    println!("Saving misc_items...");
+    let misc_items =
+        misc_item_db::read_misc_item_db(&Path::new("fixtures/Dispel/CharacterInGame/MiscItem.db"))?;
+    save_misc_items(&conn, &misc_items)?;
     println!("Saving heal_items...");
     let heal_items =
         heal_item_db::read_heal_item_db(&Path::new("fixtures/Dispel/CharacterInGame/HealItem.db"))?;

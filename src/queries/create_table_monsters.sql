@@ -1,8 +1,7 @@
--- DROP TABLE monsters;
 CREATE TABLE IF NOT EXISTS monsters
 (
-    id                      INTEGER,
-    name TEXT,
+    id                      INTEGER PRIMARY KEY,
+    name                    TEXT,
     health_points_max       INTEGER,
     health_points_min       INTEGER,
     magic_points_max        INTEGER,
@@ -37,4 +36,4 @@ CREATE TABLE IF NOT EXISTS monsters
     special_attack_duration INTEGER,
     boldness                INTEGER,
     attack_speed            INTEGER
-)
+);
