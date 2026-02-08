@@ -191,6 +191,20 @@ enum MapCommands {
         #[arg(short, long)]
         output: String,
     },
+    /// Import a map file into SQLite database
+    #[command(
+        about = "Import map to database",
+        long_about = "Parses a .MAP file and saves its geometry, objects, and sprites to the SQLite database."
+    )]
+    ToDb {
+        /// Path to the SQLite database file
+        #[arg(short, long, default_value = "database.sqlite")]
+        database: String,
+
+        /// Path to the .MAP file
+        #[arg(short, long)]
+        map: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -330,17 +344,12 @@ fn main() {
                 output,
                 save_sprites,
             }) => {
-                println!("Rendering map into single canvas...");
-
-                let input_map_file = &Path::new(map);
-                let input_btl_file = &Path::new(btl);
-                let input_gtl_file = &Path::new(gtl);
-                let output_path = &Path::new(output);
+                println!("Rendering map...");
                 map::extract(
-                    input_map_file,
-                    input_btl_file,
-                    input_gtl_file,
-                    output_path,
+                    &Path::new(map),
+                    &Path::new(btl),
+                    &Path::new(gtl),
+                    &Path::new(output),
                     save_sprites,
                 )
                 .expect("ERROR: could not render map");
@@ -363,6 +372,11 @@ fn main() {
                     &Path::new(output),
                 )
                 .expect("ERROR: could not render map from database");
+            }
+            Some(MapCommands::ToDb { database, map }) => {
+                println!("Importing map to database...");
+                map::import_to_database(&Path::new(database), &Path::new(map))
+                    .expect("ERROR: could not import map to database");
             }
             None => {}
         },
@@ -582,7 +596,7 @@ fn main() {
 fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving all data...");
 
-    let conn = Connection::open("database.sqlite")?;
+    let mut conn = Connection::open("database.sqlite")?;
 
     initialize_database(&conn)?;
 
@@ -591,6 +605,47 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving maps...");
     let maps = all_map_ini::read_all_map_ini(&main_path.join("AllMap.ini"))?;
     save_maps(&conn, &maps)?;
+
+    println!("Importing all .map files...");
+    let map_dir = main_path.join("Map");
+    if map_dir.exists() {
+        for entry in std::fs::read_dir(map_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("map") {
+                let map_id = path.file_stem().unwrap().to_str().unwrap();
+                if map_id == "map4" {
+                    continue;
+                }
+                println!("Importing map file: {}", path.display());
+                match std::fs::File::open(&path) {
+                    Ok(file) => {
+                        let mut reader = std::io::BufReader::new(file);
+                        match map::read_map_data(&mut reader) {
+                            Ok(map_data) => {
+                                if let Err(e) = map::save_to_db(&mut conn, map_id, &map_data) {
+                                    eprintln!(
+                                        "WARNING: could not save map {} to database: {}",
+                                        map_id, e
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!(
+                                    "WARNING: could not read map data from {}: {}",
+                                    path.display(),
+                                    e
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("WARNING: could not open map file {}: {}", path.display(), e);
+                    }
+                }
+            }
+        }
+    }
     println!("Saving map_inis...");
     let map_inis = map_ini::read_map_ini(&main_path.join("Ref/Map.ini"))?;
     save_map_inis(&conn, &map_inis)?;

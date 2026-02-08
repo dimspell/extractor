@@ -660,7 +660,7 @@ fn add_dialog(conn: &Connection, dialog_file: &str, dialog: &Dialog) -> Result<(
     Ok(())
 }
 pub fn save_map_tiles(
-    conn: &Connection,
+    conn: &mut Connection,
     map_id: &str,
     gtl_tiles: &HashMap<crate::map::Coords, i32>,
     btl_tiles: &HashMap<crate::map::Coords, i32>,
@@ -669,7 +669,7 @@ pub fn save_map_tiles(
     width: i32,
     height: i32,
 ) -> Result<()> {
-    let mut stmt = conn.prepare(include_str!("queries/insert_map_tile.sql"))?;
+    let tx = conn.transaction()?;
 
     let offset_x = width / 2;
     let offset_y = height / 2;
@@ -679,30 +679,35 @@ pub fn save_map_tiles(
         map_id, width, height
     );
 
-    for y in 0..height {
-        for x in 0..width {
-            let coords = (x, y);
-            let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
-            let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
-            let collision = collisions.get(&coords).cloned().unwrap_or(false);
-            let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_map_tile.sql"))?;
 
-            if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
-                continue;
+        for y in 0..height {
+            for x in 0..width {
+                let coords = (x, y);
+                let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
+                let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
+                let collision = collisions.get(&coords).cloned().unwrap_or(false);
+                let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+
+                if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
+                    continue;
+                }
+
+                stmt.execute(params![
+                    map_id,
+                    x - offset_x,
+                    y - offset_y,
+                    gtl_id,
+                    btl_id,
+                    collision,
+                    event_id as i32,
+                ])?;
             }
-
-            stmt.execute(params![
-                map_id,
-                x - offset_x,
-                y - offset_y,
-                gtl_id,
-                btl_id,
-                collision,
-                event_id as i32,
-            ])?;
         }
     }
 
+    tx.commit()?;
     Ok(())
 }
 

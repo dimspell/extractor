@@ -1,8 +1,7 @@
 use byteorder::{LittleEndian, ReadBytesExt};
+use image::RgbaImage;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
-use image::{RgbaImage};
-
 
 pub fn animation(file_path: &Path) -> Result<()> {
     let file = File::open(file_path)?;
@@ -35,7 +34,11 @@ pub fn animation(file_path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn save_sequence_anim(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>, sequence_counter: i32) -> Result<()> {
+pub fn save_sequence_anim(
+    reader: &mut BufReader<File>,
+    frames: &Vec<ImageInfo>,
+    sequence_counter: i32,
+) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
     // start of CalculateDimensions
@@ -69,12 +72,14 @@ pub fn save_sequence_anim(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>,
         frames[0].width
     } else {
         max_left + max_right
-    }.unsigned_abs();
+    }
+    .unsigned_abs();
     let rect_h = if frames.len() == 1 {
         frames[0].height
     } else {
         max_up + max_down
-    }.unsigned_abs();
+    }
+    .unsigned_abs();
 
     println!("{max_left}, {max_right}, {max_up}, {max_down} -> x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
@@ -94,7 +99,8 @@ pub fn save_sequence_anim(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>,
             0
         } else {
             rect_y - frame.origin_y
-        }.unsigned_abs();
+        }
+        .unsigned_abs();
 
         let frame_width: u32 = frame.width.try_into().unwrap();
 
@@ -120,7 +126,6 @@ pub fn save_sequence_anim(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>,
     Ok(())
 }
 
-
 pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
     let file = File::open(file_path)?;
 
@@ -142,7 +147,12 @@ pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
         let valid_sprite_sequence = seek_next_sequence(&mut reader, pos, file_len)?;
         if valid_sprite_sequence {
             let info: SequenceInfo = get_sequence_info(&mut reader)?;
-            save_sequence(&mut reader, &info.frame_infos, sequence_counter, &out_file_prefix)?;
+            save_sequence(
+                &mut reader,
+                &info.frame_infos,
+                sequence_counter,
+                &out_file_prefix,
+            )?;
             sequence_counter += 1;
         } else {
             break;
@@ -152,7 +162,12 @@ pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
     Ok(())
 }
 
-pub fn save_sequence(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>, sequence_counter: i32, out_file_prefix: &String) -> Result<()> {
+pub fn save_sequence(
+    reader: &mut BufReader<File>,
+    frames: &Vec<ImageInfo>,
+    sequence_counter: i32,
+    out_file_prefix: &String,
+) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
     // start of CalculateDimensions
@@ -234,10 +249,8 @@ pub fn save_sequence(reader: &mut BufReader<File>, frames: &Vec<ImageInfo>, sequ
         }
 
         let outfile = format!("./{}_{:?}-{:?}.png", out_file_prefix, sequence_counter, i);
-        println!("{outfile}");
-        imgbuf
-            .save(outfile)
-            .unwrap();
+        // println!("{outfile}");
+        imgbuf.save(outfile).unwrap();
 
         // image::save_buffer_with_format(
         //     format!("image_raw_{i}.png"),
@@ -292,7 +305,17 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
         sequence_start_position: 0,
         sequence_end_position: 0,
         frame_count: 0,
-        frame_infos: vec![ImageInfo { origin_x: 0, origin_y: 0, width: 0, height: 0, size_bytes: 0, image_start_position: 0 }; 0],
+        frame_infos: vec![
+            ImageInfo {
+                origin_x: 0,
+                origin_y: 0,
+                width: 0,
+                height: 0,
+                size_bytes: 0,
+                image_start_position: 0
+            };
+            0
+        ],
     };
 
     let mut stamp = reader.read_i32::<LittleEndian>()?; // 8
@@ -303,7 +326,17 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
         let frame_count = reader.read_i32::<LittleEndian>()?; // 1
         _ = reader.read_i32::<LittleEndian>()?; // 0
         info.frame_count = frame_count;
-        info.frame_infos = vec![ImageInfo { origin_x: 0, origin_y: 0, width: 0, height: 0, size_bytes: 0, image_start_position: 0 }; frame_count as usize];
+        info.frame_infos = vec![
+            ImageInfo {
+                origin_x: 0,
+                origin_y: 0,
+                width: 0,
+                height: 0,
+                size_bytes: 0,
+                image_start_position: 0
+            };
+            frame_count as usize
+        ];
     }
     if info.frame_count == 0 {
         // Metrics.Count(MetricFile.SpriteFileMetric, filename, "zeroFrame");
@@ -370,7 +403,7 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
         // throw new FrameInfoException();//fix for soulnet.spr missing one frame
         unimplemented!();
     }
-    println!("Info: {info:?}");
+    // println!("Info: {info:?}");
     Ok(info)
 }
 
@@ -399,13 +432,13 @@ fn seek_next_sequence(reader: &mut BufReader<File>, start_pos: u64, file_len: u6
             && ints[12] > 0
             && ints[11] * ints[12] == ints[13])
             || (ints[0] == 8
-            && ints[1] == 0
-            && ints[2] > 0
-            && ints[2] < 255
-            && ints[3] == 0
-            && ints[12] > 0
-            && ints[13] > 0
-            && ints[12] * ints[13] == ints[14])
+                && ints[1] == 0
+                && ints[2] > 0
+                && ints[2] < 255
+                && ints[3] == 0
+                && ints[12] > 0
+                && ints[13] > 0
+                && ints[12] * ints[13] == ints[14])
         {
             valid_sprite_seq = true;
         } else {

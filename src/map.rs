@@ -1,5 +1,5 @@
 use crate::sprite::{rgb16_565_produce_color, save_sequence, Color, ImageInfo, SequenceInfo};
-use crate::{ tileset};
+use crate::tileset;
 
 use super::sprite;
 use crate::tileset::{mix_color, plot_tile, Tile, TILE_HEIGHT};
@@ -9,103 +9,141 @@ use std::collections::HashMap;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
-pub fn extract(input_map_file: &Path,
-               input_btl_file: &Path,
-               input_gtl_file: &Path,
-               output_path: &Path,
-               save_map_sprites: &bool) -> Result<()> {
-    let file = File::open(input_map_file)?;
+pub struct MapData {
+    pub model: MapModel,
+    pub gtl_tiles: HashMap<Coords, i32>,
+    pub btl_tiles: HashMap<Coords, i32>,
+    pub collisions: HashMap<Coords, bool>,
+    pub events: HashMap<Coords, EventBlock>,
+    pub tiled_infos: Vec<TiledObjectInfo>,
+    pub internal_sprites: Vec<SequenceInfo>,
+    pub sprite_blocks: Vec<SpriteInfoBlock>,
+}
 
-    let metadata = file.metadata()?;
-    println!("File len: {:?}", metadata.len());
-
-    let mut reader = BufReader::new(file);
-
-    let map_model = read_map_model(&mut reader)?;
+pub fn read_map_data(reader: &mut BufReader<File>) -> Result<MapData> {
+    let file_len = reader.get_ref().metadata()?.len();
+    let map_model = read_map_model(reader)?;
     let tiled_map_width = map_model.tiled_map_width;
     let tiled_map_height = map_model.tiled_map_height;
 
     // first block
-    first_block(&mut reader)?;
+    first_block(reader)?;
 
     // second block
-    second_block(&mut reader)?;
+    second_block(reader)?;
 
     // sprites block
-    let internal_sprites = sprite_block(&mut reader)?;
+    let internal_sprites = sprite_block(reader)?;
 
     // sprite info block
-    let sprite_blocks = sprite_info_block(&mut reader, &internal_sprites)?;
-    println!("{sprite_blocks:?} {}", sprite_blocks.len());
+    let sprite_blocks = sprite_info_block(reader, &internal_sprites)?;
 
     // tiled objects block
-    let tiled_infos = tiled_objects_block(&mut reader)?;
+    let tiled_infos = tiled_objects_block(reader)?;
 
     // change read position
-    println!("Before: {:?}", reader.seek(SeekFrom::Current(0))?);
     let skip = -(tiled_map_height * tiled_map_width * 4 * 3);
     let skip = skip.try_into().unwrap();
     reader.seek(SeekFrom::End(skip))?;
-    println!("After: {:?}", reader.seek(SeekFrom::Current(0))?);
 
     // read event block
-    let events = read_events_block(&mut reader, tiled_map_width, tiled_map_height)?;
+    let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
 
     // read tiles and access block
     let (gtl_tiles, collisions) =
-        read_tiles_and_access_block(&mut reader, tiled_map_width, tiled_map_height)?;
+        read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
     let current_pos = reader.seek(SeekFrom::Current(0))?;
-    let file_len = metadata.len();
     if current_pos + (tiled_map_width * tiled_map_height * 4) as u64 <= file_len {
-        btl_tiles = read_roof_tiles(&mut reader, tiled_map_width, tiled_map_height)?;
+        btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
     }
 
-    println!("Finished at: {:?}", reader.seek(SeekFrom::Current(0))?);
+    Ok(MapData {
+        model: map_model,
+        gtl_tiles,
+        btl_tiles,
+        collisions,
+        events,
+        tiled_infos,
+        internal_sprites,
+        sprite_blocks,
+    })
+}
 
-    // Save sprites
+pub fn extract(
+    input_map_file: &Path,
+    input_btl_file: &Path,
+    input_gtl_file: &Path,
+    output_path: &Path,
+    save_map_sprites: &bool,
+) -> Result<()> {
+    let file = File::open(input_map_file)?;
+    let mut reader = BufReader::new(file);
+
+    let map_data = read_map_data(&mut reader)?;
+    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+
+    // Save sprites if requested
     if *save_map_sprites {
-        for i in 0..internal_sprites.len() {
-            let frames = &internal_sprites[i].frame_infos;
-            save_sequence(&mut reader, frames, i.try_into().unwrap(), &"cat1".to_string())?;
+        for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
+            save_sequence(
+                &mut reader,
+                &sprite.frame_infos,
+                i as i32,
+                &map_id.to_string(),
+            )?;
         }
     }
 
     let btl_tileset = tileset::extract(input_btl_file)?;
     let gtl_tileset = tileset::extract(input_gtl_file)?;
 
-    // TODO: Read ini files
-
-    // read_extra_ini(&Path::new("sample-data/Extra.ini"))?;
-    // read_extra_ref(&Path::new("sample-data/ExtraInGame/Extdun01.ref"))?;
-
-    // read_ini(&Path::new("sample-data/Monster.ini"))?;
-    // read_monster_db(&Path::new("sample-data/MonsterInGame/Monster.db"))?;
-    // read_monster_ref(&Path::new("sample-data/MonsterInGame/Mondun01.ref"))?;
-
-    // read_ini(&Path::new("sample-data/Npc.ini"))?;
-    // read_npc_ref(&Path::new("sample-data/NpcInGame/Npccat1.ref"))?;
-
-    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
-
-    // TODO: Generate map
     render_map(
         &mut reader,
         output_path,
-        &map_model,
+        &map_data,
         true,
-        &gtl_tiles,
         &gtl_tileset,
-        &btl_tiles,
         &btl_tileset,
-        &tiled_infos,
-        &internal_sprites,
-        &sprite_blocks,
-        &collisions,
-        &events,
         map_id,
     )?;
+
+    Ok(())
+}
+
+pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
+    use rusqlite::Connection;
+    let mut conn = Connection::open(database_path)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    let file = File::open(map_path)?;
+    let mut reader = BufReader::new(file);
+    let map_data = read_map_data(&mut reader)?;
+    let map_id = map_path.file_stem().unwrap().to_str().unwrap();
+
+    save_to_db(&mut conn, map_id, &map_data)
+}
+
+pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> Result<()> {
+    println!("Saving map tiles for {}...", map_id);
+    crate::database::save_map_tiles(
+        conn,
+        map_id,
+        &data.gtl_tiles,
+        &data.btl_tiles,
+        &data.collisions,
+        &data.events,
+        data.model.tiled_map_width,
+        data.model.tiled_map_height,
+    )
+    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    crate::database::save_map_objects(conn, map_id, &data.tiled_infos)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+
+    crate::database::save_map_sprites(conn, map_id, &data.sprite_blocks)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     Ok(())
 }
@@ -113,48 +151,24 @@ pub fn extract(input_map_file: &Path,
 fn render_map(
     reader: &mut BufReader<File>,
     output_path: &Path,
-    model: &MapModel,
+    data: &MapData,
     occlusion: bool,
-    gtl_tiles: &HashMap<Coords, i32>,
     gtl_tileset: &Vec<Tile>,
-    btl_tiles: &HashMap<Coords, i32>,
     btl_tileset: &Vec<Tile>,
-    tiled_infos: &Vec<TiledObjectInfo>,
-    internal_sprites: &Vec<SequenceInfo>,
-    sprite_blocks: &Vec<SpriteInfoBlock>,
-    collisions: &HashMap<Coords, bool>,
-    events: &HashMap<Coords, EventBlock>,
-    map_id: &str,
+    _map_id: &str,
 ) -> Result<()> {
-    // Save to database
-    println!("Saving map_tiles...");
-    let conn_res = rusqlite::Connection::open("database.sqlite");
-    if let Ok(conn) = conn_res {
-        let _ = crate::database::save_map_tiles(
-            &conn,
-            map_id,
-            gtl_tiles,
-            btl_tiles,
-            collisions,
-            events,
-            model.tiled_map_width,
-            model.tiled_map_height,
-        );
-        let _ = crate::database::save_map_objects(&conn, map_id, tiled_infos);
-        let _ = crate::database::save_map_sprites(&conn, map_id, sprite_blocks);
-    }
     let image_width = if occlusion {
-        model.occluded_map_in_pixels_width
+        data.model.occluded_map_in_pixels_width
     } else {
-        model.map_width_in_pixels
+        data.model.map_width_in_pixels
     };
     let image_height = if occlusion {
-        model.occluded_map_in_pixels_height
+        data.model.occluded_map_in_pixels_height
     } else {
-        model.map_height_in_pixels
+        data.model.map_height_in_pixels
     };
 
-    println!("{:?}", model);
+    println!("{:?}", data.model);
 
     println!(
         "{}, {}",
@@ -163,12 +177,12 @@ fn render_map(
     );
 
     let offset_x = if !occlusion {
-        model.map_non_occluded_start_x
+        data.model.map_non_occluded_start_x
     } else {
         0
     };
     let offset_y = if !occlusion {
-        model.map_non_occluded_start_y
+        data.model.map_non_occluded_start_y
     } else {
         0
     };
@@ -178,29 +192,34 @@ fn render_map(
 
     plot_base(
         &mut imgbuf,
-        model,
+        &data.model,
         occlusion,
-        gtl_tiles,
+        &data.gtl_tiles,
         gtl_tileset,
-        collisions,
-        events,
+        &data.collisions,
+        &data.events,
     );
 
     plot_objects(
         &mut imgbuf,
         reader,
-        model,
+        &data.model,
         occlusion,
-        btl_tiles,
+        &data.btl_tiles,
         btl_tileset,
-        tiled_infos,
-        internal_sprites,
-        sprite_blocks,
+        &data.tiled_infos,
+        &data.internal_sprites,
+        &data.sprite_blocks,
         offset_x,
         offset_y,
     )?;
-
-    plot_roofs(&mut imgbuf, model, occlusion, btl_tiles, btl_tileset);
+    plot_roofs(
+        &mut imgbuf,
+        &data.model,
+        occlusion,
+        &data.btl_tiles,
+        btl_tileset,
+    );
 
     imgbuf.save(output_path).unwrap();
 
@@ -425,7 +444,6 @@ fn rgb16_565_produce_color_test() {
     assert_eq!(color.r as i16 + color.g as i16 + color.b as i16, 0);
 }
 
-
 fn plot_roofs(
     image: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     model: &MapModel,
@@ -468,7 +486,7 @@ fn plot_roofs(
 }
 
 #[derive(Copy, Clone, Debug)]
-struct MapModel {
+pub struct MapModel {
     tiled_map_width: i32,
     tiled_map_height: i32,
     map_width_in_pixels: i32,
@@ -483,7 +501,12 @@ fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
     // map size
     let width = reader.read_i32::<LittleEndian>()?;
     let height = reader.read_i32::<LittleEndian>()?;
-    let diagonal = width + height;
+    let diagonal = width.checked_add(height).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Map size overflow: {}x{}", width, height),
+        )
+    })?;
 
     // tiled map size
     const MAP_CHUNK_SIZE: i32 = 25;
@@ -775,7 +798,7 @@ fn read_roof_tiles(
 }
 
 /// Renders a map image from SQLite database and atlas PNG files.
-/// 
+///
 /// # Arguments
 /// * `database_path` - Path to the SQLite database file
 /// * `map_id` - Map identifier (e.g., "cat1")
