@@ -1,3 +1,5 @@
+map_id ?= cat1
+
 sound:
 	cargo run -- sound --input notexist.snf --output Piach.wav
 
@@ -14,20 +16,23 @@ sprite-animation:
 
 map-atlas-btl:
 	cargo run -- map atlas \
-		"fixtures/Dispel/Map/cat1.btl" \
-		"cat1.btl.png"
+		"fixtures/Dispel/Map/${map_id}.btl" \
+		"${map_id}.btl.png"
 
 map-atlas-gtl:
 	cargo run -- map atlas \
-		"fixtures/Dispel/Map/cat1.gtl" \
-		"cat1.gtl.png"
+		"fixtures/Dispel/Map/${map_id}.gtl" \
+		"${map_id}.gtl.png"
 
 map-render:
 	cargo run -- map render \
-		--map="fixtures/Dispel/Map/cat1.map" \
-		--btl="fixtures/Dispel/Map/cat1.btl" \
-		--gtl="fixtures/Dispel/Map/cat1.gtl" \
+		--map="fixtures/Dispel/Map/${map_id}.map" \
+		--btl="fixtures/Dispel/Map/${map_id}.btl" \
+		--gtl="fixtures/Dispel/Map/${map_id}.gtl" \
 		--output="map.png"
+
+map-from-db:
+	cargo run -- map from-db --map-id ${map_id} --gtl-atlas ${map_id}.gtl.png --btl-atlas ${map_id}.btl.png -o out_${map_id}.png
 
 ref-all-maps:
 	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
