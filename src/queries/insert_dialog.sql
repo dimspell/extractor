@@ -1,4 +1,5 @@
 INSERT OR REPLACE INTO dialogs(
+    dialog_file,
     id,
     previous_event_id,
     next_dialog_to_check,
@@ -6,4 +7,4 @@ INSERT OR REPLACE INTO dialogs(
     dialog_owner,
     dialog_id,
     event_id
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)

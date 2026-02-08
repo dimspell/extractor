@@ -587,9 +587,28 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving party_pgps...");
     let party_pgps = party_pgp::read_party_pgps(&main_path.join("NpcInGame/PartyPgp.pgp"))?;
     save_party_pgps(&conn, &party_pgps)?;
+    
+    let dialog_files = [
+        "NpcInGame/Dlgcat1.dlg",
+        "NpcInGame/Dlgcat2.dlg",
+        "NpcInGame/Dlgcat3.dlg",
+        "NpcInGame/Dlgcatp.dlg",
+        "NpcInGame/Dlgdun04.dlg",
+        "NpcInGame/Dlgdun07.dlg",
+        "NpcInGame/Dlgdun08.dlg",
+        "NpcInGame/Dlgdun10.dlg",
+        "NpcInGame/Dlgdun19.dlg",
+        "NpcInGame/Dlgdun22.dlg",
+        "NpcInGame/Dlgmap1.dlg",
+        "NpcInGame/Dlgmap2.dlg",
+        "NpcInGame/Dlgmap3.dlg",
+        "NpcInGame/PartyDlg.dlg",
+    ];
     println!("Saving dialogs...");
-    let dialogs = dialog::read_dialogs(&main_path.join("NpcInGame/Dlgcat1.dlg"))?; // fixtures/Dispel/NpcInGame/*.dlg
-    save_dialogs(&conn, &dialogs)?;
+    for dialog_file in dialog_files {
+        let dialogs = dialog::read_dialogs(&main_path.join(dialog_file))?;
+        save_dialogs(&conn, dialog_file, &dialogs)?;
+    }
 
     println!("Saving weapons...");
     let weapons =

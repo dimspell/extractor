@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS dialogs(
+    dialog_file TEXT,
     id INTEGER,
     previous_event_id INTEGER,
     next_dialog_to_check INTEGER,

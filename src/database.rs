@@ -586,19 +586,20 @@ fn add_party_pgp(conn: &Connection, party_pgp: &PartyPgp) -> Result<()> {
     Ok(())
 }
 
-pub fn save_dialogs(conn: &Connection, dialogs: &Vec<Dialog>) -> Result<()> {
+pub fn save_dialogs(conn: &Connection, dialog_file: &str, dialogs: &Vec<Dialog>) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_dialogs.sql"))?;
 
     for dialog in dialogs {
-        add_dialog(conn, dialog)?;
+        add_dialog(conn, dialog_file, dialog)?;
     }
     Ok(())
 }
 
-fn add_dialog(conn: &Connection, dialog: &Dialog) -> Result<()> {
+fn add_dialog(conn: &Connection, dialog_file: &str, dialog: &Dialog) -> Result<()> {
     conn.execute(
         include_str!("queries/insert_dialog.sql"),
         params![
+            dialog_file,
             dialog.id,
             dialog.previous_event_id,
             dialog.next_dialog_to_check,

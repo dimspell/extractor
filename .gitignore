@@ -2,3 +2,4 @@
 /fixtures
 *.png
 *.sqlite
+*.sqlite-*
