@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS extra_refs
 (
+    file_path              TEXT,
     id                     INTEGER,
     number_in_file         INTEGER,
     ext_id                 INTEGER,
@@ -19,5 +20,5 @@ CREATE TABLE IF NOT EXISTS extra_refs
     item_count             INTEGER,
     event_id               INTEGER,
     message_id             INTEGER,
-    visibility             BOOLEAN
-)
+    visibility             INTEGER
+);

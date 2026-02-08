@@ -1,12 +1,11 @@
 use crate::database::{
-    save_draw_items, save_edit_items, save_event_items, save_events, save_extra_refs, save_extras,
-    save_heal_items, save_map_inis, save_maps, save_misc_items, save_monster_inis,
-    save_monster_refs, save_monsters, save_npc_inis, save_npc_refs, save_party_refs, save_stores,
-    save_wave_inis, save_weapons,
+    save_dialogs, save_draw_items, save_edit_items, save_event_items, save_event_npc_refs,
+    save_events, save_extra_refs, save_extras, save_heal_items, save_map_inis, save_maps,
+    save_misc_items, save_monster_inis, save_monster_refs, save_monsters, save_npc_inis,
+    save_npc_refs, save_party_pgps, save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
-use crate::references::references::{read_event_npc_ref, read_mutli_magic_db, read_party_level_db};
-use database::{save_dialogs, save_party_pgps};
+use crate::references::references::{read_mutli_magic_db, read_party_level_db};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
@@ -18,9 +17,9 @@ pub mod sprite;
 pub mod tileset;
 
 use crate::references::{
-    all_map_ini, dialog, draw_item, edit_item_db, event_ini, event_item_db, extra_ini, extra_ref,
-    heal_item_db, map_ini, misc_item_db, monster_db, monster_ini, monster_ref, npc_ini, npc_ref,
-    party_pgp, party_ref, store_db, wave_ini, weapons_db,
+    all_map_ini, dialog, draw_item, edit_item_db, event_ini, event_item_db, event_npc_ref,
+    extra_ini, extra_ref, heal_item_db, map_ini, misc_item_db, monster_db, monster_ini,
+    monster_ref, npc_ini, npc_ref, party_pgp, party_ref, store_db, wave_ini, weapons_db,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -46,19 +45,31 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Map related operations
-    #[command(about = "Extract and render map assets", long_about = "Operations for handling binary .MAP files and their associated .GTL/.BTL tilesets.\n\nUsage Examples:\n  dispel-extractor map tiles cat1.gtl\n  dispel-extractor map atlas cat1.gtl atlas.png\n  dispel-extractor map render --map cat1.map --btl cat1.btl --gtl cat1.gtl --output map.png")]
+    #[command(
+        about = "Extract and render map assets",
+        long_about = "Operations for handling binary .MAP files and their associated .GTL/.BTL tilesets.\n\nUsage Examples:\n  dispel-extractor map tiles cat1.gtl\n  dispel-extractor map atlas cat1.gtl atlas.png\n  dispel-extractor map render --map cat1.map --btl cat1.btl --gtl cat1.gtl --output map.png"
+    )]
     Map(MapArgs),
 
     /// Reference data extraction
-    #[command(about = "Convert game DB/INI/REF files to JSON", long_about = "Reads internal game reference files and outputs their contents as JSON for external analysis.\n\nUsage Examples:\n  dispel-extractor ref monster fixtures/Dispel/Monster.ini\n  dispel-extractor ref weapons fixtures/Dispel/CharacterInGame/weaponItem.db")]
+    #[command(
+        about = "Convert game DB/INI/REF files to JSON",
+        long_about = "Reads internal game reference files and outputs their contents as JSON for external analysis.\n\nUsage Examples:\n  dispel-extractor ref monster fixtures/Dispel/Monster.ini\n  dispel-extractor ref weapons fixtures/Dispel/CharacterInGame/weaponItem.db"
+    )]
     Ref(RefArgs),
 
     /// Database operations
-    #[command(about = "Populate SQLite database", long_about = "Initializes and populates a local 'database.sqlite' using the hardcoded paths for game fixtures.\n\nUsage Examples:\n  dispel-extractor database import")]
+    #[command(
+        about = "Populate SQLite database",
+        long_about = "Initializes and populates a local 'database.sqlite' using the hardcoded paths for game fixtures.\n\nUsage Examples:\n  dispel-extractor database import"
+    )]
     Database(DatabaseArgs),
 
     /// Sprite/Animation extraction
-    #[command(about = "Extract frames or sequences from SPR files", long_about = "Parses .SPR (Sprite) or .SPX (Animated Sprite) files.\n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spx --mode animation")]
+    #[command(
+        about = "Extract frames or sequences from SPR files",
+        long_about = "Parses .SPR (Sprite) or .SPX (Animated Sprite) files.\n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spx --mode animation"
+    )]
     Sprite {
         /// Path to the source .SPR or .SPX file
         input: String,
@@ -76,7 +87,10 @@ enum Commands {
     },
 
     /// Audio conversion
-    #[command(about = "Convert SNF audio to WAV", long_about = "Extracts the raw PCM data from an .SNF file and wraps it in a standard RIFF WAVE header.\n\nUsage Examples:\n  dispel-extractor sound track01.snf track01.wav")]
+    #[command(
+        about = "Convert SNF audio to WAV",
+        long_about = "Extracts the raw PCM data from an .SNF file and wraps it in a standard RIFF WAVE header.\n\nUsage Examples:\n  dispel-extractor sound track01.snf track01.wav"
+    )]
     Sound {
         /// Source .SNF file
         input: String,
@@ -102,13 +116,19 @@ struct MapArgs {
 #[derive(Debug, Subcommand)]
 enum MapCommands {
     /// Extract every tile as a separate image
-    #[command(about = "Extract tiles to individual files", long_about = "Parses a GTL or BTL file and outputs each 32x32 tile as 'image_N.png'.")]
+    #[command(
+        about = "Extract tiles to individual files",
+        long_about = "Parses a GTL or BTL file and outputs each 32x32 tile as 'image_N.png'."
+    )]
     Tiles {
         /// Path to a .GTL or .BTL tileset file
         input: String,
     },
     /// Create a single image containing all tiles in a grid
-    #[command(about = "Generate a tileset atlas", long_about = "Packs all tiles from a tileset into a single large atlas image.")]
+    #[command(
+        about = "Generate a tileset atlas",
+        long_about = "Packs all tiles from a tileset into a single large atlas image."
+    )]
     Atlas {
         /// Path to a .GTL or .BTL file
         input: String,
@@ -116,7 +136,10 @@ enum MapCommands {
         output: String,
     },
     /// Render a full map from binary data
-    #[command(about = "Render complete game map", long_about = "Synthesizes the ground layer (GTL), building layer (BTL), and sprites into a single high-resolution image.")]
+    #[command(
+        about = "Render complete game map",
+        long_about = "Synthesizes the ground layer (GTL), building layer (BTL), and sprites into a single high-resolution image."
+    )]
     Render {
         /// The .MAP geography/collision file
         #[arg(short, long)]
@@ -139,7 +162,10 @@ enum MapCommands {
         save_sprites: bool,
     },
     /// Render a map from SQLite database
-    #[command(about = "Render map from database", long_about = "Renders a map image using tile data from SQLite database and atlas PNG files.")]
+    #[command(
+        about = "Render map from database",
+        long_about = "Renders a map image using tile data from SQLite database and atlas PNG files."
+    )]
     FromDb {
         /// Path to the SQLite database file
         #[arg(short, long, default_value = "database.sqlite")]
@@ -240,7 +266,10 @@ struct DatabaseArgs {
 #[derive(Debug, Subcommand)]
 enum DatabaseCommands {
     /// Wipe and re-import all game data from fixtures/
-    #[command(about = "Import all reference files to SQLite", long_about = "Reads all standard game files from 'fixtures/Dispel' and saves them to 'database.sqlite'.")]
+    #[command(
+        about = "Import all reference files to SQLite",
+        long_about = "Reads all standard game files from 'fixtures/Dispel' and saves them to 'database.sqlite'."
+    )]
     Import {},
 }
 
@@ -459,8 +488,8 @@ fn main() {
                 );
             }
             Some(RefCommands::EventNpcRef { input }) => {
-                let data =
-                    read_event_npc_ref(&Path::new(input)).expect("ERROR: could not read file");
+                let data = event_npc_ref::read_event_npc_ref(&Path::new(input))
+                    .expect("ERROR: could not read file");
                 println!(
                     "{}",
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")
@@ -587,7 +616,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving party_pgps...");
     let party_pgps = party_pgp::read_party_pgps(&main_path.join("NpcInGame/PartyPgp.pgp"))?;
     save_party_pgps(&conn, &party_pgps)?;
-    
+
     let dialog_files = [
         "NpcInGame/Dlgcat1.dlg",
         "NpcInGame/Dlgcat2.dlg",
@@ -611,22 +640,75 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("Saving weapons...");
-    let weapons =
-        weapons_db::read_weapons_db(&main_path.join("CharacterInGame/weaponItem.db"))?;
+    let weapons = weapons_db::read_weapons_db(&main_path.join("CharacterInGame/weaponItem.db"))?;
     save_weapons(&conn, &weapons)?;
     println!("Saving stores...");
     let stores = store_db::read_store_db(&main_path.join("CharacterInGame/STORE.DB"))?;
     save_stores(&conn, &stores)?;
+
+    let npc_ref_files = [
+        "NpcInGame/Npccat1.ref",
+        "NpcInGame/Npccat2.ref",
+        "NpcInGame/Npccat3.ref",
+        "NpcInGame/Npccatp.ref",
+        "NpcInGame/npcdun08.ref",
+        "NpcInGame/npcdun19.ref",
+        "NpcInGame/Npcmap1.ref",
+        "NpcInGame/Npcmap2.ref",
+        "NpcInGame/Npcmap3.ref",
+    ];
     println!("Saving npcrefs...");
-    let npcrefs = npc_ref::read_npc_ref(&main_path.join("NpcInGame/Npccat1.ref"))?; // fixtures/Dispel/NpcInGame/*.ref
-    save_npc_refs(&conn, &npcrefs)?;
+    for npc_ref_file in npc_ref_files {
+        let npcrefs = npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?; // fixtures/Dispel/NpcInGame/*.ref
+        save_npc_refs(&conn, npc_ref_file, &npcrefs)?;
+    }
+
+    println!("Saving event_npc_refs...");
+    let event_npc_refs =
+        event_npc_ref::read_event_npc_ref(&main_path.join("NpcInGame/Eventnpc.ref"))?;
+    save_event_npc_refs(&conn, &event_npc_refs)?;
+
     println!("Saving monsters...");
     let monsters = monster_db::read_monster_db(&main_path.join("MonsterInGame/Monster.db"))?;
     save_monsters(&conn, &monsters)?;
+
+    let monster_ref_files = [
+        "MonsterInGame/Mondun01.ref",
+        "MonsterInGame/Mondun02.ref",
+        "MonsterInGame/mondun03.ref",
+        "MonsterInGame/mondun04.ref",
+        "MonsterInGame/Mondun05.ref",
+        "MonsterInGame/mondun06.ref",
+        "MonsterInGame/mondun07.ref",
+        "MonsterInGame/mondun08.ref",
+        "MonsterInGame/mondun09.ref",
+        "MonsterInGame/Mondun10.ref",
+        "MonsterInGame/mondun11.ref",
+        "MonsterInGame/mondun12.ref",
+        "MonsterInGame/mondun13.ref",
+        "MonsterInGame/Mondun14.ref",
+        "MonsterInGame/mondun15.ref",
+        "MonsterInGame/mondun16.ref",
+        "MonsterInGame/mondun17.ref",
+        "MonsterInGame/mondun18.ref",
+        "MonsterInGame/Mondun19.ref",
+        "MonsterInGame/mondun20.ref",
+        "MonsterInGame/mondun21.ref",
+        "MonsterInGame/mondun22.ref",
+        "MonsterInGame/mondun23.ref",
+        "MonsterInGame/mondun24.ref",
+        "MonsterInGame/mondun25.ref",
+        "MonsterInGame/monfinal.ref",
+        "MonsterInGame/Monmap1.ref",
+        "MonsterInGame/Monmap2.ref",
+        "MonsterInGame/Monmap3.ref",
+    ];
     println!("Saving monster_refs...");
-    let monster_refs =
-        monster_ref::read_monster_ref(&main_path.join("MonsterInGame/Mondun01.ref"))?; // fixtures/Dispel/MonsterInGame/*.ref
-    save_monster_refs(&conn, &monster_refs)?;
+    for monster_ref_file in monster_ref_files {
+        let monster_refs = monster_ref::read_monster_ref(&main_path.join(monster_ref_file))?; // fixtures/Dispel/MonsterInGame/*.ref
+        save_monster_refs(&conn, monster_ref_file, &monster_refs)?;
+    }
+
     println!("Saving misc_items...");
     let misc_items =
         misc_item_db::read_misc_item_db(&main_path.join("CharacterInGame/MiscItem.db"))?;
@@ -635,9 +717,43 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let heal_items =
         heal_item_db::read_heal_item_db(&main_path.join("CharacterInGame/HealItem.db"))?;
     save_heal_items(&conn, &heal_items)?;
+    let extra_ref_files = [
+        "ExtraInGame/Extdun01.ref",
+        "ExtraInGame/Extdun02.ref",
+        "ExtraInGame/Extdun03.ref",
+        "ExtraInGame/Extdun04.ref",
+        "ExtraInGame/Extdun05.ref",
+        "ExtraInGame/Extdun06.ref",
+        "ExtraInGame/Extdun07.ref",
+        "ExtraInGame/Extdun08.ref",
+        "ExtraInGame/Extdun09.ref",
+        "ExtraInGame/Extdun10.ref",
+        "ExtraInGame/Extdun11.ref",
+        "ExtraInGame/Extdun12.ref",
+        "ExtraInGame/Extdun13.ref",
+        "ExtraInGame/Extdun14.ref",
+        "ExtraInGame/Extdun15.ref",
+        "ExtraInGame/Extdun16.ref",
+        "ExtraInGame/Extdun17.ref",
+        "ExtraInGame/Extdun18.ref",
+        "ExtraInGame/Extdun19.ref",
+        "ExtraInGame/Extdun20.ref",
+        "ExtraInGame/Extdun21.ref",
+        "ExtraInGame/Extdun22.ref",
+        "ExtraInGame/Extdun23.ref",
+        "ExtraInGame/Extdun24.ref",
+        "ExtraInGame/Extdun25.ref",
+        "ExtraInGame/Extfinal.ref",
+        "ExtraInGame/Extmap1.ref",
+        "ExtraInGame/Extmap2.ref",
+        "ExtraInGame/Extmap3.ref",
+    ];
     println!("Saving extra_refs...");
-    let extra_refs = extra_ref::read_extra_ref(&main_path.join("ExtraInGame/Extdun01.ref"))?; // fixtures/Dispel/ExtraInGame/*.ref
-    save_extra_refs(&conn, &extra_refs)?;
+    for extra_ref_file in extra_ref_files {
+        let extra_refs = extra_ref::read_extra_ref(&main_path.join(extra_ref_file))?;
+        save_extra_refs(&conn, extra_ref_file, &extra_refs)?;
+    }
+
     println!("Saving event_items...");
     let event_items =
         event_item_db::read_event_item_db(&main_path.join("CharacterInGame/EventItem.db"))?;
@@ -646,13 +762,6 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let edit_items =
         edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
     save_edit_items(&conn, &edit_items)?;
-
-    // println!("Saving map_tiles...");
-    // let map_tiles =
-    //     map_tile_db::read_map_tile_db(&Path::new("fixtures/Dispel/Map/cat1.map"))?;
-    // save_map_tiles(&conn, &map_tiles)?;
-    // save_maps(&conn, &maps).unwrap();
-    // save_events(&conn, &events).unwrap();
 
     conn.close().unwrap();
 

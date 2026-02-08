@@ -1,5 +1,7 @@
-CREATE TABLE IF NOT EXISTS npc_refs
+DROP TABLE IF EXISTS npc_refs;
+CREATE TABLE npc_refs
 (
+    file_path         TEXT,
     row_id            INTEGER,
     id                INTEGER,
     npc_id            INTEGER,
@@ -20,4 +22,4 @@ CREATE TABLE IF NOT EXISTS npc_refs
     goto4_y           INTEGER,
     looking_direction INTEGER,
     dialog_id         INTEGER
-)
+);

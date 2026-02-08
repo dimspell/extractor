@@ -4,6 +4,7 @@ pub mod draw_item;
 pub mod edit_item_db;
 pub mod event_ini;
 pub mod event_item_db;
+pub mod event_npc_ref;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod heal_item_db;

@@ -5,8 +5,6 @@ use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use encoding_rs::{EUC_KR, WINDOWS_1250};
-use encoding_rs_io::DecodeReaderBytesBuilder;
-use serde::Serialize;
 
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
     // Find the first null byte (or use a fixed length if no null terminator)
@@ -116,37 +114,6 @@ pub fn read_party_ini_db() {
 //     // 30 times ?
 
 //     todo!(); // Eventnpc.ref
-
-#[derive(Debug, Serialize)]
-pub struct EventNpcRef {
-    id: i32,
-    event_id: i32,
-    name: String,
-}
-
-pub fn read_event_npc_ref(source_path: &Path) -> Result<Vec<EventNpcRef>> {
-    let f = File::open(source_path)?;
-    let reader = BufReader::new(
-        DecodeReaderBytesBuilder::new()
-            .encoding(Some(WINDOWS_1250))
-            .build(f),
-    );
-    let npc_refs: Vec<EventNpcRef> = Vec::new();
-    for line in reader.lines() {
-        match line {
-            Ok(line) => {
-                if line.starts_with(";") {
-                    continue;
-                }
-                println!("{line}");
-            }
-            _ => {
-                println!("{:?}", line);
-            }
-        }
-    }
-    Ok(npc_refs)
-}
 
 fn read_multi_monster_db() {
     todo!();

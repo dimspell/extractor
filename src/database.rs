@@ -7,6 +7,7 @@ use crate::references::draw_item::DrawItem;
 use crate::references::edit_item_db::EditItem;
 use crate::references::event_ini::Event;
 use crate::references::event_item_db::EventItem;
+use crate::references::event_npc_ref::EventNpcRef;
 use crate::references::extra_ini::Extra;
 use crate::references::extra_ref::ExtraRef;
 use crate::references::heal_item_db::HealItem;
@@ -24,19 +25,20 @@ use crate::references::wave_ini::WaveIni;
 use crate::references::weapons_db::WeaponItem;
 use rusqlite::{params, Connection, Result};
 
-pub fn save_npc_refs(conn: &Connection, npc_refs: &Vec<NPC>) -> Result<()> {
+pub fn save_npc_refs(conn: &Connection, file_path: &str, npc_refs: &Vec<NPC>) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
 
     for npc in npc_refs {
-        add_npc_ref(conn, npc)?;
+        add_npc_ref(conn, file_path, npc)?;
     }
     Ok(())
 }
 
-fn add_npc_ref(conn: &Connection, npc: &NPC) -> Result<()> {
+fn add_npc_ref(conn: &Connection, file_path: &str, npc: &NPC) -> Result<()> {
     conn.execute(
         include_str!("queries/insert_npc_ref.sql"),
         params![
+            file_path,
             npc.index,
             npc.id,
             npc.npc_id,
@@ -62,19 +64,24 @@ fn add_npc_ref(conn: &Connection, npc: &NPC) -> Result<()> {
     Ok(())
 }
 
-pub fn save_monster_refs(conn: &Connection, monster_refs: &Vec<MonsterRef>) -> Result<()> {
+pub fn save_monster_refs(
+    conn: &Connection,
+    file_path: &str,
+    monster_refs: &Vec<MonsterRef>,
+) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_monster_refs.sql"))?;
 
     for monster_ref in monster_refs {
-        add_monster_ref(conn, monster_ref)?;
+        add_monster_ref(conn, file_path, monster_ref)?;
     }
     Ok(())
 }
 
-fn add_monster_ref(conn: &Connection, monster_ref: &MonsterRef) -> Result<()> {
+fn add_monster_ref(conn: &Connection, file_path: &str, monster_ref: &MonsterRef) -> Result<()> {
     conn.execute(
         include_str!("queries/insert_monster_ref.sql"),
         params![
+            file_path,
             monster_ref.index,
             monster_ref.file_id,
             monster_ref.mon_id,
@@ -91,19 +98,24 @@ fn add_monster_ref(conn: &Connection, monster_ref: &MonsterRef) -> Result<()> {
     Ok(())
 }
 
-pub fn save_extra_refs(conn: &Connection, extra_refs: &Vec<ExtraRef>) -> Result<()> {
+pub fn save_extra_refs(
+    conn: &Connection,
+    file_path: &str,
+    extra_refs: &Vec<ExtraRef>,
+) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_extra_refs.sql"))?;
 
     for extra_ref in extra_refs {
-        add_extra_ref(conn, extra_ref)?;
+        add_extra_ref(conn, file_path, extra_ref)?;
     }
     Ok(())
 }
 
-fn add_extra_ref(conn: &Connection, extra_ref: &ExtraRef) -> Result<()> {
+fn add_extra_ref(conn: &Connection, file_path: &str, extra_ref: &ExtraRef) -> Result<()> {
     conn.execute(
         include_str!("queries/insert_extra_ref.sql"),
         params![
+            file_path,
             extra_ref.id,
             extra_ref.number_in_file,
             extra_ref.ext_id,
@@ -214,6 +226,23 @@ fn add_event_item(conn: &Connection, item: &EventItem) -> Result<()> {
     conn.execute(
         include_str!("queries/insert_event_item.sql"),
         params![item.id, item.name, item.description,],
+    )?;
+    Ok(())
+}
+
+pub fn save_event_npc_refs(conn: &Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
+    conn.execute_batch(include_str!("queries/create_table_event_npc_refs.sql"))?;
+
+    for npc in npc_refs {
+        add_event_npc_ref(conn, npc)?;
+    }
+    Ok(())
+}
+
+fn add_event_npc_ref(conn: &Connection, npc: &EventNpcRef) -> Result<()> {
+    conn.execute(
+        include_str!("queries/insert_event_npc_ref.sql"),
+        params![npc.id, npc.event_id, npc.name],
     )?;
     Ok(())
 }
