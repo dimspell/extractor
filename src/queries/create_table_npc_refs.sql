@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS npc_refs;
 CREATE TABLE npc_refs
 (
     file_path         TEXT,

@@ -1,4 +1,3 @@
--- DROP TABLE stores;
 CREATE TABLE IF NOT EXISTS stores
 (
     id                  INTEGER,

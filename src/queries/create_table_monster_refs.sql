@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS monster_refs;
 CREATE TABLE monster_refs
 (
     file_path       TEXT,

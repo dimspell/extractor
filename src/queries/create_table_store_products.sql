@@ -1,4 +1,3 @@
--- DROP TABLE store_products;
 CREATE TABLE IF NOT EXISTS store_products
 (
     store_id     INTEGER,

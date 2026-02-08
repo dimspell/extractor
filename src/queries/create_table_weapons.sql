@@ -1,4 +1,3 @@
--- DROP TABLE weapons;
 CREATE TABLE IF NOT EXISTS weapons
 (
     id            INTEGER,

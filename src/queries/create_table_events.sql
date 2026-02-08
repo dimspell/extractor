@@ -1,4 +1,3 @@
--- DROP TABLE events;
 CREATE TABLE IF NOT EXISTS events
 (
     event_id          INTEGER,

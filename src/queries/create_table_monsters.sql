@@ -1,4 +1,3 @@
-DROP TABLE IF EXISTS monsters;
 CREATE TABLE monsters
 (
     id                      INTEGER PRIMARY KEY,

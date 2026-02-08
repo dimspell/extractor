@@ -1,7 +1,7 @@
 use crate::database::{
-    save_dialogs, save_draw_items, save_edit_items, save_event_items, save_event_npc_refs,
-    save_events, save_extra_refs, save_extras, save_heal_items, save_map_inis, save_maps,
-    save_misc_items, save_monster_inis, save_monster_refs, save_monsters, save_npc_inis,
+    initialize_database, save_dialogs, save_draw_items, save_edit_items, save_event_items,
+    save_event_npc_refs, save_events, save_extra_refs, save_extras, save_heal_items, save_map_inis,
+    save_maps, save_misc_items, save_monster_inis, save_monster_refs, save_monsters, save_npc_inis,
     save_npc_refs, save_party_pgps, save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
@@ -583,6 +583,8 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving all data...");
 
     let conn = Connection::open("database.sqlite")?;
+
+    initialize_database(&conn)?;
 
     let main_path = Path::new("fixtures/Dispel");
 
