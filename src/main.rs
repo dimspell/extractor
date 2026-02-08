@@ -6,6 +6,7 @@ use crate::database::{
     save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
+use crate::references::party_ini_db::read_party_ini_db;
 use crate::references::party_level_db::read_party_level_db;
 use crate::references::references::read_mutli_magic_db;
 use rusqlite::Connection;
@@ -267,6 +268,8 @@ enum RefCommands {
     EditItems { input: String },
     /// Read PartyLevel.db (EXP Tables)
     PartyLevel { input: String },
+    /// Read PrtIni.db (Party NPC Metadata)
+    PartyIni { input: String },
     /// Read EventNpc.ref (Event-specific NPC placements)
     EventNpcRef { input: String },
 }
@@ -578,6 +581,14 @@ fn main() {
             Some(RefCommands::PartyLevel { input }) => {
                 let data =
                     read_party_level_db(&Path::new(input)).expect("ERROR: could not read file");
+                println!(
+                    "{}",
+                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                );
+            }
+            Some(RefCommands::PartyIni { input }) => {
+                let data =
+                    read_party_ini_db(&Path::new(input)).expect("ERROR: could not read file");
                 println!(
                     "{}",
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")

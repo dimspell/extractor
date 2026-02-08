@@ -96,10 +96,7 @@ pub fn parse_int(s: &str) -> Option<i32> {
 // title
 // description
 
-pub fn read_party_ini_db() {
-    // ? something about party members
-    todo!(); // PrtIni.db
-}
+//     todo!(); // Eventnpc.ref
 
 //     // NPCs used only in events
 //     //

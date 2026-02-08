@@ -73,8 +73,14 @@ ref-multi-magic:
 ref-party-level:
 	cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
 
-ref-party-level:
+ref-event-npc-ref:
 	cargo run -- ref event-npc-ref "fixtures/Dispel/NpcInGame/Eventnpc.ref"
+
+ref-party-level:
+	cargo run -- ref party-level fixtures/Dispel/NpcInGame/PrtLevel.db
+
+ref-party-ini:
+	cargo run -- ref party-ini fixtures/Dispel/NpcInGame/PrtIni.db
 
 refs-help:
 	cargo run -- ref --help
