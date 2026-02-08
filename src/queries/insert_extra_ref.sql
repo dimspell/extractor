@@ -1,4 +1,4 @@
-INSERT INTO extra_refs(id,
+INSERT OR REPLACE INTO extra_refs(id,
                        number_in_file,
                        ext_id,
                        name,

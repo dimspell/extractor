@@ -1,4 +1,4 @@
-INSERT INTO maps(id,
+INSERT OR REPLACE INTO maps(id,
                  map_filename,
                  map_name,
                  pgp_filename,

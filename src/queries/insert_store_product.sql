@@ -1,4 +1,4 @@
-INSERT INTO store_products(store_id,
+INSERT OR REPLACE INTO store_products(store_id,
                            order_id,
                            product_type,
                            product_id)

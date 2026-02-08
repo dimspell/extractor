@@ -1,4 +1,4 @@
-INSERT INTO npc_refs(row_id,
+INSERT OR REPLACE INTO npc_refs(row_id,
                      id,
                      npc_id,
                      name,

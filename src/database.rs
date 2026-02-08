@@ -25,7 +25,7 @@ use crate::references::weapons_db::WeaponItem;
 use rusqlite::{params, Connection, Result};
 
 pub fn save_npc_refs(conn: &Connection, npc_refs: &Vec<NPC>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_npc_refs.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
 
     for npc in npc_refs {
         add_npc_ref(conn, npc)?;
@@ -63,7 +63,7 @@ fn add_npc_ref(conn: &Connection, npc: &NPC) -> Result<()> {
 }
 
 pub fn save_monster_refs(conn: &Connection, monster_refs: &Vec<MonsterRef>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_monster_refs.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_monster_refs.sql"))?;
 
     for monster_ref in monster_refs {
         add_monster_ref(conn, monster_ref)?;
@@ -92,7 +92,7 @@ fn add_monster_ref(conn: &Connection, monster_ref: &MonsterRef) -> Result<()> {
 }
 
 pub fn save_extra_refs(conn: &Connection, extra_refs: &Vec<ExtraRef>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_extra_refs.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_extra_refs.sql"))?;
 
     for extra_ref in extra_refs {
         add_extra_ref(conn, extra_ref)?;
@@ -130,7 +130,7 @@ fn add_extra_ref(conn: &Connection, extra_ref: &ExtraRef) -> Result<()> {
 }
 
 pub fn save_weapons(conn: &Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_weapons.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_weapons.sql"))?;
 
     for weapon in weapons {
         add_weapon(conn, weapon)?;
@@ -167,7 +167,7 @@ fn add_weapon(conn: &Connection, weapon: &WeaponItem) -> Result<()> {
 }
 
 pub fn save_edit_items(conn: &Connection, edit_items: &Vec<EditItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_edit_items.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_edit_items.sql"))?;
 
     for item in edit_items {
         add_edit_item(conn, item)?;
@@ -202,7 +202,7 @@ fn add_edit_item(conn: &Connection, item: &EditItem) -> Result<()> {
 }
 
 pub fn save_event_items(conn: &Connection, event_items: &Vec<EventItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_event_items.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_event_items.sql"))?;
 
     for item in event_items {
         add_event_item(conn, item)?;
@@ -219,7 +219,7 @@ fn add_event_item(conn: &Connection, item: &EventItem) -> Result<()> {
 }
 
 pub fn save_misc_items(conn: &Connection, misc_items: &Vec<MiscItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_misc_items.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_misc_items.sql"))?;
 
     for item in misc_items {
         add_misc_item(conn, item)?;
@@ -236,7 +236,7 @@ fn add_misc_item(conn: &Connection, item: &MiscItem) -> Result<()> {
 }
 
 pub fn save_heal_items(conn: &Connection, heal_items: &Vec<HealItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_heal_items.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_heal_items.sql"))?;
 
     for item in heal_items {
         add_heal_item(conn, item)?;
@@ -265,8 +265,8 @@ fn add_heal_item(conn: &Connection, item: &HealItem) -> Result<()> {
 }
 
 pub fn save_stores(conn: &Connection, stores: &Vec<Store>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_stores.sql"), ())?;
-    conn.execute(include_str!("queries/create_table_store_products.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_stores.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_store_products.sql"))?;
 
     for store in stores {
         add_store(conn, store)?;
@@ -307,8 +307,7 @@ fn add_store_product(conn: &Connection, store: &Store, store_product: &StoreProd
 }
 
 pub fn save_monsters(conn: &Connection, monsters: &Vec<Monster>) -> Result<()> {
-    conn.execute("DROP TABLE IF EXISTS monsters;", ())?;
-    conn.execute(include_str!("queries/create_table_monsters.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_monsters.sql"))?;
 
     for monster in monsters {
         add_monster(conn, monster)?;
@@ -362,7 +361,7 @@ fn add_monster(conn: &Connection, monster: &Monster) -> Result<()> {
 }
 
 pub fn save_maps(conn: &Connection, maps: &Vec<Map>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_maps.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_maps.sql"))?;
 
     for map in maps {
         add_map(conn, map)?;
@@ -386,7 +385,7 @@ fn add_map(conn: &Connection, map: &Map) -> Result<()> {
 }
 
 pub fn save_events(conn: &Connection, events: &Vec<Event>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_events.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
 
     for event in events {
         add_event(conn, event)?;
@@ -409,7 +408,7 @@ fn add_event(conn: &Connection, event: &Event) -> Result<()> {
 }
 
 pub fn save_extras(conn: &Connection, extras: &Vec<Extra>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_extras.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_extras.sql"))?;
 
     for extra in extras {
         add_extra(conn, extra)?;
@@ -431,7 +430,7 @@ fn add_extra(conn: &Connection, extra: &Extra) -> Result<()> {
 }
 
 pub fn save_monster_inis(conn: &Connection, monster_inis: &Vec<MonsterIni>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_monster_inis.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_monster_inis.sql"))?;
 
     for monster_ini in monster_inis {
         add_monster_ini(conn, monster_ini)?;
@@ -457,7 +456,7 @@ fn add_monster_ini(conn: &Connection, monster_ini: &MonsterIni) -> Result<()> {
 }
 
 pub fn save_npc_inis(conn: &Connection, npc_inis: &Vec<NpcIni>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_npc_inis.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_npc_inis.sql"))?;
 
     for npc_ini in npc_inis {
         add_npc_ini(conn, npc_ini)?;
@@ -474,7 +473,7 @@ fn add_npc_ini(conn: &Connection, npc_ini: &NpcIni) -> Result<()> {
 }
 
 pub fn save_wave_inis(conn: &Connection, wave_inis: &Vec<WaveIni>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_wave_inis.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_wave_inis.sql"))?;
 
     for wave_ini in wave_inis {
         add_wave_ini(conn, wave_ini)?;
@@ -491,7 +490,7 @@ fn add_wave_ini(conn: &Connection, wave_ini: &WaveIni) -> Result<()> {
 }
 
 pub fn save_map_inis(conn: &Connection, map_inis: &Vec<MapIni>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_map_inis.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
 
     for map_ini in map_inis {
         add_map_ini(conn, map_ini)?;
@@ -518,7 +517,7 @@ fn add_map_ini(conn: &Connection, map_ini: &MapIni) -> Result<()> {
 }
 
 pub fn save_party_refs(conn: &Connection, party_refs: &Vec<PartyRef>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_party_refs.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
 
     for party_ref in party_refs {
         add_party_ref(conn, party_ref)?;
@@ -544,7 +543,7 @@ fn add_party_ref(conn: &Connection, party_ref: &PartyRef) -> Result<()> {
 }
 
 pub fn save_draw_items(conn: &Connection, draw_items: &Vec<DrawItem>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_draw_items.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_draw_items.sql"))?;
 
     for draw_item in draw_items {
         add_draw_item(conn, draw_item)?;
@@ -566,7 +565,7 @@ fn add_draw_item(conn: &Connection, draw_item: &DrawItem) -> Result<()> {
 }
 
 pub fn save_party_pgps(conn: &Connection, party_pgps: &Vec<PartyPgp>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_party_pgps.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_party_pgps.sql"))?;
 
     for party_pgp in party_pgps {
         add_party_pgp(conn, party_pgp)?;
@@ -588,7 +587,7 @@ fn add_party_pgp(conn: &Connection, party_pgp: &PartyPgp) -> Result<()> {
 }
 
 pub fn save_dialogs(conn: &Connection, dialogs: &Vec<Dialog>) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_dialogs.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_dialogs.sql"))?;
 
     for dialog in dialogs {
         add_dialog(conn, dialog)?;
@@ -621,7 +620,7 @@ pub fn save_map_tiles(
     width: i32,
     height: i32,
 ) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_map_tiles.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
 
     let mut stmt = conn.prepare(include_str!("queries/insert_map_tile.sql"))?;
 
@@ -665,7 +664,7 @@ pub fn save_map_objects(
     map_id: &str,
     tiled_infos: &Vec<crate::map::TiledObjectInfo>,
 ) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_map_objects.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
 
     let mut stmt = conn.prepare(include_str!("queries/insert_map_object.sql"))?;
 
@@ -690,7 +689,7 @@ pub fn save_map_sprites(
     map_id: &str,
     sprite_blocks: &Vec<crate::map::SpriteInfoBlock>,
 ) -> Result<()> {
-    conn.execute(include_str!("queries/create_table_map_sprites.sql"), ())?;
+    conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
 
     let mut stmt = conn.prepare(include_str!("queries/insert_map_sprite.sql"))?;
 

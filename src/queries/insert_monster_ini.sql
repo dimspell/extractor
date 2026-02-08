@@ -1,4 +1,4 @@
-INSERT INTO monster_inis(id,
+INSERT OR REPLACE INTO monster_inis(id,
                         name,
                         sprite_filename,
                         attack,

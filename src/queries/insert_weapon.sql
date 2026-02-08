@@ -1,4 +1,4 @@
-INSERT INTO weapons(id,
+INSERT OR REPLACE INTO weapons(id,
                     name,
                     description,
                     base_price,

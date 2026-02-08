@@ -1,4 +1,4 @@
-INSERT INTO stores(id,
+INSERT OR REPLACE INTO stores(id,
                    store_name,
                    inn_night_cost,
                    some_unknown_number,

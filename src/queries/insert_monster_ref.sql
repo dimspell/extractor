@@ -1,4 +1,4 @@
-INSERT INTO monster_refs(id,
+INSERT OR REPLACE INTO monster_refs(id,
                          file_id,
                          mon_id,
                          pos_x,

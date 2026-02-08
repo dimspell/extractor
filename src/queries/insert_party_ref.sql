@@ -1,4 +1,4 @@
-INSERT INTO party_refs(id,
+INSERT OR REPLACE INTO party_refs(id,
                       full_name,
                       job_name,
                       root_map_id,

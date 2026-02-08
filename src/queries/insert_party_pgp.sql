@@ -1,4 +1,4 @@
-INSERT INTO party_pgps(
+INSERT OR REPLACE INTO party_pgps(
     id,
     dialog_text,
     unknown_id1,

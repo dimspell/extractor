@@ -1,4 +1,4 @@
-INSERT INTO dialogs(
+INSERT OR REPLACE INTO dialogs(
     id,
     previous_event_id,
     next_dialog_to_check,

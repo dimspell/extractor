@@ -1,4 +1,4 @@
-INSERT INTO map_inis(id,
+INSERT OR REPLACE INTO map_inis(id,
                      event_id_on_camera_move,
                      start_pos_x,
                      start_pos_y,

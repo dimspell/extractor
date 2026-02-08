@@ -1,4 +1,4 @@
-INSERT INTO monsters(id,
+INSERT OR REPLACE INTO monsters(id,
                      name,
                      health_points_max,
                      health_points_min,

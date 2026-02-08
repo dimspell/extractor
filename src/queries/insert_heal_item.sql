@@ -1,4 +1,4 @@
-INSERT INTO heal_items(id,
+INSERT OR REPLACE INTO heal_items(id,
                        name,
                        description,
                        base_price,
