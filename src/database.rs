@@ -29,6 +29,15 @@ use crate::references::weapons_db::WeaponItem;
 use rusqlite::{params, Connection, Result};
 
 pub fn initialize_database(conn: &Connection) -> Result<()> {
+    // Optimization PRAGMAs
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA cache_size = -64000;
+         PRAGMA temp_store = MEMORY;
+         PRAGMA mmap_size = 30000000000;",
+    )?;
+
     let tables = vec![
         "dialogue_texts",
         "dialogs",
