@@ -284,12 +284,21 @@ struct DatabaseArgs {
 
 #[derive(Debug, Subcommand)]
 enum DatabaseCommands {
-    /// Wipe and re-import all game data from fixtures/
     #[command(
         about = "Import all reference files to SQLite",
         long_about = "Reads all standard game files from 'fixtures/Dispel' and saves them to 'database.sqlite'."
     )]
     Import {},
+    /// Import dialog texts only
+    DialogTexts {},
+    /// Import maps and their tiles only
+    Maps {},
+    /// Import item and character databases (.db files)
+    Databases {},
+    /// Import reference configuration files (INI files)
+    Refs {},
+    /// Import the rest (REF/PGP files)
+    Rest {},
 }
 
 fn main() {
@@ -600,6 +609,31 @@ fn main() {
             Some(DatabaseCommands::Import {}) => {
                 save_all().expect("ERROR: could not import all data")
             }
+            Some(DatabaseCommands::DialogTexts {}) => {
+                let mut conn =
+                    Connection::open("database.sqlite").expect("ERROR: could not open database");
+                import_dialog_texts(&mut conn).expect("ERROR: could not import dialog texts")
+            }
+            Some(DatabaseCommands::Maps {}) => {
+                let mut conn =
+                    Connection::open("database.sqlite").expect("ERROR: could not open database");
+                import_maps(&mut conn).expect("ERROR: could not import maps")
+            }
+            Some(DatabaseCommands::Databases {}) => {
+                let mut conn =
+                    Connection::open("database.sqlite").expect("ERROR: could not open database");
+                import_databases(&mut conn).expect("ERROR: could not import databases")
+            }
+            Some(DatabaseCommands::Refs {}) => {
+                let mut conn =
+                    Connection::open("database.sqlite").expect("ERROR: could not open database");
+                import_refs(&mut conn).expect("ERROR: could not import refs")
+            }
+            Some(DatabaseCommands::Rest {}) => {
+                let mut conn =
+                    Connection::open("database.sqlite").expect("ERROR: could not open database");
+                import_rest(&mut conn).expect("ERROR: could not import rest")
+            }
             None => {}
         },
         None => {}
@@ -613,11 +647,22 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
 
     initialize_database(&conn)?;
 
-    let main_path = Path::new("fixtures/Dispel");
+    import_maps(&mut conn)?;
+    import_refs(&mut conn)?;
+    import_rest(&mut conn)?;
+    import_dialog_texts(&mut conn)?;
+    import_databases(&mut conn)?;
 
+    conn.close().unwrap();
+
+    Ok(())
+}
+
+fn import_maps(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let main_path = Path::new("fixtures/Dispel");
     println!("Saving maps...");
     let maps = all_map_ini::read_all_map_ini(&main_path.join("AllMap.ini"))?;
-    save_maps(&conn, &maps)?;
+    save_maps(conn, &maps)?;
 
     println!("Importing all .map files...");
     let map_dir = main_path.join("Map");
@@ -670,7 +715,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
                         let mut reader = std::io::BufReader::new(file);
                         match map::read_map_data(&mut reader) {
                             Ok(map_data) => {
-                                if let Err(e) = map::save_to_db(&mut conn, map_id, &map_data) {
+                                if let Err(e) = map::save_to_db(conn, map_id, &map_data) {
                                     eprintln!(
                                         "WARNING: could not save map {} to database: {}",
                                         map_id, e
@@ -695,32 +740,32 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!("Saving map_inis...");
     let map_inis = map_ini::read_map_ini(&main_path.join("Ref/Map.ini"))?;
-    save_map_inis(&conn, &map_inis)?;
+    save_map_inis(conn, &map_inis)?;
+    Ok(())
+}
+
+fn import_refs(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let main_path = Path::new("fixtures/Dispel");
     println!("Saving extras...");
     let extras = extra_ini::read_extra_ini(&main_path.join("Extra.ini"))?;
-    save_extras(&conn, &extras)?;
+    save_extras(conn, &extras)?;
     println!("Saving events...");
     let events = event_ini::read_event_ini(&main_path.join("Event.ini"))?;
-    save_events(&conn, &events)?;
+    save_events(conn, &events)?;
     println!("Saving monster_inis...");
     let monster_inis = monster_ini::read_monster_ini(&main_path.join("Monster.ini"))?;
-    save_monster_inis(&conn, &monster_inis)?;
+    save_monster_inis(conn, &monster_inis)?;
     println!("Saving npc_inis...");
     let npc_inis = npc_ini::read_npc_ini(&main_path.join("Npc.ini"))?;
-    save_npc_inis(&conn, &npc_inis)?;
+    save_npc_inis(conn, &npc_inis)?;
     println!("Saving wave_inis...");
     let wave_inis = wave_ini::read_wave_ini(&main_path.join("Wave.ini"))?;
-    save_wave_inis(&conn, &wave_inis)?;
-    println!("Saving party_refs...");
-    let party_refs = party_ref::read_part_refs(&main_path.join("Ref/PartyRef.ref"))?;
-    save_party_refs(&conn, &party_refs)?;
-    println!("Saving draw_items...");
-    let draw_items = draw_item::read_draw_items(&main_path.join("Ref/DRAWITEM.ref"))?;
-    save_draw_items(&conn, &draw_items)?;
-    println!("Saving party_pgps...");
-    let party_pgps = party_pgp::read_party_pgps(&main_path.join("NpcInGame/PartyPgp.pgp"))?;
-    save_party_pgps(&conn, &party_pgps)?;
+    save_wave_inis(conn, &wave_inis)?;
+    Ok(())
+}
 
+fn import_dialog_texts(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let main_path = Path::new("fixtures/Dispel");
     let dialog_files = [
         "NpcInGame/Dlgcat1.dlg",
         "NpcInGame/Dlgcat2.dlg",
@@ -740,7 +785,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving dialogs...");
     for dialog_file in dialog_files {
         let dialogs = dialog::read_dialogs(&main_path.join(dialog_file))?;
-        save_dialogs(&conn, dialog_file, &dialogs)?;
+        save_dialogs(conn, dialog_file, &dialogs)?;
     }
 
     let pgp_files = [
@@ -762,15 +807,59 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving dialogue texts...");
     for pgp_file in pgp_files {
         let texts = dialogue_text::read_dialogue_texts(&main_path.join(pgp_file))?;
-        save_dialogue_texts(&conn, pgp_file, &texts)?;
+        save_dialogue_texts(conn, pgp_file, &texts)?;
     }
+    Ok(())
+}
 
+fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let main_path = Path::new("fixtures/Dispel");
     println!("Saving weapons...");
     let weapons = weapons_db::read_weapons_db(&main_path.join("CharacterInGame/weaponItem.db"))?;
-    save_weapons(&conn, &weapons)?;
+    save_weapons(conn, &weapons)?;
     println!("Saving stores...");
     let stores = store_db::read_store_db(&main_path.join("CharacterInGame/STORE.DB"))?;
-    save_stores(&conn, &stores)?;
+    save_stores(conn, &stores)?;
+    println!("Saving monsters...");
+    let monsters = monster_db::read_monster_db(&main_path.join("MonsterInGame/Monster.db"))?;
+    save_monsters(conn, &monsters)?;
+    println!("Saving misc_items...");
+    let misc_items =
+        misc_item_db::read_misc_item_db(&main_path.join("CharacterInGame/MiscItem.db"))?;
+    save_misc_items(conn, &misc_items)?;
+    println!("Saving heal_items...");
+    let heal_items =
+        heal_item_db::read_heal_item_db(&main_path.join("CharacterInGame/HealItem.db"))?;
+    save_heal_items(conn, &heal_items)?;
+    println!("Saving event_items...");
+    let event_items =
+        event_item_db::read_event_item_db(&main_path.join("CharacterInGame/EventItem.db"))?;
+    save_event_items(conn, &event_items)?;
+    println!("Saving edit_items...");
+    let edit_items =
+        edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
+    save_edit_items(conn, &edit_items)?;
+    println!("Saving party_level_db...");
+    let party_levels =
+        party_level_db::read_party_level_db(&main_path.join("NpcInGame/PrtLevel.db"))?;
+    save_party_levels(conn, &party_levels)?;
+    println!("Saving party_ini_db...");
+    let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
+    save_party_inis(conn, &party_inis)?;
+    Ok(())
+}
+
+fn import_rest(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
+    let main_path = Path::new("fixtures/Dispel");
+    println!("Saving party_refs...");
+    let party_refs = party_ref::read_part_refs(&main_path.join("Ref/PartyRef.ref"))?;
+    save_party_refs(conn, &party_refs)?;
+    println!("Saving draw_items...");
+    let draw_items = draw_item::read_draw_items(&main_path.join("Ref/DRAWITEM.ref"))?;
+    save_draw_items(conn, &draw_items)?;
+    println!("Saving party_pgps...");
+    let party_pgps = party_pgp::read_party_pgps(&main_path.join("NpcInGame/PartyPgp.pgp"))?;
+    save_party_pgps(conn, &party_pgps)?;
 
     let npc_ref_files = [
         "NpcInGame/Npccat1.ref",
@@ -785,18 +874,14 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     ];
     println!("Saving npcrefs...");
     for npc_ref_file in npc_ref_files {
-        let npcrefs = npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?; // fixtures/Dispel/NpcInGame/*.ref
-        save_npc_refs(&conn, npc_ref_file, &npcrefs)?;
+        let npcrefs = npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?;
+        save_npc_refs(conn, npc_ref_file, &npcrefs)?;
     }
 
     println!("Saving event_npc_refs...");
     let event_npc_refs =
         event_npc_ref::read_event_npc_ref(&main_path.join("NpcInGame/Eventnpc.ref"))?;
-    save_event_npc_refs(&conn, &event_npc_refs)?;
-
-    println!("Saving monsters...");
-    let monsters = monster_db::read_monster_db(&main_path.join("MonsterInGame/Monster.db"))?;
-    save_monsters(&conn, &monsters)?;
+    save_event_npc_refs(conn, &event_npc_refs)?;
 
     let monster_ref_files = [
         "MonsterInGame/Mondun01.ref",
@@ -831,19 +916,10 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     ];
     println!("Saving monster_refs...");
     for monster_ref_file in monster_ref_files {
-        let monster_refs = monster_ref::read_monster_ref(&main_path.join(monster_ref_file))?; // fixtures/Dispel/MonsterInGame/*.ref
-        save_monster_refs(&conn, monster_ref_file, &monster_refs)?;
+        let monster_refs = monster_ref::read_monster_ref(&main_path.join(monster_ref_file))?;
+        save_monster_refs(conn, monster_ref_file, &monster_refs)?;
     }
 
-    println!("Saving misc_items...");
-    let misc_items =
-        misc_item_db::read_misc_item_db(&main_path.join("CharacterInGame/MiscItem.db"))?;
-    save_misc_items(&conn, &misc_items)?;
-
-    println!("Saving heal_items...");
-    let heal_items =
-        heal_item_db::read_heal_item_db(&main_path.join("CharacterInGame/HealItem.db"))?;
-    save_heal_items(&conn, &heal_items)?;
     let extra_ref_files = [
         "ExtraInGame/Extdun01.ref",
         "ExtraInGame/Extdun02.ref",
@@ -878,29 +954,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     println!("Saving extra_refs...");
     for extra_ref_file in extra_ref_files {
         let extra_refs = extra_ref::read_extra_ref(&main_path.join(extra_ref_file))?;
-        save_extra_refs(&conn, extra_ref_file, &extra_refs)?;
+        save_extra_refs(conn, extra_ref_file, &extra_refs)?;
     }
-
-    println!("Saving event_items...");
-    let event_items =
-        event_item_db::read_event_item_db(&main_path.join("CharacterInGame/EventItem.db"))?;
-    save_event_items(&conn, &event_items)?;
-
-    println!("Saving edit_items...");
-    let edit_items =
-        edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
-    save_edit_items(&conn, &edit_items)?;
-
-    println!("Saving party_level_db...");
-    let party_levels =
-        party_level_db::read_party_level_db(&main_path.join("NpcInGame/PrtLevel.db"))?;
-    save_party_levels(&conn, &party_levels)?;
-
-    println!("Saving party_ini_db...");
-    let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
-    save_party_inis(&conn, &party_inis)?;
-
-    conn.close().unwrap();
-
     Ok(())
 }

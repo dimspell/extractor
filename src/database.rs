@@ -23,7 +23,7 @@ use crate::references::party_ini_db::PartyIniNpc;
 use crate::references::party_level_db::PartyLevelNpc;
 use crate::references::party_pgp::PartyPgp;
 use crate::references::party_ref::PartyRef;
-use crate::references::store_db::{Store, StoreProduct};
+use crate::references::store_db::Store;
 use crate::references::wave_ini::WaveIni;
 use crate::references::weapons_db::WeaponItem;
 use rusqlite::{params, Connection, Result};
@@ -109,371 +109,352 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn save_npc_refs(conn: &Connection, file_path: &str, npc_refs: &Vec<NPC>) -> Result<()> {
-    for npc in npc_refs {
-        add_npc_ref(conn, file_path, npc)?;
+pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &Vec<NPC>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_npc_ref.sql"))?;
+        for npc in npc_refs {
+            stmt.execute(params![
+                file_path,
+                npc.index,
+                npc.id,
+                npc.npc_id,
+                npc.name,
+                npc.party_script_id,
+                npc.show_on_event,
+                npc.goto1_filled,
+                npc.goto2_filled,
+                npc.goto3_filled,
+                npc.goto4_filled,
+                npc.goto1_x,
+                npc.goto2_x,
+                npc.goto3_x,
+                npc.goto4_x,
+                npc.goto1_y,
+                npc.goto2_y,
+                npc.goto3_y,
+                npc.goto4_y,
+                npc.looking_direction,
+                npc.dialog_id,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_npc_ref(conn: &Connection, file_path: &str, npc: &NPC) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_npc_ref.sql"),
-        params![
-            file_path,
-            npc.index,
-            npc.id,
-            npc.npc_id,
-            npc.name,
-            npc.party_script_id,
-            npc.show_on_event,
-            npc.goto1_filled,
-            npc.goto2_filled,
-            npc.goto3_filled,
-            npc.goto4_filled,
-            npc.goto1_x,
-            npc.goto2_x,
-            npc.goto3_x,
-            npc.goto4_x,
-            npc.goto1_y,
-            npc.goto2_y,
-            npc.goto3_y,
-            npc.goto4_y,
-            npc.looking_direction,
-            npc.dialog_id,
-        ],
-    )?;
-    Ok(())
-}
+// add_npc_ref removed as it is now inlined for performance
 
 pub fn save_monster_refs(
-    conn: &Connection,
+    conn: &mut Connection,
     file_path: &str,
     monster_refs: &Vec<MonsterRef>,
 ) -> Result<()> {
-    for monster_ref in monster_refs {
-        add_monster_ref(conn, file_path, monster_ref)?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_monster_ref.sql"))?;
+        for monster_ref in monster_refs {
+            stmt.execute(params![
+                file_path,
+                monster_ref.index,
+                monster_ref.file_id,
+                monster_ref.mon_id,
+                monster_ref.pos_x,
+                monster_ref.pos_y,
+                monster_ref.loot1_item_id,
+                monster_ref.loot1_item_type,
+                monster_ref.loot2_item_id,
+                monster_ref.loot2_item_type,
+                monster_ref.loot3_item_id,
+                monster_ref.loot3_item_type,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_monster_ref(conn: &Connection, file_path: &str, monster_ref: &MonsterRef) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_monster_ref.sql"),
-        params![
-            file_path,
-            monster_ref.index,
-            monster_ref.file_id,
-            monster_ref.mon_id,
-            monster_ref.pos_x,
-            monster_ref.pos_y,
-            monster_ref.loot1_item_id,
-            monster_ref.loot1_item_type,
-            monster_ref.loot2_item_id,
-            monster_ref.loot2_item_type,
-            monster_ref.loot3_item_id,
-            monster_ref.loot3_item_type,
-        ],
-    )?;
-    Ok(())
-}
+// add_monster_ref removed
 
 pub fn save_extra_refs(
-    conn: &Connection,
+    conn: &mut Connection,
     file_path: &str,
     extra_refs: &Vec<ExtraRef>,
 ) -> Result<()> {
-    for extra_ref in extra_refs {
-        add_extra_ref(conn, file_path, extra_ref)?;
-    }
-    Ok(())
-}
-
-fn add_extra_ref(conn: &Connection, file_path: &str, extra_ref: &ExtraRef) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_extra_ref.sql"),
-        params![
-            file_path,
-            extra_ref.id,
-            extra_ref.number_in_file,
-            extra_ref.ext_id,
-            extra_ref.name,
-            extra_ref.object_type,
-            extra_ref.x_pos,
-            extra_ref.y_pos,
-            extra_ref.rotation,
-            extra_ref.closed,
-            extra_ref.required_item_id,
-            extra_ref.required_item_type_id,
-            extra_ref.required_item_id2,
-            extra_ref.required_item_type_id2,
-            extra_ref.gold_amount,
-            extra_ref.item_id,
-            extra_ref.item_type_id,
-            extra_ref.item_count,
-            extra_ref.event_id,
-            extra_ref.message_id,
-            extra_ref.visibility,
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn save_weapons(conn: &Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
-    for weapon in weapons {
-        add_weapon(conn, weapon)?;
-    }
-    Ok(())
-}
-
-fn add_weapon(conn: &Connection, weapon: &WeaponItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_weapon.sql"),
-        params![
-            weapon.id,
-            weapon.name,
-            weapon.description,
-            weapon.base_price,
-            weapon.health_points,
-            weapon.magic_points,
-            weapon.strength,
-            weapon.agility,
-            weapon.wisdom,
-            weapon.tf,
-            weapon.unk,
-            weapon.trf,
-            weapon.attack,
-            weapon.defense,
-            weapon.mag,
-            weapon.durability,
-            weapon.req_strength,
-            weapon.req_zw,
-            weapon.req_wisdom,
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn save_edit_items(conn: &Connection, edit_items: &Vec<EditItem>) -> Result<()> {
-    for item in edit_items {
-        add_edit_item(conn, item)?;
-    }
-    Ok(())
-}
-
-fn add_edit_item(conn: &Connection, item: &EditItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_edit_item.sql"),
-        params![
-            item.index,
-            item.name,
-            item.description,
-            item.base_price,
-            item.health_points,
-            item.magic_points,
-            item.strength,
-            item.agility,
-            item.wisdom,
-            item.to_hit,
-            item.to_dodge,
-            item.to_hit,
-            item.offense,
-            item.defense,
-            item.item_destroying_power,
-            item.modifies_item,
-            item.additional_effect,
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn save_event_items(conn: &Connection, event_items: &Vec<EventItem>) -> Result<()> {
-    for item in event_items {
-        add_event_item(conn, item)?;
-    }
-    Ok(())
-}
-
-fn add_event_item(conn: &Connection, item: &EventItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_event_item.sql"),
-        params![item.id, item.name, item.description,],
-    )?;
-    Ok(())
-}
-
-pub fn save_event_npc_refs(conn: &Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
-    for npc in npc_refs {
-        add_event_npc_ref(conn, npc)?;
-    }
-    Ok(())
-}
-
-fn add_event_npc_ref(conn: &Connection, npc: &EventNpcRef) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_event_npc_ref.sql"),
-        params![npc.id, npc.event_id, npc.name],
-    )?;
-    Ok(())
-}
-
-pub fn save_misc_items(conn: &Connection, misc_items: &Vec<MiscItem>) -> Result<()> {
-    for item in misc_items {
-        add_misc_item(conn, item)?;
-    }
-    Ok(())
-}
-
-fn add_misc_item(conn: &Connection, item: &MiscItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_misc_item.sql"),
-        params![item.id, item.name, item.description, item.base_price],
-    )?;
-    Ok(())
-}
-
-pub fn save_heal_items(conn: &Connection, heal_items: &Vec<HealItem>) -> Result<()> {
-    for item in heal_items {
-        add_heal_item(conn, item)?;
-    }
-    Ok(())
-}
-
-fn add_heal_item(conn: &Connection, item: &HealItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_heal_item.sql"),
-        params![
-            item.id,
-            item.name,
-            item.description,
-            item.base_price,
-            item.pz,
-            item.pm,
-            item.full_pz,
-            item.full_pm,
-            item.poison_heal,
-            item.petrif_heal,
-            item.polimorph_heal,
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn save_stores(conn: &Connection, stores: &Vec<Store>) -> Result<()> {
-    for store in stores {
-        add_store(conn, store)?;
-        for product in &store.products {
-            add_store_product(conn, store, product)?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_extra_ref.sql"))?;
+        for extra_ref in extra_refs {
+            stmt.execute(params![
+                file_path,
+                extra_ref.id,
+                extra_ref.number_in_file,
+                extra_ref.ext_id,
+                extra_ref.name,
+                extra_ref.object_type,
+                extra_ref.x_pos,
+                extra_ref.y_pos,
+                extra_ref.rotation,
+                extra_ref.closed,
+                extra_ref.required_item_id,
+                extra_ref.required_item_type_id,
+                extra_ref.required_item_id2,
+                extra_ref.required_item_type_id2,
+                extra_ref.gold_amount,
+                extra_ref.item_id,
+                extra_ref.item_type_id,
+                extra_ref.item_count,
+                extra_ref.event_id,
+                extra_ref.message_id,
+                extra_ref.visibility,
+            ])?;
         }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_store(conn: &Connection, store: &Store) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_store.sql"),
-        params![
-            store.index,
-            store.store_name,
-            store.inn_night_cost,
-            store.some_unknown_number,
-            store.invitation,
-            store.haggle_success,
-            store.haggle_fail,
-        ],
-    )?;
-    Ok(())
-}
+// add_extra_ref removed
 
-fn add_store_product(conn: &Connection, store: &Store, store_product: &StoreProduct) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_store_product.sql"),
-        params![
-            store.index,
-            store_product.0,
-            store_product.1,
-            store_product.2,
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn save_monsters(conn: &Connection, monsters: &Vec<Monster>) -> Result<()> {
-    for monster in monsters {
-        add_monster(conn, monster)?;
+pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_weapon.sql"))?;
+        for weapon in weapons {
+            stmt.execute(params![
+                weapon.id,
+                weapon.name,
+                weapon.description,
+                weapon.base_price,
+                weapon.health_points,
+                weapon.magic_points,
+                weapon.strength,
+                weapon.agility,
+                weapon.wisdom,
+                weapon.tf,
+                weapon.unk,
+                weapon.trf,
+                weapon.attack,
+                weapon.defense,
+                weapon.mag,
+                weapon.durability,
+                weapon.req_strength,
+                weapon.req_zw,
+                weapon.req_wisdom,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_monster(conn: &Connection, monster: &Monster) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_monster.sql"),
-        params![
-            monster.id,
-            monster.name,
-            monster.health_points_max,
-            monster.health_points_min,
-            monster.magic_points_max,
-            monster.magic_points_min,
-            monster.walk_speed,
-            monster.to_hit_max,
-            monster.to_hit_min,
-            monster.to_dodge_max,
-            monster.to_dodge_min,
-            monster.offense_max,
-            monster.offense_min,
-            monster.defense_max,
-            monster.defense_min,
-            monster.magic_attack_max,
-            monster.magic_attack_min,
-            monster.is_undead,
-            monster.has_blood,
-            monster.ai_type,
-            monster.exp_gain_max,
-            monster.exp_gain_min,
-            monster.gold_drop_max,
-            monster.gold_drop_min,
-            monster.detection_sight_size,
-            monster.distance_range_size,
-            monster.known_spell_slot1,
-            monster.known_spell_slot2,
-            monster.known_spell_slot3,
-            monster.is_oversize,
-            monster.magic_level,
-            monster.special_attack,
-            monster.special_attack_chance,
-            monster.special_attack_duration,
-            monster.boldness,
-            monster.attack_speed,
-        ],
-    )?;
-    Ok(())
-}
+// add_weapon removed
 
-pub fn save_maps(conn: &Connection, maps: &Vec<Map>) -> Result<()> {
-    for map in maps {
-        add_map(conn, map)?;
+pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_edit_item.sql"))?;
+        for item in edit_items {
+            stmt.execute(params![
+                item.index,
+                item.name,
+                item.description,
+                item.base_price,
+                item.health_points,
+                item.magic_points,
+                item.strength,
+                item.agility,
+                item.wisdom,
+                item.to_hit,
+                item.to_dodge,
+                item.to_hit,
+                item.offense,
+                item.defense,
+                item.item_destroying_power,
+                item.modifies_item,
+                item.additional_effect,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_map(conn: &Connection, map: &Map) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_map.sql"),
-        params![
-            map.id,
-            map.map_filename,
-            map.map_name,
-            map.pgp_filename,
-            map.dlg_filename,
-            map.is_light,
-        ],
-    )?;
+pub fn save_event_items(conn: &mut Connection, event_items: &Vec<EventItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_event_item.sql"))?;
+        for item in event_items {
+            stmt.execute(params![item.id, item.name, item.description,])?;
+        }
+    }
+    tx.commit()?;
     Ok(())
 }
+
+// add_event_item removed
+
+pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_event_npc_ref.sql"))?;
+        for npc in npc_refs {
+            stmt.execute(params![npc.id, npc.event_id, npc.name])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_event_npc_ref removed
+
+pub fn save_misc_items(conn: &mut Connection, misc_items: &Vec<MiscItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_misc_item.sql"))?;
+        for item in misc_items {
+            stmt.execute(params![
+                item.id,
+                item.name,
+                item.description,
+                item.base_price
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_misc_item removed
+
+pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_heal_item.sql"))?;
+        for item in heal_items {
+            stmt.execute(params![
+                item.id,
+                item.name,
+                item.description,
+                item.base_price,
+                item.pz,
+                item.pm,
+                item.full_pz,
+                item.full_pm,
+                item.poison_heal,
+                item.petrif_heal,
+                item.polimorph_heal,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_heal_item removed
+
+pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt_store = tx.prepare(include_str!("queries/insert_store.sql"))?;
+        let mut stmt_product = tx.prepare(include_str!("queries/insert_store_product.sql"))?;
+
+        for store in stores {
+            stmt_store.execute(params![
+                store.index,
+                store.store_name,
+                store.inn_night_cost,
+                store.some_unknown_number,
+                store.invitation,
+                store.haggle_success,
+                store.haggle_fail,
+            ])?;
+
+            for product in &store.products {
+                stmt_product.execute(params![store.index, product.0, product.1, product.2,])?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_store and add_store_product removed
+
+pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_monster.sql"))?;
+        for monster in monsters {
+            stmt.execute(params![
+                monster.id,
+                monster.name,
+                monster.health_points_max,
+                monster.health_points_min,
+                monster.magic_points_max,
+                monster.magic_points_min,
+                monster.walk_speed,
+                monster.to_hit_max,
+                monster.to_hit_min,
+                monster.to_dodge_max,
+                monster.to_dodge_min,
+                monster.offense_max,
+                monster.offense_min,
+                monster.defense_max,
+                monster.defense_min,
+                monster.magic_attack_max,
+                monster.magic_attack_min,
+                monster.is_undead,
+                monster.has_blood,
+                monster.ai_type,
+                monster.exp_gain_max,
+                monster.exp_gain_min,
+                monster.gold_drop_max,
+                monster.gold_drop_min,
+                monster.detection_sight_size,
+                monster.distance_range_size,
+                monster.known_spell_slot1,
+                monster.known_spell_slot2,
+                monster.known_spell_slot3,
+                monster.is_oversize,
+                monster.magic_level,
+                monster.special_attack,
+                monster.special_attack_chance,
+                monster.special_attack_duration,
+                monster.boldness,
+                monster.attack_speed,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_monster removed
+
+pub fn save_maps(conn: &mut Connection, maps: &Vec<Map>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_map.sql"))?;
+        for map in maps {
+            stmt.execute(params![
+                map.id,
+                map.map_filename,
+                map.map_name,
+                map.pgp_filename,
+                map.dlg_filename,
+                map.is_light,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// add_map removed
 
 pub fn save_map_metadata(
-    conn: &Connection,
+    conn: &mut Connection,
     map_id: &str,
     model: &crate::map::MapModel,
 ) -> Result<()> {
@@ -496,238 +477,235 @@ pub fn save_map_metadata(
 }
 
 pub fn save_dialogue_texts(
-    conn: &Connection,
+    conn: &mut Connection,
     file_name: &str,
     texts: &Vec<DialogueText>,
 ) -> Result<()> {
-    for text in texts {
-        add_dialogue_text(conn, file_name, text)?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_dialogue_text.sql"))?;
+        for text in texts {
+            stmt.execute(params![
+                file_name,
+                text.id,
+                text.text,
+                text.comment,
+                text.param1,
+                text.param2,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_dialogue_text(conn: &Connection, file_name: &str, text: &DialogueText) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_dialogue_text.sql"),
-        params![
-            file_name,
-            text.id,
-            text.text,
-            text.comment,
-            text.param1,
-            text.param2,
-        ],
-    )?;
-    Ok(())
-}
+// add_dialogue_text removed
 
-pub fn save_events(conn: &Connection, events: &Vec<Event>) -> Result<()> {
-    for event in events {
-        add_event(conn, event)?;
+pub fn save_events(conn: &mut Connection, events: &Vec<Event>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_event.sql"))?;
+        for event in events {
+            stmt.execute(params![
+                event.event_id,
+                event.previous_event_id,
+                event.event_type_id,
+                event.event_filename,
+                event.counter,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_event(conn: &Connection, event: &Event) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_event.sql"),
-        params![
-            event.event_id,
-            event.previous_event_id,
-            event.event_type_id,
-            event.event_filename,
-            event.counter,
-        ],
-    )?;
-    Ok(())
-}
+// add_event removed
 
-pub fn save_extras(conn: &Connection, extras: &Vec<Extra>) -> Result<()> {
-    for extra in extras {
-        add_extra(conn, extra)?;
+pub fn save_extras(conn: &mut Connection, extras: &Vec<Extra>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_extra.sql"))?;
+        for extra in extras {
+            stmt.execute(params![
+                extra.id,
+                extra.sprite_filename,
+                extra.unknown,
+                extra.description,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_extra(conn: &Connection, extra: &Extra) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_extra.sql"),
-        params![
-            extra.id,
-            extra.sprite_filename,
-            extra.unknown,
-            extra.description,
-        ],
-    )?;
-    Ok(())
-}
+// add_extra removed
 
-pub fn save_monster_inis(conn: &Connection, monster_inis: &Vec<MonsterIni>) -> Result<()> {
-    for monster_ini in monster_inis {
-        add_monster_ini(conn, monster_ini)?;
+pub fn save_monster_inis(conn: &mut Connection, monster_inis: &Vec<MonsterIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_monster_ini.sql"))?;
+        for monster_ini in monster_inis {
+            stmt.execute(params![
+                monster_ini.id,
+                monster_ini.name,
+                monster_ini.sprite_filename,
+                monster_ini.attack,
+                monster_ini.hit,
+                monster_ini.death,
+                monster_ini.walking,
+                monster_ini.casting_magic,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_monster_ini(conn: &Connection, monster_ini: &MonsterIni) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_monster_ini.sql"),
-        params![
-            monster_ini.id,
-            monster_ini.name,
-            monster_ini.sprite_filename,
-            monster_ini.attack,
-            monster_ini.hit,
-            monster_ini.death,
-            monster_ini.walking,
-            monster_ini.casting_magic,
-        ],
-    )?;
-    Ok(())
-}
+// add_monster_ini removed
 
-pub fn save_npc_inis(conn: &Connection, npc_inis: &Vec<NpcIni>) -> Result<()> {
-    for npc_ini in npc_inis {
-        add_npc_ini(conn, npc_ini)?;
+pub fn save_npc_inis(conn: &mut Connection, npc_inis: &Vec<NpcIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_npc_ini.sql"))?;
+        for npc_ini in npc_inis {
+            stmt.execute(params![
+                npc_ini.id,
+                npc_ini.sprite_filename,
+                npc_ini.description,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_npc_ini(conn: &Connection, npc_ini: &NpcIni) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_npc_ini.sql"),
-        params![npc_ini.id, npc_ini.sprite_filename, npc_ini.description,],
-    )?;
-    Ok(())
-}
+// add_npc_ini removed
 
-pub fn save_wave_inis(conn: &Connection, wave_inis: &Vec<WaveIni>) -> Result<()> {
-    for wave_ini in wave_inis {
-        add_wave_ini(conn, wave_ini)?;
+pub fn save_wave_inis(conn: &mut Connection, wave_inis: &Vec<WaveIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_wave_ini.sql"))?;
+        for wave_ini in wave_inis {
+            stmt.execute(params![
+                wave_ini.id,
+                wave_ini.snf_filename,
+                wave_ini.unknown_flag,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_wave_ini(conn: &Connection, wave_ini: &WaveIni) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_wave_ini.sql"),
-        params![wave_ini.id, wave_ini.snf_filename, wave_ini.unknown_flag,],
-    )?;
-    Ok(())
-}
+// add_wave_ini removed
 
-pub fn save_map_inis(conn: &Connection, map_inis: &Vec<MapIni>) -> Result<()> {
-    for map_ini in map_inis {
-        add_map_ini(conn, map_ini)?;
+pub fn save_map_inis(conn: &mut Connection, map_inis: &Vec<MapIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_map_ini.sql"))?;
+        for map_ini in map_inis {
+            stmt.execute(params![
+                map_ini.id,
+                map_ini.event_id_on_camera_move,
+                map_ini.start_pos_x,
+                map_ini.start_pos_y,
+                map_ini.map_id,
+                map_ini.monsters_filename,
+                map_ini.npc_filename,
+                map_ini.extra_filename,
+                map_ini.cd_music_track_number,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_map_ini(conn: &Connection, map_ini: &MapIni) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_map_ini.sql"),
-        params![
-            map_ini.id,
-            map_ini.event_id_on_camera_move,
-            map_ini.start_pos_x,
-            map_ini.start_pos_y,
-            map_ini.map_id,
-            map_ini.monsters_filename,
-            map_ini.npc_filename,
-            map_ini.extra_filename,
-            map_ini.cd_music_track_number,
-        ],
-    )?;
-    Ok(())
-}
+// add_map_ini removed
 
-pub fn save_party_refs(conn: &Connection, party_refs: &Vec<PartyRef>) -> Result<()> {
-    for party_ref in party_refs {
-        add_party_ref(conn, party_ref)?;
+pub fn save_party_refs(conn: &mut Connection, party_refs: &Vec<PartyRef>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_party_ref.sql"))?;
+        for party_ref in party_refs {
+            stmt.execute(params![
+                party_ref.id,
+                party_ref.full_name,
+                party_ref.job_name,
+                party_ref.root_map_id,
+                party_ref.npc_id,
+                party_ref.dlg_when_not_in_party,
+                party_ref.dlg_when_in_party,
+                party_ref.ghost_face_id,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_party_ref(conn: &Connection, party_ref: &PartyRef) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_party_ref.sql"),
-        params![
-            party_ref.id,
-            party_ref.full_name,
-            party_ref.job_name,
-            party_ref.root_map_id,
-            party_ref.npc_id,
-            party_ref.dlg_when_not_in_party,
-            party_ref.dlg_when_in_party,
-            party_ref.ghost_face_id,
-        ],
-    )?;
-    Ok(())
-}
+// add_party_ref removed
 
-pub fn save_draw_items(conn: &Connection, draw_items: &Vec<DrawItem>) -> Result<()> {
-    for draw_item in draw_items {
-        add_draw_item(conn, draw_item)?;
+pub fn save_draw_items(conn: &mut Connection, draw_items: &Vec<DrawItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_draw_item.sql"))?;
+        for draw_item in draw_items {
+            stmt.execute(params![
+                draw_item.map_id,
+                draw_item.x_coord,
+                draw_item.y_coord,
+                draw_item.item_id,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_draw_item(conn: &Connection, draw_item: &DrawItem) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_draw_item.sql"),
-        params![
-            draw_item.map_id,
-            draw_item.x_coord,
-            draw_item.y_coord,
-            draw_item.item_id,
-        ],
-    )?;
-    Ok(())
-}
+// add_draw_item removed
 
-pub fn save_party_pgps(conn: &Connection, party_pgps: &Vec<PartyPgp>) -> Result<()> {
-    for party_pgp in party_pgps {
-        add_party_pgp(conn, party_pgp)?;
+pub fn save_party_pgps(conn: &mut Connection, party_pgps: &Vec<PartyPgp>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_party_pgp.sql"))?;
+        for party_pgp in party_pgps {
+            stmt.execute(params![
+                party_pgp.id,
+                party_pgp.dialog_text,
+                party_pgp.unknown_id1,
+                party_pgp.unknown_id2,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_party_pgp(conn: &Connection, party_pgp: &PartyPgp) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_party_pgp.sql"),
-        params![
-            party_pgp.id,
-            party_pgp.dialog_text,
-            party_pgp.unknown_id1,
-            party_pgp.unknown_id2,
-        ],
-    )?;
-    Ok(())
-}
+// add_party_pgp removed
 
-pub fn save_dialogs(conn: &Connection, dialog_file: &str, dialogs: &Vec<Dialog>) -> Result<()> {
-    for dialog in dialogs {
-        add_dialog(conn, dialog_file, dialog)?;
+pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &Vec<Dialog>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_dialog.sql"))?;
+        for dialog in dialogs {
+            stmt.execute(params![
+                dialog_file,
+                dialog.id,
+                dialog.previous_event_id,
+                dialog.next_dialog_to_check,
+                dialog.dialog_type_id,
+                dialog.dialog_owner,
+                dialog.dialog_id,
+                dialog.event_id,
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
 
-fn add_dialog(conn: &Connection, dialog_file: &str, dialog: &Dialog) -> Result<()> {
-    conn.execute(
-        include_str!("queries/insert_dialog.sql"),
-        params![
-            dialog_file,
-            dialog.id,
-            dialog.previous_event_id,
-            dialog.next_dialog_to_check,
-            dialog.dialog_type_id,
-            dialog.dialog_owner,
-            dialog.dialog_id,
-            dialog.event_id,
-        ],
-    )?;
-    Ok(())
-}
+// add_dialog removed
 pub fn save_map_tiles(
     conn: &mut Connection,
     map_id: &str,
@@ -781,54 +759,59 @@ pub fn save_map_tiles(
 }
 
 pub fn save_map_objects(
-    conn: &Connection,
+    conn: &mut Connection,
     map_id: &str,
     tiled_infos: &Vec<crate::map::TiledObjectInfo>,
 ) -> Result<()> {
-    let mut stmt = conn.prepare(include_str!("queries/insert_map_object.sql"))?;
-
-    for (obj_idx, info) in tiled_infos.iter().enumerate() {
-        for (stack_order, btl_id) in info.ids.iter().enumerate() {
-            stmt.execute(params![
-                map_id,
-                obj_idx as i32,
-                info.x,
-                info.y,
-                *btl_id as i32,
-                stack_order as i32,
-            ])?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_map_object.sql"))?;
+        for (obj_idx, info) in tiled_infos.iter().enumerate() {
+            for (stack_order, btl_id) in info.ids.iter().enumerate() {
+                stmt.execute(params![
+                    map_id,
+                    obj_idx as i32,
+                    info.x,
+                    info.y,
+                    *btl_id as i32,
+                    stack_order as i32,
+                ])?;
+            }
         }
     }
-
+    tx.commit()?;
     Ok(())
 }
 
 pub fn save_map_sprites(
-    conn: &Connection,
+    conn: &mut Connection,
     map_id: &str,
     sprite_blocks: &Vec<crate::map::SpriteInfoBlock>,
 ) -> Result<()> {
-    let mut stmt = conn.prepare(include_str!("queries/insert_map_sprite.sql"))?;
-
-    for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
-        stmt.execute(params![
-            map_id,
-            sprite_idx as i32,
-            block.sprite_x,
-            block.sprite_y,
-            block.sprite_id as i32,
-        ])?;
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_map_sprite.sql"))?;
+        for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                sprite_idx as i32,
+                block.sprite_x,
+                block.sprite_y,
+                block.sprite_id as i32,
+            ])?;
+        }
     }
-
+    tx.commit()?;
     Ok(())
 }
 
-pub fn save_party_levels(conn: &Connection, npcs: &Vec<PartyLevelNpc>) -> Result<()> {
-    for npc in npcs {
-        for record in &npc.records {
-            conn.execute(
-                include_str!("queries/insert_party_level.sql"),
-                params![
+pub fn save_party_levels(conn: &mut Connection, npcs: &Vec<PartyLevelNpc>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_party_level.sql"))?;
+        for npc in npcs {
+            for record in &npc.records {
+                stmt.execute(params![
                     npc.npc_index as i32,
                     record.level as i32,
                     record.strength as i32,
@@ -840,25 +823,28 @@ pub fn save_party_levels(conn: &Connection, npcs: &Vec<PartyLevelNpc>) -> Result
                     record.attack as i32,
                     record.mana_recharge as i32,
                     record.defense as i32,
-                ],
-            )?;
+                ])?;
+            }
         }
     }
+    tx.commit()?;
     Ok(())
 }
 
-pub fn save_party_inis(conn: &Connection, npcs: &Vec<PartyIniNpc>) -> Result<()> {
-    for (idx, npc) in npcs.iter().enumerate() {
-        conn.execute(
-            include_str!("queries/insert_party_ini.sql"),
-            params![
+pub fn save_party_inis(conn: &mut Connection, npcs: &Vec<PartyIniNpc>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_party_ini.sql"))?;
+        for (idx, npc) in npcs.iter().enumerate() {
+            stmt.execute(params![
                 idx as i32,
                 npc.name,
                 npc.flags as i32,
                 npc.kind as i32,
                 npc.value as i32,
-            ],
-        )?;
+            ])?;
+        }
     }
+    tx.commit()?;
     Ok(())
 }
