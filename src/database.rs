@@ -12,6 +12,7 @@ use crate::references::event_npc_ref::EventNpcRef;
 use crate::references::extra_ini::Extra;
 use crate::references::extra_ref::ExtraRef;
 use crate::references::heal_item_db::HealItem;
+use crate::references::magic_db::MagicSpell;
 use crate::references::map_ini::MapIni;
 use crate::references::misc_item_db::MiscItem;
 use crate::references::monster_db::Monster;
@@ -49,6 +50,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "extra_refs",
         "extras",
         "heal_items",
+        "magic_spells",
         "map_inis",
         "map_metadata",
         "map_objects",
@@ -105,6 +107,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_dialogue_texts.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_magic_spells.sql"))?;
 
     Ok(())
 }
@@ -842,6 +845,42 @@ pub fn save_party_inis(conn: &mut Connection, npcs: &Vec<PartyIniNpc>) -> Result
                 npc.flags as i32,
                 npc.kind as i32,
                 npc.value as i32,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_magic_spell.sql"))?;
+        for spell in spells {
+            stmt.execute(params![
+                spell.id,
+                spell.enabled,
+                spell.flag1,
+                spell.mana_cost,
+                spell.success_rate,
+                spell.base_damage,
+                spell.reserved1,
+                spell.reserved2,
+                spell.flag2,
+                spell.range,
+                spell.reserved3,
+                spell.level_required,
+                spell.constant1,
+                spell.effect_value,
+                spell.effect_type,
+                spell.effect_modifier,
+                spell.reserved4,
+                spell.magic_school,
+                spell.flag3,
+                spell.animation_id,
+                spell.visual_id,
+                spell.icon_id,
+                spell.target_type,
             ])?;
         }
     }

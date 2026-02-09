@@ -1,9 +1,10 @@
 use crate::database::{
     initialize_database, save_dialogs, save_dialogue_texts, save_draw_items, save_edit_items,
     save_event_items, save_event_npc_refs, save_events, save_extra_refs, save_extras,
-    save_heal_items, save_map_inis, save_maps, save_misc_items, save_monster_inis,
-    save_monster_refs, save_monsters, save_npc_inis, save_npc_refs, save_party_inis,
-    save_party_levels, save_party_pgps, save_party_refs, save_stores, save_wave_inis, save_weapons,
+    save_heal_items, save_magic_spells, save_map_inis, save_maps, save_misc_items,
+    save_monster_inis, save_monster_refs, save_monsters, save_npc_inis, save_npc_refs,
+    save_party_inis, save_party_levels, save_party_pgps, save_party_refs, save_stores,
+    save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
 use crate::references::party_ini_db::read_party_ini_db;
@@ -856,6 +857,9 @@ fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn std::error::Err
     println!("Saving party_ini_db...");
     let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
     save_party_inis(conn, &party_inis)?;
+    println!("Saving magic_spells...");
+    let magic_spells = magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
+    save_magic_spells(conn, &magic_spells)?;
     Ok(())
 }
 
