@@ -9,6 +9,7 @@ pub mod event_npc_ref;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod heal_item_db;
+pub mod magic_db;
 pub mod map_ini;
 pub mod misc_item_db;
 pub mod monster_db;
