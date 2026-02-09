@@ -14,6 +14,7 @@ use crate::references::extra_ref::ExtraRef;
 use crate::references::heal_item_db::HealItem;
 use crate::references::magic_db::MagicSpell;
 use crate::references::map_ini::MapIni;
+use crate::references::message_scr::Message;
 use crate::references::misc_item_db::MiscItem;
 use crate::references::monster_db::Monster;
 use crate::references::monster_ini::MonsterIni;
@@ -24,6 +25,7 @@ use crate::references::party_ini_db::PartyIniNpc;
 use crate::references::party_level_db::PartyLevelNpc;
 use crate::references::party_pgp::PartyPgp;
 use crate::references::party_ref::PartyRef;
+use crate::references::quest_scr::Quest;
 use crate::references::store_db::Store;
 use crate::references::wave_ini::WaveIni;
 use crate::references::weapons_db::WeaponItem;
@@ -57,6 +59,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "map_sprites",
         "map_tiles",
         "maps",
+        "messages",
         "misc_items",
         "monster_inis",
         "monster_refs",
@@ -67,6 +70,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "party_levels",
         "party_pgps",
         "party_refs",
+        "quests",
         "store_products",
         "stores",
         "wave_inis",
@@ -108,6 +112,8 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_magic_spells.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_quests.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
 
     Ok(())
 }
@@ -881,6 +887,40 @@ pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Res
                 spell.visual_id,
                 spell.icon_id,
                 spell.target_type,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_quests(conn: &mut Connection, quests: &Vec<Quest>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_quest.sql"))?;
+        for quest in quests {
+            stmt.execute(params![
+                quest.id,
+                quest.type_id,
+                quest.title,
+                quest.description,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_messages(conn: &mut Connection, messages: &Vec<Message>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("queries/insert_message.sql"))?;
+        for message in messages {
+            stmt.execute(params![
+                message.id,
+                message.line1,
+                message.line2,
+                message.line3,
             ])?;
         }
     }
