@@ -921,6 +921,7 @@ fn import_rest(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> 
     }
 
     let extra_ref_files = [
+        "ExtraInGame/Extcat3.ref",
         "ExtraInGame/Extdun01.ref",
         "ExtraInGame/Extdun02.ref",
         "ExtraInGame/Extdun03.ref",
