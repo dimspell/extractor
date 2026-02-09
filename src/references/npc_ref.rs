@@ -30,6 +30,24 @@ pub struct NPC {
     pub dialog_id: i32,
 }
 
+//     todo!(); // Eventnpc.ref
+
+//     // NPCs used only in events
+//     //
+//     // id
+//     // sprite id
+//     //     ?
+//     //     ?
+//     //     ?
+//     //     ?
+//     // x coordinate,
+//     // y coordinate,
+//     // 30 times ?
+
+//     todo!(); // Eventnpc.ref
+
+// fixtures/Dispel/NpcInGame/Npccat1.ref fixtures/Dispel/NpcInGame/Npccat2.ref fixtures/Dispel/NpcInGame/Npccat3.ref fixtures/Dispel/NpcInGame/Npccatp.ref fixtures/Dispel/NpcInGame/npcdun08.ref fixtures/Dispel/NpcInGame/npcdun19.ref fixtures/Dispel/NpcInGame/Npcmap1.ref fixtures/Dispel/NpcInGame/Npcmap2.ref fixtures/Dispel/NpcInGame/Npcmap3.ref
+
 pub fn read_npc_ref(source_path: &Path) -> std::io::Result<Vec<NPC>> {
     let file = File::open(source_path)?;
 

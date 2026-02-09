@@ -1,10 +1,10 @@
-use std::io::{prelude::*, Cursor};
-use std::io::{BufRead, BufReader, Result, Seek, SeekFrom};
+use std::io::prelude::*;
+use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use encoding_rs::{EUC_KR, WINDOWS_1250};
+use encoding_rs::WINDOWS_1250;
 
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
     // Find the first null byte (or use a fixed length if no null terminator)
@@ -23,45 +23,6 @@ pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<S
     }
 
     Ok(decoded.to_string())
-}
-
-// test {
-//     // Simulate a null-terminated Windows-1250 string (e.g., "Ahoj" + \0)
-//     let raw_bytes = b"Ahoj\0Test"; // "Ahoj" in Windows-1250 is [0xC3, 0x9Ah, 0xF3, 0x9Ah, 0xF3, 0x9Ah] (but this is UTF-8; adjust for actual Windows-1250)
-//                                    // For Windows-1250, "Ahoj" is [0xE1, 0xF3, 0xE8, 0xF8, 0xE9] (example; check actual encoding)
-//                                    // let actual_windows_1250_bytes = vec![0xE1, 0xF3, 0xE8, 0xF8, 0xE9, 0x00]; // Replace with real bytes
-
-//     match read_null_terminated_windows_1250(raw_bytes) {
-//         Ok(s) => println!("Decoded: {}", s),
-//         Err(e) => eprintln!("Error: {}", e),
-//     }
-// }
-
-struct OnMapSpriteInfo {
-    x: i32,
-    y: i32,
-    db_id: i32,
-    sprite_id: i32,
-    sprite_seq: i32,
-    flip: bool,
-}
-
-pub fn read_ini() -> Result<()> {
-    let f = File::open(&Path::new("sample-data/Extra.ini"))?;
-    let mut reader = BufReader::new(f);
-
-    loop {
-        let mut line = String::new();
-        let num = reader.read_line(&mut line)?;
-        if num == 0 {
-            break;
-        }
-
-        // println!("{line}");
-        line.clear();
-    }
-
-    Ok(())
 }
 
 pub fn parse_null(s: &str) -> Option<String> {
@@ -112,10 +73,6 @@ pub fn parse_int(s: &str) -> Option<i32> {
 
 //     todo!(); // Eventnpc.ref
 
-fn read_multi_monster_db() {
-    todo!();
-}
-
 pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     let file = File::open(source_path)?;
 
@@ -153,16 +110,15 @@ pub fn read_mapper(
     counter_size: u8,
     property_item_size: i32,
 ) -> Result<i32> {
-    let mut expected_elements = 0;
     let space_for_elements =
         (((file_len - counter_size as u64) as f64) / property_item_size as f64).floor();
     let space_for_elements: i32 = space_for_elements as i32;
 
-    if counter_size > 0 {
-        expected_elements = reader.read_i32::<LittleEndian>()?;
+    let expected_elements = if counter_size > 0 {
+        reader.read_i32::<LittleEndian>()?
     } else {
-        expected_elements = space_for_elements;
-    }
+        space_for_elements
+    };
     if expected_elements != space_for_elements {
         println!(
             "expected_elements: {expected_elements} / space_for_elements: {space_for_elements}"
