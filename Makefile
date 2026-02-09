@@ -82,6 +82,21 @@ ref-party-level:
 ref-party-ini:
 	cargo run -- ref party-ini fixtures/Dispel/NpcInGame/PrtIni.db
 
+ref-dialogue-text:
+	cargo run -- ref dialogue-text "fixtures/Dispel/NpcInGame/PartyDlg.dlg"
+
+ref-quest:
+	cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
+
+ref-message:
+	cargo run -- ref message "fixtures/Dispel/ExtraInGame/Message.scr"
+
+ref-ch-data:
+	cargo run -- ref ch-data "fixtures/Dispel/ExtraInGame/ChData.db"
+
+ref-dialog:
+	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+
 refs-help:
 	cargo run -- ref --help
 	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"

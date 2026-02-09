@@ -20,10 +20,10 @@ pub mod snf;
 pub mod sprite;
 pub mod tileset;
 use crate::references::{
-    all_map_ini, dialog, dialogue_text, draw_item, edit_item_db, event_ini, event_item_db,
-    event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini, misc_item_db, monster_db,
-    monster_ini, monster_ref, npc_ini, npc_ref, party_ini_db, party_level_db, party_pgp, party_ref,
-    store_db, wave_ini, weapons_db,
+    all_map_ini, chdata_db, dialog, dialogue_text, draw_item, edit_item_db, event_ini,
+    event_item_db, event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini,
+    message_scr, misc_item_db, monster_db, monster_ini, monster_ref, npc_ini, npc_ref,
+    party_ini_db, party_level_db, party_pgp, party_ref, quest_scr, store_db, wave_ini, weapons_db,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -275,6 +275,12 @@ enum RefCommands {
     EventNpcRef { input: String },
     /// Read Magic.db (Magic Spells Database)
     Magic { input: String },
+    /// Read Quest.scr
+    Quest { input: String },
+    /// Read Message.scr
+    Message { input: String },
+    /// Read ChData.db
+    ChData { input: String },
 }
 
 #[derive(Debug, Args)]
@@ -609,6 +615,30 @@ fn main() {
             Some(RefCommands::Magic { input }) => {
                 let data =
                     magic_db::read_magic_db(&Path::new(input)).expect("ERROR: could not read file");
+                println!(
+                    "{}",
+                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                );
+            }
+            Some(RefCommands::Quest { input }) => {
+                let data =
+                    quest_scr::read_quests(&Path::new(input)).expect("ERROR: could not read file");
+                println!(
+                    "{}",
+                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                );
+            }
+            Some(RefCommands::Message { input }) => {
+                let data = message_scr::read_messages(&Path::new(input))
+                    .expect("ERROR: could not read file");
+                println!(
+                    "{}",
+                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
+                );
+            }
+            Some(RefCommands::ChData { input }) => {
+                let data =
+                    chdata_db::read_chdata(&Path::new(input)).expect("ERROR: could not read file");
                 println!(
                     "{}",
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")
