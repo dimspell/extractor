@@ -652,7 +652,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
             "dun23.map",
             "dun24.map",
             "dun25.map",
-            // "final.map",
+            "final.map",
             "map1.map",
             "map2.map",
             "map3.map",
@@ -839,6 +839,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let misc_items =
         misc_item_db::read_misc_item_db(&main_path.join("CharacterInGame/MiscItem.db"))?;
     save_misc_items(&conn, &misc_items)?;
+
     println!("Saving heal_items...");
     let heal_items =
         heal_item_db::read_heal_item_db(&main_path.join("CharacterInGame/HealItem.db"))?;
@@ -884,6 +885,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let event_items =
         event_item_db::read_event_item_db(&main_path.join("CharacterInGame/EventItem.db"))?;
     save_event_items(&conn, &event_items)?;
+
     println!("Saving edit_items...");
     let edit_items =
         edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
@@ -893,6 +895,7 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let party_levels =
         party_level_db::read_party_level_db(&main_path.join("NpcInGame/PrtLevel.db"))?;
     save_party_levels(&conn, &party_levels)?;
+
     println!("Saving party_ini_db...");
     let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
     save_party_inis(&conn, &party_inis)?;

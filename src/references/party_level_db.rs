@@ -6,16 +6,16 @@ use std::path::Path;
 
 #[derive(Debug, Serialize)]
 pub struct PartyLevelRecord {
-    pub id: u32,
-    pub field2: u32,
-    pub field3: u32,
-    pub field4_a: u16,
-    pub field4_b: u16,
-    pub field5: u32,
-    pub field6: u32,
-    pub field7: u32,
-    pub field8_a: u16,
-    pub field8_b: u16,
+    pub level: u32,
+    pub strength: u32,
+    pub constitution: u32,
+    pub wisdom: u32,
+    pub health_points: u16,
+    pub magic_points: u16,
+    pub agility: u32,
+    pub attack: u32,
+    pub mana_recharge: u32,
+    pub defense: u16,
 }
 
 #[derive(Debug, Serialize)]
@@ -40,29 +40,29 @@ pub fn read_party_level_db(source_path: &Path) -> Result<Vec<PartyLevelNpc>> {
             let _sentinel = reader.read_u32::<LittleEndian>()?;
 
             // Each block has 8 u32 values
-            let id = reader.read_u32::<LittleEndian>()?;
-            let f2 = reader.read_u32::<LittleEndian>()?;
-            let f3 = reader.read_u32::<LittleEndian>()?;
-            let f4_a = reader.read_u16::<LittleEndian>()?;
-            let f4_b = reader.read_u16::<LittleEndian>()?;
+            let strength = reader.read_u32::<LittleEndian>()?;
+            let constitution = reader.read_u32::<LittleEndian>()?;
+            let wisdom = reader.read_u32::<LittleEndian>()?;
+            let health_points = reader.read_u16::<LittleEndian>()?;
+            let magic_points = reader.read_u16::<LittleEndian>()?;
 
-            let f5 = reader.read_u32::<LittleEndian>()?;
-            let f6 = reader.read_u32::<LittleEndian>()?;
-            let f7 = reader.read_u32::<LittleEndian>()?;
-            let f8_a = reader.read_u16::<LittleEndian>()?;
-            let f8_b = reader.read_u16::<LittleEndian>()?;
+            let agility = reader.read_u32::<LittleEndian>()?;
+            let attack = reader.read_u32::<LittleEndian>()?;
+            let mana_recharge = reader.read_u32::<LittleEndian>()?;
+            let defense = reader.read_u16::<LittleEndian>()?;
+            let _ = reader.read_u16::<LittleEndian>()?; // Null byte (\0)
 
             records.push(PartyLevelRecord {
-                id,
-                field2: f2,
-                field3: f3,
-                field4_a: f4_a,
-                field4_b: f4_b,
-                field5: f5,
-                field6: f6,
-                field7: f7,
-                field8_a: f8_a,
-                field8_b: f8_b,
+                level: _block_idx + 1 as u32,
+                strength,
+                constitution,
+                wisdom,
+                health_points,
+                magic_points,
+                agility,
+                attack,
+                mana_recharge,
+                defense,
             });
         }
         npcs.push(PartyLevelNpc { npc_index, records });
