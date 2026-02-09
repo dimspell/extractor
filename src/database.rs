@@ -19,6 +19,8 @@ use crate::references::monster_ini::MonsterIni;
 use crate::references::monster_ref::MonsterRef;
 use crate::references::npc_ini::NpcIni;
 use crate::references::npc_ref::NPC;
+use crate::references::party_ini_db::PartyIniNpc;
+use crate::references::party_level_db::PartyLevelNpc;
 use crate::references::party_pgp::PartyPgp;
 use crate::references::party_ref::PartyRef;
 use crate::references::store_db::{Store, StoreProduct};
@@ -50,6 +52,8 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "monsters",
         "npc_inis",
         "npc_refs",
+        "party_inis",
+        "party_levels",
         "party_pgps",
         "party_refs",
         "store_products",
@@ -90,6 +94,8 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_texts.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
 
     Ok(())
 }
@@ -805,5 +811,45 @@ pub fn save_map_sprites(
         ])?;
     }
 
+    Ok(())
+}
+
+pub fn save_party_levels(conn: &Connection, npcs: &Vec<PartyLevelNpc>) -> Result<()> {
+    for npc in npcs {
+        for record in &npc.records {
+            conn.execute(
+                include_str!("queries/insert_party_level.sql"),
+                params![
+                    npc.npc_index as i32,
+                    record.id as i32,
+                    record.field2 as i32,
+                    record.field3 as i32,
+                    record.field4_a as i32,
+                    record.field4_b as i32,
+                    record.field5 as i32,
+                    record.field6 as i32,
+                    record.field7 as i32,
+                    record.field8_a as i32,
+                    record.field8_b as i32,
+                ],
+            )?;
+        }
+    }
+    Ok(())
+}
+
+pub fn save_party_inis(conn: &Connection, npcs: &Vec<PartyIniNpc>) -> Result<()> {
+    for (idx, npc) in npcs.iter().enumerate() {
+        conn.execute(
+            include_str!("queries/insert_party_ini.sql"),
+            params![
+                idx as i32,
+                npc.name,
+                npc.flags as i32,
+                npc.kind as i32,
+                npc.value as i32,
+            ],
+        )?;
+    }
     Ok(())
 }

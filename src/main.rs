@@ -2,8 +2,8 @@ use crate::database::{
     initialize_database, save_dialogs, save_dialogue_texts, save_draw_items, save_edit_items,
     save_event_items, save_event_npc_refs, save_events, save_extra_refs, save_extras,
     save_heal_items, save_map_inis, save_maps, save_misc_items, save_monster_inis,
-    save_monster_refs, save_monsters, save_npc_inis, save_npc_refs, save_party_pgps,
-    save_party_refs, save_stores, save_wave_inis, save_weapons,
+    save_monster_refs, save_monsters, save_npc_inis, save_npc_refs, save_party_inis,
+    save_party_levels, save_party_pgps, save_party_refs, save_stores, save_wave_inis, save_weapons,
 };
 use crate::references::misc_item_db::read_misc_item_db;
 use crate::references::party_ini_db::read_party_ini_db;
@@ -21,8 +21,8 @@ pub mod tileset;
 use crate::references::{
     all_map_ini, dialog, dialogue_text, draw_item, edit_item_db, event_ini, event_item_db,
     event_npc_ref, extra_ini, extra_ref, heal_item_db, map_ini, misc_item_db, monster_db,
-    monster_ini, monster_ref, npc_ini, npc_ref, party_pgp, party_ref, store_db, wave_ini,
-    weapons_db,
+    monster_ini, monster_ref, npc_ini, npc_ref, party_ini_db, party_level_db, party_pgp, party_ref,
+    store_db, wave_ini, weapons_db,
 };
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
@@ -888,6 +888,14 @@ fn save_all() -> Result<(), Box<dyn std::error::Error>> {
     let edit_items =
         edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
     save_edit_items(&conn, &edit_items)?;
+
+    println!("Saving party_level_db...");
+    let party_levels =
+        party_level_db::read_party_level_db(&main_path.join("NpcInGame/PrtLevel.db"))?;
+    save_party_levels(&conn, &party_levels)?;
+    println!("Saving party_ini_db...");
+    let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
+    save_party_inis(&conn, &party_inis)?;
 
     conn.close().unwrap();
 
