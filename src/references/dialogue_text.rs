@@ -64,14 +64,18 @@ pub fn read_dialogue_texts(source_path: &Path) -> std::io::Result<Vec<DialogueTe
             Err(_) => continue,
         };
 
-        let text = parts[1].to_string();
+        let text = parts[1]
+            .to_string()
+            .trim_matches('|')
+            .replace("null", "")
+            .to_string();
         let param1 = parts[2].trim().parse::<i32>().unwrap_or(0);
         let param2 = parts[3].trim().parse::<i32>().unwrap_or(0);
 
         texts.push(DialogueText {
             id,
             text,
-            comment: current_comment.clone(),
+            comment: current_comment.clone().trim_matches('|').to_string(),
             param1,
             param2,
         });
