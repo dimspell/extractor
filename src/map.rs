@@ -922,20 +922,22 @@ pub fn render_from_database(
     }
     let mut objects: Vec<TiledObjectInfo> = objects_map.into_values().collect();
 
-    // Query map dimensions from map_metadata table
-    let dims: (Option<i32>, Option<i32>) = conn
+    // Query map dimensions and offsets from map_metadata table
+    let metadata: (Option<i32>, Option<i32>, Option<i32>, Option<i32>) = conn
         .query_row(
-            "SELECT tiled_width, tiled_height FROM map_metadata WHERE map_id = ?",
+            "SELECT tiled_width, tiled_height, non_occluded_x, non_occluded_y FROM map_metadata WHERE map_id = ?",
             [map_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
-        .unwrap_or((None, None));
+        .unwrap_or((None, None, None, None));
 
-    let (width, height) = match dims {
-        (Some(w), Some(h)) if w > 0 && h > 0 => (w, h),
+    let (width, height, non_occluded_x, non_occluded_y) = match metadata {
+        (Some(w), Some(h), nox, noy) if w > 0 && h > 0 => {
+            (w, h, nox.unwrap_or(0), noy.unwrap_or(0))
+        }
         _ => {
             println!("WARNING: Map dimensions not found in map_metadata, falling back to bounds");
-            (map_width, map_height)
+            (map_width, map_height, 0, 0)
         }
     };
     let diagonal = width + height;
@@ -983,8 +985,10 @@ pub fn render_from_database(
             }
             let atlas_x = (btl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
             let atlas_y = (btl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
-            let x = obj.x;
-            let y = obj.y + (i as i32 * tileset::TILE_HEIGHT as i32);
+            // Objects have raw pixel coordinates; apply non_occluded offset
+            // to align with the isometric ground coordinate system
+            let x = obj.x + non_occluded_x;
+            let y = obj.y + (i as i32 * tileset::TILE_HEIGHT as i32) + non_occluded_y;
             plot_atlas_tile(
                 &mut imgbuf,
                 &btl_atlas,
