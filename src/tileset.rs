@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use image::{Rgb, RgbaImage, RgbImage};
+use image::{Rgb, RgbImage, RgbaImage};
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
@@ -90,7 +90,7 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
                 let final_x = dest_x + x + mask[0][y];
                 let final_y = dest_y + y as i32;
 
-                if pixel.r != 0 && pixel.g != 0 && pixel.b != 0 {
+                if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
                     imgbuf.put_pixel(
                         final_x.try_into().unwrap(),
                         final_y.try_into().unwrap(),
@@ -163,7 +163,7 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
                 let final_x = dest_x + x + mask[0][y];
                 let final_y = dest_y + y as i32;
 
-                if pixel.r != 0 && pixel.g != 0 && pixel.b != 0 {
+                if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
                     imgbuf.put_pixel(
                         final_x.try_into().unwrap(),
                         final_y.try_into().unwrap(),
@@ -174,7 +174,6 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
         }
     }
 }
-
 
 pub struct Tile {
     pub colors: [Color; 1024],
