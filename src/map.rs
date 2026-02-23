@@ -1021,6 +1021,131 @@ pub fn render_from_database(
         );
     }
 
+    println!("Rendering pass 4: External entities...");
+
+    // Helper to draw a 3x3 square debug dot
+    let mut draw_debug_dot =
+        |dest: &mut image::RgbaImage, x: i32, y: i32, color: image::Rgba<u8>| {
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    let px = x + dx;
+                    let py = y + dy;
+                    if px >= 0 && px < dest.width() as i32 && py >= 0 && py < dest.height() as i32 {
+                        dest.put_pixel(px as u32, py as u32, color);
+                    }
+                }
+            }
+        };
+
+    // Query reference filenames for the given map
+    let refs_query = "
+        SELECT i.monsters_filename, i.npc_filename, i.extra_filename 
+        FROM map_inis i 
+        JOIN maps m ON m.id = i.map_id 
+        WHERE m.map_filename = ? COLLATE NOCASE
+    ";
+
+    let refs = conn
+        .query_row(refs_query, [format!("{}.map", map_id).as_str()], |row| {
+            Ok((
+                row.get::<_, Option<String>>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })
+        .ok();
+
+    struct ExternalEntity {
+        x: i32,
+        y: i32,
+        color: image::Rgba<u8>,
+    }
+
+    let mut external_entities: Vec<ExternalEntity> = Vec::new();
+
+    if let Some((monsters_file, npc_file, extra_file)) = refs {
+        if let Some(mut m_file) = monsters_file {
+            m_file = m_file.replace("\\", "/");
+            if let Some(file_name) = m_file.split('/').last() {
+                let query = format!(
+                    "SELECT pos_x, pos_y FROM monster_refs WHERE file_path LIKE '%{}'",
+                    file_name
+                );
+                if let Ok(mut stmt) = conn.prepare(&query) {
+                    if let Ok(iter) =
+                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
+                    {
+                        for row in iter.filter_map(|r| r.ok()) {
+                            external_entities.push(ExternalEntity {
+                                x: row.0,
+                                y: row.1,
+                                color: image::Rgba([255, 0, 0, 255]), // Red for monsters
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(mut n_file) = npc_file {
+            n_file = n_file.replace("\\", "/");
+            if let Some(file_name) = n_file.split('/').last() {
+                let query = format!(
+                    "SELECT goto1_x, goto1_y FROM npc_refs WHERE file_path LIKE '%{}'",
+                    file_name
+                );
+                if let Ok(mut stmt) = conn.prepare(&query) {
+                    if let Ok(iter) =
+                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
+                    {
+                        for row in iter.filter_map(|r| r.ok()) {
+                            external_entities.push(ExternalEntity {
+                                x: row.0,
+                                y: row.1,
+                                color: image::Rgba([0, 255, 0, 255]), // Green for NPCs
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(mut e_file) = extra_file {
+            e_file = e_file.replace("\\", "/");
+            if let Some(file_name) = e_file.split('/').last() {
+                let query = format!(
+                    "SELECT x_pos, y_pos FROM extra_refs WHERE file_path LIKE '%{}'",
+                    file_name
+                );
+                if let Ok(mut stmt) = conn.prepare(&query) {
+                    if let Ok(iter) =
+                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
+                    {
+                        for row in iter.filter_map(|r| r.ok()) {
+                            external_entities.push(ExternalEntity {
+                                x: row.0,
+                                y: row.1,
+                                color: image::Rgba([0, 0, 255, 255]), // Blue for Extras
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for entity in external_entities {
+        let (dest_x, dest_y) = convert_map_coords_to_image_coords(entity.x, entity.y, diagonal);
+
+        let cx = dest_x + TILE_WIDTH_HALF;
+        let cy = dest_y + tileset::TILE_HEIGHT as i32; // Map bottom of the tile
+
+        let cx_occluded = cx + non_occluded_x;
+        let cy_occluded = cy + non_occluded_y;
+
+        draw_debug_dot(&mut imgbuf, cx_occluded, cy_occluded, entity.color);
+    }
+
     println!("Saving to {:?}...", output_path);
     imgbuf
         .save(output_path)
