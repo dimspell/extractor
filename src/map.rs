@@ -1023,19 +1023,55 @@ pub fn render_from_database(
 
     println!("Rendering pass 4: External entities...");
 
-    // Helper to draw a 3x3 square debug dot
-    let mut draw_debug_dot =
-        |dest: &mut image::RgbaImage, x: i32, y: i32, color: image::Rgba<u8>| {
-            for dx in -1..=1 {
-                for dy in -1..=1 {
-                    let px = x + dx;
-                    let py = y + dy;
+    // Helper to draw a diamond-shaped marker with outline, sized to be visible on large maps.
+    // The marker is a filled diamond (radius `r` pixels) with a 1px dark outline.
+    let draw_entity_marker = |dest: &mut image::RgbaImage,
+                              cx: i32,
+                              cy: i32,
+                              fill: image::Rgba<u8>| {
+        let r: i32 = 5; // diamond half-size in pixels
+        let outline = image::Rgba([0u8, 0, 0, 255]);
+
+        // Draw outline diamond (Manhattan distance == r)
+        for d in 0..r {
+            // Four points of the diamond outline at each "ring"
+            let points = [
+                (cx + d, cy + (r - d)),
+                (cx + d, cy - (r - d)),
+                (cx - d, cy + (r - d)),
+                (cx - d, cy - (r - d)),
+                (cx + (r - d), cy + d),
+                (cx + (r - d), cy - d),
+                (cx - (r - d), cy + d),
+                (cx - (r - d), cy - d),
+            ];
+            for (px, py) in points {
+                if px >= 0 && px < dest.width() as i32 && py >= 0 && py < dest.height() as i32 {
+                    // Outline ring (Manhattan distance == r) or fill (< r)
+                    dest.put_pixel(px as u32, py as u32, outline);
+                }
+            }
+        }
+        // Top and bottom tips of the outline
+        for &(px, py) in &[(cx, cy + r), (cx, cy - r), (cx + r, cy), (cx - r, cy)] {
+            if px >= 0 && px < dest.width() as i32 && py >= 0 && py < dest.height() as i32 {
+                dest.put_pixel(px as u32, py as u32, outline);
+            }
+        }
+
+        // Fill interior (Manhattan distance < r)
+        for dx in -(r - 1)..=r - 1 {
+            for dy in -(r - 1)..=r - 1 {
+                if dx.abs() + dy.abs() < r {
+                    let px = cx + dx;
+                    let py = cy + dy;
                     if px >= 0 && px < dest.width() as i32 && py >= 0 && py < dest.height() as i32 {
-                        dest.put_pixel(px as u32, py as u32, color);
+                        dest.put_pixel(px as u32, py as u32, fill);
                     }
                 }
             }
-        };
+        }
+    };
 
     // Query reference filenames for the given map
     let refs_query = "
@@ -1059,6 +1095,7 @@ pub fn render_from_database(
         x: i32,
         y: i32,
         color: image::Rgba<u8>,
+        _label: &'static str,
     }
 
     let mut external_entities: Vec<ExternalEntity> = Vec::new();
@@ -1079,7 +1116,8 @@ pub fn render_from_database(
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([255, 0, 0, 255]), // Red for monsters
+                                color: image::Rgba([255, 60, 60, 255]), // Red for monsters
+                                _label: "monster",
                             });
                         }
                     }
@@ -1102,7 +1140,8 @@ pub fn render_from_database(
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([0, 255, 0, 255]), // Green for NPCs
+                                color: image::Rgba([60, 255, 60, 255]), // Green for NPCs
+                                _label: "npc",
                             });
                         }
                     }
@@ -1125,7 +1164,8 @@ pub fn render_from_database(
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([0, 0, 255, 255]), // Blue for Extras
+                                color: image::Rgba([80, 120, 255, 255]), // Blue for Extras
+                                _label: "extra",
                             });
                         }
                     }
@@ -1134,16 +1174,22 @@ pub fn render_from_database(
         }
     }
 
-    for entity in external_entities {
-        let (dest_x, dest_y) = convert_map_coords_to_image_coords(entity.x, entity.y, diagonal);
+    println!(
+        "  Found {} external entities to render",
+        external_entities.len()
+    );
 
+    for entity in &external_entities {
+        // Apply the same tile offset used for ground tiles (pass 1, lines 961-962)
+        let x = entity.x + offset_x_tiles;
+        let y = entity.y + offset_y_tiles;
+        let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
+
+        // Center the marker on the tile (half tile width, full tile height for bottom-center)
         let cx = dest_x + TILE_WIDTH_HALF;
-        let cy = dest_y + tileset::TILE_HEIGHT as i32; // Map bottom of the tile
+        let cy = dest_y + TILE_HEIGHT_HALF;
 
-        let cx_occluded = cx + non_occluded_x;
-        let cy_occluded = cy + non_occluded_y;
-
-        draw_debug_dot(&mut imgbuf, cx_occluded, cy_occluded, entity.color);
+        draw_entity_marker(&mut imgbuf, cx, cy, entity.color);
     }
 
     println!("Saving to {:?}...", output_path);
