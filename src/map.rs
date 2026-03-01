@@ -800,6 +800,123 @@ fn read_roof_tiles(
     Ok(btl_tiles)
 }
 
+/// A single frame loaded from a sprite file, with origin (anchor) offsets.
+struct LoadedSpriteFrame {
+    image: image::RgbaImage,
+    origin_x: i32,
+    origin_y: i32,
+}
+
+/// Loads the first frame of every sequence from a game sprite file.
+/// Returns None if the file cannot be opened.
+fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> {
+    let file = File::open(sprite_path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let mut reader = BufReader::new(file);
+    let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
+
+    loop {
+        let pos = reader.seek(SeekFrom::Current(0)).unwrap_or(file_len);
+        match sprite::seek_next_sequence(&mut reader, pos, file_len) {
+            Ok(true) => {}
+            _ => break,
+        }
+        let info = match sprite::get_sequence_info(&mut reader) {
+            Ok(i) => i,
+            Err(_) => break,
+        };
+
+        let frame_data = if info.frame_count > 0 && !info.frame_infos.is_empty() {
+            let f = &info.frame_infos[0];
+            if f.width > 0 && f.height > 0 {
+                reader
+                    .seek(SeekFrom::Start(f.image_start_position))
+                    .ok()
+                    .and_then(|_| {
+                        let mut img = image::RgbaImage::new(f.width as u32, f.height as u32);
+                        for y in 0..f.height {
+                            for x in 0..f.width {
+                                let pix = reader.read_u16::<LittleEndian>().ok()?;
+                                if pix > 0 {
+                                    let c = rgb16_565_produce_color(pix);
+                                    img.put_pixel(
+                                        x as u32,
+                                        y as u32,
+                                        image::Rgba([c.r, c.g, c.b, 255]),
+                                    );
+                                }
+                            }
+                        }
+                        Some(LoadedSpriteFrame {
+                            image: img,
+                            origin_x: f.origin_x,
+                            origin_y: f.origin_y,
+                        })
+                    })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        frames.push(frame_data.unwrap_or_else(|| LoadedSpriteFrame {
+            image: image::RgbaImage::new(1, 1),
+            origin_x: 0,
+            origin_y: 0,
+        }));
+
+        if reader
+            .seek(SeekFrom::Start(info.sequence_end_position))
+            .is_err()
+        {
+            break;
+        }
+    }
+
+    if frames.is_empty() {
+        None
+    } else {
+        Some(frames)
+    }
+}
+
+/// Plots a sprite onto the destination RGBA image, optionally flipped horizontally.
+fn plot_entity_sprite(
+    dest: &mut image::RgbaImage,
+    sprite: &image::RgbaImage,
+    dest_x: i32,
+    dest_y: i32,
+    flip: bool,
+) {
+    let sw = sprite.width() as i32;
+    let sh = sprite.height() as i32;
+    let dw = dest.width() as i32;
+    let dh = dest.height() as i32;
+
+    for sy in 0..sh {
+        let py = dest_y + sy;
+        if py < 0 || py >= dh {
+            continue;
+        }
+        for sx in 0..sw {
+            let src_x = if flip {
+                (sw - 1 - sx) as u32
+            } else {
+                sx as u32
+            };
+            let pixel = *sprite.get_pixel(src_x, sy as u32);
+            if pixel[3] == 0 {
+                continue;
+            }
+            let px = dest_x + sx;
+            if px >= 0 && px < dw {
+                dest.put_pixel(px as u32, py as u32, pixel);
+            }
+        }
+    }
+}
+
 /// Renders a map image from SQLite database and atlas PNG files.
 ///
 /// # Arguments
@@ -809,6 +926,7 @@ fn read_roof_tiles(
 /// * `btl_atlas_path` - Path to the building/roof tileset atlas PNG
 /// * `atlas_columns` - Number of tiles per row in the atlas
 /// * `output_path` - Path to save the output PNG
+/// * `game_path` - Optional path to the Dispel game directory for loading entity sprites
 pub fn render_from_database(
     database_path: &Path,
     map_id: &str,
@@ -816,6 +934,7 @@ pub fn render_from_database(
     btl_atlas_path: &Path,
     atlas_columns: u32,
     output_path: &Path,
+    game_path: Option<&Path>,
 ) -> Result<()> {
     use image::RgbaImage;
     use rusqlite::Connection;
@@ -1095,7 +1214,10 @@ pub fn render_from_database(
         x: i32,
         y: i32,
         color: image::Rgba<u8>,
-        _label: &'static str,
+        sprite_filename: Option<String>,
+        sprite_dir: &'static str,
+        sprite_sequence: usize,
+        flip: bool,
     }
 
     let mut external_entities: Vec<ExternalEntity> = Vec::new();
@@ -1105,19 +1227,29 @@ pub fn render_from_database(
             m_file = m_file.replace("\\", "/");
             if let Some(file_name) = m_file.split('/').last() {
                 let query = format!(
-                    "SELECT pos_x, pos_y FROM monster_refs WHERE file_path LIKE '%{}'",
+                    "SELECT mr.pos_x, mr.pos_y, mi.sprite_filename \
+                     FROM monster_refs mr \
+                     LEFT JOIN monster_inis mi ON mi.id = mr.mon_id \
+                     WHERE mr.file_path LIKE '%{}'",
                     file_name
                 );
                 if let Ok(mut stmt) = conn.prepare(&query) {
-                    if let Ok(iter) =
-                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
-                    {
+                    if let Ok(iter) = stmt.query_map([], |row| {
+                        Ok((
+                            row.get::<_, i32>(0)?,
+                            row.get::<_, i32>(1)?,
+                            row.get::<_, Option<String>>(2)?,
+                        ))
+                    }) {
                         for row in iter.filter_map(|r| r.ok()) {
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([255, 60, 60, 255]), // Red for monsters
-                                _label: "monster",
+                                color: image::Rgba([255, 60, 60, 255]),
+                                sprite_filename: row.2,
+                                sprite_dir: "MonsterInGame",
+                                sprite_sequence: 3, // walking
+                                flip: false,
                             });
                         }
                     }
@@ -1129,19 +1261,36 @@ pub fn render_from_database(
             n_file = n_file.replace("\\", "/");
             if let Some(file_name) = n_file.split('/').last() {
                 let query = format!(
-                    "SELECT goto1_x, goto1_y FROM npc_refs WHERE file_path LIKE '%{}'",
+                    "SELECT nr.goto1_x, nr.goto1_y, ni.sprite_filename, nr.looking_direction \
+                     FROM npc_refs nr \
+                     LEFT JOIN npc_inis ni ON ni.id = nr.npc_id \
+                     WHERE nr.file_path LIKE '%{}'",
                     file_name
                 );
                 if let Ok(mut stmt) = conn.prepare(&query) {
-                    if let Ok(iter) =
-                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
-                    {
+                    if let Ok(iter) = stmt.query_map([], |row| {
+                        Ok((
+                            row.get::<_, i32>(0)?,
+                            row.get::<_, i32>(1)?,
+                            row.get::<_, Option<String>>(2)?,
+                            row.get::<_, i32>(3)?,
+                        ))
+                    }) {
                         for row in iter.filter_map(|r| r.ok()) {
+                            let direction = row.3;
+                            let seq = if direction > 4 {
+                                (8 - direction) as usize
+                            } else {
+                                direction as usize
+                            };
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([60, 255, 60, 255]), // Green for NPCs
-                                _label: "npc",
+                                color: image::Rgba([60, 255, 60, 255]),
+                                sprite_filename: row.2,
+                                sprite_dir: "NpcInGame",
+                                sprite_sequence: seq,
+                                flip: direction > 4,
                             });
                         }
                     }
@@ -1153,19 +1302,40 @@ pub fn render_from_database(
             e_file = e_file.replace("\\", "/");
             if let Some(file_name) = e_file.split('/').last() {
                 let query = format!(
-                    "SELECT x_pos, y_pos FROM extra_refs WHERE file_path LIKE '%{}'",
+                    "SELECT er.x_pos, er.y_pos, e.sprite_filename, er.rotation, er.object_type, er.closed \
+                     FROM extra_refs er \
+                     LEFT JOIN extras e ON e.id = er.ext_id \
+                     WHERE er.file_path LIKE '%{}'",
                     file_name
                 );
                 if let Ok(mut stmt) = conn.prepare(&query) {
-                    if let Ok(iter) =
-                        stmt.query_map([], |row| Ok((row.get::<_, i32>(0)?, row.get::<_, i32>(1)?)))
-                    {
+                    if let Ok(iter) = stmt.query_map([], |row| {
+                        Ok((
+                            row.get::<_, i32>(0)?,
+                            row.get::<_, i32>(1)?,
+                            row.get::<_, Option<String>>(2)?,
+                            row.get::<_, i32>(3)?,
+                            row.get::<_, i32>(4)?,
+                            row.get::<_, i32>(5)?,
+                        ))
+                    }) {
                         for row in iter.filter_map(|r| r.ok()) {
+                            let rotation = row.3;
+                            let obj_type = row.4;
+                            let closed = row.5;
+                            let seq = if obj_type == 0 {
+                                (2 * closed + rotation) as usize
+                            } else {
+                                rotation as usize
+                            };
                             external_entities.push(ExternalEntity {
                                 x: row.0,
                                 y: row.1,
-                                color: image::Rgba([80, 120, 255, 255]), // Blue for Extras
-                                _label: "extra",
+                                color: image::Rgba([80, 120, 255, 255]),
+                                sprite_filename: row.2,
+                                sprite_dir: "ExtraInGame",
+                                sprite_sequence: seq,
+                                flip: false,
                             });
                         }
                     }
@@ -1179,17 +1349,46 @@ pub fn render_from_database(
         external_entities.len()
     );
 
+    // Sprite cache: keyed by "dir/filename" → loaded frames (or None if failed)
+    let mut sprite_cache: HashMap<String, Option<Vec<LoadedSpriteFrame>>> = HashMap::new();
+
     for entity in &external_entities {
-        // Apply the same tile offset used for ground tiles (pass 1, lines 961-962)
         let x = entity.x + offset_x_tiles;
         let y = entity.y + offset_y_tiles;
         let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
 
-        // Center the marker on the tile (half tile width, full tile height for bottom-center)
         let cx = dest_x + TILE_WIDTH_HALF;
         let cy = dest_y + TILE_HEIGHT_HALF;
 
-        draw_entity_marker(&mut imgbuf, cx, cy, entity.color);
+        let mut rendered = false;
+
+        if let Some(gp) = game_path {
+            if let Some(ref sprite_file) = entity.sprite_filename {
+                let cache_key = format!("{}/{}", entity.sprite_dir, sprite_file);
+                if !sprite_cache.contains_key(&cache_key) {
+                    let path = gp.join(entity.sprite_dir).join(sprite_file);
+                    sprite_cache.insert(cache_key.clone(), load_sprite_frames(&path));
+                }
+                if let Some(Some(frames)) = sprite_cache.get(&cache_key) {
+                    if !frames.is_empty() {
+                        let idx = entity.sprite_sequence.min(frames.len() - 1);
+                        let frame = &frames[idx];
+                        let sx = if entity.flip {
+                            cx - (frame.image.width() as i32 - frame.origin_x)
+                        } else {
+                            cx - frame.origin_x
+                        };
+                        let sy = cy - frame.origin_y;
+                        plot_entity_sprite(&mut imgbuf, &frame.image, sx, sy, entity.flip);
+                        rendered = true;
+                    }
+                }
+            }
+        }
+
+        if !rendered {
+            draw_entity_marker(&mut imgbuf, cx, cy, entity.color);
+        }
     }
 
     println!("Saving to {:?}...", output_path);

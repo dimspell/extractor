@@ -34,6 +34,9 @@ map-render:
 map-from-db:
 	cargo run -- map from-db --map-id ${map_id} --gtl-atlas ${map_id}.gtl.png --btl-atlas ${map_id}.btl.png -o out_${map_id}.png
 
+map-from-db-with-sprite:
+	cargo run -- map from-db --map-id ${map_id} --gtl-atlas ${map_id}.gtl.png --btl-atlas ${map_id}.btl.png -o out_${map_id}.png --game-path "fixtures/Dispel"
+
 ref-all-maps:
 	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
 

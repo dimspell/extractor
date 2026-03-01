@@ -194,6 +194,10 @@ enum MapCommands {
         /// Path to save the output PNG
         #[arg(short, long)]
         output: String,
+
+        /// Path to the Dispel game directory (enables sprite rendering for NPCs, monsters, extras)
+        #[arg(long)]
+        game_path: Option<String>,
     },
     /// Import a map file into SQLite database
     #[command(
@@ -384,6 +388,7 @@ fn main() {
                 btl_atlas,
                 atlas_columns,
                 output,
+                game_path,
             }) => {
                 println!("Rendering map from database...");
                 map::render_from_database(
@@ -393,6 +398,7 @@ fn main() {
                     &Path::new(btl_atlas),
                     *atlas_columns,
                     &Path::new(output),
+                    game_path.as_deref().map(Path::new),
                 )
                 .expect("ERROR: could not render map from database");
             }

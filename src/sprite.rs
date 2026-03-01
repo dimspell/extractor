@@ -367,8 +367,8 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ImageInfo {
-    origin_x: i32,
-    origin_y: i32,
+    pub origin_x: i32,
+    pub origin_y: i32,
     pub width: i32,
     pub height: i32,
     pub size_bytes: i64,
@@ -407,7 +407,11 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
     Ok(info)
 }
 
-fn seek_next_sequence(reader: &mut BufReader<File>, start_pos: u64, file_len: u64) -> Result<bool> {
+pub fn seek_next_sequence(
+    reader: &mut BufReader<File>,
+    start_pos: u64,
+    file_len: u64,
+) -> Result<bool> {
     let mut valid_sprite_seq = false;
     let mut number_of_skips = 0;
 
