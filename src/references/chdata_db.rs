@@ -14,7 +14,7 @@ pub struct ChData {
 }
 
 pub fn read_chdata(path: &Path) -> std::io::Result<ChData> {
-    let mut file = File::open(path)?;
+    let file = File::open(path)?;
     let mut reader = BufReader::new(file);
 
     // Read magic "Item"

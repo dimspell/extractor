@@ -60,15 +60,19 @@ fn create_mask() -> [[i32; 32]; 2] {
     mask
 }
 
-pub fn plot_all_tiles(tiles: &Vec<Tile>) {
-    for tile_index in 0..TILE_PIXEL_NUMBER {
-        let tile = &tiles[tile_index as usize];
+pub fn plot_all_tiles(tiles: &Vec<Tile>, out_dir: &str) {
+    let out_path = std::path::Path::new(out_dir);
+    std::fs::create_dir_all(out_path).expect("Failed to create output directory");
+
+    for tile_index in 0..tiles.len() {
+        let tile = &tiles[tile_index];
 
         let mut imgbuf = image::ImageBuffer::new(TILE_WIDTH, TILE_HEIGHT);
         let dest_x = 0;
         let dest_y: i32 = 0;
-        plot_tile(&mut imgbuf, tile.colors, dest_x, dest_y);
-        imgbuf.save(format!("image_{:?}.png", tile_index)).unwrap();
+        plot_tile_rgba(&mut imgbuf, tile.colors, dest_x, dest_y);
+        let file_path = out_path.join(format!("tile_{:04}.png", tile_index));
+        imgbuf.save(file_path).unwrap();
     }
 }
 

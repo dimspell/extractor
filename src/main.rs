@@ -127,6 +127,10 @@ enum MapCommands {
     Tiles {
         /// Path to a .GTL or .BTL tileset file
         input: String,
+
+        /// Output directory to save the tile images
+        #[arg(short, long, default_value = "out")]
+        output: String,
     },
     /// Create a single image containing all tiles in a grid
     #[command(
@@ -360,13 +364,14 @@ fn main() {
                 .expect("ERROR: could not convert SNF file to WAV");
         }
         Some(Commands::Map(map_args)) => match &map_args.command {
-            Some(MapCommands::Tiles { input }) => {
+            Some(MapCommands::Tiles { input, output }) => {
                 println!("Extracting all tiles to separate tiles...");
                 println!("Input file: {input:?}");
+                println!("Output directory: {output:?}");
 
                 let tiles =
                     tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
-                tileset::plot_all_tiles(&tiles);
+                tileset::plot_all_tiles(&tiles, output);
             }
             Some(MapCommands::Atlas { input, output }) => {
                 println!("Rendering map atlas...");
