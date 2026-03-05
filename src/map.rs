@@ -112,6 +112,24 @@ pub fn extract(
     Ok(())
 }
 
+pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> Result<()> {
+    let file = File::open(input_map_file)?;
+    let mut reader = BufReader::new(file);
+
+    let map_data = read_map_data(&mut reader)?;
+    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+
+    std::fs::create_dir_all(output_path)?;
+    let output_dir_str = output_path.to_str().unwrap();
+
+    for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
+        let prefix = format!("{}/{}", output_dir_str, map_id);
+        save_sequence(&mut reader, &sprite.frame_infos, i as i32, &prefix)?;
+    }
+
+    Ok(())
+}
+
 pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
     use rusqlite::Connection;
     let mut conn = Connection::open(database_path)

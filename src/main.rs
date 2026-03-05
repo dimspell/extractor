@@ -213,6 +213,19 @@ enum MapCommands {
         #[arg(short, long)]
         map: String,
     },
+    /// Extract map internal sprites
+    #[command(
+        about = "Extract map internal sprites",
+        long_about = "Extracts all internal sprites embedded in a .MAP file to separate PNG files."
+    )]
+    Sprites {
+        /// Path to the .MAP file
+        input: String,
+
+        /// Output directory to save the sprites
+        #[arg(short, long, default_value = "out")]
+        output: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -406,6 +419,14 @@ fn main() {
                 println!("Importing map to database...");
                 map::import_to_database(&Path::new(database), &Path::new(map))
                     .expect("ERROR: could not import map to database");
+            }
+            Some(MapCommands::Sprites { input, output }) => {
+                println!("Extracting map internal sprites to separate PNG files...");
+                println!("Input file: {input:?}");
+                println!("Output directory: {output:?}");
+
+                map::extract_sprites(&Path::new(input), &Path::new(output))
+                    .expect("ERROR: could not extract sprites");
             }
             None => {}
         },
