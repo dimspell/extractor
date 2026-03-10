@@ -236,3 +236,139 @@ pub fn subtle_text(_theme: &Theme) -> text::Style {
         color: Some(color!(0x8888aa)),
     }
 }
+
+// ─── Spreadsheet / Database Viewer styles ───────────────────────────────────
+
+pub fn grid_header_cell(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x252548))),
+        border: Border {
+            color: color!(0x3a3a5c),
+            width: 1.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn grid_cell(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x1a1a2e))),
+        border: Border {
+            color: color!(0x2a2a4a),
+            width: 0.5,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn grid_cell_dirty(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x1a2a4e))),
+        border: Border {
+            color: color!(0x4488cc),
+            width: 1.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn grid_cell_even(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x181830))),
+        border: Border {
+            color: color!(0x2a2a4a),
+            width: 0.5,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn toolbar_container(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x16213e))),
+        border: Border {
+            color: color!(0x2a2a4a),
+            width: 0.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn sql_editor_container(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x0f0f23))),
+        border: Border {
+            color: color!(0x3a3a5c),
+            width: 1.0,
+            radius: 6.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn sort_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: color!(0xaaaacc),
+        border: Border {
+            color: Color::TRANSPARENT,
+            width: 0.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            text_color: color!(0xeeeeff),
+            background: Some(Background::Color(color!(0x2e2e55))),
+            ..base
+        },
+        _ => base,
+    }
+}
+
+pub fn commit_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(color!(0x2ecc71))),
+        text_color: Color::WHITE,
+        border: Border {
+            color: color!(0x27ae60),
+            width: 0.0,
+            radius: 6.into(),
+        },
+        shadow: Shadow {
+            color: color!(0x2ecc71, 0.3),
+            offset: Vector::new(0.0, 2.0),
+            blur_radius: 8.0,
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(color!(0x3ddc84))),
+            ..base
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(color!(0x27ae60))),
+            ..base
+        },
+        _ => base,
+    }
+}
+
+pub fn status_bar(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x12122a))),
+        border: Border {
+            color: color!(0x2a2a4a),
+            width: 1.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    }
+}
