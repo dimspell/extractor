@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "dispel-gui"]
+resolver = "2"
+
 [package]
 name = "dispel-extractor"
 version = "0.1.0"
