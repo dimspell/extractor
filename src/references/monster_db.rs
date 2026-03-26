@@ -1,11 +1,11 @@
 use std::{fs::File, path::Path};
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::io::prelude::*;
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
 use serde::{Deserialize, Serialize};
-use crate::references::references::read_mapper;
+use crate::references::references::{read_mapper, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Monster {
@@ -47,116 +47,172 @@ pub struct Monster {
     pub attack_speed: i32,
 }
 
-pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
-    let file = File::open(source_path)?;
+impl Extractor for Monster {
+    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(source_path)?;
 
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
+        let metadata = file.metadata()?;
+        let file_len = metadata.len();
 
-    let mut reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
 
-    const COUNTER_SIZE: u8 = 0;
-    const PROPERTY_ITEM_SIZE: i32 = 40 * 4;
-    // const FILLER: u8 = 0x0;
+        const COUNTER_SIZE: u8 = 0;
+        const PROPERTY_ITEM_SIZE: i32 = 40 * 4;
 
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-    let mut monsters: Vec<Monster> = Vec::with_capacity(elements as usize);
+        let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
+        let mut monsters: Vec<Monster> = Vec::with_capacity(elements as usize);
 
-    for i in 0..elements {
-        let mut buffer = [0u8; 24];
-        reader.read_exact(&mut buffer)?;
-        let dst = EUC_KR.decode(&buffer);
-        let name = dst.0.trim_end_matches("\0").trim();
+        for i in 0..elements {
+            let mut buffer = [0u8; 24];
+            reader.read_exact(&mut buffer)?;
+            let dst = EUC_KR.decode(&buffer);
+            let name = dst.0.trim_end_matches("\0").trim();
 
-        let health_points_max = reader.read_i32::<LittleEndian>()?;
-        let health_points_min = reader.read_i32::<LittleEndian>()?;
-        let magic_points_max = reader.read_i32::<LittleEndian>()?;
-        let magic_points_min = reader.read_i32::<LittleEndian>()?;
+            let health_points_max = reader.read_i32::<LittleEndian>()?;
+            let health_points_min = reader.read_i32::<LittleEndian>()?;
+            let magic_points_max = reader.read_i32::<LittleEndian>()?;
+            let magic_points_min = reader.read_i32::<LittleEndian>()?;
 
-        let walk_speed = reader.read_i32::<LittleEndian>()?;
+            let walk_speed = reader.read_i32::<LittleEndian>()?;
 
-        let to_hit_max = reader.read_i32::<LittleEndian>()?;
-        let to_hit_min = reader.read_i32::<LittleEndian>()?;
+            let to_hit_max = reader.read_i32::<LittleEndian>()?;
+            let to_hit_min = reader.read_i32::<LittleEndian>()?;
 
-        let to_dodge_max = reader.read_i32::<LittleEndian>()?; // always = 10
-        let to_dodge_min = reader.read_i32::<LittleEndian>()?; // always = 10
+            let to_dodge_max = reader.read_i32::<LittleEndian>()?; // always = 10
+            let to_dodge_min = reader.read_i32::<LittleEndian>()?; // always = 10
 
-        let offense_max = reader.read_i32::<LittleEndian>()?;
-        let offense_min = reader.read_i32::<LittleEndian>()?;
+            let offense_max = reader.read_i32::<LittleEndian>()?;
+            let offense_min = reader.read_i32::<LittleEndian>()?;
 
-        let defense_max = reader.read_i32::<LittleEndian>()?;
-        let defense_min = reader.read_i32::<LittleEndian>()?;
+            let defense_max = reader.read_i32::<LittleEndian>()?;
+            let defense_min = reader.read_i32::<LittleEndian>()?;
 
-        let magic_attack_max = reader.read_i32::<LittleEndian>()?; // max
-        let magic_attack_min = reader.read_i32::<LittleEndian>()?; // min
+            let magic_attack_max = reader.read_i32::<LittleEndian>()?; // max
+            let magic_attack_min = reader.read_i32::<LittleEndian>()?; // min
 
-        let is_undead = reader.read_i32::<LittleEndian>()?; // "0 or 1"
-        let has_blood = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
-        let ai_type = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
+            let is_undead = reader.read_i32::<LittleEndian>()?; // "0 or 1"
+            let has_blood = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
+            let ai_type = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
 
-        let exp_gain_max = reader.read_i32::<LittleEndian>()?;
-        let exp_gain_min = reader.read_i32::<LittleEndian>()?;
+            let exp_gain_max = reader.read_i32::<LittleEndian>()?;
+            let exp_gain_min = reader.read_i32::<LittleEndian>()?;
 
-        let gold_drop_max = reader.read_i32::<LittleEndian>()?;
-        let gold_drop_min = reader.read_i32::<LittleEndian>()?;
+            let gold_drop_max = reader.read_i32::<LittleEndian>()?;
+            let gold_drop_min = reader.read_i32::<LittleEndian>()?;
 
-        let detection_sight_size = reader.read_i32::<LittleEndian>()?; // "9 or 10 - only goblin king have 10"
-        let distance_range_size = reader.read_i32::<LittleEndian>()?; // "1 or 6 if archer
+            let detection_sight_size = reader.read_i32::<LittleEndian>()?; // "9 or 10 - only goblin king have 10"
+            let distance_range_size = reader.read_i32::<LittleEndian>()?; // "1 or 6 if archer
 
-        let known_spell_slot1 = reader.read_i32::<LittleEndian>()?;
-        let known_spell_slot2 = reader.read_i32::<LittleEndian>()?;
-        let known_spell_slot3 = reader.read_i32::<LittleEndian>()?;
+            let known_spell_slot1 = reader.read_i32::<LittleEndian>()?;
+            let known_spell_slot2 = reader.read_i32::<LittleEndian>()?;
+            let known_spell_slot3 = reader.read_i32::<LittleEndian>()?;
 
-        let is_oversize = reader.read_i32::<LittleEndian>()?; // redDragon, balrog, beholder, = 1
+            let is_oversize = reader.read_i32::<LittleEndian>()?; // redDragon, balrog, beholder, = 1
 
-        let magic_level = reader.read_i32::<LittleEndian>()?; // always = 1
+            let magic_level = reader.read_i32::<LittleEndian>()?; // always = 1
 
-        let special_attack = reader.read_i32::<LittleEndian>()?; // 0 = none, 1 = bat/zombie/biteworm, 2 = basilisk
-        let special_attack_chance = reader.read_i32::<LittleEndian>()?;
-        let special_attack_duration = reader.read_i32::<LittleEndian>()?;
+            let special_attack = reader.read_i32::<LittleEndian>()?; // 0 = none, 1 = bat/zombie/biteworm, 2 = basilisk
+            let special_attack_chance = reader.read_i32::<LittleEndian>()?;
+            let special_attack_duration = reader.read_i32::<LittleEndian>()?;
 
-        let boldness = reader.read_i32::<LittleEndian>()?; // always = 10
-        let attack_speed = reader.read_i32::<LittleEndian>()?;
+            let boldness = reader.read_i32::<LittleEndian>()?; // always = 10
+            let attack_speed = reader.read_i32::<LittleEndian>()?;
 
-        monsters.push(Monster {
-            id: i,
-            name: name.to_string(),
-            health_points_max,
-            health_points_min,
-            magic_points_max,
-            magic_points_min,
-            walk_speed,
-            to_hit_max,
-            to_hit_min,
-            to_dodge_max,
-            to_dodge_min,
-            offense_max,
-            offense_min,
-            defense_max,
-            defense_min,
-            magic_attack_max,
-            magic_attack_min,
-            is_undead,
-            has_blood,
-            ai_type,
-            exp_gain_max,
-            exp_gain_min,
-            gold_drop_max,
-            gold_drop_min,
-            detection_sight_size,
-            distance_range_size,
-            known_spell_slot1,
-            known_spell_slot2,
-            known_spell_slot3,
-            is_oversize,
-            magic_level,
-            special_attack,
-            special_attack_chance,
-            special_attack_duration,
-            boldness,
-            attack_speed,
-        })
+            monsters.push(Monster {
+                id: i,
+                name: name.to_string(),
+                health_points_max,
+                health_points_min,
+                magic_points_max,
+                magic_points_min,
+                walk_speed,
+                to_hit_max,
+                to_hit_min,
+                to_dodge_max,
+                to_dodge_min,
+                offense_max,
+                offense_min,
+                defense_max,
+                defense_min,
+                magic_attack_max,
+                magic_attack_min,
+                is_undead,
+                has_blood,
+                ai_type,
+                exp_gain_max,
+                exp_gain_min,
+                gold_drop_max,
+                gold_drop_min,
+                detection_sight_size,
+                distance_range_size,
+                known_spell_slot1,
+                known_spell_slot2,
+                known_spell_slot3,
+                is_oversize,
+                magic_level,
+                special_attack,
+                special_attack_chance,
+                special_attack_duration,
+                boldness,
+                attack_speed,
+            })
+        }
+
+        Ok(monsters)
     }
 
-    Ok(monsters)
+    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+        let file = File::create(dest_path)?;
+        let mut writer = BufWriter::new(file);
+
+        // Since COUNTER_SIZE is 0, we don't write the number of elements
+
+        for record in records {
+            let mut name_buf = [0u8; 24];
+            let (cow, _, _) = EUC_KR.encode(&record.name);
+            let len = std::cmp::min(cow.len(), 24);
+            name_buf[..len].copy_from_slice(&cow[..len]);
+            writer.write_all(&name_buf)?;
+
+            writer.write_i32::<LittleEndian>(record.health_points_max)?;
+            writer.write_i32::<LittleEndian>(record.health_points_min)?;
+            writer.write_i32::<LittleEndian>(record.magic_points_max)?;
+            writer.write_i32::<LittleEndian>(record.magic_points_min)?;
+            writer.write_i32::<LittleEndian>(record.walk_speed)?;
+            writer.write_i32::<LittleEndian>(record.to_hit_max)?;
+            writer.write_i32::<LittleEndian>(record.to_hit_min)?;
+            writer.write_i32::<LittleEndian>(record.to_dodge_max)?;
+            writer.write_i32::<LittleEndian>(record.to_dodge_min)?;
+            writer.write_i32::<LittleEndian>(record.offense_max)?;
+            writer.write_i32::<LittleEndian>(record.offense_min)?;
+            writer.write_i32::<LittleEndian>(record.defense_max)?;
+            writer.write_i32::<LittleEndian>(record.defense_min)?;
+            writer.write_i32::<LittleEndian>(record.magic_attack_max)?;
+            writer.write_i32::<LittleEndian>(record.magic_attack_min)?;
+            writer.write_i32::<LittleEndian>(record.is_undead)?;
+            writer.write_i32::<LittleEndian>(record.has_blood)?;
+            writer.write_i32::<LittleEndian>(record.ai_type)?;
+            writer.write_i32::<LittleEndian>(record.exp_gain_max)?;
+            writer.write_i32::<LittleEndian>(record.exp_gain_min)?;
+            writer.write_i32::<LittleEndian>(record.gold_drop_max)?;
+            writer.write_i32::<LittleEndian>(record.gold_drop_min)?;
+            writer.write_i32::<LittleEndian>(record.detection_sight_size)?;
+            writer.write_i32::<LittleEndian>(record.distance_range_size)?;
+            writer.write_i32::<LittleEndian>(record.known_spell_slot1)?;
+            writer.write_i32::<LittleEndian>(record.known_spell_slot2)?;
+            writer.write_i32::<LittleEndian>(record.known_spell_slot3)?;
+            writer.write_i32::<LittleEndian>(record.is_oversize)?;
+            writer.write_i32::<LittleEndian>(record.magic_level)?;
+            writer.write_i32::<LittleEndian>(record.special_attack)?;
+            writer.write_i32::<LittleEndian>(record.special_attack_chance)?;
+            writer.write_i32::<LittleEndian>(record.special_attack_duration)?;
+            writer.write_i32::<LittleEndian>(record.boldness)?;
+            writer.write_i32::<LittleEndian>(record.attack_speed)?;
+        }
+        Ok(())
+    }
+}
+
+pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
+    Monster::read_file(source_path)
 }

@@ -1,11 +1,12 @@
 use std::io::{prelude::*, Cursor};
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
 #[derive(Debug, Serialize)]
 pub struct Store {
@@ -21,80 +22,131 @@ pub struct Store {
 
 pub type StoreProduct = (i16, i16, i16); // order, product_type, product_id
 
-pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
-    let file = File::open(source_path)?;
+impl Extractor for Store {
+    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(source_path)?;
 
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
+        let metadata = file.metadata()?;
+        let file_len = metadata.len();
 
-    let mut reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
 
-    const COUNTER_SIZE: u8 = 4;
-    const PROPERTY_ITEM_SIZE: i32 = 237 * 4;
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
+        const COUNTER_SIZE: u8 = 4;
+        const PROPERTY_ITEM_SIZE: i32 = 237 * 4;
+        let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
 
-    let mut store: Vec<Store> = vec![];
-    for i in 0..elements as usize {
-        // name
-        let mut buffer = [0u8; 32];
-        reader.read_exact(&mut buffer)?;
-        let name = read_null_terminated_windows_1250(&buffer).unwrap();
-
-        let inn_night_cost = reader.read_i32::<LittleEndian>()?;
-        let mut some_unknown_number = 0;
-        let mut products: Vec<StoreProduct> = vec![];
-
-        if inn_night_cost > 0 {
-            reader.seek(SeekFrom::Current(144))?;
-        } else {
-            some_unknown_number = reader.read_i16::<LittleEndian>()?; // price modifier?
-
-            let mut buffer = [0u8; 142];
+        let mut store: Vec<Store> = vec![];
+        for i in 0..elements as usize {
+            // name
+            let mut buffer = [0u8; 32];
             reader.read_exact(&mut buffer)?;
-            let mut cursor = Cursor::new(&buffer);
+            let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
-            for i in 0..buffer.len() / 2 {
-                let item_type = cursor.read_i16::<LittleEndian>().unwrap();
-                // 1 = Bron
-                // 2,3 = wyposazenie (3 = edibles/ 2 =modfiers?)
-                // 4 = magiczny
-                if item_type == 0 {
-                    break;
+            let inn_night_cost = reader.read_i32::<LittleEndian>()?;
+            let mut some_unknown_number = 0;
+            let mut products: Vec<StoreProduct> = vec![];
+
+            if inn_night_cost > 0 {
+                reader.seek(SeekFrom::Current(144))?;
+            } else {
+                some_unknown_number = reader.read_i16::<LittleEndian>()?; // price modifier?
+
+                let mut buffer = [0u8; 142];
+                reader.read_exact(&mut buffer)?;
+                let mut cursor = Cursor::new(&buffer);
+
+                for i in 0..buffer.len() / 2 {
+                    let item_type = cursor.read_i16::<LittleEndian>().unwrap();
+                    // 1 = Bron
+                    // 2,3 = wyposazenie (3 = edibles/ 2 =modfiers?)
+                    // 4 = magiczny
+                    if item_type == 0 {
+                        break;
+                    }
+
+                    let item_id = cursor.read_i16::<LittleEndian>().unwrap();
+                    products.push((i as i16, item_type, item_id));
                 }
-
-                let item_id = cursor.read_i16::<LittleEndian>().unwrap();
-                products.push((i as i16, item_type, item_id));
             }
+
+            // text
+            let mut buffer = [0u8; 512];
+            reader.read_exact(&mut buffer)?;
+            let invitation = read_null_terminated_windows_1250(&buffer).unwrap();
+
+            // haggle_success
+            let mut buffer = [0u8; 128];
+            reader.read_exact(&mut buffer)?;
+            let haggle_success = read_null_terminated_windows_1250(&buffer).unwrap();
+
+            // haggle_fail
+            let mut buffer = [0u8; 128];
+            reader.read_exact(&mut buffer)?;
+            let haggle_fail = read_null_terminated_windows_1250(&buffer).unwrap();
+
+            let item = Store {
+                index: i as i32,
+                store_name: name.to_string(),
+                inn_night_cost,
+                some_unknown_number,
+                products,
+                invitation: invitation.to_string(),
+                haggle_success: haggle_success.to_string(),
+                haggle_fail: haggle_fail.to_string(),
+            };
+
+            store.push(item);
         }
 
-        // text
-        let mut buffer = [0u8; 512];
-        reader.read_exact(&mut buffer)?;
-        let invitation = read_null_terminated_windows_1250(&buffer).unwrap();
-
-        // haggle_success
-        let mut buffer = [0u8; 128];
-        reader.read_exact(&mut buffer)?;
-        let haggle_success = read_null_terminated_windows_1250(&buffer).unwrap();
-
-        // haggle_fail
-        let mut buffer = [0u8; 128];
-        reader.read_exact(&mut buffer)?;
-        let haggle_fail = read_null_terminated_windows_1250(&buffer).unwrap();
-
-        let item = Store {
-            index: i as i32,
-            store_name: name.to_string(),
-            inn_night_cost,
-            some_unknown_number,
-            products,
-            invitation: invitation.to_string(),
-            haggle_success: haggle_success.to_string(),
-            haggle_fail: haggle_fail.to_string(),
-        };
-
-        store.push(item);
+        Ok(store)
     }
 
-    Ok(store)
+    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+        let file = File::create(dest_path)?;
+        let mut writer = BufWriter::new(file);
+
+        let elements = records.len() as i32;
+        writer.write_i32::<LittleEndian>(elements)?;
+
+        for record in records {
+            let mut name_buf = [0u8; 32];
+            let (cow, _, _) = WINDOWS_1250.encode(&record.store_name);
+            let len = std::cmp::min(cow.len(), 32);
+            name_buf[..len].copy_from_slice(&cow[..len]);
+            writer.write_all(&name_buf)?;
+
+            writer.write_i32::<LittleEndian>(record.inn_night_cost)?;
+            if record.inn_night_cost > 0 {
+                writer.write_all(&[0u8; 144])?;
+            } else {
+                writer.write_i16::<LittleEndian>(record.some_unknown_number)?;
+                let mut prod_buf = [0u8; 142];
+                let mut cursor = Cursor::new(&mut prod_buf[..]);
+                for prod in &record.products {
+                    cursor.write_i16::<LittleEndian>(prod.1)?; // type
+                    cursor.write_i16::<LittleEndian>(prod.2)?; // id
+                }
+                writer.write_all(&prod_buf)?;
+            }
+
+            let write_str =
+                |w: &mut BufWriter<File>, text: &str, max_len: usize| -> std::io::Result<()> {
+                    let mut buf = vec![0u8; max_len];
+                    let (cow, _, _) = WINDOWS_1250.encode(text);
+                    let len = std::cmp::min(cow.len(), max_len);
+                    buf[..len].copy_from_slice(&cow[..len]);
+                    w.write_all(&buf)
+                };
+
+            write_str(&mut writer, &record.invitation, 512)?;
+            write_str(&mut writer, &record.haggle_success, 128)?;
+            write_str(&mut writer, &record.haggle_fail, 128)?;
+        }
+
+        Ok(())
+    }
+}
+
+pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
+    Store::read_file(source_path)
 }

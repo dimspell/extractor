@@ -6,6 +6,11 @@ use std::{fs::File, path::Path};
 use byteorder::{LittleEndian, ReadBytesExt};
 use encoding_rs::WINDOWS_1250;
 
+pub trait Extractor: Sized {
+    fn read_file(path: &Path) -> Result<Vec<Self>>;
+    fn save_file(records: &[Self], path: &Path) -> Result<()>;
+}
+
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
     // Find the first null byte (or use a fixed length if no null terminator)
     let (_data, _) = bytes.split_last().ok_or("Empty input")?;

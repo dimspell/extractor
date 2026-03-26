@@ -1,9 +1,10 @@
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250};
-use byteorder::{LittleEndian, ReadBytesExt};
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -30,105 +31,172 @@ pub struct ExtraRef {
     pub visibility: u8,
 }
 
-pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
-    let file = File::open(source_path)?;
+impl Extractor for ExtraRef {
+    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(source_path)?;
 
-    let metadata = file.metadata()?;
-    let file_len = metadata.len();
+        let metadata = file.metadata()?;
+        let file_len = metadata.len();
 
-    let mut reader = BufReader::new(file);
+        let mut reader = BufReader::new(file);
 
-    const COUNTER_SIZE: u8 = 4;
-    const PROPERTY_ITEM_SIZE: i32 = 46 * 4;
-    // const FILLER: u8 = 0xcd;
+        const COUNTER_SIZE: u8 = 4;
+        const PROPERTY_ITEM_SIZE: i32 = 46 * 4;
 
-    let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-    let mut refs: Vec<ExtraRef> = Vec::with_capacity(elements as usize);
+        let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
+        let mut refs: Vec<ExtraRef> = Vec::with_capacity(elements as usize);
 
-    for i in 0..elements {
-        let number_in_file = reader.read_u8()?;
+        for i in 0..elements {
+            let number_in_file = reader.read_u8()?;
 
-        reader.read_u8()?;
-        let ext_id = reader.read_u8()?; // Id from Extra.ini
+            reader.read_u8()?;
+            let ext_id = reader.read_u8()?; // Id from Extra.ini
 
-        let mut buffer = [0u8; 32];
-        reader.read_exact(&mut buffer)?;
-        let name = read_null_terminated_windows_1250(&buffer).unwrap();
+            let mut buffer = [0u8; 32];
+            reader.read_exact(&mut buffer)?;
+            let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
-        let object_type = reader.read_u8()?; // 7-magic, 6-interactive object, 5-altar, 4-sign, 2-door, 0-chest
+            let object_type = reader.read_u8()?; // 7-magic, 6-interactive object, 5-altar, 4-sign, 2-door, 0-chest
 
-        let x_pos = reader.read_i32::<LittleEndian>()?;
-        let y_pos = reader.read_i32::<LittleEndian>()?;
-        let rotation = reader.read_u8()?;
+            let x_pos = reader.read_i32::<LittleEndian>()?;
+            let y_pos = reader.read_i32::<LittleEndian>()?;
+            let rotation = reader.read_u8()?;
 
-        reader.read_u8()?;
-        reader.read_u8()?;
-        reader.read_u8()?;
+            reader.read_u8()?;
+            reader.read_u8()?;
+            reader.read_u8()?;
 
-        reader.read_i32::<LittleEndian>()?;
+            reader.read_i32::<LittleEndian>()?;
 
-        let closed = reader.read_i32::<LittleEndian>()?; // chest 0-open, 1-closed
+            let closed = reader.read_i32::<LittleEndian>()?; // chest 0-open, 1-closed
 
-        let required_item_id = reader.read_u8()?; // lower bound
-        let required_item_type_id = reader.read_u8()?;
-        reader.read_u8()?;
-        reader.read_u8()?;
+            let required_item_id = reader.read_u8()?; // lower bound
+            let required_item_type_id = reader.read_u8()?;
+            reader.read_u8()?;
+            reader.read_u8()?;
 
-        let required_item_id2 = reader.read_u8()?; // upper bound
-        let required_item_type_id2 = reader.read_u8()?;
-        reader.read_u8()?;
-        reader.read_u8()?;
+            let required_item_id2 = reader.read_u8()?; // upper bound
+            let required_item_type_id2 = reader.read_u8()?;
+            reader.read_u8()?;
+            reader.read_u8()?;
 
-        let mut buffer = [0u8; 16];
-        reader.read_exact(&mut buffer)?;
+            let mut buffer_16 = [0u8; 16];
+            reader.read_exact(&mut buffer_16)?;
 
-        let gold_amount = reader.read_i32::<LittleEndian>()?;
+            let gold_amount = reader.read_i32::<LittleEndian>()?;
 
-        let item_id = reader.read_u8()?;
-        let item_type_id = reader.read_u8()?;
-        reader.read_u8()?;
-        reader.read_u8()?;
+            let item_id = reader.read_u8()?;
+            let item_type_id = reader.read_u8()?;
+            reader.read_u8()?;
+            reader.read_u8()?;
 
-        let item_count = reader.read_i32::<LittleEndian>()?;
+            let item_count = reader.read_i32::<LittleEndian>()?;
 
-        let mut buffer = [0u8; 40];
-        reader.read_exact(&mut buffer)?;
+            let mut buffer_40 = [0u8; 40];
+            reader.read_exact(&mut buffer_40)?;
 
-        let event_id = reader.read_i32::<LittleEndian>()?; // id from event.ini
-        let message_id = reader.read_i32::<LittleEndian>()?; // id from message.scr for signs
+            let event_id = reader.read_i32::<LittleEndian>()?; // id from event.ini
+            let message_id = reader.read_i32::<LittleEndian>()?; // id from message.scr for signs
 
-        let mut buffer = [0u8; 32];
-        reader.read_exact(&mut buffer)?;
+            let mut buffer_32 = [0u8; 32];
+            reader.read_exact(&mut buffer_32)?;
 
-        let visibility = reader.read_u8()?;
+            let visibility = reader.read_u8()?;
 
-        let mut buffer = [0u8; 3];
-        reader.read_exact(&mut buffer)?;
-        println!("{:?}", buffer);
+            let mut buffer_3 = [0u8; 3];
+            reader.read_exact(&mut buffer_3)?;
 
-        refs.push(ExtraRef {
-            id: i,
-            number_in_file,
-            ext_id,
-            name: name.to_string(),
-            object_type,
-            x_pos,
-            y_pos,
-            rotation,
-            closed,
-            required_item_id,
-            required_item_type_id,
-            required_item_id2,
-            required_item_type_id2,
-            gold_amount,
-            item_id,
-            item_type_id,
-            item_count,
-            event_id,
-            message_id,
-            visibility,
-        })
+            // 8 byte padding to reach 184 bytes total
+            let mut padding = [0u8; 8];
+            let _ = reader.read_exact(&mut padding);
+
+            refs.push(ExtraRef {
+                id: i,
+                number_in_file,
+                ext_id,
+                name: name.to_string(),
+                object_type,
+                x_pos,
+                y_pos,
+                rotation,
+                closed,
+                required_item_id,
+                required_item_type_id,
+                required_item_id2,
+                required_item_type_id2,
+                gold_amount,
+                item_id,
+                item_type_id,
+                item_count,
+                event_id,
+                message_id,
+                visibility,
+            })
+        }
+
+        Ok(refs)
     }
 
-    Ok(refs)
+    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+        let file = File::create(dest_path)?;
+        let mut writer = BufWriter::new(file);
+
+        let elements = records.len() as i32;
+        writer.write_i32::<LittleEndian>(elements)?;
+
+        for record in records {
+            writer.write_u8(record.number_in_file)?;
+            writer.write_u8(0)?;
+            writer.write_u8(record.ext_id)?;
+
+            let mut name_buf = [0u8; 32];
+            let (cow, _, _) = WINDOWS_1250.encode(&record.name);
+            let len = std::cmp::min(cow.len(), 32);
+            name_buf[..len].copy_from_slice(&cow[..len]);
+            writer.write_all(&name_buf)?;
+
+            writer.write_u8(record.object_type)?;
+            writer.write_i32::<LittleEndian>(record.x_pos)?;
+            writer.write_i32::<LittleEndian>(record.y_pos)?;
+            writer.write_u8(record.rotation)?;
+
+            writer.write_all(&[0u8; 3])?;
+            writer.write_i32::<LittleEndian>(0)?;
+
+            writer.write_i32::<LittleEndian>(record.closed)?;
+
+            writer.write_u8(record.required_item_id)?;
+            writer.write_u8(record.required_item_type_id)?;
+            writer.write_all(&[0u8; 2])?;
+
+            writer.write_u8(record.required_item_id2)?;
+            writer.write_u8(record.required_item_type_id2)?;
+            writer.write_all(&[0u8; 2])?;
+
+            writer.write_all(&[0u8; 16])?;
+
+            writer.write_i32::<LittleEndian>(record.gold_amount)?;
+            writer.write_u8(record.item_id)?;
+            writer.write_u8(record.item_type_id)?;
+            writer.write_all(&[0u8; 2])?;
+
+            writer.write_i32::<LittleEndian>(record.item_count)?;
+            writer.write_all(&[0u8; 40])?;
+
+            writer.write_i32::<LittleEndian>(record.event_id)?;
+            writer.write_i32::<LittleEndian>(record.message_id)?;
+
+            writer.write_all(&[0u8; 32])?;
+
+            writer.write_u8(record.visibility)?;
+            writer.write_all(&[0u8; 3])?;
+
+            writer.write_all(&[0u8; 8])?; // pad to 184 bytes
+        }
+        Ok(())
+    }
+}
+
+pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
+    ExtraRef::read_file(source_path)
 }

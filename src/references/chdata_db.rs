@@ -1,9 +1,11 @@
 use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
 use std::path::Path;
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
+
+use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize)]
 pub struct ChData {
@@ -13,41 +15,79 @@ pub struct ChData {
     pub total: u32,
 }
 
-pub fn read_chdata(path: &Path) -> std::io::Result<ChData> {
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
+impl Extractor for ChData {
+    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(path)?;
+        let mut reader = BufReader::new(file);
 
-    // Read magic "Item"
-    let mut magic_buf = [0u8; 4];
-    reader.read_exact(&mut magic_buf)?;
-    let magic = String::from_utf8_lossy(&magic_buf).to_string();
+        // Read magic "Item"
+        let mut magic_buf = [0u8; 4];
+        reader.read_exact(&mut magic_buf)?;
+        let magic = String::from_utf8_lossy(&magic_buf).to_string();
 
-    // Skip padding to 0x1E (30 bytes total from start: 4 magic + 26 padding)
-    reader.seek(SeekFrom::Start(30))?;
+        // Skip padding to 0x1E (30 bytes total from start: 4 magic + 26 padding)
+        reader.seek(SeekFrom::Start(30))?;
 
-    // Read 16 u16s
-    let mut values = Vec::with_capacity(16);
-    for _ in 0..16 {
-        values.push(reader.read_u16::<LittleEndian>()?);
+        // Read 16 u16s
+        let mut values = Vec::with_capacity(16);
+        for _ in 0..16 {
+            values.push(reader.read_u16::<LittleEndian>()?);
+        }
+
+        // Skip padding (2 bytes) to 0x40 (64 bytes from start)
+        // 30 bytes + 16*2 bytes = 62 bytes. Need 2 bytes more to reach 64.
+        reader.seek(SeekFrom::Current(2))?;
+
+        // Read 4 u32s (counts of 5)
+        let mut counts = Vec::with_capacity(4);
+        for _ in 0..4 {
+            counts.push(reader.read_u32::<LittleEndian>()?);
+        }
+
+        // Read total (value 10)
+        let total = reader.read_u32::<LittleEndian>()?;
+
+        Ok(vec![ChData {
+            magic,
+            values,
+            counts,
+            total,
+        }])
     }
 
-    // Skip padding (2 bytes) to 0x40 (64 bytes from start)
-    // 30 bytes + 16*2 bytes = 62 bytes. Need 2 bytes more to reach 64.
-    reader.seek(SeekFrom::Current(2))?;
+    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+        if records.is_empty() { return Ok(()); }
+        let record = &records[0];
 
-    // Read 4 u32s (counts of 5)
-    let mut counts = Vec::with_capacity(4);
-    for _ in 0..4 {
-        counts.push(reader.read_u32::<LittleEndian>()?);
+        let file = File::create(dest_path)?;
+        let mut writer = BufWriter::new(file);
+
+        let mut magic_buf = [0u8; 4];
+        let bytes = record.magic.as_bytes();
+        let len = std::cmp::min(bytes.len(), 4);
+        magic_buf[..len].copy_from_slice(&bytes[..len]);
+        writer.write_all(&magic_buf)?;
+
+        // Padding to 30 bytes
+        writer.write_all(&[0u8; 26])?;
+
+        for &val in &record.values {
+            writer.write_u16::<LittleEndian>(val)?;
+        }
+
+        // Padding of 2 bytes
+        writer.write_all(&[0u8; 2])?;
+
+        for &count in &record.counts {
+            writer.write_u32::<LittleEndian>(count)?;
+        }
+
+        writer.write_u32::<LittleEndian>(record.total)?;
+
+        Ok(())
     }
+}
 
-    // Read total (value 10)
-    let total = reader.read_u32::<LittleEndian>()?;
-
-    Ok(ChData {
-        magic,
-        values,
-        counts,
-        total,
-    })
+pub fn read_chdata(path: &Path) -> std::io::Result<Vec<ChData>> {
+    ChData::read_file(path)
 }

@@ -1,16 +1,12 @@
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use crate::references::references::Extractor;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 
-/// Record size for Magic.db entries: 88 bytes (22 × u32)
 const MAGIC_RECORD_SIZE: usize = 88;
 
-/// A magic spell entry from Magic.db
-///
-/// This file contains spell definitions for the game's magic system.
-/// Each record is 88 bytes consisting of 22 little-endian u32 fields.
 #[derive(Debug, Serialize)]
 pub struct MagicSpell {
     /// Record index (0-based)
@@ -88,92 +84,128 @@ pub struct MagicSpell {
     pub target_type: u32,
 }
 
-/// Reads the Magic.db file and returns a vector of magic spell records.
-///
-/// # File Format
-///
-/// The Magic.db file uses a simple fixed-record format:
-/// - No header (no record count prefix)
-/// - Each record is 88 bytes (22 × u32 little-endian)
-/// - File size / 88 = number of records
-///
-/// # Arguments
-///
-/// * `source_path` - Path to the Magic.db file
-///
-/// # Returns
-///
-/// A vector of `MagicSpell` structs representing all spells in the database.
+impl Extractor for MagicSpell {
+    /// Reads the Magic.db file and returns a vector of magic spell records.
+    ///
+    /// # File Format
+    ///
+    /// The Magic.db file uses a simple fixed-record format:
+    /// - No header (no record count prefix)
+    /// - Each record is 88 bytes (22 × u32 little-endian)
+    /// - File size / 88 = number of records
+    ///
+    /// # Arguments
+    ///
+    /// * `source_path` - Path to the Magic.db file
+    ///
+    /// # Returns
+    ///
+    /// A vector of `MagicSpell` structs representing all spells in the database.
+    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(source_path)?;
+        let metadata = file.metadata()?;
+        let file_len = metadata.len() as usize;
+
+        if file_len % MAGIC_RECORD_SIZE != 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "Invalid Magic.db file size: {} bytes is not a multiple of {} byte record size",
+                    file_len, MAGIC_RECORD_SIZE
+                ),
+            ));
+        }
+
+        let num_records = file_len / MAGIC_RECORD_SIZE;
+        let mut reader = BufReader::new(file);
+        let mut spells: Vec<MagicSpell> = Vec::with_capacity(num_records);
+
+        for i in 0..num_records {
+            let enabled_u32 = reader.read_u32::<LittleEndian>()?;
+            let flag1 = reader.read_u32::<LittleEndian>()?;
+            let mana_cost = reader.read_u32::<LittleEndian>()?;
+            let success_rate = reader.read_u32::<LittleEndian>()?;
+            let base_damage = reader.read_u32::<LittleEndian>()?;
+            let reserved1 = reader.read_u32::<LittleEndian>()?;
+            let reserved2 = reader.read_u32::<LittleEndian>()?;
+            let flag2 = reader.read_u32::<LittleEndian>()?;
+            let range = reader.read_u32::<LittleEndian>()?;
+            let reserved3 = reader.read_u32::<LittleEndian>()?;
+            let level_required = reader.read_u32::<LittleEndian>()?;
+            let constant1 = reader.read_u32::<LittleEndian>()?;
+            let effect_value = reader.read_u32::<LittleEndian>()?;
+            let effect_type = reader.read_u32::<LittleEndian>()?;
+            let effect_modifier = reader.read_u32::<LittleEndian>()?;
+            let reserved4 = reader.read_u32::<LittleEndian>()?;
+            let magic_school = reader.read_u32::<LittleEndian>()?;
+            let flag3 = reader.read_u32::<LittleEndian>()?;
+            let animation_id = reader.read_u32::<LittleEndian>()?;
+            let visual_id = reader.read_u32::<LittleEndian>()?;
+            let icon_id = reader.read_u32::<LittleEndian>()?;
+            let target_type = reader.read_u32::<LittleEndian>()?;
+
+            spells.push(MagicSpell {
+                id: i as i32,
+                enabled: enabled_u32 != 0,
+                flag1,
+                mana_cost,
+                success_rate,
+                base_damage,
+                reserved1,
+                reserved2,
+                flag2,
+                range,
+                reserved3,
+                level_required,
+                constant1,
+                effect_value,
+                effect_type,
+                effect_modifier,
+                reserved4,
+                magic_school,
+                flag3,
+                animation_id,
+                visual_id,
+                icon_id,
+                target_type,
+            });
+        }
+
+        Ok(spells)
+    }
+
+    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+        let file = File::create(dest_path)?;
+        let mut writer = BufWriter::new(file);
+
+        for spell in records {
+            writer.write_u32::<LittleEndian>(if spell.enabled { 1 } else { 0 })?;
+            writer.write_u32::<LittleEndian>(spell.flag1)?;
+            writer.write_u32::<LittleEndian>(spell.mana_cost)?;
+            writer.write_u32::<LittleEndian>(spell.success_rate)?;
+            writer.write_u32::<LittleEndian>(spell.base_damage)?;
+            writer.write_u32::<LittleEndian>(spell.reserved1)?;
+            writer.write_u32::<LittleEndian>(spell.reserved2)?;
+            writer.write_u32::<LittleEndian>(spell.flag2)?;
+            writer.write_u32::<LittleEndian>(spell.range)?;
+            writer.write_u32::<LittleEndian>(spell.reserved3)?;
+            writer.write_u32::<LittleEndian>(spell.level_required)?;
+            writer.write_u32::<LittleEndian>(spell.constant1)?;
+            writer.write_u32::<LittleEndian>(spell.effect_value)?;
+            writer.write_u32::<LittleEndian>(spell.effect_type)?;
+            writer.write_u32::<LittleEndian>(spell.effect_modifier)?;
+            writer.write_u32::<LittleEndian>(spell.reserved4)?;
+            writer.write_u32::<LittleEndian>(spell.magic_school)?;
+            writer.write_u32::<LittleEndian>(spell.flag3)?;
+            writer.write_u32::<LittleEndian>(spell.animation_id)?;
+            writer.write_u32::<LittleEndian>(spell.visual_id)?;
+            writer.write_u32::<LittleEndian>(spell.icon_id)?;
+            writer.write_u32::<LittleEndian>(spell.target_type)?;
+        }
+        Ok(())
+    }
+}
+
 pub fn read_magic_db(source_path: &Path) -> std::io::Result<Vec<MagicSpell>> {
-    let file = File::open(source_path)?;
-    let metadata = file.metadata()?;
-    let file_len = metadata.len() as usize;
-
-    // Validate file size is a multiple of record size
-    if file_len % MAGIC_RECORD_SIZE != 0 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!(
-                "Invalid Magic.db file size: {} bytes is not a multiple of {} byte record size",
-                file_len, MAGIC_RECORD_SIZE
-            ),
-        ));
-    }
-
-    let num_records = file_len / MAGIC_RECORD_SIZE; // 43
-    let mut reader = BufReader::new(file);
-    let mut spells: Vec<MagicSpell> = Vec::with_capacity(num_records);
-
-    for i in 0..num_records {
-        let enabled_u32 = reader.read_u32::<LittleEndian>()?;
-        let flag1 = reader.read_u32::<LittleEndian>()?;
-        let mana_cost = reader.read_u32::<LittleEndian>()?;
-        let success_rate = reader.read_u32::<LittleEndian>()?;
-        let base_damage = reader.read_u32::<LittleEndian>()?;
-        let reserved1 = reader.read_u32::<LittleEndian>()?;
-        let reserved2 = reader.read_u32::<LittleEndian>()?;
-        let flag2 = reader.read_u32::<LittleEndian>()?;
-        let range = reader.read_u32::<LittleEndian>()?;
-        let reserved3 = reader.read_u32::<LittleEndian>()?;
-        let level_required = reader.read_u32::<LittleEndian>()?;
-        let constant1 = reader.read_u32::<LittleEndian>()?;
-        let effect_value = reader.read_u32::<LittleEndian>()?;
-        let effect_type = reader.read_u32::<LittleEndian>()?;
-        let effect_modifier = reader.read_u32::<LittleEndian>()?;
-        let reserved4 = reader.read_u32::<LittleEndian>()?;
-        let magic_school = reader.read_u32::<LittleEndian>()?;
-        let flag3 = reader.read_u32::<LittleEndian>()?;
-        let animation_id = reader.read_u32::<LittleEndian>()?;
-        let visual_id = reader.read_u32::<LittleEndian>()?;
-        let icon_id = reader.read_u32::<LittleEndian>()?;
-        let target_type = reader.read_u32::<LittleEndian>()?;
-
-        spells.push(MagicSpell {
-            id: i as i32,
-            enabled: enabled_u32 != 0,
-            flag1,
-            mana_cost,
-            success_rate,
-            base_damage,
-            reserved1,
-            reserved2,
-            flag2,
-            range,
-            reserved3,
-            level_required,
-            constant1,
-            effect_value,
-            effect_type,
-            effect_modifier,
-            reserved4,
-            magic_school,
-            flag3,
-            animation_id,
-            visual_id,
-            icon_id,
-            target_type,
-        });
-    }
-
-    Ok(spells)
+    MagicSpell::read_file(source_path)
 }
