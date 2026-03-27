@@ -1,11 +1,60 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::enums::{DialogOwner, DialogType};
+use crate::references::references::{parse_int, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_int, Extractor};
-use crate::references::enums::{DialogType, DialogOwner};
+
+// ===========================================================================
+// DLG FILE FORMAT (Dialogue)
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | *.dlg - Dialogue/Conversation Scripts|
+// +--------------------------------------+
+// | Encoding: EUC-KR                     |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                      |
+// | id,prev_event,next_dlg,type,owner,dlg_id,event_id|
+// | 1,100,2,0,1,1001,1000                |
+// | 2,101,3,1,0,1002,1001                |
+// | ...                                 |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique dialogue line identifier
+// - prev_event: Required event ID to trigger
+// - next_dlg: Next dialogue ID in chain
+// - type: 0=normal, 1=choice dialog
+// - owner: 0=player, 1=NPC
+// - dlg_id: Reference to PGP text content
+// - event_id: Event triggered by dialogue
+//
+// DIALOGUE TYPES:
+// - 0: Normal dialogue (linear conversation)
+// - 1: Choice dialogue (branching options)
+//
+// DIALOGUE OWNERS:
+// - 0: Main character/player speaking
+// - 1: NPC character speaking
+//
+// SPECIAL VALUES:
+// - "null" literal for optional fields
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+//
+// FILE PURPOSE:
+// Defines dialogue scripts with branching conversations, event triggers,
+// and text references. Used for NPC interactions, quest dialogues,
+// and story progression systems.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dialog {
@@ -23,7 +72,6 @@ pub struct Dialog {
     pub dialog_id: Option<i32>,
     /// Event ID executed upon reading this dialog.
     pub event_id: Option<i32>,
-
 }
 
 /// Stores dialogues and conversational branches for characters.
@@ -89,14 +137,29 @@ impl Extractor for Dialog {
     fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
         let mut file = File::create(dest_path)?;
         for record in records {
-            let prev = record.previous_event_id.map_or("null".to_string(), |v| v.to_string());
-            let next = record.next_dialog_to_check.map_or("null".to_string(), |v| v.to_string());
-            let dtype = record.dialog_type.map_or("null".to_string(), |v| v.value().to_string());
-            let owner = record.dialog_owner.map_or("null".to_string(), |v| v.value().to_string());
-            let did = record.dialog_id.map_or("null".to_string(), |v| v.to_string());
-            let eid = record.event_id.map_or("null".to_string(), |v| v.to_string());
+            let prev = record
+                .previous_event_id
+                .map_or("null".to_string(), |v| v.to_string());
+            let next = record
+                .next_dialog_to_check
+                .map_or("null".to_string(), |v| v.to_string());
+            let dtype = record
+                .dialog_type
+                .map_or("null".to_string(), |v| v.value().to_string());
+            let owner = record
+                .dialog_owner
+                .map_or("null".to_string(), |v| v.value().to_string());
+            let did = record
+                .dialog_id
+                .map_or("null".to_string(), |v| v.to_string());
+            let eid = record
+                .event_id
+                .map_or("null".to_string(), |v| v.to_string());
 
-            let line = format!("{},{},{},{},{},{},{}\r\n", record.id, prev, next, dtype, owner, did, eid);
+            let line = format!(
+                "{},{},{},{},{},{},{}\r\n",
+                record.id, prev, next, dtype, owner, did, eid
+            );
             let (cow, _, _) = EUC_KR.encode(&line);
             file.write_all(&cow)?;
         }

@@ -240,15 +240,15 @@ pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<
                 weapon.strength,
                 weapon.agility,
                 weapon.wisdom,
-                weapon.tf,
-                weapon.unk,
-                weapon.trf,
+                weapon.constitution,
+                weapon.to_dodge,
+                weapon.to_hit,
                 weapon.attack,
                 weapon.defense,
-                weapon.mag,
+                weapon.magical_strength,
                 weapon.durability,
                 weapon.req_strength,
-                weapon.req_zw,
+                weapon.req_agility,
                 weapon.req_wisdom,
             ])?;
         }
@@ -380,7 +380,12 @@ pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
             ])?;
 
             for product in &store.products {
-                stmt_product.execute(params![store.index, product.0, i32::from(product.1) as i16, product.2,])?;
+                stmt_product.execute(params![
+                    store.index,
+                    product.0,
+                    i32::from(product.1) as i16,
+                    product.2,
+                ])?;
             }
         }
     }

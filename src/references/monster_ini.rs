@@ -1,10 +1,58 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::references::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_null, Extractor};
+
+// ===========================================================================
+// MONSTER.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Monster.ini - Monster Animations    |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id,name,sprite,attack,hit,death,walk,cast|
+// | 1,Goblin,goblin.spr,1,2,3,4,5        |
+// | 2,Orc,orc.spr,1,2,3,4,5              |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique monster visual type ID
+// - name: Monster display name or "null"
+// - sprite: SPR filename or "null"
+// - attack: Animation sequence for attacking
+// - hit: Animation sequence for taking damage
+// - death: Animation sequence for dying
+// - walk: Animation sequence for walking
+// - cast: Animation sequence for spellcasting
+//
+// ANIMATION SEQUENCES:
+// - Refer to frame indices in SPR files
+// - 0 = no animation
+// - 1-N = frame sequence numbers
+// - Linked to sprite file structure
+//
+// SPECIAL VALUES:
+// - "null" literal for missing name/sprite
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+// - 0 for unused animation sequences
+//
+// FILE PURPOSE:
+// Defines animation sequences for monsters, linking visual
+// appearances with behavioral animations. Used for monster
+// rendering during different combat states and actions.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MonsterIni {
@@ -28,7 +76,6 @@ pub struct MonsterIni {
     // animation sequence number
     /// Sprite animation sequence number for casting spells.
     pub casting_magic: i32, // animation sequence number
-
 }
 
 /// Stores visual references and configuration for monsters.
@@ -97,7 +144,14 @@ impl Extractor for MonsterIni {
             let s = record.sprite_filename.as_deref().unwrap_or("null");
             let line = format!(
                 "{},{},{},{},{},{},{},{}\r\n",
-                record.id, n, s, record.attack, record.hit, record.death, record.walking, record.casting_magic
+                record.id,
+                n,
+                s,
+                record.attack,
+                record.hit,
+                record.death,
+                record.walking,
+                record.casting_magic
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
             file.write_all(&cow)?;

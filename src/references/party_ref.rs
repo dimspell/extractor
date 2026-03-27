@@ -1,11 +1,54 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::enums::GhostFaceId;
+use crate::references::references::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_null, Extractor};
-use crate::references::enums::GhostFaceId;
+
+// ===========================================================================
+// PARTYREF.REF FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | PartyRef.ref - Party Characters     |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                      |
+// | id,name,job,map_id,npc_id,dlg_out,dlg_in,ghost|
+// | 1,Hero,null,1,1,100,101,1           |
+// | 2,Warrior,Fighter,1,2,102,103,2     |
+// | ...                                 |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique character identifier
+// - name: Character display name or "null"
+// - job: Character class/job or "null"
+// - map_id: Origin map ID where character is found
+// - npc_id: Linked NPC record ID
+// - dlg_out: Dialog ID when not in party
+// - dlg_in: Dialog ID when in party
+// - ghost: Ghost face/sprite ID for UI
+//
+// SPECIAL VALUES:
+// - "null" literal for missing name/job fields
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+//
+//
+// FILE PURPOSE:
+// Defines all party characters with their names, classes, origin locations,
+// dialog references, and visual representations. Used for party management,
+// recruitment, and character interaction systems.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartyRef {
@@ -25,7 +68,6 @@ pub struct PartyRef {
     pub dlg_when_in_party: i32,
     /// Sprite ID for their UI portrait or ghost form.
     pub ghost_face_id: GhostFaceId,
-
 }
 
 /// Stores character definitions and references for the party.
@@ -69,7 +111,8 @@ impl Extractor for PartyRef {
                     let dlg_when_in_party = parts[6].trim().parse::<i32>().unwrap();
                     let ghost_face_id_raw = parts[7].trim().parse::<i32>().unwrap();
 
-                    let ghost_face_id = GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
+                    let ghost_face_id =
+                        GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
 
                     party_refs.push(PartyRef {
                         id,

@@ -6,6 +6,58 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 use crate::references::references::{parse_null, Extractor};
 
+// ===========================================================================
+// WAVE.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Wave.ini - Audio/Sound References    |
+// +--------------------------------------+
+// | Encoding: EUC-KR                    |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id,snf_filename,unknown_flag           |
+// | 1,music1.snf,loop                     |
+// | 2,effect1.snf,once                    |
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique sound/audio identifier
+// - snf_filename: SNF audio file or "null"
+// - unknown_flag: Playback behavior flag
+//
+// SOUND CATEGORIES:
+// - 1-50: Background music tracks
+// - 51-100: Ambient sounds
+// - 101-200: Combat sound effects
+// - 201-300: UI/interface sounds
+// - 301-400: Character voice effects
+// - 401-500: Environmental sounds
+//
+// UNKNOWN_FLAG VALUES:
+// - "loop": Looping playback
+// - "once": Play once
+// - "3d": Positional audio
+// - "stream": Stream from disk
+// - "null": Default behavior
+//
+// SPECIAL VALUES:
+// - "null" literal for missing SNF filenames
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+//
+// FILE PURPOSE:
+// Maps sound IDs to SNF audio files with playback
+// behavior flags. Used for audio system initialization
+// and sound effect management.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WaveIni {
     /// Sound effect reference identifier.

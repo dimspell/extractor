@@ -8,6 +8,87 @@ use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 use crate::references::enums::NpcLookingDirection;
 
+// ===========================================================================
+// NPCREF.REF FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | NpcRef.ref - NPC Placement Data       |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encoding: WINDOWS-1250          |
+// | Header: 4-byte record count          |
+// | Record Size: 672 bytes (0x2A0)       |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - id: i32                            |
+// | - npc_id: i32 (NPC type ID)           |
+// | - name: 260 bytes (WINDOWS-1250)     |
+// | - ignored_string: 260 bytes (zeros)  |
+// | - party_script_id: i32               |
+// | - show_on_event: i32                 |
+// | - padding: 4 bytes                  |
+// | - goto1_filled: i32                 |
+// | - goto2_filled: i32                 |
+// | - goto3_filled: i32                 |
+// | - goto4_filled: i32                 |
+// | - goto1_x: i32                      |
+// | - goto2_x: i32                      |
+// | - goto3_x: i32                      |
+// | - goto4_x: i32                      |
+// | - padding: 16 bytes                 |
+// | - goto1_y: i32                      |
+// | - goto2_y: i32                      |
+// | - goto3_y: i32                      |
+// | - goto4_y: i32                      |
+// | - padding: 16 bytes                 |
+// | - looking_direction: i32            |
+// | - padding: 56 bytes                 |
+// | - dialog_id: i32                    |
+// | - padding: 4 bytes                  |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// NPC TYPES (npc_id ranges):
+// - 1-50: Human NPCs
+// - 51-100: Fantasy races
+// - 101-150: Monsters in NPC form
+// - 151-200: Special/quest NPCs
+// - 201-250: Animals and creatures
+//
+// LOOKING DIRECTIONS:
+// - 0: Up (North)
+// - 1: Right (East)
+// - 2: Down (South)
+// - 3: Left (West)
+// - Clockwise rotation
+//
+// WAYPOINT SYSTEM:
+// - 4 waypoints per NPC
+// - gotoN_filled: 0=inactive, 1=active
+// - gotoN_x/gotoN_y: Tile coordinates
+// - Used for patrol routes and movement
+//
+// SPECIAL VALUES:
+// - show_on_event = 0: Always visible
+// - show_on_event > 0: Event-triggered
+// - dialog_id = 0: No dialogue
+// - Fixed 260-byte string fields
+//
+// FILE PURPOSE:
+// Defines NPC placements with waypoints, dialogue,
+// and behavioral parameters. Used for populating
+// maps with interactive characters.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize)]
 pub struct NPC {
     /// Internal iteration index mapped from the file array.

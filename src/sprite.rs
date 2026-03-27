@@ -3,6 +3,61 @@ use image::RgbaImage;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
+// ===========================================================================
+// DISPEL SPRITE FILE FORMAT (.SPR/.SPX)
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Sprite File - Animation Sequences   |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Color Format: RGB565 (2 bytes/pixel)|
+// | Header Offset: 268 bytes             |
+// +--------------------------------------+
+// | [File Header]                       |
+// | - 268 bytes unknown header           |
+// +--------------------------------------+
+// | [Sequence 1]                        |
+// | - Sequence header (variable)        |
+// | - Frame 1 metadata                 |
+// | - Frame 1 pixel data (RGB565)       |
+// | - Frame 2 metadata                 |
+// | - Frame 2 pixel data (RGB565)       |
+// | - ...                              |
+// +--------------------------------------+
+// | [Sequence 2]                        |
+// | - Sequence header                  |
+// | - Frame metadata + pixel data       |
+// | - ...                              |
+// +--------------------------------------+
+//
+// SEQUENCE STRUCTURE:
+// - Stamp: i32 (8 or 0) - sequence marker
+// - Frame count: i32 - number of frames
+// - For each frame:
+//   - 6 × i32 unknown data
+//   - origin_x: i32 - X offset from origin
+//   - origin_y: i32 - Y offset from origin
+//   - width: i32 - frame width in pixels
+//   - height: i32 - frame height in pixels
+//   - size_bytes: u32 - pixel data size
+//   - RGB565 pixel data (width × height × 2 bytes)
+//
+// COLOR FORMAT:
+// - RGB565: 5 bits red, 6 bits green, 5 bits blue
+// - 2 bytes per pixel
+// - 0x0000 = transparent
+// - Little-endian byte order
+//
+// FILE PURPOSE:
+// Stores character sprites, animations, and visual effects.
+// Used for rendering NPCs, monsters, party members, and special
+// effects in the isometric game world.
+//
+// ===========================================================================
+
 pub fn animation(file_path: &Path) -> Result<()> {
     let file = File::open(file_path)?;
 

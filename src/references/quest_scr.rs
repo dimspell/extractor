@@ -2,10 +2,54 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
+use crate::references::references::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::Serialize;
-use crate::references::references::Extractor;
+
+// ===========================================================================
+// QUEST.SCR FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Quest.scr - Quest Journal Entries    |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: Pipe-delimited              |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id|type|title|description            |
+// | 1|0|Main Quest|Defeat the Dark Lord   |
+// | 2|1|Side Quest|Find the Lost Artifact|
+// | ...                                  |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique quest identifier
+// - type: Quest category (0=main, 1=side, 2=traders)
+// - title: Quest title/name
+// - description: Quest description/text
+//
+// QUEST TYPES:
+// - 0: Main quests
+// - 1: Side quests
+// - 2: Traders journal
+//
+// SPECIAL VALUES:
+// - "null" literal for missing title/description
+// - Lines starting with ";" are comments
+// - Pipe (|) delimiter between fields
+// - Empty lines ignored
+//
+// FILE PURPOSE:
+// Defines all quests with categories, titles, and descriptions.
+// Used for quest journal system, quest tracking, and player
+// progression. Linked to event system for quest completion.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct Quest {
@@ -17,7 +61,6 @@ pub struct Quest {
     pub title: Option<String>,
     /// Journal paragraph body text literal.
     pub description: Option<String>,
-
 }
 
 /// Stores quest diary entries, including main quests, side quests, and trader journals.

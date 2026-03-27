@@ -9,6 +9,60 @@ use std::{
 
 use crate::references::references::Extractor;
 
+// ===========================================================================
+// DIALOGUE TEXT FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | PartyDlg.dlg - Dialogue Text        |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: Commented pipe-delimited     |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line 1                     |
+// | ; Comment line 2                     |
+// | id|text|param1|param2                 |
+// | 1|Hello|0|0                           |
+// | ; Quest dialogue                     |
+// | 2|Find the artifact|100|5            |
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique dialogue text identifier
+// - text: Display text content
+// - param1: Logic parameter 1
+// - param2: Logic parameter 2
+// - comment: Developer notes (multi-line)
+//
+// PARAMETER USAGE:
+// - param1: Dialogue branch conditions
+// - param2: Event triggers or requirements
+// - Special values: 0 = no condition
+//
+// TEXT FORMATTING:
+// - "null" literal for empty text
+// - "$" literal interpretet as a line-break in game
+// - Pipe (|) delimiter between fields
+// - Semicolon (;) for comment lines
+// - Multi-line comments supported
+//
+// SPECIAL VALUES:
+// - param1 = 0: Unconditional dialogue
+// - param2 = 0: No event trigger
+// - Empty text: "null" literal
+// - Comment lines preserved with ";" prefix
+//
+// FILE PURPOSE:
+// Stores dialogue text content with developer comments
+// and logical parameters. Used for displaying conversation
+// text, branching dialogue, and triggering game events.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DialogueText {
     /// Translation line identity reference.
@@ -21,7 +75,6 @@ pub struct DialogueText {
     pub param1: i32,
     /// Logic bound execution parameters appended.
     pub param2: i32,
-
 }
 
 /// Stores translations, text strings, and associated comments used within dialogues.
@@ -118,8 +171,15 @@ impl Extractor for DialogueText {
                     file.write_all(&cow)?;
                 }
             }
-            let text_val = if record.text.is_empty() { "null" } else { &record.text };
-            let line = format!("{} | {} | {} | {}\r\n", record.id, text_val, record.param1, record.param2);
+            let text_val = if record.text.is_empty() {
+                "null"
+            } else {
+                &record.text
+            };
+            let line = format!(
+                "{} | {} | {} | {}\r\n",
+                record.id, text_val, record.param1, record.param2
+            );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
             file.write_all(&cow)?;
         }

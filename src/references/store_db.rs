@@ -6,8 +6,63 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use crate::references::enums::ProductType;
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+
+// ===========================================================================
+// STORE.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | STORE.DB - Shop & Inn Database      |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encoding: WINDOWS-1250          |
+// | Header: 4-byte record count          |
+// | Record Size: 948 bytes (237 × i32)   |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 32 bytes (WINDOWS-1250)     |
+// | - inn_night_cost: i32                |
+// | - IF inn_night_cost > 0:            |
+// |   - 144 bytes padding (inn only)     |
+// | - ELSE:                              |
+// |   - some_unknown_number: i16         |
+// |   - products: 71 × (i16, i16)         |
+// | - invitation: 512 bytes (WINDOWS-1250)|
+// | - haggle_success: 128 bytes (WINDOWS-1250)|
+// | - haggle_fail: 128 bytes (WINDOWS-1250)|
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// STORE TYPES:
+// - inn_night_cost > 0: Inn (no products)
+// - inn_night_cost = 0: Shop (with products)
+//
+// PRODUCT TYPES:
+// - 1: Bronze/Weapons
+// - 2: Equipment
+// - 3: Edibles/Consumables
+// - 4: Magical Items
+//
+// PRODUCT STRUCTURE:
+// - (order: i16, type: i16, item_id: i16)
+// - Terminated by type = 0
+// - Max 71 products per shop
+//
+// FILE PURPOSE:
+// Defines all shops and inns with inventories, prices, dialogue,
+// and restocking behavior. Used for economy system, shopping
+// interface, and NPC merchant interactions.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct Store {
@@ -27,7 +82,6 @@ pub struct Store {
     pub haggle_success: String,
     /// 128-byte text shown on rejected transaction.
     pub haggle_fail: String,
-
 }
 
 pub type StoreProduct = (i16, ProductType, i16); // order, product_type, product_id

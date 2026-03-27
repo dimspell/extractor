@@ -51,33 +51,6 @@ pub fn parse_int(s: &str) -> Option<i32> {
     }
 }
 
-// Message.scr
-// first line of text
-// second line of text or null
-// third line of text or null
-
-// Quest.scr
-// id
-// dairy type 0=main quest 1=side quest 2=traders journal
-// title
-// description
-
-//     todo!(); // Eventnpc.ref
-
-//     // NPCs used only in events
-//     //
-//     // id
-//     // sprite id
-//     //     ?
-//     //     ?
-//     //     ?
-//     //     ?
-//     // x coordinate,
-//     // y coordinate,
-//     // 30 times ?
-
-//     todo!(); // Eventnpc.ref
-
 pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     let file = File::open(source_path)?;
 

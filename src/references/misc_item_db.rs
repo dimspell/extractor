@@ -1,12 +1,52 @@
-use std::io::{BufReader, BufWriter};
 use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
-use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
+use serde::Serialize;
+
+// ===========================================================================
+// MISCITEM.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | MiscItem.db - Generic Items           |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encodings: Mixed                |
+// | Header: 4-byte record count           |
+// | Record Size: 256 bytes (64 × i32)     |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 30 bytes (WINDOWS-1250)      |
+// | - description: 202 bytes (EUC-KR)    |
+// | - base_price: i32                    |
+// | - padding: 20 bytes                 |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// SPECIAL VALUES:
+// - base_price = 0: Non-tradable items
+// - base_price = -1: Quest items
+// - Fixed-size string fields
+// - Mixed text encodings
+//
+// FILE PURPOSE:
+// Defines generic miscellaneous items with names,
+// descriptions, and economic values. Used for crafting
+// materials, consumables, and various utility items.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct MiscItem {
@@ -18,7 +58,6 @@ pub struct MiscItem {
     pub description: String,
     /// Value retrieved when standard bartering.
     pub base_price: i32,
-
 }
 
 /// Stores definitions, stats, and prices for generic miscellaneous items.
@@ -50,7 +89,8 @@ impl Extractor for MiscItem {
         for i in 0..elements {
             let mut buffer = [0u8; 30];
             reader.read_exact(&mut buffer)?;
-            let name = read_null_terminated_windows_1250(&buffer).unwrap_or_else(|_| "Unknown".to_string());
+            let name = read_null_terminated_windows_1250(&buffer)
+                .unwrap_or_else(|_| "Unknown".to_string());
 
             let mut buffer = [0u8; 202];
             reader.read_exact(&mut buffer)?;

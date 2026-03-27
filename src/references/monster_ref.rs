@@ -1,10 +1,58 @@
 use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
+use crate::references::enums::ItemTypeId;
 use crate::references::references::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
-use crate::references::enums::ItemTypeId;
+
+// ===========================================================================
+// MONSTERREF.REF FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | MonsterRef.ref - Monster Placements  |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Header: 4-byte record count          |
+// | Record Size: 56 bytes (14 × i32)      |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - file_id: i32                       |
+// | - mon_id: i32 (monster type ID)      |
+// | - pos_x: i32 (tile X coordinate)     |
+// | - pos_y: i32 (tile Y coordinate)     |
+// | - padding: 5 × i32                   |
+// | - loot1_item_id: u8                   |
+// | - loot1_item_type: u8                |
+// | - padding: 2 × u8                    |
+// | - loot2_item_id: u8                   |
+// | - loot2_item_type: u8                |
+// | - padding: 2 × u8                    |
+// | - loot3_item_id: u8                   |
+// | - loot3_item_type: u8                |
+// | - padding: 2 × u8                    |
+// | - padding: 2 × i32                   |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// MONSTER TYPE IDS:
+// - Links to Monster.db entries
+//
+// FILE PURPOSE:
+// Defines monster placements on specific maps with
+// exact coordinates and loot drop configurations.
+// Used for populating dungeons and areas with enemies
+// and their associated rewards.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct MonsterRef {
@@ -20,7 +68,6 @@ pub struct MonsterRef {
     pub loot2_item_type: ItemTypeId,
     pub loot3_item_id: u8,
     pub loot3_item_type: ItemTypeId,
-
 }
 
 /// Stores specific placements and configurations for monsters on a given map.
@@ -78,9 +125,12 @@ impl Extractor for MonsterRef {
             reader.read_i32::<LittleEndian>()?; // 1 or 0
             reader.read_i32::<LittleEndian>()?;
 
-            let loot1_item_type = ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Unknown);
-            let loot2_item_type = ItemTypeId::from_u8(loot2_item_type_raw).unwrap_or(ItemTypeId::Unknown);
-            let loot3_item_type = ItemTypeId::from_u8(loot3_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+            let loot1_item_type =
+                ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+            let loot2_item_type =
+                ItemTypeId::from_u8(loot2_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+            let loot3_item_type =
+                ItemTypeId::from_u8(loot3_item_type_raw).unwrap_or(ItemTypeId::Unknown);
 
             refs.push(MonsterRef {
                 index: i,

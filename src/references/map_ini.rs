@@ -6,6 +6,50 @@ use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 
+// ===========================================================================
+// MAP.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Map.ini - Map Initialization Data    |
+// +--------------------------------------+
+// | Encoding: EUC-KR                    |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id,camera_event,start_x,start_y,map_id,monsters,npcs,extras,cd_track|
+// | 1,1001,5,10,1,mon1.ref,npc1.ref,ext1.ref,1|
+// | 2,1002,3,8,2,mon2.ref,npc2.ref,ext2.ref,2|
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique map identifier
+// - camera_event: Event triggered on camera movement
+// - start_x: Initial player X coordinate
+// - start_y: Initial player Y coordinate
+// - map_id: Target map ID for linking
+// - monsters: Monster placement REF file
+// - npcs: NPC placement REF file
+// - extras: Extra object placement REF file
+// - cd_track: Background music track number
+//
+// SPECIAL VALUES:
+// - "null" literal for missing REF files
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+// - Coordinates use isometric tile system
+//
+// FILE PURPOSE:
+// Defines map initialization parameters including
+// starting positions, linked files, and music tracks.
+// Used for map loading and setup.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MapIni {
     /// Map ini identifier.
@@ -26,7 +70,6 @@ pub struct MapIni {
     pub extra_filename: Option<String>,
     /// Audio track index for map background music.
     pub cd_music_track_number: i32, // CD music track number
-
 }
 
 /// Stores specific properties and configuration for a single map.

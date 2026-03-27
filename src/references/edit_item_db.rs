@@ -3,11 +3,83 @@ use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
+use serde::Serialize;
 
+use crate::references::enums::{EditItemEffect, EditItemModification};
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
-use crate::references::enums::{EditItemModification, EditItemEffect};
+
+// ===========================================================================
+// EDITITEM.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | EditItem.db - Modifiable Items       |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encodings: Mixed                |
+// | Header: 4-byte record count          |
+// | Record Size: 268 bytes (67 × i32)    |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 30 bytes (WINDOWS-1250)     |
+// | - description: 202 bytes (EUC-KR)   |
+// | - base_price: i16                   |
+// | - padding: 6 bytes                   |
+// | - health_points: i16 (PZ)            |
+// | - magic_points: i16 (PM)             |
+// | - strength: i16 (SIŁ)               |
+// | - agility: i16 (ZW)                 |
+// | - wisdom: i16 (MM)                  |
+// | - constitution: i16 (TF)            |
+// | - to_dodge: i16 (UNK)              |
+// | - to_hit: i16 (TRF)                 |
+// | - offense: i16 (ATK)               |
+// | - defense: i16 (OBR)                |
+// | - padding: i16                      |
+// | - item_destroying_power: i16        |
+// | - padding: u8                      |
+// | - modifies_item: u8                 |
+// | - additional_effect: i16            |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// FIELD ABBREVIATIONS:
+// - PZ: Health Points (Polish: Punkty Zdrowia)
+// - PM: Magic Points (Polish: Punkty Magii)
+// - SIŁ: Strength (Polish: Siła)
+// - ZW: Agility (Polish: Zwinność)
+// - MM: Wisdom (Polish: Mądrość)
+// - TF: Constitution (Polish: Tężyzna Fizyczna)
+// - UNK: Unknown modifier
+// - TRF: Hit Rate (Polish: Trafienie)
+// - ATK: Attack power
+// - OBR: Defense (Polish: Obrona)
+//
+// MODIFICATION TYPES:
+// - 0: Does not modify base item
+// - 1: Temporary modification
+// - 2: Permanent enhancement
+//
+// SPECIAL VALUES:
+// - base_price = 0: Non-tradable items
+// - item_destroying_power: Durability impact
+// - Fixed-size string fields
+// - Mixed text encodings
+//
+// FILE PURPOSE:
+// Defines modifiable items with upgradeable statistics
+// and special effects. Used for item enhancement,
+// crafting, and equipment customization systems.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct EditItem {
@@ -45,7 +117,6 @@ pub struct EditItem {
     pub modifies_item: EditItemModification,
     /// Procedural elemental modifier appended (poison, fire).
     pub additional_effect: EditItemEffect,
-
 }
 
 /// Stores definitions for modifiable base items.
@@ -113,8 +184,10 @@ impl Extractor for EditItem {
             let modifies_item_raw = reader.read_u8()?;
             let additional_effect_raw = reader.read_i16::<LittleEndian>()?; // poison or burn or none
 
-            let modifies_item = EditItemModification::from_u8(modifies_item_raw).unwrap_or(EditItemModification::DoesNotModify);
-            let additional_effect = EditItemEffect::from_i16(additional_effect_raw).unwrap_or(EditItemEffect::None);
+            let modifies_item = EditItemModification::from_u8(modifies_item_raw)
+                .unwrap_or(EditItemModification::DoesNotModify);
+            let additional_effect =
+                EditItemEffect::from_i16(additional_effect_raw).unwrap_or(EditItemEffect::None);
 
             items.push(EditItem {
                 index: i,

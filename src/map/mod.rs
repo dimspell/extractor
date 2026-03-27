@@ -12,6 +12,78 @@
 //  database.rs     – render_from_database + entity overlay helpers
 //  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
 
+// ===========================================================================
+// DISPEL GAME MAP FILE FORMAT (.MAP)
+// ===========================================================================
+//
+// ASCII Diagram of File Structure:
+//
+// +------------------------------+
+// | MAP FILE HEADER (8 bytes)   |
+// | - Width in chunks (i32)     |
+// | - Height in chunks (i32)    |
+// +------------------------------+
+// | FIRST BLOCK (variable)      |
+// | - Multiplier (i32)           |
+// | - Size (i32)                 |
+// | - Data: multiplier*size*4    |
+// |  (unknown purpose, skipped)  |
+// +------------------------------+
+// | SECOND BLOCK (variable)      |
+// | - Size (i32)                 |
+// | - Data: size*2               |
+// |  (unknown purpose, skipped)  |
+// +------------------------------+
+// | SPRITE BLOCK                 |
+// | - Sprite count (i32)         |
+// | For each sprite:            |
+// |   - Image stamp (i32)       |
+// |   - 264 bytes metadata       |
+// |   - Sequence info           |
+// |   - Pixel data              |
+// +------------------------------+
+// | SPRITE INFO BLOCK           |
+// | - Placement count (i32)      |
+// | For each placement:         |
+// |   - Sprite ID (i32)         |
+// |   - Position data           |
+// |   - Frame count             |
+// +------------------------------+
+// | TILED OBJECTS BLOCK         |
+// | - Bundle count (i32)        |
+// | For each bundle:            |
+// |   - 264 bytes metadata      |
+// |   - Coordinates (x,y)      |
+// |   - Tile stack IDs         |
+// |   - Building definition    |
+// +------------------------------+
+// | ... (file continues) ...    |
+// +------------------------------+
+// | EVENT BLOCK (near end)      |
+// | For each tile (width×height):|
+// |   - Event ID (i16)          |
+// |   - Unknown (i16)           |
+// +------------------------------+
+// | TILE & ACCESS BLOCK         |
+// | For each tile (width×height):|
+// |   - GTL tile ID (i32)      |
+// |   - Collision flag         |
+// +------------------------------+
+// | ROOF TILE BLOCK (optional)   |
+// | For each tile (width×height):|
+// |   - BTL tile ID (i16)      |
+// |   - Flags (i16)            |
+// +------------------------------+
+//
+// COORDINATE SYSTEM:
+// - Chunk-based: 1 chunk = 25×25 tiles
+// - Isometric coordinates: (x,y) tile positions
+// - Tile size: 32×32 pixels
+// - Offsets: TILE_HORIZONTAL_OFFSET_HALF=32, TILE_HEIGHT_HALF=16
+//
+// FILE SIZE CALCULATION:
+// Total size = header + blocks + (width×height×(2+4+2)) + optional roof data
+//
 pub mod database;
 pub mod model;
 pub mod reader;
@@ -61,6 +133,37 @@ pub struct MapData {
 // --------------------------------------------------------------------------
 
 /// Reads a complete `.map` file and returns all its data.
+///
+/// This is the core parsing function that understands the complete Dispel .MAP file format.
+/// It reads all blocks sequentially, handling the isometric coordinate system and
+/// converting binary data into structured Rust types.
+///
+/// # Arguments
+/// * `reader` - Buffered file reader positioned at the start of a .MAP file
+///
+/// # Returns
+/// Result containing MapData structure with all parsed components, or I/O/parsing errors
+///
+/// # Parsing Process
+/// The function reads these blocks in order:
+/// 1. Map model header to determine dimensions
+/// 2. Unknown blocks (skipped)
+/// 3. Sprite block with embedded animation sequences
+/// 4. Sprite placement information
+/// 5. Tiled objects (building definitions)
+/// 6. Event triggers (read from end of file)
+/// 7. Ground tiles and collision data
+/// 8. Optional roof/building tiles
+///
+/// The parser handles the isometric coordinate system and converts tile coordinates
+/// to the internal (x,y) format used throughout the codebase.
+///
+/// # Coordinate System
+/// Uses a chunk-based system where:
+/// - 1 chunk = 25×25 tiles
+/// - Tiles are 32×32 pixels with isometric offsets
+/// - Coordinates use (x,y) tile positions
+/// - Conversion to pixels uses TILE_HORIZONTAL_OFFSET_HALF (32) and TILE_HEIGHT_HALF (16)
 pub fn read_map_data(reader: &mut BufReader<File>) -> Result<MapData> {
     let file_len = reader.get_ref().metadata()?.len();
     let map_model = read_map_model(reader)?;
@@ -105,6 +208,41 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> Result<MapData> {
 // --------------------------------------------------------------------------
 
 /// Renders a map from binary files to a PNG image.
+///
+/// This function processes the complete Dispel game map file format, which contains:
+/// - Map geometry and dimensions in the header
+/// - Embedded sprites and their placement information
+/// - Tiled objects (buildings made from stacked BTL tiles)
+/// - Event triggers tied to specific map coordinates
+/// - Ground tiles (GTL) with collision data
+/// - Building/roof tiles (BTL) for structures
+///
+/// The map uses an isometric coordinate system with 25×25 tile chunks and
+/// stores data in distinct blocks that are read sequentially from the file.
+///
+/// # Arguments
+/// * `input_map_file` - Path to the .MAP file containing map geometry and objects
+/// * `input_btl_file` - Path to the .BTL file containing building/roof tileset
+/// * `input_gtl_file` - Path to the .GTL file containing ground tileset
+/// * `output_path` - Path where the rendered PNG will be saved
+/// * `save_map_sprites` - Whether to extract embedded sprites to separate files
+///
+/// # Returns
+/// Result containing any I/O or parsing errors that may occur
+///
+/// # Map File Structure
+/// The .MAP file format consists of these main blocks:
+/// 1. Header: Map dimensions in chunks (25-tile units)
+/// 2. Unknown blocks: Skipped during processing
+/// 3. Sprite block: Embedded sprite sequences and metadata
+/// 4. Sprite info: Position data for placed sprites
+/// 5. Tiled objects: Building definitions using stacked tiles
+/// 6. Event block: Per-tile event trigger IDs
+/// 7. Tile & access: Ground tiles with collision flags
+/// 8. Roof tiles: Optional building/roof tile layer
+///
+/// Coordinates use an isometric system where each tile is 32×32 pixels,
+/// with special offsets for proper isometric rendering.
 pub fn extract(
     input_map_file: &Path,
     input_btl_file: &Path,
@@ -143,6 +281,31 @@ pub fn extract(
 }
 
 /// Extracts all internal sprites from a map file to separate PNGs.
+///
+/// This function focuses on the sprite-related blocks within the .MAP file:
+/// - Sprite block: Contains embedded sprite sequences with animation frames
+/// - Sprite info block: Contains placement coordinates for each sprite
+///
+/// The sprites are stored as sequences with metadata including frame count,
+/// animation timing, and pixel data. Each sprite has an associated placement
+/// record that specifies its exact position on the map.
+///
+/// # Arguments
+/// * `input_map_file` - Path to the .MAP file containing embedded sprites
+/// * `output_path` - Directory where individual sprite PNGs will be saved
+///
+/// # Returns
+/// Result containing any I/O or parsing errors
+///
+/// # Sprite Data Structure
+/// Each sprite in the map consists of:
+/// - Image stamp (6 or 9) determining data layout
+/// - 264 bytes of metadata
+/// - Sequence info with frame count and positions
+/// - Pixel data for each animation frame
+///
+/// Sprites are extracted with their original animation sequences preserved,
+/// allowing for proper reconstruction of in-game animations.
 pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> Result<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
@@ -160,6 +323,36 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> Result<()> 
 }
 
 /// Imports a `.map` file into the SQLite database.
+///
+/// This function parses the complete .MAP file structure and saves all
+/// components to a structured database format for later retrieval and rendering.
+///
+/// The database import preserves the hierarchical structure of the map:
+/// - Map metadata (dimensions, computed pixel sizes)
+/// - Tile layers (ground GTL tiles and building BTL tiles)
+/// - Collision data for pathfinding and game logic
+/// - Event triggers for interactive elements
+/// - Object placements (buildings made from tile stacks)
+/// - Sprite information for dynamic elements
+///
+/// # Arguments
+/// * `database_path` - Path to the SQLite database file
+/// * `map_path` - Path to the .MAP file to import
+///
+/// # Returns
+/// Result containing any I/O, parsing, or database errors
+///
+/// # Database Schema
+/// The function creates or updates these database tables:
+/// - map_metadata: Map dimensions and computed sizes
+/// - map_tiles: Ground and building tiles with coordinates
+/// - map_collisions: Tile collision flags
+/// - map_events: Event trigger information
+/// - map_objects: Tiled object definitions
+/// - map_sprites: Sprite placement and sequence data
+///
+/// This allows for efficient querying and rendering of map components
+/// without needing to re-parse the binary format each time.
 pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
     use rusqlite::Connection;
     let mut conn = Connection::open(database_path)
@@ -174,6 +367,29 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
 }
 
 /// Writes map data to the SQLite database.
+///
+/// This low-level function takes parsed MapData and persists it to the database.
+/// It handles the conversion from in-memory structures to the relational format.
+///
+/// # Arguments
+/// * `conn` - Active SQLite database connection
+/// * `map_id` - Identifier for the map (e.g., "cat1", "dun01")
+/// * `data` - Parsed MapData structure containing all map components
+///
+/// # Returns
+/// Result containing any database operation errors
+///
+/// # Data Conversion Process
+/// The function converts these in-memory structures to database records:
+/// - MapModel → map_metadata table
+/// - GTL/BTL tiles → map_tiles table with layer distinction
+/// - Collisions → map_collisions table with boolean flags
+/// - Events → map_events table with trigger IDs
+/// - TiledObjectInfo → map_objects table with tile stacks
+/// - SpriteInfoBlock → map_sprites table with positions
+///
+/// This creates a complete, queryable representation of the original
+/// binary map file in a relational database format.
 pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> Result<()> {
     println!("Saving map tiles for {}...", map_id);
     crate::database::save_map_tiles(

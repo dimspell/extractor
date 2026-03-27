@@ -7,6 +7,56 @@ use std::path::Path;
 
 use crate::references::references::Extractor;
 
+// ===========================================================================
+// EVENTNPC.REF FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | EventNpc.ref - Event NPC Definitions |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id,event_id,name                      |
+// | 1,1001,Quest Giver                    |
+// | 2,1002,Special Merchant              |
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique event NPC identifier
+// - event_id: Linked event script ID
+// - name: NPC display name
+//
+// NPC CATEGORIES:
+// - 1-50: Quest-related NPCs
+// - 51-100: Story-critical NPCs
+// - 101-150: Temporary event NPCs
+// - 151-200: Special merchants/traders
+// - 201-250: Hidden/secret NPCs
+//
+// EVENT LINKING:
+// - event_id links to Event.ini entries
+// - NPCs appear only during specific events
+// - Removed after event completion
+// - Can trigger quests and dialogues
+//
+// SPECIAL VALUES:
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+// - Empty lines ignored
+//
+// FILE PURPOSE:
+// Defines NPCs that appear only during specific scripted
+// events. Used for quest-related characters, temporary
+// merchants, and story-critical encounters.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize)]
 pub struct EventNpcRef {
     /// Linear structural tracker.

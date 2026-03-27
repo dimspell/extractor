@@ -1,11 +1,37 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write, Seek, SeekFrom};
+use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 
 use crate::references::references::Extractor;
+
+// ===========================================================================
+// CHDATA.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | ChData.db - Character Statistics      |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Record Size: 84 bytes                |
+// | Single-record file                  |
+// +--------------------------------------+
+// | [Header]                            |
+// | - magic: 4 bytes ("Item")            |
+// | - padding: 26 bytes                 |
+// +--------------------------------------+
+// | [Data Section]                      |
+// | - values: 16 × u16 (32 bytes)        |
+// | - padding: 2 bytes                  |
+// | - counts: 4 × u32 (16 bytes)         |
+// | - total: u32 (4 bytes)               |
+// +--------------------------------------+
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct ChData {
@@ -68,7 +94,9 @@ impl Extractor for ChData {
     }
 
     fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        if records.is_empty() { return Ok(()); }
+        if records.is_empty() {
+            return Ok(());
+        }
         let record = &records[0];
 
         let file = File::create(dest_path)?;

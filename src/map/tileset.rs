@@ -3,6 +3,56 @@
 // This module handles the extraction of tiles from binary .GTL/.BTL files,
 // tile plotting, and tileset atlas generation.
 
+// ===========================================================================
+// DISPEL GAME TILESET FILE FORMAT (.GTL/.BTL)
+// ===========================================================================
+//
+// ASCII Diagram of File Structure:
+//
+// +------------------------------+
+// | TILESET FILE HEADER         |
+// | (none - direct tile data)   |
+// +------------------------------+
+// | TILE #1                    |
+// | - 1024 pixels (32x32)       |
+// | - RGB565 format (2 bytes)   |
+// +------------------------------+
+// | TILE #2                    |
+// | - 1024 pixels (32x32)       |
+// | - RGB565 format (2 bytes)   |
+// +------------------------------+
+// | ...                        |
+// +------------------------------+
+// | TILE #N                    |
+// | - 1024 pixels (32x32)       |
+// | - RGB565 format (2 bytes)   |
+// +------------------------------+
+//
+// FILE STRUCTURE DETAILS:
+// - No header or metadata
+// - Direct sequence of tile data
+// - Each tile: 32×32 pixels = 1024 pixels
+// - Each pixel: 2 bytes (RGB565 format)
+// - Total tile count = file_size / (32*32*2)
+//
+// RGB565 COLOR FORMAT:
+// - 5 bits: Red channel
+// - 6 bits: Green channel  
+// - 5 bits: Blue channel
+// - Stored as u16: 0xRRRRRGGGGGGBBBBB
+//
+// ISOMETRIC TILE PROPERTIES:
+// - Rendered width: 62 pixels (TILE_WIDTH)
+// - Rendered height: 32 pixels (TILE_HEIGHT)
+// - Diamond-shaped mask for isometric projection
+// - Transparency: RGB(0,0,0) treated as transparent
+//
+// FILE TYPES:
+// - .GTL files: Ground Tile Layer (terrain, paths, etc.)
+// - .BTL files: Building Tile Layer (structures, roofs, etc.)
+//
+// ===========================================================================
+
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::{Rgb, RgbImage, RgbaImage};
 use std::io::{BufReader, Result, Seek, SeekFrom};
@@ -23,13 +73,38 @@ pub struct Tile {
 
 /// Extracts tiles from a binary tileset file (.GTL or .BTL)
 ///
-/// # Arguments
+/// This function parses the simple binary tileset format used by Dispel.
+/// The format consists of a direct sequence of 32×32 pixel tiles stored
+/// in RGB565 format (2 bytes per pixel), with no header or metadata.
 ///
-/// * `source_path` - Path to the binary tileset file
+/// # File Structure
+/// - No header or metadata
+/// - Direct sequence of tile data
+/// - Each tile: 32×32 pixels = 1024 pixels × 2 bytes = 2048 bytes
+/// - RGB565 color format: 5-6-5 bits for R-G-B channels
+/// - Total tiles = file_size / 2048
+///
+/// # Arguments
+/// * `source_path` - Path to the binary tileset file (.gtl or .btl)
 ///
 /// # Returns
-///
 /// Vector of Tile structs containing the extracted tile data
+///
+/// # Tile Types
+/// - .GTL files: Ground Tile Layer - terrain, paths, natural features
+/// - .BTL files: Building Tile Layer - structures, roofs, man-made objects
+///
+/// # Color Conversion
+/// Converts RGB565 to RGB888 during extraction:
+/// - 5-bit red → 8-bit red (scaled 0-31 to 0-255)
+/// - 6-bit green → 8-bit green (scaled 0-63 to 0-255)
+/// - 5-bit blue → 8-bit blue (scaled 0-31 to 0-255)
+///
+/// # Isometric Properties
+/// Tiles are designed for isometric projection:
+/// - Rendered as diamonds (62×32 pixels when projected)
+/// - RGB(0,0,0) pixels treated as transparent
+/// - Uses diamond-shaped mask for proper isometric rendering
 pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     let file = File::open(source_path)?;
 

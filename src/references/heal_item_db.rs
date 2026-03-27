@@ -10,6 +10,64 @@ use encoding_rs::WINDOWS_1250;
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use crate::references::enums::HealItemFlag;
 
+// ===========================================================================
+// HEALITEM.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | HealItem.db - Consumable Items       |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encodings: Mixed                |
+// | Header: 4-byte record count          |
+// | Record Size: 252 bytes (63 × i32)    |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 30 bytes (WINDOWS-1250)       |
+// | - description: 202 bytes (EUC-KR)    |
+// | - base_price: i16                    |
+// | - padding: i16 × 3                   |
+// | - pz: i16 (HP restore)               |
+// | - pm: i16 (MP restore)               |
+// | - full_pz: u8 (full HP flag)        |
+// | - full_pm: u8 (full MP flag)        |
+// | - poison_heal: u8                    |
+// | - petrif_heal: u8                    |
+// | - polimorph_heal: u8                 |
+// | - padding: u8 + i16                  |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// FIELD ABBREVIATIONS:
+// - PZ: Health Points (Polish: Punkty Zdrowia)
+// - PM: Magic Points (Polish: Punkty Magii)
+// - full_pz: Restore to full HP
+// - full_pm: Restore to full MP
+//
+// HEALING FLAGS:
+// - poison_heal: Cures poison status
+// - petrif_heal: Cures petrification
+// - polimorph_heal: Cures polymorph
+//
+// SPECIAL VALUES:
+// - pz/pm: Negative values for damage items
+// - base_price: 0 for non-tradable items
+// - Flags: 0=none, 1=active
+//
+// FILE PURPOSE:
+// Defines all consumable healing items with restoration effects,
+// status cures, and economic values. Used for inventory management,
+// combat healing, and status effect systems.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize)]
 pub struct HealItem {
     /// Record index mapping internally.

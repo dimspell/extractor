@@ -8,6 +8,86 @@ use serde::{Deserialize, Serialize};
 use crate::references::references::{read_mapper, Extractor};
 use crate::references::enums::{MonsterAiType, PropertyFlag};
 
+// ===========================================================================
+// MONSTER.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Monster.db - Monster Statistics      |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encoding: EUC-KR                |
+// | Record Size: 160 bytes (40 × i32)      |
+// | No header - count from file size     |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 24 bytes (EUC-KR, null-padded)|
+// | - health_points_max: i32             |
+// | - health_points_min: i32             |
+// | - magic_points_max: i32              |
+// | - magic_points_min: i32              |
+// | - walk_speed: i32                    |
+// | - to_hit_max: i32                    |
+// | - to_hit_min: i32                    |
+// | - to_dodge_max: i32                 |
+// | - to_dodge_min: i32                 |
+// | - offense_max: i32                   |
+// | - offense_min: i32                   |
+// | - defense_max: i32                  |
+// | - defense_min: i32                  |
+// | - magic_attack_max: i32              |
+// | - magic_attack_min: i32              |
+// | - is_undead: i32 (0/1)               |
+// | - has_blood: i32 (0/1)               |
+// | - ai_type: i32 (behavior enum)       |
+// | - exp_gain_max: i32                  |
+// | - exp_gain_min: i32                  |
+// | - gold_drop_max: i32                 |
+// | - gold_drop_min: i32                 |
+// | - detection_sight_size: i32         |
+// | - distance_range_size: i32          |
+// | - known_spell_slot1: i32            |
+// | - known_spell_slot2: i32            |
+// | - known_spell_slot3: i32            |
+// | - is_oversize: i32                  |
+// | - magic_level: i32                   |
+// | - special_attack: i32              |
+// | - special_attack_chance: i32       |
+// | - special_attack_duration: i32     |
+// | - boldness: i32                     |
+// | - attack_speed: i32                 |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// FIELD CATEGORIES:
+// - Identification: name (24 bytes EUC-KR)
+// - Vital Stats: HP/MP max/min ranges
+// - Combat Stats: accuracy, evasion, offense, defense
+// - Magic Stats: magic attack range, spells
+// - Properties: undead, blood, AI type, size
+// - Rewards: EXP and gold drop ranges
+// - Behavior: detection range, attack range, AI
+// - Special: special attacks with chance/duration
+//
+// SPECIAL VALUES:
+// - is_undead: 0=normal, 1=undead (holy weakness)
+// - has_blood: 0=no blood, 1=bleeds on hit
+// - ai_type: 1=melee, 2=archer, 3=caster, 5=passive
+// - to_dodge_max/min: usually both = 10
+// - magic_level: usually = 1
+// - boldness: usually = 10
+// - is_oversize: 1 for large monsters (dragons, etc.)
+//
+// FILE PURPOSE:
+// Defines all monster types with complete combat statistics, behavior patterns,
+// and reward systems. Used by game engine for monster spawning and combat AI.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Monster {
     /// Unique monster archetype tracking ID.

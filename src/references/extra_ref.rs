@@ -2,11 +2,88 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
+use crate::references::enums::{ExtraObjectType, ItemTypeId, VisibilityType};
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
-use crate::references::enums::{ExtraObjectType, VisibilityType, ItemTypeId};
+
+// ===========================================================================
+// EXTRAREF.REF FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | ExtraRef.ref - Object Placements     |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encoding: WINDOWS-1250          |
+// | Header: 4-byte record count          |
+// | Record Size: 184 bytes (46 × i32)      |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - number_in_file: u8                 |
+// | - padding: u8                       |
+// | - ext_id: u8 (links to Extra.ini)    |
+// | - name: 32 bytes (WINDOWS-1250)      |
+// | - object_type: u8                   |
+// | - x_pos: i32                        |
+// | - y_pos: i32                        |
+// | - rotation: u8                      |
+// | - padding: 3 bytes + i32            |
+// | - closed: i32 (0=open, 1=closed)     |
+// | - required_item_id: u8               |
+// | - required_item_type_id: u8          |
+// | - padding: 2 bytes                  |
+// | - required_item_id2: u8              |
+// | - required_item_type_id2: u8         |
+// | - padding: 2 bytes + 16 bytes        |
+// | - gold_amount: i32                  |
+// | - item_id: u8                       |
+// | - item_type_id: u8                  |
+// | - padding: 2 bytes                  |
+// | - item_count: i32                   |
+// | - padding: 40 bytes                 |
+// | - event_id: i32                     |
+// | - message_id: i32                   |
+// | - padding: 32 bytes                 |
+// | - visibility: u8                    |
+// | - padding: 3 bytes + 8 bytes         |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// OBJECT TYPES:
+// - 0: Chest/Container
+// - 2: Door/Gate
+// - 4: Sign/Plaque
+// - 5: Altar/Shrine
+// - 6: Interactive Device
+// - 7: Magical Object
+//
+// ITEM TYPES:
+// - 1: Bronze/Weapons
+// - 2: Equipment
+// - 3: Edibles/Consumables
+// - 4: Magical Items
+//
+// VISIBILITY TYPES:
+// - 0: Always visible
+// - 1: Conditional visibility
+// - 2: Hidden/invisible
+//
+// FILE PURPOSE:
+// Defines interactive object placements with exact
+// coordinates, requirements, contents, and behaviors.
+// Used for populating maps with chests, doors, signs,
+// and other interactive elements.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct ExtraRef {
@@ -50,7 +127,6 @@ pub struct ExtraRef {
     pub message_id: i32,
     /// Determines alpha transparency on render.
     pub visibility: VisibilityType,
-
 }
 
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
@@ -104,14 +180,15 @@ impl Extractor for ExtraRef {
             let number_in_file = reader.read_u8()?;
 
             reader.read_u8()?;
-            let ext_id = reader.read_u8()?; // Id from Extra.ini
+            let extra_ini_entry_id = reader.read_u8()?; // Id from Extra.ini
 
             let mut buffer = [0u8; 32];
             reader.read_exact(&mut buffer)?;
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
-            let object_type_raw = reader.read_u8()?; // 7-magic, 6-interactive object, 5-altar, 4-sign, 2-door, 0-chest
-            let object_type = ExtraObjectType::from_u8(object_type_raw).unwrap_or(ExtraObjectType::Unknown);
+            let object_type_raw = reader.read_u8()?;
+            let object_type =
+                ExtraObjectType::from_u8(object_type_raw).unwrap_or(ExtraObjectType::Unknown);
 
             let x_pos = reader.read_i32::<LittleEndian>()?;
             let y_pos = reader.read_i32::<LittleEndian>()?;
@@ -157,7 +234,8 @@ impl Extractor for ExtraRef {
             reader.read_exact(&mut buffer_32)?;
 
             let visibility_raw = reader.read_u8()?;
-            let visibility = VisibilityType::from_u8(visibility_raw).unwrap_or(VisibilityType::Unknown);
+            let visibility =
+                VisibilityType::from_u8(visibility_raw).unwrap_or(VisibilityType::Unknown);
 
             let mut buffer_3 = [0u8; 3];
             reader.read_exact(&mut buffer_3)?;
@@ -166,14 +244,16 @@ impl Extractor for ExtraRef {
             let mut padding = [0u8; 8];
             let _ = reader.read_exact(&mut padding);
 
-            let required_item_type_id = ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
-            let required_item_type_id2 = ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Unknown);
+            let required_item_type_id =
+                ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
+            let required_item_type_id2 =
+                ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Unknown);
             let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
 
             refs.push(ExtraRef {
                 id: i,
                 number_in_file,
-                ext_id,
+                ext_id: extra_ini_entry_id,
                 name: name.to_string(),
                 object_type,
                 x_pos,

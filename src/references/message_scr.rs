@@ -2,10 +2,49 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
+use crate::references::references::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::Serialize;
-use crate::references::references::Extractor;
+
+// ===========================================================================
+// MESSAGE.SCR FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Message.scr - UI Text Messages       |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: Pipe-delimited              |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id|line1|line2|line3                 |
+// | 1|Welcome|to the|town                 |
+// | 2|Danger|Ahead|!                      |
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique message identifier
+// - line1: First text line (top)
+// - line2: Second text line (middle)
+// - line3: Third text line (bottom)
+//
+// SPECIAL VALUES:
+// - "null" literal for empty text lines
+// - Lines starting with ";" are comments
+// - Pipe (|) delimiter between fields
+// - Maximum 3 lines per message
+//
+// FILE PURPOSE:
+// Stores multi-line text messages for UI elements like
+// signposts, plaques, and system notifications. Used for
+// environmental storytelling and player guidance.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct Message {
@@ -17,7 +56,6 @@ pub struct Message {
     pub line2: Option<String>,
     /// Third rendered string row.
     pub line3: Option<String>,
-
 }
 
 /// Stores multi-line messages, typically used for signposts and system text.

@@ -1,11 +1,48 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 
 use crate::references::references::{parse_null, Extractor};
+
+// ===========================================================================
+// NPC.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Npc.ini - NPC Visual References      |
+// +--------------------------------------+
+// | Encoding: EUC-KR                    |
+// | Format: CSV with comments            |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id,sprite_filename,description       |
+// | 1,guard.spr,City Guard              |
+// | 2,merchant.spr,Shopkeeper           |
+// | ...                                  |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique NPC visual type identifier
+// - sprite_filename: SPR filename or "null"
+// - description: NPC role/appearance description
+//
+// SPECIAL VALUES:
+// - "null" literal for missing sprite filenames
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+//
+// FILE PURPOSE:
+// Defines visual appearances for NPC characters with sprite
+// filenames and descriptions. Used for rendering NPCs in
+// the game world and linking to NPC behavior scripts.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NpcIni {
@@ -15,7 +52,6 @@ pub struct NpcIni {
     pub sprite_filename: Option<String>,
     /// Internal description or role of the NPC.
     pub description: String,
-
 }
 
 /// Stores visual references and configuration for NPCs.

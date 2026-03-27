@@ -8,6 +8,57 @@ use encoding_rs::WINDOWS_1250;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
+// ===========================================================================
+// EVENTITEM.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | EventItem.db - Quest Items           |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Text Encoding: WINDOWS-1250          |
+// | Header: 4-byte record count          |
+// | Record Size: 240 bytes (60 × i32)    |
+// +--------------------------------------+
+// | [Header]                            |
+// | - record_count: i32                  |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 30 bytes (WINDOWS-1250)     |
+// | - description: 202 bytes (WINDOWS-1250)|
+// | - padding: 8 bytes                   |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+// ITEM CATEGORIES:
+// - 1-50: Main quest items
+// - 51-100: Side quest items
+// - 101-150: Event triggers
+// - 151-200: Special keys
+// - 201-250: Unique artifacts
+//
+// ITEM TYPES:
+// - Quest items: Required for quest completion
+// - Event items: Trigger specific events
+// - Key items: Unlock doors/areas
+// - Unique items: One-of-a-kind artifacts
+//
+// SPECIAL VALUES:
+// - Fixed-size string fields
+// - Null-padded text fields
+// - 8-byte padding per record
+//
+// FILE PURPOSE:
+// Defines special quest and event items with names
+// and descriptions. Used for quest progression,
+// event triggering, and unique item management.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize)]
 pub struct EventItem {
     /// Internal record ID representing the quest item.

@@ -1,10 +1,50 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::references::{parse_int, parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_int, parse_null, Extractor};
+
+// ===========================================================================
+// PARTYPGP.PGP FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | PartyPgp.pgp - Party Dialogue        |
+// +--------------------------------------+
+// | Encoding: WINDOWS-1250              |
+// | Format: Pipe-delimited              |
+// | Record Size: Variable (text)        |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | id|dialog_text|unknown_id1|unknown_id2|
+// | 1|Greetings|100|0                   |
+// | 2|Quest accepted|101|5              |
+// | ...                                   |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique dialogue entry identifier
+// - dialog_text: Text content or "null"
+// - unknown_id1: Branch condition ID
+// - unknown_id2: Event trigger ID
+//
+// SPECIAL VALUES:
+// - "null" literal for empty fields
+// - Lines starting with ";" are comments
+// - Pipe (|) delimiter between fields
+// - Empty lines ignored
+//
+// FILE PURPOSE:
+// Stores party dialogue entries with text content,
+// branching conditions, and event triggers. Used for
+// party member conversations and interactive dialogue
+// systems.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartyPgp {
@@ -16,7 +56,6 @@ pub struct PartyPgp {
     pub unknown_id1: Option<i32>,
     /// Internal script parameter 2.
     pub unknown_id2: Option<i32>,
-
 }
 
 /// Stores party dialogue logic and ID references.
@@ -71,8 +110,12 @@ impl Extractor for PartyPgp {
         let mut file = File::create(dest_path)?;
         for record in records {
             let dlg = record.dialog_text.as_deref().unwrap_or("null");
-            let unk1 = record.unknown_id1.map_or("null".to_string(), |v| v.to_string());
-            let unk2 = record.unknown_id2.map_or("null".to_string(), |v| v.to_string());
+            let unk1 = record
+                .unknown_id1
+                .map_or("null".to_string(), |v| v.to_string());
+            let unk2 = record
+                .unknown_id2
+                .map_or("null".to_string(), |v| v.to_string());
 
             let line = format!("{}|{}|{}|{}\r\n", record.id, dlg, unk1, unk2);
             let (cow, _, _) = WINDOWS_1250.encode(&line);

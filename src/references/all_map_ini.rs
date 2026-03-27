@@ -8,6 +8,44 @@ use serde::{Deserialize, Serialize};
 use crate::references::references::{parse_null, Extractor};
 use crate::references::enums::MapLighting;
 
+// ===========================================================================
+// ALLMAP.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +------------------------------+
+// | AllMap.ini - Master Map List |
+// +------------------------------+
+// | Encoding: WINDOWS-1250      |
+// | Format: CSV with comments    |
+// +------------------------------+
+// | ; Comment line              |
+// | id,map_file,name,pgp,dlg,lit|
+// | 1,cat1.map,Category 1,null,null,0 |
+// | 2,cat2.map,Category 2,null,null,0 |
+// | ...                         |
+// +------------------------------+
+//
+// FIELD DEFINITIONS:
+// - id: Unique map identifier (1, 2, 3, ...)
+// - map_file: .map filename (e.g., "cat1.map")
+// - name: Display name shown in game
+// - pgp: Party PGP filename or "null"
+// - dlg: Dialog DLG filename or "null" 
+// - lit: 0=dark/dungeon, 1=lit/outdoor
+//
+// SPECIAL VALUES:
+// - "null" literal for missing PGP/DLG files
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+//
+// FILE PURPOSE:
+// Master index of all game maps, linking map IDs to filenames and metadata.
+// Used by the game engine to load the correct map files and associated assets.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
     /// Map identifier.

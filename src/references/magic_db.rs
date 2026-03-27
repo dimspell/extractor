@@ -1,12 +1,61 @@
 use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
+use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
 use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
-use crate::references::enums::{MagicSchool, SpellTargetType, MagicSpellFlag, MagicSpellConstant};
 
 const MAGIC_RECORD_SIZE: usize = 88;
+
+// ===========================================================================
+// MAGIC.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Magic.db - Spell Database           |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Record Size: 88 bytes (22 × u32)     |
+// | No header - count from file size     |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - enabled: u32 (0/1)                 |
+// | - flag1: u32 (always 1)              |
+// | - mana_cost: u32 (999=unlimited)     |
+// | - success_rate: u32 (0-100%)         |
+// | - base_damage: u32                    |
+// | - reserved1: u32 (always 0)          |
+// | - reserved2: u32 (always 0)          |
+// | - flag2: u32 (0/1)                   |
+// | - range: u32 (999=unlimited)          |
+// | - reserved3: u32 (always 0)          |
+// | - level_required: u32                 |
+// | - constant1: u32 (always 1)          |
+// | - effect_value: u32                   |
+// | - effect_type: u32                    |
+// | - effect_modifier: u32                |
+// | - reserved4: u32 (always 0)          |
+// | - magic_school: u32 (0-6)            |
+// | - flag3: u32 (0/1)                   |
+// | - animation_id: u32                  |
+// | - visual_id: u32                      |
+// | - icon_id: u32                        |
+// | - target_type: u32 (1-4)             |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+//
+//
+// FILE PURPOSE:
+// Complete spell database defining all magical abilities with statistics,
+// requirements, effects, and visual/audio assets. Used for combat magic,
+// character progression, and spellcasting systems.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct MagicSpell {
@@ -175,10 +224,13 @@ impl Extractor for MagicSpell {
             let enabled = MagicSpellFlag::from_u32(enabled_raw).unwrap_or(MagicSpellFlag::Disabled);
             let flag1 = MagicSpellFlag::from_u32(flag1_raw).unwrap_or(MagicSpellFlag::Disabled);
             let flag2 = MagicSpellFlag::from_u32(flag2_raw).unwrap_or(MagicSpellFlag::Disabled);
-            let constant1 = MagicSpellConstant::from_u32(constant1_raw).unwrap_or(MagicSpellConstant::Invalid);
-            let magic_school = MagicSchool::from_u32(magic_school_raw).unwrap_or(MagicSchool::Unknown);
+            let constant1 =
+                MagicSpellConstant::from_u32(constant1_raw).unwrap_or(MagicSpellConstant::Invalid);
+            let magic_school =
+                MagicSchool::from_u32(magic_school_raw).unwrap_or(MagicSchool::Unknown);
             let flag3 = MagicSpellFlag::from_u32(flag3_raw).unwrap_or(MagicSpellFlag::Disabled);
-            let target_type = SpellTargetType::from_u32(target_type_raw).unwrap_or(SpellTargetType::Single);
+            let target_type =
+                SpellTargetType::from_u32(target_type_raw).unwrap_or(SpellTargetType::Single);
 
             spells.push(MagicSpell {
                 id: i as i32,

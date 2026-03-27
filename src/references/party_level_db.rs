@@ -5,6 +5,67 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter, Result};
 use std::path::Path;
 
+// ===========================================================================
+// PRTLEVEL.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | PrtLevel.db - Character Progression  |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Record Size: 36 bytes per level      |
+// | Total Size: 5760 bytes (8×20×36)      |
+// +--------------------------------------+
+// | [NPC 1]                              |
+// | - [Level 1]                         |
+// |   - sentinel: u32                   |
+// |   - strength: u32                   |
+// |   - constitution: u32               |
+// |   - wisdom: u32                      |
+// |   - health_points: u16              |
+// |   - magic_points: u16               |
+// |   - agility: u32                    |
+// |   - attack: u32                      |
+// |   - mana_recharge: u32               |
+// |   - defense: u16                     |
+// |   - padding: u16                     |
+// | - [Level 2]                         |
+// |   ... (same structure) ...           |
+// +--------------------------------------+
+// | [NPC 2]                              |
+// | ... (20 levels) ...                  |
+// +--------------------------------------+
+// | ... (8 NPCs total) ...               |
+// +--------------------------------------+
+//
+// STAT GROWTH PATTERNS:
+// - strength: Physical damage output
+// - constitution: Health point scaling
+// - wisdom: Magic point scaling
+// - agility: Evasion and speed
+// - attack: Combat accuracy
+// - defense: Damage resistance
+//
+// LEVEL RANGES:
+// - Levels 1-20: Standard progression
+// - Each level adds fixed stat increases
+// - Growth curves vary by character class
+//
+// SPECIAL VALUES:
+// - sentinel = 0: Standard record marker
+// - Fixed 20 levels per NPC
+// - 8 NPC slots (party size limit)
+// - 5760-byte total file size
+//
+// FILE PURPOSE:
+// Defines character progression statistics for
+// levels 1-20. Used for level-up calculations,
+// stat growth, and character development.
+//
+// ===========================================================================
+
 #[derive(Debug, Serialize)]
 pub struct PartyLevelRecord {
     /// Derived multiplier level tracking.

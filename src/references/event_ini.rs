@@ -1,11 +1,58 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::enums::EventType;
+use crate::references::references::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_null, Extractor};
-use crate::references::enums::EventType;
+
+// ===========================================================================
+// EVENT.INI FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | Event.ini - Event Script Mappings    |
+// +--------------------------------------+
+// | Encoding: EUC-KR                     |
+// | Format: CSV with comments             |
+// | Record Size: Variable (text)         |
+// +--------------------------------------+
+// | ; Comment line                       |
+// | event_id,prev_id,type,filename,counter|
+// | 1,0,1,script1.scr,0                  |
+// | 2,1,2,script2.scr,5                  |
+// | ...                                  |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - event_id: Unique event identifier
+// - prev_id: Prerequisite event ID
+// - type: Execution condition type
+// - filename: Script file or "null"
+// - counter: Execution limit (N times)
+//
+// EVENT TYPES:
+// - 1: Execute once unconditionally
+// - 2: Execute N times (uses counter)
+// - 3: Execute if previous succeeded
+// - 4: Execute on map load
+// - 5: Execute on dialog trigger
+//
+// SPECIAL VALUES:
+// - "null" literal for missing filenames
+// - Lines starting with ";" are comments
+// - CSV format with comma delimiter
+// - counter = 0: No limit (infinite)
+//
+// FILE PURPOSE:
+// Defines event scripts with execution conditions, prerequisites,
+// and repetition limits. Used for quest progression, interactive
+// objects, and game state management.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
@@ -18,8 +65,7 @@ pub struct Event {
     /// Filename of the event script.
     pub event_filename: Option<String>,
     /// Execution counter (N limit) for types that execute multiple times.
-    pub counter: i32, // N counter
-
+    pub counter: i32,
 }
 
 /// Stores script and event mappings.
@@ -63,8 +109,8 @@ impl Extractor for Event {
                     let counter = parts[4].parse::<i32>().unwrap();
 
                     // Convert the raw event_type_id to our type-safe enum
-                    let event_type = EventType::from_i32(event_type_id)
-                        .unwrap_or(EventType::Unknown);
+                    let event_type =
+                        EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
 
                     events.push(Event {
                         event_id,

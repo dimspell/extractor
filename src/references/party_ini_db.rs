@@ -1,9 +1,52 @@
+use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Write, Result};
+use std::io::{BufReader, BufWriter, Read, Result, Write};
 use std::path::Path;
-use crate::references::references::Extractor;
+
+// ===========================================================================
+// PRTINI.DB FILE FORMAT
+// ===========================================================================
+//
+// ASCII Structure:
+//
+// +--------------------------------------+
+// | PrtIni.db - Party NPC Metadata       |
+// +--------------------------------------+
+// | Encoding: Binary (Little-Endian)     |
+// | Record Size: 28 bytes                |
+// | Fixed 8 records (224 bytes total)    |
+// +--------------------------------------+
+// | [Record 1]                           |
+// | - name: 20 bytes (null-terminated)    |
+// | - flags: u16                         |
+// | - kind: u16                          |
+// | - value: u32                         |
+// +--------------------------------------+
+// | [Record 2]                           |
+// | ... (same structure) ...             |
+// +--------------------------------------+
+// | ... (8 total records) ...            |
+// +--------------------------------------+
+//
+// FIELD DEFINITIONS:
+// - name: Character name (20 bytes max)
+// - flags: Behavior and status flags
+// - kind: Character class/type
+// - value: Associated numeric value
+//
+// SPECIAL VALUES:
+// - Fixed 8 records (party size limit)
+// - 224-byte total file size
+// - Null-terminated names
+//
+// FILE PURPOSE:
+// Stores metadata for party NPCs including names,
+// classes, and status flags. Used for party management
+// and character initialization.
+//
+// ===========================================================================
 
 #[derive(Debug, Serialize)]
 pub struct PartyIniNpc {
@@ -15,7 +58,6 @@ pub struct PartyIniNpc {
     pub kind: u16,
     /// Sub-identifier linking variables together.
     pub value: u32,
-
 }
 
 /// Stores initial metadata and starting configurations for party members.
@@ -76,7 +118,7 @@ impl Extractor for PartyIniNpc {
             let name_bytes_val = record.name.as_bytes();
             let len = std::cmp::min(name_bytes_val.len(), 19); // Keep at least one \0 if string is long
             name_bytes[..len].copy_from_slice(&name_bytes_val[..len]);
-            
+
             writer.write_all(&name_bytes)?;
             writer.write_u16::<LittleEndian>(record.flags)?;
             writer.write_u16::<LittleEndian>(record.kind)?;
