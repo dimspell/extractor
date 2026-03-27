@@ -140,7 +140,7 @@ pub fn save_sequence_anim(
 
     let mut imgbuf: RgbaImage = image::ImageBuffer::new(rect_w * (frames.len() as u32), rect_h);
     let mut offset_x = 0;
-    let mut offset_y = 0;
+    let mut offset_y;
 
     for i in 0..frames.len() {
         let frame = &frames[i];

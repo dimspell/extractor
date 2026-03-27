@@ -177,14 +177,14 @@ pub fn read_events_block(
     for y in 0..tiled_map_height {
         for x in 0..tiled_map_width {
             let event_id = reader.read_i16::<LittleEndian>()?;
-            let _what_is_it = reader.read_i16::<LittleEndian>()?;
+            let unknown_value = reader.read_i16::<LittleEndian>()?;
             blocks.insert(
                 (x, y),
                 EventBlock {
                     x,
                     y,
                     event_id,
-                    unknown: 0,
+                    unknown_value,
                 },
             );
         }
