@@ -13,20 +13,17 @@ jobs:
     name: create-release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
+
       - name: Get the release version from the tag
         if: env.VERSION == ''
         run: echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+
       - name: Show the version
         run: |
           echo "version is: $VERSION"
-#      - name: Check that tag version and Cargo.toml version are the same
-#        shell: bash
-#        run: |
-#          if ! grep -q "version = \"$VERSION\"" Cargo.toml; then
-#            echo "version does not match Cargo.toml" >&2
-#            exit 1
-#          fi
+
       - name: Create GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,8 +33,10 @@ jobs:
 
   build-release:
     name: build-release
-    needs: ['create-release']
+    needs: ["create-release"]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     env:
       CARGO: cargo
       # When CARGO is set to CROSS, this is set to `--target matrix.target`.
@@ -61,10 +60,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
@@ -100,7 +99,6 @@ jobs:
         run: |
           mkdir -p "$ARCHIVE"/
           cp "$BIN" "$ARCHIVE"/
-     #     cp {README.md} "$ARCHIVE"/
 
       - name: Build archive (Windows)
         shell: bash
