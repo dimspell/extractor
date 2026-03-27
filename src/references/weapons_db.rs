@@ -2,7 +2,7 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
-use crate::references::references::{read_mapper, Extractor};
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::{Deserialize, Serialize};
@@ -150,14 +150,12 @@ impl Extractor for WeaponItem {
             // name
             let mut buffer = [0u8; NAME_STRING_MAX_LENGTH];
             reader.read_exact(&mut buffer)?;
-            let dst = WINDOWS_1250.decode(&buffer);
-            let name = dst.0.trim_end_matches("\0").trim();
+            let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
             // description
             let mut buffer = [0u8; DESCRIPTION_STRING_MAX_LENGTH];
             reader.read_exact(&mut buffer)?;
-            let dst = WINDOWS_1250.decode(&buffer);
-            let description = dst.0.trim_end_matches("\0").trim_end_matches("\00").trim();
+            let description = read_null_terminated_windows_1250(&buffer).unwrap();
 
             // "Base price"
             let base_price = reader.read_i16::<LittleEndian>()?;
