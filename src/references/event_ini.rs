@@ -5,6 +5,7 @@ use crate::references::enums::EventType;
 use crate::references::references::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -144,4 +145,22 @@ impl Extractor for Event {
 
 pub fn read_event_ini(source_path: &Path) -> std::io::Result<Vec<Event>> {
     Event::read_file(source_path)
+}
+
+pub fn save_events(conn: &mut Connection, events: &Vec<Event>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_event.sql"))?;
+        for event in events {
+            stmt.execute(params![
+                event.event_id,
+                event.previous_event_id,
+                i32::from(event.event_type),
+                event.event_filename,
+                event.counter,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

@@ -3,6 +3,7 @@ use std::{fs::File, path::Path};
 
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::references::{parse_null, Extractor};
@@ -116,4 +117,20 @@ impl Extractor for NpcIni {
 
 pub fn read_npc_ini(source_path: &Path) -> std::io::Result<Vec<NpcIni>> {
     NpcIni::read_file(source_path)
+}
+
+pub fn save_npc_inis(conn: &mut Connection, npc_inis: &Vec<NpcIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ini.sql"))?;
+        for npc_ini in npc_inis {
+            stmt.execute(params![
+                npc_ini.id,
+                npc_ini.sprite_filename,
+                npc_ini.description,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

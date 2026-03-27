@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::enums::ItemTypeId;
 use crate::references::references::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 // ===========================================================================
@@ -193,4 +194,33 @@ impl Extractor for MonsterRef {
 
 pub fn read_monster_ref(source_path: &Path) -> std::io::Result<Vec<MonsterRef>> {
     MonsterRef::read_file(source_path)
+}
+
+pub fn save_monster_refs(
+    conn: &mut Connection,
+    file_path: &str,
+    monster_refs: &Vec<MonsterRef>,
+) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ref.sql"))?;
+        for monster_ref in monster_refs {
+            stmt.execute(params![
+                file_path,
+                monster_ref.index,
+                monster_ref.file_id,
+                monster_ref.mon_id,
+                monster_ref.pos_x,
+                monster_ref.pos_y,
+                monster_ref.loot1_item_id,
+                u8::from(monster_ref.loot1_item_type),
+                monster_ref.loot2_item_id,
+                u8::from(monster_ref.loot2_item_type),
+                monster_ref.loot3_item_id,
+                u8::from(monster_ref.loot3_item_type),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

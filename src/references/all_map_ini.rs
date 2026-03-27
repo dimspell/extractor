@@ -1,12 +1,13 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::references::references::{parse_null, Extractor};
 use crate::references::enums::MapLighting;
+use crate::references::references::{parse_null, Extractor};
 
 // ===========================================================================
 // ALLMAP.INI FILE FORMAT
@@ -32,7 +33,7 @@ use crate::references::enums::MapLighting;
 // - map_file: .map filename (e.g., "cat1.map")
 // - name: Display name shown in game
 // - pgp: Party PGP filename or "null"
-// - dlg: Dialog DLG filename or "null" 
+// - dlg: Dialog DLG filename or "null"
 // - lit: 0=dark/dungeon, 1=lit/outdoor
 //
 // SPECIAL VALUES:
@@ -61,7 +62,6 @@ pub struct Map {
     // light - 0=light, 1=darkness
     /// Light indicator (0=light, 1=darkness).
     pub lighting: MapLighting,
-
 }
 
 /// Stores the general list of all maps in the game.
@@ -128,9 +128,19 @@ impl Extractor for Map {
     fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
         let mut file = File::create(dest_path)?;
         for record in records {
-            let pgp = record.pgp_filename.clone().unwrap_or_else(|| "null".to_string());
-            let dlg = record.dlg_filename.clone().unwrap_or_else(|| "null".to_string());
-            let light_str = if record.lighting == MapLighting::Light { "1" } else { "0" };
+            let pgp = record
+                .pgp_filename
+                .clone()
+                .unwrap_or_else(|| "null".to_string());
+            let dlg = record
+                .dlg_filename
+                .clone()
+                .unwrap_or_else(|| "null".to_string());
+            let light_str = if record.lighting == MapLighting::Light {
+                "1"
+            } else {
+                "0"
+            };
             let line = format!(
                 "{},{},{},{},{},{}\r\n",
                 record.id, record.map_filename, record.map_name, pgp, dlg, light_str
@@ -144,4 +154,23 @@ impl Extractor for Map {
 
 pub fn read_all_map_ini(source_path: &Path) -> std::io::Result<Vec<Map>> {
     Map::read_file(source_path)
+}
+
+pub fn save_maps(conn: &mut Connection, maps: &Vec<Map>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map.sql"))?;
+        for map in maps {
+            stmt.execute(params![
+                map.id,
+                map.map_filename,
+                map.map_name,
+                map.pgp_filename,
+                map.dlg_filename,
+                i32::from(map.lighting),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

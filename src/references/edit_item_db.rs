@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 use crate::references::enums::{EditItemEffect, EditItemModification};
@@ -259,4 +260,35 @@ impl Extractor for EditItem {
 
 pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {
     EditItem::read_file(source_path)
+}
+
+pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_edit_item.sql"))?;
+        for item in edit_items {
+            stmt.execute(params![
+                item.index,
+                item.name,
+                item.description,
+                item.base_price,
+                item.health_points,
+                item.magic_points,
+                item.strength,
+                item.agility,
+                item.wisdom,
+                item.constitution,
+                item.to_dodge,
+                item.to_hit,
+                item.to_hit,
+                item.offense,
+                item.defense,
+                item.item_destroying_power,
+                u8::from(item.modifies_item),
+                i16::from(item.additional_effect),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

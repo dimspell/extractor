@@ -1,12 +1,13 @@
-use std::{fs::File, path::Path};
-use std::io::{BufReader, BufWriter};
 use std::io::prelude::*;
+use std::io::{BufReader, BufWriter};
+use std::{fs::File, path::Path};
 
+use crate::references::enums::{MonsterAiType, PropertyFlag};
+use crate::references::references::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-use crate::references::references::{read_mapper, Extractor};
-use crate::references::enums::{MonsterAiType, PropertyFlag};
 
 // ===========================================================================
 // MONSTER.DB FILE FORMAT
@@ -162,7 +163,6 @@ pub struct Monster {
     pub boldness: i32,
     /// Delay ticks between swings.
     pub attack_speed: i32,
-
 }
 
 /// Stores base stats, attacks, and defense values for monsters.
@@ -224,7 +224,7 @@ impl Extractor for Monster {
             let is_undead_raw = reader.read_i32::<LittleEndian>()?; // "0 or 1"
             let has_blood_raw = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
             let ai_type_raw = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
-            
+
             // Convert raw integers to type-safe enums
             let is_undead = PropertyFlag::from_i32(is_undead_raw).unwrap_or(PropertyFlag::Absent);
             let has_blood = PropertyFlag::from_i32(has_blood_raw).unwrap_or(PropertyFlag::Absent);
@@ -351,4 +351,53 @@ impl Extractor for Monster {
 
 pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
     Monster::read_file(source_path)
+}
+
+pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_monster.sql"))?;
+        for monster in monsters {
+            stmt.execute(params![
+                monster.id,
+                monster.name,
+                monster.health_points_max,
+                monster.health_points_min,
+                monster.magic_points_max,
+                monster.magic_points_min,
+                monster.walk_speed,
+                monster.to_hit_max,
+                monster.to_hit_min,
+                monster.to_dodge_max,
+                monster.to_dodge_min,
+                monster.offense_max,
+                monster.offense_min,
+                monster.defense_max,
+                monster.defense_min,
+                monster.magic_attack_max,
+                monster.magic_attack_min,
+                i32::from(monster.is_undead),
+                i32::from(monster.has_blood),
+                i32::from(monster.ai_type),
+                monster.exp_gain_max,
+                monster.exp_gain_min,
+                monster.gold_drop_max,
+                monster.gold_drop_min,
+                monster.detection_sight_size,
+                monster.distance_range_size,
+                monster.known_spell_slot1,
+                monster.known_spell_slot2,
+                monster.known_spell_slot3,
+                monster.is_oversize,
+                monster.magic_level,
+                monster.special_attack,
+                monster.special_attack_chance,
+                monster.special_attack_duration,
+                monster.boldness,
+                monster.attack_speed,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

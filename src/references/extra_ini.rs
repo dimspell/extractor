@@ -1,10 +1,11 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::references::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_null, Extractor};
 
 // ===========================================================================
 // EXTRA.INI FILE FORMAT
@@ -66,7 +67,6 @@ pub struct Extra {
     pub unknown: i32,
     /// Optional description for the interactive object.
     pub description: Option<String>,
-
 }
 
 /// Stores definitions and types for interactive objects (extras).
@@ -135,3 +135,19 @@ pub fn read_extra_ini(source_path: &Path) -> std::io::Result<Vec<Extra>> {
     Extra::read_file(source_path)
 }
 
+pub fn save_extras(conn: &mut Connection, extras: &Vec<Extra>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_extra.sql"))?;
+        for extra in extras {
+            stmt.execute(params![
+                extra.id,
+                extra.sprite_filename,
+                extra.unknown,
+                extra.description,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}

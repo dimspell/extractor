@@ -1,5 +1,6 @@
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -189,4 +190,27 @@ impl Extractor for DialogueText {
 
 pub fn read_dialogue_texts(source_path: &Path) -> std::io::Result<Vec<DialogueText>> {
     DialogueText::read_file(source_path)
+}
+
+pub fn save_dialogue_texts(
+    conn: &mut Connection,
+    file_name: &str,
+    texts: &Vec<DialogueText>,
+) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_text.sql"))?;
+        for text in texts {
+            stmt.execute(params![
+                file_name,
+                text.id,
+                text.text,
+                text.comment,
+                text.param1,
+                text.param2,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

@@ -1,5 +1,6 @@
 use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use rusqlite::{params, Connection, Result as DbResult};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Result};
@@ -88,7 +89,6 @@ pub struct PartyLevelRecord {
     pub mana_recharge: u32,
     /// Armor tracking expansion rating.
     pub defense: u16,
-
 }
 
 #[derive(Debug, Serialize)]
@@ -185,4 +185,30 @@ impl Extractor for PartyLevelNpc {
 
 pub fn read_party_level_db(source_path: &Path) -> Result<Vec<PartyLevelNpc>> {
     PartyLevelNpc::read_file(source_path)
+}
+
+pub fn save_party_levels(conn: &mut Connection, npcs: &Vec<PartyLevelNpc>) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_party_level.sql"))?;
+        for npc in npcs {
+            for record in &npc.records {
+                stmt.execute(params![
+                    npc.npc_index as i32,
+                    record.level as i32,
+                    record.strength as i32,
+                    record.constitution as i32,
+                    record.wisdom as i32,
+                    record.health_points as i32,
+                    record.magic_points as i32,
+                    record.agility as i32,
+                    record.attack as i32,
+                    record.mana_recharge as i32,
+                    record.defense as i32,
+                ])?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

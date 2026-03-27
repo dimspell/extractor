@@ -102,10 +102,14 @@ pub use types::{
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use std::io::{BufReader, Seek, SeekFrom};
 use std::path::Path;
 
 use crate::sprite::SequenceInfo;
+use rusqlite::{params, Connection, Result as DbResult};
+
+/// IO Result type for file operations
+type IoResult<T> = std::io::Result<T>;
 
 use reader::{
     first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
@@ -164,7 +168,7 @@ pub struct MapData {
 /// - Tiles are 32×32 pixels with isometric offsets
 /// - Coordinates use (x,y) tile positions
 /// - Conversion to pixels uses TILE_HORIZONTAL_OFFSET_HALF (32) and TILE_HEIGHT_HALF (16)
-pub fn read_map_data(reader: &mut BufReader<File>) -> Result<MapData> {
+pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let file_len = reader.get_ref().metadata()?.len();
     let map_model = read_map_model(reader)?;
     let tiled_map_width = map_model.tiled_map_width;
@@ -249,7 +253,7 @@ pub fn extract(
     input_gtl_file: &Path,
     output_path: &Path,
     save_map_sprites: &bool,
-) -> Result<()> {
+) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
@@ -306,7 +310,7 @@ pub fn extract(
 ///
 /// Sprites are extracted with their original animation sequences preserved,
 /// allowing for proper reconstruction of in-game animations.
-pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> Result<()> {
+pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
@@ -353,7 +357,7 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> Result<()> 
 ///
 /// This allows for efficient querying and rendering of map components
 /// without needing to re-parse the binary format each time.
-pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
+pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()> {
     use rusqlite::Connection;
     let mut conn = Connection::open(database_path)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
@@ -364,6 +368,7 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
     let map_id = map_path.file_stem().unwrap().to_str().unwrap();
 
     save_to_db(&mut conn, map_id, &map_data)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
 }
 
 /// Writes map data to the SQLite database.
@@ -390,9 +395,9 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> Result<()> {
 ///
 /// This creates a complete, queryable representation of the original
 /// binary map file in a relational database format.
-pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> Result<()> {
+pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> DbResult<()> {
     println!("Saving map tiles for {}...", map_id);
-    crate::database::save_map_tiles(
+    save_map_tiles(
         conn,
         map_id,
         &data.gtl_tiles,
@@ -401,17 +406,131 @@ pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData)
         &data.events,
         data.model.tiled_map_width,
         data.model.tiled_map_height,
-    )
-    .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    )?;
 
-    crate::database::save_map_objects(conn, map_id, &data.tiled_infos)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    save_map_objects(conn, map_id, &data.tiled_infos)?;
 
-    crate::database::save_map_sprites(conn, map_id, &data.sprite_blocks)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    save_map_sprites(conn, map_id, &data.sprite_blocks)?;
 
-    crate::database::save_map_metadata(conn, map_id, &data.model)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+    save_map_metadata(conn, map_id, &data.model)?;
+
+    Ok(())
+}
+
+pub fn save_map_tiles(
+    conn: &mut Connection,
+    map_id: &str,
+    gtl_tiles: &HashMap<Coords, i32>,
+    btl_tiles: &HashMap<Coords, i32>,
+    collisions: &HashMap<Coords, bool>,
+    events: &HashMap<Coords, EventBlock>,
+    width: i32,
+    height: i32,
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+
+    let offset_x = width / 2;
+    let offset_y = height / 2;
+
+    println!(
+        "Inserting map tiles for map {}, width {}, height {}",
+        map_id, width, height
+    );
+
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_tile.sql"))?;
+
+        for y in 0..height {
+            for x in 0..width {
+                let coords = (x, y);
+                let gtl_id = gtl_tiles.get(&coords).cloned().unwrap_or(0);
+                let btl_id = btl_tiles.get(&coords).cloned().unwrap_or(0);
+                let collision = collisions.get(&coords).cloned().unwrap_or(false);
+                let event_id = events.get(&coords).map(|e| e.event_id).unwrap_or(0);
+
+                if gtl_id == 0 && btl_id == 0 && !collision && event_id == 0 {
+                    continue;
+                }
+
+                stmt.execute(params![
+                    map_id,
+                    x - offset_x,
+                    y - offset_y,
+                    gtl_id,
+                    btl_id,
+                    collision,
+                    event_id as i32,
+                ])?;
+            }
+        }
+    }
+
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_map_objects(
+    conn: &mut Connection,
+    map_id: &str,
+    tiled_infos: &Vec<TiledObjectInfo>,
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_object.sql"))?;
+        for (obj_idx, info) in tiled_infos.iter().enumerate() {
+            for (stack_order, btl_id) in info.ids.iter().enumerate() {
+                stmt.execute(params![
+                    map_id,
+                    obj_idx as i32,
+                    info.x,
+                    info.y,
+                    *btl_id as i32,
+                    stack_order as i32,
+                ])?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_map_sprites(
+    conn: &mut Connection,
+    map_id: &str,
+    sprite_blocks: &Vec<SpriteInfoBlock>,
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite.sql"))?;
+        for (sprite_idx, block) in sprite_blocks.iter().enumerate() {
+            stmt.execute(params![
+                map_id,
+                sprite_idx as i32,
+                block.sprite_x,
+                block.sprite_y,
+                block.sprite_id as i32,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_map_metadata(conn: &mut Connection, map_id: &str, model: &MapModel) -> DbResult<()> {
+    conn.execute(
+        include_str!("../queries/insert_map_metadata.sql"),
+        params![
+            map_id,
+            model.tiled_map_width,
+            model.tiled_map_height,
+            model.map_width_in_pixels,
+            model.map_height_in_pixels,
+            model.map_non_occluded_start_x,
+            model.map_non_occluded_start_y,
+            model.occluded_map_in_pixels_width,
+            model.occluded_map_in_pixels_height,
+        ],
+    )?;
 
     Ok(())
 }

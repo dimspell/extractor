@@ -5,6 +5,7 @@ use crate::references::enums::{DialogOwner, DialogType};
 use crate::references::references::{parse_int, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -169,4 +170,25 @@ impl Extractor for Dialog {
 
 pub fn read_dialogs(source_path: &Path) -> std::io::Result<Vec<Dialog>> {
     Dialog::read_file(source_path)
+}
+
+pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &Vec<Dialog>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_dialog.sql"))?;
+        for dialog in dialogs {
+            stmt.execute(params![
+                dialog_file,
+                dialog.id,
+                dialog.previous_event_id,
+                dialog.next_dialog_to_check,
+                dialog.dialog_type.map(|v| v.value()),
+                dialog.dialog_owner.map(|v| v.value()),
+                dialog.dialog_id,
+                dialog.event_id,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

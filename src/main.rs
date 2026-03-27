@@ -1,15 +1,36 @@
-use crate::database::{
-    initialize_database, save_dialogs, save_dialogue_texts, save_draw_items, save_edit_items,
-    save_event_items, save_event_npc_refs, save_events, save_extra_refs, save_extras,
-    save_heal_items, save_magic_spells, save_map_inis, save_maps, save_messages, save_misc_items,
-    save_monster_inis, save_monster_refs, save_monsters, save_npc_inis, save_npc_refs,
-    save_party_inis, save_party_levels, save_party_pgps, save_party_refs, save_quests, save_stores,
-    save_wave_inis, save_weapons,
-};
+use crate::database::initialize_database;
+use crate::references::all_map_ini::save_maps;
+use crate::references::dialog::save_dialogs;
+use crate::references::dialogue_text::save_dialogue_texts;
+use crate::references::draw_item::save_draw_items;
+use crate::references::edit_item_db::save_edit_items;
+use crate::references::event_ini::save_events;
+use crate::references::event_item_db::save_event_items;
+use crate::references::event_npc_ref::save_event_npc_refs;
+use crate::references::extra_ini::save_extras;
+use crate::references::extra_ref::save_extra_refs;
+use crate::references::heal_item_db::save_heal_items;
+use crate::references::magic_db::save_magic_spells;
+use crate::references::map_ini::save_map_inis;
+use crate::references::message_scr::save_messages;
 use crate::references::misc_item_db::read_misc_item_db;
+use crate::references::misc_item_db::save_misc_items;
+use crate::references::monster_db::save_monsters;
+use crate::references::monster_ini::save_monster_inis;
+use crate::references::monster_ref::save_monster_refs;
+use crate::references::npc_ini::save_npc_inis;
+use crate::references::npc_ref::save_npc_refs;
 use crate::references::party_ini_db::read_party_ini_db;
+use crate::references::party_ini_db::save_party_inis;
 use crate::references::party_level_db::read_party_level_db;
+use crate::references::party_level_db::save_party_levels;
+use crate::references::party_pgp::save_party_pgps;
+use crate::references::party_ref::save_party_refs;
+use crate::references::quest_scr::save_quests;
 use crate::references::references::read_mutli_magic_db;
+use crate::references::store_db::save_stores;
+use crate::references::wave_ini::save_wave_inis;
+use crate::references::weapons_db::save_weapons;
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
@@ -368,8 +389,8 @@ fn main() {
                 println!("Input file: {input:?}");
                 println!("Output directory: {output:?}");
 
-                let tiles =
-                    map::tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
+                let tiles = map::tileset::extract(&Path::new(input))
+                    .expect("ERROR: could not extract tile-set");
                 map::tileset::plot_all_tiles(&tiles, output);
             }
             Some(MapCommands::Atlas { input, output }) => {
@@ -377,8 +398,8 @@ fn main() {
                 println!("Input file: {input:?}");
                 println!("Output file: {output:?}");
 
-                let tiles =
-                    map::tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
+                let tiles = map::tileset::extract(&Path::new(input))
+                    .expect("ERROR: could not extract tile-set");
                 map::tileset::plot_tileset_map(&tiles, output);
             }
             Some(MapCommands::Render {

@@ -1,5 +1,6 @@
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -65,7 +66,6 @@ pub struct EventNpcRef {
     pub event_id: i32,
     /// Descriptive string of placeholder entity.
     pub name: String,
-
 }
 
 /// Stores specific placements for NPCs that appear only during scripted events.
@@ -123,4 +123,16 @@ impl Extractor for EventNpcRef {
 
 pub fn read_event_npc_ref(source_path: &Path) -> std::io::Result<Vec<EventNpcRef>> {
     EventNpcRef::read_file(source_path)
+}
+
+pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_event_npc_ref.sql"))?;
+        for npc in npc_refs {
+            stmt.execute(params![npc.id, npc.event_id, npc.name])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

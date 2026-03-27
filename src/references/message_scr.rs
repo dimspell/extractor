@@ -5,6 +5,7 @@ use std::path::Path;
 use crate::references::references::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 // ===========================================================================
@@ -141,4 +142,21 @@ impl Extractor for Message {
 
 pub fn read_messages(path: &Path) -> std::io::Result<Vec<Message>> {
     Message::read_file(path)
+}
+
+pub fn save_messages(conn: &mut Connection, messages: &Vec<Message>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_message.sql"))?;
+        for message in messages {
+            stmt.execute(params![
+                message.id,
+                message.line1,
+                message.line2,
+                message.line3,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

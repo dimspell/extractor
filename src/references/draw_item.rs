@@ -3,6 +3,7 @@ use std::{fs::File, path::Path};
 
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::references::Extractor;
@@ -134,4 +135,21 @@ impl Extractor for DrawItem {
 
 pub fn read_draw_items(source_path: &Path) -> std::io::Result<Vec<DrawItem>> {
     DrawItem::read_file(source_path)
+}
+
+pub fn save_draw_items(conn: &mut Connection, draw_items: &Vec<DrawItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_draw_item.sql"))?;
+        for draw_item in draw_items {
+            stmt.execute(params![
+                draw_item.map_id,
+                draw_item.x_coord,
+                draw_item.y_coord,
+                draw_item.item_id,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

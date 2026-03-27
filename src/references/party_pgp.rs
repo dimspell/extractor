@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::{parse_int, parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -127,4 +128,21 @@ impl Extractor for PartyPgp {
 
 pub fn read_party_pgps(source_path: &Path) -> std::io::Result<Vec<PartyPgp>> {
     PartyPgp::read_file(source_path)
+}
+
+pub fn save_party_pgps(conn: &mut Connection, party_pgps: &Vec<PartyPgp>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_party_pgp.sql"))?;
+        for party_pgp in party_pgps {
+            stmt.execute(params![
+                party_pgp.id,
+                party_pgp.dialog_text,
+                party_pgp.unknown_id1,
+                party_pgp.unknown_id2,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

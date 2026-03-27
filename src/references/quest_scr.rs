@@ -5,6 +5,7 @@ use std::path::Path;
 use crate::references::references::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 // ===========================================================================
@@ -140,4 +141,21 @@ impl Extractor for Quest {
 
 pub fn read_quests(path: &Path) -> std::io::Result<Vec<Quest>> {
     Quest::read_file(path)
+}
+
+pub fn save_quests(conn: &mut Connection, quests: &Vec<Quest>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_quest.sql"))?;
+        for quest in quests {
+            stmt.execute(params![
+                quest.id,
+                quest.type_id,
+                quest.title,
+                quest.description,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

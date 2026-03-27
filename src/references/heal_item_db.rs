@@ -4,11 +4,12 @@ use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
-use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
+use serde::Serialize;
 
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use crate::references::enums::HealItemFlag;
+use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
 // ===========================================================================
 // HEALITEM.DB FILE FORMAT
@@ -85,7 +86,6 @@ pub struct HealItem {
     pub poison_heal: HealItemFlag,
     pub petrif_heal: HealItemFlag,
     pub polimorph_heal: HealItemFlag,
-
 }
 
 /// Stores definitions, stats, and prices for consumable healing items.
@@ -152,7 +152,8 @@ impl Extractor for HealItem {
             let full_pm = HealItemFlag::from_u8(full_pm_raw).unwrap_or(HealItemFlag::None);
             let poison_heal = HealItemFlag::from_u8(poison_heal_raw).unwrap_or(HealItemFlag::None);
             let petrif_heal = HealItemFlag::from_u8(petrif_heal_raw).unwrap_or(HealItemFlag::None);
-            let polimorph_heal = HealItemFlag::from_u8(polimorph_heal_raw).unwrap_or(HealItemFlag::None);
+            let polimorph_heal =
+                HealItemFlag::from_u8(polimorph_heal_raw).unwrap_or(HealItemFlag::None);
 
             items.push(HealItem {
                 id: i,
@@ -216,4 +217,28 @@ impl Extractor for HealItem {
 
 pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
     HealItem::read_file(source_path)
+}
+
+pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_heal_item.sql"))?;
+        for item in heal_items {
+            stmt.execute(params![
+                item.id,
+                item.name,
+                item.description,
+                item.base_price,
+                item.pz,
+                item.pm,
+                u8::from(item.full_pz),
+                u8::from(item.full_pm),
+                u8::from(item.poison_heal),
+                u8::from(item.petrif_heal),
+                u8::from(item.polimorph_heal),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

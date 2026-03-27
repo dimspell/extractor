@@ -1,10 +1,11 @@
-use std::{fs::File, path::Path};
 use std::io::{BufRead, BufReader, Write};
+use std::{fs::File, path::Path};
 
+use crate::references::references::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-use crate::references::references::{parse_null, Extractor};
 
 // ===========================================================================
 // WAVE.INI FILE FORMAT
@@ -66,7 +67,6 @@ pub struct WaveIni {
     pub snf_filename: Option<String>,
     /// Internal unknown string or flag parameter.
     pub unknown_flag: Option<String>,
-
 }
 
 /// Stores audio references and SNF file mappings.
@@ -133,4 +133,20 @@ impl Extractor for WaveIni {
 
 pub fn read_wave_ini(source_path: &Path) -> std::io::Result<Vec<WaveIni>> {
     WaveIni::read_file(source_path)
+}
+
+pub fn save_wave_inis(conn: &mut Connection, wave_inis: &Vec<WaveIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_wave_ini.sql"))?;
+        for wave_ini in wave_inis {
+            stmt.execute(params![
+                wave_ini.id,
+                wave_ini.snf_filename,
+                wave_ini.unknown_flag,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

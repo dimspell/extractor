@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -161,4 +162,26 @@ impl Extractor for MapIni {
 
 pub fn read_map_ini(source_path: &Path) -> std::io::Result<Vec<MapIni>> {
     MapIni::read_file(source_path)
+}
+
+pub fn save_map_inis(conn: &mut Connection, map_inis: &Vec<MapIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_ini.sql"))?;
+        for map_ini in map_inis {
+            stmt.execute(params![
+                map_ini.id,
+                map_ini.event_id_on_camera_move,
+                map_ini.start_pos_x,
+                map_ini.start_pos_y,
+                map_ini.map_id,
+                map_ini.monsters_filename,
+                map_ini.npc_filename,
+                map_ini.extra_filename,
+                map_ini.cd_music_track_number,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

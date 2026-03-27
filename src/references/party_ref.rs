@@ -5,6 +5,7 @@ use crate::references::enums::GhostFaceId;
 use crate::references::references::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -157,4 +158,25 @@ impl Extractor for PartyRef {
 
 pub fn read_part_refs(source_path: &Path) -> std::io::Result<Vec<PartyRef>> {
     PartyRef::read_file(source_path)
+}
+
+pub fn save_party_refs(conn: &mut Connection, party_refs: &Vec<PartyRef>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_party_ref.sql"))?;
+        for party_ref in party_refs {
+            stmt.execute(params![
+                party_ref.id,
+                party_ref.full_name,
+                party_ref.job_name,
+                party_ref.root_map_id,
+                party_ref.npc_id,
+                party_ref.dlg_when_not_in_party,
+                party_ref.dlg_when_in_party,
+                i32::from(party_ref.ghost_face_id),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

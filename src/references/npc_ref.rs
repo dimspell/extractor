@@ -6,6 +6,7 @@ use crate::references::enums::NpcLookingDirection;
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 // ===========================================================================
@@ -294,4 +295,38 @@ impl Extractor for NPC {
 
 pub fn read_npc_ref(source_path: &Path) -> std::io::Result<Vec<NPC>> {
     NPC::read_file(source_path)
+}
+
+pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &Vec<NPC>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ref.sql"))?;
+        for npc in npc_refs {
+            stmt.execute(params![
+                file_path,
+                npc.index,
+                npc.id,
+                npc.npc_id,
+                npc.name,
+                npc.party_script_id,
+                npc.show_on_event,
+                npc.goto1_filled,
+                npc.goto2_filled,
+                npc.goto3_filled,
+                npc.goto4_filled,
+                npc.goto1_x,
+                npc.goto2_x,
+                npc.goto3_x,
+                npc.goto4_x,
+                npc.goto1_y,
+                npc.goto2_y,
+                npc.goto3_y,
+                npc.goto4_y,
+                i32::from(npc.looking_direction),
+                npc.dialog_id,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

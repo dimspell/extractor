@@ -1,5 +1,6 @@
 use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use rusqlite::{params, Connection, Result as DbResult};
 use serde::Serialize;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Result, Write};
@@ -131,4 +132,22 @@ impl Extractor for PartyIniNpc {
 
 pub fn read_party_ini_db(source_path: &Path) -> Result<Vec<PartyIniNpc>> {
     PartyIniNpc::read_file(source_path)
+}
+
+pub fn save_party_inis(conn: &mut Connection, npcs: &Vec<PartyIniNpc>) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_party_ini.sql"))?;
+        for (idx, npc) in npcs.iter().enumerate() {
+            stmt.execute(params![
+                idx as i32,
+                npc.name,
+                npc.flags as i32,
+                npc.kind as i32,
+                npc.value as i32,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

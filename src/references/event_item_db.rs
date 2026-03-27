@@ -3,8 +3,9 @@ use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, WriteBytesExt};
-use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
+use serde::Serialize;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
@@ -67,7 +68,6 @@ pub struct EventItem {
     pub name: String,
     /// Item tooltip giving clues on application.
     pub description: String,
-
 }
 
 /// Stores definitions and parameters for quest/event specific items.
@@ -146,4 +146,16 @@ impl Extractor for EventItem {
 
 pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>> {
     EventItem::read_file(source_path)
+}
+
+pub fn save_event_items(conn: &mut Connection, event_items: &Vec<EventItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;
+        for item in event_items {
+            stmt.execute(params![item.id, item.name, item.description,])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

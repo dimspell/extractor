@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -162,4 +163,25 @@ impl Extractor for MonsterIni {
 
 pub fn read_monster_ini(source_path: &Path) -> std::io::Result<Vec<MonsterIni>> {
     MonsterIni::read_file(source_path)
+}
+
+pub fn save_monster_inis(conn: &mut Connection, monster_inis: &Vec<MonsterIni>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ini.sql"))?;
+        for monster_ini in monster_inis {
+            stmt.execute(params![
+                monster_ini.id,
+                monster_ini.name,
+                monster_ini.sprite_filename,
+                monster_ini.attack,
+                monster_ini.hit,
+                monster_ini.death,
+                monster_ini.walking,
+                monster_ini.casting_magic,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

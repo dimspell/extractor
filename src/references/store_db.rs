@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 use crate::references::enums::ProductType;
@@ -229,4 +230,36 @@ impl Extractor for Store {
 
 pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
     Store::read_file(source_path)
+}
+
+pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt_store = tx.prepare(include_str!("../queries/insert_store.sql"))?;
+        let mut stmt_product =
+            tx.prepare(include_str!("../queries/insert_store_product.sql"))?;
+
+        for store in stores {
+            stmt_store.execute(params![
+                store.index,
+                store.store_name,
+                store.inn_night_cost,
+                store.some_unknown_number,
+                store.invitation,
+                store.haggle_success,
+                store.haggle_fail,
+            ])?;
+
+            for product in &store.products {
+                stmt_product.execute(params![
+                    store.index,
+                    product.0,
+                    i32::from(product.1) as i16,
+                    product.2,
+                ])?;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

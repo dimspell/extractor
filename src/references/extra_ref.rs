@@ -6,6 +6,7 @@ use crate::references::enums::{ExtraObjectType, ItemTypeId, VisibilityType};
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 // ===========================================================================
@@ -339,4 +340,42 @@ impl Extractor for ExtraRef {
 
 pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
     ExtraRef::read_file(source_path)
+}
+
+pub fn save_extra_refs(
+    conn: &mut Connection,
+    file_path: &str,
+    extra_refs: &Vec<ExtraRef>,
+) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_extra_ref.sql"))?;
+        for extra_ref in extra_refs {
+            stmt.execute(params![
+                file_path,
+                extra_ref.id,
+                extra_ref.number_in_file,
+                extra_ref.ext_id,
+                extra_ref.name,
+                u8::from(extra_ref.object_type),
+                extra_ref.x_pos,
+                extra_ref.y_pos,
+                extra_ref.rotation,
+                extra_ref.closed,
+                extra_ref.required_item_id,
+                u8::from(extra_ref.required_item_type_id),
+                extra_ref.required_item_id2,
+                u8::from(extra_ref.required_item_type_id2),
+                extra_ref.gold_amount,
+                extra_ref.item_id,
+                u8::from(extra_ref.item_type_id),
+                extra_ref.item_count,
+                extra_ref.event_id,
+                extra_ref.message_id,
+                u8::from(extra_ref.visibility),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

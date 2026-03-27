@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
 use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 const MAGIC_RECORD_SIZE: usize = 88;
@@ -296,4 +297,40 @@ impl Extractor for MagicSpell {
 
 pub fn read_magic_db(source_path: &Path) -> std::io::Result<Vec<MagicSpell>> {
     MagicSpell::read_file(source_path)
+}
+
+pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_magic_spell.sql"))?;
+        for spell in spells {
+            stmt.execute(params![
+                spell.id,
+                u32::from(spell.enabled),
+                u32::from(spell.flag1),
+                spell.mana_cost,
+                spell.success_rate,
+                spell.base_damage,
+                spell.reserved1,
+                spell.reserved2,
+                u32::from(spell.flag2),
+                spell.range,
+                spell.reserved3,
+                spell.level_required,
+                u32::from(spell.constant1),
+                spell.effect_value,
+                spell.effect_type,
+                spell.effect_modifier,
+                spell.reserved4,
+                u32::from(spell.magic_school),
+                u32::from(spell.flag3),
+                spell.animation_id,
+                spell.visual_id,
+                spell.icon_id,
+                u32::from(spell.target_type),
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }

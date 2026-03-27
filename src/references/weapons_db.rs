@@ -5,6 +5,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
+use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 // ===========================================================================
@@ -266,4 +267,36 @@ impl Extractor for WeaponItem {
 
 pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {
     WeaponItem::read_file(source_path)
+}
+
+pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_weapon.sql"))?;
+        for weapon in weapons {
+            stmt.execute(params![
+                weapon.id,
+                weapon.name,
+                weapon.description,
+                weapon.base_price,
+                weapon.health_points,
+                weapon.magic_points,
+                weapon.strength,
+                weapon.agility,
+                weapon.wisdom,
+                weapon.constitution,
+                weapon.to_dodge,
+                weapon.to_hit,
+                weapon.attack,
+                weapon.defense,
+                weapon.magical_strength,
+                weapon.durability,
+                weapon.req_strength,
+                weapon.req_agility,
+                weapon.req_wisdom,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
 }
