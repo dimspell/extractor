@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Result;
 use std::path::Path;
 
-use crate::tileset;
+use crate::map::tileset;
 
 use super::render::plot_atlas_tile;
 use super::sprite_loader::{load_sprite_frames, plot_entity_sprite};

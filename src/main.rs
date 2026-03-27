@@ -18,7 +18,6 @@ pub mod map;
 mod references;
 pub mod snf;
 pub mod sprite;
-pub mod tileset;
 use crate::references::{
     all_map_ini, chdata_db, dialog, dialogue_text, draw_item, edit_item_db, event_ini,
     event_item_db, event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini,
@@ -370,8 +369,8 @@ fn main() {
                 println!("Output directory: {output:?}");
 
                 let tiles =
-                    tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
-                tileset::plot_all_tiles(&tiles, output);
+                    map::tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
+                map::tileset::plot_all_tiles(&tiles, output);
             }
             Some(MapCommands::Atlas { input, output }) => {
                 println!("Rendering map atlas...");
@@ -379,8 +378,8 @@ fn main() {
                 println!("Output file: {output:?}");
 
                 let tiles =
-                    tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
-                tileset::plot_tileset_map(&tiles, output);
+                    map::tileset::extract(&Path::new(input)).expect("ERROR: could not extract tile-set");
+                map::tileset::plot_tileset_map(&tiles, output);
             }
             Some(MapCommands::Render {
                 map,

@@ -10,12 +10,14 @@
 //                    sprite on bitmap, atlas tile blitter)
 //  sprite_loader.rs– LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite
 //  database.rs     – render_from_database + entity overlay helpers
+//  tileset.rs      – Tileset extraction, tile plotting, and atlas generation
 
 pub mod database;
 pub mod model;
 pub mod reader;
 pub mod render;
 pub mod sprite_loader;
+pub mod tileset;
 pub mod types;
 
 // ── Re-export the entire public surface so external code needs no changes ──
@@ -32,7 +34,6 @@ use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::path::Path;
 
 use crate::sprite::SequenceInfo;
-use crate::tileset;
 
 use reader::{
     first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,

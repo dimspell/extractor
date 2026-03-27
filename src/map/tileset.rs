@@ -1,14 +1,35 @@
+// Tileset extraction and manipulation module
+//
+// This module handles the extraction of tiles from binary .GTL/.BTL files,
+// tile plotting, and tileset atlas generation.
+
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::{Rgb, RgbImage, RgbaImage};
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
-use crate::sprite::{rgb16_565_produce_color, Color};
+use crate::sprite::Color;
 
+// Constants for tile dimensions and pixel count
 pub const TILE_PIXEL_NUMBER: i32 = 32 * 32;
 pub const TILE_WIDTH: u32 = 62;
 pub const TILE_HEIGHT: u32 = 32;
 
+/// Represents a single tile with its color data
+#[derive(Debug, Clone)]
+pub struct Tile {
+    pub colors: [Color; 1024],
+}
+
+/// Extracts tiles from a binary tileset file (.GTL or .BTL)
+///
+/// # Arguments
+///
+/// * `source_path` - Path to the binary tileset file
+///
+/// # Returns
+///
+/// Vector of Tile structs containing the extracted tile data
 pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     let file = File::open(source_path)?;
 
@@ -40,6 +61,9 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     Ok(tiles)
 }
 
+/// Creates a mask for isometric tile rendering
+///
+/// This mask determines the diamond shape of isometric tiles
 fn create_mask() -> [[i32; 32]; 2] {
     let mut mask = [[0i32; TILE_HEIGHT as usize]; 2];
     let mut pixels_x: i32 = 1;
@@ -60,6 +84,12 @@ fn create_mask() -> [[i32; 32]; 2] {
     mask
 }
 
+/// Plots all tiles as individual PNG files
+///
+/// # Arguments
+///
+/// * `tiles` - Vector of Tile structs to plot
+/// * `out_dir` - Output directory path
 pub fn plot_all_tiles(tiles: &Vec<Tile>, out_dir: &str) {
     let out_path = std::path::Path::new(out_dir);
     std::fs::create_dir_all(out_path).expect("Failed to create output directory");
@@ -76,6 +106,14 @@ pub fn plot_all_tiles(tiles: &Vec<Tile>, out_dir: &str) {
     }
 }
 
+/// Plots a single tile onto an RGB image buffer
+///
+/// # Arguments
+///
+/// * `imgbuf` - Target RGB image buffer
+/// * `colors` - Color data for the tile
+/// * `dest_x` - X coordinate to plot the tile
+/// * `dest_y` - Y coordinate to plot the tile
 pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
     if dest_x + TILE_WIDTH as i32 <= imgbuf.width() as i32
         && dest_x >= 0
@@ -106,6 +144,12 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
     }
 }
 
+/// Generates a tileset atlas image containing all tiles in a grid
+///
+/// # Arguments
+///
+/// * `tiles` - Vector of Tile structs
+/// * `out_path` - Output file path for the atlas PNG
 pub fn plot_tileset_map(tiles: &Vec<Tile>, out_path: &str) {
     // Flexible atlas size to make it square
     // let count = tiles.len() as f64;
@@ -149,6 +193,14 @@ pub fn plot_tileset_map(tiles: &Vec<Tile>, out_path: &str) {
     bitmap.save(out_path).unwrap();
 }
 
+/// Plots a single tile onto an RGBA image buffer
+///
+/// # Arguments
+///
+/// * `imgbuf` - Target RGBA image buffer
+/// * `colors` - Color data for the tile
+/// * `dest_x` - X coordinate to plot the tile
+/// * `dest_y` - Y coordinate to plot the tile
 pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
     if dest_x + TILE_WIDTH as i32 <= imgbuf.width() as i32
         && dest_x >= 0
@@ -179,10 +231,17 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
     }
 }
 
-pub struct Tile {
-    pub colors: [Color; 1024],
-}
-
+/// Mixes a color with a tile canvas using alpha blending
+///
+/// # Arguments
+///
+/// * `canvas` - Base tile color data
+/// * `color` - Color to mix in
+/// * `alpha` - Alpha value for blending (0-255)
+///
+/// # Returns
+///
+/// New color data with the mixed colors
 pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024] {
     const TILE_PIXEL_NUMBER: i32 = 32 * 32; // 1024
     let mut pixels = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_NUMBER as usize];
@@ -196,4 +255,26 @@ pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024
         pixels[i] = Color { r, g, b };
     }
     pixels
+}
+
+/// Converts RGB565 color format to RGB888
+///
+/// # Arguments
+///
+/// * `pixel` - RGB565 color value
+///
+/// # Returns
+///
+/// Color struct with RGB888 values
+fn rgb16_565_produce_color(pixel: u16) -> Color {
+    let r = ((pixel >> 11) & 0x1F) as u8;
+    let g = ((pixel >> 5) & 0x3F) as u8;
+    let b = (pixel & 0x1F) as u8;
+
+    // Scale to 8-bit
+    let r = (r as f32 * 255.0 / 31.0).round() as u8;
+    let g = (g as f32 * 255.0 / 63.0).round() as u8;
+    let b = (b as f32 * 255.0 / 31.0).round() as u8;
+
+    Color { r, g, b }
 }

@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 
 use crate::sprite::{rgb16_565_produce_color, Color, ImageInfo, SequenceInfo};
-use crate::tileset::{mix_color, plot_tile, Tile, TILE_HEIGHT};
+use crate::map::tileset::{mix_color, plot_tile, Tile, TILE_HEIGHT};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
