@@ -30,6 +30,13 @@ pub struct PartyRef {
 /// Stores character definitions and references for the party.
 ///
 /// Reads file: `Ref/PartyRef.ref`
+/// # File Format: `Ref/PartyRef.ref`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, CSV format:
+/// ```text
+/// id,full_name,job_name,root_map_id,npc_id,dlg_not_in_party,dlg_in_party,ghost_face_id
+/// ```
+/// - `full_name` and `job_name` use literal `null` when absent.
 impl Extractor for PartyRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

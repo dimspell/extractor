@@ -37,6 +37,15 @@ pub struct Event {
 /// Stores script and event mappings.
 ///
 /// Reads file: `Event.ini`
+/// # File Format: `Event.ini`
+///
+/// Text file, EUC-KR encoded. One record per line, CSV format:
+/// ```text
+/// event_id,previous_event_id,event_type_id,event_filename,counter
+/// ```
+/// - `event_filename` uses literal `null` when absent.
+/// - `event_type_id` controls execution condition (see `EventType` variants).
+/// - `counter` is the N-execution limit for repeating event types.
 impl Extractor for Event {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

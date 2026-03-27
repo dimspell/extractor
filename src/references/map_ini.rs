@@ -40,6 +40,14 @@ pub struct MapIni {
 /// Stores specific properties and configuration for a single map.
 ///
 /// Reads file: `Ref/Map.ini`
+/// # File Format: `Ref/Map.ini`
+///
+/// Text file, EUC-KR encoded. One record per line, CSV format:
+/// ```text
+/// id,event_id_on_camera_move,start_x,start_y,map_id,monsters_file,npc_file,extra_file,cd_track
+/// ```
+/// - Optional filenames use literal `null`.
+/// - `cd_track` is the background music CD track index.
 impl Extractor for MapIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

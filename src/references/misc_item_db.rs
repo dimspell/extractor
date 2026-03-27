@@ -24,6 +24,14 @@ pub struct MiscItem {
 /// Stores definitions, stats, and prices for generic miscellaneous items.
 ///
 /// Reads file: `CharacterInGame/MiscItem.db`
+/// # File Format: `CharacterInGame/MiscItem.db`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `64 × 4 = 256` bytes:
+/// - `name`        : 30 bytes, null-padded, WINDOWS-1250
+/// - `description` : 202 bytes, null-padded, EUC-KR
+/// - `base_price`  : i32
+/// - 20 bytes padding
 impl Extractor for MiscItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

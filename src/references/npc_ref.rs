@@ -55,6 +55,24 @@ pub struct NPC {
 /// Stores specific placements and configurations for NPCs on a given map.
 ///
 /// Reads file: `NpcInGame/Npccat1.ref (and other map-specific .ref files)`
+/// # File Format: `NpcInGame/Npccat1.ref` (and other map `.ref` files)
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `0x2a0 = 672` bytes:
+/// - `npc_id`           : i32
+/// - `name`             : 260 bytes, null-padded, WINDOWS-1250
+/// - (ignored string)   : 260 bytes (always zeroed on write)
+/// - `party_script_id`  : i32
+/// - `show_on_event`    : i32
+/// - goto filled flags  : 4 × i32
+/// - goto X coords      : 4 × i32
+/// - 16-byte padding
+/// - goto Y coords      : 4 × i32
+/// - 16-byte padding
+/// - `looking_direction`: i32  (0=up, clockwise)
+/// - 56-byte padding
+/// - `dialog_id`        : i32  (also shop text reference)
+/// - 4-byte padding
 impl Extractor for NPC {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

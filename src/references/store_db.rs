@@ -34,6 +34,17 @@ pub type StoreProduct = (i16, i16, i16); // order, product_type, product_id
 /// Stores store inventories, inn prices, and merchant dialogue references.
 ///
 /// Reads file: `CharacterInGame/STORE.DB`
+/// # File Format: `CharacterInGame/STORE.DB`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record layout (union on `inn_night_cost`):
+/// - `name`           : 32 bytes, null-padded, WINDOWS-1250
+/// - `inn_night_cost` : i32 — if > 0 this is an inn; the next 144 bytes are padding.
+///   Otherwise `some_unknown_number` (i16) + 142 bytes of product list (up to 71
+///   pairs of `(item_type: i16, item_id: i16)`, terminated by `item_type == 0`).
+/// - `invitation`     : 512 bytes, null-padded, WINDOWS-1250
+/// - `haggle_success` : 128 bytes, null-padded, WINDOWS-1250
+/// - `haggle_fail`    : 128 bytes, null-padded, WINDOWS-1250
 impl Extractor for Store {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

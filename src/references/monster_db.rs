@@ -87,6 +87,16 @@ pub struct Monster {
 /// Stores base stats, attacks, and defense values for monsters.
 ///
 /// Reads file: `MonsterInGame/Monster.db`
+/// # File Format: `MonsterInGame/Monster.db`
+///
+/// Binary file, little-endian. No header (record count derived from file size).
+/// Each record is exactly `40 × 4 = 160` bytes:
+/// - `name`   : 24 bytes, null-padded, EUC-KR
+/// - Stats    : 36 × i32 fields (HP max/min, MP max/min, speed, to-hit max/min,
+///              dodge max/min, offense max/min, defense max/min, magic atk max/min,
+///              undead, blood, AI type, EXP max/min, gold max/min,
+///              sight, range, spell slots ×3, oversize, magic level,
+///              special atk / chance / duration, boldness, attack speed)
 impl Extractor for Monster {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

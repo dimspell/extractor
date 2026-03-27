@@ -28,6 +28,15 @@ pub struct Dialog {
 /// Stores dialogues and conversational branches for characters.
 ///
 /// Reads file: `NpcInGame/Dlgcat1.dlg (and other .dlg files)`
+/// # File Format: `NpcInGame/Dlgcat1.dlg` (and other map `.dlg` files)
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
+/// ```text
+/// id|previous_event_id|next_dialog_to_check|dialog_type|dialog_owner|dialog_id|opt0|opt1|opt2|event_id
+/// ```
+/// - `dialog_type`: 0 = normal, 1 = choose dialog.
+/// - `dialog_owner`: 0 = main character talking, 1 = NPC talking.
+/// - Optional fields use literal `null` when absent.
 impl Extractor for Dialog {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

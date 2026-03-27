@@ -87,6 +87,31 @@ pub struct MagicSpell {
 /// Stores data for magic spells, including mana cost, effect types, animations, and base damage.
 ///
 /// Reads file: `MagicInGame/Magic.db or MulMagic.db`
+/// # File Format: `MagicInGame/Magic.db`
+///
+/// Binary file, little-endian. No header — record count derived from file size.
+/// Each record is exactly `88 bytes = 22 × u32`:
+/// - `enabled`         : u32 (0 = disabled, non-zero = active)
+/// - `flag1`           : u32 (always 1 for valid spells)
+/// - `mana_cost`       : u32 (999 = special/unlimited)
+/// - `success_rate`    : u32 (0–100 %)
+/// - `base_damage`     : u32
+/// - `reserved1/2`     : u32 × 2 (always 0)
+/// - `flag2`           : u32
+/// - `range`           : u32 (999 = unlimited)
+/// - `reserved3`       : u32 (always 0)
+/// - `level_required`  : u32
+/// - `constant1`       : u32 (always 1)
+/// - `effect_value`    : u32
+/// - `effect_type`     : u32
+/// - `effect_modifier` : u32
+/// - `reserved4`       : u32 (always 0)
+/// - `magic_school`    : u32 (0–6)
+/// - `flag3`           : u32
+/// - `animation_id`    : u32
+/// - `visual_id`       : u32
+/// - `icon_id`         : u32
+/// - `target_type`     : u32 (1=single, 2=self, 3=AoE, 4=multi)
 impl Extractor for MagicSpell {
     /// Reads the Magic.db file and returns a vector of magic spell records.
     ///

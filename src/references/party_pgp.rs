@@ -22,6 +22,13 @@ pub struct PartyPgp {
 /// Stores party dialogue logic and ID references.
 ///
 /// Reads file: `NpcInGame/PartyPgp.pgp`
+/// # File Format: `NpcInGame/PartyPgp.pgp`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
+/// ```text
+/// id|dialog_text|unknown_id1|unknown_id2
+/// ```
+/// - `dialog_text`, `unknown_id1`, `unknown_id2` use literal `null` when absent.
 impl Extractor for PartyPgp {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -23,6 +23,13 @@ pub struct DrawItem {
 /// Stores map placement data for drawn items/objects.
 ///
 /// Reads file: `Ref/DRAWITEM.ref`
+/// # File Format: `Ref/DRAWITEM.ref`
+///
+/// Text file, EUC-KR encoded. One record per line, parenthesised CSV format:
+/// ```text
+/// (map_id,x_coord,y_coord,item_id)
+/// ```
+/// - `item_id` is an encoded i32 combining `[item_id, group_id, 0, 0]` bytes.
 impl Extractor for DrawItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

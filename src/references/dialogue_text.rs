@@ -27,6 +27,17 @@ pub struct DialogueText {
 /// Stores translations, text strings, and associated comments used within dialogues.
 ///
 /// Reads file: `NpcInGame/PartyDlg.dlg`
+/// # File Format: `NpcInGame/PartyDlg.dlg`
+///
+/// Text file, WINDOWS-1250 encoded. Lines starting with `;` are comments
+/// and are associated with the next data record.
+/// Data lines are pipe-delimited:
+/// ```text
+/// id|text|param1|param2
+/// ```
+/// - `text` uses literal `null` for empty strings.
+/// - `param1` / `param2` are integer logic parameters.
+/// - Comment lines (`;`) preceding a record are stored in `comment` using ` | ` as separator.
 impl Extractor for DialogueText {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -20,6 +20,13 @@ pub struct WaveIni {
 /// Stores audio references and SNF file mappings.
 ///
 /// Reads file: `Wave.ini`
+/// # File Format: `Wave.ini`
+///
+/// Text file, EUC-KR encoded. One record per line, CSV format:
+/// ```text
+/// id,snf_filename,unknown_flag
+/// ```
+/// - `snf_filename` use literal `null` when absent.
 impl Extractor for WaveIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

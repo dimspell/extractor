@@ -55,6 +55,35 @@ pub struct ExtraRef {
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
 ///
 /// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
+/// # File Format: `ExtraInGame/Extdun01.ref` (and other map `.ref` files)
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `46 × 4 = 184` bytes:
+/// - `number_in_file`       : u8
+/// - 1 byte padding
+/// - `ext_id`               : u8  (links to `Extra.ini`)
+/// - `name`                 : 32 bytes, null-padded, WINDOWS-1250
+/// - `object_type`          : u8  (7=magic, 6=interactive, 5=altar, 4=sign, 2=door, 0=chest)
+/// - `x_pos`, `y_pos`       : i32
+/// - `rotation`             : u8
+/// - 3 bytes + i32 padding
+/// - `closed`               : i32  (0=open, 1=closed)
+/// - `required_item_id`     : u8  (lower key bound)
+/// - `required_item_type_id`: u8
+/// - 2 bytes padding
+/// - `required_item_id2`    : u8  (upper key bound)
+/// - `required_item_type_id2`: u8
+/// - 2 bytes + 16 bytes padding
+/// - `gold_amount`          : i32
+/// - `item_id` / `item_type_id`: u8, u8
+/// - 2 bytes padding
+/// - `item_count`           : i32
+/// - 40 bytes padding
+/// - `event_id`             : i32  (from `Event.ini`)
+/// - `message_id`           : i32  (from `Message.scr`)
+/// - 32 bytes padding
+/// - `visibility`           : u8
+/// - 3 bytes + 8 bytes padding
 impl Extractor for ExtraRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

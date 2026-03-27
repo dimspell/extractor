@@ -23,6 +23,14 @@ pub struct Quest {
 /// Stores quest diary entries, including main quests, side quests, and trader journals.
 ///
 /// Reads file: `ExtraInGame/Quest.scr`
+/// # File Format: `ExtraInGame/Quest.scr`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
+/// ```text
+/// id|type_id|title|description
+/// ```
+/// - `type_id`: 0 = main quest, 1 = side quest, 2 = traders journal.
+/// - `title` and `description` use literal `null` when absent.
 impl Extractor for Quest {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

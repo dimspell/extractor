@@ -23,6 +23,14 @@ pub struct Message {
 /// Stores multi-line messages, typically used for signposts and system text.
 ///
 /// Reads file: `ExtraInGame/Message.scr`
+/// # File Format: `ExtraInGame/Message.scr`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
+/// ```text
+/// id|line1|line2|line3
+/// ```
+/// - Up to three display lines per message (used for signs/plaques).
+/// - Absent lines use literal `null`.
 impl Extractor for Message {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

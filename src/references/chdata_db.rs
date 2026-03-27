@@ -18,6 +18,15 @@ pub struct ChData {
 /// Stores global character statistics, counts, or internal game state properties.
 ///
 /// Reads file: `ExtraInGame/ChData.db`
+/// # File Format: `ExtraInGame/ChData.db`
+///
+/// Binary file, little-endian. Fixed-size single-record file:
+/// - Bytes 0–3   : magic signature (`Item` ASCII)
+/// - Bytes 4–29  : 26 bytes zero-padding (seek to offset 0x1E)
+/// - Bytes 30–61 : 16 × u16 values
+/// - Bytes 62–63 : 2 bytes padding (align to 0x40)
+/// - Bytes 64–79 : 4 × u32 counts
+/// - Bytes 80–83 : u32 total
 impl Extractor for ChData {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

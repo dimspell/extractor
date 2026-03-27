@@ -22,6 +22,13 @@ pub struct EventItem {
 /// Stores definitions and parameters for quest/event specific items.
 ///
 /// Reads file: `CharacterInGame/EventItem.db`
+/// # File Format: `CharacterInGame/EventItem.db`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `60 × 4 = 240` bytes:
+/// - `name`        : 30 bytes, null-padded, WINDOWS-1250
+/// - `description` : 202 bytes, null-padded, WINDOWS-1250
+/// - 8 bytes padding
 impl Extractor for EventItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

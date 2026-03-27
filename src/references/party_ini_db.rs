@@ -21,6 +21,14 @@ pub struct PartyIniNpc {
 /// Stores initial metadata and starting configurations for party members.
 ///
 /// Reads file: `NpcInGame/PrtIni.db`
+/// # File Format: `NpcInGame/PrtIni.db`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record:
+/// - `name`  : null-terminated string (variable length up to buffer)
+/// - `flags` : u16
+/// - `kind`  : u16
+/// - `value` : u32
 impl Extractor for PartyIniNpc {
     fn read_file(source_path: &Path) -> Result<Vec<Self>> {
         let file = File::open(source_path)?;

@@ -25,6 +25,13 @@ pub struct MonsterRef {
 /// Stores specific placements and configurations for monsters on a given map.
 ///
 /// Reads file: `MonsterInGame/Mondun01.ref (and other map-specific .ref files)`
+/// # File Format: `MonsterInGame/Mondun01.ref` (and other map `.ref` files)
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record encodes monster placement and patrol data:
+/// - Various i32/u8 positional and flag fields
+/// - 4 waypoint pairs (X, Y) as i32
+/// - Spawn timing, chasing distance, and AI flags
 impl Extractor for MonsterRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

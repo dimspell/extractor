@@ -39,6 +39,15 @@ pub struct PartyLevelNpc {
 /// Stores the experience and stat progression tables for party members per level.
 ///
 /// Reads file: `NpcInGame/PrtLevel.db`
+/// # File Format: `NpcInGame/PrtLevel.db`
+///
+/// Binary file, little-endian. Fixed size: `8 NPCs × 20 levels × 36 bytes = 5760 bytes`.
+/// No header. Each 36-byte sub-block:
+/// - 4-byte sentinel (u32)
+/// - `strength`, `constitution`, `wisdom` : u32 each
+/// - `health_points`, `magic_points`      : u16 each
+/// - `agility`, `attack`, `mana_recharge` : u32 each
+/// - `defense`                            : u16
 impl Extractor for PartyLevelNpc {
     fn read_file(source_path: &Path) -> Result<Vec<Self>> {
         let file = File::open(source_path)?;

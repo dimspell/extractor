@@ -50,6 +50,20 @@ pub struct EditItem {
 /// Stores definitions for modifiable base items.
 ///
 /// Reads file: `CharacterInGame/EditItem.db`
+/// # File Format: `CharacterInGame/EditItem.db`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `67 × 4 = 268` bytes:
+/// - `name`                 : 30 bytes, null-padded, WINDOWS-1250
+/// - `description`          : 202 bytes, null-padded, WINDOWS-1250
+/// - `base_price`           : i16
+/// - 6 bytes padding
+/// - Stats (all i16)        : PZ, PM, SIŁ, ZW, MM, TF, UNK, TRF, ATK, OBR
+/// - 2 bytes padding
+/// - `item_destroying_power`: i16
+/// - 1 byte padding
+/// - `modifies_item`        : u8
+/// - `additional_effect`    : i16
 impl Extractor for EditItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

@@ -21,6 +21,13 @@ pub struct EventNpcRef {
 /// Stores specific placements for NPCs that appear only during scripted events.
 ///
 /// Reads file: `NpcInGame/Eventnpc.ref`
+/// # File Format: `NpcInGame/Eventnpc.ref`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record:
+/// - `id`       : i32
+/// - `event_id` : i32
+/// - `name`     : fixed-size null-padded string
 impl Extractor for EventNpcRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -28,6 +28,17 @@ pub struct Map {
 /// Stores the general list of all maps in the game.
 ///
 /// Reads file: `AllMap.ini`
+/// # File Format: `AllMap.ini`
+///
+/// Text file, WINDOWS-1250 encoded. One map entry per line.
+/// Lines starting with `;` are comments and are skipped.
+///
+/// Each line follows the CSV format:
+/// ```text
+/// id,map_filename,map_name,pgp_filename,npc_dlg_filename,is_dark
+/// ```
+/// - `pgp_filename` / `npc_dlg_filename` use literal `null` when absent.
+/// - `is_dark`: `0` = lit map, `1` = dark/dungeon map.
 impl Extractor for Map {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -21,6 +21,13 @@ pub struct NpcIni {
 /// Stores visual references and configuration for NPCs.
 ///
 /// Reads file: `Npc.ini`
+/// # File Format: `Npc.ini`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, CSV format:
+/// ```text
+/// id,sprite_filename,description
+/// ```
+/// - `sprite_filename` uses literal `null` when absent.
 impl Extractor for NpcIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

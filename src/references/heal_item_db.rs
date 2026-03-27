@@ -32,6 +32,21 @@ pub struct HealItem {
 /// Stores definitions, stats, and prices for consumable healing items.
 ///
 /// Reads file: `CharacterInGame/HealItem.db`
+/// # File Format: `CharacterInGame/HealItem.db`
+///
+/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
+/// Each record is exactly `63 × 4 = 252` bytes:
+/// - `name`          : 30 bytes, null-padded, WINDOWS-1250
+/// - `description`   : 202 bytes, null-padded, EUC-KR
+/// - `base_price`    : i16
+/// - 3 × i16 padding
+/// - `pz` / `pm`     : i16 (HP/MP restore amount)
+/// - `full_pz`       : u8 (restore to full HP flag)
+/// - `full_pm`       : u8 (restore to full MP flag)
+/// - `poison_heal`   : u8
+/// - `petrif_heal`   : u8
+/// - `polimorph_heal`: u8
+/// - 1 byte + i16 padding
 impl Extractor for HealItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

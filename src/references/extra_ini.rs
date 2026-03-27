@@ -22,6 +22,14 @@ pub struct Extra {
 /// Stores definitions and types for interactive objects (extras).
 ///
 /// Reads file: `Extra.ini`
+/// # File Format: `Extra.ini`
+///
+/// Text file, EUC-KR encoded. One record per line, CSV format:
+/// ```text
+/// id,sprite_filename,unknown_flag,description
+/// ```
+/// - `sprite_filename` and `description` use literal `null` when absent.
+/// - `unknown_flag` is always `0` or `1`.
 impl Extractor for Extra {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

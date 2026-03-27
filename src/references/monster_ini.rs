@@ -34,6 +34,14 @@ pub struct MonsterIni {
 /// Stores visual references and configuration for monsters.
 ///
 /// Reads file: `Monster.ini`
+/// # File Format: `Monster.ini`
+///
+/// Text file, WINDOWS-1250 encoded. One record per line, CSV format:
+/// ```text
+/// id,name,sprite_filename,attack_seq,hit_seq,death_seq,walking_seq,cast_seq
+/// ```
+/// - `name` and `sprite_filename` use literal `null` when absent.
+/// - Sequence fields are animation indices into the SPR file.
 impl Extractor for MonsterIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;
