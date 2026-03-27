@@ -2,11 +2,11 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
+use crate::references::enums::NpcLookingDirection;
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
-use crate::references::enums::NpcLookingDirection;
 
 // ===========================================================================
 // NPCREF.REF FILE FORMAT
@@ -55,13 +55,6 @@ use crate::references::enums::NpcLookingDirection;
 // | [Record 2]                           |
 // | ... (same structure) ...             |
 // +--------------------------------------+
-//
-// NPC TYPES (npc_id ranges):
-// - 1-50: Human NPCs
-// - 51-100: Fantasy races
-// - 101-150: Monsters in NPC form
-// - 151-200: Special/quest NPCs
-// - 201-250: Animals and creatures
 //
 // LOOKING DIRECTIONS:
 // - 0: Up (North)
@@ -131,7 +124,6 @@ pub struct NPC {
     pub looking_direction: NpcLookingDirection,
     /// Pointer to `Dlgcat` or dialogue node triggering on click.
     pub dialog_id: i32,
-
 }
 
 /// Stores specific placements and configurations for NPCs on a given map.
@@ -216,7 +208,8 @@ impl Extractor for NPC {
             let mut buffer_last = [0u8; 4];
             reader.read_exact(&mut buffer_last)?;
 
-            let looking_direction = NpcLookingDirection::from_i32(looking_direction_raw).unwrap_or(NpcLookingDirection::Up);
+            let looking_direction = NpcLookingDirection::from_i32(looking_direction_raw)
+                .unwrap_or(NpcLookingDirection::Up);
 
             npcs.push(NPC {
                 index: i,
