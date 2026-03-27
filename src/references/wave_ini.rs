@@ -8,11 +8,18 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WaveIni {
+    /// Sound effect reference identifier.
     pub id: i32,
+    /// Raw audio filename in .SNF format.
     pub snf_filename: Option<String>,
+    /// Internal unknown string or flag parameter.
     pub unknown_flag: Option<String>,
+
 }
 
+/// Stores audio references and SNF file mappings.
+///
+/// Reads file: `Wave.ini`
 impl Extractor for WaveIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

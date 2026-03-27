@@ -8,16 +8,28 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartyRef {
+    /// Party member identifier.
     pub id: i32,
+    /// Display name of the party character.
     pub full_name: Option<String>,
+    /// Character class or job title.
     pub job_name: Option<String>,
+    /// Origin map identifier where the character is found.
     pub root_map_id: i32,
+    /// NPC record ID this character is linked to.
     pub npc_id: i32,
+    /// Dialog topic when the character is roaming/not recruited.
     pub dlg_when_not_in_party: i32,
+    /// Dialog topic when the character is actively grouped.
     pub dlg_when_in_party: i32,
+    /// Sprite ID for their UI portrait or ghost form.
     pub ghost_face_id: i32,
+
 }
 
+/// Stores character definitions and references for the party.
+///
+/// Reads file: `Ref/PartyRef.ref`
 impl Extractor for PartyRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -10,18 +10,30 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 
 #[derive(Debug, Serialize)]
 pub struct Store {
+    /// Logical ordering of the store script.
     pub index: i32,
+    /// 32-byte shopkeeper title.
     pub store_name: String,
+    /// Price to rest; dictates physical structure padding in save format.
     pub inn_night_cost: i32,
+    /// Modifies global economy or prices locally.
     pub some_unknown_number: i16,
+    /// Ordered list of distinct item parameters available for purchase.
     pub products: Vec<StoreProduct>,
+    /// 512-byte text shown on interacting with the merchant.
     pub invitation: String,
+    /// 128-byte text shown on successful barter.
     pub haggle_success: String,
+    /// 128-byte text shown on rejected transaction.
     pub haggle_fail: String,
+
 }
 
 pub type StoreProduct = (i16, i16, i16); // order, product_type, product_id
 
+/// Stores store inventories, inn prices, and merchant dialogue references.
+///
+/// Reads file: `CharacterInGame/STORE.DB`
 impl Extractor for Store {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

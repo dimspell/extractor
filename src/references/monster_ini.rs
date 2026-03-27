@@ -8,20 +8,32 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MonsterIni {
+    /// Monster visual type identifier.
     pub id: i32,
+    /// Translated name of the monster.
     pub name: Option<String>,
+    /// Base sprite filename for the monster rendering.
     pub sprite_filename: Option<String>,
+    /// Sprite animation sequence number for attacking.
     pub attack: i32,
     // animation sequence number
+    /// Sprite animation sequence number for getting hit.
     pub hit: i32,
     // animation sequence number
+    /// Sprite animation sequence number for death.
     pub death: i32,
     // animation sequence number
+    /// Sprite animation sequence number for walking.
     pub walking: i32,
     // animation sequence number
+    /// Sprite animation sequence number for casting spells.
     pub casting_magic: i32, // animation sequence number
+
 }
 
+/// Stores visual references and configuration for monsters.
+///
+/// Reads file: `Monster.ini`
 impl Extractor for MonsterIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

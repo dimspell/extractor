@@ -9,12 +9,20 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize)]
 pub struct Message {
+    /// Mapping bound tracking referenced externally by `message_id` structs.
     pub id: i32,
+    /// Initial rendered string row.
     pub line1: Option<String>,
+    /// Second rendered string row.
     pub line2: Option<String>,
+    /// Third rendered string row.
     pub line3: Option<String>,
+
 }
 
+/// Stores multi-line messages, typically used for signposts and system text.
+///
+/// Reads file: `ExtraInGame/Message.scr`
 impl Extractor for Message {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

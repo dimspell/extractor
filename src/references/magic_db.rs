@@ -84,6 +84,9 @@ pub struct MagicSpell {
     pub target_type: u32,
 }
 
+/// Stores data for magic spells, including mana cost, effect types, animations, and base damage.
+///
+/// Reads file: `MagicInGame/Magic.db or MulMagic.db`
 impl Extractor for MagicSpell {
     /// Reads the Magic.db file and returns a vector of magic spell records.
     ///

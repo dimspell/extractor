@@ -7,6 +7,7 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct MonsterRef {
+    /// Record index relative to the Mondun struct array.
     pub index: i32,
     pub file_id: i32,
     pub mon_id: i32,
@@ -18,8 +19,12 @@ pub struct MonsterRef {
     pub loot2_item_type: u8,
     pub loot3_item_id: u8,
     pub loot3_item_type: u8,
+
 }
 
+/// Stores specific placements and configurations for monsters on a given map.
+///
+/// Reads file: `MonsterInGame/Mondun01.ref (and other map-specific .ref files)`
 impl Extractor for MonsterRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

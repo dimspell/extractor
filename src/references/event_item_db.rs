@@ -10,11 +10,18 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 
 #[derive(Debug, Serialize)]
 pub struct EventItem {
+    /// Internal record ID representing the quest item.
     pub id: i32,
+    /// Canonical lore name, translated locally.
     pub name: String,
+    /// Item tooltip giving clues on application.
     pub description: String,
+
 }
 
+/// Stores definitions and parameters for quest/event specific items.
+///
+/// Reads file: `CharacterInGame/EventItem.db`
 impl Extractor for EventItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

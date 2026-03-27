@@ -11,13 +11,22 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DialogueText {
+    /// Translation line identity reference.
     pub id: i32,
+    /// Actual text string projected into dialogue window UI.
     pub text: String,
+    /// Developer trailing strings (`\;`) restored and preserved internally.
     pub comment: String,
+    /// Internal tracking modifier block associated to dialog output.
     pub param1: i32,
+    /// Logic bound execution parameters appended.
     pub param2: i32,
+
 }
 
+/// Stores translations, text strings, and associated comments used within dialogues.
+///
+/// Reads file: `NpcInGame/PartyDlg.dlg`
 impl Extractor for DialogueText {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -10,12 +10,20 @@ use encoding_rs::WINDOWS_1250;
 
 #[derive(Debug, Serialize)]
 pub struct MiscItem {
+    /// Numeric tracking index.
     pub id: i32,
+    /// Translated string asset ID for naming the object.
     pub name: String,
+    /// Tooltip string explaining use.
     pub description: String,
+    /// Value retrieved when standard bartering.
     pub base_price: i32,
+
 }
 
+/// Stores definitions, stats, and prices for generic miscellaneous items.
+///
+/// Reads file: `CharacterInGame/MiscItem.db`
 impl Extractor for MiscItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

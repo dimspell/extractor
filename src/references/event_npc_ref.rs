@@ -9,11 +9,18 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize)]
 pub struct EventNpcRef {
+    /// Linear structural tracker.
     pub id: i32,
+    /// Parent overarching event linking context.
     pub event_id: i32,
+    /// Descriptive string of placeholder entity.
     pub name: String,
+
 }
 
+/// Stores specific placements for NPCs that appear only during scripted events.
+///
+/// Reads file: `NpcInGame/Eventnpc.ref`
 impl Extractor for EventNpcRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

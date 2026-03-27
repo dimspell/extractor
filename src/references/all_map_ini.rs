@@ -9,15 +9,25 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
+    /// Map identifier.
     pub id: i32,
+    /// Filename of the .map file.
     pub map_filename: String,
+    /// Display name of the map.
     pub map_name: String,
+    /// Filename of the associated PGP (party) file.
     pub pgp_filename: Option<String>,
+    /// Filename of the associated dialog file.
     pub dlg_filename: Option<String>,
     // light - 0=light, 1=darkness
+    /// Light indicator (0=light, 1=darkness).
     pub is_light: bool,
+
 }
 
+/// Stores the general list of all maps in the game.
+///
+/// Reads file: `AllMap.ini`
 impl Extractor for Map {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

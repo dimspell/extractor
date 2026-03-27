@@ -9,12 +9,20 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DrawItem {
+    /// Target map for placement.
     pub map_id: i32,
+    /// Tile X coordinate.
     pub x_coord: i32,
+    /// Tile Y coordinate.
     pub y_coord: i32,
+    /// Encoded Item ID (int32 combining [item ID, group ID, 0, 0]).
     pub item_id: i32, // item id (int32 but [item id, group id, 0 , 0]])
+
 }
 
+/// Stores map placement data for drawn items/objects.
+///
+/// Reads file: `Ref/DRAWITEM.ref`
 impl Extractor for DrawItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

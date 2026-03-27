@@ -8,12 +8,20 @@ use crate::references::references::{parse_int, parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartyPgp {
+    /// Logic block identifier.
     pub id: i32,
+    /// Literal string or branch condition for dialogue.
     pub dialog_text: Option<String>,
+    /// Internal script parameter 1.
     pub unknown_id1: Option<i32>,
+    /// Internal script parameter 2.
     pub unknown_id2: Option<i32>,
+
 }
 
+/// Stores party dialogue logic and ID references.
+///
+/// Reads file: `NpcInGame/PartyPgp.pgp`
 impl Extractor for PartyPgp {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

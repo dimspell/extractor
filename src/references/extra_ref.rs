@@ -9,28 +9,52 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct ExtraRef {
+    /// Specific object generation ID for map tracking.
     pub id: i32,
+    /// Linear parsing index.
     pub number_in_file: u8,
+    /// Mapping ID linked backwards derived from Extra.ini.
     pub ext_id: u8,
+    /// 32-byte label identifier.
     pub name: String,
+    /// Enum control (7=magic, 6=interactive, 5=altar, 4=sign, 2=door, 0=chest).
     pub object_type: u8,
+    /// Tile mapping horizontal target.
     pub x_pos: i32,
+    /// Tile mapping vertical target.
     pub y_pos: i32,
+    /// Facing perspective index.
     pub rotation: u8,
+    /// Interaction status for chests (0=open, 1=closed).
     pub closed: i32,
+    /// Key identifier (lower bound) to interact.
     pub required_item_id: u8,
+    /// Category ID of lower bound requirement.
     pub required_item_type_id: u8,
+    /// Secondary requirement / Key upper bound.
     pub required_item_id2: u8,
+    /// Category ID for upper bound.
     pub required_item_type_id2: u8,
+    /// Quantity of gold inside container.
     pub gold_amount: i32,
+    /// Found static loot ID.
     pub item_id: u8,
+    /// Category enum for found loot.
     pub item_type_id: u8,
+    /// Stacks contained within object.
     pub item_count: i32,
+    /// Bound logic ID executing upon interaction (from event.ini).
     pub event_id: i32,
+    /// Pointer to signposts/plaques contained in Message.scr.
     pub message_id: i32,
+    /// Determines alpha transparency on render.
     pub visibility: u8,
+
 }
 
+/// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
+///
+/// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
 impl Extractor for ExtraRef {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

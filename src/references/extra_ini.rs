@@ -8,12 +8,20 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Extra {
+    /// Tool or object identifier.
     pub id: i32,
+    /// Base SPR/SPX filename for the object.
     pub sprite_filename: Option<String>,
+    /// Internal unknown flag.
     pub unknown: i32,
+    /// Optional description for the interactive object.
     pub description: Option<String>,
+
 }
 
+/// Stores definitions and types for interactive objects (extras).
+///
+/// Reads file: `Extra.ini`
 impl Extractor for Extra {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

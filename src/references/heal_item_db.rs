@@ -11,9 +11,13 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 
 #[derive(Debug, Serialize)]
 pub struct HealItem {
+    /// Record index mapping internally.
     pub id: i32,
+    /// Fixed array byte name for inventory viewing.
     pub name: String,
+    /// Descriptive utility tooltip.
     pub description: String,
+    /// Standardized merchant valuation.
     pub base_price: i16,
     pub pz: i16,
     pub pm: i16,
@@ -22,8 +26,12 @@ pub struct HealItem {
     pub poison_heal: u8,
     pub petrif_heal: u8,
     pub polimorph_heal: u8,
+
 }
 
+/// Stores definitions, stats, and prices for consumable healing items.
+///
+/// Reads file: `CharacterInGame/HealItem.db`
 impl Extractor for HealItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

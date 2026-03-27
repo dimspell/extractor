@@ -15,6 +15,9 @@ pub struct ChData {
     pub total: u32,
 }
 
+/// Stores global character statistics, counts, or internal game state properties.
+///
+/// Reads file: `ExtraInGame/ChData.db`
 impl Extractor for ChData {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

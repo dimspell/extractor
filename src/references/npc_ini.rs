@@ -9,11 +9,18 @@ use crate::references::references::{parse_null, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct NpcIni {
+    /// NPC visual type identifier.
     pub id: i32,
+    /// Sprite filename representing the NPC.
     pub sprite_filename: Option<String>,
+    /// Internal description or role of the NPC.
     pub description: String,
+
 }
 
+/// Stores visual references and configuration for NPCs.
+///
+/// Reads file: `Npc.ini`
 impl Extractor for NpcIni {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

@@ -21,13 +21,22 @@ enum EventType {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Event {
+    /// Unique event identifier.
     pub event_id: i32,
+    /// Prerequisite event ID that must have occurred.
     pub previous_event_id: i32,
+    /// Determines execution condition (e.g. unconditionally, N times, if previous succeeded).
     pub event_type_id: i32,
+    /// Filename of the event script.
     pub event_filename: Option<String>,
+    /// Execution counter (N limit) for types that execute multiple times.
     pub counter: i32, // N counter
+
 }
 
+/// Stores script and event mappings.
+///
+/// Reads file: `Event.ini`
 impl Extractor for Event {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

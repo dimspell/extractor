@@ -9,28 +9,52 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct NPC {
+    /// Internal iteration index mapped from the file array.
     pub index: i32,
+    /// Global identifier for this mapping instance.
     pub id: i32,
+    /// Underlying archetype ID linked from npccat or prtini.
     pub npc_id: i32,
+    /// Fixed 30-byte display descriptor.
     pub name: String,
+    /// Reference script matching PartyRefs logic.
     pub party_script_id: i32,
+    /// Event ID condition required to spawn NPC.
     pub show_on_event: i32,
+    /// Waypoint 1 definition flag.
     pub goto1_filled: i32,
+    /// Waypoint 2 definition flag.
     pub goto2_filled: i32,
+    /// Waypoint 3 definition flag.
     pub goto3_filled: i32,
+    /// Waypoint 4 definition flag.
     pub goto4_filled: i32,
+    /// Waypoint 1 X target.
     pub goto1_x: i32,
+    /// Waypoint 2 X target.
     pub goto2_x: i32,
+    /// Waypoint 3 X target.
     pub goto3_x: i32,
+    /// Waypoint 4 X target.
     pub goto4_x: i32,
+    /// Waypoint 1 Y target.
     pub goto1_y: i32,
+    /// Waypoint 2 Y target.
     pub goto2_y: i32,
+    /// Waypoint 3 Y target.
     pub goto3_y: i32,
+    /// Waypoint 4 Y target.
     pub goto4_y: i32,
+    /// Compass rotation (0=up, proceeds clockwise).
     pub looking_direction: i32,
+    /// Pointer to `Dlgcat` or dialogue node triggering on click.
     pub dialog_id: i32,
+
 }
 
+/// Stores specific placements and configurations for NPCs on a given map.
+///
+/// Reads file: `NpcInGame/Npccat1.ref (and other map-specific .ref files)`
 impl Extractor for NPC {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

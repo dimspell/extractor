@@ -9,27 +9,50 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WeaponItem {
+    /// Internal record index (0-based) for the weapon/armor.
     pub id: i32,
+    /// Fixed-size string (30 bytes) for item name.
     pub name: String,
+    /// Fixed-size string (202 bytes) for item description.
     pub description: String,
+    /// Shop value in gold.
     pub base_price: i16,
+    /// HP modifier the equipment grants.
     pub health_points: i16,
+    /// MP modifier the equipment grants.
     pub magic_points: i16,
+    /// Strength buff granted.
     pub strength: i16,
+    /// Agility modifier.
     pub agility: i16,
+    /// Wisdom/Magic multiplier.
     pub wisdom: i16,
+    /// Constitution / TF modifier.
     pub tf: i16,
+    /// Unknown modifier parameter.
     pub unk: i16,
+    /// Hit rate or TRF stat bonus.
     pub trf: i16,
+    /// Base offensive stat.
     pub attack: i16,
+    /// Base defensive armor class.
     pub defense: i16,
+    /// Enhanced magical defense/offense.
     pub mag: i16,
+    /// Item health points or wear limit.
     pub durability: i16,
+    /// Player base strength needed to equip.
     pub req_strength: i16,
+    /// Player base agility (ZW) needed to equip.
     pub req_zw: i16,
+    /// Player base wisdom/magic needed to equip.
     pub req_wisdom: i16,
+
 }
 
+/// Stores stats, prices, and requirements for weapons and armor.
+///
+/// Reads file: `CharacterInGame/weaponItem.db`
 impl Extractor for WeaponItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

@@ -9,12 +9,20 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize)]
 pub struct Quest {
+    /// Quest table database pointer index.
     pub id: i32,
+    /// Grouping context enum (0=Main, 1=Side, 2=Traders).
     pub type_id: i32, // 0=main, 1=side, 2=traders
+    /// Journal summary topic literal.
     pub title: Option<String>,
+    /// Journal paragraph body text literal.
     pub description: Option<String>,
+
 }
 
+/// Stores quest diary entries, including main quests, side quests, and trader journals.
+///
+/// Reads file: `ExtraInGame/Quest.scr`
 impl Extractor for Quest {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;

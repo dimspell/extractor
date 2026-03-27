@@ -9,44 +9,84 @@ use crate::references::references::{read_mapper, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Monster {
+    /// Unique monster archetype tracking ID.
     pub id: i32,
+    /// Localization name for the monster encounter.
     pub name: String,
+    /// Maximum HP ceiling.
     pub health_points_max: i32,
+    /// Minimum HP floor.
     pub health_points_min: i32,
+    /// Maximum MP limit.
     pub magic_points_max: i32,
+    /// Minimum MP limit.
     pub magic_points_min: i32,
+    /// Baseline tiles moved per tick.
     pub walk_speed: i32,
+    /// Upper bound of accuracy.
     pub to_hit_max: i32,
+    /// Lower bound of accuracy.
     pub to_hit_min: i32,
+    /// Upper bound for evasion rate.
     pub to_dodge_max: i32,
+    /// Lower bound for evasion rate.
     pub to_dodge_min: i32,
+    /// Maximum physical damage.
     pub offense_max: i32,
+    /// Minimum physical damage.
     pub offense_min: i32,
+    /// Upper bound armor class.
     pub defense_max: i32,
+    /// Lower bound armor class.
     pub defense_min: i32,
+    /// Maximum magical intensity.
     pub magic_attack_max: i32,
+    /// Minimum magical intensity.
     pub magic_attack_min: i32,
+    /// Flag indicating undead affiliation (holy weakness).
     pub is_undead: i32,
+    /// Controls visual gore upon hit.
     pub has_blood: i32,
+    /// Combat behavioral script type.
     pub ai_type: i32,
+    /// High roll for experience points.
     pub exp_gain_max: i32,
+    /// Low roll for experience points.
     pub exp_gain_min: i32,
+    /// Maximum gold drop.
     pub gold_drop_max: i32,
+    /// Minimum gold drop.
     pub gold_drop_min: i32,
+    /// Aggro radius in tiles.
     pub detection_sight_size: i32,
+    /// Maximum engage distance for attacks.
     pub distance_range_size: i32,
+    /// Primary magic spell index.
     pub known_spell_slot1: i32,
+    /// Secondary magic spell index.
     pub known_spell_slot2: i32,
+    /// Tertiary magic spell index.
     pub known_spell_slot3: i32,
+    /// Controls collision size overlay.
     pub is_oversize: i32,
+    /// Potency tracking for enemy spellcasting.
     pub magic_level: i32,
+    /// Identifier for unique monster skills.
     pub special_attack: i32,
+    /// Percentage likelihood to cast special.
     pub special_attack_chance: i32,
+    /// Length special effect lingers.
     pub special_attack_duration: i32,
+    /// Courage metric defining retreat threshold.
     pub boldness: i32,
+    /// Delay ticks between swings.
     pub attack_speed: i32,
+
 }
 
+/// Stores base stats, attacks, and defense values for monsters.
+///
+/// Reads file: `MonsterInGame/Monster.db`
 impl Extractor for Monster {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

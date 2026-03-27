@@ -10,25 +10,46 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 
 #[derive(Debug, Serialize)]
 pub struct EditItem {
+    /// Iteration tracking for editor modifications.
     pub index: i32,
+    /// Asset identifier string.
     pub name: String,
+    /// Standard inventory tool-tip.
     pub description: String,
+    /// Economic valuation offset.
     pub base_price: i16,
+    /// Base additive metric for derived vitality.
     pub health_points: i16,
+    /// Spell scaling base factor.
     pub magic_points: i16,
+    /// Stat adjustment logic constant.
     pub strength: i16,
+    /// Physical tracking parameter limit.
     pub agility: i16,
+    /// Mind attribute modifier block.
     pub wisdom: i16,
+    /// Core status alignment tracking.
     pub constitution: i16,
+    /// Raw deflection parameter.
     pub to_dodge: i16,
+    /// Base hit resolution constant.
     pub to_hit: i16,
+    /// Flat output augmentation rating.
     pub offense: i16,
+    /// Armor calculation pool scaling rating.
     pub defense: i16,
+    /// Durability erosion factor.
     pub item_destroying_power: i16,
+    /// Enum specifying if behavior mutates.
     pub modifies_item: u8,
+    /// Procedural elemental modifier appended (poison, fire).
     pub additional_effect: i16,
+
 }
 
+/// Stores definitions for modifiable base items.
+///
+/// Reads file: `CharacterInGame/EditItem.db`
 impl Extractor for EditItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

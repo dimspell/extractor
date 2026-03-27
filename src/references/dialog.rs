@@ -8,15 +8,26 @@ use crate::references::references::{parse_int, Extractor};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dialog {
+    /// Unique dialog script line ID.
     pub id: i32,
+    /// Required event to trigger this dialog.
     pub previous_event_id: Option<i32>,
+    /// Reference link to the next dialog node in the chain.
     pub next_dialog_to_check: Option<i32>,
+    /// Type of dialog (0=normal, 1=choose dialog).
     pub dialog_type_id: Option<i32>,
+    /// Indicates active speaker (0=main character, 1=NPC).
     pub dialog_owner: Option<i32>,
+    /// Reference ID in the corresponding PGP file.
     pub dialog_id: Option<i32>,
+    /// Event ID executed upon reading this dialog.
     pub event_id: Option<i32>,
+
 }
 
+/// Stores dialogues and conversational branches for characters.
+///
+/// Reads file: `NpcInGame/Dlgcat1.dlg (and other .dlg files)`
 impl Extractor for Dialog {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;

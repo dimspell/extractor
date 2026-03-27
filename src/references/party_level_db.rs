@@ -7,16 +7,27 @@ use std::path::Path;
 
 #[derive(Debug, Serialize)]
 pub struct PartyLevelRecord {
+    /// Derived multiplier level tracking.
     pub level: u32,
+    /// Scaling milestone block for strength.
     pub strength: u32,
+    /// Health expansion parameters per level.
     pub constitution: u32,
+    /// Mana multiplier logic.
     pub wisdom: u32,
+    /// Fixed gain of base stamina.
     pub health_points: u16,
+    /// Fixed gain of magical pools.
     pub magic_points: u16,
+    /// Avoidance calculation matrix shift.
     pub agility: u32,
+    /// Derived raw throughput bonus.
     pub attack: u32,
+    /// Frequency recovery tracking matrix.
     pub mana_recharge: u32,
+    /// Armor tracking expansion rating.
     pub defense: u16,
+
 }
 
 #[derive(Debug, Serialize)]
@@ -25,6 +36,9 @@ pub struct PartyLevelNpc {
     pub records: Vec<PartyLevelRecord>,
 }
 
+/// Stores the experience and stat progression tables for party members per level.
+///
+/// Reads file: `NpcInGame/PrtLevel.db`
 impl Extractor for PartyLevelNpc {
     fn read_file(source_path: &Path) -> Result<Vec<Self>> {
         let file = File::open(source_path)?;

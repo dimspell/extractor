@@ -7,12 +7,20 @@ use crate::references::references::Extractor;
 
 #[derive(Debug, Serialize)]
 pub struct PartyIniNpc {
+    /// Null-terminated root character identifier string.
     pub name: String,
+    /// Binary metadata governing operational behavior.
     pub flags: u16,
+    /// Role specialization tag or ID class parameter.
     pub kind: u16,
+    /// Sub-identifier linking variables together.
     pub value: u32,
+
 }
 
+/// Stores initial metadata and starting configurations for party members.
+///
+/// Reads file: `NpcInGame/PrtIni.db`
 impl Extractor for PartyIniNpc {
     fn read_file(source_path: &Path) -> Result<Vec<Self>> {
         let file = File::open(source_path)?;
