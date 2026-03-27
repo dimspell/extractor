@@ -8,6 +8,7 @@ use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::enums::HealItemFlag;
 
 #[derive(Debug, Serialize)]
 pub struct HealItem {
@@ -21,11 +22,11 @@ pub struct HealItem {
     pub base_price: i16,
     pub pz: i16,
     pub pm: i16,
-    pub full_pz: u8,
-    pub full_pm: u8,
-    pub poison_heal: u8,
-    pub petrif_heal: u8,
-    pub polimorph_heal: u8,
+    pub full_pz: HealItemFlag,
+    pub full_pm: HealItemFlag,
+    pub poison_heal: HealItemFlag,
+    pub petrif_heal: HealItemFlag,
+    pub polimorph_heal: HealItemFlag,
 
 }
 
@@ -80,14 +81,20 @@ impl Extractor for HealItem {
 
             let pz = reader.read_i16::<LittleEndian>()?;
             let pm = reader.read_i16::<LittleEndian>()?;
-            let full_pz = reader.read_u8()?;
-            let full_pm = reader.read_u8()?;
-            let poison_heal = reader.read_u8()?;
-            let petrif_heal = reader.read_u8()?;
-            let polimorph_heal = reader.read_u8()?;
+            let full_pz_raw = reader.read_u8()?;
+            let full_pm_raw = reader.read_u8()?;
+            let poison_heal_raw = reader.read_u8()?;
+            let petrif_heal_raw = reader.read_u8()?;
+            let polimorph_heal_raw = reader.read_u8()?;
 
             reader.read_u8()?;
             reader.read_i16::<LittleEndian>()?;
+
+            let full_pz = HealItemFlag::from_u8(full_pz_raw).unwrap_or(HealItemFlag::None);
+            let full_pm = HealItemFlag::from_u8(full_pm_raw).unwrap_or(HealItemFlag::None);
+            let poison_heal = HealItemFlag::from_u8(poison_heal_raw).unwrap_or(HealItemFlag::None);
+            let petrif_heal = HealItemFlag::from_u8(petrif_heal_raw).unwrap_or(HealItemFlag::None);
+            let polimorph_heal = HealItemFlag::from_u8(polimorph_heal_raw).unwrap_or(HealItemFlag::None);
 
             items.push(HealItem {
                 id: i,
@@ -136,11 +143,11 @@ impl Extractor for HealItem {
             writer.write_i16::<LittleEndian>(record.pz)?;
             writer.write_i16::<LittleEndian>(record.pm)?;
 
-            writer.write_u8(record.full_pz)?;
-            writer.write_u8(record.full_pm)?;
-            writer.write_u8(record.poison_heal)?;
-            writer.write_u8(record.petrif_heal)?;
-            writer.write_u8(record.polimorph_heal)?;
+            writer.write_u8(u8::from(record.full_pz))?;
+            writer.write_u8(u8::from(record.full_pm))?;
+            writer.write_u8(u8::from(record.poison_heal))?;
+            writer.write_u8(u8::from(record.petrif_heal))?;
+            writer.write_u8(u8::from(record.polimorph_heal))?;
 
             writer.write_u8(0)?;
             writer.write_i16::<LittleEndian>(0)?;

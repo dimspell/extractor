@@ -5,6 +5,7 @@ use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 use crate::references::references::{parse_int, Extractor};
+use crate::references::enums::{DialogType, DialogOwner};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Dialog {
@@ -14,10 +15,10 @@ pub struct Dialog {
     pub previous_event_id: Option<i32>,
     /// Reference link to the next dialog node in the chain.
     pub next_dialog_to_check: Option<i32>,
-    /// Type of dialog (0=normal, 1=choose dialog).
-    pub dialog_type_id: Option<i32>,
-    /// Indicates active speaker (0=main character, 1=NPC).
-    pub dialog_owner: Option<i32>,
+    /// Type of dialog (normal or choice).
+    pub dialog_type: Option<DialogType>,
+    /// Indicates active speaker (player or NPC).
+    pub dialog_owner: Option<DialogOwner>,
     /// Reference ID in the corresponding PGP file.
     pub dialog_id: Option<i32>,
     /// Event ID executed upon reading this dialog.
@@ -62,15 +63,18 @@ impl Extractor for Dialog {
                     let previous_event_id = parse_int(parts[1].trim());
                     let next_dialog_to_check = parse_int(parts[2].trim());
                     let dialog_type_id = parse_int(parts[3].trim());
-                    let dialog_owner = parse_int(parts[4].trim());
+                    let dialog_owner_id = parse_int(parts[4].trim());
                     let dialog_id = parse_int(parts[5].trim());
                     let event_id = parse_int(parts[6].trim());
+
+                    let dialog_type = dialog_type_id.and_then(|v| DialogType::from_i32(v));
+                    let dialog_owner = dialog_owner_id.and_then(|v| DialogOwner::from_i32(v));
 
                     dlgs.push(Dialog {
                         id,
                         previous_event_id,
                         next_dialog_to_check,
-                        dialog_type_id,
+                        dialog_type,
                         dialog_owner,
                         dialog_id,
                         event_id,
@@ -87,8 +91,8 @@ impl Extractor for Dialog {
         for record in records {
             let prev = record.previous_event_id.map_or("null".to_string(), |v| v.to_string());
             let next = record.next_dialog_to_check.map_or("null".to_string(), |v| v.to_string());
-            let dtype = record.dialog_type_id.map_or("null".to_string(), |v| v.to_string());
-            let owner = record.dialog_owner.map_or("null".to_string(), |v| v.to_string());
+            let dtype = record.dialog_type.map_or("null".to_string(), |v| v.value().to_string());
+            let owner = record.dialog_owner.map_or("null".to_string(), |v| v.value().to_string());
             let did = record.dialog_id.map_or("null".to_string(), |v| v.to_string());
             let eid = record.event_id.map_or("null".to_string(), |v| v.to_string());
 

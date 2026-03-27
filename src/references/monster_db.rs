@@ -6,6 +6,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
 use serde::{Deserialize, Serialize};
 use crate::references::references::{read_mapper, Extractor};
+use crate::references::enums::{MonsterAiType, PropertyFlag};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Monster {
@@ -44,11 +45,11 @@ pub struct Monster {
     /// Minimum magical intensity.
     pub magic_attack_min: i32,
     /// Flag indicating undead affiliation (holy weakness).
-    pub is_undead: i32,
+    pub is_undead: PropertyFlag,
     /// Controls visual gore upon hit.
-    pub has_blood: i32,
+    pub has_blood: PropertyFlag,
     /// Combat behavioral script type.
-    pub ai_type: i32,
+    pub ai_type: MonsterAiType,
     /// High roll for experience points.
     pub exp_gain_max: i32,
     /// Low roll for experience points.
@@ -140,9 +141,14 @@ impl Extractor for Monster {
             let magic_attack_max = reader.read_i32::<LittleEndian>()?; // max
             let magic_attack_min = reader.read_i32::<LittleEndian>()?; // min
 
-            let is_undead = reader.read_i32::<LittleEndian>()?; // "0 or 1"
-            let has_blood = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
-            let ai_type = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
+            let is_undead_raw = reader.read_i32::<LittleEndian>()?; // "0 or 1"
+            let has_blood_raw = reader.read_i32::<LittleEndian>()?; // "0 or 1, golem is not alive and not undead"
+            let ai_type_raw = reader.read_i32::<LittleEndian>()?; // "goblin and chicken = 1,archers = 2, worm bot no zombie =3, deer and dog = 5"
+            
+            // Convert raw integers to type-safe enums
+            let is_undead = PropertyFlag::from_i32(is_undead_raw).unwrap_or(PropertyFlag::Absent);
+            let has_blood = PropertyFlag::from_i32(has_blood_raw).unwrap_or(PropertyFlag::Absent);
+            let ai_type = MonsterAiType::from_i32(ai_type_raw).unwrap_or(MonsterAiType::Passive);
 
             let exp_gain_max = reader.read_i32::<LittleEndian>()?;
             let exp_gain_min = reader.read_i32::<LittleEndian>()?;
@@ -239,9 +245,9 @@ impl Extractor for Monster {
             writer.write_i32::<LittleEndian>(record.defense_min)?;
             writer.write_i32::<LittleEndian>(record.magic_attack_max)?;
             writer.write_i32::<LittleEndian>(record.magic_attack_min)?;
-            writer.write_i32::<LittleEndian>(record.is_undead)?;
-            writer.write_i32::<LittleEndian>(record.has_blood)?;
-            writer.write_i32::<LittleEndian>(record.ai_type)?;
+            writer.write_i32::<LittleEndian>(i32::from(record.is_undead))?;
+            writer.write_i32::<LittleEndian>(i32::from(record.has_blood))?;
+            writer.write_i32::<LittleEndian>(i32::from(record.ai_type))?;
             writer.write_i32::<LittleEndian>(record.exp_gain_max)?;
             writer.write_i32::<LittleEndian>(record.exp_gain_min)?;
             writer.write_i32::<LittleEndian>(record.gold_drop_max)?;

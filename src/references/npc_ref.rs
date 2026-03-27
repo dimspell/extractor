@@ -6,6 +6,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
+use crate::references::enums::NpcLookingDirection;
 
 #[derive(Debug, Serialize)]
 pub struct NPC {
@@ -46,7 +47,7 @@ pub struct NPC {
     /// Waypoint 4 Y target.
     pub goto4_y: i32,
     /// Compass rotation (0=up, proceeds clockwise).
-    pub looking_direction: i32,
+    pub looking_direction: NpcLookingDirection,
     /// Pointer to `Dlgcat` or dialogue node triggering on click.
     pub dialog_id: i32,
 
@@ -124,7 +125,7 @@ impl Extractor for NPC {
             let mut buffer_16 = [0u8; 16];
             reader.read_exact(&mut buffer_16)?;
 
-            let looking_direction = reader.read_i32::<LittleEndian>()?; // 0 = up, clockwise
+            let looking_direction_raw = reader.read_i32::<LittleEndian>()?; // 0 = up, clockwise
 
             let mut buffer_56 = [0u8; 16 + 16 + 16 + 8];
             reader.read_exact(&mut buffer_56)?;
@@ -133,6 +134,8 @@ impl Extractor for NPC {
 
             let mut buffer_last = [0u8; 4];
             reader.read_exact(&mut buffer_last)?;
+
+            let looking_direction = NpcLookingDirection::from_i32(looking_direction_raw).unwrap_or(NpcLookingDirection::Up);
 
             npcs.push(NPC {
                 index: i,
@@ -202,7 +205,7 @@ impl Extractor for NPC {
 
             writer.write_all(&[0u8; 16])?;
 
-            writer.write_i32::<LittleEndian>(record.looking_direction)?;
+            writer.write_i32::<LittleEndian>(i32::from(record.looking_direction))?;
 
             writer.write_all(&[0u8; 56])?;
 

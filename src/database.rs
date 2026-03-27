@@ -143,7 +143,7 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &Vec<NPC>
                 npc.goto2_y,
                 npc.goto3_y,
                 npc.goto4_y,
-                npc.looking_direction,
+                i32::from(npc.looking_direction),
                 npc.dialog_id,
             ])?;
         }
@@ -171,11 +171,11 @@ pub fn save_monster_refs(
                 monster_ref.pos_x,
                 monster_ref.pos_y,
                 monster_ref.loot1_item_id,
-                monster_ref.loot1_item_type,
+                u8::from(monster_ref.loot1_item_type),
                 monster_ref.loot2_item_id,
-                monster_ref.loot2_item_type,
+                u8::from(monster_ref.loot2_item_type),
                 monster_ref.loot3_item_id,
-                monster_ref.loot3_item_type,
+                u8::from(monster_ref.loot3_item_type),
             ])?;
         }
     }
@@ -200,22 +200,22 @@ pub fn save_extra_refs(
                 extra_ref.number_in_file,
                 extra_ref.ext_id,
                 extra_ref.name,
-                extra_ref.object_type,
+                u8::from(extra_ref.object_type),
                 extra_ref.x_pos,
                 extra_ref.y_pos,
                 extra_ref.rotation,
                 extra_ref.closed,
                 extra_ref.required_item_id,
-                extra_ref.required_item_type_id,
+                u8::from(extra_ref.required_item_type_id),
                 extra_ref.required_item_id2,
-                extra_ref.required_item_type_id2,
+                u8::from(extra_ref.required_item_type_id2),
                 extra_ref.gold_amount,
                 extra_ref.item_id,
-                extra_ref.item_type_id,
+                u8::from(extra_ref.item_type_id),
                 extra_ref.item_count,
                 extra_ref.event_id,
                 extra_ref.message_id,
-                extra_ref.visibility,
+                u8::from(extra_ref.visibility),
             ])?;
         }
     }
@@ -280,8 +280,8 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Res
                 item.offense,
                 item.defense,
                 item.item_destroying_power,
-                item.modifies_item,
-                item.additional_effect,
+                u8::from(item.modifies_item),
+                i16::from(item.additional_effect),
             ])?;
         }
     }
@@ -348,11 +348,11 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Res
                 item.base_price,
                 item.pz,
                 item.pm,
-                item.full_pz,
-                item.full_pm,
-                item.poison_heal,
-                item.petrif_heal,
-                item.polimorph_heal,
+                u8::from(item.full_pz),
+                u8::from(item.full_pm),
+                u8::from(item.poison_heal),
+                u8::from(item.petrif_heal),
+                u8::from(item.polimorph_heal),
             ])?;
         }
     }
@@ -380,7 +380,7 @@ pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
             ])?;
 
             for product in &store.products {
-                stmt_product.execute(params![store.index, product.0, product.1, product.2,])?;
+                stmt_product.execute(params![store.index, product.0, i32::from(product.1) as i16, product.2,])?;
             }
         }
     }
@@ -413,9 +413,9 @@ pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<(
                 monster.defense_min,
                 monster.magic_attack_max,
                 monster.magic_attack_min,
-                monster.is_undead,
-                monster.has_blood,
-                monster.ai_type,
+                i32::from(monster.is_undead),
+                i32::from(monster.has_blood),
+                i32::from(monster.ai_type),
                 monster.exp_gain_max,
                 monster.exp_gain_min,
                 monster.gold_drop_max,
@@ -452,7 +452,7 @@ pub fn save_maps(conn: &mut Connection, maps: &Vec<Map>) -> Result<()> {
                 map.map_name,
                 map.pgp_filename,
                 map.dlg_filename,
-                map.is_light,
+                i32::from(map.lighting),
             ])?;
         }
     }
@@ -518,7 +518,7 @@ pub fn save_events(conn: &mut Connection, events: &Vec<Event>) -> Result<()> {
             stmt.execute(params![
                 event.event_id,
                 event.previous_event_id,
-                event.event_type_id,
+                i32::from(event.event_type),
                 event.event_filename,
                 event.counter,
             ])?;
@@ -645,7 +645,7 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &Vec<PartyRef>) -> Res
                 party_ref.npc_id,
                 party_ref.dlg_when_not_in_party,
                 party_ref.dlg_when_in_party,
-                party_ref.ghost_face_id,
+                i32::from(party_ref.ghost_face_id),
             ])?;
         }
     }
@@ -703,8 +703,8 @@ pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &Vec<Dial
                 dialog.id,
                 dialog.previous_event_id,
                 dialog.next_dialog_to_check,
-                dialog.dialog_type_id,
-                dialog.dialog_owner,
+                dialog.dialog_type.map(|v| v.value()),
+                dialog.dialog_owner.map(|v| v.value()),
                 dialog.dialog_id,
                 dialog.event_id,
             ])?;
@@ -865,28 +865,28 @@ pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Res
         for spell in spells {
             stmt.execute(params![
                 spell.id,
-                spell.enabled,
-                spell.flag1,
+                u32::from(spell.enabled),
+                u32::from(spell.flag1),
                 spell.mana_cost,
                 spell.success_rate,
                 spell.base_damage,
                 spell.reserved1,
                 spell.reserved2,
-                spell.flag2,
+                u32::from(spell.flag2),
                 spell.range,
                 spell.reserved3,
                 spell.level_required,
-                spell.constant1,
+                u32::from(spell.constant1),
                 spell.effect_value,
                 spell.effect_type,
                 spell.effect_modifier,
                 spell.reserved4,
-                spell.magic_school,
-                spell.flag3,
+                u32::from(spell.magic_school),
+                u32::from(spell.flag3),
                 spell.animation_id,
                 spell.visual_id,
                 spell.icon_id,
-                spell.target_type,
+                u32::from(spell.target_type),
             ])?;
         }
     }

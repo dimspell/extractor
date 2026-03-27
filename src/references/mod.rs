@@ -4,6 +4,7 @@ pub mod dialog;
 pub mod dialogue_text;
 pub mod draw_item;
 pub mod edit_item_db;
+pub mod enums;
 pub mod event_ini;
 pub mod event_item_db;
 pub mod event_npc_ref;

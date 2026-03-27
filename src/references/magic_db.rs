@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
+use crate::references::enums::{MagicSchool, SpellTargetType, MagicSpellFlag, MagicSpellConstant};
 
 const MAGIC_RECORD_SIZE: usize = 88;
 
@@ -13,10 +14,10 @@ pub struct MagicSpell {
     pub id: i32,
 
     /// Whether the spell is enabled/available
-    pub enabled: bool,
+    pub enabled: MagicSpellFlag,
 
     /// Unknown flag, always 1 for valid spells
-    pub flag1: u32,
+    pub flag1: MagicSpellFlag,
 
     /// Mana cost (999 = special/unlimited)
     pub mana_cost: u32,
@@ -34,7 +35,7 @@ pub struct MagicSpell {
     pub reserved2: u32,
 
     /// Unknown flag (0 or 1)
-    pub flag2: u32,
+    pub flag2: MagicSpellFlag,
 
     /// Range or duration (999 = maximum/unlimited)
     pub range: u32,
@@ -46,7 +47,7 @@ pub struct MagicSpell {
     pub level_required: u32,
 
     /// Constant value (always 1)
-    pub constant1: u32,
+    pub constant1: MagicSpellConstant,
 
     /// Secondary effect value
     pub effect_value: u32,
@@ -61,11 +62,10 @@ pub struct MagicSpell {
     pub reserved4: u32,
 
     /// School of magic (0-6)
-    /// 0=Unknown, 1-2=?, 3-4=?, 5-6=?
-    pub magic_school: u32,
+    pub magic_school: MagicSchool,
 
     /// Unknown flag (0 or 1)
-    pub flag3: u32,
+    pub flag3: MagicSpellFlag,
 
     /// Animation or visual effect ID
     pub animation_id: u32,
@@ -81,7 +81,7 @@ pub struct MagicSpell {
     /// 2 = Self
     /// 3 = Area of effect
     /// 4 = Multi-target
-    pub target_type: u32,
+    pub target_type: SpellTargetType,
 }
 
 /// Stores data for magic spells, including mana cost, effect types, animations, and base damage.
@@ -149,32 +149,40 @@ impl Extractor for MagicSpell {
         let mut spells: Vec<MagicSpell> = Vec::with_capacity(num_records);
 
         for i in 0..num_records {
-            let enabled_u32 = reader.read_u32::<LittleEndian>()?;
-            let flag1 = reader.read_u32::<LittleEndian>()?;
+            let enabled_raw = reader.read_u32::<LittleEndian>()?;
+            let flag1_raw = reader.read_u32::<LittleEndian>()?;
             let mana_cost = reader.read_u32::<LittleEndian>()?;
             let success_rate = reader.read_u32::<LittleEndian>()?;
             let base_damage = reader.read_u32::<LittleEndian>()?;
             let reserved1 = reader.read_u32::<LittleEndian>()?;
             let reserved2 = reader.read_u32::<LittleEndian>()?;
-            let flag2 = reader.read_u32::<LittleEndian>()?;
+            let flag2_raw = reader.read_u32::<LittleEndian>()?;
             let range = reader.read_u32::<LittleEndian>()?;
             let reserved3 = reader.read_u32::<LittleEndian>()?;
             let level_required = reader.read_u32::<LittleEndian>()?;
-            let constant1 = reader.read_u32::<LittleEndian>()?;
+            let constant1_raw = reader.read_u32::<LittleEndian>()?;
             let effect_value = reader.read_u32::<LittleEndian>()?;
             let effect_type = reader.read_u32::<LittleEndian>()?;
             let effect_modifier = reader.read_u32::<LittleEndian>()?;
             let reserved4 = reader.read_u32::<LittleEndian>()?;
-            let magic_school = reader.read_u32::<LittleEndian>()?;
-            let flag3 = reader.read_u32::<LittleEndian>()?;
+            let magic_school_raw = reader.read_u32::<LittleEndian>()?;
+            let flag3_raw = reader.read_u32::<LittleEndian>()?;
             let animation_id = reader.read_u32::<LittleEndian>()?;
             let visual_id = reader.read_u32::<LittleEndian>()?;
             let icon_id = reader.read_u32::<LittleEndian>()?;
-            let target_type = reader.read_u32::<LittleEndian>()?;
+            let target_type_raw = reader.read_u32::<LittleEndian>()?;
+
+            let enabled = MagicSpellFlag::from_u32(enabled_raw).unwrap_or(MagicSpellFlag::Disabled);
+            let flag1 = MagicSpellFlag::from_u32(flag1_raw).unwrap_or(MagicSpellFlag::Disabled);
+            let flag2 = MagicSpellFlag::from_u32(flag2_raw).unwrap_or(MagicSpellFlag::Disabled);
+            let constant1 = MagicSpellConstant::from_u32(constant1_raw).unwrap_or(MagicSpellConstant::Invalid);
+            let magic_school = MagicSchool::from_u32(magic_school_raw).unwrap_or(MagicSchool::Unknown);
+            let flag3 = MagicSpellFlag::from_u32(flag3_raw).unwrap_or(MagicSpellFlag::Disabled);
+            let target_type = SpellTargetType::from_u32(target_type_raw).unwrap_or(SpellTargetType::Single);
 
             spells.push(MagicSpell {
                 id: i as i32,
-                enabled: enabled_u32 != 0,
+                enabled,
                 flag1,
                 mana_cost,
                 success_rate,
@@ -207,28 +215,28 @@ impl Extractor for MagicSpell {
         let mut writer = BufWriter::new(file);
 
         for spell in records {
-            writer.write_u32::<LittleEndian>(if spell.enabled { 1 } else { 0 })?;
-            writer.write_u32::<LittleEndian>(spell.flag1)?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.enabled))?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.flag1))?;
             writer.write_u32::<LittleEndian>(spell.mana_cost)?;
             writer.write_u32::<LittleEndian>(spell.success_rate)?;
             writer.write_u32::<LittleEndian>(spell.base_damage)?;
             writer.write_u32::<LittleEndian>(spell.reserved1)?;
             writer.write_u32::<LittleEndian>(spell.reserved2)?;
-            writer.write_u32::<LittleEndian>(spell.flag2)?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.flag2))?;
             writer.write_u32::<LittleEndian>(spell.range)?;
             writer.write_u32::<LittleEndian>(spell.reserved3)?;
             writer.write_u32::<LittleEndian>(spell.level_required)?;
-            writer.write_u32::<LittleEndian>(spell.constant1)?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.constant1))?;
             writer.write_u32::<LittleEndian>(spell.effect_value)?;
             writer.write_u32::<LittleEndian>(spell.effect_type)?;
             writer.write_u32::<LittleEndian>(spell.effect_modifier)?;
             writer.write_u32::<LittleEndian>(spell.reserved4)?;
-            writer.write_u32::<LittleEndian>(spell.magic_school)?;
-            writer.write_u32::<LittleEndian>(spell.flag3)?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.magic_school))?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.flag3))?;
             writer.write_u32::<LittleEndian>(spell.animation_id)?;
             writer.write_u32::<LittleEndian>(spell.visual_id)?;
             writer.write_u32::<LittleEndian>(spell.icon_id)?;
-            writer.write_u32::<LittleEndian>(spell.target_type)?;
+            writer.write_u32::<LittleEndian>(u32::from(spell.target_type))?;
         }
         Ok(())
     }

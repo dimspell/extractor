@@ -7,6 +7,7 @@ use serde::Serialize;
 use encoding_rs::WINDOWS_1250;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::enums::{EditItemModification, EditItemEffect};
 
 #[derive(Debug, Serialize)]
 pub struct EditItem {
@@ -40,10 +41,10 @@ pub struct EditItem {
     pub defense: i16,
     /// Durability erosion factor.
     pub item_destroying_power: i16,
-    /// Enum specifying if behavior mutates.
-    pub modifies_item: u8,
+    /// Flag specifying if behavior mutates.
+    pub modifies_item: EditItemModification,
     /// Procedural elemental modifier appended (poison, fire).
-    pub additional_effect: i16,
+    pub additional_effect: EditItemEffect,
 
 }
 
@@ -109,8 +110,11 @@ impl Extractor for EditItem {
             let item_destroying_power = reader.read_i16::<LittleEndian>()?; // durability probably
             reader.read_u8()?;
 
-            let modifies_item = reader.read_u8()?;
-            let additional_effect = reader.read_i16::<LittleEndian>()?; // poison or burn or none
+            let modifies_item_raw = reader.read_u8()?;
+            let additional_effect_raw = reader.read_i16::<LittleEndian>()?; // poison or burn or none
+
+            let modifies_item = EditItemModification::from_u8(modifies_item_raw).unwrap_or(EditItemModification::DoesNotModify);
+            let additional_effect = EditItemEffect::from_i16(additional_effect_raw).unwrap_or(EditItemEffect::None);
 
             items.push(EditItem {
                 index: i,
@@ -173,8 +177,8 @@ impl Extractor for EditItem {
             writer.write_i16::<LittleEndian>(record.item_destroying_power)?;
             writer.write_u8(0)?;
 
-            writer.write_u8(record.modifies_item)?;
-            writer.write_i16::<LittleEndian>(record.additional_effect)?;
+            writer.write_u8(u8::from(record.modifies_item))?;
+            writer.write_i16::<LittleEndian>(i16::from(record.additional_effect))?;
         }
         Ok(())
     }

@@ -6,6 +6,7 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 
 use crate::references::references::{parse_null, Extractor};
+use crate::references::enums::MapLighting;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Map {
@@ -21,7 +22,7 @@ pub struct Map {
     pub dlg_filename: Option<String>,
     // light - 0=light, 1=darkness
     /// Light indicator (0=light, 1=darkness).
-    pub is_light: bool,
+    pub lighting: MapLighting,
 
 }
 
@@ -65,7 +66,11 @@ impl Extractor for Map {
                     let map_name = parts[2].to_string();
                     let pgp_filename = parse_null(parts[3]);
                     let dlg_filename = parse_null(parts[4]);
-                    let is_light: bool = parts[5] == "1";
+                    let lighting = if parts[5] == "1" {
+                        MapLighting::Light
+                    } else {
+                        MapLighting::Dark
+                    };
 
                     maps.push(Map {
                         id,
@@ -73,7 +78,7 @@ impl Extractor for Map {
                         map_name,
                         pgp_filename,
                         dlg_filename,
-                        is_light,
+                        lighting,
                     });
                 }
                 _ => {}
@@ -87,7 +92,7 @@ impl Extractor for Map {
         for record in records {
             let pgp = record.pgp_filename.clone().unwrap_or_else(|| "null".to_string());
             let dlg = record.dlg_filename.clone().unwrap_or_else(|| "null".to_string());
-            let light_str = if record.is_light { "1" } else { "0" };
+            let light_str = if record.lighting == MapLighting::Light { "1" } else { "0" };
             let line = format!(
                 "{},{},{},{},{},{}\r\n",
                 record.id, record.map_filename, record.map_name, pgp, dlg, light_str

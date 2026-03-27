@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 use crate::references::references::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
+use crate::references::enums::ItemTypeId;
 
 #[derive(Debug, Serialize)]
 pub struct MonsterRef {
@@ -14,11 +15,11 @@ pub struct MonsterRef {
     pub pos_x: i32,
     pub pos_y: i32,
     pub loot1_item_id: u8,
-    pub loot1_item_type: u8,
+    pub loot1_item_type: ItemTypeId,
     pub loot2_item_id: u8,
-    pub loot2_item_type: u8,
+    pub loot2_item_type: ItemTypeId,
     pub loot3_item_id: u8,
-    pub loot3_item_type: u8,
+    pub loot3_item_type: ItemTypeId,
 
 }
 
@@ -60,22 +61,26 @@ impl Extractor for MonsterRef {
             reader.read_i32::<LittleEndian>()?;
 
             let loot1_item_id = reader.read_u8()?;
-            let loot1_item_type = reader.read_u8()?;
+            let loot1_item_type_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
             let loot2_item_id = reader.read_u8()?;
-            let loot2_item_type = reader.read_u8()?;
+            let loot2_item_type_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
             let loot3_item_id = reader.read_u8()?;
-            let loot3_item_type = reader.read_u8()?;
+            let loot3_item_type_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
             reader.read_i32::<LittleEndian>()?; // 1 or 0
             reader.read_i32::<LittleEndian>()?;
+
+            let loot1_item_type = ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+            let loot2_item_type = ItemTypeId::from_u8(loot2_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+            let loot3_item_type = ItemTypeId::from_u8(loot3_item_type_raw).unwrap_or(ItemTypeId::Unknown);
 
             refs.push(MonsterRef {
                 index: i,
@@ -115,17 +120,17 @@ impl Extractor for MonsterRef {
             writer.write_i32::<LittleEndian>(0)?;
 
             writer.write_u8(record.loot1_item_id)?;
-            writer.write_u8(record.loot1_item_type)?;
+            writer.write_u8(u8::from(record.loot1_item_type))?;
             writer.write_u8(0)?;
             writer.write_u8(0)?;
 
             writer.write_u8(record.loot2_item_id)?;
-            writer.write_u8(record.loot2_item_type)?;
+            writer.write_u8(u8::from(record.loot2_item_type))?;
             writer.write_u8(0)?;
             writer.write_u8(0)?;
 
             writer.write_u8(record.loot3_item_id)?;
-            writer.write_u8(record.loot3_item_type)?;
+            writer.write_u8(u8::from(record.loot3_item_type))?;
             writer.write_u8(0)?;
             writer.write_u8(0)?;
 

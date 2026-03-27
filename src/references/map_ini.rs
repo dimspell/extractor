@@ -10,28 +10,20 @@ use serde::{Deserialize, Serialize};
 pub struct MapIni {
     /// Map ini identifier.
     pub id: i32,
-    // id
     /// Event ID triggered when camera moves.
     pub event_id_on_camera_move: i32,
-    // event that occurs when camera moves
     /// Initial spawn X coordinate.
     pub start_pos_x: i32,
-    // start position X
     /// Initial spawn Y coordinate.
     pub start_pos_y: i32,
-    // start position Y
     /// Target map ID to link to.
     pub map_id: i32,
-    // map id
     /// Monster placement .ref filename.
     pub monsters_filename: Option<String>,
-    // monsters filename
     /// NPC placement .ref filename.
     pub npc_filename: Option<String>,
-    // NPC filename
     /// Extra interactive objects .ref filename.
     pub extra_filename: Option<String>,
-    // extra filename
     /// Audio track index for map background music.
     pub cd_music_track_number: i32, // CD music track number
 

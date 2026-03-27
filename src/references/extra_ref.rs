@@ -6,6 +6,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
+use crate::references::enums::{ExtraObjectType, VisibilityType, ItemTypeId};
 
 #[derive(Debug, Serialize)]
 pub struct ExtraRef {
@@ -17,8 +18,8 @@ pub struct ExtraRef {
     pub ext_id: u8,
     /// 32-byte label identifier.
     pub name: String,
-    /// Enum control (7=magic, 6=interactive, 5=altar, 4=sign, 2=door, 0=chest).
-    pub object_type: u8,
+    /// Object type (chest, door, sign, etc.).
+    pub object_type: ExtraObjectType,
     /// Tile mapping horizontal target.
     pub x_pos: i32,
     /// Tile mapping vertical target.
@@ -30,17 +31,17 @@ pub struct ExtraRef {
     /// Key identifier (lower bound) to interact.
     pub required_item_id: u8,
     /// Category ID of lower bound requirement.
-    pub required_item_type_id: u8,
+    pub required_item_type_id: ItemTypeId,
     /// Secondary requirement / Key upper bound.
     pub required_item_id2: u8,
     /// Category ID for upper bound.
-    pub required_item_type_id2: u8,
+    pub required_item_type_id2: ItemTypeId,
     /// Quantity of gold inside container.
     pub gold_amount: i32,
     /// Found static loot ID.
     pub item_id: u8,
     /// Category enum for found loot.
-    pub item_type_id: u8,
+    pub item_type_id: ItemTypeId,
     /// Stacks contained within object.
     pub item_count: i32,
     /// Bound logic ID executing upon interaction (from event.ini).
@@ -48,7 +49,7 @@ pub struct ExtraRef {
     /// Pointer to signposts/plaques contained in Message.scr.
     pub message_id: i32,
     /// Determines alpha transparency on render.
-    pub visibility: u8,
+    pub visibility: VisibilityType,
 
 }
 
@@ -109,7 +110,8 @@ impl Extractor for ExtraRef {
             reader.read_exact(&mut buffer)?;
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
-            let object_type = reader.read_u8()?; // 7-magic, 6-interactive object, 5-altar, 4-sign, 2-door, 0-chest
+            let object_type_raw = reader.read_u8()?; // 7-magic, 6-interactive object, 5-altar, 4-sign, 2-door, 0-chest
+            let object_type = ExtraObjectType::from_u8(object_type_raw).unwrap_or(ExtraObjectType::Unknown);
 
             let x_pos = reader.read_i32::<LittleEndian>()?;
             let y_pos = reader.read_i32::<LittleEndian>()?;
@@ -124,12 +126,12 @@ impl Extractor for ExtraRef {
             let closed = reader.read_i32::<LittleEndian>()?; // chest 0-open, 1-closed
 
             let required_item_id = reader.read_u8()?; // lower bound
-            let required_item_type_id = reader.read_u8()?;
+            let required_item_type_id_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
             let required_item_id2 = reader.read_u8()?; // upper bound
-            let required_item_type_id2 = reader.read_u8()?;
+            let required_item_type_id2_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
@@ -139,7 +141,7 @@ impl Extractor for ExtraRef {
             let gold_amount = reader.read_i32::<LittleEndian>()?;
 
             let item_id = reader.read_u8()?;
-            let item_type_id = reader.read_u8()?;
+            let item_type_id_raw = reader.read_u8()?;
             reader.read_u8()?;
             reader.read_u8()?;
 
@@ -154,7 +156,8 @@ impl Extractor for ExtraRef {
             let mut buffer_32 = [0u8; 32];
             reader.read_exact(&mut buffer_32)?;
 
-            let visibility = reader.read_u8()?;
+            let visibility_raw = reader.read_u8()?;
+            let visibility = VisibilityType::from_u8(visibility_raw).unwrap_or(VisibilityType::Unknown);
 
             let mut buffer_3 = [0u8; 3];
             reader.read_exact(&mut buffer_3)?;
@@ -162,6 +165,10 @@ impl Extractor for ExtraRef {
             // 8 byte padding to reach 184 bytes total
             let mut padding = [0u8; 8];
             let _ = reader.read_exact(&mut padding);
+
+            let required_item_type_id = ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
+            let required_item_type_id2 = ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Unknown);
+            let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
 
             refs.push(ExtraRef {
                 id: i,
@@ -208,7 +215,7 @@ impl Extractor for ExtraRef {
             name_buf[..len].copy_from_slice(&cow[..len]);
             writer.write_all(&name_buf)?;
 
-            writer.write_u8(record.object_type)?;
+            writer.write_u8(u8::from(record.object_type))?;
             writer.write_i32::<LittleEndian>(record.x_pos)?;
             writer.write_i32::<LittleEndian>(record.y_pos)?;
             writer.write_u8(record.rotation)?;
@@ -219,18 +226,18 @@ impl Extractor for ExtraRef {
             writer.write_i32::<LittleEndian>(record.closed)?;
 
             writer.write_u8(record.required_item_id)?;
-            writer.write_u8(record.required_item_type_id)?;
+            writer.write_u8(u8::from(record.required_item_type_id))?;
             writer.write_all(&[0u8; 2])?;
 
             writer.write_u8(record.required_item_id2)?;
-            writer.write_u8(record.required_item_type_id2)?;
+            writer.write_u8(u8::from(record.required_item_type_id2))?;
             writer.write_all(&[0u8; 2])?;
 
             writer.write_all(&[0u8; 16])?;
 
             writer.write_i32::<LittleEndian>(record.gold_amount)?;
             writer.write_u8(record.item_id)?;
-            writer.write_u8(record.item_type_id)?;
+            writer.write_u8(u8::from(record.item_type_id))?;
             writer.write_all(&[0u8; 2])?;
 
             writer.write_i32::<LittleEndian>(record.item_count)?;
@@ -241,7 +248,7 @@ impl Extractor for ExtraRef {
 
             writer.write_all(&[0u8; 32])?;
 
-            writer.write_u8(record.visibility)?;
+            writer.write_u8(u8::from(record.visibility))?;
             writer.write_all(&[0u8; 3])?;
 
             writer.write_all(&[0u8; 8])?; // pad to 184 bytes

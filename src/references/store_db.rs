@@ -7,6 +7,7 @@ use encoding_rs::WINDOWS_1250;
 use serde::Serialize;
 
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::enums::ProductType;
 
 #[derive(Debug, Serialize)]
 pub struct Store {
@@ -29,7 +30,7 @@ pub struct Store {
 
 }
 
-pub type StoreProduct = (i16, i16, i16); // order, product_type, product_id
+pub type StoreProduct = (i16, ProductType, i16); // order, product_type, product_id
 
 /// Stores store inventories, inn prices, and merchant dialogue references.
 ///
@@ -79,16 +80,18 @@ impl Extractor for Store {
                 let mut cursor = Cursor::new(&buffer);
 
                 for i in 0..buffer.len() / 2 {
-                    let item_type = cursor.read_i16::<LittleEndian>().unwrap();
+                    let item_type_raw = cursor.read_i16::<LittleEndian>().unwrap();
                     // 1 = Bron
                     // 2,3 = wyposazenie (3 = edibles/ 2 =modfiers?)
                     // 4 = magiczny
-                    if item_type == 0 {
+                    if item_type_raw == 0 {
                         break;
                     }
 
+                    let product_type = ProductType::from_i32(item_type_raw as i32)
+                        .unwrap_or(ProductType::Miscellaneous);
                     let item_id = cursor.read_i16::<LittleEndian>().unwrap();
-                    products.push((i as i16, item_type, item_id));
+                    products.push((i as i16, product_type, item_id));
                 }
             }
 
@@ -146,7 +149,7 @@ impl Extractor for Store {
                 let mut prod_buf = [0u8; 142];
                 let mut cursor = Cursor::new(&mut prod_buf[..]);
                 for prod in &record.products {
-                    cursor.write_i16::<LittleEndian>(prod.1)?; // type
+                    cursor.write_i16::<LittleEndian>(i32::from(prod.1) as i16)?; // type
                     cursor.write_i16::<LittleEndian>(prod.2)?; // id
                 }
                 writer.write_all(&prod_buf)?;

@@ -5,6 +5,7 @@ use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use serde::{Deserialize, Serialize};
 use crate::references::references::{parse_null, Extractor};
+use crate::references::enums::GhostFaceId;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PartyRef {
@@ -23,7 +24,7 @@ pub struct PartyRef {
     /// Dialog topic when the character is actively grouped.
     pub dlg_when_in_party: i32,
     /// Sprite ID for their UI portrait or ghost form.
-    pub ghost_face_id: i32,
+    pub ghost_face_id: GhostFaceId,
 
 }
 
@@ -66,7 +67,9 @@ impl Extractor for PartyRef {
                     let npc_id = parts[4].trim().parse::<i32>().unwrap();
                     let dlg_when_not_in_party = parts[5].trim().parse::<i32>().unwrap();
                     let dlg_when_in_party = parts[6].trim().parse::<i32>().unwrap();
-                    let ghost_face_id = parts[7].trim().parse::<i32>().unwrap();
+                    let ghost_face_id_raw = parts[7].trim().parse::<i32>().unwrap();
+
+                    let ghost_face_id = GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
 
                     party_refs.push(PartyRef {
                         id,
@@ -100,7 +103,7 @@ impl Extractor for PartyRef {
                 record.npc_id,
                 record.dlg_when_not_in_party,
                 record.dlg_when_in_party,
-                record.ghost_face_id
+                i32::from(record.ghost_face_id)
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
             file.write_all(&cow)?;
