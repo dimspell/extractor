@@ -5,7 +5,7 @@ on:
       - master
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -15,8 +15,11 @@ jobs:
   compile:
     timeout-minutes: 5
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98
         with:
           persist-credentials: false
 
@@ -27,7 +30,8 @@ jobs:
           components: clippy, rustfmt
           target: aarch64-unknown-linux-musl, x86_64-pc-windows-msvc
 
-      - uses: actions/cache@v4
+      - name: Cache Cargo dependencies
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7
         id: cache
         with:
           path: |
@@ -40,4 +44,5 @@ jobs:
           restore-keys: |
             test-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}-compile
 
-      - run: cargo build
+      - name: Build project
+        run: cargo build
