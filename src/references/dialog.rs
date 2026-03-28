@@ -19,13 +19,13 @@ use serde::{Deserialize, Serialize};
 // +--------------------------------------+
 // | Encoding: EUC-KR                     |
 // | Format: CSV with comments            |
-// | Record Size: Variable (text)        |
+// | Record Size: Variable (text)         |
 // +--------------------------------------+
-// | ; Comment line                      |
+// | ; Comment line                       |
 // | id,prev_event,next_dlg,type,owner,dlg_id,event_id|
 // | 1,100,2,0,1,1001,1000                |
 // | 2,101,3,1,0,1002,1001                |
-// | ...                                 |
+// | ...                                  |
 // +--------------------------------------+
 //
 // FIELD DEFINITIONS:

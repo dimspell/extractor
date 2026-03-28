@@ -136,9 +136,6 @@ impl Extractor for Store {
 
                 for i in 0..buffer.len() / 2 {
                     let item_type_raw = cursor.read_i16::<LittleEndian>().unwrap();
-                    // 1 = Bron
-                    // 2,3 = wyposazenie (3 = edibles/ 2 =modfiers?)
-                    // 4 = magiczny
                     if item_type_raw == 0 {
                         break;
                     }
@@ -236,8 +233,7 @@ pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt_store = tx.prepare(include_str!("../queries/insert_store.sql"))?;
-        let mut stmt_product =
-            tx.prepare(include_str!("../queries/insert_store_product.sql"))?;
+        let mut stmt_product = tx.prepare(include_str!("../queries/insert_store_product.sql"))?;
 
         for store in stores {
             stmt_store.execute(params![

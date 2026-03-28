@@ -1,51 +1,15 @@
-use crate::database::initialize_database;
-use crate::references::all_map_ini::save_maps;
-use crate::references::dialog::save_dialogs;
-use crate::references::dialogue_text::save_dialogue_texts;
-use crate::references::draw_item::save_draw_items;
-use crate::references::edit_item_db::save_edit_items;
-use crate::references::event_ini::save_events;
-use crate::references::event_item_db::save_event_items;
-use crate::references::event_npc_ref::save_event_npc_refs;
-use crate::references::extra_ini::save_extras;
-use crate::references::extra_ref::save_extra_refs;
-use crate::references::heal_item_db::save_heal_items;
-use crate::references::magic_db::save_magic_spells;
-use crate::references::map_ini::save_map_inis;
-use crate::references::message_scr::save_messages;
-use crate::references::misc_item_db::read_misc_item_db;
-use crate::references::misc_item_db::save_misc_items;
-use crate::references::monster_db::save_monsters;
-use crate::references::monster_ini::save_monster_inis;
-use crate::references::monster_ref::save_monster_refs;
-use crate::references::npc_ini::save_npc_inis;
-use crate::references::npc_ref::save_npc_refs;
-use crate::references::party_ini_db::read_party_ini_db;
-use crate::references::party_ini_db::save_party_inis;
-use crate::references::party_level_db::read_party_level_db;
-use crate::references::party_level_db::save_party_levels;
-use crate::references::party_pgp::save_party_pgps;
-use crate::references::party_ref::save_party_refs;
-use crate::references::quest_scr::save_quests;
-use crate::references::references::read_mutli_magic_db;
-use crate::references::store_db::save_stores;
-use crate::references::wave_ini::save_wave_inis;
-use crate::references::weapons_db::save_weapons;
-use rusqlite::Connection;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 pub mod database;
 pub mod map;
-mod references;
+pub mod references;
 pub mod snf;
 pub mod sprite;
-use crate::references::{
-    all_map_ini, chdata_db, dialog, dialogue_text, draw_item, edit_item_db, event_ini,
-    event_item_db, event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini,
-    message_scr, misc_item_db, monster_db, monster_ini, monster_ref, npc_ini, npc_ref,
-    party_ini_db, party_level_db, party_pgp, party_ref, quest_scr, store_db, wave_ini, weapons_db,
-};
+
+mod commands;
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use commands::{Command, CommandFactory};
 
 #[derive(Parser)]
 #[command(about = "Tool to extract assets from the Dispel game")]
@@ -120,6 +84,17 @@ enum Commands {
         input: String,
         /// Destination .WAV file
         output: String,
+    },
+
+    /// Test command
+    #[command(
+        about = "Test command for verifying the command pattern",
+        long_about = "A simple test command to verify the command pattern implementation.\n\nUsage Examples:\n  dispel-extractor test --message 'Hello World'"
+    )]
+    Test {
+        /// Test message to display
+        #[arg(short, long, default_value = "Hello from test command!")]
+        message: String,
     },
 }
 
@@ -363,704 +338,238 @@ fn main() {
         println!("Value for config: {}", config_path.display());
     }
 
+    // Create command factory with dependency injection
+    let command_factory = CommandFactory::new();
+
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
         Some(Commands::Sprite { input, mode }) => {
-            println!("Extracting sprite...");
-            match mode {
-                SpriteMode::Sprite => {
-                    sprite::extract(&Path::new(input), "todo_prefix".to_string())
-                        .expect("ERROR: could not export sprite");
-                }
-                SpriteMode::Animation => {
-                    sprite::animation(&Path::new(input)).expect("ERROR: could not export sprite");
-                }
-            }
+            let mode_enum = match mode {
+                SpriteMode::Sprite => commands::sprite::SpriteMode::Sprite,
+                SpriteMode::Animation => commands::sprite::SpriteMode::Animation,
+            };
+            let command = command_factory.create_sprite_command(input.clone(), mode_enum);
+            command.execute().expect("Command execution failed");
         }
         Some(Commands::Sound { input, output }) => {
-            println!("Extracting sound file to {output}...");
-            snf::extract(&Path::new(input), &Path::new(output))
-                .expect("ERROR: could not convert SNF file to WAV");
+            let command = command_factory.create_sound_command(input.clone(), output.clone());
+            command.execute().expect("Command execution failed");
         }
-        Some(Commands::Map(map_args)) => match &map_args.command {
-            Some(MapCommands::Tiles { input, output }) => {
-                println!("Extracting all tiles to separate tiles...");
-                println!("Input file: {input:?}");
-                println!("Output directory: {output:?}");
-
-                let tiles = map::tileset::extract(&Path::new(input))
-                    .expect("ERROR: could not extract tile-set");
-                map::tileset::plot_all_tiles(&tiles, output);
-            }
-            Some(MapCommands::Atlas { input, output }) => {
-                println!("Rendering map atlas...");
-                println!("Input file: {input:?}");
-                println!("Output file: {output:?}");
-
-                let tiles = map::tileset::extract(&Path::new(input))
-                    .expect("ERROR: could not extract tile-set");
-                map::tileset::plot_tileset_map(&tiles, output);
-            }
-            Some(MapCommands::Render {
-                map,
-                btl,
-                gtl,
-                output,
-                save_sprites,
-            }) => {
-                println!("Rendering map...");
-                map::extract(
-                    &Path::new(map),
-                    &Path::new(btl),
-                    &Path::new(gtl),
-                    &Path::new(output),
-                    save_sprites,
-                )
-                .expect("ERROR: could not render map");
-            }
-            Some(MapCommands::FromDb {
-                database,
-                map_id,
-                gtl_atlas,
-                btl_atlas,
-                atlas_columns,
-                output,
-                game_path,
-            }) => {
-                println!("Rendering map from database...");
-                map::render_from_database(
-                    &Path::new(database),
-                    map_id,
-                    &Path::new(gtl_atlas),
-                    &Path::new(btl_atlas),
-                    *atlas_columns,
-                    &Path::new(output),
-                    game_path.as_deref().map(Path::new),
-                )
-                .expect("ERROR: could not render map from database");
-            }
-            Some(MapCommands::ToDb { database, map }) => {
-                println!("Importing map to database...");
-                map::import_to_database(&Path::new(database), &Path::new(map))
-                    .expect("ERROR: could not import map to database");
-            }
-            Some(MapCommands::Sprites { input, output }) => {
-                println!("Extracting map internal sprites to separate PNG files...");
-                println!("Input file: {input:?}");
-                println!("Output directory: {output:?}");
-
-                map::extract_sprites(&Path::new(input), &Path::new(output))
-                    .expect("ERROR: could not extract sprites");
-            }
-            None => {}
-        },
-        Some(Commands::Ref(ref_args)) => match &ref_args.command {
-            Some(RefCommands::AllMaps { input }) => {
-                let data = all_map_ini::read_all_map_ini(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Map { input }) => {
-                let data =
-                    map_ini::read_map_ini(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Extra { input }) => {
-                let data = extra_ini::read_extra_ini(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Event { input }) => {
-                let data = event_ini::read_event_ini(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Monster { input }) => {
-                let data = monster_ini::read_monster_ini(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Npc { input }) => {
-                let data =
-                    npc_ini::read_npc_ini(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Wave { input }) => {
-                let data =
-                    wave_ini::read_wave_ini(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::DrawItem { input }) => {
-                let data = draw_item::read_draw_items(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Dialog { input }) => {
-                let data =
-                    dialog::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::PartyRef { input }) => {
-                let data = party_ref::read_part_refs(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::PartyPgp { input }) => {
-                let data = party_pgp::read_party_pgps(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::PartyDialog { input }) => {
-                let data =
-                    dialog::read_dialogs(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Weapons { input }) => {
-                let data = weapons_db::read_weapons_db(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::MultiMagic { input }) => {
-                let data =
-                    read_mutli_magic_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Store { input }) => {
-                let data =
-                    store_db::read_store_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::EventNpcRef { input }) => {
-                let data = event_npc_ref::read_event_npc_ref(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::NpcRef { input }) => {
-                let data =
-                    npc_ref::read_npc_ref(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Monsters { input }) => {
-                let data = monster_db::read_monster_db(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::MonsterRef { input }) => {
-                let data = monster_ref::read_monster_ref(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::MiscItem { input }) => {
-                let data =
-                    read_misc_item_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::HealItems { input }) => {
-                let data = heal_item_db::read_heal_item_db(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::ExtraRef { input }) => {
-                let data = extra_ref::read_extra_ref(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::EventItems { input }) => {
-                let data = event_item_db::read_event_item_db(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::EditItems { input }) => {
-                let data = edit_item_db::read_edit_item_db(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::PartyLevel { input }) => {
-                let data =
-                    read_party_level_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::PartyIni { input }) => {
-                let data =
-                    read_party_ini_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Magic { input }) => {
-                let data =
-                    magic_db::read_magic_db(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Quest { input }) => {
-                let data =
-                    quest_scr::read_quests(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::Message { input }) => {
-                let data = message_scr::read_messages(&Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            Some(RefCommands::ChData { input }) => {
-                let data =
-                    chdata_db::read_chdata(&Path::new(input)).expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            None => {}
-        },
-        Some(Commands::Database(database_args)) => match &database_args.command {
-            Some(DatabaseCommands::Import {}) => {
-                save_all().expect("ERROR: could not import all data")
-            }
-            Some(DatabaseCommands::DialogTexts {}) => {
-                let mut conn =
-                    Connection::open("database.sqlite").expect("ERROR: could not open database");
-                import_dialog_texts(&mut conn).expect("ERROR: could not import dialog texts")
-            }
-            Some(DatabaseCommands::Maps {}) => {
-                let mut conn =
-                    Connection::open("database.sqlite").expect("ERROR: could not open database");
-                import_maps(&mut conn).expect("ERROR: could not import maps")
-            }
-            Some(DatabaseCommands::Databases {}) => {
-                let mut conn =
-                    Connection::open("database.sqlite").expect("ERROR: could not open database");
-                import_databases(&mut conn).expect("ERROR: could not import databases")
-            }
-            Some(DatabaseCommands::Refs {}) => {
-                let mut conn =
-                    Connection::open("database.sqlite").expect("ERROR: could not open database");
-                import_refs(&mut conn).expect("ERROR: could not import refs")
-            }
-            Some(DatabaseCommands::Rest {}) => {
-                let mut conn =
-                    Connection::open("database.sqlite").expect("ERROR: could not open database");
-                import_rest(&mut conn).expect("ERROR: could not import rest")
-            }
-            None => {}
-        },
-        None => {}
-    }
-}
-
-fn save_all() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Saving all data...");
-
-    let mut conn = Connection::open("database.sqlite")?;
-
-    initialize_database(&conn)?;
-
-    import_maps(&mut conn)?;
-    import_refs(&mut conn)?;
-    import_rest(&mut conn)?;
-    import_dialog_texts(&mut conn)?;
-    import_databases(&mut conn)?;
-
-    conn.close().unwrap();
-
-    Ok(())
-}
-
-fn import_maps(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let main_path = Path::new("fixtures/Dispel");
-    println!("Saving maps...");
-    let maps = all_map_ini::read_all_map_ini(&main_path.join("AllMap.ini"))?;
-    save_maps(conn, &maps)?;
-
-    println!("Importing all .map files...");
-    let map_dir = main_path.join("Map");
-    if map_dir.exists() {
-        let map_files = [
-            "cat1.map",
-            "cat2.map",
-            "cat3.map",
-            "catp.map",
-            "dun01.map",
-            "dun02.map",
-            "dun03.map",
-            "dun04.map",
-            "dun05.map",
-            "dun06.map",
-            "dun07.map",
-            "dun08.map",
-            "dun09.map",
-            "dun10.map",
-            "dun11.map",
-            "dun12.map",
-            "dun13.map",
-            "dun14.map",
-            "dun15.map",
-            "dun16.map",
-            "dun17.map",
-            "dun18.map",
-            "dun19.map",
-            "dun20.map",
-            "dun21.map",
-            "dun22.map",
-            "dun23.map",
-            "dun24.map",
-            "dun25.map",
-            "final.map",
-            "map1.map",
-            "map2.map",
-            "map3.map",
-        ];
-        for entry in map_files {
-            let path = map_dir.join(entry);
-            if path.extension().and_then(|s| s.to_str()) == Some("map") {
-                let map_id = path.file_stem().unwrap().to_str().unwrap();
-                if map_id == "map4" {
-                    continue;
-                }
-                println!("Importing map file: {}", path.display());
-                match std::fs::File::open(&path) {
-                    Ok(file) => {
-                        let mut reader = std::io::BufReader::new(file);
-                        match map::read_map_data(&mut reader) {
-                            Ok(map_data) => {
-                                if let Err(e) = map::save_to_db(conn, map_id, &map_data) {
-                                    eprintln!(
-                                        "WARNING: could not save map {} to database: {}",
-                                        map_id, e
-                                    );
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!(
-                                    "WARNING: could not read map data from {}: {}",
-                                    path.display(),
-                                    e
-                                );
-                            }
+        Some(Commands::Map(map_args)) => {
+            if let Some(map_command) = &map_args.command {
+                let subcommand = match map_command {
+                    MapCommands::Tiles { input, output } => commands::map::MapSubcommand::Tiles {
+                        input: input.clone(),
+                        output: output.clone(),
+                    },
+                    MapCommands::Atlas { input, output } => commands::map::MapSubcommand::Atlas {
+                        input: input.clone(),
+                        output: output.clone(),
+                    },
+                    MapCommands::Render {
+                        map,
+                        btl,
+                        gtl,
+                        output,
+                        save_sprites,
+                    } => commands::map::MapSubcommand::Render {
+                        map: map.clone(),
+                        btl: btl.clone(),
+                        gtl: gtl.clone(),
+                        output: output.clone(),
+                        save_sprites: *save_sprites,
+                    },
+                    MapCommands::FromDb {
+                        database,
+                        map_id,
+                        gtl_atlas,
+                        btl_atlas,
+                        atlas_columns,
+                        output,
+                        game_path,
+                    } => commands::map::MapSubcommand::FromDb {
+                        database: database.clone(),
+                        map_id: map_id.clone(),
+                        gtl_atlas: gtl_atlas.clone(),
+                        btl_atlas: btl_atlas.clone(),
+                        atlas_columns: *atlas_columns,
+                        output: output.clone(),
+                        game_path: game_path.clone(),
+                    },
+                    MapCommands::ToDb { database, map } => commands::map::MapSubcommand::ToDb {
+                        database: database.clone(),
+                        map: map.clone(),
+                    },
+                    MapCommands::Sprites { input, output } => {
+                        commands::map::MapSubcommand::Sprites {
+                            input: input.clone(),
+                            output: output.clone(),
                         }
                     }
-                    Err(e) => {
-                        eprintln!("WARNING: could not open map file {}: {}", path.display(), e);
-                    }
-                }
+                };
+                let command = command_factory.create_map_command(subcommand);
+                command.execute().expect("Command execution failed");
             }
         }
+        Some(Commands::Ref(ref_args)) => {
+            if let Some(ref_command) = &ref_args.command {
+                let subcommand = match ref_command {
+                    RefCommands::AllMaps { input } => {
+                        commands::ref_command::RefSubcommand::AllMaps {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Map { input } => commands::ref_command::RefSubcommand::Map {
+                        input: input.clone(),
+                    },
+                    RefCommands::Extra { input } => commands::ref_command::RefSubcommand::Extra {
+                        input: input.clone(),
+                    },
+                    RefCommands::Event { input } => commands::ref_command::RefSubcommand::Event {
+                        input: input.clone(),
+                    },
+                    RefCommands::Monster { input } => {
+                        commands::ref_command::RefSubcommand::Monster {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Npc { input } => commands::ref_command::RefSubcommand::Npc {
+                        input: input.clone(),
+                    },
+                    RefCommands::Wave { input } => commands::ref_command::RefSubcommand::Wave {
+                        input: input.clone(),
+                    },
+                    RefCommands::DrawItem { input } => {
+                        commands::ref_command::RefSubcommand::DrawItem {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Dialog { input } => commands::ref_command::RefSubcommand::Dialog {
+                        input: input.clone(),
+                    },
+                    RefCommands::PartyRef { input } => {
+                        commands::ref_command::RefSubcommand::PartyRef {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::PartyPgp { input } => {
+                        commands::ref_command::RefSubcommand::PartyPgp {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::PartyDialog { input } => {
+                        commands::ref_command::RefSubcommand::PartyDialog {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Weapons { input } => {
+                        commands::ref_command::RefSubcommand::Weapons {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::MultiMagic { input } => {
+                        commands::ref_command::RefSubcommand::MultiMagic {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Store { input } => commands::ref_command::RefSubcommand::Store {
+                        input: input.clone(),
+                    },
+                    RefCommands::EventNpcRef { input } => {
+                        commands::ref_command::RefSubcommand::EventNpcRef {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::NpcRef { input } => commands::ref_command::RefSubcommand::NpcRef {
+                        input: input.clone(),
+                    },
+                    RefCommands::Monsters { input } => {
+                        commands::ref_command::RefSubcommand::Monsters {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::MonsterRef { input } => {
+                        commands::ref_command::RefSubcommand::MonsterRef {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::MiscItem { input } => {
+                        commands::ref_command::RefSubcommand::MiscItem {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::HealItems { input } => {
+                        commands::ref_command::RefSubcommand::HealItems {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::ExtraRef { input } => {
+                        commands::ref_command::RefSubcommand::ExtraRef {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::EventItems { input } => {
+                        commands::ref_command::RefSubcommand::EventItems {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::EditItems { input } => {
+                        commands::ref_command::RefSubcommand::EditItems {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::PartyLevel { input } => {
+                        commands::ref_command::RefSubcommand::PartyLevel {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::PartyIni { input } => {
+                        commands::ref_command::RefSubcommand::PartyIni {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::Magic { input } => commands::ref_command::RefSubcommand::Magic {
+                        input: input.clone(),
+                    },
+                    RefCommands::Quest { input } => commands::ref_command::RefSubcommand::Quest {
+                        input: input.clone(),
+                    },
+                    RefCommands::Message { input } => {
+                        commands::ref_command::RefSubcommand::Message {
+                            input: input.clone(),
+                        }
+                    }
+                    RefCommands::ChData { input } => commands::ref_command::RefSubcommand::ChData {
+                        input: input.clone(),
+                    },
+                };
+                let command = command_factory.create_ref_command(subcommand);
+                command.execute().expect("Command execution failed");
+            }
+        }
+        Some(Commands::Database(database_args)) => {
+            if let Some(database_command) = &database_args.command {
+                let subcommand = match database_command {
+                    DatabaseCommands::Import {} => commands::database::DatabaseSubcommand::Import,
+                    DatabaseCommands::DialogTexts {} => {
+                        commands::database::DatabaseSubcommand::DialogTexts
+                    }
+                    DatabaseCommands::Maps {} => commands::database::DatabaseSubcommand::Maps,
+                    DatabaseCommands::Databases {} => {
+                        commands::database::DatabaseSubcommand::Databases
+                    }
+                    DatabaseCommands::Refs {} => commands::database::DatabaseSubcommand::Refs,
+                    DatabaseCommands::Rest {} => commands::database::DatabaseSubcommand::Rest,
+                };
+                let command = command_factory.create_database_command(subcommand);
+                command.execute().expect("Command execution failed");
+            }
+        }
+        Some(Commands::Test { message }) => {
+            let command = command_factory.create_test_command(message.clone());
+            command.execute().expect("Command execution failed");
+        }
+        None => {}
     }
-    println!("Saving map_inis...");
-    let map_inis = map_ini::read_map_ini(&main_path.join("Ref/Map.ini"))?;
-    save_map_inis(conn, &map_inis)?;
-    Ok(())
-}
-
-fn import_refs(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let main_path = Path::new("fixtures/Dispel");
-    println!("Saving extras...");
-    let extras = extra_ini::read_extra_ini(&main_path.join("Extra.ini"))?;
-    save_extras(conn, &extras)?;
-    println!("Saving events...");
-    let events = event_ini::read_event_ini(&main_path.join("Event.ini"))?;
-    save_events(conn, &events)?;
-    println!("Saving monster_inis...");
-    let monster_inis = monster_ini::read_monster_ini(&main_path.join("Monster.ini"))?;
-    save_monster_inis(conn, &monster_inis)?;
-    println!("Saving npc_inis...");
-    let npc_inis = npc_ini::read_npc_ini(&main_path.join("Npc.ini"))?;
-    save_npc_inis(conn, &npc_inis)?;
-    println!("Saving wave_inis...");
-    let wave_inis = wave_ini::read_wave_ini(&main_path.join("Wave.ini"))?;
-    save_wave_inis(conn, &wave_inis)?;
-    Ok(())
-}
-
-fn import_dialog_texts(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let main_path = Path::new("fixtures/Dispel");
-    let dialog_files = [
-        "NpcInGame/Dlgcat1.dlg",
-        "NpcInGame/Dlgcat2.dlg",
-        "NpcInGame/Dlgcat3.dlg",
-        "NpcInGame/Dlgcatp.dlg",
-        "NpcInGame/Dlgdun04.dlg",
-        "NpcInGame/Dlgdun07.dlg",
-        "NpcInGame/Dlgdun08.dlg",
-        "NpcInGame/Dlgdun10.dlg",
-        "NpcInGame/Dlgdun19.dlg",
-        "NpcInGame/Dlgdun22.dlg",
-        "NpcInGame/Dlgmap1.dlg",
-        "NpcInGame/Dlgmap2.dlg",
-        "NpcInGame/Dlgmap3.dlg",
-        "NpcInGame/PartyDlg.dlg",
-    ];
-    println!("Saving dialogs...");
-    for dialog_file in dialog_files {
-        let dialogs = dialog::read_dialogs(&main_path.join(dialog_file))?;
-        save_dialogs(conn, dialog_file, &dialogs)?;
-    }
-
-    let pgp_files = [
-        "NpcInGame/PartyPgp.pgp",
-        "NpcInGame/Pgpcat1.pgp",
-        "NpcInGame/Pgpcat2.pgp",
-        "NpcInGame/Pgpcat3.pgp",
-        "NpcInGame/Pgpcatp.pgp",
-        "NpcInGame/Pgpdun04.pgp",
-        "NpcInGame/Pgpdun07.pgp",
-        "NpcInGame/Pgpdun08.pgp",
-        "NpcInGame/Pgpdun10.pgp",
-        "NpcInGame/Pgpdun19.pgp",
-        "NpcInGame/Pgpdun22.pgp",
-        "NpcInGame/Pgpmap1.pgp",
-        "NpcInGame/Pgpmap2.pgp",
-        "NpcInGame/Pgpmap3.pgp",
-    ];
-    println!("Saving dialogue texts...");
-    for pgp_file in pgp_files {
-        let texts = dialogue_text::read_dialogue_texts(&main_path.join(pgp_file))?;
-        save_dialogue_texts(conn, pgp_file, &texts)?;
-    }
-    Ok(())
-}
-
-fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let main_path = Path::new("fixtures/Dispel");
-    println!("Saving weapons...");
-    let weapons = weapons_db::read_weapons_db(&main_path.join("CharacterInGame/weaponItem.db"))?;
-    save_weapons(conn, &weapons)?;
-    println!("Saving stores...");
-    let stores = store_db::read_store_db(&main_path.join("CharacterInGame/STORE.DB"))?;
-    save_stores(conn, &stores)?;
-    println!("Saving monsters...");
-    let monsters = monster_db::read_monster_db(&main_path.join("MonsterInGame/Monster.db"))?;
-    save_monsters(conn, &monsters)?;
-    println!("Saving misc_items...");
-    let misc_items =
-        misc_item_db::read_misc_item_db(&main_path.join("CharacterInGame/MiscItem.db"))?;
-    save_misc_items(conn, &misc_items)?;
-    println!("Saving heal_items...");
-    let heal_items =
-        heal_item_db::read_heal_item_db(&main_path.join("CharacterInGame/HealItem.db"))?;
-    save_heal_items(conn, &heal_items)?;
-    println!("Saving event_items...");
-    let event_items =
-        event_item_db::read_event_item_db(&main_path.join("CharacterInGame/EventItem.db"))?;
-    save_event_items(conn, &event_items)?;
-    println!("Saving edit_items...");
-    let edit_items =
-        edit_item_db::read_edit_item_db(&main_path.join("CharacterInGame/EditItem.db"))?;
-    save_edit_items(conn, &edit_items)?;
-    println!("Saving party_level_db...");
-    let party_levels =
-        party_level_db::read_party_level_db(&main_path.join("NpcInGame/PrtLevel.db"))?;
-    save_party_levels(conn, &party_levels)?;
-    println!("Saving party_ini_db...");
-    let party_inis = party_ini_db::read_party_ini_db(&main_path.join("NpcInGame/PrtIni.db"))?;
-    save_party_inis(conn, &party_inis)?;
-    println!("Saving magic_spells...");
-    let magic_spells = magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
-    save_magic_spells(conn, &magic_spells)?;
-
-    println!("Saving quests...");
-    let quests = quest_scr::read_quests(&main_path.join("ExtraInGame/Quest.scr"))?;
-    save_quests(conn, &quests)?;
-
-    println!("Saving messages...");
-    let messages = message_scr::read_messages(&main_path.join("ExtraInGame/Message.scr"))?;
-    save_messages(conn, &messages)?;
-
-    Ok(())
-}
-
-fn import_rest(conn: &mut Connection) -> Result<(), Box<dyn std::error::Error>> {
-    let main_path = Path::new("fixtures/Dispel");
-    println!("Saving party_refs...");
-    let party_refs = party_ref::read_part_refs(&main_path.join("Ref/PartyRef.ref"))?;
-    save_party_refs(conn, &party_refs)?;
-    println!("Saving draw_items...");
-    let draw_items = draw_item::read_draw_items(&main_path.join("Ref/DRAWITEM.ref"))?;
-    save_draw_items(conn, &draw_items)?;
-    println!("Saving party_pgps...");
-    let party_pgps = party_pgp::read_party_pgps(&main_path.join("NpcInGame/PartyPgp.pgp"))?;
-    save_party_pgps(conn, &party_pgps)?;
-
-    let npc_ref_files = [
-        "NpcInGame/Npccat1.ref",
-        "NpcInGame/Npccat2.ref",
-        "NpcInGame/Npccat3.ref",
-        "NpcInGame/Npccatp.ref",
-        "NpcInGame/npcdun08.ref",
-        "NpcInGame/npcdun19.ref",
-        "NpcInGame/Npcmap1.ref",
-        "NpcInGame/Npcmap2.ref",
-        "NpcInGame/Npcmap3.ref",
-    ];
-    println!("Saving npcrefs...");
-    for npc_ref_file in npc_ref_files {
-        let npcrefs = npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?;
-        save_npc_refs(conn, npc_ref_file, &npcrefs)?;
-    }
-
-    println!("Saving event_npc_refs...");
-    let event_npc_refs =
-        event_npc_ref::read_event_npc_ref(&main_path.join("NpcInGame/Eventnpc.ref"))?;
-    save_event_npc_refs(conn, &event_npc_refs)?;
-
-    let monster_ref_files = [
-        "MonsterInGame/Mondun01.ref",
-        "MonsterInGame/Mondun02.ref",
-        "MonsterInGame/mondun03.ref",
-        "MonsterInGame/mondun04.ref",
-        "MonsterInGame/Mondun05.ref",
-        "MonsterInGame/mondun06.ref",
-        "MonsterInGame/mondun07.ref",
-        "MonsterInGame/mondun08.ref",
-        "MonsterInGame/mondun09.ref",
-        "MonsterInGame/Mondun10.ref",
-        "MonsterInGame/mondun11.ref",
-        "MonsterInGame/mondun12.ref",
-        "MonsterInGame/mondun13.ref",
-        "MonsterInGame/Mondun14.ref",
-        "MonsterInGame/mondun15.ref",
-        "MonsterInGame/mondun16.ref",
-        "MonsterInGame/mondun17.ref",
-        "MonsterInGame/mondun18.ref",
-        "MonsterInGame/Mondun19.ref",
-        "MonsterInGame/mondun20.ref",
-        "MonsterInGame/mondun21.ref",
-        "MonsterInGame/mondun22.ref",
-        "MonsterInGame/mondun23.ref",
-        "MonsterInGame/mondun24.ref",
-        "MonsterInGame/mondun25.ref",
-        "MonsterInGame/monfinal.ref",
-        "MonsterInGame/Monmap1.ref",
-        "MonsterInGame/Monmap2.ref",
-        "MonsterInGame/Monmap3.ref",
-    ];
-    println!("Saving monster_refs...");
-    for monster_ref_file in monster_ref_files {
-        let monster_refs = monster_ref::read_monster_ref(&main_path.join(monster_ref_file))?;
-        save_monster_refs(conn, monster_ref_file, &monster_refs)?;
-    }
-
-    let extra_ref_files = [
-        "ExtraInGame/Extcat3.ref",
-        "ExtraInGame/Extdun01.ref",
-        "ExtraInGame/Extdun02.ref",
-        "ExtraInGame/Extdun03.ref",
-        "ExtraInGame/Extdun04.ref",
-        "ExtraInGame/Extdun05.ref",
-        "ExtraInGame/Extdun06.ref",
-        "ExtraInGame/Extdun07.ref",
-        "ExtraInGame/Extdun08.ref",
-        "ExtraInGame/Extdun09.ref",
-        "ExtraInGame/Extdun10.ref",
-        "ExtraInGame/Extdun11.ref",
-        "ExtraInGame/Extdun12.ref",
-        "ExtraInGame/Extdun13.ref",
-        "ExtraInGame/Extdun14.ref",
-        "ExtraInGame/Extdun15.ref",
-        "ExtraInGame/Extdun16.ref",
-        "ExtraInGame/Extdun17.ref",
-        "ExtraInGame/Extdun18.ref",
-        "ExtraInGame/Extdun19.ref",
-        "ExtraInGame/Extdun20.ref",
-        "ExtraInGame/Extdun21.ref",
-        "ExtraInGame/Extdun22.ref",
-        "ExtraInGame/Extdun23.ref",
-        "ExtraInGame/Extdun24.ref",
-        "ExtraInGame/Extdun25.ref",
-        "ExtraInGame/Extfinal.ref",
-        "ExtraInGame/Extmap1.ref",
-        "ExtraInGame/Extmap2.ref",
-        "ExtraInGame/Extmap3.ref",
-    ];
-    println!("Saving extra_refs...");
-    for extra_ref_file in extra_ref_files {
-        let extra_refs = extra_ref::read_extra_ref(&main_path.join(extra_ref_file))?;
-        save_extra_refs(conn, extra_ref_file, &extra_refs)?;
-    }
-    Ok(())
 }

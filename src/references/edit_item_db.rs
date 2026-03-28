@@ -24,29 +24,29 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 // | Header: 4-byte record count          |
 // | Record Size: 268 bytes (67 × i32)    |
 // +--------------------------------------+
-// | [Header]                            |
+// | [Header]                             |
 // | - record_count: i32                  |
 // +--------------------------------------+
 // | [Record 1]                           |
-// | - name: 30 bytes (WINDOWS-1250)     |
-// | - description: 202 bytes (EUC-KR)   |
-// | - base_price: i16                   |
+// | - name: 30 bytes (WINDOWS-1250)      |
+// | - description: 202 bytes (EUC-KR)    |
+// | - base_price: i16                    |
 // | - padding: 6 bytes                   |
 // | - health_points: i16 (PZ)            |
 // | - magic_points: i16 (PM)             |
-// | - strength: i16 (SIŁ)               |
-// | - agility: i16 (ZW)                 |
-// | - wisdom: i16 (MM)                  |
-// | - constitution: i16 (TF)            |
-// | - to_dodge: i16 (UNK)              |
-// | - to_hit: i16 (TRF)                 |
-// | - offense: i16 (ATK)               |
-// | - defense: i16 (OBR)                |
-// | - padding: i16                      |
-// | - item_destroying_power: i16        |
-// | - padding: u8                      |
-// | - modifies_item: u8                 |
-// | - additional_effect: i16            |
+// | - strength: i16 (SIŁ)                |
+// | - agility: i16 (ZW)                  |
+// | - wisdom: i16 (MM)                   |
+// | - constitution: i16 (TF)             |
+// | - to_dodge: i16 (UNK)                |
+// | - to_hit: i16 (TRF)                  |
+// | - offense: i16 (ATK)                 |
+// | - defense: i16 (OBR)                 |
+// | - padding: i16                       |
+// | - item_destroying_power: i16         |
+// | - padding: u8                        |
+// | - modifies_item: u8                  |
+// | - additional_effect: i16             |
 // +--------------------------------------+
 // | [Record 2]                           |
 // | ... (same structure) ...             |

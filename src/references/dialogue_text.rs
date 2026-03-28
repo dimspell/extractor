@@ -17,19 +17,19 @@ use crate::references::references::Extractor;
 // ASCII Structure:
 //
 // +--------------------------------------+
-// | PartyDlg.dlg - Dialogue Text        |
+// | PartyDlg.dlg - Dialogue Text         |
 // +--------------------------------------+
-// | Encoding: WINDOWS-1250              |
+// | Encoding: WINDOWS-1250               |
 // | Format: Commented pipe-delimited     |
-// | Record Size: Variable (text)        |
+// | Record Size: Variable (text)         |
 // +--------------------------------------+
 // | ; Comment line 1                     |
 // | ; Comment line 2                     |
-// | id|text|param1|param2                 |
-// | 1|Hello|0|0                           |
+// | id|text|param1|param2                |
+// | 1|Hello|0|0                          |
 // | ; Quest dialogue                     |
 // | 2|Find the artifact|100|5            |
-// | ...                                   |
+// | ...                                  |
 // +--------------------------------------+
 //
 // FIELD DEFINITIONS:

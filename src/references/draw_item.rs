@@ -15,17 +15,17 @@ use crate::references::references::Extractor;
 // ASCII Structure:
 //
 // +--------------------------------------+
-// | DRAWITEM.ref - Map Object Placements|
+// | DRAWITEM.ref - Map Object Placements |
 // +--------------------------------------+
-// | Encoding: EUC-KR                    |
-// | Format: Parenthesized CSV           |
-// | Record Size: Variable (text)       |
+// | Encoding: EUC-KR                     |
+// | Format: Parenthesized CSV            |
+// | Record Size: Variable (text)         |
 // +--------------------------------------+
 // | ; Comment line                       |
 // | (map_id,x_coord,y_coord,item_id)     |
-// | (1,5,10,1001)                         |
-// | (1,6,11,1002)                         |
-// | ...                                   |
+// | (1,5,10,1001)                        |
+// | (1,6,11,1002)                        |
+// | ...                                  |
 // +--------------------------------------+
 //
 // FIELD DEFINITIONS:

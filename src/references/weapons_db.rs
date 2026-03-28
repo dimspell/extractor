@@ -29,24 +29,24 @@ use serde::{Deserialize, Serialize};
 // | - name: 30 bytes (WINDOWS-1250)      |
 // | - description: 202 bytes (WINDOWS-1250)|
 // | - base_price: i16                    |
-// | - padding: i16 × 3                  |
-// | - health_points: i16                |
+// | - padding: i16 × 3                   |
+// | - health_points: i16                 |
 // | - magic_points: i16                  |
 // | - strength: i16                      |
 // | - agility: i16                       |
 // | - wisdom: i16                        |
-// | - tf: i16                            |
+// | - constitution: i16                  |
 // | - unk: i16                           |
 // | - trf: i16                           |
-// | - attack: i16                         |
+// | - attack: i16                        |
 // | - defense: i16                       |
-// | - mag: i16                           |
+// | - magical_power: i16                 |
 // | - durability: i16                    |
 // | - padding: i16 × 2                   |
 // | - req_strength: i16                  |
-// | - padding: i16                      |
+// | - padding: i16                       |
 // | - req_zw: i16                        |
-// | - padding: i16                      |
+// | - padding: i16                       |
 // | - req_wisdom: i16                    |
 // | - padding: i16 × 3                   |
 // +--------------------------------------+
@@ -143,18 +143,15 @@ impl Extractor for WeaponItem {
         const PROPERTY_ITEM_SIZE: i32 = 71 * 4;
         let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
 
-        const NAME_STRING_MAX_LENGTH: usize = 30;
-        const DESCRIPTION_STRING_MAX_LENGTH: usize = 202;
-
         let mut weapons: Vec<WeaponItem> = vec![];
         for i in 0..elements as usize {
             // name
-            let mut buffer = [0u8; NAME_STRING_MAX_LENGTH];
+            let mut buffer = [0u8; 30];
             reader.read_exact(&mut buffer)?;
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
             // description
-            let mut buffer = [0u8; DESCRIPTION_STRING_MAX_LENGTH];
+            let mut buffer = [0u8; 202];
             reader.read_exact(&mut buffer)?;
             let description = read_null_terminated_windows_1250(&buffer).unwrap();
 
