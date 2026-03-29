@@ -238,7 +238,8 @@ pub fn read_roof_tiles(
                 if some_flag > 0 {
                     println!("ReadRoofTiles TODO: {btl_tile_id:?} {some_flag}");
                 }
-                btl_tiles.insert(coords, btl_tile_id.into());
+                let real_btl_id = btl_tile_id >> 1;
+                btl_tiles.insert(coords, real_btl_id.into());
             }
         }
     }
