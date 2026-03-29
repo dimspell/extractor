@@ -586,6 +586,8 @@ pub enum ItemTypeId {
     Miscellaneous = 4,
     /// Edit item type
     Edit = 5,
+    /// Event/Quest item type
+    Event = 6,
     /// Other/Unknown item type (catch-all for undefined values)
     Other = 255,
 }
@@ -600,6 +602,7 @@ impl ItemTypeId {
             3 => Some(ItemTypeId::Healing),
             4 => Some(ItemTypeId::Miscellaneous),
             5 => Some(ItemTypeId::Edit),
+            6 => Some(ItemTypeId::Event),
             _ => Some(ItemTypeId::Other),
         }
     }

@@ -2,6 +2,10 @@
 members = [".", "dispel-gui"]
 resolver = "2"
 
+[lib]
+name = "dispel_core"
+path = "src/lib.rs"
+
 [package]
 name = "dispel-extractor"
 version = "0.1.0"

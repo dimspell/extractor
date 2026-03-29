@@ -7,7 +7,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // MISCITEM.DB FILE FORMAT
@@ -49,7 +49,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MiscItem {
     /// Numeric tracking index.
     pub id: i32,

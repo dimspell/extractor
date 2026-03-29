@@ -7,7 +7,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // EXTRAREF.REF FILE FORMAT
@@ -86,7 +86,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExtraRef {
     /// Specific object generation ID for map tracking.
     pub id: i32,

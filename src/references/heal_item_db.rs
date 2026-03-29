@@ -6,7 +6,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::references::enums::HealItemFlag;
 use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
@@ -69,7 +69,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HealItem {
     /// Record index mapping internally.
     pub id: i32,
