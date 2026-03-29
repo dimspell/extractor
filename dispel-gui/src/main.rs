@@ -847,9 +847,29 @@ impl App {
                 }
                 self.chest_editor.is_loading = true;
 
-                // TODO: Copy the original file with a timestamp (before file extension) as a backup
-
                 let path = PathBuf::from(&self.chest_editor.current_map_file);
+
+                // Copy the original file with a timestamp (before file extension) as a backup
+                if path.exists() {
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+
+                    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                    let ext = path.extension().unwrap_or_default().to_string_lossy();
+                    
+                    let mut backup_path = path.clone();
+                    backup_path.set_file_name(format!("{}_{}.{}", stem, timestamp, ext));
+                    
+                    if let Err(e) = std::fs::copy(&path, &backup_path) {
+                        return Task::perform(
+                            async move { Err(format!("Failed to backup: {}", e)) },
+                            |res| Message::ChestSaved(res),
+                        );
+                    }
+                }
+
                 let records = self.chest_editor.all_records.clone();
                 Task::perform(
                     async move { dispel_core::ExtraRef::save_file(&records, &path) },
