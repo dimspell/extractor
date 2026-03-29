@@ -57,6 +57,10 @@ jobs:
             os: windows-latest
             rust: nightly
             target: x86_64-pc-windows-msvc
+          - build: gui-windows
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
 
     steps:
       - name: Checkout repository
@@ -84,15 +88,26 @@ jobs:
       - name: Build release binary
         shell: bash
         run: |
-          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
-          bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
+          if [ "${{ matrix.build }}" = "gui-windows" ]; then
+            cd dispel-gui
+            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+            bin="../target/${{ matrix.target }}/release/dispel-gui.exe"
+            cd ..
+          else
+            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+            bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
+          fi
           echo "BIN=$bin" >> $GITHUB_ENV
 
       - name: Determine archive name
         shell: bash
         run: |
           version="${{ needs.create-release.outputs.version }}"
-          echo "ARCHIVE=dispel-extractor-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          if [ "${{ matrix.build }}" = "gui-windows" ]; then
+            echo "ARCHIVE=dispel-gui-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          else
+            echo "ARCHIVE=dispel-extractor-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          fi
 
       - name: Creating directory for archive
         shell: bash
