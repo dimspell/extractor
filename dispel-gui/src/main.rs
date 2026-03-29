@@ -6,9 +6,9 @@ use iced::{color, Element, Fill, Font, Length, Task, Theme};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+pub mod chest_editor;
 mod db;
 mod style;
-pub mod chest_editor;
 use dispel_core::Extractor;
 
 pub fn main() -> iced::Result {
@@ -490,7 +490,8 @@ impl App {
 
     fn refresh_chests(&mut self) {
         let editor = &mut self.chest_editor;
-        editor.filtered_chests = editor.all_records
+        editor.filtered_chests = editor
+            .all_records
             .iter()
             .enumerate()
             .filter(|(_, r)| r.object_type == dispel_core::ExtraObjectType::Chest)
@@ -501,9 +502,7 @@ impl App {
     fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
         self.chest_editor.is_loading = true;
         Task::perform(
-            async move {
-                dispel_core::ExtraRef::read_file(&path)
-            },
+            async move { dispel_core::ExtraRef::read_file(&path) },
             |res| Message::ChestMapLoaded(res.map_err(|e| e.to_string())),
         )
     }
@@ -678,7 +677,7 @@ impl App {
             Message::ChestOpBrowseGamePath => browse_folder("chest_game_path"),
             Message::ChestOpBrowseMapFile => browse_file("chest_map_file"),
             Message::ChestOpScanMaps => {
-                 if self.chest_editor.game_path.is_empty() {
+                if self.chest_editor.game_path.is_empty() {
                     self.chest_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
@@ -686,19 +685,23 @@ impl App {
                 let path = PathBuf::from(&self.chest_editor.game_path).join("ExtraInGame");
                 Task::perform(
                     async move {
-                         let mut files = vec![];
-                         if let Ok(entries) = std::fs::read_dir(path) {
-                             for entry in entries.flatten() {
-                                 let p = entry.path();
-                                 if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false) {
-                                     if p.file_name().map(|n| n.to_string_lossy().starts_with("Ext")).unwrap_or(false) {
-                                         files.push(p);
-                                     }
-                                 }
-                             }
-                         }
-                         files.sort();
-                         Ok(files)
+                        let mut files = vec![];
+                        if let Ok(entries) = std::fs::read_dir(path) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false)
+                                {
+                                    if p.file_name()
+                                        .map(|n| n.to_string_lossy().starts_with("Ext"))
+                                        .unwrap_or(false)
+                                    {
+                                        files.push(p);
+                                    }
+                                }
+                            }
+                        }
+                        files.sort();
+                        Ok(files)
                     },
                     |res| Message::ChestMapsScanned(res),
                 )
@@ -706,11 +709,12 @@ impl App {
             Message::ChestMapsScanned(res) => {
                 self.chest_editor.is_loading = false;
                 match res {
-                   Ok(files) => {
-                       self.chest_editor.map_files = files;
-                       self.chest_editor.status_msg = format!("Found {} map files.", self.chest_editor.map_files.len());
-                   }
-                   Err(e) => self.chest_editor.status_msg = format!("Error scanning maps: {}", e),
+                    Ok(files) => {
+                        self.chest_editor.map_files = files;
+                        self.chest_editor.status_msg =
+                            format!("Found {} map files.", self.chest_editor.map_files.len());
+                    }
+                    Err(e) => self.chest_editor.status_msg = format!("Error scanning maps: {}", e),
                 }
                 Task::none()
             }
@@ -723,9 +727,7 @@ impl App {
                 self.chest_editor.is_loading = true;
                 let path = PathBuf::from(&self.chest_editor.game_path);
                 Task::perform(
-                    async move {
-                        chest_editor::ItemCatalog::load_from_folder(&path)
-                    },
+                    async move { chest_editor::ItemCatalog::load_from_folder(&path) },
                     |res| Message::ChestCatalogLoaded(res.map_err(|e| e.to_string())),
                 )
             }
@@ -736,7 +738,9 @@ impl App {
                         self.chest_editor.catalog = Some(catalog);
                         self.chest_editor.status_msg = "Catalog loaded successfully.".into();
                     }
-                    Err(e) => self.chest_editor.status_msg = format!("Error loading catalog: {}", e),
+                    Err(e) => {
+                        self.chest_editor.status_msg = format!("Error loading catalog: {}", e)
+                    }
                 }
                 Task::none()
             }
@@ -792,34 +796,63 @@ impl App {
                 if let Some(record) = self.chest_editor.all_records.get_mut(orig_idx) {
                     match field.as_str() {
                         "name" => record.name = val,
-                        "x" => if let Ok(v) = val.parse() { record.x_pos = v },
-                        "y" => if let Ok(v) = val.parse() { record.y_pos = v },
-                        "gold" => if let Ok(v) = val.parse() { record.gold_amount = v },
-                        "item_count" => if let Ok(v) = val.parse() { record.item_count = v },
-                        "item_id" => if let Ok(v) = val.parse() { record.item_id = v },
-                        "item_type" => if let Ok(v) = val.parse::<u8>() { 
-                            if let Some(t) = dispel_core::ItemTypeId::from_u8(v) {
-                                record.item_type_id = t;
+                        "x" => {
+                            if let Ok(v) = val.parse() {
+                                record.x_pos = v
                             }
-                        },
-                        "closed" => if let Ok(v) = val.parse() { record.closed = v },
-                         _ => {}
+                        }
+                        "y" => {
+                            if let Ok(v) = val.parse() {
+                                record.y_pos = v
+                            }
+                        }
+                        "gold" => {
+                            if let Ok(v) = val.parse() {
+                                record.gold_amount = v
+                            }
+                        }
+                        "item_count" => {
+                            if let Ok(v) = val.parse() {
+                                record.item_count = v
+                            }
+                        }
+                        "item_id" => {
+                            if let Ok(v) = val.parse() {
+                                record.item_id = v
+                            }
+                        }
+                        "item_type" => {
+                            if let Ok(v) = val.parse::<u8>() {
+                                if let Some(t) = dispel_core::ItemTypeId::from_u8(v) {
+                                    record.item_type_id = t;
+                                }
+                            }
+                        }
+                        "closed" => {
+                            if let Ok(v) = val.parse() {
+                                record.closed = v
+                            }
+                        }
+                        _ => {}
                     }
                     self.refresh_chests();
                 }
                 Task::none()
             }
             Message::ChestOpSave => {
-                if self.chest_editor.current_map_file.is_empty() || self.chest_editor.all_records.is_empty() {
+                if self.chest_editor.current_map_file.is_empty()
+                    || self.chest_editor.all_records.is_empty()
+                {
                     return Task::none();
                 }
                 self.chest_editor.is_loading = true;
+
+                // TODO: Copy the original file with a timestamp (before file extension) as a backup
+
                 let path = PathBuf::from(&self.chest_editor.current_map_file);
                 let records = self.chest_editor.all_records.clone();
                 Task::perform(
-                    async move {
-                        dispel_core::ExtraRef::save_file(&records, &path)
-                    },
+                    async move { dispel_core::ExtraRef::save_file(&records, &path) },
                     |res| Message::ChestSaved(res.map_err(|e| e.to_string())),
                 )
             }
@@ -1892,56 +1925,99 @@ impl App {
         let game_path_row = row![
             text("Game Path:").size(14),
             text(format!("{}", editor.game_path)).size(12),
-            button(text("Browse...")).on_press(Message::ChestOpBrowseGamePath).style(style::browse_button),
-            button(text("Load Catalog")).on_press(Message::ChestOpLoadCatalog).style(style::run_button),
-        ].spacing(10).align_y(iced::Alignment::Center);
+            button(text("Browse..."))
+                .on_press(Message::ChestOpBrowseGamePath)
+                .style(style::browse_button),
+            button(text("Load Catalog"))
+                .on_press(Message::ChestOpLoadCatalog)
+                .style(style::run_button),
+        ]
+        .spacing(10)
+        .align_y(iced::Alignment::Center);
 
         let map_file_row = row![
             text("Map File:").size(14),
             text(format!("{}", editor.current_map_file)).size(12),
-            button(text("Browse...")).on_press(Message::ChestOpBrowseMapFile).style(style::browse_button),
-            button(text("Load Map")).on_press(Message::ChestOpSelectMap).style(style::run_button),
-        ].spacing(10).align_y(iced::Alignment::Center);
+            button(text("Browse..."))
+                .on_press(Message::ChestOpBrowseMapFile)
+                .style(style::browse_button),
+            button(text("Load Map"))
+                .on_press(Message::ChestOpSelectMap)
+                .style(style::run_button),
+        ]
+        .spacing(10)
+        .align_y(iced::Alignment::Center);
 
-        let status_row = container(row![
-            text(&editor.status_msg).size(13).style(style::subtle_text),
-            horizontal_space(),
-            if editor.is_loading { Element::from(text("Loading...").size(13)) } else { Element::from(text("")) },
-            horizontal_space().width(20),
-            button(text("Save Map Changes")).on_press(Message::ChestOpSave).style(style::commit_button),
-        ].padding([10, 20]).align_y(iced::Alignment::Center)).width(Fill).style(style::status_bar);
+        let status_row = container(
+            row![
+                text(&editor.status_msg).size(13).style(style::subtle_text),
+                horizontal_space(),
+                if editor.is_loading {
+                    Element::from(text("Loading...").size(13))
+                } else {
+                    Element::from(text(""))
+                },
+                horizontal_space().width(20),
+                button(text("Save Map Changes"))
+                    .on_press(Message::ChestOpSave)
+                    .style(style::commit_button),
+            ]
+            .padding([10, 20])
+            .align_y(iced::Alignment::Center),
+        )
+        .width(Fill)
+        .style(style::status_bar);
 
-        let map_list: Vec<Element<Message>> = editor.map_files.iter().map(|path| {
-            let is_selected = editor.current_map_file == path.to_string_lossy();
-            let btn = button(text(path.file_name().unwrap_or_default().to_string_lossy()).size(12))
-                .width(Fill)
-                .on_press(Message::ChestOpSelectMapFromFile(path.clone()));
-            if is_selected {
-                btn.style(style::active_tab_button).into()
-            } else {
-                btn.style(style::tab_button).into()
-            }
-        }).collect();
+        let map_list: Vec<Element<Message>> = editor
+            .map_files
+            .iter()
+            .map(|path| {
+                let is_selected = editor.current_map_file == path.to_string_lossy();
+                let btn =
+                    button(text(path.file_name().unwrap_or_default().to_string_lossy()).size(12))
+                        .width(Fill)
+                        .on_press(Message::ChestOpSelectMapFromFile(path.clone()));
+                if is_selected {
+                    btn.style(style::active_tab_button).into()
+                } else {
+                    btn.style(style::tab_button).into()
+                }
+            })
+            .collect();
 
-        let chest_list: Vec<Element<Message>> = editor.filtered_chests.iter().enumerate().map(|(idx, (_, record))| {
-            let is_selected = editor.selected_idx == Some(idx);
-            let item_name = editor.catalog.as_ref()
-                .and_then(|c| c.get_item_name(record.item_type_id, record.item_id))
-                .unwrap_or_else(|| format!("{:?}_{}", record.item_type_id, record.item_id));
-            
-            let label = format!("Chest [{}] x:{} y:{}\n  {} (x{})\n  {} gold",
-                record.id, record.x_pos, record.y_pos, item_name, record.item_count, record.gold_amount);
+        let chest_list: Vec<Element<Message>> = editor
+            .filtered_chests
+            .iter()
+            .enumerate()
+            .map(|(idx, (_, record))| {
+                let is_selected = editor.selected_idx == Some(idx);
+                let item_name = editor
+                    .catalog
+                    .as_ref()
+                    .and_then(|c| c.get_item_name(record.item_type_id, record.item_id))
+                    .unwrap_or_else(|| format!("{:?}_{}", record.item_type_id, record.item_id));
 
-            let btn = button(text(label).size(11).font(Font::MONOSPACE))
-                .width(Fill)
-                .on_press(Message::ChestOpSelectChest(idx));
+                let label = format!(
+                    "Chest [{}] x:{} y:{}\n  {} (x{})\n  {} gold",
+                    record.id,
+                    record.x_pos,
+                    record.y_pos,
+                    item_name,
+                    record.item_count,
+                    record.gold_amount
+                );
 
-            if is_selected {
-                btn.style(style::active_chip).into()
-            } else {
-                btn.style(style::chip).into()
-            }
-        }).collect();
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::ChestOpSelectChest(idx));
+
+                if is_selected {
+                    btn.style(style::active_chip).into()
+                } else {
+                    btn.style(style::chip).into()
+                }
+            })
+            .collect();
 
         let mut detail_content: Vec<Element<Message>> = vec![
             text("Chest Details").size(16).font(Font::MONOSPACE).into(),
@@ -1952,54 +2028,115 @@ impl App {
             if let Some((orig_idx, record)) = editor.filtered_chests.get(idx) {
                 let orig = *orig_idx;
 
-                detail_content.push(labeled_input("Name:", &editor.edit_name, move |v| Message::ChestOpFieldChanged(orig, "name".into(), v)));
-                detail_content.push(labeled_input("X Pos:", &editor.edit_x, move |v| Message::ChestOpFieldChanged(orig, "x".into(), v)));
-                detail_content.push(labeled_input("Y Pos:", &editor.edit_y, move |v| Message::ChestOpFieldChanged(orig, "y".into(), v)));
-                detail_content.push(labeled_input("Gold:", &editor.edit_gold, move |v| Message::ChestOpFieldChanged(orig, "gold".into(), v)));
-                detail_content.push(labeled_input("Item Count:", &editor.edit_item_count, move |v| Message::ChestOpFieldChanged(orig, "item_count".into(), v)));
-                detail_content.push(labeled_input("Item ID:", &editor.edit_item_id, move |v| Message::ChestOpFieldChanged(orig, "item_id".into(), v)));
-                detail_content.push(labeled_input("Item Type:", &editor.edit_item_type, move |v| Message::ChestOpFieldChanged(orig, "item_type".into(), v)));
-                detail_content.push(labeled_input("Closed (0=open, 1=closed):", &editor.edit_closed, move |v| Message::ChestOpFieldChanged(orig, "closed".into(), v)));
+                detail_content.push(labeled_input("Name:", &editor.edit_name, move |v| {
+                    Message::ChestOpFieldChanged(orig, "name".into(), v)
+                }));
+                detail_content.push(labeled_input("X Pos:", &editor.edit_x, move |v| {
+                    Message::ChestOpFieldChanged(orig, "x".into(), v)
+                }));
+                detail_content.push(labeled_input("Y Pos:", &editor.edit_y, move |v| {
+                    Message::ChestOpFieldChanged(orig, "y".into(), v)
+                }));
+                detail_content.push(labeled_input("Gold:", &editor.edit_gold, move |v| {
+                    Message::ChestOpFieldChanged(orig, "gold".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Item Count:",
+                    &editor.edit_item_count,
+                    move |v| Message::ChestOpFieldChanged(orig, "item_count".into(), v),
+                ));
+                detail_content.push(labeled_input("Item ID:", &editor.edit_item_id, move |v| {
+                    Message::ChestOpFieldChanged(orig, "item_id".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Item Type:",
+                    &editor.edit_item_type,
+                    move |v| Message::ChestOpFieldChanged(orig, "item_type".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Closed (0=open, 1=closed):",
+                    &editor.edit_closed,
+                    move |v| Message::ChestOpFieldChanged(orig, "closed".into(), v),
+                ));
 
-                let item_name = editor.catalog.as_ref()
+                let item_name = editor
+                    .catalog
+                    .as_ref()
                     .and_then(|c| c.get_item_name(record.item_type_id, record.item_id))
                     .unwrap_or_default();
                 if !item_name.is_empty() {
-                    detail_content.push(text(format!("Resolved Item: {}", item_name)).size(12).style(style::subtle_text).into());
+                    detail_content.push(
+                        text(format!("Resolved Item: {}", item_name))
+                            .size(12)
+                            .style(style::subtle_text)
+                            .into(),
+                    );
                 }
             }
         } else {
-            detail_content.push(text("No chest selected").size(13).style(style::subtle_text).into());
+            detail_content.push(
+                text("No chest selected")
+                    .size(13)
+                    .style(style::subtle_text)
+                    .into(),
+            );
         }
 
-        let detail_panel = container(
-            scrollable(column(detail_content).spacing(8)).height(Fill)
-        ).padding(16).width(250).style(style::info_card);
+        let detail_panel = container(scrollable(column(detail_content).spacing(8)).height(Fill))
+            .padding(16)
+            .width(250)
+            .style(style::info_card);
 
         let list_header = row![
-            text("Chests").size(14), 
+            text("Chests").size(14),
             horizontal_space(),
-            text(format!("{} found", editor.filtered_chests.len())).size(12).style(style::subtle_text)
-        ].padding(10).align_y(iced::Alignment::Center);
+            text(format!("{} found", editor.filtered_chests.len()))
+                .size(12)
+                .style(style::subtle_text)
+        ]
+        .padding(10)
+        .align_y(iced::Alignment::Center);
 
         let main_content = row![
             column![
-                container(row![text("Maps").size(14), horizontal_space(), button(text("Scan")).on_press(Message::ChestOpScanMaps).style(style::chip)].padding(10).align_y(iced::Alignment::Center)).style(style::grid_header_cell),
+                container(
+                    row![
+                        text("Maps").size(14),
+                        horizontal_space(),
+                        button(text("Scan"))
+                            .on_press(Message::ChestOpScanMaps)
+                            .style(style::chip)
+                    ]
+                    .padding(10)
+                    .align_y(iced::Alignment::Center)
+                )
+                .style(style::grid_header_cell),
                 scrollable(column(map_list)).height(Fill),
-            ].width(180),
+            ]
+            .width(180),
             column![
                 container(list_header).style(style::grid_header_cell),
                 scrollable(column(chest_list)).height(Fill),
-            ].width(Fill),
+            ]
+            .width(Fill),
             detail_panel,
-        ].spacing(0).height(Fill);
+        ]
+        .spacing(0)
+        .height(Fill);
 
         column![
-            container(row![game_path_row, horizontal_space(), map_file_row].padding(10).align_y(iced::Alignment::Center)).style(style::toolbar_container),
+            container(
+                row![game_path_row, horizontal_space(), map_file_row]
+                    .padding(10)
+                    .align_y(iced::Alignment::Center)
+            )
+            .style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             status_row,
-        ].spacing(0).into()
+        ]
+        .spacing(0)
+        .into()
     }
 }
 
