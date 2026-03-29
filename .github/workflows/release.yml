@@ -95,8 +95,7 @@ jobs:
           if [ "${{ matrix.build }}" = "gui-windows" ]; then
             cd dispel-gui
             ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
-            bin="../target/${{ matrix.target }}/release/dispel-gui.exe"
-            cd ..
+            bin="target/${{ matrix.target }}/release/dispel-gui.exe"
           else
             ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
             if [ "${{ matrix.os }}" = "windows-latest" ]; then
