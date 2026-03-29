@@ -1,5 +1,5 @@
 use std::io::prelude::*;
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use std::io::{BufReader, Result, Seek};
 use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
@@ -63,7 +63,7 @@ pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     const PROPERTY_ITEM_SIZE: i32 = 90;
     let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
 
-    let pos = reader.seek(SeekFrom::Current(0))?;
+    let pos = reader.stream_position()?;
     println!(
         "{:?} {:?} {:?} {:?}",
         file_len,

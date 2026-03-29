@@ -184,7 +184,7 @@ impl Extractor for MagicSpell {
         let metadata = file.metadata()?;
         let file_len = metadata.len() as usize;
 
-        if file_len % MAGIC_RECORD_SIZE != 0 {
+        if !file_len.is_multiple_of(MAGIC_RECORD_SIZE) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
                 format!(

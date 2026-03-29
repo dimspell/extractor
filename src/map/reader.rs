@@ -28,14 +28,14 @@ pub fn first_block(reader: &mut BufReader<File>) -> Result<()> {
     let multiplier = reader.read_i32::<LittleEndian>()?;
     let size = reader.read_i32::<LittleEndian>()?;
     reader.seek(SeekFrom::Start(8))?;
-    let skip: i64 = (multiplier * size * 4).try_into().unwrap();
+    let skip: i64 = (multiplier * size * 4).into();
     reader.seek(SeekFrom::Current(skip))?;
     Ok(())
 }
 
 pub fn second_block(reader: &mut BufReader<File>) -> Result<()> {
     let size = reader.read_i32::<LittleEndian>()?;
-    let skip: i64 = (size * 2).try_into().unwrap();
+    let skip: i64 = (size * 2).into();
     reader.seek(SeekFrom::Current(skip))?;
     Ok(())
 }
@@ -64,7 +64,7 @@ pub fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
         sprites.push(info);
         reader.seek(SeekFrom::Start(info_offset))?;
 
-        let image_offset: i64 = image_offset.try_into().unwrap();
+        let image_offset: i64 = image_offset.into();
         reader.seek(SeekFrom::Current(image_offset))?;
     }
     Ok(sprites)
@@ -92,7 +92,7 @@ pub fn sprite_info_block(
 
         let sprite_id: usize = sprite_id.try_into().unwrap();
         let skip = (sprites[sprite_id].frame_count - 1) * 6 * 4;
-        reader.seek(SeekFrom::Current(skip.try_into().unwrap()))?;
+        reader.seek(SeekFrom::Current(skip.into()))?;
 
         info.push(SpriteInfoBlock {
             sprite_id,
@@ -141,7 +141,7 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
         infos.push(TiledObjectInfo { ids, x, y });
 
         reader.seek(SeekFrom::Current(84))?;
-        let skip: i64 = ((c1 + c2 + c3) * 4).try_into().unwrap();
+        let skip: i64 = ((c1 + c2 + c3) * 4).into();
         reader.seek(SeekFrom::Current(skip))?;
     }
 
@@ -157,7 +157,7 @@ pub fn tiled_objects_block(reader: &mut BufReader<File>) -> Result<Vec<TiledObje
     }
     let to_undo: i64 = back_pos;
     reader.seek(SeekFrom::Current(to_undo))?;
-    let to_undo: i64 = last_pos.try_into().unwrap();
+    let to_undo: i64 = last_pos.into();
     reader.seek(SeekFrom::Current(-to_undo - 4))?;
 
     Ok(infos)

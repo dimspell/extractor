@@ -31,7 +31,7 @@ pub fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> 
     let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
 
     loop {
-        let pos = reader.seek(SeekFrom::Current(0)).unwrap_or(file_len);
+        let pos = reader.stream_position().unwrap_or(file_len);
         match sprite::seek_next_sequence(&mut reader, pos, file_len) {
             Ok(true) => {}
             _ => break,

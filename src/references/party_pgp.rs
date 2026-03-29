@@ -79,29 +79,26 @@ impl Extractor for PartyPgp {
         );
         let mut pgps: Vec<PartyPgp> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with(";") || trimmed.is_empty() {
-                        continue;
-                    }
-                    let parts: Vec<&str> = trimmed.split("|").collect();
-                    if parts.len() < 4 {
-                        continue;
-                    }
-
-                    let id: i32 = parts[0].trim().parse::<i32>().unwrap();
-                    let dialog_text = parse_null(parts[1].trim());
-                    let unknown_id1 = parse_int(parts[2].trim());
-                    let unknown_id2 = parse_int(parts[3].trim());
-                    pgps.push(PartyPgp {
-                        id,
-                        dialog_text,
-                        unknown_id1,
-                        unknown_id2,
-                    });
+            if let Ok(line) = line {
+                let trimmed = line.trim();
+                if trimmed.starts_with(";") || trimmed.is_empty() {
+                    continue;
                 }
-                _ => {}
+                let parts: Vec<&str> = trimmed.split("|").collect();
+                if parts.len() < 4 {
+                    continue;
+                }
+
+                let id: i32 = parts[0].trim().parse::<i32>().unwrap();
+                let dialog_text = parse_null(parts[1].trim());
+                let unknown_id1 = parse_int(parts[2].trim());
+                let unknown_id2 = parse_int(parts[3].trim());
+                pgps.push(PartyPgp {
+                    id,
+                    dialog_text,
+                    unknown_id1,
+                    unknown_id2,
+                });
             }
         }
         Ok(pgps)

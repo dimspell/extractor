@@ -183,14 +183,14 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 
     // Event and tile blocks live at the end of the file
     let skip = -(tiled_map_height * tiled_map_width * 4 * 3);
-    reader.seek(SeekFrom::End(skip.try_into().unwrap()))?;
+    reader.seek(SeekFrom::End(skip.into()))?;
 
     let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
     let (gtl_tiles, collisions) =
         read_tiles_and_access_block(reader, tiled_map_width, tiled_map_height)?;
 
     let mut btl_tiles = HashMap::new();
-    let current_pos = reader.seek(SeekFrom::Current(0))?;
+    let current_pos = reader.stream_position()?;
     if current_pos + (tiled_map_width * tiled_map_height * 4) as u64 <= file_len {
         btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
     }
@@ -360,7 +360,7 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
 pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()> {
     use rusqlite::Connection;
     let mut conn = Connection::open(database_path)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let file = File::open(map_path)?;
     let mut reader = BufReader::new(file);
@@ -368,7 +368,7 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
     let map_id = map_path.file_stem().unwrap().to_str().unwrap();
 
     save_to_db(&mut conn, map_id, &map_data)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        .map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Writes map data to the SQLite database.

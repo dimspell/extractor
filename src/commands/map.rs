@@ -51,7 +51,7 @@ impl Command for MapCommand {
                 println!("Input file: {input:?}");
                 println!("Output directory: {output:?}");
 
-                let tiles = map::tileset::extract(&Path::new(input))
+                let tiles = map::tileset::extract(Path::new(input))
                     .expect("ERROR: could not extract tile-set");
                 map::tileset::plot_all_tiles(&tiles, output);
                 Ok(())
@@ -61,7 +61,7 @@ impl Command for MapCommand {
                 println!("Input file: {input:?}");
                 println!("Output file: {output:?}");
 
-                let tiles = map::tileset::extract(&Path::new(input))
+                let tiles = map::tileset::extract(Path::new(input))
                     .expect("ERROR: could not extract tile-set");
                 map::tileset::plot_tileset_map(&tiles, output);
                 Ok(())
@@ -75,10 +75,10 @@ impl Command for MapCommand {
             } => {
                 println!("Rendering map...");
                 map::extract(
-                    &Path::new(map),
-                    &Path::new(btl),
-                    &Path::new(gtl),
-                    &Path::new(output),
+                    Path::new(map),
+                    Path::new(btl),
+                    Path::new(gtl),
+                    Path::new(output),
                     save_sprites,
                 )
                 .expect("ERROR: could not render map");
@@ -95,12 +95,12 @@ impl Command for MapCommand {
             } => {
                 println!("Rendering map from database...");
                 map::render_from_database(
-                    &Path::new(database),
+                    Path::new(database),
                     map_id,
-                    &Path::new(gtl_atlas),
-                    &Path::new(btl_atlas),
+                    Path::new(gtl_atlas),
+                    Path::new(btl_atlas),
                     *atlas_columns,
-                    &Path::new(output),
+                    Path::new(output),
                     game_path.as_deref().map(Path::new),
                 )
                 .expect("ERROR: could not render map from database");
@@ -108,7 +108,7 @@ impl Command for MapCommand {
             }
             MapSubcommand::ToDb { database, map } => {
                 println!("Importing map to database...");
-                map::import_to_database(&Path::new(database), &Path::new(map))
+                map::import_to_database(Path::new(database), Path::new(map))
                     .expect("ERROR: could not import map to database");
                 Ok(())
             }
@@ -117,7 +117,7 @@ impl Command for MapCommand {
                 println!("Input file: {input:?}");
                 println!("Output directory: {output:?}");
 
-                map::extract_sprites(&Path::new(input), &Path::new(output))
+                map::extract_sprites(Path::new(input), Path::new(output))
                     .expect("ERROR: could not extract sprites");
                 Ok(())
             }

@@ -75,29 +75,26 @@ impl Extractor for NpcIni {
         );
         let mut npc_inis: Vec<NpcIni> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with(";") || trimmed.is_empty() {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = trimmed.split(",").collect();
-                    if parts.len() < 3 {
-                        continue;
-                    }
-
-                    let id = parts[0].trim().parse::<i32>().unwrap();
-                    let sprite_filename = parse_null(parts[1].trim());
-                    let description = parts[2].trim().to_string();
-
-                    npc_inis.push(NpcIni {
-                        id,
-                        sprite_filename,
-                        description,
-                    });
+            if let Ok(line) = line {
+                let trimmed = line.trim();
+                if trimmed.starts_with(";") || trimmed.is_empty() {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = trimmed.split(",").collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+
+                let id = parts[0].trim().parse::<i32>().unwrap();
+                let sprite_filename = parse_null(parts[1].trim());
+                let description = parts[2].trim().to_string();
+
+                npc_inis.push(NpcIni {
+                    id,
+                    sprite_filename,
+                    description,
+                });
             }
         }
         Ok(npc_inis)

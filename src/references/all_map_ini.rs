@@ -89,37 +89,34 @@ impl Extractor for Map {
 
         let mut maps: Vec<Map> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    if line.starts_with(";") {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = line.split(",").collect();
-                    if parts.len() < 6 {
-                        continue;
-                    }
-                    let id: i32 = parts[0].parse::<i32>().unwrap();
-                    let map_filename = parts[1].to_string();
-                    let map_name = parts[2].to_string();
-                    let pgp_filename = parse_null(parts[3]);
-                    let dlg_filename = parse_null(parts[4]);
-                    let lighting = if parts[5] == "1" {
-                        MapLighting::Light
-                    } else {
-                        MapLighting::Dark
-                    };
-
-                    maps.push(Map {
-                        id,
-                        map_filename,
-                        map_name,
-                        pgp_filename,
-                        dlg_filename,
-                        lighting,
-                    });
+            if let Ok(line) = line {
+                if line.starts_with(";") {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = line.split(",").collect();
+                if parts.len() < 6 {
+                    continue;
+                }
+                let id: i32 = parts[0].parse::<i32>().unwrap();
+                let map_filename = parts[1].to_string();
+                let map_name = parts[2].to_string();
+                let pgp_filename = parse_null(parts[3]);
+                let dlg_filename = parse_null(parts[4]);
+                let lighting = if parts[5] == "1" {
+                    MapLighting::Light
+                } else {
+                    MapLighting::Dark
+                };
+
+                maps.push(Map {
+                    id,
+                    map_filename,
+                    map_name,
+                    pgp_filename,
+                    dlg_filename,
+                    lighting,
+                });
             }
         }
         Ok(maps)

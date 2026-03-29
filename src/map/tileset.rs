@@ -37,7 +37,7 @@
 //
 // RGB565 COLOR FORMAT:
 // - 5 bits: Red channel
-// - 6 bits: Green channel  
+// - 6 bits: Green channel
 // - 5 bits: Blue channel
 // - Stored as u16: 0xRRRRRGGGGGGBBBBB
 //
@@ -55,7 +55,7 @@
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::{Rgb, RgbImage, RgbaImage};
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use std::io::{BufReader, Result, Seek};
 use std::{fs::File, path::Path};
 
 use crate::sprite::Color;
@@ -117,7 +117,7 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     let mut tiles = Vec::<Tile>::with_capacity(tile_number as usize);
 
     for _ in 0..tile_number {
-        let pos = reader.seek(SeekFrom::Current(0))?;
+        let pos = reader.stream_position()?;
         if pos > file_len {
             break;
         }

@@ -88,23 +88,20 @@ impl Extractor for EventNpcRef {
         );
         let mut npc_refs: Vec<EventNpcRef> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    if line.starts_with(";") || line.trim().is_empty() {
-                        continue;
-                    }
-                    let parts: Vec<&str> = line.split(",").collect();
-                    if parts.len() < 3 {
-                        continue;
-                    }
-
-                    let id = parts[0].trim().parse::<i32>().unwrap_or(0);
-                    let event_id = parts[1].trim().parse::<i32>().unwrap_or(0);
-                    let name = parts[2].trim().to_string();
-
-                    npc_refs.push(EventNpcRef { id, event_id, name });
+            if let Ok(line) = line {
+                if line.starts_with(";") || line.trim().is_empty() {
+                    continue;
                 }
-                _ => {}
+                let parts: Vec<&str> = line.split(",").collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+
+                let id = parts[0].trim().parse::<i32>().unwrap_or(0);
+                let event_id = parts[1].trim().parse::<i32>().unwrap_or(0);
+                let name = parts[2].trim().to_string();
+
+                npc_refs.push(EventNpcRef { id, event_id, name });
             }
         }
         Ok(npc_refs)

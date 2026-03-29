@@ -86,34 +86,31 @@ impl Extractor for DrawItem {
         );
         let mut draw_items: Vec<DrawItem> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    if line.starts_with(";") {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = line
-                        .trim_start_matches("(")
-                        .trim_end_matches(")")
-                        .split(",")
-                        .collect();
-                    if parts.len() < 4 {
-                        continue;
-                    }
-
-                    let map_id = parts[0].parse::<i32>().unwrap();
-                    let x_coord = parts[1].parse::<i32>().unwrap();
-                    let y_coord = parts[2].parse::<i32>().unwrap();
-                    let item_id = parts[3].parse::<i32>().unwrap();
-
-                    draw_items.push(DrawItem {
-                        map_id,
-                        x_coord,
-                        y_coord,
-                        item_id,
-                    });
+            if let Ok(line) = line {
+                if line.starts_with(";") {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = line
+                    .trim_start_matches("(")
+                    .trim_end_matches(")")
+                    .split(",")
+                    .collect();
+                if parts.len() < 4 {
+                    continue;
+                }
+
+                let map_id = parts[0].parse::<i32>().unwrap();
+                let x_coord = parts[1].parse::<i32>().unwrap();
+                let y_coord = parts[2].parse::<i32>().unwrap();
+                let item_id = parts[3].parse::<i32>().unwrap();
+
+                draw_items.push(DrawItem {
+                    map_id,
+                    x_coord,
+                    y_coord,
+                    item_id,
+                });
             }
         }
         Ok(draw_items)

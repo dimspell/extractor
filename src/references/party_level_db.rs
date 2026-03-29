@@ -139,7 +139,7 @@ impl Extractor for PartyLevelNpc {
                 let _ = reader.read_u16::<LittleEndian>()?; // Null byte (\0)
 
                 records.push(PartyLevelRecord {
-                    level: _block_idx + 1 as u32,
+                    level: _block_idx + 1_u32,
                     strength,
                     constitution,
                     wisdom,

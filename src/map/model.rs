@@ -32,8 +32,7 @@ pub fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
     let width = reader.read_i32::<LittleEndian>()?;
     let height = reader.read_i32::<LittleEndian>()?;
     let diagonal = width.checked_add(height).ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
+        std::io::Error::other(
             format!("Map size overflow: {}x{}", width, height),
         )
     })?;
@@ -48,7 +47,7 @@ pub fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
     let x_aspect: f64 = 0.3;
     let y_aspect: f64 = 0.2;
 
-    let compensate_x: f64 = TILE_HORIZONTAL_OFFSET_HALF.try_into().unwrap();
+    let compensate_x: f64 = TILE_HORIZONTAL_OFFSET_HALF.into();
     let compensate_y: f64 = 0.0;
 
     let map_non_occluded_start_x: f64 = map_width_in_pixels.into();

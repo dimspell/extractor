@@ -36,13 +36,13 @@ pub fn render_from_database(
 
     println!("Loading atlases...");
     let gtl_atlas = image::open(gtl_atlas_path)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
     let btl_atlas = image::open(btl_atlas_path)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     println!("Opening database...");
     let conn = Connection::open(database_path)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     // ── Map tile bounds ────────────────────────────────────────────────────
     let bounds: (Option<i32>, Option<i32>, Option<i32>, Option<i32>) = conn
@@ -51,13 +51,12 @@ pub fn render_from_database(
             [map_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
         )
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let (min_x, max_x, min_y, max_y) = match bounds {
         (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
         _ => {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            return Err(std::io::Error::other(
                 format!("Map '{}' not found in database or has no tiles", map_id),
             ));
         }
@@ -79,7 +78,7 @@ pub fn render_from_database(
     {
         let mut stmt = conn
             .prepare("SELECT x, y, gtl_tile_id, btl_tile_id FROM map_tiles WHERE map_id = ?")
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         let iter = stmt
             .query_map([map_id], |row| {
                 Ok((
@@ -89,11 +88,11 @@ pub fn render_from_database(
                     row.get::<_, i32>(3)?,
                 ))
             })
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         for row in iter {
             let (x, y, gtl, btl) =
-                row.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                row.map_err(|e| std::io::Error::other(e.to_string()))?;
             if gtl > 0 {
                 gtl_tiles.insert((x, y), gtl);
             }
@@ -108,7 +107,7 @@ pub fn render_from_database(
     {
         let mut stmt = conn
             .prepare("SELECT x, y, btl_tile_id, object_index FROM map_objects WHERE map_id = ? ORDER BY object_index, stack_order")
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         let iter = stmt
             .query_map([map_id], |row| {
                 Ok((
@@ -118,11 +117,11 @@ pub fn render_from_database(
                     row.get::<_, i32>(3)?,
                 ))
             })
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         for row in iter {
             let (x, y, tile_id, idx) =
-                row.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+                row.map_err(|e| std::io::Error::other(e.to_string()))?;
             let entry = objects_map.entry(idx).or_insert(TiledObjectInfo {
                 ids: Vec::new(),
                 x,
@@ -242,7 +241,7 @@ pub fn render_from_database(
     println!("Saving to {:?}...", output_path);
     imgbuf
         .save(output_path)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     Ok(())
 }
@@ -346,7 +345,7 @@ fn collect_monsters(
 ) {
     if let Some(mut f) = file {
         f = f.replace('\\', "/");
-        if let Some(name) = f.split('/').last() {
+        if let Some(name) = f.split('/').next_back() {
             let q = format!(
                 "SELECT mr.pos_x, mr.pos_y, mi.sprite_filename \
                  FROM monster_refs mr \
@@ -386,7 +385,7 @@ fn collect_npcs(
 ) {
     if let Some(mut f) = file {
         f = f.replace('\\', "/");
-        if let Some(name) = f.split('/').last() {
+        if let Some(name) = f.split('/').next_back() {
             let q = format!(
                 "SELECT nr.goto1_x, nr.goto1_y, ni.sprite_filename, nr.looking_direction \
                  FROM npc_refs nr \
@@ -433,7 +432,7 @@ fn collect_extras(
 ) {
     if let Some(mut f) = file {
         f = f.replace('\\', "/");
-        if let Some(name) = f.split('/').last() {
+        if let Some(name) = f.split('/').next_back() {
             let q = format!(
                 "SELECT er.x_pos, er.y_pos, e.sprite_filename, er.rotation, er.object_type, er.closed \
                  FROM extra_refs er \

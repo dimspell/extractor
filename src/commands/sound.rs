@@ -12,7 +12,7 @@ pub struct SoundCommand {
 impl Command for SoundCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         println!("Extracting sound file to {}...", self.output);
-        snf::extract(&Path::new(&self.input), &Path::new(&self.output))
+        snf::extract(Path::new(&self.input), Path::new(&self.output))
             .expect("ERROR: could not convert SNF file to WAV");
         Ok(())
     }

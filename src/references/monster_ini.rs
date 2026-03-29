@@ -100,39 +100,36 @@ impl Extractor for MonsterIni {
         );
         let mut monsters: Vec<MonsterIni> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with(";") || trimmed.is_empty() {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = trimmed.split(",").collect();
-                    if parts.len() < 8 {
-                        continue;
-                    }
-
-                    let id = parts[0].trim().parse::<i32>().unwrap();
-                    let name = parse_null(parts[1].trim());
-                    let sprite_filename = parse_null(parts[2].trim());
-                    let attack = parts[3].trim().parse::<i32>().unwrap();
-                    let hit = parts[4].trim().parse::<i32>().unwrap();
-                    let death = parts[5].trim().parse::<i32>().unwrap();
-                    let walking = parts[6].trim().parse::<i32>().unwrap();
-                    let casting_magic = parts[7].trim().parse::<i32>().unwrap();
-
-                    monsters.push(MonsterIni {
-                        id,
-                        name,
-                        sprite_filename,
-                        attack,
-                        hit,
-                        death,
-                        walking,
-                        casting_magic,
-                    });
+            if let Ok(line) = line {
+                let trimmed = line.trim();
+                if trimmed.starts_with(";") || trimmed.is_empty() {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = trimmed.split(",").collect();
+                if parts.len() < 8 {
+                    continue;
+                }
+
+                let id = parts[0].trim().parse::<i32>().unwrap();
+                let name = parse_null(parts[1].trim());
+                let sprite_filename = parse_null(parts[2].trim());
+                let attack = parts[3].trim().parse::<i32>().unwrap();
+                let hit = parts[4].trim().parse::<i32>().unwrap();
+                let death = parts[5].trim().parse::<i32>().unwrap();
+                let walking = parts[6].trim().parse::<i32>().unwrap();
+                let casting_magic = parts[7].trim().parse::<i32>().unwrap();
+
+                monsters.push(MonsterIni {
+                    id,
+                    name,
+                    sprite_filename,
+                    attack,
+                    hit,
+                    death,
+                    walking,
+                    casting_magic,
+                });
             }
         }
         Ok(monsters)

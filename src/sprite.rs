@@ -71,7 +71,7 @@ pub fn animation(file_path: &Path) -> Result<()> {
 
     let mut sequence_counter = 0;
     loop {
-        let pos = reader.seek(SeekFrom::Current(0))?;
+        let pos = reader.stream_position()?;
         if pos >= file_len {
             println!("{pos} >= {file_len}");
             break;
@@ -194,7 +194,7 @@ pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
 
     let mut sequence_counter = 0;
     loop {
-        let pos = reader.seek(SeekFrom::Current(0))?;
+        let pos = reader.stream_position()?;
         if pos >= file_len {
             println!("{pos} >= {file_len}");
             break;
@@ -397,7 +397,7 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
         // Metrics.Count(MetricFile.SpriteFileMetric, filename, "zeroFrame");
         // Metrics.Count(MetricFile.SpriteFileMetric, "zeroFrames");
     }
-    let start_position = reader.seek(SeekFrom::Current(0))?;
+    let start_position = reader.stream_position()?;
     info.sequence_start_position = start_position;
     for i in 0..info.frame_count.try_into().unwrap() {
         let image_info = get_image_info(reader)?;
@@ -414,7 +414,7 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
         //     }
         // }
     }
-    info.sequence_end_position = reader.seek(SeekFrom::Current(0))?;
+    info.sequence_end_position = reader.stream_position()?;
     reader.seek(SeekFrom::Start(start_position))?;
 
     Ok(info)
@@ -451,7 +451,7 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
     info.size_bytes = size_bytes.into();
     info.size_bytes *= 2;
 
-    let pos: u64 = reader.seek(SeekFrom::Current(0))?;
+    let pos: u64 = reader.stream_position()?;
     info.image_start_position = pos;
 
     if info.width < 1 || info.height < 1 {
@@ -471,7 +471,7 @@ pub fn seek_next_sequence(
     let mut number_of_skips = 0;
 
     while !valid_sprite_seq {
-        let pos: u64 = reader.seek(SeekFrom::Current(0))?;
+        let pos: u64 = reader.stream_position()?;
         // println!("Seek position: {pos} of {file_len}. Skips: {number_of_skips}");
         if pos + 60 >= file_len {
             // println!("break at skips: {:?}", number_of_skips);

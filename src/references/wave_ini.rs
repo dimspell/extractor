@@ -89,29 +89,26 @@ impl Extractor for WaveIni {
         );
         let mut waves_inis: Vec<WaveIni> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with(";") || trimmed.is_empty() {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = trimmed.split(",").collect();
-                    if parts.len() < 3 {
-                        continue;
-                    }
-
-                    let id = parts[0].trim().parse::<i32>().unwrap();
-                    let snf_filename = parse_null(parts[1].trim());
-                    let unknown_flag = parse_null(parts[2].trim());
-
-                    waves_inis.push(WaveIni {
-                        id,
-                        snf_filename,
-                        unknown_flag,
-                    });
+            if let Ok(line) = line {
+                let trimmed = line.trim();
+                if trimmed.starts_with(";") || trimmed.is_empty() {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = trimmed.split(",").collect();
+                if parts.len() < 3 {
+                    continue;
+                }
+
+                let id = parts[0].trim().parse::<i32>().unwrap();
+                let snf_filename = parse_null(parts[1].trim());
+                let unknown_flag = parse_null(parts[2].trim());
+
+                waves_inis.push(WaveIni {
+                    id,
+                    snf_filename,
+                    unknown_flag,
+                });
             }
         }
         Ok(waves_inis)

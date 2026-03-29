@@ -90,29 +90,26 @@ impl Extractor for Extra {
         );
         let mut extras: Vec<Extra> = Vec::new();
         for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    if line.starts_with(";") {
-                        continue;
-                    }
-
-                    let parts: Vec<&str> = line.split(",").collect();
-                    if parts.len() < 4 {
-                        continue;
-                    }
-                    let id: i32 = parts[0].parse::<i32>().unwrap();
-                    let sprite_filename = parse_null(parts[1]);
-                    let unknown = parts[2].parse::<i32>().unwrap();
-                    let description = parse_null(parts[3]);
-
-                    extras.push(Extra {
-                        id,
-                        sprite_filename,
-                        unknown,
-                        description,
-                    });
+            if let Ok(line) = line {
+                if line.starts_with(";") {
+                    continue;
                 }
-                _ => {}
+
+                let parts: Vec<&str> = line.split(",").collect();
+                if parts.len() < 4 {
+                    continue;
+                }
+                let id: i32 = parts[0].parse::<i32>().unwrap();
+                let sprite_filename = parse_null(parts[1]);
+                let unknown = parts[2].parse::<i32>().unwrap();
+                let description = parse_null(parts[3]);
+
+                extras.push(Extra {
+                    id,
+                    sprite_filename,
+                    unknown,
+                    description,
+                });
             }
         }
         Ok(extras)

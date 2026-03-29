@@ -185,7 +185,7 @@ pub fn plot_objects(
         let sequence = &internal_sprites[block.sprite_id];
         let sprite = &sequence.frame_infos[0];
         items.push(Item {
-            ground_y: block.sprite_y + sprite.height as i32,
+            ground_y: block.sprite_y + sprite.height,
             kind: Kind::Sprite(i),
         });
     }
@@ -224,7 +224,7 @@ fn plot_single_tiled_object(
     offset_y: i32,
 ) {
     for (i, btl_id) in tiled_info.ids.iter().enumerate() {
-        let tile = &btl_tileset[btl_id.abs() as usize];
+        let tile = &btl_tileset[btl_id.unsigned_abs() as usize];
         let x = tiled_info.x + offset_x;
         let y = tiled_info.y + (i as i32 * TILE_HEIGHT as i32) + offset_y;
         plot_tile(imgbuf, tile.colors, x, y);
