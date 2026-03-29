@@ -9,6 +9,7 @@ use std::path::PathBuf;
 pub mod chest_editor;
 mod db;
 mod style;
+use dispel_core::commands::{self, Command, CommandFactory};
 use dispel_core::Extractor;
 
 pub fn main() -> iced::Result {
@@ -641,17 +642,42 @@ impl App {
                 Task::none()
             }
             Message::Run => {
-                let args = self.build_args();
-                if args.is_empty() {
-                    self.log.push_str("⚠ No command configured.\n");
+                let Some(cmd) = self.build_internal_command() else {
+                    self.log
+                        .push_str("⚠ No command configured or supported in GUI yet.\n");
                     return Task::none();
-                }
-                self.log
-                    .push_str(&format!("▸ {} {}\n", self.extractor_path, args.join(" ")));
+                };
+                self.log.push_str(&format!(
+                    "▸ Running internal command: {} [{}]\n",
+                    cmd.name(),
+                    cmd.description()
+                ));
                 self.is_running = true;
-                let exe = self.extractor_path.clone();
+
                 Task::perform(
-                    async move { run_command(exe, args).await },
+                    async move {
+                        tokio::task::spawn_blocking(move || {
+                            let result =
+                                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                                    cmd.execute()
+                                }));
+                            match result {
+                                Ok(Ok(())) => Ok("Command finished successfully.\n".to_string()),
+                                Ok(Err(e)) => Err(format!("Error: {}", e)),
+                                Err(panic_err) => {
+                                    if let Some(s) = panic_err.downcast_ref::<&str>() {
+                                        Err(s.to_string())
+                                    } else if let Some(s) = panic_err.downcast_ref::<String>() {
+                                        Err(s.clone())
+                                    } else {
+                                        Err("Unknown panic occurred during execution".to_string())
+                                    }
+                                }
+                            }
+                        })
+                        .await
+                        .unwrap()
+                    },
                     Message::CommandFinished,
                 )
             }
@@ -858,10 +884,10 @@ impl App {
 
                     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
                     let ext = path.extension().unwrap_or_default().to_string_lossy();
-                    
+
                     let mut backup_path = path.clone();
                     backup_path.set_file_name(format!("{}_{}.{}", stem, timestamp, ext));
-                    
+
                     if let Err(e) = std::fs::copy(&path, &backup_path) {
                         return Task::perform(
                             async move { Err(format!("Failed to backup: {}", e)) },
@@ -1172,120 +1198,126 @@ impl App {
         )
     }
 
-    fn build_args(&self) -> Vec<String> {
+    fn build_internal_command(&self) -> Option<Box<dyn Command>> {
+        let factory = CommandFactory::new();
         match self.active_tab {
-            Tab::Map => self.build_map_args(),
-            Tab::Ref => self.build_ref_args(),
-            Tab::Database => self.build_db_args(),
-            Tab::Sprite => self.build_sprite_args(),
-            Tab::Sound => self.build_sound_args(),
-            Tab::DbViewer => vec![],
-            Tab::ChestEditor => vec![],
+            Tab::Map => {
+                let op = self.map_op?;
+                let subcommand = match op {
+                    MapOp::Tiles => commands::map::MapSubcommand::Tiles {
+                        input: self.map_input.clone(),
+                        output: if self.map_output.is_empty() {
+                            "out".to_string()
+                        } else {
+                            self.map_output.clone()
+                        },
+                    },
+                    MapOp::Atlas => commands::map::MapSubcommand::Atlas {
+                        input: self.map_input.clone(),
+                        output: self.map_output.clone(),
+                    },
+                    MapOp::Render => commands::map::MapSubcommand::Render {
+                        map: self.map_map_path.clone(),
+                        btl: self.map_btl_path.clone(),
+                        gtl: self.map_gtl_path.clone(),
+                        output: self.map_output.clone(),
+                        save_sprites: self.map_save_sprites,
+                    },
+                    MapOp::FromDb => commands::map::MapSubcommand::FromDb {
+                        database: self.map_database.clone(),
+                        map_id: self.map_map_id.clone(),
+                        gtl_atlas: self.map_gtl_atlas.clone(),
+                        btl_atlas: self.map_btl_atlas.clone(),
+                        atlas_columns: self.map_atlas_columns.parse().unwrap_or(48),
+                        output: self.map_output.clone(),
+                        game_path: if self.map_game_path.is_empty() {
+                            None
+                        } else {
+                            Some(self.map_game_path.clone())
+                        },
+                    },
+                    MapOp::ToDb => commands::map::MapSubcommand::ToDb {
+                        database: self.map_database.clone(),
+                        map: self.map_map_path.clone(),
+                    },
+                    MapOp::Sprites => commands::map::MapSubcommand::Sprites {
+                        input: self.map_input.clone(),
+                        output: if self.map_output.is_empty() {
+                            "out".to_string()
+                        } else {
+                            self.map_output.clone()
+                        },
+                    },
+                };
+                Some(Box::new(factory.create_map_command(subcommand)))
+            }
+            Tab::Ref => {
+                let op = self.ref_op?;
+                let input = self.ref_input.clone();
+                let subcommand = match op {
+                    RefOp::AllMaps => commands::ref_command::RefSubcommand::AllMaps { input },
+                    RefOp::Map => commands::ref_command::RefSubcommand::Map { input },
+                    RefOp::Extra => commands::ref_command::RefSubcommand::Extra { input },
+                    RefOp::Event => commands::ref_command::RefSubcommand::Event { input },
+                    RefOp::Monster => commands::ref_command::RefSubcommand::Monster { input },
+                    RefOp::Npc => commands::ref_command::RefSubcommand::Npc { input },
+                    RefOp::Wave => commands::ref_command::RefSubcommand::Wave { input },
+                    RefOp::PartyRef => commands::ref_command::RefSubcommand::PartyRef { input },
+                    RefOp::DrawItem => commands::ref_command::RefSubcommand::DrawItem { input },
+                    RefOp::PartyPgp => commands::ref_command::RefSubcommand::PartyPgp { input },
+                    RefOp::PartyDialog => {
+                        commands::ref_command::RefSubcommand::PartyDialog { input }
+                    }
+                    RefOp::Dialog => commands::ref_command::RefSubcommand::Dialog { input },
+                    RefOp::Weapons => commands::ref_command::RefSubcommand::Weapons { input },
+                    RefOp::MultiMagic => commands::ref_command::RefSubcommand::MultiMagic { input },
+                    RefOp::Store => commands::ref_command::RefSubcommand::Store { input },
+                    RefOp::NpcRef => commands::ref_command::RefSubcommand::NpcRef { input },
+                    RefOp::MonsterRef => commands::ref_command::RefSubcommand::MonsterRef { input },
+                    RefOp::Monsters => commands::ref_command::RefSubcommand::Monsters { input },
+                    RefOp::MiscItem => commands::ref_command::RefSubcommand::MiscItem { input },
+                    RefOp::HealItems => commands::ref_command::RefSubcommand::HealItems { input },
+                    RefOp::ExtraRef => commands::ref_command::RefSubcommand::ExtraRef { input },
+                    RefOp::EventItems => commands::ref_command::RefSubcommand::EventItems { input },
+                    RefOp::EditItems => commands::ref_command::RefSubcommand::EditItems { input },
+                    RefOp::PartyLevel => commands::ref_command::RefSubcommand::PartyLevel { input },
+                    RefOp::PartyIni => commands::ref_command::RefSubcommand::PartyIni { input },
+                    RefOp::EventNpcRef => {
+                        commands::ref_command::RefSubcommand::EventNpcRef { input }
+                    }
+                    RefOp::Magic => commands::ref_command::RefSubcommand::Magic { input },
+                    RefOp::Quest => commands::ref_command::RefSubcommand::Quest { input },
+                    RefOp::Message => commands::ref_command::RefSubcommand::Message { input },
+                    RefOp::ChData => commands::ref_command::RefSubcommand::ChData { input },
+                };
+                Some(Box::new(factory.create_ref_command(subcommand)))
+            }
+            Tab::Database => {
+                let op = self.db_op?;
+                let subcommand = match op {
+                    DbOp::Import => commands::database::DatabaseSubcommand::Import,
+                    DbOp::DialogTexts => commands::database::DatabaseSubcommand::DialogTexts,
+                    DbOp::Maps => commands::database::DatabaseSubcommand::Maps,
+                    DbOp::Databases => commands::database::DatabaseSubcommand::Databases,
+                    DbOp::Refs => commands::database::DatabaseSubcommand::Refs,
+                    DbOp::Rest => commands::database::DatabaseSubcommand::Rest,
+                };
+                Some(Box::new(factory.create_database_command(subcommand)))
+            }
+            Tab::Sprite => {
+                let mode = match self.sprite_mode {
+                    Some(SpriteMode::Animation) => commands::sprite::SpriteMode::Animation,
+                    _ => commands::sprite::SpriteMode::Sprite,
+                };
+                Some(Box::new(
+                    factory.create_sprite_command(self.sprite_input.clone(), mode),
+                ))
+            }
+            Tab::Sound => Some(Box::new(
+                factory.create_sound_command(self.sound_input.clone(), self.sound_output.clone()),
+            )),
+            Tab::DbViewer | Tab::ChestEditor => None,
         }
-    }
-    fn build_map_args(&self) -> Vec<String> {
-        let op = match self.map_op {
-            Some(op) => op,
-            None => return vec![],
-        };
-        let mut a = vec!["map".into()];
-        match op {
-            MapOp::Tiles => {
-                a.extend(["tiles".into(), self.map_input.clone()]);
-                if !self.map_output.is_empty() {
-                    a.extend(["--output".into(), self.map_output.clone()]);
-                }
-            }
-            MapOp::Atlas => {
-                a.extend([
-                    "atlas".into(),
-                    self.map_input.clone(),
-                    self.map_output.clone(),
-                ]);
-            }
-            MapOp::Render => {
-                a.extend([
-                    "render".into(),
-                    "--map".into(),
-                    self.map_map_path.clone(),
-                    "--btl".into(),
-                    self.map_btl_path.clone(),
-                    "--gtl".into(),
-                    self.map_gtl_path.clone(),
-                    "--output".into(),
-                    self.map_output.clone(),
-                ]);
-                if self.map_save_sprites {
-                    a.push("--save-sprites".into());
-                }
-            }
-            MapOp::FromDb => {
-                a.extend([
-                    "from-db".into(),
-                    "--database".into(),
-                    self.map_database.clone(),
-                    "--map-id".into(),
-                    self.map_map_id.clone(),
-                    "--gtl-atlas".into(),
-                    self.map_gtl_atlas.clone(),
-                    "--btl-atlas".into(),
-                    self.map_btl_atlas.clone(),
-                    "--atlas-columns".into(),
-                    self.map_atlas_columns.clone(),
-                    "--output".into(),
-                    self.map_output.clone(),
-                ]);
-                if !self.map_game_path.is_empty() {
-                    a.extend(["--game-path".into(), self.map_game_path.clone()]);
-                }
-            }
-            MapOp::ToDb => {
-                a.extend([
-                    "to-db".into(),
-                    "--database".into(),
-                    self.map_database.clone(),
-                    "--map".into(),
-                    self.map_map_path.clone(),
-                ]);
-            }
-            MapOp::Sprites => {
-                a.extend(["sprites".into(), self.map_input.clone()]);
-                if !self.map_output.is_empty() {
-                    a.extend(["--output".into(), self.map_output.clone()]);
-                }
-            }
-        }
-        a
-    }
-    fn build_ref_args(&self) -> Vec<String> {
-        match self.ref_op {
-            Some(op) => vec!["ref".into(), op.cli_name().into(), self.ref_input.clone()],
-            None => vec![],
-        }
-    }
-    fn build_db_args(&self) -> Vec<String> {
-        match self.db_op {
-            Some(op) => vec!["database".into(), op.cli_name().into()],
-            None => vec![],
-        }
-    }
-    fn build_sprite_args(&self) -> Vec<String> {
-        let m = match self.sprite_mode {
-            Some(SpriteMode::Animation) => "animation",
-            _ => "sprite",
-        };
-        vec![
-            "sprite".into(),
-            self.sprite_input.clone(),
-            format!("--mode={m}"),
-        ]
-    }
-    fn build_sound_args(&self) -> Vec<String> {
-        vec![
-            "sound".into(),
-            self.sound_input.clone(),
-            self.sound_output.clone(),
-        ]
     }
 
     // ─── View ───────────────────────────────────────────────────────────
@@ -1331,23 +1363,12 @@ impl App {
                 .into()
             })
             .collect();
-        let ext_label = text("Extractor binary:").size(11);
-        let ext_input = text_input("path/to/dispel-extractor", &self.extractor_path)
-            .on_input(Message::ExtractorPathChanged)
-            .size(11)
-            .padding(6);
-        let ext_browse = button(text("…").size(11))
-            .padding([4, 8])
-            .on_press(Message::BrowseExtractorPath)
-            .style(style::browse_button);
         let sidebar_content = column![
             vertical_space().height(12),
             container(title).padding([0, 16]),
             vertical_space().height(16),
             column(tabs).spacing(2).padding([0, 8]),
             vertical_space().height(Length::Fill),
-            container(column![ext_label, row![ext_input, ext_browse].spacing(4)].spacing(4))
-                .padding([8, 12]),
             vertical_space().height(8),
         ]
         .spacing(0)

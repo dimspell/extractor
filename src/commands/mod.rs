@@ -12,7 +12,7 @@ pub mod test;
 use std::error::Error;
 
 /// Command trait defining the interface for all CLI commands
-pub trait Command {
+pub trait Command: Send + Sync {
     /// Execute the command
     fn execute(&self) -> Result<(), Box<dyn Error>>;
 
