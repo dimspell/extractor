@@ -117,7 +117,11 @@ pub fn plot_base(
             let y = x + diff;
             let coords: Coords = (x, y);
             if let Some(&gtl_tile_id) = gtl_tiles.get(&coords) {
-                let gtl_tile = &gtl_tileset[gtl_tile_id.unsigned_abs() as usize];
+                let gtl_tile_idx = gtl_tile_id.unsigned_abs() as usize;
+                let Some(gtl_tile) = gtl_tileset.get(gtl_tile_idx) else {
+                    continue;
+                };
+
                 let event_block = events.get(&coords);
                 let collision = collisions.get(&coords);
 
@@ -224,10 +228,12 @@ fn plot_single_tiled_object(
     offset_y: i32,
 ) {
     for (i, btl_id) in tiled_info.ids.iter().enumerate() {
-        let tile = &btl_tileset[btl_id.unsigned_abs() as usize];
-        let x = tiled_info.x + offset_x;
-        let y = tiled_info.y + (i as i32 * TILE_HEIGHT as i32) + offset_y;
-        plot_tile(imgbuf, tile.colors, x, y);
+        let btl_tile_idx = btl_id.unsigned_abs() as usize;
+        if let Some(tile) = btl_tileset.get(btl_tile_idx) {
+            let x = tiled_info.x + offset_x;
+            let y = tiled_info.y + (i as i32 * TILE_HEIGHT as i32) + offset_y;
+            plot_tile(imgbuf, tile.colors, x, y);
+        }
     }
 }
 
@@ -299,13 +305,15 @@ pub fn plot_roofs(
             let coords: Coords = (x, y);
             let btl_tile_id = btl_tiles.get(&coords).copied().unwrap_or(0);
             if btl_tile_id > 0 {
-                let btl_tile = &btl_tileset[btl_tile_id as usize];
-                let (mut sx, mut sy) = convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
-                if occlusion {
-                    sx -= model.map_non_occluded_start_x;
-                    sy -= model.map_non_occluded_start_y;
+                let btl_tile_idx = btl_tile_id as usize;
+                if let Some(btl_tile) = btl_tileset.get(btl_tile_idx) {
+                    let (mut sx, mut sy) = convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
+                    if occlusion {
+                        sx -= model.map_non_occluded_start_x;
+                        sy -= model.map_non_occluded_start_y;
+                    }
+                    plot_tile(image, btl_tile.colors, sx, sy);
                 }
-                plot_tile(image, btl_tile.colors, sx, sy);
             }
         }
     }
