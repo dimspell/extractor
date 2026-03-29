@@ -74,8 +74,8 @@ pub struct DialogueText {
     pub comment: String,
     /// Internal tracking modifier block associated to dialog output.
     pub param1: i32,
-    /// Logic bound execution parameters appended.
-    pub param2: i32,
+    /// ID of the sound from the wave.ini file. Played at start of dialogue.
+    pub wave_ini_entry_id: i32,
 }
 
 /// Stores translations, text strings, and associated comments used within dialogues.
@@ -147,14 +147,14 @@ impl Extractor for DialogueText {
                 .replace("null", "")
                 .to_string();
             let param1 = parts[2].trim().parse::<i32>().unwrap_or(0);
-            let param2 = parts[3].trim().parse::<i32>().unwrap_or(0);
+            let wave_ini_entry_id = parts[3].trim().parse::<i32>().unwrap_or(0);
 
             texts.push(DialogueText {
                 id,
                 text,
                 comment: current_comment.clone().trim_matches('|').to_string(),
                 param1,
-                param2,
+                wave_ini_entry_id,
             });
 
             last_was_comment = false;
@@ -179,7 +179,7 @@ impl Extractor for DialogueText {
             };
             let line = format!(
                 "{} | {} | {} | {}\r\n",
-                record.id, text_val, record.param1, record.param2
+                record.id, text_val, record.param1, record.wave_ini_entry_id
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
             file.write_all(&cow)?;
@@ -207,7 +207,7 @@ pub fn save_dialogue_texts(
                 text.text,
                 text.comment,
                 text.param1,
-                text.param2,
+                text.wave_ini_entry_id,
             ])?;
         }
     }
