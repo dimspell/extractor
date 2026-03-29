@@ -35,19 +35,6 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 // | ... (same structure) ...             |
 // +--------------------------------------+
 //
-// ITEM CATEGORIES:
-// - 1-50: Main quest items
-// - 51-100: Side quest items
-// - 101-150: Event triggers
-// - 151-200: Special keys
-// - 201-250: Unique artifacts
-//
-// ITEM TYPES:
-// - Quest items: Required for quest completion
-// - Event items: Trigger specific events
-// - Key items: Unlock doors/areas
-// - Unique items: One-of-a-kind artifacts
-//
 // SPECIAL VALUES:
 // - Fixed-size string fields
 // - Null-padded text fields

@@ -43,7 +43,7 @@ impl ItemCatalog {
         };
 
         Ok(ItemCatalog {
-            weapons: WeaponItem::read_file(&load_db("WeaponItem.db")?)
+            weapons: WeaponItem::read_file(&load_db("weaponItem.db")?)
                 .map_err(|e| e.to_string())?,
             healing: HealItem::read_file(&load_db("HealItem.db")?).map_err(|e| e.to_string())?,
             misc: MiscItem::read_file(&load_db("MiscItem.db")?).map_err(|e| e.to_string())?,
@@ -55,14 +55,18 @@ impl ItemCatalog {
     /// Retrieve an item name by combining item_type_id and item_id.
     pub fn get_item_name(&self, type_id: ItemTypeId, id: u8) -> Option<String> {
         match type_id {
-            ItemTypeId::Weapon | ItemTypeId::Armor => {
-                self.weapons.get(id as usize).map(|i| i.name.clone())
-            }
+            ItemTypeId::Weapon => self.weapons.get(id as usize).map(|i| i.name.clone()),
             ItemTypeId::Healing => self.healing.get(id as usize).map(|i| i.name.clone()),
-            ItemTypeId::Miscellaneous => self.misc.get(id as usize).map(|i| i.name.clone()),
+            ItemTypeId::Misc => self.misc.get(id as usize).map(|i| i.name.clone()),
             ItemTypeId::Edit => self.edit.get(id as usize).map(|i| i.name.clone()),
             ItemTypeId::Event => self.event.get(id as usize).map(|i| i.name.clone()),
-            _ => None,
+            ItemTypeId::Other => {
+                if id == 15 {
+                    Some("-".into())
+                } else {
+                    None
+                }
+            }
         }
     }
 }

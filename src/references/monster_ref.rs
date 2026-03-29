@@ -127,11 +127,11 @@ impl Extractor for MonsterRef {
             reader.read_i32::<LittleEndian>()?;
 
             let loot1_item_type =
-                ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+                ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Weapon);
             let loot2_item_type =
-                ItemTypeId::from_u8(loot2_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+                ItemTypeId::from_u8(loot2_item_type_raw).unwrap_or(ItemTypeId::Weapon);
             let loot3_item_type =
-                ItemTypeId::from_u8(loot3_item_type_raw).unwrap_or(ItemTypeId::Unknown);
+                ItemTypeId::from_u8(loot3_item_type_raw).unwrap_or(ItemTypeId::Weapon);
 
             refs.push(MonsterRef {
                 index: i,

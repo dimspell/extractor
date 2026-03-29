@@ -32,7 +32,7 @@ impl EventType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -41,10 +41,9 @@ impl EventType {
 
 impl TryFrom<i32> for EventType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        EventType::from_i32(value)
-            .ok_or("Invalid event type value")
+        EventType::from_i32(value).ok_or("Invalid event type value")
     }
 }
 
@@ -88,7 +87,7 @@ impl MonsterAiType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -97,10 +96,9 @@ impl MonsterAiType {
 
 impl TryFrom<i32> for MonsterAiType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        MonsterAiType::from_i32(value)
-            .ok_or("Invalid monster AI type value")
+        MonsterAiType::from_i32(value).ok_or("Invalid monster AI type value")
     }
 }
 
@@ -129,12 +127,12 @@ impl PropertyFlag {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
     }
-    
+
     /// Convert to boolean
     pub fn as_bool(&self) -> bool {
         *self == PropertyFlag::Present
@@ -143,10 +141,9 @@ impl PropertyFlag {
 
 impl TryFrom<i32> for PropertyFlag {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        PropertyFlag::from_i32(value)
-            .ok_or("Invalid property flag value")
+        PropertyFlag::from_i32(value).ok_or("Invalid property flag value")
     }
 }
 
@@ -191,7 +188,7 @@ impl MapLighting {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -200,10 +197,9 @@ impl MapLighting {
 
 impl TryFrom<i32> for MapLighting {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        MapLighting::from_i32(value)
-            .ok_or("Invalid map lighting value")
+        MapLighting::from_i32(value).ok_or("Invalid map lighting value")
     }
 }
 
@@ -244,7 +240,7 @@ impl StoreType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -253,10 +249,9 @@ impl StoreType {
 
 impl TryFrom<i32> for StoreType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        StoreType::from_i32(value)
-            .ok_or("Invalid store type value")
+        StoreType::from_i32(value).ok_or("Invalid store type value")
     }
 }
 
@@ -305,7 +300,7 @@ impl DialogType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -314,10 +309,9 @@ impl DialogType {
 
 impl TryFrom<i32> for DialogType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        DialogType::from_i32(value)
-            .ok_or("Invalid dialog type value")
+        DialogType::from_i32(value).ok_or("Invalid dialog type value")
     }
 }
 
@@ -346,7 +340,7 @@ impl DialogOwner {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -355,10 +349,9 @@ impl DialogOwner {
 
 impl TryFrom<i32> for DialogOwner {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        DialogOwner::from_i32(value)
-            .ok_or("Invalid dialog owner value")
+        DialogOwner::from_i32(value).ok_or("Invalid dialog owner value")
     }
 }
 
@@ -387,7 +380,7 @@ impl EditItemModification {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
@@ -396,10 +389,9 @@ impl EditItemModification {
 
 impl TryFrom<u8> for EditItemModification {
     type Error = &'static str;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        EditItemModification::from_u8(value)
-            .ok_or("Invalid edit item modification value")
+        EditItemModification::from_u8(value).ok_or("Invalid edit item modification value")
     }
 }
 
@@ -447,7 +439,7 @@ impl EditItemEffect {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i16 {
         *self as i16
@@ -456,10 +448,9 @@ impl EditItemEffect {
 
 impl TryFrom<i16> for EditItemEffect {
     type Error = &'static str;
-    
+
     fn try_from(value: i16) -> Result<Self, Self::Error> {
-        EditItemEffect::from_i16(value)
-            .ok_or("Invalid edit item effect value")
+        EditItemEffect::from_i16(value).ok_or("Invalid edit item effect value")
     }
 }
 
@@ -502,7 +493,7 @@ impl ExtraObjectType {
             _ => Some(ExtraObjectType::Unknown),
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
@@ -511,10 +502,9 @@ impl ExtraObjectType {
 
 impl TryFrom<u8> for ExtraObjectType {
     type Error = &'static str;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        ExtraObjectType::from_u8(value)
-            .ok_or("Invalid extra object type value")
+        ExtraObjectType::from_u8(value).ok_or("Invalid extra object type value")
     }
 }
 
@@ -548,7 +538,7 @@ impl VisibilityType {
             _ => Some(VisibilityType::Unknown),
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
@@ -557,10 +547,9 @@ impl VisibilityType {
 
 impl TryFrom<u8> for VisibilityType {
     type Error = &'static str;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        VisibilityType::from_u8(value)
-            .ok_or("Invalid visibility type value")
+        VisibilityType::from_u8(value).ok_or("Invalid visibility type value")
     }
 }
 
@@ -574,20 +563,16 @@ impl From<VisibilityType> for u8 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum ItemTypeId {
-    /// Unknown/Invalid item type
-    Unknown = 0,
     /// Weapon item type
-    Weapon = 1,
-    /// Armor item type
-    Armor = 2,
+    Weapon = 0,
     /// Healing item type
-    Healing = 3,
-    /// Miscellaneous item type
-    Miscellaneous = 4,
+    Healing = 1,
     /// Edit item type
-    Edit = 5,
-    /// Event/Quest item type
-    Event = 6,
+    Edit = 2,
+    /// Miscellaneous item type
+    Misc = 3,
+    /// Event item type
+    Event = 4,
     /// Other/Unknown item type (catch-all for undefined values)
     Other = 255,
 }
@@ -596,17 +581,15 @@ impl ItemTypeId {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(ItemTypeId::Unknown),
-            1 => Some(ItemTypeId::Weapon),
-            2 => Some(ItemTypeId::Armor),
-            3 => Some(ItemTypeId::Healing),
-            4 => Some(ItemTypeId::Miscellaneous),
-            5 => Some(ItemTypeId::Edit),
-            6 => Some(ItemTypeId::Event),
+            0 => Some(ItemTypeId::Weapon),
+            1 => Some(ItemTypeId::Healing),
+            2 => Some(ItemTypeId::Edit),
+            3 => Some(ItemTypeId::Misc),
+            4 => Some(ItemTypeId::Event),
             _ => Some(ItemTypeId::Other),
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
@@ -615,10 +598,9 @@ impl ItemTypeId {
 
 impl TryFrom<u8> for ItemTypeId {
     type Error = &'static str;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        ItemTypeId::from_u8(value)
-            .ok_or("Invalid item type ID value")
+        ItemTypeId::from_u8(value).ok_or("Invalid item type ID value")
     }
 }
 
@@ -647,7 +629,7 @@ impl HealItemFlag {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
@@ -656,10 +638,9 @@ impl HealItemFlag {
 
 impl TryFrom<u8> for HealItemFlag {
     type Error = &'static str;
-    
+
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        HealItemFlag::from_u8(value)
-            .ok_or("Invalid heal item flag value")
+        HealItemFlag::from_u8(value).ok_or("Invalid heal item flag value")
     }
 }
 
@@ -719,7 +700,7 @@ impl MagicSchool {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
@@ -728,10 +709,9 @@ impl MagicSchool {
 
 impl TryFrom<u32> for MagicSchool {
     type Error = &'static str;
-    
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        MagicSchool::from_u32(value)
-            .ok_or("Invalid magic school value")
+        MagicSchool::from_u32(value).ok_or("Invalid magic school value")
     }
 }
 
@@ -766,7 +746,7 @@ impl SpellTargetType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
@@ -775,10 +755,9 @@ impl SpellTargetType {
 
 impl TryFrom<u32> for SpellTargetType {
     type Error = &'static str;
-    
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        SpellTargetType::from_u32(value)
-            .ok_or("Invalid spell target type value")
+        SpellTargetType::from_u32(value).ok_or("Invalid spell target type value")
     }
 }
 
@@ -807,7 +786,7 @@ impl MagicSpellFlag {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
@@ -816,10 +795,9 @@ impl MagicSpellFlag {
 
 impl TryFrom<u32> for MagicSpellFlag {
     type Error = &'static str;
-    
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        MagicSpellFlag::from_u32(value)
-            .ok_or("Invalid magic spell flag value")
+        MagicSpellFlag::from_u32(value).ok_or("Invalid magic spell flag value")
     }
 }
 
@@ -863,7 +841,7 @@ impl MagicSpellConstant {
             _ => Some(MagicSpellConstant::Invalid),
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
@@ -872,10 +850,9 @@ impl MagicSpellConstant {
 
 impl TryFrom<u32> for MagicSpellConstant {
     type Error = &'static str;
-    
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        MagicSpellConstant::from_u32(value)
-            .ok_or("Invalid magic spell constant value")
+        MagicSpellConstant::from_u32(value).ok_or("Invalid magic spell constant value")
     }
 }
 
@@ -922,7 +899,7 @@ impl NpcLookingDirection {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -931,10 +908,9 @@ impl NpcLookingDirection {
 
 impl TryFrom<i32> for NpcLookingDirection {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        NpcLookingDirection::from_i32(value)
-            .ok_or("Invalid NPC looking direction value")
+        NpcLookingDirection::from_i32(value).ok_or("Invalid NPC looking direction value")
     }
 }
 
@@ -966,7 +942,7 @@ impl PartyRootMapId {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -975,10 +951,9 @@ impl PartyRootMapId {
 
 impl TryFrom<i32> for PartyRootMapId {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        PartyRootMapId::from_i32(value)
-            .ok_or("Invalid party root map ID value")
+        PartyRootMapId::from_i32(value).ok_or("Invalid party root map ID value")
     }
 }
 
@@ -1004,7 +979,7 @@ impl GhostFaceId {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -1013,10 +988,9 @@ impl GhostFaceId {
 
 impl TryFrom<i32> for GhostFaceId {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        GhostFaceId::from_i32(value)
-            .ok_or("Invalid ghost face ID value")
+        GhostFaceId::from_i32(value).ok_or("Invalid ghost face ID value")
     }
 }
 
@@ -1051,7 +1025,7 @@ impl ProductType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -1060,10 +1034,9 @@ impl ProductType {
 
 impl TryFrom<i32> for ProductType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        ProductType::from_i32(value)
-            .ok_or("Invalid product type value")
+        ProductType::from_i32(value).ok_or("Invalid product type value")
     }
 }
 
@@ -1087,7 +1060,7 @@ impl ExtraType {
             _ => None,
         }
     }
-    
+
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
@@ -1096,10 +1069,9 @@ impl ExtraType {
 
 impl TryFrom<i32> for ExtraType {
     type Error = &'static str;
-    
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
-        ExtraType::from_i32(value)
-            .ok_or("Invalid extra type value")
+        ExtraType::from_i32(value).ok_or("Invalid extra type value")
     }
 }
 
@@ -1112,49 +1084,52 @@ impl From<ExtraType> for i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_event_type_conversion() {
         assert_eq!(EventType::from_i32(0), Some(EventType::Unknown));
         assert_eq!(EventType::from_i32(2), Some(EventType::Conditional));
-        assert_eq!(EventType::from_i32(5), Some(EventType::ContinueOnUnsatisfied));
+        assert_eq!(
+            EventType::from_i32(5),
+            Some(EventType::ContinueOnUnsatisfied)
+        );
         assert_eq!(EventType::from_i32(6), Some(EventType::ExecuteOnSatisfied));
         assert_eq!(EventType::from_i32(99), None);
-        
+
         assert_eq!(i32::from(EventType::Conditional), 2);
         assert_eq!(EventType::Conditional.value(), 2);
     }
-    
+
     #[test]
     fn test_monster_ai_type_conversion() {
         assert_eq!(MonsterAiType::from_i32(1), Some(MonsterAiType::Aggressive));
         assert_eq!(MonsterAiType::from_i32(4), Some(MonsterAiType::Boss));
         assert_eq!(MonsterAiType::from_i32(7), None);
-        
+
         assert_eq!(i32::from(MonsterAiType::Ranged), 3);
     }
-    
+
     #[test]
     fn test_property_flag_conversion() {
         assert_eq!(PropertyFlag::from_i32(0), Some(PropertyFlag::Absent));
         assert_eq!(PropertyFlag::from_i32(1), Some(PropertyFlag::Present));
         assert_eq!(PropertyFlag::from_i32(2), None);
-        
+
         assert_eq!(bool::from(PropertyFlag::Present), true);
         assert_eq!(bool::from(PropertyFlag::Absent), false);
         assert_eq!(PropertyFlag::from(true), PropertyFlag::Present);
         assert_eq!(PropertyFlag::from(false), PropertyFlag::Absent);
     }
-    
+
     #[test]
     fn test_try_from_impl() {
         assert!(EventType::try_from(2).is_ok());
         assert!(EventType::try_from(99).is_err());
-        
+
         assert!(MonsterAiType::try_from(3).is_ok());
         assert!(MonsterAiType::try_from(-1).is_err());
     }
-    
+
     #[test]
     fn test_product_type_conversion() {
         assert_eq!(ProductType::from_i32(1), Some(ProductType::Weapon));
@@ -1162,105 +1137,123 @@ mod tests {
         assert_eq!(ProductType::from_i32(3), Some(ProductType::Miscellaneous));
         assert_eq!(ProductType::from_i32(4), Some(ProductType::Edit));
         assert_eq!(ProductType::from_i32(99), None);
-        
+
         assert_eq!(i32::from(ProductType::Healing), 2);
         assert_eq!(ProductType::Healing.value(), 2);
     }
-    
+
     #[test]
     fn test_dialog_type_conversion() {
         assert_eq!(DialogType::from_i32(0), Some(DialogType::Normal));
         assert_eq!(DialogType::from_i32(1), Some(DialogType::Choice));
         assert_eq!(DialogType::from_i32(99), None);
-        
+
         assert_eq!(i32::from(DialogType::Choice), 1);
         assert_eq!(DialogType::Choice.value(), 1);
     }
-    
+
     #[test]
     fn test_dialog_owner_conversion() {
         assert_eq!(DialogOwner::from_i32(0), Some(DialogOwner::Player));
         assert_eq!(DialogOwner::from_i32(1), Some(DialogOwner::Npc));
         assert_eq!(DialogOwner::from_i32(99), None);
-        
+
         assert_eq!(i32::from(DialogOwner::Npc), 1);
         assert_eq!(DialogOwner::Npc.value(), 1);
     }
-    
+
     #[test]
     fn test_edit_item_modification_conversion() {
-        assert_eq!(EditItemModification::from_u8(0), Some(EditItemModification::DoesNotModify));
-        assert_eq!(EditItemModification::from_u8(1), Some(EditItemModification::CanModify));
+        assert_eq!(
+            EditItemModification::from_u8(0),
+            Some(EditItemModification::DoesNotModify)
+        );
+        assert_eq!(
+            EditItemModification::from_u8(1),
+            Some(EditItemModification::CanModify)
+        );
         assert_eq!(EditItemModification::from_u8(99), None);
-        
+
         assert_eq!(u8::from(EditItemModification::CanModify), 1);
         assert_eq!(EditItemModification::CanModify.value(), 1);
         assert_eq!(bool::from(EditItemModification::CanModify), true);
-        assert_eq!(EditItemModification::from(true), EditItemModification::CanModify);
+        assert_eq!(
+            EditItemModification::from(true),
+            EditItemModification::CanModify
+        );
     }
-    
+
     #[test]
     fn test_edit_item_effect_conversion() {
         assert_eq!(EditItemEffect::from_i16(0), Some(EditItemEffect::None));
         assert_eq!(EditItemEffect::from_i16(1), Some(EditItemEffect::Poison));
         assert_eq!(EditItemEffect::from_i16(2), Some(EditItemEffect::Fire));
         assert_eq!(EditItemEffect::from_i16(99), None);
-        
+
         assert_eq!(i16::from(EditItemEffect::Fire), 2);
         assert_eq!(EditItemEffect::Fire.value(), 2);
     }
-    
+
     #[test]
     fn test_extra_object_type_conversion() {
         assert_eq!(ExtraObjectType::from_u8(0), Some(ExtraObjectType::Chest));
         assert_eq!(ExtraObjectType::from_u8(2), Some(ExtraObjectType::Door));
         assert_eq!(ExtraObjectType::from_u8(4), Some(ExtraObjectType::Sign));
         assert_eq!(ExtraObjectType::from_u8(5), Some(ExtraObjectType::Altar));
-        assert_eq!(ExtraObjectType::from_u8(6), Some(ExtraObjectType::Interactive));
+        assert_eq!(
+            ExtraObjectType::from_u8(6),
+            Some(ExtraObjectType::Interactive)
+        );
         assert_eq!(ExtraObjectType::from_u8(7), Some(ExtraObjectType::Magic));
         assert_eq!(ExtraObjectType::from_u8(99), Some(ExtraObjectType::Unknown));
-        
+
         assert_eq!(u8::from(ExtraObjectType::Magic), 7);
         assert_eq!(ExtraObjectType::Magic.value(), 7);
     }
-    
+
     #[test]
     fn test_visibility_type_conversion() {
         assert_eq!(VisibilityType::from_u8(0), Some(VisibilityType::Invisible));
         assert_eq!(VisibilityType::from_u8(1), Some(VisibilityType::Visible));
-        assert_eq!(VisibilityType::from_u8(15), Some(VisibilityType::SemiTransparent));
+        assert_eq!(
+            VisibilityType::from_u8(15),
+            Some(VisibilityType::SemiTransparent)
+        );
         assert_eq!(VisibilityType::from_u8(99), Some(VisibilityType::Unknown));
-        
+
         assert_eq!(u8::from(VisibilityType::SemiTransparent), 15);
         assert_eq!(VisibilityType::SemiTransparent.value(), 15);
     }
-    
+
     #[test]
     fn test_item_type_id_conversion() {
-        assert_eq!(ItemTypeId::from_u8(0), Some(ItemTypeId::Unknown));
-        assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
-        assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Armor));
-        assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Healing));
-        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Miscellaneous));
-        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Edit));
+        assert_eq!(ItemTypeId::from_u8(0), Some(ItemTypeId::Weapon));
+        assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Healing));
+        assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Edit));
+        assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Misc));
+        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::WrongEdit));
         assert_eq!(ItemTypeId::from_u8(99), Some(ItemTypeId::Other));
-        
-        assert_eq!(u8::from(ItemTypeId::Edit), 5);
-        assert_eq!(ItemTypeId::Edit.value(), 5);
+
+        assert_eq!(u8::from(ItemTypeId::WrongEdit), 5);
+        assert_eq!(ItemTypeId::WrongEdit.value(), 5);
     }
-    
+
     #[test]
     fn test_heal_item_flag_conversion() {
         assert_eq!(HealItemFlag::from_u8(0), Some(HealItemFlag::None));
-        assert_eq!(HealItemFlag::from_u8(1), Some(HealItemFlag::FullRestoration));
+        assert_eq!(
+            HealItemFlag::from_u8(1),
+            Some(HealItemFlag::FullRestoration)
+        );
         assert_eq!(HealItemFlag::from_u8(99), None);
-        
+
         assert_eq!(u8::from(HealItemFlag::FullRestoration), 1);
         assert_eq!(HealItemFlag::FullRestoration.value(), 1);
         assert_eq!(bool::from(HealItemFlag::FullRestoration), true);
         assert_eq!(HealItemFlag::from(true), HealItemFlag::FullRestoration);
     }
-    
+
     #[test]
     fn test_magic_school_conversion() {
         assert_eq!(MagicSchool::from_u32(0), Some(MagicSchool::Unknown));
@@ -1271,66 +1264,108 @@ mod tests {
         assert_eq!(MagicSchool::from_u32(5), Some(MagicSchool::School5));
         assert_eq!(MagicSchool::from_u32(6), Some(MagicSchool::School6));
         assert_eq!(MagicSchool::from_u32(99), None);
-        
+
         assert_eq!(u32::from(MagicSchool::School6), 6);
         assert_eq!(MagicSchool::School6.value(), 6);
     }
-    
+
     #[test]
     fn test_spell_target_type_conversion() {
         assert_eq!(SpellTargetType::from_u32(1), Some(SpellTargetType::Single));
-        assert_eq!(SpellTargetType::from_u32(2), Some(SpellTargetType::SelfTarget));
-        assert_eq!(SpellTargetType::from_u32(3), Some(SpellTargetType::AreaOfEffect));
-        assert_eq!(SpellTargetType::from_u32(4), Some(SpellTargetType::MultiTarget));
+        assert_eq!(
+            SpellTargetType::from_u32(2),
+            Some(SpellTargetType::SelfTarget)
+        );
+        assert_eq!(
+            SpellTargetType::from_u32(3),
+            Some(SpellTargetType::AreaOfEffect)
+        );
+        assert_eq!(
+            SpellTargetType::from_u32(4),
+            Some(SpellTargetType::MultiTarget)
+        );
         assert_eq!(SpellTargetType::from_u32(99), None);
-        
+
         assert_eq!(u32::from(SpellTargetType::AreaOfEffect), 3);
         assert_eq!(SpellTargetType::AreaOfEffect.value(), 3);
     }
-    
+
     #[test]
     fn test_magic_spell_flag_conversion() {
         assert_eq!(MagicSpellFlag::from_u32(0), Some(MagicSpellFlag::Disabled));
         assert_eq!(MagicSpellFlag::from_u32(1), Some(MagicSpellFlag::Enabled));
         assert_eq!(MagicSpellFlag::from_u32(99), None);
-        
+
         assert_eq!(u32::from(MagicSpellFlag::Enabled), 1);
         assert_eq!(MagicSpellFlag::Enabled.value(), 1);
         assert_eq!(bool::from(MagicSpellFlag::Enabled), true);
         assert_eq!(MagicSpellFlag::from(true), MagicSpellFlag::Enabled);
     }
-    
+
     #[test]
     fn test_magic_spell_constant_conversion() {
-        assert_eq!(MagicSpellConstant::from_u32(1), Some(MagicSpellConstant::Standard));
-        assert_eq!(MagicSpellConstant::from_u32(0), Some(MagicSpellConstant::Invalid));
-        assert_eq!(MagicSpellConstant::from_u32(99), Some(MagicSpellConstant::Invalid));
-        
+        assert_eq!(
+            MagicSpellConstant::from_u32(1),
+            Some(MagicSpellConstant::Standard)
+        );
+        assert_eq!(
+            MagicSpellConstant::from_u32(0),
+            Some(MagicSpellConstant::Invalid)
+        );
+        assert_eq!(
+            MagicSpellConstant::from_u32(99),
+            Some(MagicSpellConstant::Invalid)
+        );
+
         assert_eq!(u32::from(MagicSpellConstant::Standard), 1);
         assert_eq!(MagicSpellConstant::Standard.value(), 1);
     }
-    
+
     #[test]
     fn test_npc_looking_direction_conversion() {
-        assert_eq!(NpcLookingDirection::from_i32(0), Some(NpcLookingDirection::Up));
-        assert_eq!(NpcLookingDirection::from_i32(1), Some(NpcLookingDirection::UpRight));
-        assert_eq!(NpcLookingDirection::from_i32(2), Some(NpcLookingDirection::Right));
-        assert_eq!(NpcLookingDirection::from_i32(3), Some(NpcLookingDirection::DownRight));
-        assert_eq!(NpcLookingDirection::from_i32(4), Some(NpcLookingDirection::Down));
-        assert_eq!(NpcLookingDirection::from_i32(5), Some(NpcLookingDirection::DownLeft));
-        assert_eq!(NpcLookingDirection::from_i32(6), Some(NpcLookingDirection::Left));
-        assert_eq!(NpcLookingDirection::from_i32(7), Some(NpcLookingDirection::UpLeft));
+        assert_eq!(
+            NpcLookingDirection::from_i32(0),
+            Some(NpcLookingDirection::Up)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(1),
+            Some(NpcLookingDirection::UpRight)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(2),
+            Some(NpcLookingDirection::Right)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(3),
+            Some(NpcLookingDirection::DownRight)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(4),
+            Some(NpcLookingDirection::Down)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(5),
+            Some(NpcLookingDirection::DownLeft)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(6),
+            Some(NpcLookingDirection::Left)
+        );
+        assert_eq!(
+            NpcLookingDirection::from_i32(7),
+            Some(NpcLookingDirection::UpLeft)
+        );
         assert_eq!(NpcLookingDirection::from_i32(99), None);
-        
+
         assert_eq!(i32::from(NpcLookingDirection::UpLeft), 7);
         assert_eq!(NpcLookingDirection::UpLeft.value(), 7);
     }
-    
+
     #[test]
     fn test_ghost_face_id_conversion() {
         assert_eq!(GhostFaceId::from_i32(0), Some(GhostFaceId::None));
         assert_eq!(GhostFaceId::from_i32(99), None);
-        
+
         assert_eq!(i32::from(GhostFaceId::None), 0);
         assert_eq!(GhostFaceId::None.value(), 0);
     }

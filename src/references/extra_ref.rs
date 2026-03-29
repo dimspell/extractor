@@ -67,12 +67,6 @@ use serde::{Deserialize, Serialize};
 // - 6: Interactive Device
 // - 7: Magical Object
 //
-// ITEM TYPES:
-// - 1: Bronze/Weapons
-// - 2: Equipment
-// - 3: Edibles/Consumables
-// - 4: Magical Items
-//
 // VISIBILITY TYPES:
 // - 0: Always visible
 // - 1: Conditional visibility
@@ -246,10 +240,10 @@ impl Extractor for ExtraRef {
             let _ = reader.read_exact(&mut padding);
 
             let required_item_type_id =
-                ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
+                ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
             let required_item_type_id2 =
-                ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Unknown);
-            let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Unknown);
+                ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Weapon);
+            let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
 
             refs.push(ExtraRef {
                 id: i,
