@@ -109,6 +109,19 @@ pub struct ExtraRef {
     pub message_id: i32,
     /// Determines alpha transparency on render.
     pub visibility: VisibilityType,
+
+    // Unknown/Padding fields
+    pub unknown1: u8,
+    pub unknown2: Vec<u8>,
+    pub unknown3: i32,
+    pub unknown4: Vec<u8>,
+    pub unknown5: Vec<u8>,
+    pub unknown6: Vec<u8>,
+    pub unknown7: Vec<u8>,
+    pub unknown8: Vec<u8>,
+    pub unknown9: Vec<u8>,
+    pub unknown10: Vec<u8>,
+    pub unknown11: Vec<u8>,
 }
 
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
@@ -161,7 +174,7 @@ impl Extractor for ExtraRef {
         for i in 0..elements {
             let number_in_file = reader.read_u8()?;
 
-            reader.read_u8()?;
+            let unknown1 = reader.read_u8()?;
             let extra_ini_entry_id = reader.read_u8()?; // Id from Extra.ini
 
             let mut buffer = [0u8; 32];
@@ -176,55 +189,54 @@ impl Extractor for ExtraRef {
             let y_pos = reader.read_i32::<LittleEndian>()?;
             let rotation = reader.read_u8()?;
 
-            reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let mut unknown2 = vec![0u8; 3];
+            reader.read_exact(&mut unknown2)?;
 
-            reader.read_i32::<LittleEndian>()?;
+            let unknown3 = reader.read_i32::<LittleEndian>()?;
 
             let closed = reader.read_i32::<LittleEndian>()?; // chest 0-open, 1-closed
 
             let required_item_id = reader.read_u8()?; // lower bound
             let required_item_type_id_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let mut unknown4 = vec![0u8; 2];
+            reader.read_exact(&mut unknown4)?;
 
             let required_item_id2 = reader.read_u8()?; // upper bound
             let required_item_type_id2_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let mut unknown5 = vec![0u8; 2];
+            reader.read_exact(&mut unknown5)?;
 
-            let mut buffer_16 = [0u8; 16];
-            reader.read_exact(&mut buffer_16)?;
+            let mut unknown6 = vec![0u8; 16];
+            reader.read_exact(&mut unknown6)?;
 
             let gold_amount = reader.read_i32::<LittleEndian>()?;
 
             let item_id = reader.read_u8()?;
             let item_type_id_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let mut unknown7 = vec![0u8; 2];
+            reader.read_exact(&mut unknown7)?;
 
             let item_count = reader.read_i32::<LittleEndian>()?;
 
-            let mut buffer_40 = [0u8; 40];
-            reader.read_exact(&mut buffer_40)?;
+            let mut unknown8 = vec![0u8; 40];
+            reader.read_exact(&mut unknown8)?;
 
             let event_id = reader.read_i32::<LittleEndian>()?; // id from event.ini
             let message_id = reader.read_i32::<LittleEndian>()?; // id from message.scr for signs
 
-            let mut buffer_32 = [0u8; 32];
-            reader.read_exact(&mut buffer_32)?;
+            let mut unknown9 = vec![0u8; 32];
+            reader.read_exact(&mut unknown9)?;
 
             let visibility_raw = reader.read_u8()?;
             let visibility =
                 VisibilityType::from_u8(visibility_raw).unwrap_or(VisibilityType::Unknown);
 
-            let mut buffer_3 = [0u8; 3];
-            reader.read_exact(&mut buffer_3)?;
+            let mut unknown10 = vec![0u8; 3];
+            reader.read_exact(&mut unknown10)?;
 
             // 8 byte padding to reach 184 bytes total
-            let mut padding = [0u8; 8];
-            let _ = reader.read_exact(&mut padding);
+            let mut unknown11 = vec![0u8; 8];
+            reader.read_exact(&mut unknown11)?;
 
             let required_item_type_id =
                 ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
@@ -253,6 +265,17 @@ impl Extractor for ExtraRef {
                 event_id,
                 message_id,
                 visibility,
+                unknown1,
+                unknown2,
+                unknown3,
+                unknown4,
+                unknown5,
+                unknown6,
+                unknown7,
+                unknown8,
+                unknown9,
+                unknown10,
+                unknown11,
             })
         }
 
@@ -268,7 +291,7 @@ impl Extractor for ExtraRef {
 
         for record in records {
             writer.write_u8(record.number_in_file)?;
-            writer.write_u8(0)?;
+            writer.write_u8(record.unknown1)?;
             writer.write_u8(record.ext_id)?;
 
             let mut name_buf = [0u8; 32];
@@ -282,38 +305,38 @@ impl Extractor for ExtraRef {
             writer.write_i32::<LittleEndian>(record.y_pos)?;
             writer.write_u8(record.rotation)?;
 
-            writer.write_all(&[0u8; 3])?;
-            writer.write_i32::<LittleEndian>(0)?;
+            writer.write_all(&record.unknown2)?;
+            writer.write_i32::<LittleEndian>(record.unknown3)?;
 
             writer.write_i32::<LittleEndian>(record.closed)?;
 
             writer.write_u8(record.required_item_id)?;
             writer.write_u8(u8::from(record.required_item_type_id))?;
-            writer.write_all(&[0u8; 2])?;
+            writer.write_all(&record.unknown4)?;
 
             writer.write_u8(record.required_item_id2)?;
             writer.write_u8(u8::from(record.required_item_type_id2))?;
-            writer.write_all(&[0u8; 2])?;
+            writer.write_all(&record.unknown5)?;
 
-            writer.write_all(&[0u8; 16])?;
+            writer.write_all(&record.unknown6)?;
 
             writer.write_i32::<LittleEndian>(record.gold_amount)?;
             writer.write_u8(record.item_id)?;
             writer.write_u8(u8::from(record.item_type_id))?;
-            writer.write_all(&[0u8; 2])?;
+            writer.write_all(&record.unknown7)?;
 
             writer.write_i32::<LittleEndian>(record.item_count)?;
-            writer.write_all(&[0u8; 40])?;
+            writer.write_all(&record.unknown8)?;
 
             writer.write_i32::<LittleEndian>(record.event_id)?;
             writer.write_i32::<LittleEndian>(record.message_id)?;
 
-            writer.write_all(&[0u8; 32])?;
+            writer.write_all(&record.unknown9)?;
 
             writer.write_u8(u8::from(record.visibility))?;
-            writer.write_all(&[0u8; 3])?;
+            writer.write_all(&record.unknown10)?;
 
-            writer.write_all(&[0u8; 8])?; // pad to 184 bytes
+            writer.write_all(&record.unknown11)?; // pad to 184 bytes
         }
         Ok(())
     }
@@ -354,6 +377,17 @@ pub fn save_extra_refs(
                 extra_ref.event_id,
                 extra_ref.message_id,
                 u8::from(extra_ref.visibility),
+                extra_ref.unknown1,
+                extra_ref.unknown2,
+                extra_ref.unknown3,
+                extra_ref.unknown4,
+                extra_ref.unknown5,
+                extra_ref.unknown6,
+                extra_ref.unknown7,
+                extra_ref.unknown8,
+                extra_ref.unknown9,
+                extra_ref.unknown10,
+                extra_ref.unknown11,
             ])?;
         }
     }

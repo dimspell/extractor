@@ -18,5 +18,16 @@ INSERT OR REPLACE INTO extra_refs(file_path,
                        item_count,
                        event_id,
                        message_id,
-                       visibility)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21);
+                       visibility,
+                       unknown1,
+                       unknown2,
+                       unknown3,
+                       unknown4,
+                       unknown5,
+                       unknown6,
+                       unknown7,
+                       unknown8,
+                       unknown9,
+                       unknown10,
+                       unknown11)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32);

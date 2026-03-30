@@ -20,5 +20,16 @@ CREATE TABLE IF NOT EXISTS extra_refs
     item_count             INTEGER,
     event_id               INTEGER,
     message_id             INTEGER,
-    visibility             INTEGER
+    visibility             INTEGER,
+    unknown1               INTEGER,
+    unknown2               BLOB,
+    unknown3               INTEGER,
+    unknown4               BLOB,
+    unknown5               BLOB,
+    unknown6               BLOB,
+    unknown7               BLOB,
+    unknown8               BLOB,
+    unknown9               BLOB,
+    unknown10              BLOB,
+    unknown11              BLOB
 );
