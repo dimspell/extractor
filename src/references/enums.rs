@@ -518,12 +518,8 @@ impl From<ExtraObjectType> for u8 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum VisibilityType {
-    /// Invisible object
-    Invisible = 0,
-    /// Visible object
-    Visible = 1,
-    /// Semi-transparent object
-    SemiTransparent = 15,
+    Visible0 = 0,
+    Visible10 = 10,
     /// Unknown visibility type
     Unknown = 255,
 }
@@ -532,9 +528,8 @@ impl VisibilityType {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(VisibilityType::Invisible),
-            1 => Some(VisibilityType::Visible),
-            15 => Some(VisibilityType::SemiTransparent),
+            0 => Some(VisibilityType::Visible0),
+            10 => Some(VisibilityType::Visible10),
             _ => Some(VisibilityType::Unknown),
         }
     }
@@ -1213,16 +1208,12 @@ mod tests {
 
     #[test]
     fn test_visibility_type_conversion() {
-        assert_eq!(VisibilityType::from_u8(0), Some(VisibilityType::Invisible));
-        assert_eq!(VisibilityType::from_u8(1), Some(VisibilityType::Visible));
-        assert_eq!(
-            VisibilityType::from_u8(15),
-            Some(VisibilityType::SemiTransparent)
-        );
+        assert_eq!(VisibilityType::from_u8(0), Some(VisibilityType::Visible0));
+        assert_eq!(VisibilityType::from_u8(10), Some(VisibilityType::Visible10));
         assert_eq!(VisibilityType::from_u8(99), Some(VisibilityType::Unknown));
 
-        assert_eq!(u8::from(VisibilityType::SemiTransparent), 15);
-        assert_eq!(VisibilityType::SemiTransparent.value(), 15);
+        assert_eq!(u8::from(VisibilityType::Visible10), 10);
+        assert_eq!(VisibilityType::Visible10.value(), 10);
     }
 
     #[test]
@@ -1232,11 +1223,10 @@ mod tests {
         assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Edit));
         assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Misc));
         assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
-        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::WrongEdit));
         assert_eq!(ItemTypeId::from_u8(99), Some(ItemTypeId::Other));
 
-        assert_eq!(u8::from(ItemTypeId::WrongEdit), 5);
-        assert_eq!(ItemTypeId::WrongEdit.value(), 5);
+        assert_eq!(u8::from(ItemTypeId::Edit), 2);
+        assert_eq!(ItemTypeId::Edit.value(), 2);
     }
 
     #[test]

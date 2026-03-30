@@ -59,19 +59,6 @@ use serde::{Deserialize, Serialize};
 // | ... (same structure) ...             |
 // +--------------------------------------+
 //
-// OBJECT TYPES:
-// - 0: Chest/Container
-// - 2: Door/Gate
-// - 4: Sign/Plaque
-// - 5: Altar/Shrine
-// - 6: Interactive Device
-// - 7: Magical Object
-//
-// VISIBILITY TYPES:
-// - 0: Always visible
-// - 1: Conditional visibility
-// - 2: Hidden/invisible
-//
 // FILE PURPOSE:
 // Defines interactive object placements with exact
 // coordinates, requirements, contents, and behaviors.
@@ -244,6 +231,8 @@ impl Extractor for ExtraRef {
             let required_item_type_id2 =
                 ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Weapon);
             let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
+
+            println!("{visibility_raw:?}");
 
             refs.push(ExtraRef {
                 id: i,
