@@ -35,8 +35,8 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 // | - padding: i16 × 3                   |
 // | - pz: i16 (HP restore)               |
 // | - pm: i16 (MP restore)               |
-// | - full_pz: u8 (full HP flag)        |
-// | - full_pm: u8 (full MP flag)        |
+// | - restore_full_health: u8 (full HP flag)        |
+// | - restore_full_mana: u8 (full MP flag)        |
 // | - poison_heal: u8                    |
 // | - petrif_heal: u8                    |
 // | - polimorph_heal: u8                 |
@@ -48,9 +48,9 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 //
 // FIELD ABBREVIATIONS:
 // - PZ: Health Points (Polish: Punkty Zdrowia)
-// - PM: Magic Points (Polish: Punkty Magii)
-// - full_pz: Restore to full HP
-// - full_pm: Restore to full MP
+// - PM: Mana Points (Polish: Punkty Magii)
+// - restore_full_health: Restore to full HP
+// - restore_full_mana: Restore to full MP
 //
 // HEALING FLAGS:
 // - poison_heal: Cures poison status
@@ -79,10 +79,10 @@ pub struct HealItem {
     pub description: String,
     /// Standardized merchant valuation.
     pub base_price: i16,
-    pub pz: i16,
-    pub pm: i16,
-    pub full_pz: HealItemFlag,
-    pub full_pm: HealItemFlag,
+    pub health_points: i16,
+    pub mana_points: i16,
+    pub restore_full_health: HealItemFlag,
+    pub restore_full_mana: HealItemFlag,
     pub poison_heal: HealItemFlag,
     pub petrif_heal: HealItemFlag,
     pub polimorph_heal: HealItemFlag,
@@ -100,8 +100,8 @@ pub struct HealItem {
 /// - `base_price`    : i16
 /// - 3 × i16 padding
 /// - `pz` / `pm`     : i16 (HP/MP restore amount)
-/// - `full_pz`       : u8 (restore to full HP flag)
-/// - `full_pm`       : u8 (restore to full MP flag)
+/// - `restore_full_health`     : u8 (restore to full HP flag)
+/// - `restore_full_mana`       : u8 (restore to full MP flag)
 /// - `poison_heal`   : u8
 /// - `petrif_heal`   : u8
 /// - `polimorph_heal`: u8
@@ -139,8 +139,8 @@ impl Extractor for HealItem {
 
             let pz = reader.read_i16::<LittleEndian>()?;
             let pm = reader.read_i16::<LittleEndian>()?;
-            let full_pz_raw = reader.read_u8()?;
-            let full_pm_raw = reader.read_u8()?;
+            let restore_full_health_raw = reader.read_u8()?;
+            let restore_full_mana_raw = reader.read_u8()?;
             let poison_heal_raw = reader.read_u8()?;
             let petrif_heal_raw = reader.read_u8()?;
             let polimorph_heal_raw = reader.read_u8()?;
@@ -148,8 +148,10 @@ impl Extractor for HealItem {
             reader.read_u8()?;
             reader.read_i16::<LittleEndian>()?;
 
-            let full_pz = HealItemFlag::from_u8(full_pz_raw).unwrap_or(HealItemFlag::None);
-            let full_pm = HealItemFlag::from_u8(full_pm_raw).unwrap_or(HealItemFlag::None);
+            let restore_full_health =
+                HealItemFlag::from_u8(restore_full_health_raw).unwrap_or(HealItemFlag::None);
+            let restore_full_mana =
+                HealItemFlag::from_u8(restore_full_mana_raw).unwrap_or(HealItemFlag::None);
             let poison_heal = HealItemFlag::from_u8(poison_heal_raw).unwrap_or(HealItemFlag::None);
             let petrif_heal = HealItemFlag::from_u8(petrif_heal_raw).unwrap_or(HealItemFlag::None);
             let polimorph_heal =
@@ -160,10 +162,10 @@ impl Extractor for HealItem {
                 name: name.to_string(),
                 description: description.to_string(),
                 base_price,
-                pz,
-                pm,
-                full_pz,
-                full_pm,
+                health_points: pz,
+                mana_points: pm,
+                restore_full_health,
+                restore_full_mana,
                 poison_heal,
                 petrif_heal,
                 polimorph_heal,
@@ -199,11 +201,11 @@ impl Extractor for HealItem {
             writer.write_i16::<LittleEndian>(0)?;
             writer.write_i16::<LittleEndian>(0)?;
 
-            writer.write_i16::<LittleEndian>(record.pz)?;
-            writer.write_i16::<LittleEndian>(record.pm)?;
+            writer.write_i16::<LittleEndian>(record.health_points)?;
+            writer.write_i16::<LittleEndian>(record.mana_points)?;
 
-            writer.write_u8(u8::from(record.full_pz))?;
-            writer.write_u8(u8::from(record.full_pm))?;
+            writer.write_u8(u8::from(record.restore_full_health))?;
+            writer.write_u8(u8::from(record.restore_full_mana))?;
             writer.write_u8(u8::from(record.poison_heal))?;
             writer.write_u8(u8::from(record.petrif_heal))?;
             writer.write_u8(u8::from(record.polimorph_heal))?;
@@ -229,10 +231,10 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Res
                 item.name,
                 item.description,
                 item.base_price,
-                item.pz,
-                item.pm,
-                u8::from(item.full_pz),
-                u8::from(item.full_pm),
+                item.health_points,
+                item.mana_points,
+                u8::from(item.restore_full_health),
+                u8::from(item.restore_full_mana),
                 u8::from(item.poison_heal),
                 u8::from(item.petrif_heal),
                 u8::from(item.polimorph_heal),

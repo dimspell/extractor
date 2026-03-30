@@ -27,8 +27,8 @@ use serde::{Deserialize, Serialize};
 // | - name: 24 bytes (EUC-KR, null-padded)|
 // | - health_points_max: i32             |
 // | - health_points_min: i32             |
-// | - magic_points_max: i32              |
-// | - magic_points_min: i32              |
+// | - mana_points_max: i32              |
+// | - mana_points_min: i32              |
 // | - walk_speed: i32                    |
 // | - to_hit_max: i32                    |
 // | - to_hit_min: i32                    |
@@ -100,9 +100,9 @@ pub struct Monster {
     /// Minimum HP floor.
     pub health_points_min: i32,
     /// Maximum MP limit.
-    pub magic_points_max: i32,
+    pub mana_points_max: i32,
     /// Minimum MP limit.
-    pub magic_points_min: i32,
+    pub mana_points_min: i32,
     /// Baseline tiles moved per tick.
     pub walk_speed: i32,
     /// Upper bound of accuracy.
@@ -201,8 +201,8 @@ impl Extractor for Monster {
 
             let health_points_max = reader.read_i32::<LittleEndian>()?;
             let health_points_min = reader.read_i32::<LittleEndian>()?;
-            let magic_points_max = reader.read_i32::<LittleEndian>()?;
-            let magic_points_min = reader.read_i32::<LittleEndian>()?;
+            let mana_points_max = reader.read_i32::<LittleEndian>()?;
+            let mana_points_min = reader.read_i32::<LittleEndian>()?;
 
             let walk_speed = reader.read_i32::<LittleEndian>()?;
 
@@ -259,8 +259,8 @@ impl Extractor for Monster {
                 name: name.to_string(),
                 health_points_max,
                 health_points_min,
-                magic_points_max,
-                magic_points_min,
+                mana_points_max,
+                mana_points_min,
                 walk_speed,
                 to_hit_max,
                 to_hit_min,
@@ -312,8 +312,8 @@ impl Extractor for Monster {
 
             writer.write_i32::<LittleEndian>(record.health_points_max)?;
             writer.write_i32::<LittleEndian>(record.health_points_min)?;
-            writer.write_i32::<LittleEndian>(record.magic_points_max)?;
-            writer.write_i32::<LittleEndian>(record.magic_points_min)?;
+            writer.write_i32::<LittleEndian>(record.mana_points_max)?;
+            writer.write_i32::<LittleEndian>(record.mana_points_min)?;
             writer.write_i32::<LittleEndian>(record.walk_speed)?;
             writer.write_i32::<LittleEndian>(record.to_hit_max)?;
             writer.write_i32::<LittleEndian>(record.to_hit_min)?;
@@ -363,8 +363,8 @@ pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<(
                 monster.name,
                 monster.health_points_max,
                 monster.health_points_min,
-                monster.magic_points_max,
-                monster.magic_points_min,
+                monster.mana_points_max,
+                monster.mana_points_min,
                 monster.walk_speed,
                 monster.to_hit_max,
                 monster.to_hit_min,

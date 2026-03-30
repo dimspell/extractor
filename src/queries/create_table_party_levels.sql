@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS party_levels
     constitution  INTEGER,
     wisdom        INTEGER,
     health_points INTEGER,
-    magic_points  INTEGER,
+    mana_points  INTEGER,
     agility       INTEGER,
     attack        INTEGER,
     mana_recharge INTEGER,

@@ -33,7 +33,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 // | - base_price: i16                    |
 // | - padding: 6 bytes                   |
 // | - health_points: i16 (PZ)            |
-// | - magic_points: i16 (PM)             |
+// | - mana_points: i16 (PM)             |
 // | - strength: i16 (SIŁ)                |
 // | - agility: i16 (ZW)                  |
 // | - wisdom: i16 (MM)                   |
@@ -54,7 +54,7 @@ use crate::references::references::{read_mapper, read_null_terminated_windows_12
 //
 // FIELD ABBREVIATIONS:
 // - PZ: Health Points (Polish: Punkty Zdrowia)
-// - PM: Magic Points (Polish: Punkty Magii)
+// - PM: Mana Points (Polish: Punkty Magii)
 // - SIŁ: Strength (Polish: Siła)
 // - ZW: Agility (Polish: Zwinność)
 // - MM: Wisdom (Polish: Mądrość)
@@ -95,7 +95,7 @@ pub struct EditItem {
     /// Base additive metric for derived vitality.
     pub health_points: i16,
     /// Spell scaling base factor.
-    pub magic_points: i16,
+    pub mana_points: i16,
     /// Stat adjustment logic constant.
     pub strength: i16,
     /// Physical tracking parameter limit.
@@ -196,7 +196,7 @@ impl Extractor for EditItem {
                 description: description.to_string(),
                 base_price,
                 health_points: pz,
-                magic_points: pm,
+                mana_points: pm,
                 strength: sil,
                 agility: zw,
                 wisdom: mm,
@@ -237,7 +237,7 @@ impl Extractor for EditItem {
             writer.write_all(&[0u8; 6])?;
 
             writer.write_i16::<LittleEndian>(record.health_points)?;
-            writer.write_i16::<LittleEndian>(record.magic_points)?;
+            writer.write_i16::<LittleEndian>(record.mana_points)?;
             writer.write_i16::<LittleEndian>(record.strength)?;
             writer.write_i16::<LittleEndian>(record.agility)?;
             writer.write_i16::<LittleEndian>(record.wisdom)?;
@@ -273,7 +273,7 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Res
                 item.description,
                 item.base_price,
                 item.health_points,
-                item.magic_points,
+                item.mana_points,
                 item.strength,
                 item.agility,
                 item.wisdom,

@@ -26,7 +26,7 @@ use std::path::Path;
 // |   - constitution: u32               |
 // |   - wisdom: u32                      |
 // |   - health_points: u16              |
-// |   - magic_points: u16               |
+// |   - mana_points: u16               |
 // |   - agility: u32                    |
 // |   - attack: u32                      |
 // |   - mana_recharge: u32               |
@@ -44,7 +44,7 @@ use std::path::Path;
 // STAT GROWTH PATTERNS:
 // - strength: Physical damage output
 // - constitution: Health point scaling
-// - wisdom: Magic point scaling
+// - wisdom: Mana point scaling
 // - agility: Evasion and speed
 // - attack: Combat accuracy
 // - defense: Damage resistance
@@ -80,7 +80,7 @@ pub struct PartyLevelRecord {
     /// Fixed gain of base stamina.
     pub health_points: u16,
     /// Fixed gain of magical pools.
-    pub magic_points: u16,
+    pub mana_points: u16,
     /// Avoidance calculation matrix shift.
     pub agility: u32,
     /// Derived raw throughput bonus.
@@ -106,7 +106,7 @@ pub struct PartyLevelNpc {
 /// No header. Each 36-byte sub-block:
 /// - 4-byte sentinel (u32)
 /// - `strength`, `constitution`, `wisdom` : u32 each
-/// - `health_points`, `magic_points`      : u16 each
+/// - `health_points`, `mana_points`      : u16 each
 /// - `agility`, `attack`, `mana_recharge` : u32 each
 /// - `defense`                            : u16
 impl Extractor for PartyLevelNpc {
@@ -130,7 +130,7 @@ impl Extractor for PartyLevelNpc {
                 let constitution = reader.read_u32::<LittleEndian>()?;
                 let wisdom = reader.read_u32::<LittleEndian>()?;
                 let health_points = reader.read_u16::<LittleEndian>()?;
-                let magic_points = reader.read_u16::<LittleEndian>()?;
+                let mana_points = reader.read_u16::<LittleEndian>()?;
 
                 let agility = reader.read_u32::<LittleEndian>()?;
                 let attack = reader.read_u32::<LittleEndian>()?;
@@ -144,7 +144,7 @@ impl Extractor for PartyLevelNpc {
                     constitution,
                     wisdom,
                     health_points,
-                    magic_points,
+                    mana_points,
                     agility,
                     attack,
                     mana_recharge,
@@ -169,7 +169,7 @@ impl Extractor for PartyLevelNpc {
                 writer.write_u32::<LittleEndian>(record.constitution)?;
                 writer.write_u32::<LittleEndian>(record.wisdom)?;
                 writer.write_u16::<LittleEndian>(record.health_points)?;
-                writer.write_u16::<LittleEndian>(record.magic_points)?;
+                writer.write_u16::<LittleEndian>(record.mana_points)?;
 
                 writer.write_u32::<LittleEndian>(record.agility)?;
                 writer.write_u32::<LittleEndian>(record.attack)?;
@@ -200,7 +200,7 @@ pub fn save_party_levels(conn: &mut Connection, npcs: &Vec<PartyLevelNpc>) -> Db
                     record.constitution as i32,
                     record.wisdom as i32,
                     record.health_points as i32,
-                    record.magic_points as i32,
+                    record.mana_points as i32,
                     record.agility as i32,
                     record.attack as i32,
                     record.mana_recharge as i32,

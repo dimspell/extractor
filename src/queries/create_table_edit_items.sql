@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS edit_items
     description           TEXT,
     base_price            INTEGER,
     health_points         INTEGER,
-    magic_points          INTEGER,
+    mana_points          INTEGER,
     strength              INTEGER,
     agility               INTEGER,
     wisdom                INTEGER,

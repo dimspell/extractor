@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 // | - base_price: i16                    |
 // | - padding: i16 × 3                   |
 // | - health_points: i16                 |
-// | - magic_points: i16                  |
+// | - mana_points: i16                  |
 // | - strength: i16                      |
 // | - agility: i16                       |
 // | - wisdom: i16                        |
@@ -56,7 +56,7 @@ use serde::{Deserialize, Serialize};
 //
 // FIELD ABBREVIATIONS:
 // - PZ: Health Points (Polish: Punkty Zdrowia)
-// - PM: Magic Points (Polish: Punkty Magii)
+// - PM: Mana Points (Polish: Punkty Magii)
 // - SIŁ: Strength (Polish: Siła)
 // - ZW: Agility (Polish: Zwinność)
 // - MM: Wisdom/Magic (Polish: Magia/Mądrość)
@@ -89,7 +89,7 @@ pub struct WeaponItem {
     /// HP modifier the equipment grants.
     pub health_points: i16,
     /// MP modifier the equipment grants.
-    pub magic_points: i16,
+    pub mana_points: i16,
     /// Strength buff granted.
     pub strength: i16,
     /// Agility modifier.
@@ -161,7 +161,7 @@ impl Extractor for WeaponItem {
             reader.read_i16::<LittleEndian>()?;
             reader.read_i16::<LittleEndian>()?;
             let health_points = reader.read_i16::<LittleEndian>()?;
-            let magic_points = reader.read_i16::<LittleEndian>()?;
+            let mana_points = reader.read_i16::<LittleEndian>()?;
             let strength = reader.read_i16::<LittleEndian>()?;
             let agility = reader.read_i16::<LittleEndian>()?;
             let wisdom = reader.read_i16::<LittleEndian>()?;
@@ -192,7 +192,7 @@ impl Extractor for WeaponItem {
                 wisdom,
                 name: name.to_string(),
                 defense,
-                magic_points,
+                mana_points,
                 health_points,
                 req_wisdom,
                 req_strength,
@@ -235,7 +235,7 @@ impl Extractor for WeaponItem {
             writer.write_i16::<LittleEndian>(0)?;
             writer.write_i16::<LittleEndian>(0)?;
             writer.write_i16::<LittleEndian>(record.health_points)?;
-            writer.write_i16::<LittleEndian>(record.magic_points)?;
+            writer.write_i16::<LittleEndian>(record.mana_points)?;
             writer.write_i16::<LittleEndian>(record.strength)?;
             writer.write_i16::<LittleEndian>(record.agility)?;
             writer.write_i16::<LittleEndian>(record.wisdom)?;
@@ -277,7 +277,7 @@ pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<
                 weapon.description,
                 weapon.base_price,
                 weapon.health_points,
-                weapon.magic_points,
+                weapon.mana_points,
                 weapon.strength,
                 weapon.agility,
                 weapon.wisdom,
