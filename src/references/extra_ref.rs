@@ -73,6 +73,8 @@ pub struct ExtraRef {
     pub id: i32,
     /// Linear parsing index.
     pub number_in_file: u8,
+    /// Unrecognized (always zero).
+    pub unknown1: u8,
     /// Mapping ID linked backwards derived from Extra.ini.
     pub ext_id: u8,
     /// 32-byte label identifier.
@@ -85,43 +87,84 @@ pub struct ExtraRef {
     pub y_pos: i32,
     /// Facing perspective index.
     pub rotation: u8,
+    /// Unrecognized (always [205, 205, 205])
+    pub unknown2: Vec<u8>,
+    /// Unrecognized (always zero)
+    pub unknown3: i32,
     /// Interaction status for chests (0=open, 1=closed).
     pub closed: i32,
     /// Key identifier (lower bound) to interact.
     pub required_item_id: u8,
     /// Category ID of lower bound requirement.
     pub required_item_type_id: ItemTypeId,
+    /// Unrecognized (always zero)
+    pub unknown4: i16,
     /// Secondary requirement / Key upper bound.
     pub required_item_id2: u8,
     /// Category ID for upper bound.
     pub required_item_type_id2: ItemTypeId,
+    /// Unrecognized (always zero)
+    pub unknown5: i16,
+    /// Unrecognized (0 or 9999)
+    pub unknown6: i32,
+    /// Unrecognized (0 or 9999)
+    pub unknown7: i32,
+    /// Unrecognized (0 or 9999)
+    pub unknown8: i32,
+    /// Unrecognized (0 or 9999)
+    pub unknown9: i32,
     /// Quantity of gold inside container.
     pub gold_amount: i32,
     /// Found static loot ID.
     pub item_id: u8,
     /// Category enum for found loot.
     pub item_type_id: ItemTypeId,
+    /// Unrecognized (always zero)
+    pub unknown10: i16,
     /// Stacks contained within object.
     pub item_count: i32,
+    /// Unrecognized (0, 28, 84, 258, 9999)
+    pub unknown11: i32,
+    /// Unrecognized (0 or 1)
+    pub unknown12: i32,
+    /// Unrecognized (0 or 9999)
+    pub unknown13: i32,
+    /// Unrecognized (always array of 28 zeros)
+    pub unknown14: Vec<u8>,
     /// Bound logic ID executing upon interaction (from event.ini).
     pub event_id: i32,
     /// Pointer to signposts/plaques contained in Message.scr.
     pub message_id: i32,
+    /// Unrecognized (0, 1, 2, 3)
+    pub unknown15: i32,
+    /// Unrecognized (0, 1, 2, 3)
+    pub unknown16: i32,
+    /// Unrecognized (always zero)
+    pub unknown17: u8,
+    /// Interactive element type (0, 1, 2, 3).
+    pub interactive_element_type: u8,
+    /// Unrecognized (always array [205, 205])
+    pub unknown18: Vec<u8>,
+    /// Unrecognized (0 or 1)
+    pub is_quest_element: i32,
+    /// Unrecognized (0 or 1)
+    pub unknown20: i32,
+    /// Unrecognized (0 or 1)
+    pub unknown21: i32,
+    /// Unrecognized (always zero)
+    pub unknown22: i32,
+    /// Unrecognized (0 or 1)
+    pub unknown23: i32,
     /// Determines alpha transparency on render.
     pub visibility: VisibilityType,
-
-    // Unknown/Padding fields
-    pub unknown1: u8,
-    pub unknown2: Vec<u8>,
-    pub unknown3: i32,
-    pub unknown4: Vec<u8>,
-    pub unknown5: Vec<u8>,
-    pub unknown6: Vec<u8>,
-    pub unknown7: Vec<u8>,
-    pub unknown8: Vec<u8>,
-    pub unknown9: Vec<u8>,
-    pub unknown10: Vec<u8>,
-    pub unknown11: Vec<u8>,
+    /// Unrecognized (0 or 1)
+    pub unknown24: u8,
+    /// Unrecognized (always zero)
+    pub unknown25: i16,
+    /// Unrecognized (0 or 1)
+    pub unknown26: i32,
+    /// Unrecognized (0 or 1)
+    pub unknown27: i32,
 }
 
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
@@ -198,45 +241,65 @@ impl Extractor for ExtraRef {
 
             let required_item_id = reader.read_u8()?; // lower bound
             let required_item_type_id_raw = reader.read_u8()?;
-            let mut unknown4 = vec![0u8; 2];
-            reader.read_exact(&mut unknown4)?;
+            let unknown4 = reader.read_i16::<LittleEndian>()?;
 
-            let required_item_id2 = reader.read_u8()?; // upper bound
+            let required_item_id2 = reader.read_u8()?;
             let required_item_type_id2_raw = reader.read_u8()?;
-            let mut unknown5 = vec![0u8; 2];
-            reader.read_exact(&mut unknown5)?;
+            let unknown5 = reader.read_i16::<LittleEndian>()?;
 
-            let mut unknown6 = vec![0u8; 16];
-            reader.read_exact(&mut unknown6)?;
+            let unknown6 = reader.read_i32::<LittleEndian>()?;
+            let unknown7 = reader.read_i32::<LittleEndian>()?;
+            let unknown8 = reader.read_i32::<LittleEndian>()?;
+            let unknown9 = reader.read_i32::<LittleEndian>()?;
 
             let gold_amount = reader.read_i32::<LittleEndian>()?;
 
             let item_id = reader.read_u8()?;
             let item_type_id_raw = reader.read_u8()?;
-            let mut unknown7 = vec![0u8; 2];
-            reader.read_exact(&mut unknown7)?;
+            let unknown10 = reader.read_i16::<LittleEndian>()?;
 
             let item_count = reader.read_i32::<LittleEndian>()?;
 
-            let mut unknown8 = vec![0u8; 40];
-            reader.read_exact(&mut unknown8)?;
+            let unknown11 = reader.read_i32::<LittleEndian>()?;
+            let unknown12 = reader.read_i32::<LittleEndian>()?;
+            let unknown13 = reader.read_i32::<LittleEndian>()?;
+
+            let mut unknown14 = vec![0u8; 28];
+            reader.read_exact(&mut unknown14)?;
 
             let event_id = reader.read_i32::<LittleEndian>()?; // id from event.ini
             let message_id = reader.read_i32::<LittleEndian>()?; // id from message.scr for signs
 
-            let mut unknown9 = vec![0u8; 32];
-            reader.read_exact(&mut unknown9)?;
+            let unknown15 = reader.read_i32::<LittleEndian>()?;
+            let unknown16 = reader.read_i32::<LittleEndian>()?;
+            let unknown17 = reader.read_u8()?;
+
+            // 0 = pillars in Gods garden
+            // 3 = Vera altar
+            // otherwise = 1
+            let interactive_element_type = reader.read_u8()?;
+
+            let mut unknown18 = vec![0u8; 2];
+            reader.read_exact(&mut unknown18)?;
+
+            // Door, Vera altar, resurrection altar = 1, otherwise = 0
+            let is_quest_element = reader.read_i32::<LittleEndian>()?;
+
+            let unknown20 = reader.read_i32::<LittleEndian>()?;
+            let unknown21 = reader.read_i32::<LittleEndian>()?;
+            let unknown22 = reader.read_i32::<LittleEndian>()?;
+            let unknown23 = reader.read_i32::<LittleEndian>()?;
 
             let visibility_raw = reader.read_u8()?;
             let visibility =
                 VisibilityType::from_u8(visibility_raw).unwrap_or(VisibilityType::Unknown);
 
-            let mut unknown10 = vec![0u8; 3];
-            reader.read_exact(&mut unknown10)?;
+            let unknown24 = reader.read_u8()?;
+            let unknown25 = reader.read_i16::<LittleEndian>()?;
 
-            // 8 byte padding to reach 184 bytes total
-            let mut unknown11 = vec![0u8; 8];
-            reader.read_exact(&mut unknown11)?;
+            // last 8 bytes to reach 184 bytes total
+            let unknown26 = reader.read_i32::<LittleEndian>()?;
+            let unknown27 = reader.read_i32::<LittleEndian>()?;
 
             let required_item_type_id =
                 ItemTypeId::from_u8(required_item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
@@ -264,6 +327,8 @@ impl Extractor for ExtraRef {
                 item_count,
                 event_id,
                 message_id,
+                is_quest_element,
+                interactive_element_type,
                 visibility,
                 unknown1,
                 unknown2,
@@ -276,6 +341,21 @@ impl Extractor for ExtraRef {
                 unknown9,
                 unknown10,
                 unknown11,
+                unknown12,
+                unknown13,
+                unknown14,
+                unknown15,
+                unknown16,
+                unknown17,
+                unknown18,
+                unknown20,
+                unknown21,
+                unknown22,
+                unknown23,
+                unknown24,
+                unknown25,
+                unknown26,
+                unknown27,
             })
         }
 
@@ -312,31 +392,54 @@ impl Extractor for ExtraRef {
 
             writer.write_u8(record.required_item_id)?;
             writer.write_u8(u8::from(record.required_item_type_id))?;
-            writer.write_all(&record.unknown4)?;
+            writer.write_i16::<LittleEndian>(record.unknown4)?;
 
             writer.write_u8(record.required_item_id2)?;
             writer.write_u8(u8::from(record.required_item_type_id2))?;
-            writer.write_all(&record.unknown5)?;
+            writer.write_i16::<LittleEndian>(record.unknown5)?;
 
-            writer.write_all(&record.unknown6)?;
+            writer.write_i32::<LittleEndian>(record.unknown6)?;
+            writer.write_i32::<LittleEndian>(record.unknown7)?;
+            writer.write_i32::<LittleEndian>(record.unknown8)?;
+            writer.write_i32::<LittleEndian>(record.unknown9)?;
 
             writer.write_i32::<LittleEndian>(record.gold_amount)?;
+
             writer.write_u8(record.item_id)?;
             writer.write_u8(u8::from(record.item_type_id))?;
-            writer.write_all(&record.unknown7)?;
+            writer.write_i16::<LittleEndian>(record.unknown10)?;
 
             writer.write_i32::<LittleEndian>(record.item_count)?;
-            writer.write_all(&record.unknown8)?;
+
+            writer.write_i32::<LittleEndian>(record.unknown11)?;
+            writer.write_i32::<LittleEndian>(record.unknown12)?;
+            writer.write_i32::<LittleEndian>(record.unknown13)?;
+
+            writer.write_all(&record.unknown14)?;
 
             writer.write_i32::<LittleEndian>(record.event_id)?;
             writer.write_i32::<LittleEndian>(record.message_id)?;
 
-            writer.write_all(&record.unknown9)?;
+            writer.write_i32::<LittleEndian>(record.unknown15)?;
+            writer.write_i32::<LittleEndian>(record.unknown16)?;
+            writer.write_u8(record.unknown17)?;
+
+            writer.write_u8(record.interactive_element_type)?;
+            writer.write_all(&record.unknown18)?;
+
+            writer.write_i32::<LittleEndian>(record.is_quest_element)?;
+
+            writer.write_i32::<LittleEndian>(record.unknown20)?;
+            writer.write_i32::<LittleEndian>(record.unknown21)?;
+            writer.write_i32::<LittleEndian>(record.unknown22)?;
+            writer.write_i32::<LittleEndian>(record.unknown23)?;
 
             writer.write_u8(u8::from(record.visibility))?;
-            writer.write_all(&record.unknown10)?;
+            writer.write_u8(record.unknown24)?;
+            writer.write_i16::<LittleEndian>(record.unknown25)?;
 
-            writer.write_all(&record.unknown11)?; // pad to 184 bytes
+            writer.write_i32::<LittleEndian>(record.unknown26)?;
+            writer.write_i32::<LittleEndian>(record.unknown27)?;
         }
         Ok(())
     }
@@ -356,38 +459,55 @@ pub fn save_extra_refs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_extra_ref.sql"))?;
         for extra_ref in extra_refs {
             stmt.execute(params![
-                file_path,
-                extra_ref.id,
-                extra_ref.number_in_file,
-                extra_ref.ext_id,
-                extra_ref.name,
-                u8::from(extra_ref.object_type),
-                extra_ref.x_pos,
-                extra_ref.y_pos,
-                extra_ref.rotation,
-                extra_ref.closed,
-                extra_ref.required_item_id,
-                u8::from(extra_ref.required_item_type_id),
-                extra_ref.required_item_id2,
-                u8::from(extra_ref.required_item_type_id2),
-                extra_ref.gold_amount,
-                extra_ref.item_id,
-                u8::from(extra_ref.item_type_id),
-                extra_ref.item_count,
-                extra_ref.event_id,
-                extra_ref.message_id,
-                u8::from(extra_ref.visibility),
-                extra_ref.unknown1,
-                extra_ref.unknown2,
-                extra_ref.unknown3,
-                extra_ref.unknown4,
-                extra_ref.unknown5,
-                extra_ref.unknown6,
-                extra_ref.unknown7,
-                extra_ref.unknown8,
-                extra_ref.unknown9,
-                extra_ref.unknown10,
-                extra_ref.unknown11,
+                file_path,                                  // 1
+                extra_ref.id,                               // 2
+                extra_ref.number_in_file,                   // 3
+                extra_ref.unknown1,                         // 4
+                extra_ref.ext_id,                           // 5
+                extra_ref.name,                             // 6
+                u8::from(extra_ref.object_type),            // 7
+                extra_ref.x_pos,                            // 8
+                extra_ref.y_pos,                            // 9
+                extra_ref.rotation,                         // 10
+                extra_ref.unknown2,                         // 11
+                extra_ref.unknown3,                         // 12
+                extra_ref.closed,                           // 13
+                extra_ref.required_item_id,                 // 14
+                u8::from(extra_ref.required_item_type_id),  // 15
+                extra_ref.unknown4,                         // 16
+                extra_ref.required_item_id2,                // 17
+                u8::from(extra_ref.required_item_type_id2), // 18
+                extra_ref.unknown5,                         // 19
+                extra_ref.unknown6,                         // 20
+                extra_ref.unknown7,                         // 21
+                extra_ref.unknown8,                         // 22
+                extra_ref.unknown9,                         // 23
+                extra_ref.gold_amount,                      // 24
+                extra_ref.item_id,                          // 25
+                u8::from(extra_ref.item_type_id),           // 26
+                extra_ref.unknown10,                        // 27
+                extra_ref.item_count,                       // 28
+                extra_ref.unknown11,                        // 29
+                extra_ref.unknown12,                        // 30
+                extra_ref.unknown13,                        // 31
+                extra_ref.unknown14,                        // 32
+                extra_ref.event_id,                         // 33
+                extra_ref.message_id,                       // 34
+                extra_ref.unknown15,                        // 35
+                extra_ref.unknown16,                        // 36
+                extra_ref.unknown17,                        // 37
+                extra_ref.interactive_element_type,         // 38
+                extra_ref.unknown18,                        // 39
+                extra_ref.is_quest_element,                 // 40
+                extra_ref.unknown20,                        // 41
+                extra_ref.unknown21,                        // 42
+                extra_ref.unknown22,                        // 43
+                extra_ref.unknown23,                        // 44
+                u8::from(extra_ref.visibility),             // 45
+                extra_ref.unknown24,                        // 46
+                extra_ref.unknown25,                        // 47
+                extra_ref.unknown26,                        // 48
+                extra_ref.unknown27,                        // 49
             ])?;
         }
     }
