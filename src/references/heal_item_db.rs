@@ -128,8 +128,8 @@ impl Extractor for HealItem {
 
             let mut buffer = [0u8; 202];
             reader.read_exact(&mut buffer)?;
-            let dst = EUC_KR.decode(&buffer);
-            let description = dst.0.trim_end_matches("\0").trim();
+            let description = read_null_terminated_windows_1250(&buffer).unwrap();
+            let description = description.trim();
 
             let base_price = reader.read_i16::<LittleEndian>()?;
 
