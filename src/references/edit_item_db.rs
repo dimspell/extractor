@@ -280,7 +280,6 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Res
                 item.constitution,
                 item.to_dodge,
                 item.to_hit,
-                item.to_hit,
                 item.offense,
                 item.defense,
                 item.item_destroying_power,
