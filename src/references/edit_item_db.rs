@@ -166,16 +166,16 @@ impl Extractor for EditItem {
             let mut buffer = [0u8; 3 * 2];
             reader.read_exact(&mut buffer)?;
 
-            let pz = reader.read_i16::<LittleEndian>()?; // PZ
-            let pm = reader.read_i16::<LittleEndian>()?; // PM
-            let sil = reader.read_i16::<LittleEndian>()?; // SIŁ
-            let zw = reader.read_i16::<LittleEndian>()?; // ZW
-            let mm = reader.read_i16::<LittleEndian>()?; // MM
-            let tf = reader.read_i16::<LittleEndian>()?; // TF
-            let unk = reader.read_i16::<LittleEndian>()?; // UNK
-            let trf = reader.read_i16::<LittleEndian>()?; // TRF
-            let atk = reader.read_i16::<LittleEndian>()?; // ATK
-            let obr = reader.read_i16::<LittleEndian>()?; // OBR
+            let health_points = reader.read_i16::<LittleEndian>()?; // PZ
+            let mana_points = reader.read_i16::<LittleEndian>()?; // PM
+            let strength = reader.read_i16::<LittleEndian>()?; // SIŁ
+            let agility = reader.read_i16::<LittleEndian>()?; // ZW
+            let wisdom = reader.read_i16::<LittleEndian>()?; // MM
+            let constitution = reader.read_i16::<LittleEndian>()?; // TF
+            let to_dodge = reader.read_i16::<LittleEndian>()?; // UNK
+            let to_hit = reader.read_i16::<LittleEndian>()?; // TRF
+            let offense = reader.read_i16::<LittleEndian>()?; // ATK
+            let defense = reader.read_i16::<LittleEndian>()?; // OBR
 
             reader.read_i16::<LittleEndian>()?;
 
@@ -195,16 +195,16 @@ impl Extractor for EditItem {
                 name: name.to_string(),
                 description: description.to_string(),
                 base_price,
-                health_points: pz,
-                mana_points: pm,
-                strength: sil,
-                agility: zw,
-                wisdom: mm,
-                constitution: tf,
-                to_dodge: unk,
-                to_hit: trf,
-                offense: atk,
-                defense: obr,
+                health_points,
+                mana_points,
+                strength,
+                agility,
+                wisdom,
+                constitution,
+                to_dodge,
+                to_hit,
+                offense,
+                defense,
                 item_destroying_power,
                 modifies_item,
                 additional_effect,

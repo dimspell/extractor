@@ -137,8 +137,8 @@ impl Extractor for HealItem {
             reader.read_i16::<LittleEndian>()?;
             reader.read_i16::<LittleEndian>()?;
 
-            let pz = reader.read_i16::<LittleEndian>()?;
-            let pm = reader.read_i16::<LittleEndian>()?;
+            let health_points = reader.read_i16::<LittleEndian>()?;
+            let mana_points = reader.read_i16::<LittleEndian>()?;
             let restore_full_health_raw = reader.read_u8()?;
             let restore_full_mana_raw = reader.read_u8()?;
             let poison_heal_raw = reader.read_u8()?;
@@ -162,8 +162,8 @@ impl Extractor for HealItem {
                 name: name.to_string(),
                 description: description.to_string(),
                 base_price,
-                health_points: pz,
-                mana_points: pm,
+                health_points,
+                mana_points,
                 restore_full_health,
                 restore_full_mana,
                 poison_heal,

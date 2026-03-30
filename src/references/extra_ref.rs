@@ -232,8 +232,6 @@ impl Extractor for ExtraRef {
                 ItemTypeId::from_u8(required_item_type_id2_raw).unwrap_or(ItemTypeId::Weapon);
             let item_type_id = ItemTypeId::from_u8(item_type_id_raw).unwrap_or(ItemTypeId::Weapon);
 
-            println!("{visibility_raw:?}");
-
             refs.push(ExtraRef {
                 id: i,
                 number_in_file,
