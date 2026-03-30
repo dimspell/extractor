@@ -116,7 +116,7 @@ pub struct EditItem {
     pub item_destroying_power: i16,
     /// Flag specifying if behavior mutates.
     pub modifies_item: EditItemModification,
-    /// Procedural elemental modifier appended (poison, fire).
+    /// Procedural elemental modifier appended (mana drain, fire).
     pub additional_effect: EditItemEffect,
 }
 
@@ -183,7 +183,7 @@ impl Extractor for EditItem {
             reader.read_u8()?;
 
             let modifies_item_raw = reader.read_u8()?;
-            let additional_effect_raw = reader.read_i16::<LittleEndian>()?; // poison or burn or none
+            let additional_effect_raw = reader.read_i16::<LittleEndian>()?;
 
             let modifies_item = EditItemModification::from_u8(modifies_item_raw)
                 .unwrap_or(EditItemModification::DoesNotModify);

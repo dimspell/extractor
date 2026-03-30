@@ -423,10 +423,10 @@ impl From<bool> for EditItemModification {
 pub enum EditItemEffect {
     /// No additional effect
     None = 0,
-    /// Poison effect
-    Poison = 1,
     /// Fire effect
-    Fire = 2,
+    Fire = 1,
+    /// Mana drain effect
+    ManaDrain = 2,
 }
 
 impl EditItemEffect {
@@ -434,8 +434,8 @@ impl EditItemEffect {
     pub fn from_i16(value: i16) -> Option<Self> {
         match value {
             0 => Some(EditItemEffect::None),
-            1 => Some(EditItemEffect::Poison),
-            2 => Some(EditItemEffect::Fire),
+            1 => Some(EditItemEffect::Fire),
+            2 => Some(EditItemEffect::ManaDrain),
             _ => None,
         }
     }
@@ -1186,12 +1186,12 @@ mod tests {
     #[test]
     fn test_edit_item_effect_conversion() {
         assert_eq!(EditItemEffect::from_i16(0), Some(EditItemEffect::None));
-        assert_eq!(EditItemEffect::from_i16(1), Some(EditItemEffect::Poison));
-        assert_eq!(EditItemEffect::from_i16(2), Some(EditItemEffect::Fire));
+        assert_eq!(EditItemEffect::from_i16(1), Some(EditItemEffect::Fire));
+        assert_eq!(EditItemEffect::from_i16(2), Some(EditItemEffect::ManaDrain));
         assert_eq!(EditItemEffect::from_i16(99), None);
 
-        assert_eq!(i16::from(EditItemEffect::Fire), 2);
-        assert_eq!(EditItemEffect::Fire.value(), 2);
+        assert_eq!(i16::from(EditItemEffect::ManaDrain), 2);
+        assert_eq!(EditItemEffect::ManaDrain.value(), 2);
     }
 
     #[test]
