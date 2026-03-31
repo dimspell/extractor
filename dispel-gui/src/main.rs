@@ -17,13 +17,13 @@ pub fn main() -> iced::Result {
     iced::application("Dispel Extractor", App::update, App::view)
         .theme(|_| {
             Theme::custom(
-                "Dispel Dark".into(),
+                "Dispel Medieval".into(),
                 iced::theme::Palette {
-                    background: color!(0x1a1a2e),
-                    text: color!(0xe0e0e0),
-                    primary: color!(0x6c63ff),
-                    success: color!(0x2ecc71),
-                    danger: color!(0xe74c3c),
+                    background: color!(0x2a2a2a),
+                    text: color!(0xeae0c8),
+                    primary: color!(0x8b5a2b),
+                    success: color!(0x2d5a27),
+                    danger: color!(0x800000),
                 },
             )
         })

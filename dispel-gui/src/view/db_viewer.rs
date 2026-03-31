@@ -229,7 +229,7 @@ impl App {
                 .width(150)
                 .padding([8, 6])
                 .on_press(Message::ViewerSortColumn(i))
-                .style(style::sort_button)
+                .style(style::grid_header_button)
                 .into()
             })
             .collect();
@@ -270,7 +270,7 @@ impl App {
                                 .width(Fill)
                                 .padding([6, 4])
                                 .on_press(Message::ViewerCellClick(ri, ci))
-                                .style(style::sort_button)
+                                .style(style::grid_cell_button)
                                 .into()
                         };
 
