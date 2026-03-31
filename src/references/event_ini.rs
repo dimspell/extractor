@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::EventType;
-use crate::references::references::{parse_null, Extractor};
+use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};

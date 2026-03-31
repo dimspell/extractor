@@ -7,7 +7,7 @@ use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
 // ===========================================================================
 // EVENTITEM.DB FILE FORMAT

@@ -154,7 +154,7 @@ impl Command for RefCommand {
                 );
             }
             RefSubcommand::MultiMagic { input } => {
-                super::super::references::references::read_mutli_magic_db(Path::new(input))
+                super::super::references::extractor::read_mutli_magic_db(Path::new(input))
                     .expect("ERROR: could not read file");
                 println!("MultiMagic DB processed successfully");
             }

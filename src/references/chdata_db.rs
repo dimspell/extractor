@@ -5,7 +5,7 @@ use std::path::Path;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::Serialize;
 
-use crate::references::references::Extractor;
+use crate::references::extractor::Extractor;
 
 // ===========================================================================
 // CHDATA.DB FILE FORMAT

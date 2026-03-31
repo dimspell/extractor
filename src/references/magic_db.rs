@@ -2,7 +2,7 @@ use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
-use crate::references::references::Extractor;
+use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result};
 use serde::Serialize;

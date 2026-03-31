@@ -8,7 +8,7 @@ use std::{
     path::Path,
 };
 
-use crate::references::references::Extractor;
+use crate::references::extractor::Extractor;
 
 // ===========================================================================
 // DIALOGUE TEXT FILE FORMAT

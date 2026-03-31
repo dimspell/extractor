@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::{fs::File, path::Path};
 
-use crate::references::references::{parse_null, Extractor};
+use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
@@ -89,28 +89,26 @@ impl Extractor for Extra {
                 .build(f),
         );
         let mut extras: Vec<Extra> = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                if line.starts_with(";") {
-                    continue;
-                }
-
-                let parts: Vec<&str> = line.split(",").collect();
-                if parts.len() < 4 {
-                    continue;
-                }
-                let id: i32 = parts[0].parse::<i32>().unwrap();
-                let sprite_filename = parse_null(parts[1]);
-                let unknown = parts[2].parse::<i32>().unwrap();
-                let description = parse_null(parts[3]);
-
-                extras.push(Extra {
-                    id,
-                    sprite_filename,
-                    unknown,
-                    description,
-                });
+        for line in reader.lines().flatten() {
+            if line.starts_with(";") {
+                continue;
             }
+
+            let parts: Vec<&str> = line.split(",").collect();
+            if parts.len() < 4 {
+                continue;
+            }
+            let id: i32 = parts[0].parse::<i32>().unwrap();
+            let sprite_filename = parse_null(parts[1]);
+            let unknown = parts[2].parse::<i32>().unwrap();
+            let description = parse_null(parts[3]);
+
+            extras.push(Extra {
+                id,
+                sprite_filename,
+                unknown,
+                description,
+            });
         }
         Ok(extras)
     }

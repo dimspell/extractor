@@ -18,7 +18,7 @@ pub fn convert_map_coords_to_image_coords(x: i32, y: i32, map_diagonal_tiles: i3
 pub struct EventBlock {
     pub x: i32,
     pub y: i32,
-    pub(crate) unknown_value: i16,
+    pub(crate) _unknown_value: i16,
     pub event_id: i16,
 }
 

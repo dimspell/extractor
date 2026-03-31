@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, Result};
 use serde::Serialize;
 
 use crate::references::enums::ProductType;
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
 // ===========================================================================
 // STORE.DB FILE FORMAT

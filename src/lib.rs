@@ -13,5 +13,5 @@ pub mod commands;
 // Re-export key types for easy access
 pub use references::{
     edit_item_db::EditItem, enums::*, event_item_db::EventItem, extra_ref::ExtraRef,
-    heal_item_db::HealItem, misc_item_db::MiscItem, references::Extractor, weapons_db::WeaponItem,
+    heal_item_db::HealItem, misc_item_db::MiscItem, extractor::Extractor, weapons_db::WeaponItem,
 };

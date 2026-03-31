@@ -23,7 +23,7 @@ pub fn sidebar_container(_theme: &Theme) -> container::Style {
             offset: Vector::new(2.0, 0.0),
             blur_radius: 8.0,
         },
-        ..Default::default()
+        text_color: None,
     }
 }
 
@@ -93,7 +93,6 @@ pub fn active_tab_button(_theme: &Theme, status: button::Status) -> button::Styl
             offset: Vector::ZERO,
             blur_radius: 8.0,
         },
-        ..Default::default()
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -119,7 +118,6 @@ pub fn run_button(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::new(0.0, 3.0),
             blur_radius: 12.0,
         },
-        ..Default::default()
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -197,7 +195,6 @@ pub fn active_chip(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::ZERO,
             blur_radius: 6.0,
         },
-        ..Default::default()
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -346,7 +343,6 @@ pub fn commit_button(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::new(0.0, 2.0),
             blur_radius: 8.0,
         },
-        ..Default::default()
     };
     match status {
         button::Status::Hovered => button::Style {

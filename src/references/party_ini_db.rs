@@ -1,4 +1,4 @@
-use crate::references::references::Extractor;
+use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::Serialize;

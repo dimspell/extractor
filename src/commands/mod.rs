@@ -25,13 +25,19 @@ pub trait Command: Send + Sync {
 
 /// Command factory for creating commands with dependency injection
 pub struct CommandFactory {
-    services: services::ServiceContainer,
+    _services: services::ServiceContainer,
+}
+
+impl Default for CommandFactory {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CommandFactory {
     pub fn new() -> Self {
         CommandFactory {
-            services: services::ServiceContainer::new(),
+            _services: services::ServiceContainer::new(),
         }
     }
 

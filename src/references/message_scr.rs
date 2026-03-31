@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
-use crate::references::references::Extractor;
+use crate::references::extractor::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};

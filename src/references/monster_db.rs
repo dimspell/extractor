@@ -3,7 +3,7 @@ use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{MonsterAiType, PropertyFlag};
-use crate::references::references::{read_mapper, Extractor};
+use crate::references::extractor::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::EUC_KR;
 use rusqlite::{params, Connection, Result};

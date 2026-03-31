@@ -2,7 +2,7 @@ use std::io::{BufReader, BufWriter};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::ItemTypeId;
-use crate::references::references::{read_mapper, Extractor};
+use crate::references::extractor::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result};
 use serde::Serialize;

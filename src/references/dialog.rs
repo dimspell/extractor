@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{DialogOwner, DialogType};
-use crate::references::references::{parse_int, Extractor};
+use crate::references::extractor::{parse_int, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
@@ -96,41 +96,36 @@ impl Extractor for Dialog {
                 .build(f),
         );
         let mut dlgs: Vec<Dialog> = Vec::new();
-        for line in reader.lines() {
-            match line {
-                Ok(line) => {
-                    let trimmed = line.trim();
-                    if trimmed.starts_with(";") || trimmed.is_empty() {
-                        continue;
-                    }
-                    let parts: Vec<&str> = trimmed.split(",").collect();
-                    if parts.len() < 7 {
-                        continue;
-                    }
-
-                    let id: i32 = parts[0].trim().parse::<i32>().unwrap();
-                    let previous_event_id = parse_int(parts[1].trim());
-                    let next_dialog_to_check = parse_int(parts[2].trim());
-                    let dialog_type_id = parse_int(parts[3].trim());
-                    let dialog_owner_id = parse_int(parts[4].trim());
-                    let dialog_id = parse_int(parts[5].trim());
-                    let event_id = parse_int(parts[6].trim());
-
-                    let dialog_type = dialog_type_id.and_then(|v| DialogType::from_i32(v));
-                    let dialog_owner = dialog_owner_id.and_then(|v| DialogOwner::from_i32(v));
-
-                    dlgs.push(Dialog {
-                        id,
-                        previous_event_id,
-                        next_dialog_to_check,
-                        dialog_type,
-                        dialog_owner,
-                        dialog_id,
-                        event_id,
-                    });
-                }
-                _ => {}
+        for line in reader.lines().flatten() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(";") || trimmed.is_empty() {
+                continue;
             }
+            let parts: Vec<&str> = trimmed.split(",").collect();
+            if parts.len() < 7 {
+                continue;
+            }
+
+            let id: i32 = parts[0].trim().parse::<i32>().unwrap();
+            let previous_event_id = parse_int(parts[1].trim());
+            let next_dialog_to_check = parse_int(parts[2].trim());
+            let dialog_type_id = parse_int(parts[3].trim());
+            let dialog_owner_id = parse_int(parts[4].trim());
+            let dialog_id = parse_int(parts[5].trim());
+            let event_id = parse_int(parts[6].trim());
+
+            let dialog_type = dialog_type_id.and_then(DialogType::from_i32);
+            let dialog_owner = dialog_owner_id.and_then(DialogOwner::from_i32);
+
+            dlgs.push(Dialog {
+                id,
+                previous_event_id,
+                next_dialog_to_check,
+                dialog_type,
+                dialog_owner,
+                dialog_id,
+                event_id,
+            });
         }
         Ok(dlgs)
     }

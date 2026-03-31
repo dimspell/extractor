@@ -14,7 +14,7 @@ impl App {
 
         let game_path_row = row![
             text("Game Path:").size(14),
-            text(format!("{}", editor.game_path)).size(12),
+            text(editor.game_path.to_string()).size(12),
             button(text("Browse..."))
                 .on_press(Message::ChestOpBrowseGamePath)
                 .style(style::browse_button),
@@ -27,7 +27,7 @@ impl App {
 
         let map_file_row = row![
             text("Map File:").size(14),
-            text(format!("{}", editor.current_map_file)).size(12),
+            text(editor.current_map_file.to_string()).size(12),
             button(text("Browse..."))
                 .on_press(Message::ChestOpBrowseMapFile)
                 .style(style::browse_button),

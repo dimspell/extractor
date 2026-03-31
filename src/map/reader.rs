@@ -184,7 +184,7 @@ pub fn read_events_block(
                     x,
                     y,
                     event_id,
-                    unknown_value,
+                    _unknown_value: unknown_value,
                 },
             );
         }
@@ -236,10 +236,9 @@ pub fn read_roof_tiles(
 
             if btl_tile_id > 0 {
                 if some_flag > 0 {
-                    println!("ReadRoofTiles TODO: {x:?}:{y:?} {btl_tile_id:?} {some_flag}");
-                } else {
-                    btl_tiles.insert(coords, btl_tile_id.into());
+                    println!("ReadRoofTiles TODO: {btl_tile_id:?} {some_flag}");
                 }
+                btl_tiles.insert(coords, btl_tile_id.into());
             }
         }
     }

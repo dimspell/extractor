@@ -310,20 +310,18 @@ impl App {
                             for entry in entries.flatten() {
                                 let p = entry.path();
                                 if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false)
-                                {
-                                    if p.file_name()
+                                    && p.file_name()
                                         .map(|n| n.to_string_lossy().starts_with("Ext"))
                                         .unwrap_or(false)
                                     {
                                         files.push(p);
                                     }
-                                }
                             }
                         }
                         files.sort();
                         Ok(files)
                     },
-                    |res| Message::ChestMapsScanned(res),
+                    Message::ChestMapsScanned,
                 )
             }
             Message::ChestMapsScanned(res) => {
@@ -485,7 +483,7 @@ impl App {
                     if let Err(e) = std::fs::copy(&path, &backup_path) {
                         return Task::perform(
                             async move { Err(format!("Failed to backup: {}", e)) },
-                            |res| Message::ChestSaved(res),
+                            Message::ChestSaved,
                         );
                     }
                 }
@@ -608,8 +606,7 @@ impl App {
                             .viewer
                             .rows
                             .get(pr)
-                            .map(|row| row.get(pc).map(|v| v.as_str()))
-                            .flatten()
+                            .and_then(|row| row.get(pc).map(|v| v.as_str()))
                             != Some(&self.viewer.edit_buffer)
                     {
                         let original = self

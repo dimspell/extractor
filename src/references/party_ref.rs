@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::GhostFaceId;
-use crate::references::references::{parse_null, Extractor};
+use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
@@ -90,41 +90,39 @@ impl Extractor for PartyRef {
                 .build(f),
         );
         let mut party_refs: Vec<PartyRef> = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let trimmed = line.trim();
-                if trimmed.starts_with(";") || trimmed.is_empty() {
-                    continue;
-                }
-
-                let parts: Vec<&str> = trimmed.split(",").collect();
-                if parts.len() < 8 {
-                    continue;
-                }
-
-                let id = parts[0].trim().parse::<i32>().unwrap();
-                let full_name = parse_null(parts[1].trim());
-                let job_name = parse_null(parts[2].trim());
-                let root_map_id = parts[3].trim().parse::<i32>().unwrap();
-                let npc_id = parts[4].trim().parse::<i32>().unwrap();
-                let dlg_when_not_in_party = parts[5].trim().parse::<i32>().unwrap();
-                let dlg_when_in_party = parts[6].trim().parse::<i32>().unwrap();
-                let ghost_face_id_raw = parts[7].trim().parse::<i32>().unwrap();
-
-                let ghost_face_id =
-                    GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
-
-                party_refs.push(PartyRef {
-                    id,
-                    full_name,
-                    job_name,
-                    root_map_id,
-                    npc_id,
-                    dlg_when_not_in_party,
-                    dlg_when_in_party,
-                    ghost_face_id,
-                });
+        for line in reader.lines().flatten() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(";") || trimmed.is_empty() {
+                continue;
             }
+
+            let parts: Vec<&str> = trimmed.split(",").collect();
+            if parts.len() < 8 {
+                continue;
+            }
+
+            let id = parts[0].trim().parse::<i32>().unwrap();
+            let full_name = parse_null(parts[1].trim());
+            let job_name = parse_null(parts[2].trim());
+            let root_map_id = parts[3].trim().parse::<i32>().unwrap();
+            let npc_id = parts[4].trim().parse::<i32>().unwrap();
+            let dlg_when_not_in_party = parts[5].trim().parse::<i32>().unwrap();
+            let dlg_when_in_party = parts[6].trim().parse::<i32>().unwrap();
+            let ghost_face_id_raw = parts[7].trim().parse::<i32>().unwrap();
+
+            let ghost_face_id =
+                GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
+
+            party_refs.push(PartyRef {
+                id,
+                full_name,
+                job_name,
+                root_map_id,
+                npc_id,
+                dlg_when_not_in_party,
+                dlg_when_in_party,
+                ghost_face_id,
+            });
         }
         Ok(party_refs)
     }

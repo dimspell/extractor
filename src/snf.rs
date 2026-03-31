@@ -111,14 +111,13 @@ pub fn extract(from: &Path, to: &Path) -> Result<()> {
     out_file.write_i32::<LittleEndian>(snf.data_size)?;
 
     // Copy raw PCM audio data from SNF to WAV format
+    let mut buf = [0u8; 4096];
     loop {
-        let mut buf = [0; 2];
-        let num_bytes = in_file.read(&mut buf)?;
-        if num_bytes == 0 {
+        let n = in_file.read(&mut buf)?;
+        if n == 0 {
             break;
         }
-
-        out_file.write(&buf)?;
+        out_file.write_all(&buf[..n])?;
     }
     out_file.flush()?;
 

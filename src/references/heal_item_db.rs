@@ -9,7 +9,7 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::HealItemFlag;
-use crate::references::references::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 
 // ===========================================================================
 // HEALITEM.DB FILE FORMAT

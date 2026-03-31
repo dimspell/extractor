@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Write};
 use std::{fs::File, path::Path};
 
-use crate::references::references::{parse_null, Extractor};
+use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
@@ -93,40 +93,38 @@ impl Extractor for MapIni {
                 .build(f),
         );
         let mut map_inis: Vec<MapIni> = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let trimmed = line.trim();
-                if trimmed.starts_with(";") || trimmed.is_empty() {
-                    continue;
-                }
-
-                let parts: Vec<&str> = trimmed.split(",").collect();
-                if parts.len() < 9 {
-                    continue;
-                }
-
-                let id: i32 = parts[0].trim().parse::<i32>().unwrap();
-                let event_id_on_camera_move = parts[1].trim().parse::<i32>().unwrap();
-                let start_pos_x = parts[2].trim().parse::<i32>().unwrap();
-                let start_pos_y = parts[3].trim().parse::<i32>().unwrap();
-                let map_id = parts[4].trim().parse::<i32>().unwrap();
-                let monsters_filename = parse_null(parts[5].trim());
-                let npc_filename = parse_null(parts[6].trim());
-                let extra_filename = parse_null(parts[7].trim());
-                let cd_music_track_number = parts[8].trim().parse::<i32>().unwrap();
-
-                map_inis.push(MapIni {
-                    id,
-                    event_id_on_camera_move,
-                    start_pos_x,
-                    start_pos_y,
-                    map_id,
-                    monsters_filename,
-                    npc_filename,
-                    extra_filename,
-                    cd_music_track_number,
-                });
+        for line in reader.lines().flatten() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(";") || trimmed.is_empty() {
+                continue;
             }
+
+            let parts: Vec<&str> = trimmed.split(",").collect();
+            if parts.len() < 9 {
+                continue;
+            }
+
+            let id: i32 = parts[0].trim().parse::<i32>().unwrap();
+            let event_id_on_camera_move = parts[1].trim().parse::<i32>().unwrap();
+            let start_pos_x = parts[2].trim().parse::<i32>().unwrap();
+            let start_pos_y = parts[3].trim().parse::<i32>().unwrap();
+            let map_id = parts[4].trim().parse::<i32>().unwrap();
+            let monsters_filename = parse_null(parts[5].trim());
+            let npc_filename = parse_null(parts[6].trim());
+            let extra_filename = parse_null(parts[7].trim());
+            let cd_music_track_number = parts[8].trim().parse::<i32>().unwrap();
+
+            map_inis.push(MapIni {
+                id,
+                event_id_on_camera_move,
+                start_pos_x,
+                start_pos_y,
+                map_id,
+                monsters_filename,
+                npc_filename,
+                extra_filename,
+                cd_music_track_number,
+            });
         }
         Ok(map_inis)
     }

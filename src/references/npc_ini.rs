@@ -6,7 +6,7 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::references::references::{parse_null, Extractor};
+use crate::references::extractor::{parse_null, Extractor};
 
 // ===========================================================================
 // NPC.INI FILE FORMAT
@@ -74,28 +74,26 @@ impl Extractor for NpcIni {
                 .build(f),
         );
         let mut npc_inis: Vec<NpcIni> = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let trimmed = line.trim();
-                if trimmed.starts_with(";") || trimmed.is_empty() {
-                    continue;
-                }
-
-                let parts: Vec<&str> = trimmed.split(",").collect();
-                if parts.len() < 3 {
-                    continue;
-                }
-
-                let id = parts[0].trim().parse::<i32>().unwrap();
-                let sprite_filename = parse_null(parts[1].trim());
-                let description = parts[2].trim().to_string();
-
-                npc_inis.push(NpcIni {
-                    id,
-                    sprite_filename,
-                    description,
-                });
+        for line in reader.lines().flatten() {
+            let trimmed = line.trim();
+            if trimmed.starts_with(";") || trimmed.is_empty() {
+                continue;
             }
+
+            let parts: Vec<&str> = trimmed.split(",").collect();
+            if parts.len() < 3 {
+                continue;
+            }
+
+            let id = parts[0].trim().parse::<i32>().unwrap();
+            let sprite_filename = parse_null(parts[1].trim());
+            let description = parts[2].trim().to_string();
+
+            npc_inis.push(NpcIni {
+                id,
+                sprite_filename,
+                description,
+            });
         }
         Ok(npc_inis)
     }
