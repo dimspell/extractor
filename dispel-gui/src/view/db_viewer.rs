@@ -251,10 +251,8 @@ impl App {
 
                         let cell_style = if is_dirty {
                             style::grid_cell_dirty
-                        } else if ri % 2 == 0 {
-                            style::grid_cell
                         } else {
-                            style::grid_cell_even
+                            style::grid_cell
                         };
 
                         let inner: Element<Message> = if is_editing {
@@ -274,10 +272,20 @@ impl App {
                                 .into()
                         };
 
-                        container(inner).width(150).style(cell_style).into()
+                        container(inner)
+                            .width(150)
+                            .style(cell_style)
+                            .into()
                     })
                     .collect();
-                row(cells).spacing(0).into()
+
+                let row_style = if ri % 2 == 0 {
+                    style::grid_row
+                } else {
+                    style::grid_row_even
+                };
+
+                container(row(cells).spacing(0)).style(row_style).into()
             })
             .collect();
 

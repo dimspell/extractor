@@ -250,13 +250,13 @@ pub fn grid_header_cell(_theme: &Theme) -> container::Style {
 
 pub fn grid_cell(_theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(color!(0x262626))), // Dark stone cell
+        background: Some(Background::Color(Color::TRANSPARENT)),
         border: Border {
-            color: color!(0x3d2b1f), // Deep leather brown border
+            color: color!(0x3d2b1f),
             width: 0.5,
             radius: 0.into(),
         },
-        text_color: Some(color!(0xd7ccc8)), // Tan text
+        text_color: Some(color!(0xd7ccc8)),
         ..Default::default()
     }
 }
@@ -274,15 +274,16 @@ pub fn grid_cell_dirty(_theme: &Theme) -> container::Style {
     }
 }
 
-pub fn grid_cell_even(_theme: &Theme) -> container::Style {
+pub fn grid_row(_theme: &Theme) -> container::Style {
     container::Style {
-        background: Some(Background::Color(color!(0x1f1f1f))), // Slightly darker stone
-        border: Border {
-            color: color!(0x3d2b1f),
-            width: 0.5,
-            radius: 0.into(),
-        },
-        text_color: Some(color!(0xd7ccc8)),
+        background: Some(Background::Color(color!(0x262626))),
+        ..Default::default()
+    }
+}
+
+pub fn grid_row_even(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x1f1f1f))),
         ..Default::default()
     }
 }
