@@ -1,0 +1,159 @@
+use crate::app::App;
+use crate::message::Message;
+use crate::style;
+use crate::types::Tab;
+use iced::widget::{
+    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
+    vertical_space,
+};
+use iced::{Element, Fill, Font, Length};
+
+pub mod chest_editor;
+pub mod database;
+pub mod db_viewer;
+pub mod map;
+pub mod ref_tab;
+pub mod sound;
+pub mod sprite;
+
+impl App {
+    pub fn view(&self) -> Element<'_, Message> {
+        let sidebar = self.view_sidebar();
+        let content = if self.active_tab == Tab::DbViewer {
+            self.view_db_viewer()
+        } else if self.active_tab == Tab::ChestEditor {
+            self.view_chest_editor_tab()
+        } else {
+            let tab_content = self.view_tab_content();
+            let log_panel = self.view_log();
+            column![tab_content, horizontal_rule(1), log_panel]
+                .spacing(0)
+                .width(Fill)
+                .height(Fill)
+                .into()
+        };
+
+        let layout = row![sidebar, content].height(Fill).width(Fill);
+        container(layout)
+            .width(Fill)
+            .height(Fill)
+            .style(style::root_container)
+            .into()
+    }
+
+    fn view_sidebar(&self) -> Element<'_, Message> {
+        let title = text("Dispel Extractor").size(18).font(Font::MONOSPACE);
+        let tabs: Vec<Element<Message>> = Tab::ALL
+            .iter()
+            .map(|tab| {
+                let is_active = *tab == self.active_tab;
+                let btn = button(text(tab.label()).size(14))
+                    .width(Fill)
+                    .padding([10, 16])
+                    .on_press(Message::TabSelected(*tab));
+                if is_active {
+                    btn.style(style::active_tab_button)
+                } else {
+                    btn.style(style::tab_button)
+                }
+                .into()
+            })
+            .collect();
+        let sidebar_content = column![
+            vertical_space().height(12),
+            container(title).padding([0, 16]),
+            vertical_space().height(16),
+            column(tabs).spacing(2).padding([0, 8]),
+            vertical_space().height(Length::Fill),
+            vertical_space().height(8),
+        ]
+        .spacing(0)
+        .width(220);
+        container(sidebar_content)
+            .height(Fill)
+            .style(style::sidebar_container)
+            .into()
+    }
+
+    fn view_tab_content(&self) -> Element<'_, Message> {
+        let inner = match self.active_tab {
+            Tab::Map => self.view_map_tab(),
+            Tab::Ref => self.view_ref_tab(),
+            Tab::Database => self.view_database_tab(),
+            Tab::Sprite => self.view_sprite_tab(),
+            Tab::Sound => self.view_sound_tab(),
+            Tab::DbViewer => text("").into(),
+            Tab::ChestEditor => self.view_chest_editor_tab(),
+        };
+        let run_btn = if self.is_running {
+            button(text("⏳ Running…").size(14))
+                .padding([10, 28])
+                .style(style::run_button_disabled)
+        } else {
+            button(text("▶  Run Command").size(14))
+                .padding([10, 28])
+                .on_press(Message::Run)
+                .style(style::run_button)
+        };
+        let header = text(match self.active_tab {
+            Tab::Map => "Map Operations",
+            Tab::Ref => "Reference Data Extraction",
+            Tab::Database => "Database Import Pipeline",
+            Tab::Sprite => "Sprite / Animation Extraction",
+            Tab::Sound => "Audio Conversion (SNF → WAV)",
+            _ => "",
+        })
+        .size(22);
+        let subtitle = text(match self.active_tab {
+            Tab::Map => "Extract tiles, render maps, and manage map assets",
+            Tab::Ref => "Read game DB/INI/REF files and output as JSON",
+            Tab::Database => "Populate a local SQLite database from game fixtures",
+            Tab::Sprite => "Parse .SPR / .SPX files to extract frames or sequences",
+            Tab::Sound => "Convert .SNF game audio to standard .WAV format",
+            _ => "",
+        })
+        .size(13)
+        .style(style::subtle_text);
+        let content = column![
+            header,
+            subtitle,
+            vertical_space().height(16),
+            inner,
+            vertical_space().height(16),
+            row![horizontal_space(), run_btn].width(Fill)
+        ]
+        .spacing(4)
+        .padding(24)
+        .width(Fill);
+        scrollable(content).height(Length::FillPortion(3)).into()
+    }
+
+    fn view_log(&self) -> Element<'_, Message> {
+        let title = row![
+            text("Output Log").size(14).font(Font::MONOSPACE),
+            horizontal_space(),
+            button(text("Clear").size(11))
+                .padding([4, 12])
+                .on_press(Message::ClearLog)
+                .style(style::chip)
+        ]
+        .align_y(iced::Alignment::Center);
+
+        let content = scrollable(
+            container(
+                text(&self.log)
+                    .size(12)
+                    .font(Font::MONOSPACE)
+                    .width(Fill),
+            )
+            .padding(12),
+        )
+        .height(Fill);
+
+        container(column![title, content].spacing(8))
+            .padding(16)
+            .height(Length::FillPortion(1))
+            .style(style::log_container)
+            .into()
+    }
+}

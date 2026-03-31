@@ -1,0 +1,102 @@
+use crate::message::Message;
+use crate::style;
+use iced::widget::{button, row, text, text_input};
+use iced::{Element, Task};
+
+pub fn labeled_input<'a>(
+    label: &'a str,
+    value: &'a str,
+    on_change: impl Fn(String) -> Message + 'a,
+) -> Element<'a, Message> {
+    row![
+        text(label).size(13).width(140),
+        text_input("", value)
+            .on_input(on_change)
+            .padding(8)
+            .size(13)
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
+pub fn labeled_file_row<'a>(
+    label: &'a str,
+    value: &'a str,
+    on_change: impl Fn(String) -> Message + 'a,
+    browse_msg: Message,
+) -> Element<'a, Message> {
+    row![
+        text(label).size(13).width(140),
+        text_input("", value)
+            .on_input(on_change)
+            .padding(8)
+            .size(13),
+        button(text("…").size(12))
+            .padding([6, 10])
+            .on_press(browse_msg)
+            .style(style::browse_button),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
+pub fn browse_file(field: &str) -> Task<Message> {
+    let field = field.to_string();
+    Task::perform(
+        async move {
+            rfd::AsyncFileDialog::new()
+                .pick_file()
+                .await
+                .map(|h| h.path().to_path_buf())
+        },
+        move |path| Message::FileSelected {
+            field: field.clone(),
+            path,
+        },
+    )
+}
+
+pub fn browse_folder(field: &str) -> Task<Message> {
+    let field = field.to_string();
+    Task::perform(
+        async move {
+            rfd::AsyncFileDialog::new()
+                .pick_folder()
+                .await
+                .map(|h| h.path().to_path_buf())
+        },
+        move |path| Message::FileSelected {
+            field: field.clone(),
+            path,
+        },
+    )
+}
+
+pub async fn run_command(exe: String, args: Vec<String>) -> Result<String, String> {
+    use tokio::process::Command;
+    let output = Command::new(&exe)
+        .args(&args)
+        .output()
+        .await
+        .map_err(|e| format!("Failed to spawn '{}': {}", exe, e))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let mut result = String::new();
+    if !stdout.is_empty() {
+        result.push_str(&stdout);
+    }
+    if !stderr.is_empty() {
+        result.push_str(&stderr);
+    }
+    if output.status.success() {
+        Ok(result)
+    } else {
+        Err(format!(
+            "Exit code {}.\n{}",
+            output.status.code().unwrap_or(-1),
+            result
+        ))
+    }
+}

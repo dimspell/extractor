@@ -236,9 +236,10 @@ pub fn read_roof_tiles(
 
             if btl_tile_id > 0 {
                 if some_flag > 0 {
-                    println!("ReadRoofTiles TODO: {btl_tile_id:?} {some_flag}");
+                    println!("ReadRoofTiles TODO: {x:?}:{y:?} {btl_tile_id:?} {some_flag}");
+                } else {
+                    btl_tiles.insert(coords, btl_tile_id.into());
                 }
-                btl_tiles.insert(coords, btl_tile_id.into());
             }
         }
     }
