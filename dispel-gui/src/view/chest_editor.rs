@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::labeled_input;
+use crate::utils::{labeled_input, truncate_path};
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
     vertical_space,
@@ -13,26 +13,44 @@ impl App {
         let editor = &self.chest_editor;
 
         let game_path_row = row![
-            text("Game Path:").size(14),
-            text(editor.game_path.to_string()).size(12),
-            button(text("Browse..."))
+            text("Game:").size(12).width(60).style(style::subtle_text),
+            container(
+                text(truncate_path(&editor.game_path, 60))
+                    .size(11)
+                    .font(Font::MONOSPACE)
+            )
+            .padding([4, 10])
+            .width(Fill)
+            .style(style::sql_editor_container),
+            button(text("Browse").size(11))
                 .on_press(Message::ChestOpBrowseGamePath)
+                .padding([5, 10])
                 .style(style::browse_button),
-            button(text("Load Catalog"))
+            button(text("Load Catalog").size(11))
                 .on_press(Message::ChestOpLoadCatalog)
+                .padding([5, 10])
                 .style(style::run_button),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center);
 
         let map_file_row = row![
-            text("Map File:").size(14),
-            text(editor.current_map_file.to_string()).size(12),
-            button(text("Browse..."))
+            text("Map:").size(12).width(60).style(style::subtle_text),
+            container(
+                text(truncate_path(&editor.current_map_file, 60))
+                    .size(11)
+                    .font(Font::MONOSPACE)
+            )
+            .padding([4, 10])
+            .width(Fill)
+            .style(style::sql_editor_container),
+            button(text("Browse").size(11))
                 .on_press(Message::ChestOpBrowseMapFile)
+                .padding([5, 10])
                 .style(style::browse_button),
-            button(text("Load Map"))
+            button(text("Load Map").size(11))
                 .on_press(Message::ChestOpSelectMap)
+                .padding([5, 10])
                 .style(style::run_button),
         ]
         .spacing(10)
@@ -216,9 +234,9 @@ impl App {
 
         column![
             container(
-                row![game_path_row, horizontal_space(), map_file_row]
+                column![game_path_row, map_file_row]
                     .padding(10)
-                    .align_y(iced::Alignment::Center)
+                    .spacing(8)
             )
             .style(style::toolbar_container),
             horizontal_rule(1),

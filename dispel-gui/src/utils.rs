@@ -100,3 +100,13 @@ pub async fn run_command(exe: String, args: Vec<String>) -> Result<String, Strin
         ))
     }
 }
+pub fn truncate_path(path: &str, max_len: usize) -> String {
+    if path.len() <= max_len {
+        return path.to_string();
+    }
+    let half = (max_len.saturating_sub(3)) / 2;
+    if half == 0 {
+        return path.chars().take(max_len).collect();
+    }
+    format!("{}...{}", &path[..half], &path[path.len() - half..])
+}
