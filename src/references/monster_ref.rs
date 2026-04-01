@@ -55,7 +55,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MonsterRef {
     /// Record index relative to the Mondun struct array.
     pub index: i32,

@@ -16,6 +16,7 @@ pub mod magic_editor;
 pub mod map;
 pub mod misc_item_editor;
 pub mod monster_editor;
+pub mod monster_ref_editor;
 pub mod npc_ini_editor;
 pub mod party_ini_editor;
 pub mod party_ref_editor;
@@ -59,6 +60,8 @@ impl App {
             self.view_party_ref_editor_tab()
         } else if self.active_tab == Tab::PartyIniEditor {
             self.view_party_ini_editor_tab()
+        } else if self.active_tab == Tab::MonsterRefEditor {
+            self.view_monster_ref_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
             let log_panel = self.view_log();
@@ -170,6 +173,7 @@ impl App {
             Tab::PartyRefEditor => self.view_party_ref_editor_tab(),
             Tab::PartyIniEditor => self.view_party_ini_editor_tab(),
             Tab::SpriteBrowser => self.view_sprite_browser_tab(),
+            Tab::MonsterRefEditor => self.view_monster_ref_editor_tab(),
         };
         let run_btn: Element<'_, Message> = if self.is_running {
             button(text("⏳ Running…").size(14))

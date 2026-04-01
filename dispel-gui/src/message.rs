@@ -5,8 +5,8 @@ use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use std::path::PathBuf;
 
 use dispel_core::{
-    EditItem, EventItem, HealItem, MagicSpell, MiscItem, Monster, NpcIni, PartyIniNpc, PartyRef,
-    Store, WeaponItem,
+    EditItem, EventItem, HealItem, MagicSpell, MiscItem, Monster, MonsterRef, NpcIni, PartyIniNpc,
+    PartyRef, Store, WeaponItem,
 };
 
 #[derive(Debug, Clone)]
@@ -216,4 +216,13 @@ pub enum Message {
     SpriteBrowserOpSelectSequence(usize),
     SpriteBrowserOpSelectFrame(usize),
     SpriteBrowserScanned(Result<Vec<sprite_browser::SpriteEntry>, String>),
+    // Monster Ref Editor
+    MonsterRefOpBrowseFile,
+    MonsterRefOpSelectFile(PathBuf),
+    MonsterRefOpScanFiles,
+    MonsterRefOpFilesScanned(Vec<PathBuf>),
+    MonsterRefOpSelectEntry(usize),
+    MonsterRefOpFieldChanged(usize, String, String),
+    MonsterRefOpSave,
+    MonsterRefCatalogLoaded(Result<Vec<MonsterRef>, String>),
 }

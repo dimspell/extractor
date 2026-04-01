@@ -585,9 +585,35 @@ impl ItemTypeId {
         }
     }
 
+    /// Convert from a string name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Weapon" => Some(ItemTypeId::Weapon),
+            "Healing" => Some(ItemTypeId::Healing),
+            "Edit" => Some(ItemTypeId::Edit),
+            "Misc" => Some(ItemTypeId::Misc),
+            "Event" => Some(ItemTypeId::Event),
+            "Other" => Some(ItemTypeId::Other),
+            _ => None,
+        }
+    }
+
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+}
+
+impl std::fmt::Display for ItemTypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemTypeId::Weapon => write!(f, "Weapon"),
+            ItemTypeId::Healing => write!(f, "Healing"),
+            ItemTypeId::Edit => write!(f, "Edit"),
+            ItemTypeId::Misc => write!(f, "Misc"),
+            ItemTypeId::Event => write!(f, "Event"),
+            ItemTypeId::Other => write!(f, "Other"),
+        }
     }
 }
 

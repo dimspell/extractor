@@ -12,6 +12,7 @@ pub mod magic_editor;
 pub mod message;
 pub mod misc_item_editor;
 pub mod monster_editor;
+pub mod monster_ref_editor;
 pub mod npc_ini_editor;
 pub mod party_ini_editor;
 pub mod party_ref_editor;

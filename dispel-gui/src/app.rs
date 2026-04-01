@@ -8,6 +8,7 @@ use crate::magic_editor;
 use crate::message::Message;
 use crate::misc_item_editor;
 use crate::monster_editor;
+use crate::monster_ref_editor;
 use crate::npc_ini_editor;
 use crate::party_ini_editor;
 use crate::party_ref_editor;
@@ -18,7 +19,7 @@ use crate::utils::{browse_file, browse_folder};
 use crate::weapon_editor;
 use dispel_core::commands::{self, Command, CommandFactory};
 use dispel_core::{
-    EditItem, EventItem, Extractor, HealItem, MagicSpell, MiscItem, Monster, NpcIni, PartyIniNpc,
+    EditItem, EventItem, Extractor, HealItem, MagicSpell, MiscItem, Monster, MonsterRef, NpcIni, PartyIniNpc,
     PartyRef, Store, WeaponItem,
 };
 use iced::{Element, Task};
@@ -84,6 +85,8 @@ pub struct App {
     pub party_ref_editor: Box<party_ref_editor::PartyRefEditorState>,
     // Party Ini Editor
     pub party_ini_editor: Box<party_ini_editor::PartyIniEditorState>,
+    // Monster Ref Editor
+    pub monster_ref_editor: Box<monster_ref_editor::MonsterRefEditorState>,
     // Sprite Browser
     pub sprite_browser: Box<sprite_browser::SpriteBrowserState>,
 }
@@ -130,6 +133,7 @@ impl App {
                 store_editor: Box::default(),
                 party_ref_editor: Box::default(),
                 party_ini_editor: Box::default(),
+                monster_ref_editor: Box::default(),
                 sprite_browser: Box::default(),
             },
             Task::none(),
@@ -260,6 +264,18 @@ impl App {
                         "viewer_db" => self.viewer.db_path = s,
                         "chest_game_path" => self.shared_game_path = s,
                         "chest_map_file" => self.chest_editor.current_map_file = s,
+                        "monster_ref_file" => {
+                            self.monster_ref_editor.current_map_file = s.clone();
+                            let path = PathBuf::from(&s);
+                            self.monster_ref_editor.is_loading = true;
+                            return Task::perform(
+                                async move {
+                                    MonsterRef::read_file(&path)
+                                        .map_err(|e: std::io::Error| e.to_string())
+                                },
+                                Message::MonsterRefCatalogLoaded,
+                            );
+                        }
                         _ => {}
                     }
                 }
@@ -1562,6 +1578,97 @@ impl App {
                 self.sprite_browser.select_frame(frame_idx);
                 Task::none()
             }
+            // Monster Ref Editor
+            Message::MonsterRefOpBrowseFile => crate::utils::browse_file("monster_ref_file"),
+            Message::MonsterRefOpSelectFile(path) => {
+                self.monster_ref_editor.current_map_file = path.to_string_lossy().to_string();
+                self.monster_ref_editor.is_loading = true;
+                Task::perform(
+                    async move {
+                        MonsterRef::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::MonsterRefCatalogLoaded(res),
+                )
+            }
+            Message::MonsterRefOpScanFiles => {
+                if self.shared_game_path.is_empty() {
+                    self.monster_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                let path = PathBuf::from(&self.shared_game_path).join("MonsterInGame");
+                Task::perform(
+                    async move {
+                        let mut files = vec![];
+                        if let Ok(entries) = std::fs::read_dir(&path) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file()
+                                    && p.extension().map(|e| e == "ref").unwrap_or(false)
+                                {
+                                    let name = p
+                                        .file_name()
+                                        .map(|n| n.to_string_lossy().to_string())
+                                        .unwrap_or_default();
+                                    if name.to_lowercase().starts_with("mondun")
+                                        || name.to_lowercase().starts_with("monmap")
+                                    {
+                                        files.push(p);
+                                    }
+                                }
+                            }
+                        }
+                        files.sort();
+                        files
+                    },
+                    Message::MonsterRefOpFilesScanned,
+                )
+            }
+            Message::MonsterRefOpFilesScanned(files) => {
+                self.monster_ref_editor.map_files = files;
+                self.monster_ref_editor.status_msg = format!(
+                    "Found {} monster ref files",
+                    self.monster_ref_editor.map_files.len()
+                );
+                Task::none()
+            }
+            Message::MonsterRefOpSelectEntry(idx) => {
+                self.monster_ref_editor.select_entry(idx);
+                Task::none()
+            }
+            Message::MonsterRefOpFieldChanged(idx, field, val) => {
+                self.monster_ref_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MonsterRefOpSave => {
+                self.monster_ref_editor.is_loading = true;
+                let result = self.monster_ref_editor.save_entries();
+                self.monster_ref_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.monster_ref_editor.status_msg = "Monster ref saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.monster_ref_editor.status_msg = format!("Error saving monster ref: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MonsterRefCatalogLoaded(res) => {
+                self.monster_ref_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.monster_ref_editor.catalog = Some(catalog.clone());
+                        self.monster_ref_editor.status_msg =
+                            format!("Monster ref loaded: {} entries", catalog.len()).into();
+                        self.monster_ref_editor.refresh_entries();
+                    }
+                    Err(e) => {
+                        self.monster_ref_editor.status_msg =
+                            format!("Error loading monster ref: {}", e)
+                    }
+                }
+                Task::none()
+            }
         }
     }
 
@@ -1795,9 +1902,10 @@ impl App {
             | Tab::NpcIniEditor
             | Tab::MagicEditor
             | Tab::StoreEditor
-            | Tab::PartyRefEditor
+            |             Tab::PartyRefEditor
             | Tab::PartyIniEditor
-            | Tab::SpriteBrowser => None,
+            | Tab::SpriteBrowser
+            | Tab::MonsterRefEditor => None,
         }
     }
 }
