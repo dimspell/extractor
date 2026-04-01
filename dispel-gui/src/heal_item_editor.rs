@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct HealItemEditorState {
-    pub game_path: String,
     pub sprite_base_path: String,
     pub catalog: Option<Vec<HealItem>>,
     pub filtered_items: Vec<(usize, HealItem)>, // (original_index, record)
@@ -159,8 +158,8 @@ impl HealItemEditorState {
         }
     }
 
-    pub fn save_items(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_items(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("CharacterInGame")
             .join("HealItem.db");
         if let Some(catalog) = &self.catalog {

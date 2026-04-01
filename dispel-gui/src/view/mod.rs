@@ -2,6 +2,7 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::types::Tab;
+use crate::utils::truncate_path;
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
     vertical_space,
@@ -30,6 +31,8 @@ pub mod weapon_editor;
 impl App {
     pub fn view(&self) -> Element<'_, Message> {
         let sidebar = self.view_sidebar();
+        let game_path_toolbar = self.view_shared_game_path_toolbar();
+
         let content = if self.active_tab == Tab::DbViewer {
             self.view_db_viewer()
         } else if self.active_tab == Tab::ChestEditor {
@@ -66,12 +69,50 @@ impl App {
                 .into()
         };
 
-        let layout = row![sidebar, content].height(Fill).width(Fill);
+        let main_content = column![game_path_toolbar, content].spacing(0).height(Fill);
+        let layout = row![sidebar, main_content].height(Fill).width(Fill);
         container(layout)
             .width(Fill)
             .height(Fill)
             .style(style::root_container)
             .into()
+    }
+
+    fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {
+        let path_display = if self.shared_game_path.is_empty() {
+            "No game path set - click Browse to select"
+        } else {
+            &self.shared_game_path
+        };
+
+        let path_text = container(
+            text(truncate_path(path_display, 80))
+                .size(12)
+                .font(Font::MONOSPACE),
+        )
+        .padding([4, 12])
+        .width(Fill)
+        .style(style::sql_editor_container);
+
+        container(
+            row![
+                text("Game Path:")
+                    .size(12)
+                    .width(80)
+                    .style(style::subtle_text),
+                path_text,
+                button(text("Browse").size(12))
+                    .on_press(Message::BrowseSharedGamePath)
+                    .padding([4, 12])
+                    .style(style::browse_button),
+            ]
+            .spacing(8)
+            .align_y(iced::Alignment::Center)
+            .padding([8, 16]),
+        )
+        .width(Fill)
+        .style(style::toolbar_container)
+        .into()
     }
 
     fn view_sidebar(&self) -> Element<'_, Message> {

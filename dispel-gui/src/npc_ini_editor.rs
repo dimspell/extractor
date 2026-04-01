@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct NpcIniEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<NpcIni>>,
     pub filtered_npcs: Vec<(usize, NpcIni)>,
     pub selected_idx: Option<usize>,
@@ -51,8 +50,8 @@ impl NpcIniEditorState {
         }
     }
 
-    pub fn save_npcs(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path).join("Npc.ini");
+    pub fn save_npcs(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path).join("Npc.ini");
         if let Some(catalog) = &self.catalog {
             NpcIni::save_file(catalog, &path).map_err(|e| format!("Failed to save NPC ini: {}", e))
         } else {

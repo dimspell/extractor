@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::labeled_file_row;
+
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
 
@@ -17,21 +17,10 @@ impl App {
             .size(14)
             .style(style::subtle_text),
         ];
-        let controls = row![
-            labeled_file_row(
-                "Game Path:",
-                &editor.game_path,
-                |_| Message::FileSelected {
-                    field: "event_item_game_path".into(),
-                    path: None
-                },
-                Message::EventItemOpBrowseGamePath,
-            ),
-            button(text("Load Catalog").size(13))
-                .padding([8, 16])
-                .on_press(Message::EventItemOpLoadCatalog)
-                .style(style::chip),
-        ]
+        let controls = row![button(text("Load Catalog").size(13))
+            .padding([8, 16])
+            .on_press(Message::EventItemOpLoadCatalog)
+            .style(style::chip),]
         .spacing(12)
         .align_y(iced::Alignment::Center);
         let status = text(&editor.status_msg).size(12).style(style::subtle_text);

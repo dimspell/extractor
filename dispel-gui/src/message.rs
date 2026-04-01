@@ -11,6 +11,9 @@ use dispel_core::{
 #[derive(Debug, Clone)]
 pub enum Message {
     TabSelected(Tab),
+    // Shared Game Path
+    BrowseSharedGamePath,
+    LoadSharedGamePath,
     // Map
     MapOpSelected(MapOp),
     MapInputChanged(String),

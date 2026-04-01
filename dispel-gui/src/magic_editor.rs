@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct MagicEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<MagicSpell>>,
     pub filtered_spells: Vec<(usize, MagicSpell)>,
     pub selected_idx: Option<usize>,
@@ -211,8 +210,8 @@ impl MagicEditorState {
         }
     }
 
-    pub fn save_spells(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_spells(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("MagicInGame")
             .join("Magic.db");
         if let Some(catalog) = &self.catalog {

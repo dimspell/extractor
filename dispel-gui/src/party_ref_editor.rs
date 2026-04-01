@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct PartyRefEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<PartyRef>>,
     pub filtered_party: Vec<(usize, PartyRef)>,
     pub selected_idx: Option<usize>,
@@ -85,10 +84,8 @@ impl PartyRefEditorState {
         }
     }
 
-    pub fn save_party(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
-            .join("Ref")
-            .join("PartyRef.ref");
+    pub fn save_party(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path).join("Ref").join("PartyRef.ref");
         if let Some(catalog) = &self.catalog {
             PartyRef::save_file(catalog, &path)
                 .map_err(|e| format!("Failed to save party refs: {}", e))

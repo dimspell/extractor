@@ -25,6 +25,8 @@ use std::path::PathBuf;
 
 pub struct App {
     pub active_tab: Tab,
+    // Shared Game Path (set once, used by all editor tabs)
+    pub shared_game_path: String,
     // Map fields
     pub map_op: Option<MapOp>,
     pub map_input: String,
@@ -87,6 +89,7 @@ impl App {
         (
             Self {
                 active_tab: Tab::Map,
+                shared_game_path: String::new(),
                 map_op: Some(MapOp::Render),
                 map_input: String::new(),
                 map_output: String::from("map.png"),
@@ -208,6 +211,14 @@ impl App {
                 self.map_game_path = v;
                 Task::none()
             }
+            // Shared Game Path
+            Message::BrowseSharedGamePath => browse_folder("shared_game_path"),
+            Message::LoadSharedGamePath => {
+                if self.shared_game_path.is_empty() {
+                    return browse_folder("shared_game_path");
+                }
+                Task::none()
+            }
             // Browse buttons
             Message::BrowseMapInput => browse_file("map_input"),
             Message::BrowseMapMapPath => browse_file("map_map_path"),
@@ -225,33 +236,26 @@ impl App {
                 if let Some(p) = path {
                     let s = p.to_string_lossy().to_string();
                     match field.as_str() {
+                        "shared_game_path" => self.shared_game_path = s.clone(),
                         "map_input" => self.map_input = s,
                         "map_map_path" => self.map_map_path = s,
                         "map_btl_path" => self.map_btl_path = s,
                         "map_gtl_path" => self.map_gtl_path = s,
                         "map_gtl_atlas" => self.map_gtl_atlas = s,
                         "map_btl_atlas" => self.map_btl_atlas = s,
-                        "map_game_path" => self.map_game_path = s,
+                        "map_game_path" => {
+                            self.map_game_path = s.clone();
+                            self.shared_game_path = s;
+                        }
                         "ref_input" => self.ref_input = s,
                         "sprite_input" => self.sprite_input = s,
                         "sound_input" => self.sound_input = s,
                         "sound_output" => self.sound_output = s,
                         "extractor_path" => self.extractor_path = s,
                         "viewer_db" => self.viewer.db_path = s,
-                        "chest_game_path" => self.chest_editor.game_path = s,
+                        "chest_game_path" => self.shared_game_path = s,
                         "chest_map_file" => self.chest_editor.current_map_file = s,
-                        "weapon_game_path" => self.weapon_editor.game_path = s,
-                        "heal_item_game_path" => self.heal_item_editor.game_path = s,
                         "heal_item_sprite_path" => self.heal_item_editor.sprite_base_path = s,
-                        "misc_item_game_path" => self.misc_item_editor.game_path = s,
-                        "edit_item_game_path" => self.edit_item_editor.game_path = s,
-                        "event_item_game_path" => self.event_item_editor.game_path = s,
-                        "monster_game_path" => self.monster_editor.game_path = s,
-                        "npc_ini_game_path" => self.npc_ini_editor.game_path = s,
-                        "magic_game_path" => self.magic_editor.game_path = s,
-                        "store_game_path" => self.store_editor.game_path = s,
-                        "party_ref_game_path" => self.party_ref_editor.game_path = s,
-                        "party_ini_game_path" => self.party_ini_editor.game_path = s,
                         _ => {}
                     }
                 }
@@ -353,15 +357,15 @@ impl App {
             }
 
             // ─── Chest Editor messages ──────────────────────────────
-            Message::ChestOpBrowseGamePath => browse_folder("chest_game_path"),
+            Message::ChestOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::ChestOpBrowseMapFile => browse_file("chest_map_file"),
             Message::ChestOpScanMaps => {
-                if self.chest_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.chest_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.chest_editor.is_loading = true;
-                let path = PathBuf::from(&self.chest_editor.game_path).join("ExtraInGame");
+                let path = PathBuf::from(&self.shared_game_path).join("ExtraInGame");
                 Task::perform(
                     async move {
                         let mut files = vec![];
@@ -398,12 +402,12 @@ impl App {
             }
 
             Message::ChestOpLoadCatalog => {
-                if self.chest_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.chest_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.chest_editor.is_loading = true;
-                let path = PathBuf::from(&self.chest_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move { chest_editor::ItemCatalog::load_from_folder(&path) },
                     |res| Message::ChestCatalogLoaded(res.map_err(|e| e.to_string())),
@@ -570,13 +574,13 @@ impl App {
             // ─── Weapon Editor messages ──────────────────────────────
             Message::WeaponOpBrowseGamePath => browse_folder("weapon_game_path"),
             Message::WeaponOpScanWeapons => {
-                if self.weapon_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.weapon_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.weapon_editor.is_loading = true;
                 self.weapon_editor.status_msg = "Scanning weapons...".into();
-                let path = PathBuf::from(&self.weapon_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         WeaponItem::read_file(&path.join("CharacterInGame").join("weaponItem.db"))
@@ -586,12 +590,12 @@ impl App {
                 )
             }
             Message::WeaponOpLoadCatalog => {
-                if self.weapon_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.weapon_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.weapon_editor.is_loading = true;
-                let path = PathBuf::from(&self.weapon_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         WeaponItem::read_file(&path.join("CharacterInGame").join("weaponItem.db"))
@@ -625,12 +629,12 @@ impl App {
                 Task::none()
             }
             Message::WeaponOpSave => {
-                if self.weapon_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.weapon_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.weapon_editor.is_loading = true;
-                let result = self.weapon_editor.save_weapons();
+                let result = self.weapon_editor.save_weapons(&self.shared_game_path);
                 self.weapon_editor.is_loading = false;
                 match result {
                     Ok(_) => self.weapon_editor.status_msg = "Weapons saved successfully.".into(),
@@ -640,16 +644,16 @@ impl App {
                 }
                 Task::none()
             }
-            Message::HealItemOpBrowseGamePath => browse_folder("heal_item_game_path"),
+            Message::HealItemOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::HealItemOpBrowseSpritePath => browse_folder("heal_item_sprite_path"),
             Message::HealItemOpScanItems => {
-                if self.heal_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.heal_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.heal_item_editor.is_loading = true;
                 self.heal_item_editor.status_msg = "Scanning heal items...".into();
-                let path = PathBuf::from(&self.heal_item_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         HealItem::read_file(&path.join("CharacterInGame").join("HealItem.db"))
@@ -659,12 +663,12 @@ impl App {
                 )
             }
             Message::HealItemOpLoadCatalog => {
-                if self.heal_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.heal_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.heal_item_editor.is_loading = true;
-                let path = PathBuf::from(&self.heal_item_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         HealItem::read_file(&path.join("CharacterInGame").join("HealItem.db"))
@@ -698,12 +702,12 @@ impl App {
                 Task::none()
             }
             Message::HealItemOpSave => {
-                if self.heal_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.heal_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.heal_item_editor.is_loading = true;
-                let result = self.heal_item_editor.save_items();
+                let result = self.heal_item_editor.save_items(&self.shared_game_path);
                 self.heal_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -715,14 +719,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::MiscItemOpBrowseGamePath => browse_folder("misc_item_game_path"),
+            Message::MiscItemOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::MiscItemOpLoadCatalog | Message::MiscItemOpScanItems => {
-                if self.misc_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.misc_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.misc_item_editor.is_loading = true;
-                let path = PathBuf::from(&self.misc_item_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         MiscItem::read_file(&path.join("CharacterInGame").join("MiscItem.db"))
@@ -756,12 +760,12 @@ impl App {
                 Task::none()
             }
             Message::MiscItemOpSave => {
-                if self.misc_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.misc_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.misc_item_editor.is_loading = true;
-                let result = self.misc_item_editor.save_items();
+                let result = self.misc_item_editor.save_items(&self.shared_game_path);
                 self.misc_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -773,14 +777,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::EditItemOpBrowseGamePath => browse_folder("edit_item_game_path"),
+            Message::EditItemOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::EditItemOpLoadCatalog | Message::EditItemOpScanItems => {
-                if self.edit_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.edit_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.edit_item_editor.is_loading = true;
-                let path = PathBuf::from(&self.edit_item_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         EditItem::read_file(&path.join("CharacterInGame").join("EditItem.db"))
@@ -814,12 +818,12 @@ impl App {
                 Task::none()
             }
             Message::EditItemOpSave => {
-                if self.edit_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.edit_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.edit_item_editor.is_loading = true;
-                let result = self.edit_item_editor.save_items();
+                let result = self.edit_item_editor.save_items(&self.shared_game_path);
                 self.edit_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -831,14 +835,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::EventItemOpBrowseGamePath => browse_folder("event_item_game_path"),
+            Message::EventItemOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::EventItemOpLoadCatalog | Message::EventItemOpScanItems => {
-                if self.event_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.event_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.event_item_editor.is_loading = true;
-                let path = PathBuf::from(&self.event_item_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         EventItem::read_file(&path.join("CharacterInGame").join("EventItem.db"))
@@ -872,12 +876,12 @@ impl App {
                 Task::none()
             }
             Message::EventItemOpSave => {
-                if self.event_item_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.event_item_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.event_item_editor.is_loading = true;
-                let result = self.event_item_editor.save_items();
+                let result = self.event_item_editor.save_items(&self.shared_game_path);
                 self.event_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -890,14 +894,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::MonsterOpBrowseGamePath => browse_folder("monster_game_path"),
+            Message::MonsterOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::MonsterOpLoadCatalog | Message::MonsterOpScanMonsters => {
-                if self.monster_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.monster_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.monster_editor.is_loading = true;
-                let path = PathBuf::from(&self.monster_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         Monster::read_file(&path.join("MonsterInGame").join("Monster.db"))
@@ -931,12 +935,12 @@ impl App {
                 Task::none()
             }
             Message::MonsterOpSave => {
-                if self.monster_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.monster_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.monster_editor.is_loading = true;
-                let result = self.monster_editor.save_monsters();
+                let result = self.monster_editor.save_monsters(&self.shared_game_path);
                 self.monster_editor.is_loading = false;
                 match result {
                     Ok(_) => self.monster_editor.status_msg = "Monsters saved successfully.".into(),
@@ -946,14 +950,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::NpcIniOpBrowseGamePath => browse_folder("npc_ini_game_path"),
+            Message::NpcIniOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::NpcIniOpLoadCatalog | Message::NpcIniOpScanNpcs => {
-                if self.npc_ini_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.npc_ini_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.npc_ini_editor.is_loading = true;
-                let path = PathBuf::from(&self.npc_ini_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         NpcIni::read_file(&path.join("Npc.ini"))
@@ -986,12 +990,12 @@ impl App {
                 Task::none()
             }
             Message::NpcIniOpSave => {
-                if self.npc_ini_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.npc_ini_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.npc_ini_editor.is_loading = true;
-                let result = self.npc_ini_editor.save_npcs();
+                let result = self.npc_ini_editor.save_npcs(&self.shared_game_path);
                 self.npc_ini_editor.is_loading = false;
                 match result {
                     Ok(_) => self.npc_ini_editor.status_msg = "NPCs saved successfully.".into(),
@@ -999,14 +1003,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::MagicOpBrowseGamePath => browse_folder("magic_game_path"),
+            Message::MagicOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::MagicOpLoadCatalog | Message::MagicOpScanSpells => {
-                if self.magic_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.magic_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.magic_editor.is_loading = true;
-                let path = PathBuf::from(&self.magic_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         MagicSpell::read_file(&path.join("MagicInGame").join("Magic.db"))
@@ -1039,12 +1043,12 @@ impl App {
                 Task::none()
             }
             Message::MagicOpSave => {
-                if self.magic_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.magic_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.magic_editor.is_loading = true;
-                let result = self.magic_editor.save_spells();
+                let result = self.magic_editor.save_spells(&self.shared_game_path);
                 self.magic_editor.is_loading = false;
                 match result {
                     Ok(_) => self.magic_editor.status_msg = "Spells saved successfully.".into(),
@@ -1052,14 +1056,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::StoreOpBrowseGamePath => browse_folder("store_game_path"),
+            Message::StoreOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::StoreOpLoadCatalog | Message::StoreOpScanStores => {
-                if self.store_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.store_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.store_editor.is_loading = true;
-                let path = PathBuf::from(&self.store_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         Store::read_file(&path.join("CharacterInGame").join("STORE.DB"))
@@ -1092,12 +1096,12 @@ impl App {
                 Task::none()
             }
             Message::StoreOpSave => {
-                if self.store_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.store_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.store_editor.is_loading = true;
-                let result = self.store_editor.save_stores();
+                let result = self.store_editor.save_stores(&self.shared_game_path);
                 self.store_editor.is_loading = false;
                 match result {
                     Ok(_) => self.store_editor.status_msg = "Stores saved successfully.".into(),
@@ -1105,14 +1109,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::PartyRefOpBrowseGamePath => browse_folder("party_ref_game_path"),
+            Message::PartyRefOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::PartyRefOpLoadCatalog | Message::PartyRefOpScanParty => {
-                if self.party_ref_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.party_ref_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.party_ref_editor.is_loading = true;
-                let path = PathBuf::from(&self.party_ref_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         PartyRef::read_file(&path.join("Ref").join("PartyRef.ref"))
@@ -1146,12 +1150,12 @@ impl App {
                 Task::none()
             }
             Message::PartyRefOpSave => {
-                if self.party_ref_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.party_ref_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.party_ref_editor.is_loading = true;
-                let result = self.party_ref_editor.save_party();
+                let result = self.party_ref_editor.save_party(&self.shared_game_path);
                 self.party_ref_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -1163,14 +1167,14 @@ impl App {
                 }
                 Task::none()
             }
-            Message::PartyIniOpBrowseGamePath => browse_folder("party_ini_game_path"),
+            Message::PartyIniOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::PartyIniOpLoadCatalog | Message::PartyIniOpScanNpcs => {
-                if self.party_ini_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.party_ini_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.party_ini_editor.is_loading = true;
-                let path = PathBuf::from(&self.party_ini_editor.game_path);
+                let path = PathBuf::from(&self.shared_game_path);
                 Task::perform(
                     async move {
                         PartyIniNpc::read_file(&path.join("NpcInGame").join("PrtIni.db"))
@@ -1204,12 +1208,12 @@ impl App {
                 Task::none()
             }
             Message::PartyIniOpSave => {
-                if self.party_ini_editor.game_path.is_empty() {
+                if self.shared_game_path.is_empty() {
                     self.party_ini_editor.status_msg = "Please select game path first.".into();
                     return Task::none();
                 }
                 self.party_ini_editor.is_loading = true;
-                let result = self.party_ini_editor.save_npcs();
+                let result = self.party_ini_editor.save_npcs(&self.shared_game_path);
                 self.party_ini_editor.is_loading = false;
                 match result {
                     Ok(_) => {

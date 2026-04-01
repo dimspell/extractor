@@ -12,28 +12,6 @@ impl App {
     pub fn view_chest_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.chest_editor;
 
-        let game_path_row = row![
-            text("Game:").size(12).width(60).style(style::subtle_text),
-            container(
-                text(truncate_path(&editor.game_path, 60))
-                    .size(11)
-                    .font(Font::MONOSPACE)
-            )
-            .padding([4, 10])
-            .width(Fill)
-            .style(style::sql_editor_container),
-            button(text("Browse").size(11))
-                .on_press(Message::ChestOpBrowseGamePath)
-                .padding([5, 10])
-                .style(style::browse_button),
-            button(text("Load Catalog").size(11))
-                .on_press(Message::ChestOpLoadCatalog)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .spacing(10)
-        .align_y(iced::Alignment::Center);
-
         let map_file_row = row![
             text("Map:").size(12).width(60).style(style::subtle_text),
             container(
@@ -233,8 +211,7 @@ impl App {
         .height(Fill);
 
         column![
-            container(column![game_path_row, map_file_row].padding(10).spacing(8))
-                .style(style::toolbar_container),
+            container(column![map_file_row].padding(10).spacing(8)).style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             status_row,

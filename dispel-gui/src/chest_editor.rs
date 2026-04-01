@@ -73,7 +73,6 @@ impl ItemCatalog {
 
 #[derive(Debug, Clone, Default)]
 pub struct ChestEditorState {
-    pub game_path: String,
     pub catalog: Option<ItemCatalog>,
     pub current_map_file: String,
     pub all_records: Vec<ExtraRef>,

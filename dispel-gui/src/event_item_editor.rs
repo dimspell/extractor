@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct EventItemEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<EventItem>>,
     pub filtered_items: Vec<(usize, EventItem)>,
     pub selected_idx: Option<usize>,
@@ -51,8 +50,8 @@ impl EventItemEditorState {
         }
     }
 
-    pub fn save_items(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_items(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("CharacterInGame")
             .join("EventItem.db");
         if let Some(catalog) = &self.catalog {

@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct WeaponEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<WeaponItem>>,
     pub filtered_weapons: Vec<(usize, WeaponItem)>, // (original_index, record)
     pub selected_idx: Option<usize>,                // Index into filtered_weapons
@@ -180,8 +179,8 @@ impl WeaponEditorState {
         }
     }
 
-    pub fn save_weapons(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_weapons(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("CharacterInGame")
             .join("weaponItem.db");
         if let Some(catalog) = &self.catalog {

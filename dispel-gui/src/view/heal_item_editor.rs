@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::{labeled_input, truncate_path};
+use crate::utils::labeled_input;
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, image, row, scrollable, text,
     vertical_space,
@@ -11,28 +11,6 @@ use iced::{Element, Fill, Font, Length};
 impl App {
     pub fn view_heal_item_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.heal_item_editor;
-
-        let game_path_row = row![
-            text("Game: ").size(12).width(60).style(style::subtle_text),
-            container(
-                text(truncate_path(&editor.game_path, 60))
-                    .size(11)
-                    .font(Font::MONOSPACE)
-            )
-            .padding([4, 10])
-            .width(Fill)
-            .style(style::sql_editor_container),
-            button(text("Browse").size(11))
-                .on_press(Message::HealItemOpBrowseGamePath)
-                .padding([5, 10])
-                .style(style::browse_button),
-            button(text("Load Catalog").size(11))
-                .on_press(Message::HealItemOpLoadCatalog)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .spacing(10)
-        .align_y(iced::Alignment::Center);
 
         let sprite_path_row = row![
             text("Sprites: ")
@@ -55,6 +33,11 @@ impl App {
                 .on_press(Message::HealItemOpBrowseSpritePath)
                 .padding([5, 10])
                 .style(style::browse_button),
+            horizontal_space().width(20),
+            button(text("Load Catalog").size(11))
+                .on_press(Message::HealItemOpLoadCatalog)
+                .padding([5, 10])
+                .style(style::run_button),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center);
@@ -237,7 +220,6 @@ impl App {
             .height(Length::Fill);
 
         column![
-            container(game_path_row).style(style::toolbar_container),
             container(sprite_path_row).style(style::toolbar_container),
             horizontal_rule(1),
             main_content,

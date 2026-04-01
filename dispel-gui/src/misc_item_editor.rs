@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct MiscItemEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<MiscItem>>,
     pub filtered_items: Vec<(usize, MiscItem)>,
     pub selected_idx: Option<usize>,
@@ -59,8 +58,8 @@ impl MiscItemEditorState {
         }
     }
 
-    pub fn save_items(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_items(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("CharacterInGame")
             .join("MiscItem.db");
         if let Some(catalog) = &self.catalog {

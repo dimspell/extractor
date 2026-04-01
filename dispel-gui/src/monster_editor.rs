@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct MonsterEditorState {
-    pub game_path: String,
     pub catalog: Option<Vec<Monster>>,
     pub filtered_monsters: Vec<(usize, Monster)>,
     pub selected_idx: Option<usize>,
@@ -333,8 +332,8 @@ impl MonsterEditorState {
         }
     }
 
-    pub fn save_monsters(&self) -> Result<(), String> {
-        let path = PathBuf::from(&self.game_path)
+    pub fn save_monsters(&self, game_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(game_path)
             .join("MonsterInGame")
             .join("Monster.db");
         if let Some(catalog) = &self.catalog {
