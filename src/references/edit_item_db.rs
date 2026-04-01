@@ -42,7 +42,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 // | - to_hit: i16 (TRF)                  |
 // | - offense: i16 (ATK)                 |
 // | - defense: i16 (OBR)                 |
-// | - padding: i16                       |
+// | - magical_power: i16                |
 // | - item_destroying_power: i16         |
 // | - padding: u8                        |
 // | - modifies_item: u8                  |
@@ -112,7 +112,7 @@ pub struct EditItem {
     pub offense: i16,
     /// Armor calculation pool scaling rating.
     pub defense: i16,
-    /// Padding field.
+    /// Magical power bonus.
     pub magical_power: i16,
     /// Durability erosion factor.
     pub item_destroying_power: i16,
