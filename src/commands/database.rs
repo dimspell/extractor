@@ -21,7 +21,6 @@ use super::super::references::npc_ini::save_npc_inis;
 use super::super::references::npc_ref::save_npc_refs;
 use super::super::references::party_ini_db::save_party_inis;
 use super::super::references::party_level_db::save_party_levels;
-use super::super::references::party_pgp::save_party_pgps;
 use super::super::references::party_ref::save_party_refs;
 use super::super::references::quest_scr::save_quests;
 use super::super::references::store_db::save_stores;
@@ -252,6 +251,7 @@ fn import_dialog_texts(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
         "NpcInGame/Pgpmap1.pgp",
         "NpcInGame/Pgpmap2.pgp",
         "NpcInGame/Pgpmap3.pgp",
+        "NpcInGame/PartyPgp.pgp",
     ];
     println!("Saving dialogue texts...");
     for pgp_file in pgp_files {
@@ -339,11 +339,6 @@ fn import_rest(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     let draw_items =
         super::super::references::draw_item::read_draw_items(&main_path.join("Ref/DRAWITEM.ref"))?;
     save_draw_items(conn, &draw_items)?;
-    println!("Saving party_pgps...");
-    let party_pgps = super::super::references::party_pgp::read_party_pgps(
-        &main_path.join("NpcInGame/PartyPgp.pgp"),
-    )?;
-    save_party_pgps(conn, &party_pgps)?;
 
     let npc_ref_files = [
         "NpcInGame/Npccat1.ref",

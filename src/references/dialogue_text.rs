@@ -17,7 +17,7 @@ use crate::references::extractor::Extractor;
 // ASCII Structure:
 //
 // +--------------------------------------+
-// | PartyDlg.dlg - Dialogue Text         |
+// | *.pgp - Dialogue Text         |
 // +--------------------------------------+
 // | Encoding: WINDOWS-1250               |
 // | Format: Commented pipe-delimited     |
@@ -80,8 +80,8 @@ pub struct DialogueText {
 
 /// Stores translations, text strings, and associated comments used within dialogues.
 ///
-/// Reads file: `NpcInGame/PartyDlg.dlg`
-/// # File Format: `NpcInGame/PartyDlg.dlg`
+/// Reads file: `NpcInGame/*.pgp`
+/// # File Format: `NpcInGame/*.pgp`
 ///
 /// Text file, WINDOWS-1250 encoded. Lines starting with `;` are comments
 /// and are associated with the next data record.

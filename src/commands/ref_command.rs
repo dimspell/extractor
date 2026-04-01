@@ -2,7 +2,7 @@ use super::super::references::{
     all_map_ini, chdata_db, dialog, draw_item, edit_item_db, event_ini, event_item_db,
     event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini, message_scr,
     misc_item_db, monster_db, monster_ini, monster_ref, npc_ini, npc_ref, party_ini_db,
-    party_level_db, party_pgp, party_ref, quest_scr, store_db, wave_ini, weapons_db,
+    party_level_db, party_ref, quest_scr, store_db, wave_ini, weapons_db,
 };
 use super::Command;
 use std::error::Error;
@@ -15,35 +15,34 @@ pub struct RefCommand {
 
 pub enum RefSubcommand {
     AllMaps { input: String },
-    Map { input: String },
-    Extra { input: String },
-    Event { input: String },
-    Monster { input: String },
-    Npc { input: String },
-    Wave { input: String },
-    PartyRef { input: String },
-    DrawItem { input: String },
-    PartyPgp { input: String },
-    PartyDialog { input: String },
+    ChData { input: String },
     Dialog { input: String },
-    Weapons { input: String },
-    MultiMagic { input: String },
-    Store { input: String },
-    NpcRef { input: String },
+    DrawItem { input: String },
+    EditItems { input: String },
+    Event { input: String },
+    EventItems { input: String },
+    EventNpcRef { input: String },
+    Extra { input: String },
+    ExtraRef { input: String },
+    HealItems { input: String },
+    Magic { input: String },
+    Map { input: String },
+    Message { input: String },
+    MiscItem { input: String },
+    Monster { input: String },
     MonsterRef { input: String },
     Monsters { input: String },
-    MiscItem { input: String },
-    HealItems { input: String },
-    ExtraRef { input: String },
-    EventItems { input: String },
-    EditItems { input: String },
-    PartyLevel { input: String },
+    MultiMagic { input: String },
+    Npc { input: String },
+    NpcRef { input: String },
+    PartyDialog { input: String },
     PartyIni { input: String },
-    EventNpcRef { input: String },
-    Magic { input: String },
+    PartyLevel { input: String },
+    PartyRef { input: String },
     Quest { input: String },
-    Message { input: String },
-    ChData { input: String },
+    Store { input: String },
+    Wave { input: String },
+    Weapons { input: String },
 }
 
 impl Command for RefCommand {
@@ -123,14 +122,6 @@ impl Command for RefCommand {
             }
             RefSubcommand::PartyRef { input } => {
                 let data = party_ref::read_part_refs(Path::new(input))
-                    .expect("ERROR: could not read file");
-                println!(
-                    "{}",
-                    serde_json::to_string(&data).expect("ERROR: could not encode JSON")
-                );
-            }
-            RefSubcommand::PartyPgp { input } => {
-                let data = party_pgp::read_party_pgps(Path::new(input))
                     .expect("ERROR: could not read file");
                 println!(
                     "{}",

@@ -73,7 +73,6 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_draw_items.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_party_pgps.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;

@@ -40,8 +40,8 @@
 // +--------------------------------------+
 // | PartyRef.ref  – Character definitions|
 // | DRAWITEM.ref  – Map placements       |
-// | PartyPgp.pgp  – Party dialogue      |
-// | *.dlg         – Dialogue files       |
+// | *.pgp  – Dialogue text dialogue      |
+// | *.dlg   – Converstaion scripts       |
 // | Npccat*.ref  – NPC placements       |
 // | Mondun*.ref   – Monster placements  |
 // | Extdun*.ref  – Special object plac.  |
@@ -59,7 +59,7 @@
 // - REF files: Reference data linking IDs to assets
 // - SCR files: Script and text content
 // - PGP files: Dialogue and text packaging
-// - DLG files: Dialogue content
+// - DLG files: Dialogue scripts
 //
 // ===========================================================================
 
@@ -75,6 +75,7 @@ pub mod event_item_db;
 pub mod event_npc_ref;
 pub mod extra_ini;
 pub mod extra_ref;
+pub mod extractor;
 pub mod heal_item_db;
 pub mod magic_db;
 pub mod map_ini;
@@ -87,10 +88,8 @@ pub mod npc_ini;
 pub mod npc_ref;
 pub mod party_ini_db;
 pub mod party_level_db;
-pub mod party_pgp;
 pub mod party_ref;
 pub mod quest_scr;
-pub mod extractor;
 pub mod store_db;
 pub mod wave_ini;
 pub mod weapons_db;

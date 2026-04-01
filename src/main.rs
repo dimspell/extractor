@@ -255,8 +255,6 @@ enum RefCommands {
     PartyRef { input: String },
     /// Read DRAWITEM.ref (Map Placements)
     DrawItem { input: String },
-    /// Read PartyPgp.pgp (Party Dialogue)
-    PartyPgp { input: String },
     /// Read Dlgcat1.dlg (Dialogue Category 1)
     PartyDialog { input: String },
     /// Read Generic .dlg file
@@ -450,11 +448,6 @@ fn main() {
                     },
                     RefCommands::PartyRef { input } => {
                         commands::ref_command::RefSubcommand::PartyRef {
-                            input: input.clone(),
-                        }
-                    }
-                    RefCommands::PartyPgp { input } => {
-                        commands::ref_command::RefSubcommand::PartyPgp {
                             input: input.clone(),
                         }
                     }
