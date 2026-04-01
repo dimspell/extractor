@@ -177,7 +177,12 @@ impl App {
             horizontal_space(),
             text(format!("{} found", editor.filtered_chests.len()))
                 .size(12)
-                .style(style::subtle_text)
+                .style(style::subtle_text),
+            horizontal_space().width(12),
+            button(text("Load Catalog").size(11))
+                .on_press(Message::ChestOpLoadCatalog)
+                .padding([5, 10])
+                .style(style::chip),
         ]
         .padding(10)
         .align_y(iced::Alignment::Center);

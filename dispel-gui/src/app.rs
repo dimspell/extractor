@@ -402,7 +402,17 @@ impl App {
                     }
                     Err(e) => self.chest_editor.status_msg = format!("Error scanning maps: {}", e),
                 }
-                Task::none()
+                // Also load the catalog for human-friendly item names
+                if self.shared_game_path.is_empty() {
+                    Task::none()
+                } else {
+                    self.chest_editor.is_loading = true;
+                    let path = PathBuf::from(&self.shared_game_path);
+                    Task::perform(
+                        async move { chest_editor::ItemCatalog::load_from_folder(&path) },
+                        |res| Message::ChestCatalogLoaded(res.map_err(|e| e.to_string())),
+                    )
+                }
             }
 
             Message::ChestOpLoadCatalog => {
