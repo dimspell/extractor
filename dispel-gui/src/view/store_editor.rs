@@ -3,13 +3,64 @@ use crate::message::Message;
 use crate::style;
 
 use iced::widget::{
-    button, column, container, horizontal_space, row, scrollable, text, text_input,
+    button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text,
+    text_input,
 };
 use iced::{Element, Fill, Length};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ProductTypeOption {
+    Weapon,
+    HealItem,
+    EditItem,
+    MiscItem,
+}
+
+impl std::fmt::Display for ProductTypeOption {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProductTypeOption::Weapon => write!(f, "1 - Weapon"),
+            ProductTypeOption::HealItem => write!(f, "2 - HealItem"),
+            ProductTypeOption::EditItem => write!(f, "3 - EditItem"),
+            ProductTypeOption::MiscItem => write!(f, "4 - MiscItem"),
+        }
+    }
+}
+
+impl ProductTypeOption {
+    fn to_id(self) -> i16 {
+        match self {
+            ProductTypeOption::Weapon => 1,
+            ProductTypeOption::HealItem => 2,
+            ProductTypeOption::EditItem => 3,
+            ProductTypeOption::MiscItem => 4,
+        }
+    }
+
+    fn from_id(id: i16) -> Self {
+        match id {
+            2 => ProductTypeOption::HealItem,
+            3 => ProductTypeOption::EditItem,
+            4 => ProductTypeOption::MiscItem,
+            _ => ProductTypeOption::Weapon,
+        }
+    }
+
+    fn all() -> &'static [ProductTypeOption] {
+        &[
+            ProductTypeOption::Weapon,
+            ProductTypeOption::HealItem,
+            ProductTypeOption::EditItem,
+            ProductTypeOption::MiscItem,
+        ]
+    }
+}
 
 impl App {
     pub fn view_store_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.store_editor;
+
+        // Header
         let header = row![
             text("Store Editor").size(20),
             text(format!(
@@ -18,15 +69,29 @@ impl App {
             ))
             .size(14)
             .style(style::subtle_text),
-        ];
-        let controls = row![button(text("Load Catalog").size(13))
-            .padding([8, 16])
-            .on_press(Message::StoreOpLoadCatalog)
-            .style(style::chip),]
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center);
+
+        // Controls
+        let controls = row![
+            button(text("Load Catalog").size(13))
+                .padding([8, 16])
+                .on_press(Message::StoreOpLoadCatalog)
+                .style(style::chip),
+            horizontal_space(),
+            button(text("Save to File").size(13))
+                .padding([8, 16])
+                .on_press(Message::StoreOpSave)
+                .style(style::run_button),
+        ]
         .spacing(12)
         .align_y(iced::Alignment::Center);
+
+        // Status
         let status = text(&editor.status_msg).size(12).style(style::subtle_text);
 
+        // Store list
         let item_list: Vec<Element<'_, Message>> = editor
             .filtered_stores
             .iter()
@@ -37,17 +102,25 @@ impl App {
                 } else {
                     "Shop"
                 };
+                let product_count = store.products.len();
                 let btn = button(
                     row![
-                        text(format!("{:03}", i)).size(12).width(40),
-                        text(&store.store_name).size(12),
-                        text(store_type).size(11).style(style::subtle_text),
+                        text(format!("{:03}", i)).size(11).width(35),
+                        text(&store.store_name).size(12).width(Length::Fill),
+                        text(store_type)
+                            .size(10)
+                            .style(style::subtle_text)
+                            .width(40),
+                        text(format!("({})", product_count))
+                            .size(10)
+                            .style(style::subtle_text)
+                            .width(30),
                     ]
                     .spacing(8)
                     .align_y(iced::Alignment::Center),
                 )
                 .width(Fill)
-                .padding([6, 12])
+                .padding([8, 12])
                 .on_press(Message::StoreOpSelectStore(*i));
                 if is_selected {
                     btn.style(style::active_tab_button).into()
@@ -57,23 +130,14 @@ impl App {
             })
             .collect();
 
-        let product_type_label = |t: i16| -> String {
-            match t {
-                1 => "Weapon".to_string(),
-                2 => "HealItem".to_string(),
-                3 => "EditItem".to_string(),
-                4 => "MiscItem".to_string(),
-                _ => format!("Type{}", t),
-            }
-        };
-
+        // Product list
         let product_list: Vec<Element<'_, Message>> = editor
             .edit_products
             .iter()
             .enumerate()
             .map(|(i, prod)| {
                 let is_selected = editor.selected_product_idx == Some(i);
-                let type_name = product_type_label(prod.product_type);
+                let type_name = ProductTypeOption::from_id(prod.product_type);
                 let item_id = prod.item_id;
                 let item_name = editor.get_product_item_name(
                     prod.product_type,
@@ -83,18 +147,19 @@ impl App {
                     &self.misc_item_editor.catalog,
                     &self.edit_item_editor.catalog,
                 );
+
                 let btn = button(
                     row![
-                        text(format!("{:02}", i)).size(11).width(24),
-                        text(type_name).size(11).width(60),
-                        text(format!("#{}", item_id)).size(11).width(30),
+                        text(format!("{:02}", i)).size(10).width(24),
+                        text(type_name.to_string()).size(10).width(80),
+                        text(format!("#{}", item_id)).size(10).width(30),
                         text(item_name).size(11),
                     ]
-                    .spacing(4)
+                    .spacing(6)
                     .align_y(iced::Alignment::Center),
                 )
                 .width(Fill)
-                .padding([4, 8])
+                .padding([6, 10])
                 .on_press(Message::StoreOpSelectProduct(i));
                 if is_selected {
                     btn.style(style::active_chip).into()
@@ -104,8 +169,9 @@ impl App {
             })
             .collect();
 
-        let products_panel: Element<'_, Message> = if !editor.is_inn() {
-            let product_editor_content: Element<'_, Message> =
+        // Product editor panel
+        let product_editor_panel: Element<'_, Message> = if !editor.is_inn() {
+            let product_content: Element<'_, Message> =
                 if let Some(prod_idx) = editor.selected_product_idx {
                     if let Some(prod) = editor.edit_products.get(prod_idx) {
                         let item_name = editor.get_product_item_name(
@@ -116,77 +182,86 @@ impl App {
                             &self.misc_item_editor.catalog,
                             &self.edit_item_editor.catalog,
                         );
+                        let item_name_owned = item_name.clone();
                         column![
                             text("Product Details").size(14),
-                            text(item_name).size(13).style(style::subtle_text),
-                            container(
+                            horizontal_rule(1),
+                            text(item_name_owned)
+                                .size(13)
+                                .style(style::subtle_text)
+                                .width(Fill),
+                            container(column![
                                 row![
-                                    text("Type:").size(12).width(60),
-                                    text_input("", &product_type_label(prod.product_type))
-                                        .on_input(move |v| {
-                                            let t = match v.to_lowercase().as_str() {
-                                                "weapon" | "1" => 1,
-                                                "healitem" | "heal" | "healing" | "2" => 2,
-                                                "edititem" | "edit" | "3" => 3,
-                                                "miscitem" | "misc" | "4" => 4,
-                                                _ => 1,
-                                            };
-                                            Message::StoreOpProductFieldChanged(
-                                                prod_idx,
-                                                "product_type".into(),
-                                                t.to_string(),
-                                            )
-                                        })
-                                        .padding(6)
-                                        .size(12)
+                                    text("Type").size(11).width(60),
+                                    pick_list(
+                                        ProductTypeOption::all(),
+                                        Some(ProductTypeOption::from_id(prod.product_type)),
+                                        move |selected| Message::StoreOpProductFieldChanged(
+                                            prod_idx,
+                                            "product_type".into(),
+                                            selected.to_id().to_string()
+                                        )
+                                    )
+                                    .padding(6)
+                                    .width(Fill)
                                 ]
                                 .spacing(8)
-                            ),
-                            container(
+                                .align_y(iced::Alignment::Center),
                                 row![
-                                    text("Item ID:").size(12).width(60),
+                                    text("Item ID").size(11).width(60),
                                     text_input("", &prod.item_id.to_string())
-                                        .on_input(move |v| {
-                                            Message::StoreOpProductFieldChanged(
-                                                prod_idx,
-                                                "item_id".into(),
-                                                v,
-                                            )
-                                        })
+                                        .on_input(move |v| Message::StoreOpProductFieldChanged(
+                                            prod_idx,
+                                            "item_id".into(),
+                                            v
+                                        ))
                                         .padding(6)
                                         .size(12)
+                                        .width(Fill)
                                 ]
                                 .spacing(8)
-                            ),
+                                .align_y(iced::Alignment::Center),
+                            ])
+                            .padding(12)
+                            .style(style::info_card)
+                            .width(Fill),
                         ]
-                        .spacing(12)
+                        .spacing(10)
                         .padding(16)
                         .into()
                     } else {
-                        Element::from(text("Select a product").size(12).style(style::subtle_text))
+                        text("Product not found")
+                            .size(12)
+                            .style(style::subtle_text)
+                            .into()
                     }
                 } else {
-                    Element::from(
+                    column![
+                        text("Products").size(14),
+                        horizontal_rule(1),
                         text("Select a product to edit")
                             .size(12)
                             .style(style::subtle_text),
-                    )
+                    ]
+                    .spacing(10)
+                    .padding(16)
+                    .into()
                 };
 
             column![
                 row![
                     text("Products").size(13),
                     horizontal_space(),
-                    button(text("+ Add").size(12))
+                    button(text("+ Add").size(11))
                         .on_press(Message::StoreOpAddProduct)
-                        .padding([4, 12])
+                        .padding([4, 10])
                         .style(style::browse_button),
                     if editor.selected_product_idx.is_some() {
-                        button(text("- Remove").size(12))
+                        button(text("- Remove").size(11))
                             .on_press(Message::StoreOpRemoveProduct(
                                 editor.selected_product_idx.unwrap(),
                             ))
-                            .padding([4, 12])
+                            .padding([4, 10])
                             .style(style::browse_button)
                             .into()
                     } else {
@@ -195,24 +270,30 @@ impl App {
                 ]
                 .padding([8, 12])
                 .align_y(iced::Alignment::Center),
-                scrollable(column(product_list).spacing(2)).height(150),
-                container(product_editor_content)
-                    .style(style::info_card)
-                    .height(Fill),
+                scrollable(column(product_list).spacing(2)).height(180),
+                product_content,
             ]
             .into()
         } else {
-            text("Inns have no products")
-                .size(12)
-                .style(style::subtle_text)
-                .into()
+            column![
+                text("Products").size(13),
+                horizontal_rule(1),
+                text("Inns have no products")
+                    .size(12)
+                    .style(style::subtle_text),
+            ]
+            .spacing(10)
+            .padding(16)
+            .into()
         };
 
+        // Store editor panel
         let editor_panel: Element<'_, Message> = if let Some(idx) = editor.selected_idx {
             column![
-                text("Edit Store").size(16),
+                text("Edit Store").size(14),
+                horizontal_rule(1),
                 row![
-                    text("Name:").size(13).width(100),
+                    text("Name").size(11).width(80),
                     text_input("", &editor.edit_store_name)
                         .on_input(move |v| Message::StoreOpFieldChanged(
                             idx,
@@ -220,12 +301,12 @@ impl App {
                             v
                         ))
                         .padding(6)
-                        .size(13)
+                        .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Night Cost:").size(13).width(100),
+                    text("Night Cost").size(11).width(80),
                     text_input("", &editor.edit_inn_night_cost)
                         .on_input(move |v| Message::StoreOpFieldChanged(
                             idx,
@@ -233,12 +314,12 @@ impl App {
                             v
                         ))
                         .padding(6)
-                        .size(13)
+                        .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Invitation:").size(13).width(100),
+                    text("Invitation").size(11).width(80),
                     text_input("", &editor.edit_invitation)
                         .on_input(move |v| Message::StoreOpFieldChanged(
                             idx,
@@ -246,12 +327,12 @@ impl App {
                             v
                         ))
                         .padding(6)
-                        .size(13)
+                        .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Haggle OK:").size(13).width(100),
+                    text("Haggle OK").size(11).width(80),
                     text_input("", &editor.edit_haggle_success)
                         .on_input(move |v| Message::StoreOpFieldChanged(
                             idx,
@@ -259,12 +340,12 @@ impl App {
                             v
                         ))
                         .padding(6)
-                        .size(13)
+                        .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Haggle Fail:").size(13).width(100),
+                    text("Haggle Fail").size(11).width(80),
                     text_input("", &editor.edit_haggle_fail)
                         .on_input(move |v| Message::StoreOpFieldChanged(
                             idx,
@@ -272,42 +353,48 @@ impl App {
                             v
                         ))
                         .padding(6)
-                        .size(13)
+                        .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
             ]
-            .spacing(8)
+            .spacing(10)
+            .padding(16)
             .into()
         } else {
-            text("Select a store to edit")
-                .size(13)
-                .style(style::subtle_text)
-                .into()
+            column![
+                text("Store Details").size(14),
+                horizontal_rule(1),
+                text("Select a store to edit")
+                    .size(12)
+                    .style(style::subtle_text),
+            ]
+            .spacing(10)
+            .padding(16)
+            .into()
         };
 
-        let save_btn = button(text("Save to File").size(14))
-            .padding([10, 24])
-            .on_press(Message::StoreOpSave)
-            .style(style::run_button);
-
-        let detail_panel = container(column![
-            scrollable(editor_panel).height(Length::FillPortion(1)),
-            container(products_panel)
-                .style(style::info_card)
-                .height(Length::FillPortion(1)),
-        ])
+        // Detail panel
+        let detail_panel = container(
+            scrollable(column![editor_panel, product_editor_panel].spacing(16))
+                .height(Length::Fill),
+        )
         .padding(16)
-        .width(400);
+        .width(400)
+        .style(style::info_card);
 
+        // Main content
         let main_content = row![
             column![
                 container(
                     row![
-                        text("Stores").size(14),
-                        text(format!("{} loaded", editor.filtered_stores.len())).size(12),
+                        text("Stores").size(13),
+                        horizontal_space(),
+                        text(format!("{} loaded", editor.filtered_stores.len()))
+                            .size(11)
+                            .style(style::subtle_text),
                     ]
-                    .padding(10)
+                    .padding([8, 12])
                     .align_y(iced::Alignment::Center)
                 )
                 .style(style::grid_header_cell),
@@ -316,11 +403,13 @@ impl App {
             .width(Length::Fill),
             detail_panel,
         ]
+        .spacing(12)
         .height(Fill);
 
-        column![header, controls, status, main_content, save_btn]
-            .spacing(12)
+        column![header, controls, horizontal_rule(1), status, main_content,]
+            .spacing(10)
             .padding(16)
+            .height(Length::Fill)
             .into()
     }
 }
