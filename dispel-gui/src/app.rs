@@ -4,8 +4,9 @@ use crate::db_viewer_state::{DbViewerState, PAGE_SIZE};
 use crate::message::Message;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use crate::utils::{browse_file, browse_folder};
+use crate::weapon_editor;
 use dispel_core::commands::{self, Command, CommandFactory};
-use dispel_core::Extractor;
+use dispel_core::{Extractor, WeaponItem};
 use iced::Task;
 use std::path::PathBuf;
 
@@ -44,6 +45,8 @@ pub struct App {
     pub viewer: Box<DbViewerState>,
     // Chest Editor
     pub chest_editor: Box<chest_editor::ChestEditorState>,
+    // Weapon Editor
+    pub weapon_editor: Box<weapon_editor::WeaponEditorState>,
 }
 
 impl App {
@@ -76,6 +79,7 @@ impl App {
                 is_running: false,
                 viewer: Box::default(),
                 chest_editor: Box::default(),
+                weapon_editor: Box::default(),
             },
             Task::none(),
         )
@@ -193,6 +197,7 @@ impl App {
                         "viewer_db" => self.viewer.db_path = s,
                         "chest_game_path" => self.chest_editor.game_path = s,
                         "chest_map_file" => self.chest_editor.current_map_file = s,
+                        "weapon_game_path" => self.weapon_editor.game_path = s,
                         _ => {}
                     }
                 }
@@ -309,13 +314,14 @@ impl App {
                         if let Ok(entries) = std::fs::read_dir(path) {
                             for entry in entries.flatten() {
                                 let p = entry.path();
-                                if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false)
+                                if p.is_file()
+                                    && p.extension().map(|e| e == "ref").unwrap_or(false)
                                     && p.file_name()
                                         .map(|n| n.to_string_lossy().starts_with("Ext"))
                                         .unwrap_or(false)
-                                    {
-                                        files.push(p);
-                                    }
+                                {
+                                    files.push(p);
+                                }
                             }
                         }
                         files.sort();
@@ -491,7 +497,9 @@ impl App {
                 let records = self.chest_editor.all_records.clone();
                 Task::perform(
                     async move { dispel_core::ExtraRef::save_file(&records, &path) },
-                    |res: Result<(), std::io::Error>| Message::ChestSaved(res.map_err(|e| e.to_string())),
+                    |res: Result<(), std::io::Error>| {
+                        Message::ChestSaved(res.map_err(|e| e.to_string()))
+                    },
                 )
             }
             Message::ChestSaved(res) => {
@@ -504,6 +512,80 @@ impl App {
             }
             Message::ChestOpAdd => Task::none(),
             Message::ChestOpDelete(_) => Task::none(),
+
+            // ─── Weapon Editor messages ──────────────────────────────
+            Message::WeaponOpBrowseGamePath => browse_folder("weapon_game_path"),
+            Message::WeaponOpScanWeapons => {
+                if self.weapon_editor.game_path.is_empty() {
+                    self.weapon_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.weapon_editor.is_loading = true;
+                self.weapon_editor.status_msg = "Scanning weapons...".into();
+                let path = PathBuf::from(&self.weapon_editor.game_path);
+                Task::perform(
+                    async move {
+                        WeaponItem::read_file(&path.join("CharacterInGame").join("weaponItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::WeaponCatalogLoaded(res),
+                )
+            }
+            Message::WeaponOpLoadCatalog => {
+                if self.weapon_editor.game_path.is_empty() {
+                    self.weapon_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.weapon_editor.is_loading = true;
+                let path = PathBuf::from(&self.weapon_editor.game_path);
+                Task::perform(
+                    async move {
+                        WeaponItem::read_file(&path.join("CharacterInGame").join("weaponItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::WeaponCatalogLoaded(res),
+                )
+            }
+            Message::WeaponCatalogLoaded(res) => {
+                self.weapon_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.weapon_editor.catalog = Some(catalog.clone());
+                        self.weapon_editor.status_msg =
+                            format!("Weapon catalog loaded: {} weapons", catalog.len()).into();
+                        self.weapon_editor.refresh_weapons();
+                    }
+                    Err(e) => {
+                        self.weapon_editor.status_msg =
+                            format!("Error loading weapon catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::WeaponOpSelectWeapon(idx) => {
+                self.weapon_editor.select_weapon(idx);
+                Task::none()
+            }
+            Message::WeaponOpFieldChanged(idx, field, val) => {
+                self.weapon_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::WeaponOpSave => {
+                if self.weapon_editor.game_path.is_empty() {
+                    self.weapon_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.weapon_editor.is_loading = true;
+                let result = self.weapon_editor.save_weapons();
+                self.weapon_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.weapon_editor.status_msg = "Weapons saved successfully.".into(),
+                    Err(e) => {
+                        self.weapon_editor.status_msg = format!("Error saving weapons: {}", e)
+                    }
+                }
+                Task::none()
+            }
 
             // ─── DB Viewer messages ─────────────────────────────────
             Message::ViewerDbPathChanged(v) => {
@@ -908,6 +990,7 @@ impl App {
                 factory.create_sound_command(self.sound_input.clone(), self.sound_output.clone()),
             )),
             Tab::DbViewer | Tab::ChestEditor => None,
+            Tab::WeaponEditor => None,
         }
     }
 }

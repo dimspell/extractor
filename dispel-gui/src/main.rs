@@ -10,6 +10,7 @@ pub mod style;
 pub mod types;
 pub mod utils;
 pub mod view;
+pub mod weapon_editor;
 
 use crate::app::App;
 

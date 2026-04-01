@@ -15,6 +15,7 @@ pub mod map;
 pub mod ref_tab;
 pub mod sound;
 pub mod sprite;
+pub mod weapon_editor;
 
 impl App {
     pub fn view(&self) -> Element<'_, Message> {
@@ -23,6 +24,8 @@ impl App {
             self.view_db_viewer()
         } else if self.active_tab == Tab::ChestEditor {
             self.view_chest_editor_tab()
+        } else if self.active_tab == Tab::WeaponEditor {
+            self.view_weapon_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
             let log_panel = self.view_log();
@@ -84,16 +87,22 @@ impl App {
             Tab::Sound => self.view_sound_tab(),
             Tab::DbViewer => text("").into(),
             Tab::ChestEditor => self.view_chest_editor_tab(),
+            Tab::WeaponEditor => self.view_weapon_editor_tab(),
+            // _ => text("Weapon Editor not yet implemented").into(),
         };
-        let run_btn = if self.is_running {
+        let run_btn: Element<'_, Message> = if self.is_running {
             button(text("⏳ Running…").size(14))
                 .padding([10, 28])
                 .style(style::run_button_disabled)
+                .into()
+        } else if self.active_tab == Tab::WeaponEditor {
+            text("").into()
         } else {
             button(text("▶  Run Command").size(14))
                 .padding([10, 28])
                 .on_press(Message::Run)
                 .style(style::run_button)
+                .into()
         };
         let header = text(match self.active_tab {
             Tab::Map => "Map Operations",
@@ -140,13 +149,7 @@ impl App {
         .align_y(iced::Alignment::Center);
 
         let content = scrollable(
-            container(
-                text(&self.log)
-                    .size(12)
-                    .font(Font::MONOSPACE)
-                    .width(Fill),
-            )
-            .padding(12),
+            container(text(&self.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12),
         )
         .height(Fill);
 

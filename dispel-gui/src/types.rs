@@ -9,6 +9,7 @@ pub enum Tab {
     Sound,
     DbViewer,
     ChestEditor,
+    WeaponEditor,
 }
 
 impl Tab {
@@ -20,6 +21,7 @@ impl Tab {
         Tab::Sound,
         Tab::DbViewer,
         Tab::ChestEditor,
+        Tab::WeaponEditor,
     ];
     pub fn label(&self) -> &str {
         match self {
@@ -30,6 +32,7 @@ impl Tab {
             Tab::Sound => "Sound",
             Tab::DbViewer => "DbViewer",
             Tab::ChestEditor => "ChestEditor",
+            Tab::WeaponEditor => "WeaponEditor",
         }
     }
 }

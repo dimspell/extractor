@@ -3,6 +3,8 @@ use crate::db;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use std::path::PathBuf;
 
+use dispel_core::WeaponItem;
+
 #[derive(Debug, Clone)]
 pub enum Message {
     TabSelected(Tab),
@@ -78,6 +80,8 @@ pub enum Message {
     ViewerRevertEdits,
     // Chest Editor internal
     ChestCatalogLoaded(Result<chest_editor::ItemCatalog, String>),
+    // Weapon Editor internal
+    WeaponCatalogLoaded(Result<Vec<WeaponItem>, String>),
     ChestMapLoaded(Result<Vec<dispel_core::ExtraRef>, String>),
     ChestMapsScanned(Result<Vec<PathBuf>, String>),
     ChestSaved(Result<(), String>),
@@ -93,4 +97,11 @@ pub enum Message {
     ChestOpSave,
     ChestOpAdd,
     ChestOpDelete(usize),
+    // Weapon Editor
+    WeaponOpBrowseGamePath,
+    WeaponOpLoadCatalog,
+    WeaponOpScanWeapons,
+    WeaponOpSelectWeapon(usize),
+    WeaponOpFieldChanged(usize, String, String),
+    WeaponOpSave,
 }
