@@ -1,5 +1,11 @@
 # File Formats & Parsing
 
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, proprietary algorithms, or protected intellectual property. All information is provided for **educational and research purposes** to document file organization and data structures for interoperability research.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
 This document details the binary formats parsed by the extractor. This information is critical for re-implementation or generating parsers.
 
 ## Common Data Types
@@ -135,3 +141,13 @@ Starts at byte **268**.
         - Read `Size` (u32).
         - Actual Data Size = `Size * 2`.
         - **Image Data**: u16 pixels (RGB 565). `Width * Height`.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any proprietary algorithms or game content
+- Focuses on **technical organization and data structures**
+- Provides information for **interoperability research** only
+- Maintains **nominal fair use** for trademark references
+- **No copyrighted content** is reproduced or distributed
