@@ -661,21 +661,6 @@ impl App {
                     |res| Message::HealItemCatalogLoaded(res),
                 )
             }
-            Message::HealItemOpLoadCatalog => {
-                if self.shared_game_path.is_empty() {
-                    self.heal_item_editor.status_msg = "Please select game path first.".into();
-                    return Task::none();
-                }
-                self.heal_item_editor.is_loading = true;
-                let path = PathBuf::from(&self.shared_game_path);
-                Task::perform(
-                    async move {
-                        HealItem::read_file(&path.join("CharacterInGame").join("HealItem.db"))
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    |res| Message::HealItemCatalogLoaded(res),
-                )
-            }
             Message::HealItemCatalogLoaded(res) => {
                 self.heal_item_editor.is_loading = false;
                 match res {

@@ -12,13 +12,6 @@ impl App {
     pub fn view_heal_item_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.heal_item_editor;
 
-        let controls = row![button(text("Load Catalog").size(13))
-            .padding([8, 16])
-            .on_press(Message::HealItemOpLoadCatalog)
-            .style(style::chip),]
-        .spacing(12)
-        .align_y(iced::Alignment::Center);
-
         let item_list: Vec<Element<Message>> = editor
             .filtered_items
             .iter()
@@ -164,7 +157,6 @@ impl App {
             .height(Length::Fill);
 
         column![
-            container(controls).style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             container(

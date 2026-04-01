@@ -115,7 +115,6 @@ pub enum Message {
     // Heal Item Editor
     HealItemOpBrowseGamePath,
     HealItemOpBrowseSpritePath,
-    HealItemOpLoadCatalog,
     HealItemOpScanItems,
     HealItemOpSelectItem(usize),
     HealItemOpFieldChanged(usize, String, String),
