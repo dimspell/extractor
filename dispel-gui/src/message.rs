@@ -212,6 +212,7 @@ pub enum Message {
     // Sprite Browser
     SpriteBrowserOpBrowsePath,
     SpriteBrowserOpScan,
+    SpriteBrowserOpSearch(String),
     SpriteBrowserOpSelectSprite(usize),
     SpriteBrowserOpSelectSequence(usize),
     SpriteBrowserOpSelectFrame(usize),

@@ -1538,6 +1538,7 @@ impl App {
                 match res {
                     Ok(entries) => {
                         self.sprite_browser.sprites = entries;
+                        self.sprite_browser.filter_sprites();
                         self.sprite_browser.status_msg =
                             format!("Found {} sprite files", self.sprite_browser.sprites.len())
                                 .into();
@@ -1549,8 +1550,13 @@ impl App {
                 }
                 Task::none()
             }
-            Message::SpriteBrowserOpSelectSprite(idx) => {
-                self.sprite_browser.select_sprite(idx);
+            Message::SpriteBrowserOpSearch(query) => {
+                self.sprite_browser.search_query = query;
+                self.sprite_browser.filter_sprites();
+                Task::none()
+            }
+            Message::SpriteBrowserOpSelectSprite(filtered_idx) => {
+                self.sprite_browser.select_sprite_filtered(filtered_idx);
                 Task::none()
             }
             Message::SpriteBrowserOpSelectSequence(seq_idx) => {

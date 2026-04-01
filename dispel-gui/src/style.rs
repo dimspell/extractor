@@ -1,4 +1,4 @@
-use iced::widget::{button, container, text};
+use iced::widget::{button, container, progress_bar, text};
 use iced::{color, Background, Border, Color, Shadow, Theme, Vector};
 
 // ─── Container styles ───────────────────────────────────────────────────────
@@ -396,5 +396,19 @@ pub fn status_bar(_theme: &Theme) -> container::Style {
             radius: 0.into(),
         },
         ..Default::default()
+    }
+}
+
+// ─── Progress bar styles ────────────────────────────────────────────────────
+
+pub fn loading_progress_bar(_theme: &Theme) -> progress_bar::Style {
+    progress_bar::Style {
+        background: Background::Color(color!(0x3d2b1f)),
+        bar: Background::Color(color!(0xdaa520)), // Gold bar
+        border: Border {
+            color: color!(0x5d4037),
+            width: 1.0,
+            radius: 2.into(),
+        },
     }
 }

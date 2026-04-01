@@ -37,6 +37,8 @@ impl App {
             self.view_chest_editor_tab()
         } else if self.active_tab == Tab::WeaponEditor {
             self.view_weapon_editor_tab()
+        } else if self.active_tab == Tab::SpriteBrowser {
+            self.view_sprite_browser_tab()
         } else if self.active_tab == Tab::HealItemEditor {
             self.view_heal_item_editor_tab()
         } else if self.active_tab == Tab::MiscItemEditor {
@@ -174,7 +176,7 @@ impl App {
                 .padding([10, 28])
                 .style(style::run_button_disabled)
                 .into()
-        } else if self.active_tab == Tab::WeaponEditor {
+        } else if self.active_tab == Tab::WeaponEditor || self.active_tab == Tab::SpriteBrowser {
             text("").into()
         } else {
             button(text("▶  Run Command").size(14))
