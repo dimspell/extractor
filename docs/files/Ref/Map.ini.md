@@ -1,5 +1,11 @@
 # Map.ini Documentation
 
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, map data, or proprietary assets. All references to map configurations are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
 ## Overview
 `Map.ini` is a map initialization data file used by the game engine to configure individual map properties, starting positions, and associated resources.
 
@@ -63,11 +69,21 @@ The game engine uses this data during map loading to:
 - Play the correct background music
 - Handle map transitions and camera events
 
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any map data or game content
+- Focuses on **technical organization**, not creative content
+- Uses **generic descriptions** of file purposes
+- Maintains **nominal fair use** for trademark references
+
 ## Notes
 - The file is parsed by the `MapIni` struct in `src/references/map_ini.rs`
 - Map initialization records are stored in a database using the `save_map_inis` function
 - The file format is strictly enforced with EUC-KR encoding
 - Coordinate system uses isometric tiles, not pixel coordinates
+- **No copyrighted game content** is reproduced or distributed
 
 ## Related Files Location
 - **Monster placement files** (`mon*.ref`): `Dispel/MonsterInGame/` directory

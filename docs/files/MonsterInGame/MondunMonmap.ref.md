@@ -2,6 +2,12 @@
 
 ## File Format: Monster Placement References
 
+### Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to monster types and placements are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
 ### Overview
 
 Binary files that define monster placements, coordinates, and loot configurations for game maps.
@@ -87,9 +93,19 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 4. Configures loot drops based on item IDs and types
 5. Links monster behavior to `mon_id` definitions
 
+### Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any monster data or game content
+- Focuses on **binary structure and organization**, not creative content
+- Uses **generic descriptions** of file purposes
+- Maintains **nominal fair use** for trademark references
+
 ### Technical Notes
 
 - Both file types use identical binary format
 - Distinction is organizational (dungeon vs overworld)
 - Padding fields are unused and typically contain 0x00 or 0xFF values
 - Files are processed by `MonsterRef` struct in the codebase
+- **No copyrighted game content** is reproduced or distributed
