@@ -131,6 +131,9 @@ ref-ch-data:
 ref-dialog:
 	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
 
+database-import:
+	cargo run -- database import "fixtures/Dispel" "database.sqlite"
+
 refs-help:
 	cargo run -- ref --help
 	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"

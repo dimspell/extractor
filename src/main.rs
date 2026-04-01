@@ -311,17 +311,17 @@ enum DatabaseCommands {
         about = "Import all reference files to SQLite",
         long_about = "Reads all standard game files from 'fixtures/Dispel' and saves them to 'database.sqlite'."
     )]
-    Import {},
+    Import { game_path: String, db_path: String },
     /// Import dialog texts only
-    DialogTexts {},
+    DialogTexts { game_path: String, db_path: String },
     /// Import maps and their tiles only
-    Maps {},
+    Maps { game_path: String, db_path: String },
     /// Import item and character databases (.db files)
-    Databases {},
+    Databases { game_path: String, db_path: String },
     /// Import reference configuration files (INI files)
-    Refs {},
+    Refs { game_path: String, db_path: String },
     /// Import the rest (REF/PGP files)
-    Rest {},
+    Rest { game_path: String, db_path: String },
 }
 
 fn main() {
@@ -544,16 +544,42 @@ fn main() {
         Some(Commands::Database(database_args)) => {
             if let Some(database_command) = &database_args.command {
                 let subcommand = match database_command {
-                    DatabaseCommands::Import {} => commands::database::DatabaseSubcommand::Import,
-                    DatabaseCommands::DialogTexts {} => {
-                        commands::database::DatabaseSubcommand::DialogTexts
+                    DatabaseCommands::Import { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::Import {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
                     }
-                    DatabaseCommands::Maps {} => commands::database::DatabaseSubcommand::Maps,
-                    DatabaseCommands::Databases {} => {
-                        commands::database::DatabaseSubcommand::Databases
+                    DatabaseCommands::DialogTexts { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::DialogTexts {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
                     }
-                    DatabaseCommands::Refs {} => commands::database::DatabaseSubcommand::Refs,
-                    DatabaseCommands::Rest {} => commands::database::DatabaseSubcommand::Rest,
+                    DatabaseCommands::Maps { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::Maps {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
+                    }
+                    DatabaseCommands::Databases { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::Databases {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
+                    }
+                    DatabaseCommands::Refs { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::Refs {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
+                    }
+                    DatabaseCommands::Rest { game_path, db_path } => {
+                        commands::database::DatabaseSubcommand::Rest {
+                            game_path: game_path.clone(),
+                            db_path: db_path.clone(),
+                        }
+                    }
                 };
                 let command = command_factory.create_database_command(subcommand);
                 command.execute().expect("Command execution failed");

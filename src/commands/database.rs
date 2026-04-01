@@ -37,39 +37,39 @@ pub struct DatabaseCommand {
 }
 
 pub enum DatabaseSubcommand {
-    Import,
-    DialogTexts,
-    Maps,
-    Databases,
-    Refs,
-    Rest,
+    Import { game_path: String, db_path: String },
+    DialogTexts { game_path: String, db_path: String },
+    Maps { game_path: String, db_path: String },
+    Databases { game_path: String, db_path: String },
+    Refs { game_path: String, db_path: String },
+    Rest { game_path: String, db_path: String },
 }
 
 impl Command for DatabaseCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         match &self.subcommand {
-            DatabaseSubcommand::Import => {
-                save_all()?;
+            DatabaseSubcommand::Import { game_path, db_path } => {
+                save_all(Path::new(game_path), db_path)?;
             }
-            DatabaseSubcommand::DialogTexts => {
-                let mut conn = Connection::open("database.sqlite")?;
-                import_dialog_texts(&mut conn)?;
+            DatabaseSubcommand::DialogTexts { game_path, db_path } => {
+                let mut conn = Connection::open(db_path)?;
+                import_dialog_texts(Path::new(game_path), &mut conn)?;
             }
-            DatabaseSubcommand::Maps => {
-                let mut conn = Connection::open("database.sqlite")?;
-                import_maps(&mut conn)?;
+            DatabaseSubcommand::Maps { game_path, db_path } => {
+                let mut conn = Connection::open(db_path)?;
+                import_maps(Path::new(game_path), &mut conn)?;
             }
-            DatabaseSubcommand::Databases => {
-                let mut conn = Connection::open("database.sqlite")?;
-                import_databases(&mut conn)?;
+            DatabaseSubcommand::Databases { game_path, db_path } => {
+                let mut conn = Connection::open(db_path)?;
+                import_databases(Path::new(game_path), &mut conn)?;
             }
-            DatabaseSubcommand::Refs => {
-                let mut conn = Connection::open("database.sqlite")?;
-                import_refs(&mut conn)?;
+            DatabaseSubcommand::Refs { game_path, db_path } => {
+                let mut conn = Connection::open(db_path)?;
+                import_refs(Path::new(game_path), &mut conn)?;
             }
-            DatabaseSubcommand::Rest => {
-                let mut conn = Connection::open("database.sqlite")?;
-                import_rest(&mut conn)?;
+            DatabaseSubcommand::Rest { game_path, db_path } => {
+                let mut conn = Connection::open(db_path)?;
+                import_rest(Path::new(game_path), &mut conn)?;
             }
         }
         Ok(())
@@ -84,26 +84,25 @@ impl Command for DatabaseCommand {
     }
 }
 
-fn save_all() -> Result<(), Box<dyn Error>> {
+fn save_all(game_path: &Path, db_path: &String) -> Result<(), Box<dyn Error>> {
     println!("Saving all data...");
 
-    let mut conn = Connection::open("database.sqlite")?;
+    let mut conn = Connection::open(db_path)?;
 
     initialize_database(&conn)?;
 
-    import_maps(&mut conn)?;
-    import_refs(&mut conn)?;
-    import_rest(&mut conn)?;
-    import_dialog_texts(&mut conn)?;
-    import_databases(&mut conn)?;
+    import_maps(game_path, &mut conn)?;
+    import_refs(game_path, &mut conn)?;
+    import_rest(game_path, &mut conn)?;
+    import_dialog_texts(game_path, &mut conn)?;
+    import_databases(game_path, &mut conn)?;
 
     conn.close().unwrap();
 
     Ok(())
 }
 
-fn import_maps(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    let main_path = Path::new("fixtures/Dispel");
+fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     println!("Saving maps...");
     let maps =
         super::super::references::all_map_ini::read_all_map_ini(&main_path.join("AllMap.ini"))?;
@@ -191,8 +190,7 @@ fn import_maps(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn import_refs(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    let main_path = Path::new("fixtures/Dispel");
+fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     println!("Saving extras...");
     let extras = super::super::references::extra_ini::read_extra_ini(&main_path.join("Extra.ini"))?;
     save_extras(conn, &extras)?;
@@ -212,8 +210,7 @@ fn import_refs(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn import_dialog_texts(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    let main_path = Path::new("fixtures/Dispel");
+fn import_dialog_texts(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     let dialog_files = [
         "NpcInGame/Dlgcat1.dlg",
         "NpcInGame/Dlgcat2.dlg",
@@ -263,8 +260,7 @@ fn import_dialog_texts(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    let main_path = Path::new("fixtures/Dispel");
+fn import_databases(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     println!("Saving weapons...");
     let weapons = super::super::references::weapons_db::read_weapons_db(
         &main_path.join("CharacterInGame/weaponItem.db"),
@@ -333,8 +329,7 @@ fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn import_rest(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    let main_path = Path::new("fixtures/Dispel");
+fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
     println!("Saving party_refs...");
     let party_refs =
         super::super::references::party_ref::read_part_refs(&main_path.join("Ref/PartyRef.ref"))?;
