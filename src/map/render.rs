@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 
-use crate::sprite::{rgb16_565_produce_color, Color, ImageInfo, SequenceInfo};
 use crate::map::tileset::{mix_color, plot_tile, Tile, TILE_HEIGHT};
+use crate::sprite::{rgb16_565_produce_color, Color, ImageInfo, SequenceInfo};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
@@ -307,7 +307,8 @@ pub fn plot_roofs(
             if btl_tile_id > 0 {
                 let btl_tile_idx = btl_tile_id as usize;
                 if let Some(btl_tile) = btl_tileset.get(btl_tile_idx) {
-                    let (mut sx, mut sy) = convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
+                    let (mut sx, mut sy) =
+                        convert_map_coords_to_image_coords(x, y, map_diagonal_tiles);
                     if occlusion {
                         sx -= model.map_non_occluded_start_x;
                         sy -= model.map_non_occluded_start_y;

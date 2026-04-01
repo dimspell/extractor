@@ -65,7 +65,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Store {
     /// Logical ordering of the store script.
     pub index: i32,

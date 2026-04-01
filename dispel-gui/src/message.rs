@@ -3,7 +3,10 @@ use crate::db;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use std::path::PathBuf;
 
-use dispel_core::{HealItem, WeaponItem};
+use dispel_core::{
+    EditItem, EventItem, HealItem, MagicSpell, MiscItem, Monster, NpcIni, PartyIniNpc, PartyRef,
+    Store, WeaponItem,
+};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -114,4 +117,76 @@ pub enum Message {
     HealItemOpSelectItem(usize),
     HealItemOpFieldChanged(usize, String, String),
     HealItemOpSave,
+    // Misc Item Editor
+    MiscItemOpBrowseGamePath,
+    MiscItemOpLoadCatalog,
+    MiscItemOpScanItems,
+    MiscItemOpSelectItem(usize),
+    MiscItemOpFieldChanged(usize, String, String),
+    MiscItemOpSave,
+    MiscItemCatalogLoaded(Result<Vec<MiscItem>, String>),
+    // Edit Item Editor
+    EditItemOpBrowseGamePath,
+    EditItemOpLoadCatalog,
+    EditItemOpScanItems,
+    EditItemOpSelectItem(usize),
+    EditItemOpFieldChanged(usize, String, String),
+    EditItemOpSave,
+    EditItemCatalogLoaded(Result<Vec<EditItem>, String>),
+    // Event Item Editor
+    EventItemOpBrowseGamePath,
+    EventItemOpLoadCatalog,
+    EventItemOpScanItems,
+    EventItemOpSelectItem(usize),
+    EventItemOpFieldChanged(usize, String, String),
+    EventItemOpSave,
+    EventItemCatalogLoaded(Result<Vec<EventItem>, String>),
+    // Monster Editor
+    MonsterOpBrowseGamePath,
+    MonsterOpLoadCatalog,
+    MonsterOpScanMonsters,
+    MonsterOpSelectMonster(usize),
+    MonsterOpFieldChanged(usize, String, String),
+    MonsterOpSave,
+    MonsterCatalogLoaded(Result<Vec<Monster>, String>),
+    // NPC Ini Editor
+    NpcIniOpBrowseGamePath,
+    NpcIniOpLoadCatalog,
+    NpcIniOpScanNpcs,
+    NpcIniOpSelectNpc(usize),
+    NpcIniOpFieldChanged(usize, String, String),
+    NpcIniOpSave,
+    NpcIniCatalogLoaded(Result<Vec<NpcIni>, String>),
+    // Magic Editor
+    MagicOpBrowseGamePath,
+    MagicOpLoadCatalog,
+    MagicOpScanSpells,
+    MagicOpSelectSpell(usize),
+    MagicOpFieldChanged(usize, String, String),
+    MagicOpSave,
+    MagicCatalogLoaded(Result<Vec<MagicSpell>, String>),
+    // Store Editor
+    StoreOpBrowseGamePath,
+    StoreOpLoadCatalog,
+    StoreOpScanStores,
+    StoreOpSelectStore(usize),
+    StoreOpFieldChanged(usize, String, String),
+    StoreOpSave,
+    StoreCatalogLoaded(Result<Vec<Store>, String>),
+    // Party Ref Editor
+    PartyRefOpBrowseGamePath,
+    PartyRefOpLoadCatalog,
+    PartyRefOpScanParty,
+    PartyRefOpSelectMember(usize),
+    PartyRefOpFieldChanged(usize, String, String),
+    PartyRefOpSave,
+    PartyRefCatalogLoaded(Result<Vec<PartyRef>, String>),
+    // Party Ini Editor
+    PartyIniOpBrowseGamePath,
+    PartyIniOpLoadCatalog,
+    PartyIniOpScanNpcs,
+    PartyIniOpSelectNpc(usize),
+    PartyIniOpFieldChanged(usize, String, String),
+    PartyIniOpSave,
+    PartyIniCatalogLoaded(Result<Vec<PartyIniNpc>, String>),
 }

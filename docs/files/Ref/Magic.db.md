@@ -76,13 +76,6 @@
 - Context-dependent meaning
 
 ### magic_school
-- `0`: Unknown/None
-- `1`: Fire
-- `2`: Ice
-- `3`: Lightning
-- `4`: Holy
-- `5`: Dark
-- `6`: Nature
 
 ### target_type
 - `1`: Single target

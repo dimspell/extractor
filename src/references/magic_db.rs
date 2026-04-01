@@ -58,7 +58,7 @@ const MAGIC_RECORD_SIZE: usize = 88;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MagicSpell {
     /// Record index (0-based)
     pub id: i32,

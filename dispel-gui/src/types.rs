@@ -11,6 +11,15 @@ pub enum Tab {
     ChestEditor,
     WeaponEditor,
     HealItemEditor,
+    MiscItemEditor,
+    EditItemEditor,
+    EventItemEditor,
+    MonsterEditor,
+    NpcIniEditor,
+    MagicEditor,
+    StoreEditor,
+    PartyRefEditor,
+    PartyIniEditor,
 }
 
 impl Tab {
@@ -24,6 +33,15 @@ impl Tab {
         Tab::ChestEditor,
         Tab::WeaponEditor,
         Tab::HealItemEditor,
+        Tab::MiscItemEditor,
+        Tab::EditItemEditor,
+        Tab::EventItemEditor,
+        Tab::MonsterEditor,
+        Tab::NpcIniEditor,
+        Tab::MagicEditor,
+        Tab::StoreEditor,
+        Tab::PartyRefEditor,
+        Tab::PartyIniEditor,
     ];
     pub fn label(&self) -> &str {
         match self {
@@ -36,6 +54,15 @@ impl Tab {
             Tab::ChestEditor => "ChestEditor",
             Tab::WeaponEditor => "WeaponEditor",
             Tab::HealItemEditor => "HealItemEditor",
+            Tab::MiscItemEditor => "MiscItemEditor",
+            Tab::EditItemEditor => "EditItemEditor",
+            Tab::EventItemEditor => "EventItemEditor",
+            Tab::MonsterEditor => "MonsterEditor",
+            Tab::NpcIniEditor => "NpcIniEditor",
+            Tab::MagicEditor => "MagicEditor",
+            Tab::StoreEditor => "StoreEditor",
+            Tab::PartyRefEditor => "PartyRefEditor",
+            Tab::PartyIniEditor => "PartyIniEditor",
         }
     }
 }

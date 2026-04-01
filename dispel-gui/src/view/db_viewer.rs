@@ -272,10 +272,7 @@ impl App {
                                 .into()
                         };
 
-                        container(inner)
-                            .width(150)
-                            .style(cell_style)
-                            .into()
+                        container(inner).width(150).style(cell_style).into()
                     })
                     .collect();
 

@@ -33,13 +33,6 @@ use crate::references::extractor::Extractor;
 // - event_id: Linked event script ID
 // - name: NPC display name
 //
-// NPC CATEGORIES:
-// - 1-50: Quest-related NPCs
-// - 51-100: Story-critical NPCs
-// - 101-150: Temporary event NPCs
-// - 151-200: Special merchants/traders
-// - 201-250: Hidden/secret NPCs
-//
 // EVENT LINKING:
 // - event_id links to Event.ini entries
 // - NPCs appear only during specific events

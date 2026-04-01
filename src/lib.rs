@@ -3,15 +3,41 @@
 //! This library provides parsers and data structures for Dispel game files.
 //! It's used by both the CLI extractor and the GUI editor.
 
+pub mod commands;
 pub mod database;
 pub mod map;
 pub mod references;
 pub mod snf;
 pub mod sprite;
-pub mod commands;
 
 // Re-export key types for easy access
 pub use references::{
-    edit_item_db::EditItem, enums::*, event_item_db::EventItem, extra_ref::ExtraRef,
-    heal_item_db::HealItem, misc_item_db::MiscItem, extractor::Extractor, weapons_db::WeaponItem,
+    all_map_ini::Map,
+    chdata_db::ChData,
+    dialog::Dialog,
+    draw_item::DrawItem,
+    edit_item_db::EditItem,
+    enums::*,
+    event_ini::Event,
+    event_item_db::EventItem,
+    event_npc_ref::EventNpcRef,
+    extra_ini::Extra,
+    extra_ref::ExtraRef,
+    extractor::Extractor,
+    heal_item_db::HealItem,
+    magic_db::MagicSpell,
+    map_ini::MapIni,
+    message_scr::Message,
+    misc_item_db::MiscItem,
+    monster_db::Monster,
+    monster_ini::MonsterIni,
+    monster_ref::MonsterRef,
+    npc_ini::NpcIni,
+    npc_ref::NPC,
+    party_ini_db::PartyIniNpc,
+    party_level_db::{PartyLevelNpc, PartyLevelRecord},
+    party_ref::PartyRef,
+    quest_scr::Quest,
+    store_db::Store,
+    weapons_db::WeaponItem,
 };

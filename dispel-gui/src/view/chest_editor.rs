@@ -233,12 +233,8 @@ impl App {
         .height(Fill);
 
         column![
-            container(
-                column![game_path_row, map_file_row]
-                    .padding(10)
-                    .spacing(8)
-            )
-            .style(style::toolbar_container),
+            container(column![game_path_row, map_file_row].padding(10).spacing(8))
+                .style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             status_row,

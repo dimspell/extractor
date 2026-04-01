@@ -35,14 +35,13 @@ pub fn render_from_database(
     use rusqlite::Connection;
 
     println!("Loading atlases...");
-    let gtl_atlas = image::open(gtl_atlas_path)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
-    let btl_atlas = image::open(btl_atlas_path)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let gtl_atlas =
+        image::open(gtl_atlas_path).map_err(|e| std::io::Error::other(e.to_string()))?;
+    let btl_atlas =
+        image::open(btl_atlas_path).map_err(|e| std::io::Error::other(e.to_string()))?;
 
     println!("Opening database...");
-    let conn = Connection::open(database_path)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let conn = Connection::open(database_path).map_err(|e| std::io::Error::other(e.to_string()))?;
 
     // ── Map tile bounds ────────────────────────────────────────────────────
     let bounds: (Option<i32>, Option<i32>, Option<i32>, Option<i32>) = conn
@@ -56,9 +55,10 @@ pub fn render_from_database(
     let (min_x, max_x, min_y, max_y) = match bounds {
         (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
         _ => {
-            return Err(std::io::Error::other(
-                format!("Map '{}' not found in database or has no tiles", map_id),
-            ));
+            return Err(std::io::Error::other(format!(
+                "Map '{}' not found in database or has no tiles",
+                map_id
+            )));
         }
     };
 
@@ -91,8 +91,7 @@ pub fn render_from_database(
             .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         for row in iter {
-            let (x, y, gtl, btl) =
-                row.map_err(|e| std::io::Error::other(e.to_string()))?;
+            let (x, y, gtl, btl) = row.map_err(|e| std::io::Error::other(e.to_string()))?;
             if gtl > 0 {
                 gtl_tiles.insert((x, y), gtl);
             }
@@ -120,8 +119,7 @@ pub fn render_from_database(
             .map_err(|e| std::io::Error::other(e.to_string()))?;
 
         for row in iter {
-            let (x, y, tile_id, idx) =
-                row.map_err(|e| std::io::Error::other(e.to_string()))?;
+            let (x, y, tile_id, idx) = row.map_err(|e| std::io::Error::other(e.to_string()))?;
             let entry = objects_map.entry(idx).or_insert(TiledObjectInfo {
                 ids: Vec::new(),
                 x,

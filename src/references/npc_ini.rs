@@ -45,7 +45,7 @@ use crate::references::extractor::{parse_null, Extractor};
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NpcIni {
     /// NPC visual type identifier.
     pub id: i32,

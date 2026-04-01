@@ -13,7 +13,11 @@ impl App {
                 Message::SoundInputChanged,
                 Message::BrowseSoundInput
             ),
-            labeled_input("Output (.WAV):", &self.sound_output, Message::SoundOutputChanged),
+            labeled_input(
+                "Output (.WAV):",
+                &self.sound_output,
+                Message::SoundOutputChanged
+            ),
         ]
         .spacing(12)
         .into()

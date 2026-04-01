@@ -359,16 +359,15 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
 /// without needing to re-parse the binary format each time.
 pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()> {
     use rusqlite::Connection;
-    let mut conn = Connection::open(database_path)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut conn =
+        Connection::open(database_path).map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let file = File::open(map_path)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
     let map_id = map_path.file_stem().unwrap().to_str().unwrap();
 
-    save_to_db(&mut conn, map_id, &map_data)
-        .map_err(|e| std::io::Error::other(e.to_string()))
+    save_to_db(&mut conn, map_id, &map_data).map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Writes map data to the SQLite database.

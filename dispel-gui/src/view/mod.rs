@@ -11,11 +11,20 @@ use iced::{Element, Fill, Font, Length};
 pub mod chest_editor;
 pub mod database;
 pub mod db_viewer;
+pub mod edit_item_editor;
+pub mod event_item_editor;
 pub mod heal_item_editor;
+pub mod magic_editor;
 pub mod map;
+pub mod misc_item_editor;
+pub mod monster_editor;
+pub mod npc_ini_editor;
+pub mod party_ini_editor;
+pub mod party_ref_editor;
 pub mod ref_tab;
 pub mod sound;
 pub mod sprite;
+pub mod store_editor;
 pub mod weapon_editor;
 
 impl App {
@@ -29,6 +38,24 @@ impl App {
             self.view_weapon_editor_tab()
         } else if self.active_tab == Tab::HealItemEditor {
             self.view_heal_item_editor_tab()
+        } else if self.active_tab == Tab::MiscItemEditor {
+            self.view_misc_item_editor_tab()
+        } else if self.active_tab == Tab::EditItemEditor {
+            self.view_edit_item_editor_tab()
+        } else if self.active_tab == Tab::EventItemEditor {
+            self.view_event_item_editor_tab()
+        } else if self.active_tab == Tab::MonsterEditor {
+            self.view_monster_editor_tab()
+        } else if self.active_tab == Tab::NpcIniEditor {
+            self.view_npc_ini_editor_tab()
+        } else if self.active_tab == Tab::MagicEditor {
+            self.view_magic_editor_tab()
+        } else if self.active_tab == Tab::StoreEditor {
+            self.view_store_editor_tab()
+        } else if self.active_tab == Tab::PartyRefEditor {
+            self.view_party_ref_editor_tab()
+        } else if self.active_tab == Tab::PartyIniEditor {
+            self.view_party_ini_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
             let log_panel = self.view_log();
@@ -92,7 +119,15 @@ impl App {
             Tab::ChestEditor => self.view_chest_editor_tab(),
             Tab::WeaponEditor => self.view_weapon_editor_tab(),
             Tab::HealItemEditor => self.view_heal_item_editor_tab(),
-            // _ => text("Weapon Editor not yet implemented").into(),
+            Tab::MiscItemEditor => self.view_misc_item_editor_tab(),
+            Tab::EditItemEditor => self.view_edit_item_editor_tab(),
+            Tab::EventItemEditor => self.view_event_item_editor_tab(),
+            Tab::MonsterEditor => self.view_monster_editor_tab(),
+            Tab::NpcIniEditor => self.view_npc_ini_editor_tab(),
+            Tab::MagicEditor => self.view_magic_editor_tab(),
+            Tab::StoreEditor => self.view_store_editor_tab(),
+            Tab::PartyRefEditor => self.view_party_ref_editor_tab(),
+            Tab::PartyIniEditor => self.view_party_ini_editor_tab(),
         };
         let run_btn: Element<'_, Message> = if self.is_running {
             button(text("⏳ Running…").size(14))

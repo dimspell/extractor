@@ -1,13 +1,25 @@
 use crate::chest_editor;
 use crate::db;
 use crate::db_viewer_state::{DbViewerState, PAGE_SIZE};
+use crate::edit_item_editor;
+use crate::event_item_editor;
 use crate::heal_item_editor;
+use crate::magic_editor;
 use crate::message::Message;
+use crate::misc_item_editor;
+use crate::monster_editor;
+use crate::npc_ini_editor;
+use crate::party_ini_editor;
+use crate::party_ref_editor;
+use crate::store_editor;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use crate::utils::{browse_file, browse_folder};
 use crate::weapon_editor;
 use dispel_core::commands::{self, Command, CommandFactory};
-use dispel_core::{Extractor, HealItem, WeaponItem};
+use dispel_core::{
+    EditItem, EventItem, Extractor, HealItem, MagicSpell, MiscItem, Monster, NpcIni, PartyIniNpc,
+    PartyRef, Store, WeaponItem,
+};
 use iced::Task;
 use std::path::PathBuf;
 
@@ -50,6 +62,24 @@ pub struct App {
     pub weapon_editor: Box<weapon_editor::WeaponEditorState>,
     // Heal Item Editor
     pub heal_item_editor: Box<heal_item_editor::HealItemEditorState>,
+    // Misc Item Editor
+    pub misc_item_editor: Box<misc_item_editor::MiscItemEditorState>,
+    // Edit Item Editor
+    pub edit_item_editor: Box<edit_item_editor::EditItemEditorState>,
+    // Event Item Editor
+    pub event_item_editor: Box<event_item_editor::EventItemEditorState>,
+    // Monster Editor
+    pub monster_editor: Box<monster_editor::MonsterEditorState>,
+    // NPC Ini Editor
+    pub npc_ini_editor: Box<npc_ini_editor::NpcIniEditorState>,
+    // Magic Editor
+    pub magic_editor: Box<magic_editor::MagicEditorState>,
+    // Store Editor
+    pub store_editor: Box<store_editor::StoreEditorState>,
+    // Party Ref Editor
+    pub party_ref_editor: Box<party_ref_editor::PartyRefEditorState>,
+    // Party Ini Editor
+    pub party_ini_editor: Box<party_ini_editor::PartyIniEditorState>,
 }
 
 impl App {
@@ -84,6 +114,15 @@ impl App {
                 chest_editor: Box::default(),
                 weapon_editor: Box::default(),
                 heal_item_editor: Box::default(),
+                misc_item_editor: Box::default(),
+                edit_item_editor: Box::default(),
+                event_item_editor: Box::default(),
+                monster_editor: Box::default(),
+                npc_ini_editor: Box::default(),
+                magic_editor: Box::default(),
+                store_editor: Box::default(),
+                party_ref_editor: Box::default(),
+                party_ini_editor: Box::default(),
             },
             Task::none(),
         )
@@ -204,6 +243,15 @@ impl App {
                         "weapon_game_path" => self.weapon_editor.game_path = s,
                         "heal_item_game_path" => self.heal_item_editor.game_path = s,
                         "heal_item_sprite_path" => self.heal_item_editor.sprite_base_path = s,
+                        "misc_item_game_path" => self.misc_item_editor.game_path = s,
+                        "edit_item_game_path" => self.edit_item_editor.game_path = s,
+                        "event_item_game_path" => self.event_item_editor.game_path = s,
+                        "monster_game_path" => self.monster_editor.game_path = s,
+                        "npc_ini_game_path" => self.npc_ini_editor.game_path = s,
+                        "magic_game_path" => self.magic_editor.game_path = s,
+                        "store_game_path" => self.store_editor.game_path = s,
+                        "party_ref_game_path" => self.party_ref_editor.game_path = s,
+                        "party_ini_game_path" => self.party_ini_editor.game_path = s,
                         _ => {}
                     }
                 }
@@ -667,6 +715,512 @@ impl App {
                 }
                 Task::none()
             }
+            Message::MiscItemOpBrowseGamePath => browse_folder("misc_item_game_path"),
+            Message::MiscItemOpLoadCatalog | Message::MiscItemOpScanItems => {
+                if self.misc_item_editor.game_path.is_empty() {
+                    self.misc_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.misc_item_editor.is_loading = true;
+                let path = PathBuf::from(&self.misc_item_editor.game_path);
+                Task::perform(
+                    async move {
+                        MiscItem::read_file(&path.join("CharacterInGame").join("MiscItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::MiscItemCatalogLoaded(res),
+                )
+            }
+            Message::MiscItemCatalogLoaded(res) => {
+                self.misc_item_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.misc_item_editor.catalog = Some(catalog.clone());
+                        self.misc_item_editor.status_msg =
+                            format!("Misc item catalog loaded: {} items", catalog.len()).into();
+                        self.misc_item_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.misc_item_editor.status_msg =
+                            format!("Error loading misc item catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MiscItemOpSelectItem(idx) => {
+                self.misc_item_editor.select_item(idx);
+                Task::none()
+            }
+            Message::MiscItemOpFieldChanged(idx, field, val) => {
+                self.misc_item_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MiscItemOpSave => {
+                if self.misc_item_editor.game_path.is_empty() {
+                    self.misc_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.misc_item_editor.is_loading = true;
+                let result = self.misc_item_editor.save_items();
+                self.misc_item_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.misc_item_editor.status_msg = "Misc items saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.misc_item_editor.status_msg = format!("Error saving misc items: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EditItemOpBrowseGamePath => browse_folder("edit_item_game_path"),
+            Message::EditItemOpLoadCatalog | Message::EditItemOpScanItems => {
+                if self.edit_item_editor.game_path.is_empty() {
+                    self.edit_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.edit_item_editor.is_loading = true;
+                let path = PathBuf::from(&self.edit_item_editor.game_path);
+                Task::perform(
+                    async move {
+                        EditItem::read_file(&path.join("CharacterInGame").join("EditItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::EditItemCatalogLoaded(res),
+                )
+            }
+            Message::EditItemCatalogLoaded(res) => {
+                self.edit_item_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.edit_item_editor.catalog = Some(catalog.clone());
+                        self.edit_item_editor.status_msg =
+                            format!("Edit item catalog loaded: {} items", catalog.len()).into();
+                        self.edit_item_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.edit_item_editor.status_msg =
+                            format!("Error loading edit item catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EditItemOpSelectItem(idx) => {
+                self.edit_item_editor.select_item(idx);
+                Task::none()
+            }
+            Message::EditItemOpFieldChanged(idx, field, val) => {
+                self.edit_item_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::EditItemOpSave => {
+                if self.edit_item_editor.game_path.is_empty() {
+                    self.edit_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.edit_item_editor.is_loading = true;
+                let result = self.edit_item_editor.save_items();
+                self.edit_item_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.edit_item_editor.status_msg = "Edit items saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.edit_item_editor.status_msg = format!("Error saving edit items: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EventItemOpBrowseGamePath => browse_folder("event_item_game_path"),
+            Message::EventItemOpLoadCatalog | Message::EventItemOpScanItems => {
+                if self.event_item_editor.game_path.is_empty() {
+                    self.event_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_item_editor.is_loading = true;
+                let path = PathBuf::from(&self.event_item_editor.game_path);
+                Task::perform(
+                    async move {
+                        EventItem::read_file(&path.join("CharacterInGame").join("EventItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::EventItemCatalogLoaded(res),
+                )
+            }
+            Message::EventItemCatalogLoaded(res) => {
+                self.event_item_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.event_item_editor.catalog = Some(catalog.clone());
+                        self.event_item_editor.status_msg =
+                            format!("Event item catalog loaded: {} items", catalog.len()).into();
+                        self.event_item_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.event_item_editor.status_msg =
+                            format!("Error loading event item catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EventItemOpSelectItem(idx) => {
+                self.event_item_editor.select_item(idx);
+                Task::none()
+            }
+            Message::EventItemOpFieldChanged(idx, field, val) => {
+                self.event_item_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::EventItemOpSave => {
+                if self.event_item_editor.game_path.is_empty() {
+                    self.event_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_item_editor.is_loading = true;
+                let result = self.event_item_editor.save_items();
+                self.event_item_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.event_item_editor.status_msg = "Event items saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.event_item_editor.status_msg =
+                            format!("Error saving event items: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MonsterOpBrowseGamePath => browse_folder("monster_game_path"),
+            Message::MonsterOpLoadCatalog | Message::MonsterOpScanMonsters => {
+                if self.monster_editor.game_path.is_empty() {
+                    self.monster_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.monster_editor.is_loading = true;
+                let path = PathBuf::from(&self.monster_editor.game_path);
+                Task::perform(
+                    async move {
+                        Monster::read_file(&path.join("MonsterInGame").join("Monster.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::MonsterCatalogLoaded(res),
+                )
+            }
+            Message::MonsterCatalogLoaded(res) => {
+                self.monster_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.monster_editor.catalog = Some(catalog.clone());
+                        self.monster_editor.status_msg =
+                            format!("Monster catalog loaded: {} monsters", catalog.len()).into();
+                        self.monster_editor.refresh_monsters();
+                    }
+                    Err(e) => {
+                        self.monster_editor.status_msg =
+                            format!("Error loading monster catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MonsterOpSelectMonster(idx) => {
+                self.monster_editor.select_monster(idx);
+                Task::none()
+            }
+            Message::MonsterOpFieldChanged(idx, field, val) => {
+                self.monster_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MonsterOpSave => {
+                if self.monster_editor.game_path.is_empty() {
+                    self.monster_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.monster_editor.is_loading = true;
+                let result = self.monster_editor.save_monsters();
+                self.monster_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.monster_editor.status_msg = "Monsters saved successfully.".into(),
+                    Err(e) => {
+                        self.monster_editor.status_msg = format!("Error saving monsters: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::NpcIniOpBrowseGamePath => browse_folder("npc_ini_game_path"),
+            Message::NpcIniOpLoadCatalog | Message::NpcIniOpScanNpcs => {
+                if self.npc_ini_editor.game_path.is_empty() {
+                    self.npc_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.npc_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.npc_ini_editor.game_path);
+                Task::perform(
+                    async move {
+                        NpcIni::read_file(&path.join("Npc.ini"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::NpcIniCatalogLoaded(res),
+                )
+            }
+            Message::NpcIniCatalogLoaded(res) => {
+                self.npc_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.npc_ini_editor.catalog = Some(catalog.clone());
+                        self.npc_ini_editor.status_msg =
+                            format!("NPC catalog loaded: {} npcs", catalog.len()).into();
+                        self.npc_ini_editor.refresh_npcs();
+                    }
+                    Err(e) => {
+                        self.npc_ini_editor.status_msg = format!("Error loading NPC catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::NpcIniOpSelectNpc(idx) => {
+                self.npc_ini_editor.select_npc(idx);
+                Task::none()
+            }
+            Message::NpcIniOpFieldChanged(idx, field, val) => {
+                self.npc_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::NpcIniOpSave => {
+                if self.npc_ini_editor.game_path.is_empty() {
+                    self.npc_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.npc_ini_editor.is_loading = true;
+                let result = self.npc_ini_editor.save_npcs();
+                self.npc_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.npc_ini_editor.status_msg = "NPCs saved successfully.".into(),
+                    Err(e) => self.npc_ini_editor.status_msg = format!("Error saving NPCs: {}", e),
+                }
+                Task::none()
+            }
+            Message::MagicOpBrowseGamePath => browse_folder("magic_game_path"),
+            Message::MagicOpLoadCatalog | Message::MagicOpScanSpells => {
+                if self.magic_editor.game_path.is_empty() {
+                    self.magic_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.magic_editor.is_loading = true;
+                let path = PathBuf::from(&self.magic_editor.game_path);
+                Task::perform(
+                    async move {
+                        MagicSpell::read_file(&path.join("MagicInGame").join("Magic.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::MagicCatalogLoaded(res),
+                )
+            }
+            Message::MagicCatalogLoaded(res) => {
+                self.magic_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.magic_editor.catalog = Some(catalog.clone());
+                        self.magic_editor.status_msg =
+                            format!("Magic catalog loaded: {} spells", catalog.len()).into();
+                        self.magic_editor.refresh_spells();
+                    }
+                    Err(e) => {
+                        self.magic_editor.status_msg = format!("Error loading magic catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MagicOpSelectSpell(idx) => {
+                self.magic_editor.select_spell(idx);
+                Task::none()
+            }
+            Message::MagicOpFieldChanged(idx, field, val) => {
+                self.magic_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MagicOpSave => {
+                if self.magic_editor.game_path.is_empty() {
+                    self.magic_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.magic_editor.is_loading = true;
+                let result = self.magic_editor.save_spells();
+                self.magic_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.magic_editor.status_msg = "Spells saved successfully.".into(),
+                    Err(e) => self.magic_editor.status_msg = format!("Error saving spells: {}", e),
+                }
+                Task::none()
+            }
+            Message::StoreOpBrowseGamePath => browse_folder("store_game_path"),
+            Message::StoreOpLoadCatalog | Message::StoreOpScanStores => {
+                if self.store_editor.game_path.is_empty() {
+                    self.store_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.store_editor.is_loading = true;
+                let path = PathBuf::from(&self.store_editor.game_path);
+                Task::perform(
+                    async move {
+                        Store::read_file(&path.join("CharacterInGame").join("STORE.DB"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::StoreCatalogLoaded(res),
+                )
+            }
+            Message::StoreCatalogLoaded(res) => {
+                self.store_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.store_editor.catalog = Some(catalog.clone());
+                        self.store_editor.status_msg =
+                            format!("Store catalog loaded: {} stores", catalog.len()).into();
+                        self.store_editor.refresh_stores();
+                    }
+                    Err(e) => {
+                        self.store_editor.status_msg = format!("Error loading store catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::StoreOpSelectStore(idx) => {
+                self.store_editor.select_store(idx);
+                Task::none()
+            }
+            Message::StoreOpFieldChanged(idx, field, val) => {
+                self.store_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::StoreOpSave => {
+                if self.store_editor.game_path.is_empty() {
+                    self.store_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.store_editor.is_loading = true;
+                let result = self.store_editor.save_stores();
+                self.store_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.store_editor.status_msg = "Stores saved successfully.".into(),
+                    Err(e) => self.store_editor.status_msg = format!("Error saving stores: {}", e),
+                }
+                Task::none()
+            }
+            Message::PartyRefOpBrowseGamePath => browse_folder("party_ref_game_path"),
+            Message::PartyRefOpLoadCatalog | Message::PartyRefOpScanParty => {
+                if self.party_ref_editor.game_path.is_empty() {
+                    self.party_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_ref_editor.is_loading = true;
+                let path = PathBuf::from(&self.party_ref_editor.game_path);
+                Task::perform(
+                    async move {
+                        PartyRef::read_file(&path.join("Ref").join("PartyRef.ref"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::PartyRefCatalogLoaded(res),
+                )
+            }
+            Message::PartyRefCatalogLoaded(res) => {
+                self.party_ref_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.party_ref_editor.catalog = Some(catalog.clone());
+                        self.party_ref_editor.status_msg =
+                            format!("Party catalog loaded: {} members", catalog.len()).into();
+                        self.party_ref_editor.refresh_party();
+                    }
+                    Err(e) => {
+                        self.party_ref_editor.status_msg =
+                            format!("Error loading party catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::PartyRefOpSelectMember(idx) => {
+                self.party_ref_editor.select_member(idx);
+                Task::none()
+            }
+            Message::PartyRefOpFieldChanged(idx, field, val) => {
+                self.party_ref_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::PartyRefOpSave => {
+                if self.party_ref_editor.game_path.is_empty() {
+                    self.party_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_ref_editor.is_loading = true;
+                let result = self.party_ref_editor.save_party();
+                self.party_ref_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.party_ref_editor.status_msg = "Party refs saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.party_ref_editor.status_msg = format!("Error saving party refs: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::PartyIniOpBrowseGamePath => browse_folder("party_ini_game_path"),
+            Message::PartyIniOpLoadCatalog | Message::PartyIniOpScanNpcs => {
+                if self.party_ini_editor.game_path.is_empty() {
+                    self.party_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.party_ini_editor.game_path);
+                Task::perform(
+                    async move {
+                        PartyIniNpc::read_file(&path.join("NpcInGame").join("PrtIni.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::PartyIniCatalogLoaded(res),
+                )
+            }
+            Message::PartyIniCatalogLoaded(res) => {
+                self.party_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.party_ini_editor.catalog = Some(catalog.clone());
+                        self.party_ini_editor.status_msg =
+                            format!("Party ini catalog loaded: {} npcs", catalog.len()).into();
+                        self.party_ini_editor.refresh_npcs();
+                    }
+                    Err(e) => {
+                        self.party_ini_editor.status_msg =
+                            format!("Error loading party ini catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::PartyIniOpSelectNpc(idx) => {
+                self.party_ini_editor.select_npc(idx);
+                Task::none()
+            }
+            Message::PartyIniOpFieldChanged(idx, field, val) => {
+                self.party_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::PartyIniOpSave => {
+                if self.party_ini_editor.game_path.is_empty() {
+                    self.party_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_ini_editor.is_loading = true;
+                let result = self.party_ini_editor.save_npcs();
+                self.party_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.party_ini_editor.status_msg = "Party ini saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.party_ini_editor.status_msg = format!("Error saving party ini: {}", e)
+                    }
+                }
+                Task::none()
+            }
 
             // ─── DB Viewer messages ─────────────────────────────────
             Message::ViewerDbPathChanged(v) => {
@@ -1046,16 +1600,17 @@ impl App {
                 Some(Box::new(factory.create_ref_command(subcommand)))
             }
             Tab::Database => {
-                let op = self.db_op?;
-                let subcommand = match op {
-                    DbOp::Import => commands::database::DatabaseSubcommand::Import,
-                    DbOp::DialogTexts => commands::database::DatabaseSubcommand::DialogTexts,
-                    DbOp::Maps => commands::database::DatabaseSubcommand::Maps,
-                    DbOp::Databases => commands::database::DatabaseSubcommand::Databases,
-                    DbOp::Refs => commands::database::DatabaseSubcommand::Refs,
-                    DbOp::Rest => commands::database::DatabaseSubcommand::Rest,
-                };
-                Some(Box::new(factory.create_database_command(subcommand)))
+                // let op = self.db_op?;
+                // let subcommand = match op {
+                //     DbOp::Import => commands::database::DatabaseSubcommand::Import,
+                //     DbOp::DialogTexts => commands::database::DatabaseSubcommand::DialogTexts,
+                //     DbOp::Maps => commands::database::DatabaseSubcommand::Maps,
+                //     DbOp::Databases => commands::database::DatabaseSubcommand::Databases,
+                //     DbOp::Refs => commands::database::DatabaseSubcommand::Refs,
+                //     DbOp::Rest => commands::database::DatabaseSubcommand::Rest,
+                // };
+                // Some(Box::new(factory.create_database_command(subcommand)))
+                None
             }
             Tab::Sprite => {
                 let mode = match self.sprite_mode {
@@ -1071,6 +1626,15 @@ impl App {
             )),
             Tab::DbViewer | Tab::ChestEditor => None,
             Tab::WeaponEditor | Tab::HealItemEditor => None,
+            Tab::MiscItemEditor
+            | Tab::EditItemEditor
+            | Tab::EventItemEditor
+            | Tab::MonsterEditor
+            | Tab::NpcIniEditor
+            | Tab::MagicEditor
+            | Tab::StoreEditor
+            | Tab::PartyRefEditor
+            | Tab::PartyIniEditor => None,
         }
     }
 }

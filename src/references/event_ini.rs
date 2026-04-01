@@ -109,8 +109,7 @@ impl Extractor for Event {
                 let counter = parts[4].parse::<i32>().unwrap();
 
                 // Convert the raw event_type_id to our type-safe enum
-                let event_type =
-                    EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
+                let event_type = EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
 
                 events.push(Event {
                     event_id,

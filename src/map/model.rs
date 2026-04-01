@@ -31,11 +31,9 @@ pub fn read_map_model(reader: &mut BufReader<File>) -> Result<MapModel> {
     // map size in chunks
     let width = reader.read_i32::<LittleEndian>()?;
     let height = reader.read_i32::<LittleEndian>()?;
-    let diagonal = width.checked_add(height).ok_or_else(|| {
-        std::io::Error::other(
-            format!("Map size overflow: {}x{}", width, height),
-        )
-    })?;
+    let diagonal = width
+        .checked_add(height)
+        .ok_or_else(|| std::io::Error::other(format!("Map size overflow: {}x{}", width, height)))?;
 
     const MAP_CHUNK_SIZE: i32 = 25;
     let tiled_map_width = width * MAP_CHUNK_SIZE - 1;
