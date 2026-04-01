@@ -203,6 +203,7 @@ impl App {
                         "chest_map_file" => self.chest_editor.current_map_file = s,
                         "weapon_game_path" => self.weapon_editor.game_path = s,
                         "heal_item_game_path" => self.heal_item_editor.game_path = s,
+                        "heal_item_sprite_path" => self.heal_item_editor.sprite_base_path = s,
                         _ => {}
                     }
                 }
@@ -592,6 +593,7 @@ impl App {
                 Task::none()
             }
             Message::HealItemOpBrowseGamePath => browse_folder("heal_item_game_path"),
+            Message::HealItemOpBrowseSpritePath => browse_folder("heal_item_sprite_path"),
             Message::HealItemOpScanItems => {
                 if self.heal_item_editor.game_path.is_empty() {
                     self.heal_item_editor.status_msg = "Please select game path first.".into();

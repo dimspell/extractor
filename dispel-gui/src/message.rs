@@ -108,6 +108,7 @@ pub enum Message {
     WeaponOpSave,
     // Heal Item Editor
     HealItemOpBrowseGamePath,
+    HealItemOpBrowseSpritePath,
     HealItemOpLoadCatalog,
     HealItemOpScanItems,
     HealItemOpSelectItem(usize),

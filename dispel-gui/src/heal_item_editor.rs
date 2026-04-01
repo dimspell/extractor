@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Default)]
 pub struct HealItemEditorState {
     pub game_path: String,
+    pub sprite_base_path: String,
     pub catalog: Option<Vec<HealItem>>,
     pub filtered_items: Vec<(usize, HealItem)>, // (original_index, record)
     pub selected_idx: Option<usize>,            // Index into filtered_items
@@ -25,6 +26,38 @@ pub struct HealItemEditorState {
 }
 
 impl HealItemEditorState {
+    pub fn get_sprite_path_for_item(&self, item_id: i32) -> Option<String> {
+        // Try to find sprite files based on item ID
+        // Common patterns: {id}_healpotion.spr, {id}_healing.spr, etc.
+        let patterns = vec![
+            format!("{}_healpotion.spr", item_id),
+            format!("{}_healing.spr", item_id),
+            format!("{}_healother.spr", item_id),
+            format!("healpotion{}.spr", item_id),
+            format!("healing{}.spr", item_id),
+        ];
+
+        if self.sprite_base_path.is_empty() {
+            return None;
+        }
+
+        let base_path = PathBuf::from(&self.sprite_base_path);
+
+        // Check if the base path exists
+        if !base_path.exists() {
+            return None;
+        }
+
+        // Try to find a matching sprite file
+        for pattern in patterns {
+            let sprite_path = base_path.join(&pattern);
+            if sprite_path.exists() {
+                return Some(sprite_path.to_string_lossy().to_string());
+            }
+        }
+
+        None
+    }
     pub fn refresh_items(&mut self) {
         if let Some(catalog) = &self.catalog {
             self.filtered_items = catalog

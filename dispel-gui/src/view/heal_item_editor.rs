@@ -3,7 +3,7 @@ use crate::message::Message;
 use crate::style;
 use crate::utils::{labeled_input, truncate_path};
 use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
+    button, column, container, horizontal_rule, horizontal_space, image, row, scrollable, text,
     vertical_space,
 };
 use iced::{Element, Fill, Font, Length};
@@ -30,6 +30,31 @@ impl App {
                 .on_press(Message::HealItemOpLoadCatalog)
                 .padding([5, 10])
                 .style(style::run_button),
+        ]
+        .spacing(10)
+        .align_y(iced::Alignment::Center);
+
+        let sprite_path_row = row![
+            text("Sprites: ")
+                .size(12)
+                .width(60)
+                .style(style::subtle_text),
+            container(
+                text(if editor.sprite_base_path.is_empty() {
+                    "No sprite path selected"
+                } else {
+                    &editor.sprite_base_path
+                })
+                .size(11)
+                .font(Font::MONOSPACE)
+            )
+            .padding([4, 10])
+            .width(Fill)
+            .style(style::sql_editor_container),
+            button(text("Browse").size(11))
+                .on_press(Message::HealItemOpBrowseSpritePath)
+                .padding([5, 10])
+                .style(style::browse_button),
         ]
         .spacing(10)
         .align_y(iced::Alignment::Center);
@@ -150,10 +175,46 @@ impl App {
         }
 
         let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
-        let detail_panel = container(detail_scroll)
-            .padding(16)
-            .width(280)
-            .style(style::info_card);
+
+        // Add sprite display if available
+        let sprite_display: Element<'_, Message> = if let Some(idx) = editor.selected_idx {
+            if let Some((_, item)) = editor.filtered_items.get(idx) {
+                if let Some(sprite_path) = editor.get_sprite_path_for_item(item.id) {
+                    let img: iced::widget::Image<iced::widget::image::Handle> =
+                        image::Image::new(sprite_path.clone())
+                            .width(Length::Fixed(64.0))
+                            .height(Length::Fixed(64.0));
+                    let img_container: iced::widget::Container<'_, Message> = container(img)
+                        .padding(8)
+                        .width(Length::Fixed(80.0))
+                        .center_x(Length::Fixed(80.0));
+                    img_container.into()
+                } else {
+                    let no_sprite_container: iced::widget::Container<'_, Message> =
+                        container(text("No sprite found").size(12).style(style::subtle_text))
+                            .padding(8)
+                            .width(Length::Fixed(80.0))
+                            .center_x(Length::Fixed(80.0));
+                    no_sprite_container.into()
+                }
+            } else {
+                container(text("").size(12))
+                    .width(Length::Fixed(80.0))
+                    .into()
+            }
+        } else {
+            container(text("").size(12))
+                .width(Length::Fixed(80.0))
+                .into()
+        };
+
+        let detail_panel = container(
+            row![sprite_display, detail_scroll]
+                .spacing(16)
+                .padding(16)
+                .width(380),
+        )
+        .style(style::info_card);
 
         let item_list_header = row![
             text("Heal Items").size(14),
@@ -169,15 +230,15 @@ impl App {
         let left_panel = column![
             container(item_list_header).style(style::grid_header_cell),
             item_scroll,
-        ]
-        .width(Length::FillPortion(3));
+        ];
 
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(1)),]
+        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
             .spacing(0)
             .height(Length::Fill);
 
         column![
             container(game_path_row).style(style::toolbar_container),
+            container(sprite_path_row).style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             status_row,

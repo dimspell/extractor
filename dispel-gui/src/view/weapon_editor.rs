@@ -216,10 +216,9 @@ impl App {
         let left_panel = column![
             container(weapon_list_header).style(style::grid_header_cell),
             weapon_scroll,
-        ]
-        .width(Length::FillPortion(3));
+        ];
 
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(1)),]
+        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
             .spacing(0)
             .height(Length::Fill);
 

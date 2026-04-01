@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 iced = { version = "0.13", default-features = false, features = ["tokio", "wgpu", "image", "canvas"] }
+image = { version = "0.25", features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros"] }
 rfd = "0.14.1"
 csv = "1.3"
