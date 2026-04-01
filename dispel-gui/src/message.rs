@@ -107,7 +107,6 @@ pub enum Message {
     ChestOpDelete(usize),
     // Weapon Editor
     WeaponOpBrowseGamePath,
-    WeaponOpLoadCatalog,
     WeaponOpScanWeapons,
     WeaponOpSelectWeapon(usize),
     WeaponOpFieldChanged(usize, String, String),
@@ -170,10 +169,15 @@ pub enum Message {
     MagicCatalogLoaded(Result<Vec<MagicSpell>, String>),
     // Store Editor
     StoreOpBrowseGamePath,
+
     StoreOpLoadCatalog,
     StoreOpScanStores,
     StoreOpSelectStore(usize),
     StoreOpFieldChanged(usize, String, String),
+    StoreOpSelectProduct(usize),
+    StoreOpAddProduct,
+    StoreOpRemoveProduct(usize),
+    StoreOpProductFieldChanged(usize, String, String),
     StoreOpSave,
     StoreCatalogLoaded(Result<Vec<Store>, String>),
     // Party Ref Editor

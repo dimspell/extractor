@@ -12,13 +12,6 @@ impl App {
     pub fn view_weapon_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.weapon_editor;
 
-        let controls = row![button(text("Load Catalog").size(11))
-            .on_press(Message::WeaponOpLoadCatalog)
-            .padding([5, 10])
-            .style(style::browse_button),]
-        .spacing(8)
-        .align_y(iced::Alignment::Center);
-
         let status_row = container(
             row![
                 text(&editor.status_msg).size(13).style(style::subtle_text),
@@ -207,14 +200,9 @@ impl App {
             .spacing(0)
             .height(Length::Fill);
 
-        column![
-            container(controls).style(style::toolbar_container),
-            horizontal_rule(1),
-            main_content,
-            status_row,
-        ]
-        .spacing(0)
-        .height(Length::Fill)
-        .into()
+        column![horizontal_rule(1), main_content, status_row,]
+            .spacing(0)
+            .height(Length::Fill)
+            .into()
     }
 }

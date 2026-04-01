@@ -2,7 +2,9 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 
-use iced::widget::{button, column, container, row, scrollable, text, text_input};
+use iced::widget::{
+    button, column, container, horizontal_space, row, scrollable, text, text_input,
+};
 use iced::{Element, Fill, Length};
 
 impl App {
@@ -54,6 +56,157 @@ impl App {
                 }
             })
             .collect();
+
+        let product_type_label = |t: i16| -> String {
+            match t {
+                1 => "Weapon".to_string(),
+                2 => "Healing".to_string(),
+                3 => "Misc".to_string(),
+                4 => "Edit".to_string(),
+                _ => format!("Type{}", t),
+            }
+        };
+
+        let product_list: Vec<Element<'_, Message>> = editor
+            .edit_products
+            .iter()
+            .enumerate()
+            .map(|(i, prod)| {
+                let is_selected = editor.selected_product_idx == Some(i);
+                let type_name = product_type_label(prod.product_type);
+                let item_id = prod.item_id;
+                let item_name = editor.get_product_item_name(
+                    prod.product_type,
+                    item_id,
+                    &self.weapon_editor.catalog,
+                    &self.heal_item_editor.catalog,
+                    &self.misc_item_editor.catalog,
+                    &self.edit_item_editor.catalog,
+                );
+                let btn = button(
+                    row![
+                        text(format!("{:02}", i)).size(11).width(24),
+                        text(type_name).size(11).width(60),
+                        text(format!("#{}", item_id)).size(11).width(30),
+                        text(item_name).size(11),
+                    ]
+                    .spacing(4)
+                    .align_y(iced::Alignment::Center),
+                )
+                .width(Fill)
+                .padding([4, 8])
+                .on_press(Message::StoreOpSelectProduct(i));
+                if is_selected {
+                    btn.style(style::active_chip).into()
+                } else {
+                    btn.style(style::chip).into()
+                }
+            })
+            .collect();
+
+        let products_panel: Element<'_, Message> = if !editor.is_inn() {
+            let product_editor_content: Element<'_, Message> =
+                if let Some(prod_idx) = editor.selected_product_idx {
+                    if let Some(prod) = editor.edit_products.get(prod_idx) {
+                        let item_name = editor.get_product_item_name(
+                            prod.product_type,
+                            prod.item_id,
+                            &self.weapon_editor.catalog,
+                            &self.heal_item_editor.catalog,
+                            &self.misc_item_editor.catalog,
+                            &self.edit_item_editor.catalog,
+                        );
+                        column![
+                            text("Product Details").size(14),
+                            text(item_name).size(13).style(style::subtle_text),
+                            container(
+                                row![
+                                    text("Type:").size(12).width(60),
+                                    text_input("", &product_type_label(prod.product_type))
+                                        .on_input(move |v| {
+                                            let t = match v.to_lowercase().as_str() {
+                                                "weapon" | "1" => 1,
+                                                "healing" | "2" => 2,
+                                                "misc" | "3" => 3,
+                                                "edit" | "4" => 4,
+                                                _ => 1,
+                                            };
+                                            Message::StoreOpProductFieldChanged(
+                                                prod_idx,
+                                                "product_type".into(),
+                                                t.to_string(),
+                                            )
+                                        })
+                                        .padding(6)
+                                        .size(12)
+                                ]
+                                .spacing(8)
+                            ),
+                            container(
+                                row![
+                                    text("Item ID:").size(12).width(60),
+                                    text_input("", &prod.item_id.to_string())
+                                        .on_input(move |v| {
+                                            Message::StoreOpProductFieldChanged(
+                                                prod_idx,
+                                                "item_id".into(),
+                                                v,
+                                            )
+                                        })
+                                        .padding(6)
+                                        .size(12)
+                                ]
+                                .spacing(8)
+                            ),
+                        ]
+                        .spacing(12)
+                        .padding(16)
+                        .into()
+                    } else {
+                        Element::from(text("Select a product").size(12).style(style::subtle_text))
+                    }
+                } else {
+                    Element::from(
+                        text("Select a product to edit")
+                            .size(12)
+                            .style(style::subtle_text),
+                    )
+                };
+
+            column![
+                row![
+                    text("Products").size(13),
+                    horizontal_space(),
+                    button(text("+ Add").size(12))
+                        .on_press(Message::StoreOpAddProduct)
+                        .padding([4, 12])
+                        .style(style::browse_button),
+                    if editor.selected_product_idx.is_some() {
+                        button(text("- Remove").size(12))
+                            .on_press(Message::StoreOpRemoveProduct(
+                                editor.selected_product_idx.unwrap(),
+                            ))
+                            .padding([4, 12])
+                            .style(style::browse_button)
+                            .into()
+                    } else {
+                        Element::from(text(""))
+                    }
+                ]
+                .padding([8, 12])
+                .align_y(iced::Alignment::Center),
+                scrollable(column(product_list).spacing(2)).height(150),
+                container(product_editor_content)
+                    .style(style::info_card)
+                    .height(Fill),
+            ]
+            .into()
+        } else {
+            text("Inns have no products")
+                .size(12)
+                .style(style::subtle_text)
+                .into()
+        };
 
         let editor_panel: Element<'_, Message> = if let Some(idx) = editor.selected_idx {
             column![
@@ -138,10 +291,14 @@ impl App {
             .on_press(Message::StoreOpSave)
             .style(style::run_button);
 
-        let detail_panel = container(scrollable(editor_panel).height(Fill))
-            .padding(16)
-            .width(350)
-            .style(style::info_card);
+        let detail_panel = container(column![
+            scrollable(editor_panel).height(Length::FillPortion(1)),
+            container(products_panel)
+                .style(style::info_card)
+                .height(Length::FillPortion(1)),
+        ])
+        .padding(16)
+        .width(400);
 
         let main_content = row![
             column![
