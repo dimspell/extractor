@@ -23,17 +23,17 @@ use crate::references::extractor::{parse_null, Extractor};
 // +------------------------------+
 // | ; Comment line              |
 // | id,map_file,name,pgp,dlg,lit|
-// | 1,cat1.map,Category 1,null,null,0 |
-// | 2,cat2.map,Category 2,null,null,0 |
+// | 1,cat1,Category 1,null,null,0 |
+// | 2,cat2,Category 2,null,null,0 |
 // | ...                         |
 // +------------------------------+
 //
 // FIELD DEFINITIONS:
 // - id: Unique map identifier (1, 2, 3, ...)
-// - map_file: .map filename (e.g., "cat1.map")
+// - map_file: .map filename (e.g., "cat1")
 // - name: Display name shown in game
-// - pgp: Party PGP filename or "null"
-// - dlg: Dialog DLG filename or "null"
+// - pgp: Conversation script filename or "null"
+// - dlg: Dialog text filename or "null"
 // - lit: 0=dark/dungeon, 1=lit/outdoor
 //
 // SPECIAL VALUES:
@@ -55,7 +55,7 @@ pub struct Map {
     pub map_filename: String,
     /// Display name of the map.
     pub map_name: String,
-    /// Filename of the associated PGP (party) file.
+    /// Filename of the associated converstation script file.
     pub pgp_filename: Option<String>,
     /// Filename of the associated dialog file.
     pub dlg_filename: Option<String>,
