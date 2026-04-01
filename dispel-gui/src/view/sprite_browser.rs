@@ -3,9 +3,33 @@ use crate::message::Message;
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::{
-    button, column, container, image, progress_bar, row, scrollable, text, text_input,
+    button, column, container, image, progress_bar, responsive, row, scrollable, text, text_input,
 };
-use iced::{Element, Fill, Length};
+use iced::{Element, Fill, Length, Size};
+
+fn wrapped_grid<'a>(
+    count: usize,
+    min_item_width: f32,
+    spacing: f32,
+    padding: f32,
+    build_item: impl Fn(usize) -> Element<'a, Message> + 'a,
+) -> Element<'a, Message> {
+    responsive(move |size: Size| {
+        let available_width = size.width - padding * 2.0;
+        let cols = std::cmp::max(1, (available_width / (min_item_width + spacing)) as usize);
+        let rows: Vec<Element<'a, Message>> = (0..count)
+            .collect::<Vec<_>>()
+            .chunks(cols)
+            .map(|chunk| {
+                let buttons: Vec<Element<'a, Message>> =
+                    chunk.iter().map(|i| build_item(*i)).collect();
+                row(buttons).spacing(spacing).padding(padding).into()
+            })
+            .collect();
+        Element::from(column(rows).spacing(spacing))
+    })
+    .into()
+}
 
 impl App {
     pub fn view_sprite_browser_tab(&self) -> Element<'_, Message> {
@@ -124,22 +148,19 @@ impl App {
         // Right panel: sequence selector, frame strip, main display
         let sequence_row: Element<'_, Message> = if let Some(idx) = browser.selected_sprite_idx {
             if let Some(sprite) = browser.sprites.get(idx) {
-                let seq_buttons: Vec<Element<'_, Message>> = (0..sprite.sequence_count)
-                    .map(|seq_idx| {
-                        let is_selected = browser.selected_sequence == seq_idx;
-                        let frame_count = sprite.frame_counts.get(seq_idx).copied().unwrap_or(0);
-                        let btn =
-                            button(text(format!("Seq {} ({})", seq_idx, frame_count)).size(11))
-                                .padding([4, 8])
-                                .on_press(Message::SpriteBrowserOpSelectSequence(seq_idx));
-                        if is_selected {
-                            btn.style(style::active_chip).into()
+                wrapped_grid(sprite.sequence_count, 100.0, 4.0, 4.0, |seq_idx| {
+                    let is_selected = browser.selected_sequence == seq_idx;
+                    let frame_count = sprite.frame_counts.get(seq_idx).copied().unwrap_or(0);
+                    button(text(format!("Seq {} ({})", seq_idx, frame_count)).size(11))
+                        .padding([4, 8])
+                        .on_press(Message::SpriteBrowserOpSelectSequence(seq_idx))
+                        .style(if is_selected {
+                            style::active_chip
                         } else {
-                            btn.style(style::chip).into()
-                        }
-                    })
-                    .collect();
-                row(seq_buttons).spacing(4).padding([4, 8]).into()
+                            style::chip
+                        })
+                        .into()
+                })
             } else {
                 text("Select a sprite")
                     .size(12)
@@ -153,32 +174,29 @@ impl App {
                 .into()
         };
 
-        // Frame thumbnails - horizontal scrollable with fixed height
+        // Frame thumbnails - responsive wrapped grid
         let frame_strip: Element<'_, Message> = {
-            let thumbnails: Vec<Element<'_, Message>> = browser
-                .frames
-                .iter()
-                .enumerate()
-                .map(|(i, frame)| {
-                    let is_selected = browser.selected_frame == i;
-                    let btn = button(
-                        image(frame.image.clone())
-                            .width(Length::Fixed(48.0))
-                            .height(Length::Fixed(48.0)),
-                    )
-                    .padding(2)
-                    .on_press(Message::SpriteBrowserOpSelectFrame(i));
-                    if is_selected {
-                        btn.style(style::active_chip).into()
-                    } else {
-                        btn.style(style::chip).into()
-                    }
+            let frame_count = browser.frames.len();
+            let grid = wrapped_grid(frame_count, 56.0, 4.0, 8.0, |i| {
+                let frame = &browser.frames[i];
+                let is_selected = browser.selected_frame == i;
+                button(
+                    image(frame.image.clone())
+                        .width(Length::Fixed(48.0))
+                        .height(Length::Fixed(48.0)),
+                )
+                .padding(2)
+                .on_press(Message::SpriteBrowserOpSelectFrame(i))
+                .style(if is_selected {
+                    style::active_chip
+                } else {
+                    style::chip
                 })
-                .collect();
-
-            scrollable(row(thumbnails).spacing(4).padding(8))
+                .into()
+            });
+            scrollable(grid)
                 .width(Length::Fill)
-                .height(Length::Fixed(70.0))
+                .height(Length::Fixed(200.0))
                 .into()
         };
 
