@@ -589,21 +589,6 @@ impl App {
                     |res| Message::WeaponCatalogLoaded(res),
                 )
             }
-            Message::WeaponOpLoadCatalog => {
-                if self.shared_game_path.is_empty() {
-                    self.weapon_editor.status_msg = "Please select game path first.".into();
-                    return Task::none();
-                }
-                self.weapon_editor.is_loading = true;
-                let path = PathBuf::from(&self.shared_game_path);
-                Task::perform(
-                    async move {
-                        WeaponItem::read_file(&path.join("CharacterInGame").join("weaponItem.db"))
-                            .map_err(|e: std::io::Error| e.to_string())
-                    },
-                    |res| Message::WeaponCatalogLoaded(res),
-                )
-            }
             Message::WeaponCatalogLoaded(res) => {
                 self.weapon_editor.is_loading = false;
                 match res {
@@ -1063,14 +1048,57 @@ impl App {
                     return Task::none();
                 }
                 self.store_editor.is_loading = true;
+                self.store_editor.status_msg = "Loading item catalogs...".into();
                 let path = PathBuf::from(&self.shared_game_path);
+                let char_path = path.join("CharacterInGame");
+                let weapons_path = char_path.join("weaponItem.db");
+                let heals_path = char_path.join("HealItem.db");
+                let misc_path = char_path.join("MiscItem.db");
+                let edit_path = char_path.join("EditItem.db");
+                let store_path = char_path.join("STORE.DB");
+
                 Task::perform(
                     async move {
-                        Store::read_file(&path.join("CharacterInGame").join("STORE.DB"))
-                            .map_err(|e: std::io::Error| e.to_string())
+                        let weapons = WeaponItem::read_file(&weapons_path).ok();
+                        let heals = HealItem::read_file(&heals_path).ok();
+                        let misc = MiscItem::read_file(&misc_path).ok();
+                        let edit = EditItem::read_file(&edit_path).ok();
+                        let stores = Store::read_file(&store_path)
+                            .map_err(|e: std::io::Error| e.to_string())?;
+                        Ok((weapons, heals, misc, edit, stores))
                     },
-                    |res| Message::StoreCatalogLoaded(res),
+                    |res| Message::StoreCatalogWithItemsLoaded(res),
                 )
+            }
+            Message::StoreCatalogWithItemsLoaded(res) => {
+                match res {
+                    Ok((weapons, heals, misc, edit, stores)) => {
+                        self.weapon_editor.catalog = weapons.clone();
+                        self.weapon_editor.refresh_weapons();
+                        self.heal_item_editor.catalog = heals.clone();
+                        self.heal_item_editor.refresh_items();
+                        self.misc_item_editor.catalog = misc.clone();
+                        self.misc_item_editor.refresh_items();
+                        self.edit_item_editor.catalog = edit.clone();
+                        self.edit_item_editor.refresh_items();
+                        self.store_editor.catalog = Some(stores.clone());
+                        let weapons_count = weapons.as_ref().map(|w| w.len()).unwrap_or(0);
+                        let heals_count = heals.as_ref().map(|h| h.len()).unwrap_or(0);
+                        let misc_count = misc.as_ref().map(|m| m.len()).unwrap_or(0);
+                        let edit_count = edit.as_ref().map(|e| e.len()).unwrap_or(0);
+                        self.store_editor.status_msg = format!(
+                            "Loaded: {} stores, {} weapons, {} heals, {} misc, {} edit items",
+                            stores.len(), weapons_count, heals_count, misc_count, edit_count
+                        )
+                        .into();
+                        self.store_editor.refresh_stores();
+                    }
+                    Err(e) => {
+                        self.store_editor.status_msg = format!("Error loading store catalog: {}", e)
+                    }
+                }
+                self.store_editor.is_loading = false;
+                Task::none()
             }
             Message::StoreCatalogLoaded(res) => {
                 self.store_editor.is_loading = false;
@@ -1093,6 +1121,22 @@ impl App {
             }
             Message::StoreOpFieldChanged(idx, field, val) => {
                 self.store_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::StoreOpSelectProduct(idx) => {
+                self.store_editor.select_product(idx);
+                Task::none()
+            }
+            Message::StoreOpAddProduct => {
+                self.store_editor.add_product();
+                Task::none()
+            }
+            Message::StoreOpRemoveProduct(idx) => {
+                self.store_editor.remove_product(idx);
+                Task::none()
+            }
+            Message::StoreOpProductFieldChanged(prod_idx, field, val) => {
+                self.store_editor.update_product(prod_idx, &field, val);
                 Task::none()
             }
             Message::StoreOpSave => {

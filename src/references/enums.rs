@@ -1003,10 +1003,10 @@ pub enum ProductType {
     Weapon = 1,
     /// Healing item (potions, etc.)
     Healing = 2,
-    /// Miscellaneous item
-    Miscellaneous = 3,
     /// Edit item (modifiable item)
-    Edit = 4,
+    EditItem = 3,
+    /// Miscellaneous item
+    MiscItem = 4,
 }
 
 impl ProductType {
@@ -1015,8 +1015,8 @@ impl ProductType {
         match value {
             1 => Some(ProductType::Weapon),
             2 => Some(ProductType::Healing),
-            3 => Some(ProductType::Miscellaneous),
-            4 => Some(ProductType::Edit),
+            3 => Some(ProductType::EditItem),
+            4 => Some(ProductType::MiscItem),
             _ => None,
         }
     }
@@ -1129,8 +1129,8 @@ mod tests {
     fn test_product_type_conversion() {
         assert_eq!(ProductType::from_i32(1), Some(ProductType::Weapon));
         assert_eq!(ProductType::from_i32(2), Some(ProductType::Healing));
-        assert_eq!(ProductType::from_i32(3), Some(ProductType::Miscellaneous));
-        assert_eq!(ProductType::from_i32(4), Some(ProductType::Edit));
+        assert_eq!(ProductType::from_i32(3), Some(ProductType::EditItem));
+        assert_eq!(ProductType::from_i32(4), Some(ProductType::MiscItem));
         assert_eq!(ProductType::from_i32(99), None);
 
         assert_eq!(i32::from(ProductType::Healing), 2);

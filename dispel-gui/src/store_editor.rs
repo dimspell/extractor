@@ -150,7 +150,7 @@ impl StoreEditorState {
                     .iter()
                     .map(|p| {
                         let ptype = ProductType::from_i32(p.product_type as i32)
-                            .unwrap_or(ProductType::Miscellaneous);
+                            .unwrap_or(ProductType::MiscItem);
                         (p.order, ptype, p.item_id)
                     })
                     .collect();
@@ -186,17 +186,17 @@ impl StoreEditorState {
                 .as_ref()
                 .and_then(|h| h.get(idx))
                 .map(|i| i.name.clone())
-                .unwrap_or_else(|| format!("Healing #{}", item_id)),
-            3 => misc
-                .as_ref()
-                .and_then(|m| m.get(idx))
-                .map(|i| i.name.clone())
-                .unwrap_or_else(|| format!("Misc #{}", item_id)),
-            4 => edit
+                .unwrap_or_else(|| format!("HealItem #{}", item_id)),
+            3 => edit
                 .as_ref()
                 .and_then(|e| e.get(idx))
                 .map(|i| i.name.clone())
-                .unwrap_or_else(|| format!("Edit #{}", item_id)),
+                .unwrap_or_else(|| format!("EditItem #{}", item_id)),
+            4 => misc
+                .as_ref()
+                .and_then(|m| m.get(idx))
+                .map(|i| i.name.clone())
+                .unwrap_or_else(|| format!("MiscItem #{}", item_id)),
             _ => format!("Unknown #{}", item_id),
         }
     }

@@ -141,7 +141,8 @@ impl Extractor for Store {
                     }
 
                     let product_type = ProductType::from_i32(item_type_raw as i32)
-                        .unwrap_or(ProductType::Miscellaneous);
+                        .unwrap_or(ProductType::MiscItem);
+
                     let item_id = cursor.read_i16::<LittleEndian>().unwrap();
                     products.push((i as i16, product_type, item_id));
                 }

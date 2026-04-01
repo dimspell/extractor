@@ -70,10 +70,10 @@ Binary database file that defines shops and inns with inventories, prices, merch
 ### Product Structure
 
 **ProductType Enum:**
-- **1**: Weapon - Bronze/Weapons
-- **2**: Healing - Edibles/Consumables
-- **3**: Miscellaneous - Equipment
-- **4**: Edit - Magical Items
+- **1**: Weapon - Weapons and armor
+- **2**: Healing - Healing items (potions, etc.)
+- **3**: EditItem - Editable/modifiable equipment
+- **4**: MiscItem - Miscellaneous items
 
 **Product Format:**
 - `(order: i16, type: i16, item_id: i16)`

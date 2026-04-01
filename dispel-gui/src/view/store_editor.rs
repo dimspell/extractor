@@ -60,9 +60,9 @@ impl App {
         let product_type_label = |t: i16| -> String {
             match t {
                 1 => "Weapon".to_string(),
-                2 => "Healing".to_string(),
-                3 => "Misc".to_string(),
-                4 => "Edit".to_string(),
+                2 => "HealItem".to_string(),
+                3 => "EditItem".to_string(),
+                4 => "MiscItem".to_string(),
                 _ => format!("Type{}", t),
             }
         };
@@ -126,9 +126,9 @@ impl App {
                                         .on_input(move |v| {
                                             let t = match v.to_lowercase().as_str() {
                                                 "weapon" | "1" => 1,
-                                                "healing" | "2" => 2,
-                                                "misc" | "3" => 3,
-                                                "edit" | "4" => 4,
+                                                "healitem" | "heal" | "healing" | "2" => 2,
+                                                "edititem" | "edit" | "3" => 3,
+                                                "miscitem" | "misc" | "4" => 4,
                                                 _ => 1,
                                             };
                                             Message::StoreOpProductFieldChanged(

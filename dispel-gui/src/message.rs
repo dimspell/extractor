@@ -180,6 +180,18 @@ pub enum Message {
     StoreOpProductFieldChanged(usize, String, String),
     StoreOpSave,
     StoreCatalogLoaded(Result<Vec<Store>, String>),
+    StoreCatalogWithItemsLoaded(
+        Result<
+            (
+                Option<Vec<WeaponItem>>,
+                Option<Vec<HealItem>>,
+                Option<Vec<MiscItem>>,
+                Option<Vec<EditItem>>,
+                Vec<Store>,
+            ),
+            String,
+        >,
+    ),
     // Party Ref Editor
     PartyRefOpBrowseGamePath,
     PartyRefOpLoadCatalog,
