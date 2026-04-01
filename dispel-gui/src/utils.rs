@@ -20,6 +20,27 @@ pub fn labeled_input<'a>(
     .into()
 }
 
+pub fn labeled_select<'a, T: Clone + ToString + 'static>(
+    label: &'a str,
+    value: T,
+    options: Vec<T>,
+    on_change: impl Fn(T) -> Message + 'a,
+) -> Element<'a, Message>
+where
+    T: PartialEq,
+{
+    use iced::widget::pick_list;
+    row![
+        text(label).size(13).width(140),
+        pick_list(options, Some(value), on_change)
+            .padding(6)
+            .text_size(13)
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
 pub fn labeled_file_row<'a>(
     label: &'a str,
     value: &'a str,

@@ -1,7 +1,8 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::labeled_input;
+use crate::utils::{labeled_input, labeled_select};
+use dispel_core::HealItemFlag;
 use iced::widget::{
     button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
     vertical_space,
@@ -79,30 +80,52 @@ impl App {
                     &editor.edit_mana_points,
                     move |v| Message::HealItemOpFieldChanged(orig, "mana_points".into(), v),
                 ));
-                detail_content.push(labeled_input(
-                    "Restore Full Health (Full/None):",
+
+                let flag_options = vec![HealItemFlag::None, HealItemFlag::FullRestoration];
+
+                let make_flag_select = |label: &'static str,
+                                        field: &'static str,
+                                        value_str: &str|
+                 -> Element<'_, Message> {
+                    let flag = if value_str == "FullRestoration" {
+                        HealItemFlag::FullRestoration
+                    } else {
+                        HealItemFlag::None
+                    };
+                    labeled_select(label, flag, flag_options.clone(), move |v| {
+                        let val = if v == HealItemFlag::FullRestoration {
+                            "FullRestoration".to_string()
+                        } else {
+                            "None".to_string()
+                        };
+                        Message::HealItemOpFieldChanged(orig, field.to_string(), val)
+                    })
+                };
+
+                detail_content.push(make_flag_select(
+                    "Restore Full Health:",
+                    "restore_full_health",
                     &editor.edit_restore_full_health,
-                    move |v| Message::HealItemOpFieldChanged(orig, "restore_full_health".into(), v),
                 ));
-                detail_content.push(labeled_input(
-                    "Restore Full Mana (Full/None):",
+                detail_content.push(make_flag_select(
+                    "Restore Full Mana:",
+                    "restore_full_mana",
                     &editor.edit_restore_full_mana,
-                    move |v| Message::HealItemOpFieldChanged(orig, "restore_full_mana".into(), v),
                 ));
-                detail_content.push(labeled_input(
-                    "Poison Heal (Active/None):",
+                detail_content.push(make_flag_select(
+                    "Poison Heal:",
+                    "poison_heal",
                     &editor.edit_poison_heal,
-                    move |v| Message::HealItemOpFieldChanged(orig, "poison_heal".into(), v),
                 ));
-                detail_content.push(labeled_input(
-                    "Petrify Heal (Active/None):",
+                detail_content.push(make_flag_select(
+                    "Petrify Heal:",
+                    "petrif_heal",
                     &editor.edit_petrif_heal,
-                    move |v| Message::HealItemOpFieldChanged(orig, "petrif_heal".into(), v),
                 ));
-                detail_content.push(labeled_input(
-                    "Polymorph Heal (Active/None):",
+                detail_content.push(make_flag_select(
+                    "Polymorph Heal:",
+                    "polimorph_heal",
                     &editor.edit_polimorph_heal,
-                    move |v| Message::HealItemOpFieldChanged(orig, "polimorph_heal".into(), v),
                 ));
             }
         } else {

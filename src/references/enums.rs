@@ -615,6 +615,15 @@ pub enum HealItemFlag {
     FullRestoration = 1,
 }
 
+impl std::fmt::Display for HealItemFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HealItemFlag::None => write!(f, "None"),
+            HealItemFlag::FullRestoration => write!(f, "Full Restoration"),
+        }
+    }
+}
+
 impl HealItemFlag {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
