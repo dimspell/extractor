@@ -79,6 +79,12 @@ pub struct HealItem {
     pub description: String,
     /// Standardized merchant valuation.
     pub base_price: i16,
+    /// Padding field.
+    pub padding1: i16,
+    /// Padding field.
+    pub padding2: i16,
+    /// Padding field.
+    pub padding3: i16,
     pub health_points: i16,
     pub mana_points: i16,
     pub restore_full_health: HealItemFlag,
@@ -86,6 +92,10 @@ pub struct HealItem {
     pub poison_heal: HealItemFlag,
     pub petrif_heal: HealItemFlag,
     pub polimorph_heal: HealItemFlag,
+    /// Padding field.
+    pub padding4: u8,
+    /// Padding field.
+    pub padding5: i16,
 }
 
 /// Stores definitions, stats, and prices for consumable healing items.
@@ -133,9 +143,9 @@ impl Extractor for HealItem {
 
             let base_price = reader.read_i16::<LittleEndian>()?;
 
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
+            let padding1 = reader.read_i16::<LittleEndian>()?;
+            let padding2 = reader.read_i16::<LittleEndian>()?;
+            let padding3 = reader.read_i16::<LittleEndian>()?;
 
             let health_points = reader.read_i16::<LittleEndian>()?;
             let mana_points = reader.read_i16::<LittleEndian>()?;
@@ -145,8 +155,8 @@ impl Extractor for HealItem {
             let petrif_heal_raw = reader.read_u8()?;
             let polimorph_heal_raw = reader.read_u8()?;
 
-            reader.read_u8()?;
-            reader.read_i16::<LittleEndian>()?;
+            let padding4 = reader.read_u8()?;
+            let padding5 = reader.read_i16::<LittleEndian>()?;
 
             let restore_full_health =
                 HealItemFlag::from_u8(restore_full_health_raw).unwrap_or(HealItemFlag::None);
@@ -162,6 +172,9 @@ impl Extractor for HealItem {
                 name: name.to_string(),
                 description: description.to_string(),
                 base_price,
+                padding1,
+                padding2,
+                padding3,
                 health_points,
                 mana_points,
                 restore_full_health,
@@ -169,6 +182,8 @@ impl Extractor for HealItem {
                 poison_heal,
                 petrif_heal,
                 polimorph_heal,
+                padding4,
+                padding5,
             })
         }
 
@@ -197,9 +212,9 @@ impl Extractor for HealItem {
 
             writer.write_i16::<LittleEndian>(record.base_price)?;
 
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
+            writer.write_i16::<LittleEndian>(record.padding1)?;
+            writer.write_i16::<LittleEndian>(record.padding2)?;
+            writer.write_i16::<LittleEndian>(record.padding3)?;
 
             writer.write_i16::<LittleEndian>(record.health_points)?;
             writer.write_i16::<LittleEndian>(record.mana_points)?;
@@ -210,8 +225,8 @@ impl Extractor for HealItem {
             writer.write_u8(u8::from(record.petrif_heal))?;
             writer.write_u8(u8::from(record.polimorph_heal))?;
 
-            writer.write_u8(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
+            writer.write_u8(record.padding4)?;
+            writer.write_i16::<LittleEndian>(record.padding5)?;
         }
         Ok(())
     }
@@ -231,6 +246,9 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Res
                 item.name,
                 item.description,
                 item.base_price,
+                item.padding1,
+                item.padding2,
+                item.padding3,
                 item.health_points,
                 item.mana_points,
                 u8::from(item.restore_full_health),
@@ -238,6 +256,8 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Res
                 u8::from(item.poison_heal),
                 u8::from(item.petrif_heal),
                 u8::from(item.polimorph_heal),
+                item.padding4,
+                item.padding5,
             ])?;
         }
     }

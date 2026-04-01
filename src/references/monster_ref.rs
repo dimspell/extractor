@@ -63,12 +63,25 @@ pub struct MonsterRef {
     pub mon_id: i32,
     pub pos_x: i32,
     pub pos_y: i32,
+    pub padding1: i32,
+    pub padding2: i32,
+    pub padding3: i32,
+    pub padding4: i32,
+    pub padding5: i32,
     pub loot1_item_id: u8,
     pub loot1_item_type: ItemTypeId,
+    pub padding6: u8,
+    pub padding7: u8,
     pub loot2_item_id: u8,
     pub loot2_item_type: ItemTypeId,
+    pub padding8: u8,
+    pub padding9: u8,
     pub loot3_item_id: u8,
     pub loot3_item_type: ItemTypeId,
+    pub padding10: u8,
+    pub padding11: u8,
+    pub padding12: i32,
+    pub padding13: i32,
 }
 
 /// Stores specific placements and configurations for monsters on a given map.
@@ -102,29 +115,29 @@ impl Extractor for MonsterRef {
             let pos_x = reader.read_i32::<LittleEndian>()?;
             let pos_y = reader.read_i32::<LittleEndian>()?;
 
-            reader.read_i32::<LittleEndian>()?;
-            reader.read_i32::<LittleEndian>()?;
-            reader.read_i32::<LittleEndian>()?;
-            reader.read_i32::<LittleEndian>()?;
-            reader.read_i32::<LittleEndian>()?;
+            let padding1 = reader.read_i32::<LittleEndian>()?;
+            let padding2 = reader.read_i32::<LittleEndian>()?;
+            let padding3 = reader.read_i32::<LittleEndian>()?;
+            let padding4 = reader.read_i32::<LittleEndian>()?;
+            let padding5 = reader.read_i32::<LittleEndian>()?;
 
             let loot1_item_id = reader.read_u8()?;
             let loot1_item_type_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let padding6 = reader.read_u8()?;
+            let padding7 = reader.read_u8()?;
 
             let loot2_item_id = reader.read_u8()?;
             let loot2_item_type_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let padding8 = reader.read_u8()?;
+            let padding9 = reader.read_u8()?;
 
             let loot3_item_id = reader.read_u8()?;
             let loot3_item_type_raw = reader.read_u8()?;
-            reader.read_u8()?;
-            reader.read_u8()?;
+            let padding10 = reader.read_u8()?;
+            let padding11 = reader.read_u8()?;
 
-            reader.read_i32::<LittleEndian>()?; // 1 or 0
-            reader.read_i32::<LittleEndian>()?;
+            let padding12 = reader.read_i32::<LittleEndian>()?;
+            let padding13 = reader.read_i32::<LittleEndian>()?;
 
             let loot1_item_type =
                 ItemTypeId::from_u8(loot1_item_type_raw).unwrap_or(ItemTypeId::Weapon);
@@ -139,12 +152,25 @@ impl Extractor for MonsterRef {
                 mon_id,
                 pos_x,
                 pos_y,
+                padding1,
+                padding2,
+                padding3,
+                padding4,
+                padding5,
                 loot1_item_id,
                 loot1_item_type,
+                padding6,
+                padding7,
                 loot2_item_id,
                 loot2_item_type,
+                padding8,
+                padding9,
                 loot3_item_id,
                 loot3_item_type,
+                padding10,
+                padding11,
+                padding12,
+                padding13,
             })
         }
 
@@ -164,29 +190,29 @@ impl Extractor for MonsterRef {
             writer.write_i32::<LittleEndian>(record.pos_x)?;
             writer.write_i32::<LittleEndian>(record.pos_y)?;
 
-            writer.write_i32::<LittleEndian>(0)?;
-            writer.write_i32::<LittleEndian>(0)?;
-            writer.write_i32::<LittleEndian>(0)?;
-            writer.write_i32::<LittleEndian>(0)?;
-            writer.write_i32::<LittleEndian>(0)?;
+            writer.write_i32::<LittleEndian>(record.padding1)?;
+            writer.write_i32::<LittleEndian>(record.padding2)?;
+            writer.write_i32::<LittleEndian>(record.padding3)?;
+            writer.write_i32::<LittleEndian>(record.padding4)?;
+            writer.write_i32::<LittleEndian>(record.padding5)?;
 
             writer.write_u8(record.loot1_item_id)?;
             writer.write_u8(u8::from(record.loot1_item_type))?;
-            writer.write_u8(0)?;
-            writer.write_u8(0)?;
+            writer.write_u8(record.padding6)?;
+            writer.write_u8(record.padding7)?;
 
             writer.write_u8(record.loot2_item_id)?;
             writer.write_u8(u8::from(record.loot2_item_type))?;
-            writer.write_u8(0)?;
-            writer.write_u8(0)?;
+            writer.write_u8(record.padding8)?;
+            writer.write_u8(record.padding9)?;
 
             writer.write_u8(record.loot3_item_id)?;
             writer.write_u8(u8::from(record.loot3_item_type))?;
-            writer.write_u8(0)?;
-            writer.write_u8(0)?;
+            writer.write_u8(record.padding10)?;
+            writer.write_u8(record.padding11)?;
 
-            writer.write_i32::<LittleEndian>(0)?;
-            writer.write_i32::<LittleEndian>(0)?;
+            writer.write_i32::<LittleEndian>(record.padding12)?; // 1 or 0
+            writer.write_i32::<LittleEndian>(record.padding13)?;
         }
         Ok(())
     }
@@ -212,12 +238,25 @@ pub fn save_monster_refs(
                 monster_ref.mon_id,
                 monster_ref.pos_x,
                 monster_ref.pos_y,
+                monster_ref.padding1,
+                monster_ref.padding2,
+                monster_ref.padding3,
+                monster_ref.padding4,
+                monster_ref.padding5,
                 monster_ref.loot1_item_id,
                 u8::from(monster_ref.loot1_item_type),
+                monster_ref.padding6,
+                monster_ref.padding7,
                 monster_ref.loot2_item_id,
                 u8::from(monster_ref.loot2_item_type),
+                monster_ref.padding8,
+                monster_ref.padding9,
                 monster_ref.loot3_item_id,
                 u8::from(monster_ref.loot3_item_type),
+                monster_ref.padding10,
+                monster_ref.padding11,
+                monster_ref.padding12,
+                monster_ref.padding13,
             ])?;
         }
     }

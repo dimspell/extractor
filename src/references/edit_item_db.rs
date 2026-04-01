@@ -92,6 +92,8 @@ pub struct EditItem {
     pub description: String,
     /// Economic valuation offset.
     pub base_price: i16,
+    /// Padding field.
+    pub padding1: i16,
     /// Base additive metric for derived vitality.
     pub health_points: i16,
     /// Spell scaling base factor.
@@ -112,8 +114,12 @@ pub struct EditItem {
     pub offense: i16,
     /// Armor calculation pool scaling rating.
     pub defense: i16,
+    /// Padding field.
+    pub padding2: i16,
     /// Durability erosion factor.
     pub item_destroying_power: i16,
+    /// Padding field.
+    pub padding3: u8,
     /// Flag specifying if behavior mutates.
     pub modifies_item: EditItemModification,
     /// Procedural elemental modifier appended (mana drain, fire).
@@ -163,6 +169,8 @@ impl Extractor for EditItem {
 
             let base_price = reader.read_i16::<LittleEndian>()?;
 
+            let padding1 = reader.read_i16::<LittleEndian>()?;
+
             let mut buffer = [0u8; 3 * 2];
             reader.read_exact(&mut buffer)?;
 
@@ -177,10 +185,10 @@ impl Extractor for EditItem {
             let offense = reader.read_i16::<LittleEndian>()?; // ATK
             let defense = reader.read_i16::<LittleEndian>()?; // OBR
 
-            reader.read_i16::<LittleEndian>()?;
+            let padding2 = reader.read_i16::<LittleEndian>()?;
 
             let item_destroying_power = reader.read_i16::<LittleEndian>()?; // durability probably
-            reader.read_u8()?;
+            let padding3 = reader.read_u8()?;
 
             let modifies_item_raw = reader.read_u8()?;
             let additional_effect_raw = reader.read_i16::<LittleEndian>()?;
@@ -195,6 +203,7 @@ impl Extractor for EditItem {
                 name: name.to_string(),
                 description: description.to_string(),
                 base_price,
+                padding1,
                 health_points,
                 mana_points,
                 strength,
@@ -205,7 +214,9 @@ impl Extractor for EditItem {
                 to_hit,
                 offense,
                 defense,
+                padding2,
                 item_destroying_power,
+                padding3,
                 modifies_item,
                 additional_effect,
             })
@@ -234,6 +245,7 @@ impl Extractor for EditItem {
             writer.write_all(&desc_buf)?;
 
             writer.write_i16::<LittleEndian>(record.base_price)?;
+            writer.write_i16::<LittleEndian>(record.padding1)?;
             writer.write_all(&[0u8; 6])?;
 
             writer.write_i16::<LittleEndian>(record.health_points)?;
@@ -247,9 +259,9 @@ impl Extractor for EditItem {
             writer.write_i16::<LittleEndian>(record.offense)?;
             writer.write_i16::<LittleEndian>(record.defense)?;
 
-            writer.write_i16::<LittleEndian>(0)?;
+            writer.write_i16::<LittleEndian>(record.padding2)?;
             writer.write_i16::<LittleEndian>(record.item_destroying_power)?;
-            writer.write_u8(0)?;
+            writer.write_u8(record.padding3)?;
 
             writer.write_u8(u8::from(record.modifies_item))?;
             writer.write_i16::<LittleEndian>(i16::from(record.additional_effect))?;
@@ -272,6 +284,7 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Res
                 item.name,
                 item.description,
                 item.base_price,
+                item.padding1,
                 item.health_points,
                 item.mana_points,
                 item.strength,
@@ -282,7 +295,9 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Res
                 item.to_hit,
                 item.offense,
                 item.defense,
+                item.padding2,
                 item.item_destroying_power,
+                item.padding3,
                 u8::from(item.modifies_item),
                 i16::from(item.additional_effect),
             ])?;
