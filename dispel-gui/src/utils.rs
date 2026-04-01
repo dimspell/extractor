@@ -1,7 +1,19 @@
 use crate::message::Message;
 use crate::style;
-use iced::widget::{button, row, text, text_input};
-use iced::{Element, Task};
+use iced::widget::{button, row, text, text_input, space::Space, rule::Rule};
+use iced::{Element, Length, Task};
+
+pub fn horizontal_space() -> Space {
+    Space::default().width(Length::Fill)
+}
+
+pub fn vertical_space() -> Space {
+    Space::default().height(Length::Fill)
+}
+
+pub fn horizontal_rule(height: u16) -> Rule<'static> {
+    iced::widget::rule::horizontal(height as f32)
+}
 
 pub fn labeled_input<'a>(
     label: &'a str,

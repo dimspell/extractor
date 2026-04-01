@@ -26,19 +26,19 @@ pub mod weapon_editor;
 use crate::app::App;
 
 pub fn main() -> iced::Result {
-    iced::application("Dispel Extractor", App::update, App::view)
-        .theme(|_| {
-            Theme::custom(
-                "Dispel Medieval".into(),
+    iced::application(App::new, App::update, App::view)
+        .theme(|_: &App| {
+            Theme::custom("Dispel Medieval",
                 iced::theme::Palette {
                     background: color!(0x2a2a2a),
                     text: color!(0xeae0c8),
                     primary: color!(0x8b5a2b),
                     success: color!(0x2d5a27),
                     danger: color!(0x800000),
+                    warning: color!(0x8b8b00),
                 },
             )
         })
         .window_size((1100.0, 800.0))
-        .run_with(App::new)
+        .run()
 }

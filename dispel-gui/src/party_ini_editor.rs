@@ -8,9 +8,12 @@ pub struct PartyIniEditorState {
     pub selected_idx: Option<usize>,
 
     pub edit_name: String,
-    pub edit_flags: String,
-    pub edit_kind: String,
-    pub edit_value: String,
+    pub edit_unknown1: String,
+    pub edit_unknown2: String,
+    pub edit_unknown3: String,
+    pub edit_unknown4: String,
+    pub edit_unknown5: String,
+    pub edit_unknown6: String,
 
     pub status_msg: String,
     pub is_loading: bool,
@@ -31,9 +34,12 @@ impl PartyIniEditorState {
         self.selected_idx = Some(idx);
         if let Some((_, record)) = self.filtered_npcs.get(idx) {
             self.edit_name = record.name.clone();
-            self.edit_flags = record.flags.to_string();
-            self.edit_kind = record.kind.to_string();
-            self.edit_value = record.value.to_string();
+            self.edit_unknown1 = record.unknown1.to_string();
+            self.edit_unknown2 = record.unknown2.to_string();
+            self.edit_unknown3 = record.unknown3.to_string();
+            self.edit_unknown4 = record.unknown4.to_string();
+            self.edit_unknown5 = record.unknown5.to_string();
+            self.edit_unknown6 = record.unknown6.to_string();
         }
     }
 
@@ -44,22 +50,40 @@ impl PartyIniEditorState {
                     self.edit_name = value.clone();
                     record.name = value;
                 }
-                "flags" => {
-                    self.edit_flags = value.clone();
+                "unknown1" => {
+                    self.edit_unknown1 = value.clone();
                     if let Ok(v) = value.parse() {
-                        record.flags = v
+                        record.unknown1 = v
                     }
                 }
-                "kind" => {
-                    self.edit_kind = value.clone();
+                "unknown2" => {
+                    self.edit_unknown2 = value.clone();
                     if let Ok(v) = value.parse() {
-                        record.kind = v
+                        record.unknown2 = v
                     }
                 }
-                "value" => {
-                    self.edit_value = value.clone();
+                "unknown3" => {
+                    self.edit_unknown3 = value.clone();
                     if let Ok(v) = value.parse() {
-                        record.value = v
+                        record.unknown3 = v
+                    }
+                }
+                "unknown4" => {
+                    self.edit_unknown4 = value.clone();
+                    if let Ok(v) = value.parse() {
+                        record.unknown4 = v
+                    }
+                }
+                "unknown5" => {
+                    self.edit_unknown5 = value.clone();
+                    if let Ok(v) = value.parse() {
+                        record.unknown5 = v
+                    }
+                }
+                "unknown6" => {
+                    self.edit_unknown6 = value.clone();
+                    if let Ok(v) = value.parse() {
+                        record.unknown6 = v
                     }
                 }
                 _ => {}

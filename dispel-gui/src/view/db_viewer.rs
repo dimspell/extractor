@@ -2,9 +2,8 @@ use crate::app::App;
 use crate::db_viewer_state::PAGE_SIZE;
 use crate::message::Message;
 use crate::style;
-use iced::widget::{
-    button, column, container, horizontal_space, row, scrollable, text, text_input, vertical_space,
-};
+use crate::utils::{horizontal_space, vertical_space};
+use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
 
 impl App {

@@ -24,6 +24,7 @@ pub fn sidebar_container(_theme: &Theme) -> container::Style {
             blur_radius: 8.0,
         },
         text_color: None,
+        snap: false,
     }
 }
 
@@ -82,7 +83,7 @@ pub fn tab_button(_theme: &Theme, status: button::Status) -> button::Style {
 pub fn active_tab_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(color!(0x5d4037, 0.4))), // Highlighted leather
-        text_color: color!(0xffd700), // Gold
+        text_color: color!(0xffd700),                               // Gold
         border: Border {
             color: color!(0xdaa520), // Brass/Gold
             width: 1.0,
@@ -93,6 +94,7 @@ pub fn active_tab_button(_theme: &Theme, status: button::Status) -> button::Styl
             offset: Vector::ZERO,
             blur_radius: 4.0,
         },
+        snap: false,
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -118,6 +120,7 @@ pub fn run_button(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::new(0.0, 2.0),
             blur_radius: 4.0,
         },
+        snap: false,
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -195,6 +198,7 @@ pub fn active_chip(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::ZERO,
             blur_radius: 4.0,
         },
+        snap: false,
     };
     match status {
         button::Status::Hovered => button::Style {
@@ -208,7 +212,7 @@ pub fn active_chip(_theme: &Theme, status: button::Status) -> button::Style {
 pub fn browse_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(color!(0x424242))), // Silver dark button
-        text_color: color!(0xbdbdbd), // Silver
+        text_color: color!(0xbdbdbd),                          // Silver
         border: Border {
             color: color!(0x616161),
             width: 1.0,
@@ -368,6 +372,7 @@ pub fn commit_button(_theme: &Theme, status: button::Status) -> button::Style {
             offset: Vector::new(0.0, 2.0),
             blur_radius: 4.0,
         },
+        snap: false,
     };
     match status {
         button::Status::Hovered => button::Style {

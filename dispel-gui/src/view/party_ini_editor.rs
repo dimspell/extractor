@@ -1,10 +1,8 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-
-use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text, text_input,
-};
+use crate::utils::{horizontal_rule, horizontal_space};
+use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
 
 impl App {
@@ -82,27 +80,78 @@ impl App {
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Flags").size(11).width(80),
-                    text_input("", &editor.edit_flags)
-                        .on_input(move |v| Message::PartyIniOpFieldChanged(idx, "flags".into(), v))
+                    text("Unknown1").size(11).width(80),
+                    text_input("", &editor.edit_unknown1)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown1".into(),
+                            v
+                        ))
                         .padding(6)
                         .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Kind").size(11).width(80),
-                    text_input("", &editor.edit_kind)
-                        .on_input(move |v| Message::PartyIniOpFieldChanged(idx, "kind".into(), v))
+                    text("Unknown2").size(11).width(80),
+                    text_input("", &editor.edit_unknown2)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown2".into(),
+                            v
+                        ))
                         .padding(6)
                         .size(12)
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 row![
-                    text("Value").size(11).width(80),
-                    text_input("", &editor.edit_value)
-                        .on_input(move |v| Message::PartyIniOpFieldChanged(idx, "value".into(), v))
+                    text("Unknown3").size(11).width(80),
+                    text_input("", &editor.edit_unknown3)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown3".into(),
+                            v
+                        ))
+                        .padding(6)
+                        .size(12)
+                ]
+                .spacing(8)
+                .align_y(iced::Alignment::Center),
+                row![
+                    text("Unknown4").size(11).width(80),
+                    text_input("", &editor.edit_unknown4)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown4".into(),
+                            v
+                        ))
+                        .padding(6)
+                        .size(12)
+                ]
+                .spacing(8)
+                .align_y(iced::Alignment::Center),
+                row![
+                    text("Unknown5").size(11).width(80),
+                    text_input("", &editor.edit_unknown5)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown5".into(),
+                            v
+                        ))
+                        .padding(6)
+                        .size(12)
+                ]
+                .spacing(8)
+                .align_y(iced::Alignment::Center),
+                row![
+                    text("Unknown6").size(11).width(80),
+                    text_input("", &editor.edit_unknown6)
+                        .on_input(move |v| Message::PartyIniOpFieldChanged(
+                            idx,
+                            "unknown6".into(),
+                            v
+                        ))
                         .padding(6)
                         .size(12)
                 ]

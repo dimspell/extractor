@@ -1,11 +1,8 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-
-use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, pick_list, row, scrollable, text,
-    text_input,
-};
+use crate::utils::{horizontal_rule, horizontal_space};
+use iced::widget::{button, column, container, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

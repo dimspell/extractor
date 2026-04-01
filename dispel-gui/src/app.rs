@@ -21,7 +21,7 @@ use dispel_core::{
     EditItem, EventItem, Extractor, HealItem, MagicSpell, MiscItem, Monster, NpcIni, PartyIniNpc,
     PartyRef, Store, WeaponItem,
 };
-use iced::Task;
+use iced::{Element, Task};
 use std::io::Seek;
 use std::path::{Path, PathBuf};
 
@@ -1799,4 +1799,8 @@ impl App {
             | Tab::SpriteBrowser => None,
         }
     }
+}
+
+pub fn view(app: &App) -> Element<'_, Message> {
+    app.view()
 }

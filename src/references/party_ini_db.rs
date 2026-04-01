@@ -53,12 +53,13 @@ use std::path::Path;
 pub struct PartyIniNpc {
     /// Null-terminated root character identifier string.
     pub name: String,
-    /// Binary metadata governing operational behavior.
-    pub flags: u16,
-    /// Role specialization tag or ID class parameter.
-    pub kind: u16,
-    /// Sub-identifier linking variables together.
-    pub value: u32,
+
+    pub unknown1: u8,
+    pub unknown2: u8,
+    pub unknown3: u8,
+    pub unknown4: u8,
+    pub unknown5: u16,
+    pub unknown6: u16,
 }
 
 /// Stores initial metadata and starting configurations for party members.
@@ -69,9 +70,7 @@ pub struct PartyIniNpc {
 /// Binary file, little-endian.  Starts with a 4-byte i32 record count.
 /// Each record:
 /// - `name`  : null-terminated string (variable length up to buffer)
-/// - `flags` : u16
-/// - `kind`  : u16
-/// - `value` : u32
+/// - `data`: 8 bytes
 impl Extractor for PartyIniNpc {
     fn read_file(source_path: &Path) -> Result<Vec<Self>> {
         let file = File::open(source_path)?;
@@ -95,15 +94,21 @@ impl Extractor for PartyIniNpc {
                 .map(|b| String::from_utf8_lossy(b).to_string())
                 .unwrap_or_default();
 
-            let flags = reader.read_u16::<LittleEndian>()?;
-            let kind = reader.read_u16::<LittleEndian>()?;
-            let value = reader.read_u32::<LittleEndian>()?;
+            let unknown1 = reader.read_u8()?;
+            let unknown2 = reader.read_u8()?;
+            let unknown3 = reader.read_u8()?;
+            let unknown4 = reader.read_u8()?;
+            let unknown5 = reader.read_u16::<LittleEndian>()?;
+            let unknown6 = reader.read_u16::<LittleEndian>()?;
 
             npcs.push(PartyIniNpc {
                 name,
-                flags,
-                kind,
-                value,
+                unknown1,
+                unknown2,
+                unknown3,
+                unknown4,
+                unknown5,
+                unknown6,
             });
         }
 
@@ -121,9 +126,12 @@ impl Extractor for PartyIniNpc {
             name_bytes[..len].copy_from_slice(&name_bytes_val[..len]);
 
             writer.write_all(&name_bytes)?;
-            writer.write_u16::<LittleEndian>(record.flags)?;
-            writer.write_u16::<LittleEndian>(record.kind)?;
-            writer.write_u32::<LittleEndian>(record.value)?;
+            writer.write_u8(record.unknown1)?;
+            writer.write_u8(record.unknown2)?;
+            writer.write_u8(record.unknown3)?;
+            writer.write_u8(record.unknown4)?;
+            writer.write_u16::<LittleEndian>(record.unknown5)?;
+            writer.write_u16::<LittleEndian>(record.unknown6)?;
         }
 
         Ok(())
@@ -142,9 +150,12 @@ pub fn save_party_inis(conn: &mut Connection, npcs: &Vec<PartyIniNpc>) -> DbResu
             stmt.execute(params![
                 idx as i32,
                 npc.name,
-                npc.flags as i32,
-                npc.kind as i32,
-                npc.value as i32,
+                npc.unknown1 as i32,
+                npc.unknown2 as i32,
+                npc.unknown3 as i32,
+                npc.unknown4 as i32,
+                npc.unknown5 as i32,
+                npc.unknown6 as i32,
             ])?;
         }
     }

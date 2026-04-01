@@ -2,11 +2,8 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::types::Tab;
-use crate::utils::truncate_path;
-use iced::widget::{
-    button, column, container, horizontal_rule, horizontal_space, row, scrollable, text,
-    vertical_space,
-};
+use crate::utils::{horizontal_rule, horizontal_space, truncate_path, vertical_space};
+use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
 pub mod chest_editor;

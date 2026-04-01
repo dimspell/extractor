@@ -2,8 +2,8 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::types::MapOp;
-use crate::utils::{labeled_file_row, labeled_input};
-use iced::widget::{button, column, row, text, toggler, vertical_space};
+use crate::utils::{labeled_file_row, labeled_input, vertical_space};
+use iced::widget::{button, column, row, text, toggler};
 use iced::Element;
 
 impl App {

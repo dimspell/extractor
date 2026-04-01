@@ -2,7 +2,8 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::types::DbOp;
-use iced::widget::{button, column, row, text, vertical_space};
+use crate::utils::vertical_space;
+use iced::widget::{button, column, row, text};
 use iced::Element;
 
 impl App {
