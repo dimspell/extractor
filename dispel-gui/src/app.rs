@@ -1018,7 +1018,6 @@ impl App {
                     RefOp::Wave => commands::ref_command::RefSubcommand::Wave { input },
                     RefOp::PartyRef => commands::ref_command::RefSubcommand::PartyRef { input },
                     RefOp::DrawItem => commands::ref_command::RefSubcommand::DrawItem { input },
-                    RefOp::PartyPgp => commands::ref_command::RefSubcommand::PartyPgp { input },
                     RefOp::PartyDialog => {
                         commands::ref_command::RefSubcommand::PartyDialog { input }
                     }
