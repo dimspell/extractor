@@ -25,6 +25,7 @@ pub mod party_ref_editor;
 pub mod ref_tab;
 pub mod sound;
 pub mod sprite;
+pub mod sprite_browser;
 pub mod store_editor;
 pub mod weapon_editor;
 
@@ -137,7 +138,7 @@ impl App {
             vertical_space().height(12),
             container(title).padding([0, 16]),
             vertical_space().height(16),
-            column(tabs).spacing(2).padding([0, 8]),
+            scrollable(column(tabs).spacing(2).padding([0, 8])),
             vertical_space().height(Length::Fill),
             vertical_space().height(8),
         ]
@@ -169,6 +170,7 @@ impl App {
             Tab::StoreEditor => self.view_store_editor_tab(),
             Tab::PartyRefEditor => self.view_party_ref_editor_tab(),
             Tab::PartyIniEditor => self.view_party_ini_editor_tab(),
+            Tab::SpriteBrowser => self.view_sprite_browser_tab(),
         };
         let run_btn: Element<'_, Message> = if self.is_running {
             button(text("⏳ Running…").size(14))
@@ -214,7 +216,7 @@ impl App {
         .spacing(4)
         .padding(24)
         .width(Fill);
-        scrollable(content).height(Length::FillPortion(3)).into()
+        content.into()
     }
 
     fn view_log(&self) -> Element<'_, Message> {
@@ -228,10 +230,8 @@ impl App {
         ]
         .align_y(iced::Alignment::Center);
 
-        let content = scrollable(
-            container(text(&self.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12),
-        )
-        .height(Fill);
+        let content =
+            container(text(&self.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12);
 
         container(column![title, content].spacing(8))
             .padding(16)

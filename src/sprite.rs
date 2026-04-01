@@ -489,7 +489,7 @@ pub fn seek_next_sequence(
             && ints[2] == 0
             && ints[11] > 0
             && ints[12] > 0
-            && ints[11] * ints[12] == ints[13])
+            && i64::from(ints[11]) * i64::from(ints[12]) == i64::from(ints[13]))
             || (ints[0] == 8
                 && ints[1] == 0
                 && ints[2] > 0
@@ -497,7 +497,7 @@ pub fn seek_next_sequence(
                 && ints[3] == 0
                 && ints[12] > 0
                 && ints[13] > 0
-                && ints[12] * ints[13] == ints[14])
+                && i64::from(ints[12]) * i64::from(ints[13]) == i64::from(ints[14]))
         {
             valid_sprite_seq = true;
         } else {

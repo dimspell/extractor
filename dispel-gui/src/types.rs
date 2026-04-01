@@ -20,6 +20,7 @@ pub enum Tab {
     StoreEditor,
     PartyRefEditor,
     PartyIniEditor,
+    SpriteBrowser,
 }
 
 impl Tab {
@@ -42,6 +43,7 @@ impl Tab {
         Tab::StoreEditor,
         Tab::PartyRefEditor,
         Tab::PartyIniEditor,
+        Tab::SpriteBrowser,
     ];
     pub fn label(&self) -> &str {
         match self {
@@ -63,6 +65,7 @@ impl Tab {
             Tab::StoreEditor => "StoreEditor",
             Tab::PartyRefEditor => "PartyRefEditor",
             Tab::PartyIniEditor => "PartyIniEditor",
+            Tab::SpriteBrowser => "SpriteBrowser",
         }
     }
 }

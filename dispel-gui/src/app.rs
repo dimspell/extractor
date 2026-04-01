@@ -11,6 +11,7 @@ use crate::monster_editor;
 use crate::npc_ini_editor;
 use crate::party_ini_editor;
 use crate::party_ref_editor;
+use crate::sprite_browser;
 use crate::store_editor;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use crate::utils::{browse_file, browse_folder};
@@ -21,7 +22,8 @@ use dispel_core::{
     PartyRef, Store, WeaponItem,
 };
 use iced::Task;
-use std::path::PathBuf;
+use std::io::Seek;
+use std::path::{Path, PathBuf};
 
 pub struct App {
     pub active_tab: Tab,
@@ -82,6 +84,8 @@ pub struct App {
     pub party_ref_editor: Box<party_ref_editor::PartyRefEditorState>,
     // Party Ini Editor
     pub party_ini_editor: Box<party_ini_editor::PartyIniEditorState>,
+    // Sprite Browser
+    pub sprite_browser: Box<sprite_browser::SpriteBrowserState>,
 }
 
 impl App {
@@ -126,6 +130,7 @@ impl App {
                 store_editor: Box::default(),
                 party_ref_editor: Box::default(),
                 party_ini_editor: Box::default(),
+                sprite_browser: Box::default(),
             },
             Task::none(),
         )
@@ -255,7 +260,6 @@ impl App {
                         "viewer_db" => self.viewer.db_path = s,
                         "chest_game_path" => self.shared_game_path = s,
                         "chest_map_file" => self.chest_editor.current_map_file = s,
-                        "heal_item_sprite_path" => self.heal_item_editor.sprite_base_path = s,
                         _ => {}
                     }
                 }
@@ -1510,7 +1514,116 @@ impl App {
                 self.viewer.status_msg = "Reverted all pending edits.".into();
                 Task::none()
             }
+            // Sprite Browser
+            Message::SpriteBrowserOpBrowsePath => browse_folder("shared_game_path"),
+            Message::SpriteBrowserOpScan => {
+                if self.shared_game_path.is_empty() {
+                    self.sprite_browser.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.sprite_browser.is_loading = true;
+                self.sprite_browser.status_msg = "Scanning for sprites...".into();
+                let path = PathBuf::from(&self.shared_game_path);
+                Task::perform(
+                    async move {
+                        let mut entries = Vec::new();
+                        Self::find_sprites_recursive(&path, &mut entries);
+                        Ok(entries)
+                    },
+                    Message::SpriteBrowserScanned,
+                )
+            }
+            Message::SpriteBrowserScanned(res) => {
+                self.sprite_browser.is_loading = false;
+                match res {
+                    Ok(entries) => {
+                        self.sprite_browser.sprites = entries;
+                        self.sprite_browser.status_msg =
+                            format!("Found {} sprite files", self.sprite_browser.sprites.len())
+                                .into();
+                    }
+                    Err(e) => {
+                        self.sprite_browser.status_msg =
+                            format!("Error scanning sprites: {}", e).into();
+                    }
+                }
+                Task::none()
+            }
+            Message::SpriteBrowserOpSelectSprite(idx) => {
+                self.sprite_browser.select_sprite(idx);
+                Task::none()
+            }
+            Message::SpriteBrowserOpSelectSequence(seq_idx) => {
+                self.sprite_browser.select_sequence(seq_idx);
+                Task::none()
+            }
+            Message::SpriteBrowserOpSelectFrame(frame_idx) => {
+                self.sprite_browser.select_frame(frame_idx);
+                Task::none()
+            }
         }
+    }
+
+    fn find_sprites_recursive(dir: &Path, results: &mut Vec<sprite_browser::SpriteEntry>) {
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                if path.is_dir() {
+                    Self::find_sprites_recursive(&path, results);
+                } else if let Some(ext) = path.extension() {
+                    if ext.to_string_lossy().to_lowercase() == "spr" {
+                        let name = path
+                            .file_stem()
+                            .map(|s| s.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        let (seq_count, frame_counts) =
+                            Self::analyze_sprite_file(&path);
+                        results.push(sprite_browser::SpriteEntry {
+                            path,
+                            name,
+                            sequence_count: seq_count,
+                            frame_counts,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    fn analyze_sprite_file(path: &Path) -> (usize, Vec<usize>) {
+        use std::fs;
+        use std::io::BufReader;
+
+        let mut frame_counts = Vec::new();
+        if let Ok(file) = fs::File::open(path) {
+            let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
+            let mut reader = BufReader::new(file);
+
+            if std::io::Seek::seek(&mut reader, std::io::SeekFrom::Start(268)).is_ok() {
+                loop {
+                    let pos = reader.stream_position().unwrap_or(0);
+                    if pos >= file_len {
+                        break;
+                    }
+                    if let Ok(valid) =
+                        dispel_core::sprite::seek_next_sequence(&mut reader, pos, file_len)
+                    {
+                        if valid {
+                            if let Ok(info) = dispel_core::sprite::get_sequence_info(&mut reader) {
+                                frame_counts.push(info.frame_count as usize);
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        (frame_counts.len(), frame_counts)
     }
 
     /// Fetch data using the built table query (filters + sorting).
@@ -1682,7 +1795,8 @@ impl App {
             | Tab::MagicEditor
             | Tab::StoreEditor
             | Tab::PartyRefEditor
-            | Tab::PartyIniEditor => None,
+            | Tab::PartyIniEditor
+            | Tab::SpriteBrowser => None,
         }
     }
 }

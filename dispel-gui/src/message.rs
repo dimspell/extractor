@@ -1,5 +1,6 @@
 use crate::chest_editor;
 use crate::db;
+use crate::sprite_browser;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use std::path::PathBuf;
 
@@ -208,4 +209,11 @@ pub enum Message {
     PartyIniOpFieldChanged(usize, String, String),
     PartyIniOpSave,
     PartyIniCatalogLoaded(Result<Vec<PartyIniNpc>, String>),
+    // Sprite Browser
+    SpriteBrowserOpBrowsePath,
+    SpriteBrowserOpScan,
+    SpriteBrowserOpSelectSprite(usize),
+    SpriteBrowserOpSelectSequence(usize),
+    SpriteBrowserOpSelectFrame(usize),
+    SpriteBrowserScanned(Result<Vec<sprite_browser::SpriteEntry>, String>),
 }

@@ -17,6 +17,7 @@ pub mod party_ini_editor;
 pub mod party_ref_editor;
 pub mod store_editor;
 pub mod style;
+pub mod sprite_browser;
 pub mod types;
 pub mod utils;
 pub mod view;
