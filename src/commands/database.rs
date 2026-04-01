@@ -295,21 +295,25 @@ fn import_databases(conn: &mut Connection) -> Result<(), Box<dyn Error>> {
         &main_path.join("CharacterInGame/EventItem.db"),
     )?;
     save_event_items(conn, &event_items)?;
+
     println!("Saving edit_items...");
     let edit_items = super::super::references::edit_item_db::read_edit_item_db(
         &main_path.join("CharacterInGame/EditItem.db"),
     )?;
     save_edit_items(conn, &edit_items)?;
+
     println!("Saving party_level_db...");
     let party_levels = super::super::references::party_level_db::read_party_level_db(
         &main_path.join("NpcInGame/PrtLevel.db"),
     )?;
     save_party_levels(conn, &party_levels)?;
+
     println!("Saving party_ini_db...");
     let party_inis = super::super::references::party_ini_db::read_party_ini_db(
         &main_path.join("NpcInGame/PrtIni.db"),
     )?;
     save_party_inis(conn, &party_inis)?;
+
     println!("Saving magic_spells...");
     let magic_spells =
         super::super::references::magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
