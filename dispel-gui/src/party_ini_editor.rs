@@ -41,18 +41,24 @@ impl PartyIniEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_npcs.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
                 "flags" => {
+                    self.edit_flags = value.clone();
                     if let Ok(v) = value.parse() {
                         record.flags = v
                     }
                 }
                 "kind" => {
+                    self.edit_kind = value.clone();
                     if let Ok(v) = value.parse() {
                         record.kind = v
                     }
                 }
                 "value" => {
+                    self.edit_value = value.clone();
                     if let Ok(v) = value.parse() {
                         record.value = v
                     }

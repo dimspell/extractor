@@ -38,13 +38,13 @@ impl NpcIniEditorState {
         if let Some(record) = self.filtered_npcs.get_mut(idx).map(|(_, r)| r) {
             match field {
                 "sprite_filename" => {
-                    record.sprite_filename = if value.is_empty() {
-                        None
-                    } else {
-                        Some(value.clone())
-                    };
+                    self.edit_sprite_filename = value.clone();
+                    record.sprite_filename = if value.is_empty() { None } else { Some(value) };
                 }
-                "description" => record.description = value.clone(),
+                "description" => {
+                    self.edit_description = value.clone();
+                    record.description = value;
+                }
                 _ => {}
             }
             self.refresh_npcs();

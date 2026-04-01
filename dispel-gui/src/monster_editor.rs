@@ -103,83 +103,102 @@ impl MonsterEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_monsters.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
                 "health_points_max" => {
+                    self.edit_hp_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.health_points_max = v
                     }
                 }
                 "health_points_min" => {
+                    self.edit_hp_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.health_points_min = v
                     }
                 }
                 "mana_points_max" => {
+                    self.edit_mp_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_points_max = v
                     }
                 }
                 "mana_points_min" => {
+                    self.edit_mp_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_points_min = v
                     }
                 }
                 "walk_speed" => {
+                    self.edit_walk_speed = value.clone();
                     if let Ok(v) = value.parse() {
                         record.walk_speed = v
                     }
                 }
                 "to_hit_max" => {
+                    self.edit_to_hit_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_hit_max = v
                     }
                 }
                 "to_hit_min" => {
+                    self.edit_to_hit_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_hit_min = v
                     }
                 }
                 "to_dodge_max" => {
+                    self.edit_to_dodge_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_dodge_max = v
                     }
                 }
                 "to_dodge_min" => {
+                    self.edit_to_dodge_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_dodge_min = v
                     }
                 }
                 "offense_max" => {
+                    self.edit_offense_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.offense_max = v
                     }
                 }
                 "offense_min" => {
+                    self.edit_offense_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.offense_min = v
                     }
                 }
                 "defense_max" => {
+                    self.edit_defense_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.defense_max = v
                     }
                 }
                 "defense_min" => {
+                    self.edit_defense_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.defense_min = v
                     }
                 }
                 "magic_attack_max" => {
+                    self.edit_magic_attack_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.magic_attack_max = v
                     }
                 }
                 "magic_attack_min" => {
+                    self.edit_magic_attack_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.magic_attack_min = v
                     }
                 }
                 "is_undead" => {
+                    self.edit_is_undead = value.clone();
                     record.is_undead = if value.contains("Present") {
                         dispel_core::PropertyFlag::Present
                     } else {
@@ -187,6 +206,7 @@ impl MonsterEditorState {
                     };
                 }
                 "has_blood" => {
+                    self.edit_has_blood = value.clone();
                     record.has_blood = if value.contains("Present") {
                         dispel_core::PropertyFlag::Present
                     } else {
@@ -194,6 +214,7 @@ impl MonsterEditorState {
                     };
                 }
                 "ai_type" => {
+                    self.edit_ai_type = value.clone();
                     if value.contains("Aggressive") {
                         record.ai_type = dispel_core::MonsterAiType::Aggressive;
                     } else if value.contains("Defensive") {
@@ -211,81 +232,97 @@ impl MonsterEditorState {
                     }
                 }
                 "exp_gain_max" => {
+                    self.edit_exp_gain_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.exp_gain_max = v
                     }
                 }
                 "exp_gain_min" => {
+                    self.edit_exp_gain_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.exp_gain_min = v
                     }
                 }
                 "gold_drop_max" => {
+                    self.edit_gold_drop_max = value.clone();
                     if let Ok(v) = value.parse() {
                         record.gold_drop_max = v
                     }
                 }
                 "gold_drop_min" => {
+                    self.edit_gold_drop_min = value.clone();
                     if let Ok(v) = value.parse() {
                         record.gold_drop_min = v
                     }
                 }
                 "detection_sight_size" => {
+                    self.edit_detection_sight_size = value.clone();
                     if let Ok(v) = value.parse() {
                         record.detection_sight_size = v
                     }
                 }
                 "distance_range_size" => {
+                    self.edit_distance_range_size = value.clone();
                     if let Ok(v) = value.parse() {
                         record.distance_range_size = v
                     }
                 }
                 "known_spell_slot1" => {
+                    self.edit_known_spell_slot1 = value.clone();
                     if let Ok(v) = value.parse() {
                         record.known_spell_slot1 = v
                     }
                 }
                 "known_spell_slot2" => {
+                    self.edit_known_spell_slot2 = value.clone();
                     if let Ok(v) = value.parse() {
                         record.known_spell_slot2 = v
                     }
                 }
                 "known_spell_slot3" => {
+                    self.edit_known_spell_slot3 = value.clone();
                     if let Ok(v) = value.parse() {
                         record.known_spell_slot3 = v
                     }
                 }
                 "is_oversize" => {
+                    self.edit_is_oversize = value.clone();
                     if let Ok(v) = value.parse() {
                         record.is_oversize = v
                     }
                 }
                 "magic_level" => {
+                    self.edit_magic_level = value.clone();
                     if let Ok(v) = value.parse() {
                         record.magic_level = v
                     }
                 }
                 "special_attack" => {
+                    self.edit_special_attack = value.clone();
                     if let Ok(v) = value.parse() {
                         record.special_attack = v
                     }
                 }
                 "special_attack_chance" => {
+                    self.edit_special_attack_chance = value.clone();
                     if let Ok(v) = value.parse() {
                         record.special_attack_chance = v
                     }
                 }
                 "special_attack_duration" => {
+                    self.edit_special_attack_duration = value.clone();
                     if let Ok(v) = value.parse() {
                         record.special_attack_duration = v
                     }
                 }
                 "boldness" => {
+                    self.edit_boldness = value.clone();
                     if let Ok(v) = value.parse() {
                         record.boldness = v
                     }
                 }
                 "attack_speed" => {
+                    self.edit_attack_speed = value.clone();
                     if let Ok(v) = value.parse() {
                         record.attack_speed = v
                     }

@@ -70,61 +70,73 @@ impl MagicEditorState {
         if let Some(record) = self.filtered_spells.get_mut(idx).map(|(_, r)| r) {
             match field {
                 "mana_cost" => {
+                    self.edit_mana_cost = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_cost = v
                     }
                 }
                 "success_rate" => {
+                    self.edit_success_rate = value.clone();
                     if let Ok(v) = value.parse() {
                         record.success_rate = v
                     }
                 }
                 "base_damage" => {
+                    self.edit_base_damage = value.clone();
                     if let Ok(v) = value.parse() {
                         record.base_damage = v
                     }
                 }
                 "range" => {
+                    self.edit_range = value.clone();
                     if let Ok(v) = value.parse() {
                         record.range = v
                     }
                 }
                 "level_required" => {
+                    self.edit_level_required = value.clone();
                     if let Ok(v) = value.parse() {
                         record.level_required = v
                     }
                 }
                 "effect_value" => {
+                    self.edit_effect_value = value.clone();
                     if let Ok(v) = value.parse() {
                         record.effect_value = v
                     }
                 }
                 "effect_type" => {
+                    self.edit_effect_type = value.clone();
                     if let Ok(v) = value.parse() {
                         record.effect_type = v
                     }
                 }
                 "effect_modifier" => {
+                    self.edit_effect_modifier = value.clone();
                     if let Ok(v) = value.parse() {
                         record.effect_modifier = v
                     }
                 }
                 "animation_id" => {
+                    self.edit_animation_id = value.clone();
                     if let Ok(v) = value.parse() {
                         record.animation_id = v
                     }
                 }
                 "visual_id" => {
+                    self.edit_visual_id = value.clone();
                     if let Ok(v) = value.parse() {
                         record.visual_id = v
                     }
                 }
                 "icon_id" => {
+                    self.edit_icon_id = value.clone();
                     if let Ok(v) = value.parse() {
                         record.icon_id = v
                     }
                 }
                 "enabled" => {
+                    self.edit_enabled = value.clone();
                     record.enabled = if value.contains("Enabled") {
                         dispel_core::MagicSpellFlag::Enabled
                     } else {
@@ -132,6 +144,7 @@ impl MagicEditorState {
                     };
                 }
                 "flag1" => {
+                    self.edit_flag1 = value.clone();
                     record.flag1 = if value.contains("Enabled") {
                         dispel_core::MagicSpellFlag::Enabled
                     } else {
@@ -139,6 +152,7 @@ impl MagicEditorState {
                     };
                 }
                 "flag2" => {
+                    self.edit_flag2 = value.clone();
                     record.flag2 = if value.contains("Enabled") {
                         dispel_core::MagicSpellFlag::Enabled
                     } else {
@@ -146,6 +160,7 @@ impl MagicEditorState {
                     };
                 }
                 "flag3" => {
+                    self.edit_flag3 = value.clone();
                     record.flag3 = if value.contains("Enabled") {
                         dispel_core::MagicSpellFlag::Enabled
                     } else {
@@ -153,6 +168,7 @@ impl MagicEditorState {
                     };
                 }
                 "constant1" => {
+                    self.edit_constant1 = value.clone();
                     record.constant1 = if value.contains("Standard") {
                         dispel_core::MagicSpellConstant::Standard
                     } else {
@@ -160,6 +176,7 @@ impl MagicEditorState {
                     };
                 }
                 "magic_school" => {
+                    self.edit_magic_school = value.clone();
                     if value.contains("School1") {
                         record.magic_school = dispel_core::MagicSchool::School1;
                     } else if value.contains("School2") {
@@ -177,6 +194,7 @@ impl MagicEditorState {
                     }
                 }
                 "target_type" => {
+                    self.edit_target_type = value.clone();
                     if value.contains("Single") {
                         record.target_type = dispel_core::SpellTargetType::Single;
                     } else if value.contains("Self") {

@@ -67,74 +67,94 @@ impl EditItemEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_items.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
-                "description" => record.description = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
+                "description" => {
+                    self.edit_description = value.clone();
+                    record.description = value;
+                }
                 "base_price" => {
+                    self.edit_base_price = value.clone();
                     if let Ok(v) = value.parse() {
                         record.base_price = v
                     }
                 }
                 "health_points" => {
+                    self.edit_health_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.health_points = v
                     }
                 }
                 "mana_points" => {
+                    self.edit_mana_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_points = v
                     }
                 }
                 "strength" => {
+                    self.edit_strength = value.clone();
                     if let Ok(v) = value.parse() {
                         record.strength = v
                     }
                 }
                 "agility" => {
+                    self.edit_agility = value.clone();
                     if let Ok(v) = value.parse() {
                         record.agility = v
                     }
                 }
                 "wisdom" => {
+                    self.edit_wisdom = value.clone();
                     if let Ok(v) = value.parse() {
                         record.wisdom = v
                     }
                 }
                 "constitution" => {
+                    self.edit_constitution = value.clone();
                     if let Ok(v) = value.parse() {
                         record.constitution = v
                     }
                 }
                 "to_dodge" => {
+                    self.edit_to_dodge = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_dodge = v
                     }
                 }
                 "to_hit" => {
+                    self.edit_to_hit = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_hit = v
                     }
                 }
                 "offense" => {
+                    self.edit_offense = value.clone();
                     if let Ok(v) = value.parse() {
                         record.offense = v
                     }
                 }
                 "defense" => {
+                    self.edit_defense = value.clone();
                     if let Ok(v) = value.parse() {
                         record.defense = v
                     }
                 }
                 "magical_power" => {
+                    self.edit_magical_power = value.clone();
                     if let Ok(v) = value.parse() {
                         record.magical_power = v
                     }
                 }
                 "item_destroying_power" => {
+                    self.edit_item_destroying_power = value.clone();
                     if let Ok(v) = value.parse() {
                         record.item_destroying_power = v
                     }
                 }
                 "modifies_item" => {
+                    self.edit_modifies_item = value.clone();
                     record.modifies_item = if value.contains("CanModify") {
                         EditItemModification::CanModify
                     } else {
@@ -142,6 +162,7 @@ impl EditItemEditorState {
                     };
                 }
                 "additional_effect" => {
+                    self.edit_additional_effect = value.clone();
                     record.additional_effect = if value.contains("Fire") {
                         EditItemEffect::Fire
                     } else if value.contains("ManaDrain") {

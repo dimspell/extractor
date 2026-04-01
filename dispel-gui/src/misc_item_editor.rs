@@ -39,9 +39,16 @@ impl MiscItemEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_items.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
-                "description" => record.description = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
+                "description" => {
+                    self.edit_description = value.clone();
+                    record.description = value;
+                }
                 "base_price" => {
+                    self.edit_base_price = value.clone();
                     if let Ok(v) = value.parse() {
                         record.base_price = v
                     }

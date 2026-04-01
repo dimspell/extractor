@@ -48,35 +48,33 @@ impl PartyRefEditorState {
         if let Some(record) = self.filtered_party.get_mut(idx).map(|(_, r)| r) {
             match field {
                 "full_name" => {
-                    record.full_name = if value.is_empty() {
-                        None
-                    } else {
-                        Some(value.clone())
-                    };
+                    self.edit_full_name = value.clone();
+                    record.full_name = if value.is_empty() { None } else { Some(value) };
                 }
                 "job_name" => {
-                    record.job_name = if value.is_empty() {
-                        None
-                    } else {
-                        Some(value.clone())
-                    };
+                    self.edit_job_name = value.clone();
+                    record.job_name = if value.is_empty() { None } else { Some(value) };
                 }
                 "root_map_id" => {
+                    self.edit_root_map_id = value.clone();
                     if let Ok(v) = value.parse() {
                         record.root_map_id = v
                     }
                 }
                 "npc_id" => {
+                    self.edit_npc_id = value.clone();
                     if let Ok(v) = value.parse() {
                         record.npc_id = v
                     }
                 }
                 "dlg_when_not_in_party" => {
+                    self.edit_dlg_not_in_party = value.clone();
                     if let Ok(v) = value.parse() {
                         record.dlg_when_not_in_party = v
                     }
                 }
                 "dlg_when_in_party" => {
+                    self.edit_dlg_in_party = value.clone();
                     if let Ok(v) = value.parse() {
                         record.dlg_when_in_party = v
                     }

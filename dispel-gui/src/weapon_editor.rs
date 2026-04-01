@@ -70,84 +70,106 @@ impl WeaponEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_weapons.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
-                "description" => record.description = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
+                "description" => {
+                    self.edit_description = value.clone();
+                    record.description = value;
+                }
                 "base_price" => {
+                    self.edit_base_price = value.clone();
                     if let Ok(v) = value.parse() {
                         record.base_price = v
                     }
                 }
                 "health_points" => {
+                    self.edit_health_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.health_points = v
                     }
                 }
                 "mana_points" => {
+                    self.edit_mana_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_points = v
                     }
                 }
                 "strength" => {
+                    self.edit_strength = value.clone();
                     if let Ok(v) = value.parse() {
                         record.strength = v
                     }
                 }
                 "agility" => {
+                    self.edit_agility = value.clone();
                     if let Ok(v) = value.parse() {
                         record.agility = v
                     }
                 }
                 "wisdom" => {
+                    self.edit_wisdom = value.clone();
                     if let Ok(v) = value.parse() {
                         record.wisdom = v
                     }
                 }
                 "constitution" => {
+                    self.edit_constitution = value.clone();
                     if let Ok(v) = value.parse() {
                         record.constitution = v
                     }
                 }
                 "to_dodge" => {
+                    self.edit_to_dodge = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_dodge = v
                     }
                 }
                 "to_hit" => {
+                    self.edit_to_hit = value.clone();
                     if let Ok(v) = value.parse() {
                         record.to_hit = v
                     }
                 }
                 "attack" => {
+                    self.edit_attack = value.clone();
                     if let Ok(v) = value.parse() {
                         record.attack = v
                     }
                 }
                 "defense" => {
+                    self.edit_defense = value.clone();
                     if let Ok(v) = value.parse() {
                         record.defense = v
                     }
                 }
                 "magical_strength" => {
+                    self.edit_magical_strength = value.clone();
                     if let Ok(v) = value.parse() {
                         record.magical_strength = v
                     }
                 }
                 "durability" => {
+                    self.edit_durability = value.clone();
                     if let Ok(v) = value.parse() {
                         record.durability = v
                     }
                 }
                 "req_strength" => {
+                    self.edit_req_strength = value.clone();
                     if let Ok(v) = value.parse() {
                         record.req_strength = v
                     }
                 }
                 "req_agility" => {
+                    self.edit_req_agility = value.clone();
                     if let Ok(v) = value.parse() {
                         record.req_agility = v
                     }
                 }
                 "req_wisdom" => {
+                    self.edit_req_wisdom = value.clone();
                     if let Ok(v) = value.parse() {
                         record.req_wisdom = v
                     }

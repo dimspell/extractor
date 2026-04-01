@@ -87,25 +87,34 @@ impl HealItemEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_items.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "name" => record.name = value.clone(),
-                "description" => record.description = value.clone(),
+                "name" => {
+                    self.edit_name = value.clone();
+                    record.name = value;
+                }
+                "description" => {
+                    self.edit_description = value.clone();
+                    record.description = value;
+                }
                 "base_price" => {
+                    self.edit_base_price = value.clone();
                     if let Ok(v) = value.parse() {
                         record.base_price = v
                     }
                 }
                 "health_points" => {
+                    self.edit_health_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.health_points = v
                     }
                 }
                 "mana_points" => {
+                    self.edit_mana_points = value.clone();
                     if let Ok(v) = value.parse() {
                         record.mana_points = v
                     }
                 }
                 "restore_full_health" => {
-                    // Parse enum value
+                    self.edit_restore_full_health = value.clone();
                     if value == "FullRestoration" {
                         record.restore_full_health = dispel_core::HealItemFlag::FullRestoration;
                     } else {
@@ -113,6 +122,7 @@ impl HealItemEditorState {
                     }
                 }
                 "restore_full_mana" => {
+                    self.edit_restore_full_mana = value.clone();
                     if value == "FullRestoration" {
                         record.restore_full_mana = dispel_core::HealItemFlag::FullRestoration;
                     } else {
@@ -120,6 +130,7 @@ impl HealItemEditorState {
                     }
                 }
                 "poison_heal" => {
+                    self.edit_poison_heal = value.clone();
                     if value == "FullRestoration" {
                         record.poison_heal = dispel_core::HealItemFlag::FullRestoration;
                     } else {
@@ -127,6 +138,7 @@ impl HealItemEditorState {
                     }
                 }
                 "petrif_heal" => {
+                    self.edit_petrif_heal = value.clone();
                     if value == "FullRestoration" {
                         record.petrif_heal = dispel_core::HealItemFlag::FullRestoration;
                     } else {
@@ -134,6 +146,7 @@ impl HealItemEditorState {
                     }
                 }
                 "polimorph_heal" => {
+                    self.edit_polimorph_heal = value.clone();
                     if value == "FullRestoration" {
                         record.polimorph_heal = dispel_core::HealItemFlag::FullRestoration;
                     } else {

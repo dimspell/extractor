@@ -45,20 +45,34 @@ impl StoreEditorState {
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
         if let Some(record) = self.filtered_stores.get_mut(idx).map(|(_, r)| r) {
             match field {
-                "store_name" => record.store_name = value.clone(),
+                "store_name" => {
+                    self.edit_store_name = value.clone();
+                    record.store_name = value;
+                }
                 "inn_night_cost" => {
+                    self.edit_inn_night_cost = value.clone();
                     if let Ok(v) = value.parse() {
                         record.inn_night_cost = v
                     }
                 }
                 "some_unknown_number" => {
+                    self.edit_some_unknown_number = value.clone();
                     if let Ok(v) = value.parse() {
                         record.some_unknown_number = v
                     }
                 }
-                "invitation" => record.invitation = value.clone(),
-                "haggle_success" => record.haggle_success = value.clone(),
-                "haggle_fail" => record.haggle_fail = value.clone(),
+                "invitation" => {
+                    self.edit_invitation = value.clone();
+                    record.invitation = value;
+                }
+                "haggle_success" => {
+                    self.edit_haggle_success = value.clone();
+                    record.haggle_success = value;
+                }
+                "haggle_fail" => {
+                    self.edit_haggle_fail = value.clone();
+                    record.haggle_fail = value;
+                }
                 _ => {}
             }
             self.refresh_stores();
