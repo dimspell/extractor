@@ -10,6 +10,7 @@ pub enum Tab {
     DbViewer,
     ChestEditor,
     WeaponEditor,
+    HealItemEditor,
 }
 
 impl Tab {
@@ -22,6 +23,7 @@ impl Tab {
         Tab::DbViewer,
         Tab::ChestEditor,
         Tab::WeaponEditor,
+        Tab::HealItemEditor,
     ];
     pub fn label(&self) -> &str {
         match self {
@@ -33,6 +35,7 @@ impl Tab {
             Tab::DbViewer => "DbViewer",
             Tab::ChestEditor => "ChestEditor",
             Tab::WeaponEditor => "WeaponEditor",
+            Tab::HealItemEditor => "HealItemEditor",
         }
     }
 }

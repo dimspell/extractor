@@ -3,7 +3,7 @@ use crate::db;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use std::path::PathBuf;
 
-use dispel_core::WeaponItem;
+use dispel_core::{HealItem, WeaponItem};
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -82,6 +82,8 @@ pub enum Message {
     ChestCatalogLoaded(Result<chest_editor::ItemCatalog, String>),
     // Weapon Editor internal
     WeaponCatalogLoaded(Result<Vec<WeaponItem>, String>),
+    // Heal Item Editor internal
+    HealItemCatalogLoaded(Result<Vec<HealItem>, String>),
     ChestMapLoaded(Result<Vec<dispel_core::ExtraRef>, String>),
     ChestMapsScanned(Result<Vec<PathBuf>, String>),
     ChestSaved(Result<(), String>),
@@ -104,4 +106,11 @@ pub enum Message {
     WeaponOpSelectWeapon(usize),
     WeaponOpFieldChanged(usize, String, String),
     WeaponOpSave,
+    // Heal Item Editor
+    HealItemOpBrowseGamePath,
+    HealItemOpLoadCatalog,
+    HealItemOpScanItems,
+    HealItemOpSelectItem(usize),
+    HealItemOpFieldChanged(usize, String, String),
+    HealItemOpSave,
 }

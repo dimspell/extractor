@@ -11,6 +11,7 @@ use iced::{Element, Fill, Font, Length};
 pub mod chest_editor;
 pub mod database;
 pub mod db_viewer;
+pub mod heal_item_editor;
 pub mod map;
 pub mod ref_tab;
 pub mod sound;
@@ -26,6 +27,8 @@ impl App {
             self.view_chest_editor_tab()
         } else if self.active_tab == Tab::WeaponEditor {
             self.view_weapon_editor_tab()
+        } else if self.active_tab == Tab::HealItemEditor {
+            self.view_heal_item_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
             let log_panel = self.view_log();
@@ -88,6 +91,7 @@ impl App {
             Tab::DbViewer => text("").into(),
             Tab::ChestEditor => self.view_chest_editor_tab(),
             Tab::WeaponEditor => self.view_weapon_editor_tab(),
+            Tab::HealItemEditor => self.view_heal_item_editor_tab(),
             // _ => text("Weapon Editor not yet implemented").into(),
         };
         let run_btn: Element<'_, Message> = if self.is_running {

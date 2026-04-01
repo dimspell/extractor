@@ -5,6 +5,7 @@ pub mod app;
 pub mod chest_editor;
 pub mod db;
 pub mod db_viewer_state;
+pub mod heal_item_editor;
 pub mod message;
 pub mod style;
 pub mod types;

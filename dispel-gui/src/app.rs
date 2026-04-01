@@ -1,12 +1,13 @@
 use crate::chest_editor;
 use crate::db;
 use crate::db_viewer_state::{DbViewerState, PAGE_SIZE};
+use crate::heal_item_editor;
 use crate::message::Message;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use crate::utils::{browse_file, browse_folder};
 use crate::weapon_editor;
 use dispel_core::commands::{self, Command, CommandFactory};
-use dispel_core::{Extractor, WeaponItem};
+use dispel_core::{Extractor, HealItem, WeaponItem};
 use iced::Task;
 use std::path::PathBuf;
 
@@ -47,6 +48,8 @@ pub struct App {
     pub chest_editor: Box<chest_editor::ChestEditorState>,
     // Weapon Editor
     pub weapon_editor: Box<weapon_editor::WeaponEditorState>,
+    // Heal Item Editor
+    pub heal_item_editor: Box<heal_item_editor::HealItemEditorState>,
 }
 
 impl App {
@@ -80,6 +83,7 @@ impl App {
                 viewer: Box::default(),
                 chest_editor: Box::default(),
                 weapon_editor: Box::default(),
+                heal_item_editor: Box::default(),
             },
             Task::none(),
         )
@@ -198,6 +202,7 @@ impl App {
                         "chest_game_path" => self.chest_editor.game_path = s,
                         "chest_map_file" => self.chest_editor.current_map_file = s,
                         "weapon_game_path" => self.weapon_editor.game_path = s,
+                        "heal_item_game_path" => self.heal_item_editor.game_path = s,
                         _ => {}
                     }
                 }
@@ -582,6 +587,80 @@ impl App {
                     Ok(_) => self.weapon_editor.status_msg = "Weapons saved successfully.".into(),
                     Err(e) => {
                         self.weapon_editor.status_msg = format!("Error saving weapons: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::HealItemOpBrowseGamePath => browse_folder("heal_item_game_path"),
+            Message::HealItemOpScanItems => {
+                if self.heal_item_editor.game_path.is_empty() {
+                    self.heal_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.heal_item_editor.is_loading = true;
+                self.heal_item_editor.status_msg = "Scanning heal items...".into();
+                let path = PathBuf::from(&self.heal_item_editor.game_path);
+                Task::perform(
+                    async move {
+                        HealItem::read_file(&path.join("CharacterInGame").join("HealItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::HealItemCatalogLoaded(res),
+                )
+            }
+            Message::HealItemOpLoadCatalog => {
+                if self.heal_item_editor.game_path.is_empty() {
+                    self.heal_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.heal_item_editor.is_loading = true;
+                let path = PathBuf::from(&self.heal_item_editor.game_path);
+                Task::perform(
+                    async move {
+                        HealItem::read_file(&path.join("CharacterInGame").join("HealItem.db"))
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::HealItemCatalogLoaded(res),
+                )
+            }
+            Message::HealItemCatalogLoaded(res) => {
+                self.heal_item_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.heal_item_editor.catalog = Some(catalog.clone());
+                        self.heal_item_editor.status_msg =
+                            format!("Heal item catalog loaded: {} items", catalog.len()).into();
+                        self.heal_item_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.heal_item_editor.status_msg =
+                            format!("Error loading heal item catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::HealItemOpSelectItem(idx) => {
+                self.heal_item_editor.select_item(idx);
+                Task::none()
+            }
+            Message::HealItemOpFieldChanged(idx, field, val) => {
+                self.heal_item_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::HealItemOpSave => {
+                if self.heal_item_editor.game_path.is_empty() {
+                    self.heal_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.heal_item_editor.is_loading = true;
+                let result = self.heal_item_editor.save_items();
+                self.heal_item_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.heal_item_editor.status_msg = "Heal items saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.heal_item_editor.status_msg = format!("Error saving heal items: {}", e)
                     }
                 }
                 Task::none()
@@ -990,7 +1069,7 @@ impl App {
                 factory.create_sound_command(self.sound_input.clone(), self.sound_output.clone()),
             )),
             Tab::DbViewer | Tab::ChestEditor => None,
-            Tab::WeaponEditor => None,
+            Tab::WeaponEditor | Tab::HealItemEditor => None,
         }
     }
 }
