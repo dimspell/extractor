@@ -31,6 +31,7 @@ impl App {
                 .style(style::run_button),
         ]
         .spacing(10)
+        .padding([0, 8])
         .align_y(iced::Alignment::Center);
 
         let status_row = container(

@@ -1,155 +1,185 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::labeled_input;
+use crate::utils::{horizontal_rule, horizontal_space, labeled_input, vertical_space};
 use iced::widget::{button, column, container, row, scrollable, text};
-use iced::{Element, Fill, Length};
+use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_edit_item_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.edit_item_editor;
-        let header = row![
-            text("Edit Item Editor").size(20),
-            text(format!(
-                " - {} items",
-                editor.catalog.as_ref().map_or(0, |c| c.len())
-            ))
-            .size(14)
-            .style(style::subtle_text),
-        ];
-        let controls = row![button(text("Load Catalog").size(13))
-            .padding([8, 16])
-            .on_press(Message::EditItemOpLoadCatalog)
-            .style(style::chip),]
-        .spacing(12)
-        .align_y(iced::Alignment::Center);
-        let status = text(&editor.status_msg).size(12).style(style::subtle_text);
 
-        let item_list: Vec<Element<'_, Message>> = editor
+        let item_list: Vec<Element<Message>> = editor
             .filtered_items
             .iter()
-            .map(|(i, item)| {
-                let is_selected = editor.selected_idx == Some(*i);
-                let btn = button(
-                    row![
-                        text(format!("{:03}", i)).size(12).width(40),
-                        text(&item.name).size(12),
-                    ]
-                    .spacing(8)
-                    .align_y(iced::Alignment::Center),
-                )
-                .width(Fill)
-                .padding([6, 12])
-                .on_press(Message::EditItemOpSelectItem(*i));
+            .enumerate()
+            .map(|(idx, (_, item))| {
+                let is_selected = editor.selected_idx == Some(idx);
+                let label = format!("[{}] {} - {}g", item.index, item.name, item.base_price);
+
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::EditItemOpSelectItem(idx));
+
                 if is_selected {
-                    btn.style(style::active_tab_button).into()
+                    btn.style(style::active_chip).into()
                 } else {
-                    btn.style(style::tab_button).into()
+                    btn.style(style::chip).into()
                 }
             })
             .collect();
 
-        let editor_panel: Element<'_, Message> = if let Some(idx) = editor.selected_idx {
-            column![
-                text("Edit Item").size(16),
-                labeled_input("Name:", &editor.edit_name, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "name".into(), v)
-                }),
-                labeled_input("Description:", &editor.edit_description, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "description".into(), v)
-                }),
-                labeled_input("Base Price:", &editor.edit_base_price, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "base_price".into(), v)
-                }),
-                labeled_input("HP:", &editor.edit_health_points, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "health_points".into(), v)
-                }),
-                labeled_input("MP:", &editor.edit_mana_points, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "mana_points".into(), v)
-                }),
-                labeled_input("Strength:", &editor.edit_strength, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "strength".into(), v)
-                }),
-                labeled_input("Agility:", &editor.edit_agility, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "agility".into(), v)
-                }),
-                labeled_input("Wisdom:", &editor.edit_wisdom, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "wisdom".into(), v)
-                }),
-                labeled_input("Constitution:", &editor.edit_constitution, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "constitution".into(), v)
-                }),
-                labeled_input("To Dodge:", &editor.edit_to_dodge, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "to_dodge".into(), v)
-                }),
-                labeled_input("To Hit:", &editor.edit_to_hit, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "to_hit".into(), v)
-                }),
-                labeled_input("Offense:", &editor.edit_offense, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "offense".into(), v)
-                }),
-                labeled_input("Defense:", &editor.edit_defense, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "defense".into(), v)
-                }),
-                labeled_input("Magical Power:", &editor.edit_magical_power, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "magical_power".into(), v)
-                }),
-                labeled_input(
+        let item_scroll = scrollable(column(item_list).spacing(4)).height(Length::Fill);
+
+        let mut detail_content: Vec<Element<Message>> = vec![
+            text("Edit Item Details")
+                .size(16)
+                .font(Font::MONOSPACE)
+                .into(),
+            vertical_space().height(10).into(),
+        ];
+
+        if let Some(idx) = editor.selected_idx {
+            if let Some((orig_idx, _item)) = editor.filtered_items.get(idx) {
+                let orig = *orig_idx;
+
+                detail_content.push(labeled_input("Name:", &editor.edit_name, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "name".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Description:",
+                    &editor.edit_description,
+                    move |v| Message::EditItemOpFieldChanged(orig, "description".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Base Price (gold):",
+                    &editor.edit_base_price,
+                    move |v| Message::EditItemOpFieldChanged(orig, "base_price".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Health Points:",
+                    &editor.edit_health_points,
+                    move |v| Message::EditItemOpFieldChanged(orig, "health_points".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Mana Points:",
+                    &editor.edit_mana_points,
+                    move |v| Message::EditItemOpFieldChanged(orig, "mana_points".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Strength:",
+                    &editor.edit_strength,
+                    move |v| Message::EditItemOpFieldChanged(orig, "strength".into(), v),
+                ));
+                detail_content.push(labeled_input("Agility:", &editor.edit_agility, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "agility".into(), v)
+                }));
+                detail_content.push(labeled_input("Wisdom:", &editor.edit_wisdom, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "wisdom".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Constitution:",
+                    &editor.edit_constitution,
+                    move |v| Message::EditItemOpFieldChanged(orig, "constitution".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "To Dodge:",
+                    &editor.edit_to_dodge,
+                    move |v| Message::EditItemOpFieldChanged(orig, "to_dodge".into(), v),
+                ));
+                detail_content.push(labeled_input("To Hit:", &editor.edit_to_hit, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "to_hit".into(), v)
+                }));
+                detail_content.push(labeled_input("Offense:", &editor.edit_offense, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "offense".into(), v)
+                }));
+                detail_content.push(labeled_input("Defense:", &editor.edit_defense, move |v| {
+                    Message::EditItemOpFieldChanged(orig, "defense".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Magical Power:",
+                    &editor.edit_magical_power,
+                    move |v| Message::EditItemOpFieldChanged(orig, "magical_power".into(), v),
+                ));
+                detail_content.push(labeled_input(
                     "Destroy Power:",
                     &editor.edit_item_destroying_power,
-                    move |v| Message::EditItemOpFieldChanged(
-                        idx,
-                        "item_destroying_power".into(),
-                        v
-                    )
-                ),
-                labeled_input("Modifies Item:", &editor.edit_modifies_item, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "modifies_item".into(), v)
-                }),
-                labeled_input("Effect:", &editor.edit_additional_effect, move |v| {
-                    Message::EditItemOpFieldChanged(idx, "additional_effect".into(), v)
-                }),
-            ]
-            .spacing(8)
-            .into()
+                    move |v| {
+                        Message::EditItemOpFieldChanged(orig, "item_destroying_power".into(), v)
+                    },
+                ));
+                detail_content.push(labeled_input(
+                    "Modifies Item:",
+                    &editor.edit_modifies_item,
+                    move |v| Message::EditItemOpFieldChanged(orig, "modifies_item".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Effect:",
+                    &editor.edit_additional_effect,
+                    move |v| Message::EditItemOpFieldChanged(orig, "additional_effect".into(), v),
+                ));
+            }
         } else {
-            text("Select an item to edit")
-                .size(13)
-                .style(style::subtle_text)
-                .into()
-        };
+            detail_content.push(
+                text("No edit item selected")
+                    .size(13)
+                    .style(style::subtle_text)
+                    .into(),
+            );
+        }
 
-        let save_btn = button(text("Save to File").size(14))
-            .padding([10, 24])
-            .on_press(Message::EditItemOpSave)
-            .style(style::run_button);
+        let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
 
-        let detail_panel = container(scrollable(editor_panel).height(Fill))
+        let detail_panel = container(detail_scroll)
             .padding(16)
-            .width(350)
+            .width(380)
             .style(style::info_card);
 
-        let main_content = row![
-            column![
-                container(
-                    row![
-                        text("Items").size(14),
-                        text(format!("{} loaded", editor.filtered_items.len())).size(12),
-                    ]
-                    .padding(10)
-                    .align_y(iced::Alignment::Center)
-                )
-                .style(style::grid_header_cell),
-                scrollable(column(item_list).spacing(2)).height(Fill),
-            ]
-            .width(Length::Fill),
-            detail_panel,
+        let item_list_header = row![
+            text("Edit Items").size(14),
+            horizontal_space(),
+            button(text("Scan"))
+                .on_press(Message::EditItemOpScanItems)
+                .padding([5, 10])
+                .style(style::run_button),
         ]
-        .height(Fill);
+        .padding(10)
+        .align_y(iced::Alignment::Center);
 
-        column![header, controls, status, main_content, save_btn]
-            .spacing(12)
-            .padding(16)
-            .into()
+        let left_panel = column![
+            container(item_list_header).style(style::grid_header_cell),
+            item_scroll,
+        ];
+
+        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
+            .spacing(0)
+            .height(Length::Fill);
+
+        column![
+            horizontal_rule(1),
+            main_content,
+            container(
+                row![
+                    text(&editor.status_msg).size(13).style(style::subtle_text),
+                    horizontal_space(),
+                    if editor.is_loading {
+                        Element::from(text("Loading...").size(13))
+                    } else {
+                        Element::from(text(""))
+                    },
+                    horizontal_space().width(20),
+                    button(text("Save Edit Items"))
+                        .on_press(Message::EditItemOpSave)
+                        .style(style::commit_button),
+                ]
+                .padding([10, 20])
+                .align_y(iced::Alignment::Center),
+            )
+            .width(Fill)
+            .style(style::status_bar),
+        ]
+        .spacing(0)
+        .height(Length::Fill)
+        .into()
     }
 }

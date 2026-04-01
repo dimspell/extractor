@@ -1,227 +1,148 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space};
-use iced::widget::{button, column, container, row, scrollable, text, text_input};
-use iced::{Element, Fill, Length};
+use crate::utils::{horizontal_rule, horizontal_space, labeled_input, vertical_space};
+use iced::widget::{button, column, container, row, scrollable, text};
+use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_magic_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.magic_editor;
 
-        // Header
-        let header = row![
-            text("Magic Spell Editor").size(20),
-            text(format!(
-                " - {} spells",
-                editor.catalog.as_ref().map_or(0, |c| c.len())
-            ))
-            .size(14)
-            .style(style::subtle_text),
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center);
-
-        // Controls
-        let controls = row![
-            button(text("Load Catalog").size(13))
-                .padding([8, 16])
-                .on_press(Message::MagicOpLoadCatalog)
-                .style(style::chip),
-            horizontal_space(),
-            button(text("Save to File").size(13))
-                .padding([8, 16])
-                .on_press(Message::MagicOpSave)
-                .style(style::run_button),
-        ]
-        .spacing(12)
-        .align_y(iced::Alignment::Center);
-
-        // Status
-        let status = text(&editor.status_msg).size(12).style(style::subtle_text);
-
-        // Spell list
-        let item_list: Vec<Element<'_, Message>> = editor
+        let item_list: Vec<Element<Message>> = editor
             .filtered_spells
             .iter()
-            .map(|(i, spell)| {
-                let is_selected = editor.selected_idx == Some(*i);
-                let btn = button(
-                    row![
-                        text(format!("{:03}", spell.id)).size(11).width(35),
-                        text(format!("Dmg:{} Range:{}", spell.base_damage, spell.range))
-                            .size(12)
-                            .width(Length::Fill),
-                        text(format!("Mana:{}", spell.mana_cost))
-                            .size(10)
-                            .style(style::subtle_text)
-                            .width(70),
-                    ]
-                    .spacing(8)
-                    .align_y(iced::Alignment::Center),
-                )
-                .width(Fill)
-                .padding([8, 12])
-                .on_press(Message::MagicOpSelectSpell(*i));
+            .enumerate()
+            .map(|(idx, (_, spell))| {
+                let is_selected = editor.selected_idx == Some(idx);
+                let label = format!(
+                    "[{}] DMG:{} RNG:{} MP:{}",
+                    spell.id, spell.base_damage, spell.range, spell.mana_cost
+                );
+
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::MagicOpSelectSpell(idx));
+
                 if is_selected {
-                    btn.style(style::active_tab_button).into()
+                    btn.style(style::active_chip).into()
                 } else {
-                    btn.style(style::tab_button).into()
+                    btn.style(style::chip).into()
                 }
             })
             .collect();
 
-        // Editor panel
-        let editor_panel: Element<'_, Message> = if let Some(idx) = editor.selected_idx {
-            column![
-                text("Edit Spell").size(14),
-                horizontal_rule(1),
-                row![
-                    text("Mana Cost").size(11).width(80),
-                    text_input("", &editor.edit_mana_cost)
-                        .on_input(move |v| Message::MagicOpFieldChanged(idx, "mana_cost".into(), v))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Success Rate").size(11).width(80),
-                    text_input("", &editor.edit_success_rate)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "success_rate".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Base Damage").size(11).width(80),
-                    text_input("", &editor.edit_base_damage)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "base_damage".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Range").size(11).width(80),
-                    text_input("", &editor.edit_range)
-                        .on_input(move |v| Message::MagicOpFieldChanged(idx, "range".into(), v))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Level Req").size(11).width(80),
-                    text_input("", &editor.edit_level_required)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "level_required".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Effect Type").size(11).width(80),
-                    text_input("", &editor.edit_effect_type)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "effect_type".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Magic School").size(11).width(80),
-                    text_input("", &editor.edit_magic_school)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "magic_school".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-                row![
-                    text("Target Type").size(11).width(80),
-                    text_input("", &editor.edit_target_type)
-                        .on_input(move |v| Message::MagicOpFieldChanged(
-                            idx,
-                            "target_type".into(),
-                            v
-                        ))
-                        .padding(6)
-                        .size(12)
-                ]
-                .spacing(8)
-                .align_y(iced::Alignment::Center),
-            ]
-            .spacing(10)
-            .padding(16)
-            .into()
-        } else {
-            column![
-                text("Spell Details").size(14),
-                horizontal_rule(1),
-                text("Select a spell to edit")
-                    .size(12)
-                    .style(style::subtle_text),
-            ]
-            .spacing(10)
-            .padding(16)
-            .into()
-        };
+        let item_scroll = scrollable(column(item_list).spacing(4)).height(Length::Fill);
 
-        // Detail panel
-        let detail_panel = container(scrollable(editor_panel).height(Length::Fill))
-            .padding(0)
-            .width(400)
+        let mut detail_content: Vec<Element<Message>> = vec![
+            text("Spell Details").size(16).font(Font::MONOSPACE).into(),
+            vertical_space().height(10).into(),
+        ];
+
+        if let Some(idx) = editor.selected_idx {
+            if let Some((orig_idx, _spell)) = editor.filtered_spells.get(idx) {
+                let orig = *orig_idx;
+
+                detail_content.push(labeled_input(
+                    "Mana Cost:",
+                    &editor.edit_mana_cost,
+                    move |v| Message::MagicOpFieldChanged(orig, "mana_cost".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Success Rate:",
+                    &editor.edit_success_rate,
+                    move |v| Message::MagicOpFieldChanged(orig, "success_rate".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Base Damage:",
+                    &editor.edit_base_damage,
+                    move |v| Message::MagicOpFieldChanged(orig, "base_damage".into(), v),
+                ));
+                detail_content.push(labeled_input("Range:", &editor.edit_range, move |v| {
+                    Message::MagicOpFieldChanged(orig, "range".into(), v)
+                }));
+                detail_content.push(labeled_input(
+                    "Level Required:",
+                    &editor.edit_level_required,
+                    move |v| Message::MagicOpFieldChanged(orig, "level_required".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Effect Type:",
+                    &editor.edit_effect_type,
+                    move |v| Message::MagicOpFieldChanged(orig, "effect_type".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Magic School:",
+                    &editor.edit_magic_school,
+                    move |v| Message::MagicOpFieldChanged(orig, "magic_school".into(), v),
+                ));
+                detail_content.push(labeled_input(
+                    "Target Type:",
+                    &editor.edit_target_type,
+                    move |v| Message::MagicOpFieldChanged(orig, "target_type".into(), v),
+                ));
+            }
+        } else {
+            detail_content.push(
+                text("No spell selected")
+                    .size(13)
+                    .style(style::subtle_text)
+                    .into(),
+            );
+        }
+
+        let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
+
+        let detail_panel = container(detail_scroll)
+            .padding(16)
+            .width(380)
             .style(style::info_card);
 
-        // Main content
-        let main_content = row![
-            column![
-                container(
-                    row![
-                        text("Spells").size(13),
-                        horizontal_space(),
-                        text(format!("{} loaded", editor.filtered_spells.len()))
-                            .size(11)
-                            .style(style::subtle_text),
-                    ]
-                    .padding([8, 12])
-                    .align_y(iced::Alignment::Center)
-                )
-                .style(style::grid_header_cell),
-                scrollable(column(item_list).spacing(2)).height(Fill),
-            ]
-            .width(Length::Fill),
-            detail_panel,
+        let item_list_header = row![
+            text("Spells").size(14),
+            horizontal_space(),
+            button(text("Scan"))
+                .on_press(Message::MagicOpScanSpells)
+                .padding([5, 10])
+                .style(style::run_button),
         ]
-        .spacing(12)
-        .height(Fill);
+        .padding(10)
+        .align_y(iced::Alignment::Center);
 
-        column![header, controls, horizontal_rule(1), status, main_content,]
-            .spacing(10)
-            .padding(16)
-            .height(Length::Fill)
-            .into()
+        let left_panel = column![
+            container(item_list_header).style(style::grid_header_cell),
+            item_scroll,
+        ];
+
+        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
+            .spacing(0)
+            .height(Length::Fill);
+
+        column![
+            horizontal_rule(1),
+            main_content,
+            container(
+                row![
+                    text(&editor.status_msg).size(13).style(style::subtle_text),
+                    horizontal_space(),
+                    if editor.is_loading {
+                        Element::from(text("Loading...").size(13))
+                    } else {
+                        Element::from(text(""))
+                    },
+                    horizontal_space().width(20),
+                    button(text("Save Spells"))
+                        .on_press(Message::MagicOpSave)
+                        .style(style::commit_button),
+                ]
+                .padding([10, 20])
+                .align_y(iced::Alignment::Center),
+            )
+            .width(Fill)
+            .style(style::status_bar),
+        ]
+        .spacing(0)
+        .height(Length::Fill)
+        .into()
     }
 }
