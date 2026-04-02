@@ -583,6 +583,7 @@ pub fn get_sequence_pngs_by_index(file_path: &Path, sequence_idx: usize) -> Resu
 
         let info = get_sequence_info(&mut reader)?;
         if seq_counter == sequence_idx {
+            reader.seek(SeekFrom::Start(info.sequence_start_position))?;
             return get_sequence_frames_as_pngs(&mut reader, &info);
         }
         seq_counter += 1;
