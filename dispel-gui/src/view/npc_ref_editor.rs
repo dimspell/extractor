@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::utils::{
-    horizontal_rule, horizontal_space, labeled_input, labeled_select, vertical_space,
+    horizontal_rule, horizontal_space, labeled_input, labeled_select, truncate_path, vertical_space,
 };
 use dispel_core::NpcLookingDirection;
 use iced::widget::{button, column, container, row, scrollable, text};
@@ -12,24 +12,31 @@ impl App {
     pub fn view_npc_ref_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.npc_ref_editor;
 
-        let file_bar = row![
-            text("Map File:").size(13).width(100),
-            text(&editor.current_map_file)
-                .size(12)
-                .font(Font::MONOSPACE)
-                .width(Fill),
-            button(text("Browse").size(12))
-                .on_press(Message::NpcRefOpBrowseMapFile)
-                .padding([5, 10])
-                .style(style::browse_button),
-            button(text("Load").size(12))
-                .on_press(Message::NpcRefOpLoadCatalog)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .spacing(8)
-        .padding(10)
-        .align_y(iced::Alignment::Center);
+        let file_list: Vec<Element<Message>> = editor
+            .map_files
+            .iter()
+            .enumerate()
+            .map(|(_idx, path)| {
+                let is_selected = editor.current_map_file == path.to_string_lossy();
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let label = truncate_path(&name, 30);
+
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::NpcRefOpSelectMapFile(path.clone()));
+
+                if is_selected {
+                    btn.style(style::active_chip).into()
+                } else {
+                    btn.style(style::chip).into()
+                }
+            })
+            .collect();
+
+        let file_scroll = scrollable(column(file_list).spacing(4)).height(Length::Fill);
 
         let npc_list: Vec<Element<Message>> = editor
             .filtered_npcs
@@ -179,19 +186,42 @@ impl App {
             .width(Length::FillPortion(2))
             .style(style::info_card);
 
-        let npc_list_header = row![text("NPCs").size(14), horizontal_space()]
+        let file_header = row![
+            text("Map Files").size(14),
+            horizontal_space(),
+            button(text("Scan"))
+                .on_press(Message::NpcRefOpScanFiles)
+                .padding([5, 10])
+                .style(style::run_button),
+            button(text("Browse"))
+                .on_press(Message::NpcRefOpBrowseMapFile)
+                .padding([5, 10])
+                .style(style::browse_button),
+        ]
+        .padding(10)
+        .align_y(iced::Alignment::Center);
+
+        let npc_header = row![text("NPCs").size(14), horizontal_space()]
             .padding(10)
             .align_y(iced::Alignment::Center);
 
-        let left_panel = column![
-            container(file_bar).style(style::toolbar_container),
-            container(npc_list_header).style(style::grid_header_cell),
+        let file_panel = column![
+            container(file_header).style(style::grid_header_cell),
+            file_scroll,
+        ];
+
+        let npc_panel = column![
+            container(npc_header).style(style::grid_header_cell),
             npc_scroll,
         ];
 
-        let main_content = row![left_panel.width(Length::FillPortion(1)), detail_panel]
-            .spacing(0)
-            .height(Length::Fill);
+        let main_content = row![
+            file_panel.width(Length::FillPortion(1)),
+            npc_panel.width(Length::FillPortion(1)),
+            detail_panel,
+        ]
+        .spacing(0)
+        .height(Length::Fill);
 
         column![
             horizontal_rule(1),

@@ -8,6 +8,7 @@ pub struct DialogEditorState {
     pub filtered_dialogs: Vec<(usize, Dialog)>,
     pub selected_idx: Option<usize>,
     pub current_file: String,
+    pub dialog_files: Vec<PathBuf>,
 
     pub edit_id: String,
     pub edit_previous_event_id: String,

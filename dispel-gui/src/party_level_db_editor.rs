@@ -1,10 +1,11 @@
-use dispel_core::PartyLevelNpc;
 use dispel_core::Extractor;
+use dispel_core::{PartyLevelNpc, PartyRef};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct PartyLevelDbEditorState {
     pub catalog: Option<Vec<PartyLevelNpc>>,
+    pub party_refs: Option<Vec<PartyRef>>,
     pub selected_npc_idx: Option<usize>,
     pub selected_record_idx: Option<usize>,
 
@@ -24,6 +25,19 @@ pub struct PartyLevelDbEditorState {
 }
 
 impl PartyLevelDbEditorState {
+    pub fn npc_display_name(&self, npc_index: usize) -> String {
+        if let Some(refs) = &self.party_refs {
+            if let Some(pr) = refs.iter().find(|p| p.id == npc_index as i32) {
+                if let Some(name) = &pr.full_name {
+                    if !name.is_empty() {
+                        return format!("[{}] {}", npc_index, name);
+                    }
+                }
+            }
+        }
+        format!("[{}] NPC {}", npc_index, npc_index)
+    }
+
     pub fn select_npc(&mut self, idx: usize) {
         self.selected_npc_idx = Some(idx);
         self.selected_record_idx = None;

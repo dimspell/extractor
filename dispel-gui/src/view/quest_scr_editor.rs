@@ -4,7 +4,7 @@ use crate::style;
 use crate::utils::{
     horizontal_rule, horizontal_space, labeled_input, labeled_select, vertical_space,
 };
-use iced::widget::{button, column, container, row, scrollable, text};
+use iced::widget::{button, column, container, row, scrollable, text, text_editor};
 use iced::{Element, Fill, Font, Length};
 
 impl App {
@@ -75,11 +75,13 @@ impl App {
                 detail_content.push(labeled_input("Title:", &editor.edit_title, move |v| {
                     Message::QuestScrOpFieldChanged(orig, "title".into(), v)
                 }));
-                detail_content.push(labeled_input(
-                    "Description:",
-                    &editor.edit_description,
-                    move |v| Message::QuestScrOpFieldChanged(orig, "description".into(), v),
-                ));
+
+                detail_content.push(text("Description:").size(13).into());
+                let te = text_editor(&editor.edit_description_content)
+                    .on_action(move |action| Message::QuestScrOpDescriptionAction(orig, action))
+                    .padding(8)
+                    .height(120);
+                detail_content.push(container(te).width(Fill).style(style::info_card).into());
             }
         } else {
             detail_content.push(
@@ -94,7 +96,7 @@ impl App {
 
         let detail_panel = container(detail_scroll)
             .padding(16)
-            .width(380)
+            .width(Length::FillPortion(2))
             .style(style::info_card);
 
         let item_list_header = row![
@@ -113,7 +115,7 @@ impl App {
             item_scroll,
         ];
 
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2))]
+        let main_content = row![left_panel, detail_panel]
             .spacing(0)
             .height(Length::Fill);
 

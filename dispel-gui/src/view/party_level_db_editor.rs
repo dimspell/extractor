@@ -15,7 +15,7 @@ impl App {
                 .enumerate()
                 .map(|(idx, npc)| {
                     let is_selected = editor.selected_npc_idx == Some(idx);
-                    let label = format!("NPC {}", npc.npc_index);
+                    let label = editor.npc_display_name(npc.npc_index);
 
                     let btn = button(text(label).size(11).font(Font::MONOSPACE))
                         .width(Fill)

@@ -1801,6 +1801,38 @@ impl App {
                     |res| Message::DialogCatalogLoaded(res),
                 )
             }
+            Message::DialogOpScanFiles => {
+                if self.shared_game_path.is_empty() {
+                    self.dialog_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                let path = PathBuf::from(&self.shared_game_path).join("NpcInGame");
+                Task::perform(
+                    async move {
+                        let mut files = vec![];
+                        if let Ok(entries) = std::fs::read_dir(&path) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file() && p.extension().map(|e| e == "dlg").unwrap_or(false)
+                                {
+                                    files.push(p);
+                                }
+                            }
+                        }
+                        files.sort();
+                        files
+                    },
+                    Message::DialogOpFilesScanned,
+                )
+            }
+            Message::DialogOpFilesScanned(files) => {
+                self.dialog_editor.dialog_files = files;
+                self.dialog_editor.status_msg = format!(
+                    "Found {} dialog files",
+                    self.dialog_editor.dialog_files.len()
+                );
+                Task::none()
+            }
             Message::DialogOpLoadCatalog => {
                 if self.dialog_editor.current_file.is_empty() {
                     self.dialog_editor.status_msg = "Please select a dialog file first.".into();
@@ -1873,6 +1905,38 @@ impl App {
                     |res| Message::DialogueTextCatalogLoaded(res),
                 )
             }
+            Message::DialogueTextOpScanFiles => {
+                if self.shared_game_path.is_empty() {
+                    self.dialogue_text_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                let path = PathBuf::from(&self.shared_game_path).join("NpcInGame");
+                Task::perform(
+                    async move {
+                        let mut files = vec![];
+                        if let Ok(entries) = std::fs::read_dir(&path) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file() && p.extension().map(|e| e == "pgp").unwrap_or(false)
+                                {
+                                    files.push(p);
+                                }
+                            }
+                        }
+                        files.sort();
+                        files
+                    },
+                    Message::DialogueTextOpFilesScanned,
+                )
+            }
+            Message::DialogueTextOpFilesScanned(files) => {
+                self.dialogue_text_editor.text_files = files;
+                self.dialogue_text_editor.status_msg = format!(
+                    "Found {} text files",
+                    self.dialogue_text_editor.text_files.len()
+                );
+                Task::none()
+            }
             Message::DialogueTextOpLoadCatalog => {
                 if self.dialogue_text_editor.current_file.is_empty() {
                     self.dialogue_text_editor.status_msg = "Please select a file first.".into();
@@ -1909,6 +1973,20 @@ impl App {
             }
             Message::DialogueTextOpFieldChanged(idx, field, val) => {
                 self.dialogue_text_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::DialogueTextOpTextAction(idx, action) => {
+                use iced::widget::text_editor;
+                if let text_editor::Action::Edit(_) = action {
+                    self.dialogue_text_editor.update_text_content(idx);
+                }
+                Task::none()
+            }
+            Message::DialogueTextOpCommentAction(idx, action) => {
+                use iced::widget::text_editor;
+                if let text_editor::Action::Edit(_) = action {
+                    self.dialogue_text_editor.update_comment_content(idx);
+                }
                 Task::none()
             }
             Message::DialogueTextOpSave => {
@@ -2356,6 +2434,46 @@ impl App {
                     |res| Message::NpcRefCatalogLoaded(res),
                 )
             }
+            Message::NpcRefOpScanFiles => {
+                if self.shared_game_path.is_empty() {
+                    self.npc_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                let path = PathBuf::from(&self.shared_game_path).join("NpcInGame");
+                Task::perform(
+                    async move {
+                        let mut files = vec![];
+                        if let Ok(entries) = std::fs::read_dir(&path) {
+                            for entry in entries.flatten() {
+                                let p = entry.path();
+                                if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false)
+                                {
+                                    let name = p
+                                        .file_name()
+                                        .map(|n| n.to_string_lossy().to_string())
+                                        .unwrap_or_default();
+                                    if name.to_lowercase().starts_with("npccat")
+                                        || name.to_lowercase().starts_with("npcmap")
+                                    {
+                                        files.push(p);
+                                    }
+                                }
+                            }
+                        }
+                        files.sort();
+                        files
+                    },
+                    Message::NpcRefOpFilesScanned,
+                )
+            }
+            Message::NpcRefOpFilesScanned(files) => {
+                self.npc_ref_editor.map_files = files;
+                self.npc_ref_editor.status_msg = format!(
+                    "Found {} NPC ref files",
+                    self.npc_ref_editor.map_files.len()
+                );
+                Task::none()
+            }
             Message::NpcRefOpLoadCatalog => {
                 if self.npc_ref_editor.current_map_file.is_empty() {
                     self.npc_ref_editor.status_msg = "Please select a map file first.".into();
@@ -2412,23 +2530,40 @@ impl App {
                     return Task::none();
                 }
                 self.party_level_db_editor.is_loading = true;
-                let path = PathBuf::from(&self.shared_game_path)
+                let level_path = PathBuf::from(&self.shared_game_path)
                     .join("NpcInGame")
                     .join("PrtLevel.db");
+                let party_ref_path = PathBuf::from(&self.shared_game_path)
+                    .join("Ref")
+                    .join("PartyRef.ref");
                 Task::perform(
                     async move {
-                        PartyLevelNpc::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                        let levels = PartyLevelNpc::read_file(&level_path)
+                            .map_err(|e: std::io::Error| e.to_string());
+                        let refs = PartyRef::read_file(&party_ref_path)
+                            .map_err(|e: std::io::Error| e.to_string());
+                        (levels, refs)
                     },
                     |res| Message::PartyLevelDbCatalogLoaded(res),
                 )
             }
             Message::PartyLevelDbCatalogLoaded(res) => {
                 self.party_level_db_editor.is_loading = false;
-                match res {
-                    Ok(catalog) => {
-                        self.party_level_db_editor.catalog = Some(catalog.clone());
+                let (levels_res, refs_res) = res;
+                match levels_res {
+                    Ok(levels) => {
+                        self.party_level_db_editor.catalog = Some(levels.clone());
+                        match refs_res {
+                            Ok(party_refs) => {
+                                self.party_level_db_editor.party_refs = Some(party_refs);
+                            }
+                            Err(e) => {
+                                self.party_level_db_editor.status_msg =
+                                    format!("Levels loaded, but PartyRef failed: {}", e).into();
+                            }
+                        }
                         self.party_level_db_editor.status_msg =
-                            format!("Party level catalog loaded: {} NPCs", catalog.len()).into();
+                            format!("Party level catalog loaded: {} NPCs", levels.len()).into();
                     }
                     Err(e) => {
                         self.party_level_db_editor.status_msg =
@@ -2509,6 +2644,13 @@ impl App {
             }
             Message::QuestScrOpFieldChanged(idx, field, val) => {
                 self.quest_scr_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::QuestScrOpDescriptionAction(idx, action) => {
+                use iced::widget::text_editor;
+                if let text_editor::Action::Edit(_) = action {
+                    self.quest_scr_editor.update_description(idx);
+                }
                 Task::none()
             }
             Message::QuestScrOpSave => {
@@ -2592,7 +2734,8 @@ impl App {
                     let snf_filename = match &wave.snf_filename {
                         Some(f) => f.clone(),
                         None => {
-                            self.wave_ini_editor.export_status = "No SNF filename for this entry.".into();
+                            self.wave_ini_editor.export_status =
+                                "No SNF filename for this entry.".into();
                             return Task::none();
                         }
                     };

@@ -1,8 +1,9 @@
-use dispel_core::Quest;
 use dispel_core::Extractor;
+use dispel_core::Quest;
+use iced::widget::text_editor;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct QuestScrEditorState {
     pub catalog: Option<Vec<Quest>>,
     pub filtered_quests: Vec<(usize, Quest)>,
@@ -12,6 +13,7 @@ pub struct QuestScrEditorState {
     pub edit_type_id: String,
     pub edit_title: String,
     pub edit_description: String,
+    pub edit_description_content: text_editor::Content,
 
     pub status_msg: String,
     pub is_loading: bool,
@@ -35,6 +37,7 @@ impl QuestScrEditorState {
             self.edit_type_id = record.type_id.to_string();
             self.edit_title = record.title.clone().unwrap_or_default();
             self.edit_description = record.description.clone().unwrap_or_default();
+            self.edit_description_content = text_editor::Content::with_text(&self.edit_description);
         }
     }
 
@@ -57,13 +60,17 @@ impl QuestScrEditorState {
                     self.edit_title = value.clone();
                     record.title = if value.is_empty() { None } else { Some(value) };
                 }
-                "description" => {
-                    self.edit_description = value.clone();
-                    record.description = if value.is_empty() { None } else { Some(value) };
-                }
                 _ => {}
             }
             self.refresh_quests();
+        }
+    }
+
+    pub fn update_description(&mut self, idx: usize) {
+        if let Some(record) = self.filtered_quests.get_mut(idx).map(|(_, r)| r) {
+            let desc = self.edit_description_content.text().to_string();
+            self.edit_description = desc.clone();
+            record.description = if desc.is_empty() { None } else { Some(desc) };
         }
     }
 

@@ -1,13 +1,41 @@
 use crate::app::App;
 use crate::message::Message;
 use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space, labeled_input, vertical_space};
-use iced::widget::{button, column, container, row, scrollable, text};
+use crate::utils::{
+    horizontal_rule, horizontal_space, labeled_input, truncate_path, vertical_space,
+};
+use iced::widget::{button, column, container, row, scrollable, text, text_editor};
 use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_dialogue_text_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.dialogue_text_editor;
+
+        let file_list: Vec<Element<Message>> = editor
+            .text_files
+            .iter()
+            .enumerate()
+            .map(|(_idx, path)| {
+                let is_selected = editor.current_file == path.to_string_lossy();
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let label = truncate_path(&name, 30);
+
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::DialogueTextOpSelectFile(path.clone()));
+
+                if is_selected {
+                    btn.style(style::active_chip).into()
+                } else {
+                    btn.style(style::chip).into()
+                }
+            })
+            .collect();
+
+        let file_scroll = scrollable(column(file_list).spacing(4)).height(Length::Fill);
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_texts
@@ -51,12 +79,21 @@ impl App {
                 detail_content.push(labeled_input("ID:", &editor.edit_id, move |v| {
                     Message::DialogueTextOpFieldChanged(orig, "id".into(), v)
                 }));
-                detail_content.push(labeled_input("Text:", &editor.edit_text, move |v| {
-                    Message::DialogueTextOpFieldChanged(orig, "text".into(), v)
-                }));
-                detail_content.push(labeled_input("Comment:", &editor.edit_comment, move |v| {
-                    Message::DialogueTextOpFieldChanged(orig, "comment".into(), v)
-                }));
+
+                detail_content.push(text("Text:").size(13).into());
+                let te = text_editor(&editor.edit_text_content)
+                    .on_action(move |action| Message::DialogueTextOpTextAction(orig, action))
+                    .padding(8)
+                    .height(100);
+                detail_content.push(container(te).width(Fill).style(style::info_card).into());
+
+                detail_content.push(text("Comment:").size(13).into());
+                let te = text_editor(&editor.edit_comment_content)
+                    .on_action(move |action| Message::DialogueTextOpCommentAction(orig, action))
+                    .padding(8)
+                    .height(80);
+                detail_content.push(container(te).width(Fill).style(style::info_card).into());
+
                 detail_content.push(labeled_input("Param 1:", &editor.edit_param1, move |v| {
                     Message::DialogueTextOpFieldChanged(orig, "param1".into(), v)
                 }));
@@ -81,28 +118,45 @@ impl App {
 
         let detail_panel = container(detail_scroll)
             .padding(16)
-            .width(380)
+            .width(Length::FillPortion(2))
             .style(style::info_card);
 
-        let item_list_header = row![
-            text("Dialogue Texts").size(14),
+        let file_header = row![
+            text("Text Files").size(14),
             horizontal_space(),
             button(text("Scan"))
-                .on_press(Message::DialogueTextOpLoadCatalog)
+                .on_press(Message::DialogueTextOpScanFiles)
                 .padding([5, 10])
                 .style(style::run_button),
+            button(text("Browse"))
+                .on_press(Message::DialogueTextOpBrowseFile)
+                .padding([5, 10])
+                .style(style::browse_button),
         ]
         .padding(10)
         .align_y(iced::Alignment::Center);
 
-        let left_panel = column![
+        let item_list_header = row![text("Entries").size(14), horizontal_space()]
+            .padding(10)
+            .align_y(iced::Alignment::Center);
+
+        let file_panel = column![
+            container(file_header).style(style::grid_header_cell),
+            file_scroll,
+        ];
+
+        let item_panel = column![
             container(item_list_header).style(style::grid_header_cell),
             item_scroll,
         ];
 
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
-            .spacing(0)
-            .height(Length::Fill);
+        let main_content = row![
+            file_panel.width(Length::FillPortion(1)),
+            item_panel.width(Length::FillPortion(1)),
+            detail_panel,
+        ]
+        .spacing(0)
+        .height(Length::Fill);
 
         column![
             horizontal_rule(1),

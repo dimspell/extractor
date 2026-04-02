@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::utils::{
-    horizontal_rule, horizontal_space, labeled_input, labeled_select, vertical_space,
+    horizontal_rule, horizontal_space, labeled_input, labeled_select, truncate_path, vertical_space,
 };
 use dispel_core::{DialogOwner, DialogType};
 use iced::widget::{button, column, container, row, scrollable, text};
@@ -11,6 +11,32 @@ use iced::{Element, Fill, Font, Length};
 impl App {
     pub fn view_dialog_editor_tab(&self) -> Element<'_, Message> {
         let editor = &self.dialog_editor;
+
+        let file_list: Vec<Element<Message>> = editor
+            .dialog_files
+            .iter()
+            .enumerate()
+            .map(|(_idx, path)| {
+                let is_selected = editor.current_file == path.to_string_lossy();
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                let label = truncate_path(&name, 30);
+
+                let btn = button(text(label).size(11).font(Font::MONOSPACE))
+                    .width(Fill)
+                    .on_press(Message::DialogOpSelectFile(path.clone()));
+
+                if is_selected {
+                    btn.style(style::active_chip).into()
+                } else {
+                    btn.style(style::chip).into()
+                }
+            })
+            .collect();
+
+        let file_scroll = scrollable(column(file_list).spacing(4)).height(Length::Fill);
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_dialogs
@@ -140,28 +166,45 @@ impl App {
 
         let detail_panel = container(detail_scroll)
             .padding(16)
-            .width(380)
+            .width(Length::FillPortion(2))
             .style(style::info_card);
 
-        let item_list_header = row![
-            text("Dialogs").size(14),
+        let file_header = row![
+            text("Dialog Files").size(14),
             horizontal_space(),
             button(text("Scan"))
-                .on_press(Message::DialogOpLoadCatalog)
+                .on_press(Message::DialogOpScanFiles)
                 .padding([5, 10])
                 .style(style::run_button),
+            button(text("Browse"))
+                .on_press(Message::DialogOpBrowseFile)
+                .padding([5, 10])
+                .style(style::browse_button),
         ]
         .padding(10)
         .align_y(iced::Alignment::Center);
 
-        let left_panel = column![
+        let item_list_header = row![text("Entries").size(14), horizontal_space()]
+            .padding(10)
+            .align_y(iced::Alignment::Center);
+
+        let file_panel = column![
+            container(file_header).style(style::grid_header_cell),
+            file_scroll,
+        ];
+
+        let item_panel = column![
             container(item_list_header).style(style::grid_header_cell),
             item_scroll,
         ];
 
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
-            .spacing(0)
-            .height(Length::Fill);
+        let main_content = row![
+            file_panel.width(Length::FillPortion(1)),
+            item_panel.width(Length::FillPortion(1)),
+            detail_panel,
+        ]
+        .spacing(0)
+        .height(Length::Fill);
 
         column![
             horizontal_rule(1),

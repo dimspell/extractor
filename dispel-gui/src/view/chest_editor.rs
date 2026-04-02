@@ -2,8 +2,9 @@ use crate::app::App;
 use crate::message::Message;
 use crate::style;
 use crate::utils::{
-    horizontal_rule, horizontal_space, labeled_input, truncate_path, vertical_space,
+    horizontal_rule, horizontal_space, labeled_input, labeled_select, truncate_path, vertical_space,
 };
+use dispel_core::ItemTypeId;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font};
 
@@ -134,10 +135,23 @@ impl App {
                 detail_content.push(labeled_input("Item ID:", &editor.edit_item_id, move |v| {
                     Message::ChestOpFieldChanged(orig, "item_id".into(), v)
                 }));
-                detail_content.push(labeled_input(
+                let type_options = vec![
+                    ItemTypeId::Weapon,
+                    ItemTypeId::Healing,
+                    ItemTypeId::Edit,
+                    ItemTypeId::Misc,
+                    ItemTypeId::Event,
+                    ItemTypeId::Other,
+                ];
+                let type_value =
+                    ItemTypeId::from_name(&editor.edit_item_type).unwrap_or(ItemTypeId::Weapon);
+                detail_content.push(labeled_select(
                     "Item Type:",
-                    &editor.edit_item_type,
-                    move |v| Message::ChestOpFieldChanged(orig, "item_type".into(), v),
+                    type_value,
+                    type_options,
+                    move |v| {
+                        Message::ChestOpFieldChanged(orig, "item_type".into(), format!("{:?}", v))
+                    },
                 ));
                 detail_content.push(labeled_input(
                     "Closed (0=open, 1=closed):",
