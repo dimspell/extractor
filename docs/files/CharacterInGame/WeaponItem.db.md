@@ -55,31 +55,32 @@ Binary database file that defines all weapons, armor, and equipment with compreh
 
 ### Field Definitions
 
-| Field | Size | Type | Description |
-|-------|------|------|-------------|
-| id | N/A | i32 | Record index (assigned during parsing) |
-| name | 30 | string | Item name (WINDOWS-1250 encoded) |
-| description | 202 | string | Item description (WINDOWS-1250 encoded) |
-| base_price | 2 | i16 | Economic value (shop price) |
-| health_points | 2 | i16 | Health points bonus |
-| mana_points | 2 | i16 | Mana points bonus |
-| strength | 2 | i16 | Strength bonus |
-| agility | 2 | i16 | Agility bonus |
-| wisdom | 2 | i16 | Wisdom/Magic bonus |
-| constitution | 2 | i16 | Constitution bonus |
-| to_dodge | 2 | i16 | Dodge chance modifier |
-| to_hit | 2 | i16 | Hit chance bonus |
-| attack | 2 | i16 | Offensive power |
-| defense | 2 | i16 | Defensive power |
-| magical_strength | 2 | i16 | Magical power bonus |
-| durability | 2 | i16 | Item durability/health |
-| req_strength | 2 | i16 | Required strength to equip |
-| req_agility | 2 | i16 | Required agility to equip |
-| req_wisdom | 2 | i16 | Required wisdom to equip |
+| Field            | Size | Type   | Description                             |
+| ---------------- | ---- | ------ | --------------------------------------- |
+| id               | N/A  | i32    | Record index (assigned during parsing)  |
+| name             | 30   | string | Item name (WINDOWS-1250 encoded)        |
+| description      | 202  | string | Item description (WINDOWS-1250 encoded) |
+| base_price       | 2    | i16    | Economic value (shop price)             |
+| health_points    | 2    | i16    | Health points bonus                     |
+| mana_points      | 2    | i16    | Mana points bonus                       |
+| strength         | 2    | i16    | Strength bonus                          |
+| agility          | 2    | i16    | Agility bonus                           |
+| wisdom           | 2    | i16    | Wisdom/Magic bonus                      |
+| constitution     | 2    | i16    | Constitution bonus                      |
+| to_dodge         | 2    | i16    | Dodge chance modifier                   |
+| to_hit           | 2    | i16    | Hit chance bonus                        |
+| attack           | 2    | i16    | Offensive power                         |
+| defense          | 2    | i16    | Defensive power                         |
+| magical_strength | 2    | i16    | Magical power bonus                     |
+| durability       | 2    | i16    | Item durability/health                  |
+| req_strength     | 2    | i16    | Required strength to equip              |
+| req_agility      | 2    | i16    | Required agility to equip               |
+| req_wisdom       | 2    | i16    | Required wisdom to equip                |
 
 ### Statistic System
 
 **Character Bonuses:**
+
 - **Health/Mana**: Direct stat improvements
 - **Strength/Agility/Wisdom**: Attribute bonuses
 - **Constitution**: Physical endurance
@@ -88,6 +89,7 @@ Binary database file that defines all weapons, armor, and equipment with compreh
 - **Magical Strength**: Spell effectiveness
 
 **Requirement System:**
+
 - **req_strength**: Minimum strength to equip
 - **req_agility**: Minimum agility to equip
 - **req_wisdom**: Minimum wisdom to equip
@@ -130,8 +132,8 @@ Offset | Size | Field | Description
 30     | 202  | desc  | Null-padded WINDOWS-1250 string
 232    | 2    | price | Economic value (i16)
 234    | 6    | pad1  | Unused padding
-240    | 2    | PZ    | Health bonus (i16)
-242    | 2    | PM    | Mana bonus (i16)
+240    | 2    | HP    | Health bonus (i16)
+242    | 2    | MP    | Mana bonus (i16)
 244    | 2    | STR   | Strength bonus (i16)
 246    | 2    | AGI   | Agility bonus (i16)
 248    | 2    | WIS   | Wisdom bonus (i16)
@@ -151,7 +153,23 @@ Offset | Size | Field | Description
 278    | 6    | pad5  | Unused padding
 ```
 
+### Field Abbrevartion
 
+| Explanation                 | Polish  | English |
+| --------------------------- | ------- | ------- |
+| Health Points               | PZ      | HP      |
+| Mana Points                 | PM      | MP      |
+| Strength                    | SIŁ     | STR     |
+| Agility                     | ZW      | AGI     |
+| Constitution                | TF      | CON     |
+| Wisdom/Magic                | MM      | WIS     |
+| Dodge                       | UNK     | DOD     |
+| Hit Rate                    | TRF     | HIT     |
+| Attack power                | ATK     | ATK     |
+| Defense                     | OBR     | DEF     |
+| Magical power               | MAG/PGM | MAG     |
+| Durability                  | WYT     | DUR     |
+| Required stat for equipment | REQ     | REQ     |
 
 ### Usage in Game
 
@@ -172,17 +190,20 @@ Offset | Size | Field | Description
 ### Technical Details
 
 **Text Encoding:**
+
 - WINDOWS-1250 for all text fields
 - Null-terminated strings with padding
 - Fixed field sizes (30 and 202 bytes)
 
 **Binary Processing:**
+
 - Little-endian byte order
 - Fixed record size validation
 - Statistical data parsing
 - Requirement system handling
 
 **Database Integration:**
+
 - Processed by `WeaponItem` struct
 - Stored with all statistical fields
 - Linked to equipment and combat systems
@@ -191,18 +212,21 @@ Offset | Size | Field | Description
 ### Equipment System Analysis
 
 **Stat Bonuses:**
+
 - Direct attribute improvements
 - Combat effectiveness modifiers
 - Character customization
 - Equipment specialization
 
 **Requirement System:**
+
 - Prevents early-game abuse
 - Encourages character development
 - Creates equipment progression
 - Balances game difficulty
 
 **Durability System:**
+
 - Item wear and tear
 - Repair mechanics
 - Equipment longevity
@@ -211,6 +235,7 @@ Offset | Size | Field | Description
 ### Legal Compliance
 
 This documentation:
+
 - Describes **file format specifications only**
 - Does **not** distribute any weapon data or game content
 - Focuses on **technical organization and equipment systems**
@@ -228,12 +253,14 @@ This documentation:
 ### Comparison with Other Item Databases
 
 **WeaponItem.db vs HealItem.db:**
+
 - **WeaponItem.db**: Permanent equipment with stats
 - **HealItem.db**: Consumable items with effects
 - **WeaponItem.db**: Complex statistical system
 - **HealItem.db**: Simple healing mechanics
 
 **WeaponItem.db vs MiscItem.db:**
+
 - **WeaponItem.db**: Combat equipment with requirements
 - **MiscItem.db**: Utility items without stats
 - **WeaponItem.db**: Character progression focus
@@ -242,6 +269,7 @@ This documentation:
 ### File Purpose Summary
 
 WeaponItem.db serves as a comprehensive database for:
+
 - Weapon and armor statistics
 - Character equipment systems
 - Combat effectiveness modifiers

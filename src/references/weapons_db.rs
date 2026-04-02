@@ -54,21 +54,6 @@ use serde::{Deserialize, Serialize};
 // | ... (same structure) ...             |
 // +--------------------------------------+
 //
-// FIELD ABBREVIATIONS:
-// - PZ: Health Points (Polish: Punkty Zdrowia)
-// - PM: Mana Points (Polish: Punkty Magii)
-// - SIŁ: Strength (Polish: Siła)
-// - ZW: Agility (Polish: Zwinność)
-// - MM: Wisdom/Magic (Polish: Magia/Mądrość)
-// - TF: Constitution (Polish: Tężyzna Fizyczna)
-// - UNK: Dodge (Polish: Unik)
-// - TRF: Hit Rate (Polish: Trafienie)
-// - ATK: Attack power
-// - OBR: Defense (Polish: Obrona)
-// - MAG: Magical power
-// - WYT: Durability (Polish: Wytrzymałość)
-// - REQ: Required stat for equipment
-//
 // FILE PURPOSE:
 // Complete database of all weapons, armor, and equipment with statistics,
 // requirements, and game properties. Used for character equipment,
@@ -128,8 +113,6 @@ pub struct WeaponItem {
 /// - `name`        : 30 bytes, null-padded, WINDOWS-1250
 /// - `description` : 202 bytes, null-padded, WINDOWS-1250
 /// - Stats         : sequence of i16 fields (base_price, padding×3, PZ, PM, SIŁ, ZW,
-///   MM, TF, UNK, TRF, ATK, OBR, MAG, WYT, pad×2,
-///   REQ_SIŁ, pad, REQ_ZW, pad, REQ_MM, pad×3)
 impl Extractor for WeaponItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;
