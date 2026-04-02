@@ -2655,7 +2655,8 @@ impl App {
             Message::ChDataCatalogLoaded(res) => {
                 self.chdata_editor.is_loading = false;
                 match res {
-                    Ok(_) => {
+                    Ok(catalog) => {
+                        self.chdata_editor.catalog = Some(catalog);
                         self.chdata_editor.select_data();
                         self.chdata_editor.status_msg = "ChData loaded successfully.".into();
                     }
