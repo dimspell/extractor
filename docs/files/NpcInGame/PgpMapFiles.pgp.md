@@ -57,7 +57,16 @@ Stores dialogue text content with developer comments and logical parameters. Use
 - **Extractor**: `DialogueText` struct implementing `Extractor` trait
 - **Database**: Saved to SQLite via `save_dialogue_texts` function
 
-## Example Usage
+## Extractor
+
+An extractor is available in `src/references/dialogue_text.rs` to parse this file format.
+
+### How to Run
+
 ```bash
-cargo run -- ref party-pgp "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
+# Extract Pgpmap1.pgp to JSON
+cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/Pgpmap1.pgp"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 ```

@@ -109,4 +109,18 @@ cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
 51|2|Trade Route|Establish new trade connections
 ```
 
+## Extractor
+
+An extractor is available in `src/references/quest_scr.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Quest.scr to JSON
+cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```
+
 

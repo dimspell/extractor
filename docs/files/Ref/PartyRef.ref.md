@@ -196,3 +196,17 @@ The file enables analysis of:
 - Dialogue coverage
 - Party composition options
 - Character progression paths
+
+## Extractor
+
+An extractor is available in `src/references/party_ref.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract PartyRef.ref to JSON
+cargo run -- ref party-ref "fixtures/Dispel/Ref/PartyRef.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

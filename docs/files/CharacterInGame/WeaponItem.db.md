@@ -249,3 +249,17 @@ WeaponItem.db serves as a comprehensive database for:
 - Shop and inventory management
 
 The file provides a sophisticated system for managing all character equipment in the game, supporting both simple weapons and complex armor sets with extensive statistical properties and requirement systems.
+
+## Extractor
+
+An extractor is available in `src/references/weapons_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract weaponItem.db to JSON
+cargo run -- ref weapons "fixtures/Dispel/CharacterInGame/weaponItem.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

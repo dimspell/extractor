@@ -156,3 +156,17 @@ This documentation:
 - unknown_flag values suggest priority/channel system
 - File is complete and well-organized by functional categories
 - **No copyrighted audio content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/wave_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Wave.ini to JSON
+cargo run -- ref wave "fixtures/Dispel/Wave.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

@@ -49,7 +49,16 @@ Defines NPCs that appear only during specific scripted events. Used for quest-re
 - **Extractor**: `EventNpcRef` struct implementing `Extractor` trait
 - **Database**: Saved to SQLite via `save_event_npc_refs` function
 
-## Example Usage
+## Extractor
+
+An extractor is available in `src/references/event_npc_ref.rs` to parse this file format.
+
+### How to Run
+
 ```bash
+# Extract Eventnpc.ref to JSON
 cargo run -- ref event-npc-ref "fixtures/Dispel/NpcInGame/Eventnpc.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 ```

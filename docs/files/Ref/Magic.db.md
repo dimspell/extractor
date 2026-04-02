@@ -125,3 +125,17 @@ cargo run -- ref magic "Dispel/MagicInGame/Magic.db"
 ```bash
 cargo run -- database import "Dispel/"
 ```
+
+## Extractor
+
+An extractor is available in `src/references/magic_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Magic.db to JSON
+cargo run -- ref magic "fixtures/Dispel/Ref/Magic.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

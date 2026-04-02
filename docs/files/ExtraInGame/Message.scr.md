@@ -87,3 +87,17 @@ cargo run -- ref message "Dispel/ExtraInGame/Message.scr"
 - `Quest.scr` - Quest journal entries
 - `Extra.ini` - Object definitions referencing messages
 - Game scripts triggering message display
+
+## Extractor
+
+An extractor is available in `src/references/message_scr.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Message.scr to JSON
+cargo run -- ref message "fixtures/Dispel/ExtraInGame/Message.scr"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

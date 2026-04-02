@@ -70,7 +70,16 @@ Defines NPC placements with waypoints, dialogue, and behavioral parameters. Used
 - **Extractor**: `NPC` struct implementing `Extractor` trait
 - **Database**: Saved to SQLite via `save_npc_refs` function
 
-## Example Usage
+## Extractor
+
+An extractor is available in `src/references/npc_ref.rs` to parse this file format.
+
+### How to Run
+
 ```bash
+# Extract Npccat1.ref to JSON
 cargo run -- ref npc-ref "fixtures/Dispel/NpcInGame/Npccat1.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 ```

@@ -110,3 +110,17 @@ Bytes 80-83:  u32 total
 - File size check (must be 84 bytes)
 - Data integrity validation
 - Range checking for values
+
+## Extractor
+
+An extractor is available in `src/references/chdata_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract ChData.db to JSON
+cargo run -- ref chdata "fixtures/Dispel/CharacterInGame/ChData.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

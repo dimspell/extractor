@@ -97,3 +97,17 @@ This documentation:
 - File uses Windows-style line endings (\r\n)
 - IDs appear to be sequential but with some gaps (45-50, 64-66, etc.)
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/npc_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Npc.ini to JSON
+cargo run -- ref npc "fixtures/Dispel/Npc.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

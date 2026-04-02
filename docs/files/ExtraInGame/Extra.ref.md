@@ -249,3 +249,17 @@ This documentation:
 - Door objects may require specific keys defined by `required_item_*` fields
 - Magic objects (type 7) likely represent spell-related interactables
 - The dual key system (`required_item_id`/`required_item_id2`) may support key ranges or multiple key types
+
+## Extractor
+
+An extractor is available in `src/references/extra_ref.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Extdun01.ref to JSON
+cargo run -- ref extra-ref "fixtures/Dispel/ExtraInGame/Extdun01.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

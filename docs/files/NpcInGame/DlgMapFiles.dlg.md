@@ -58,7 +58,16 @@ Defines dialogue scripts with branching conversations, event triggers, and text 
 - **Extractor**: `Dialog` struct implementing `Extractor` trait
 - **Database**: Saved to SQLite via `save_dialogs` function
 
-## Example Usage
+## Extractor
+
+An extractor is available in `src/references/dialog.rs` to parse this file format.
+
+### How to Run
+
 ```bash
+# Extract Dlgcat1.dlg to JSON
 cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 ```

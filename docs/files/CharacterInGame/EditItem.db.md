@@ -203,3 +203,17 @@ Offset | Size | Field | Description
 - Fixed record size enables efficient random access
 - Integrated with crafting and enhancement systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/edit_item_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract EditItem.db to JSON
+cargo run -- ref edit-items "fixtures/Dispel/CharacterInGame/EditItem.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

@@ -318,3 +318,17 @@ Monster.db serves as a comprehensive database for:
 - Balanced difficulty progression
 
 The file provides a sophisticated system for managing all monster types in the game, supporting diverse combat encounters with varied statistics, behaviors, and reward structures.
+
+## Extractor
+
+An extractor is available in `src/references/monster_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Monster.db to JSON
+cargo run -- ref monsters "fixtures/Dispel/MonsterInGame/Monster.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

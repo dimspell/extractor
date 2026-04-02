@@ -124,3 +124,26 @@ Sprites are stored as sequences with metadata including:
 
 ## Event System
 Each tile can have an associated event ID that triggers in-game events when the player interacts with that location.
+
+## Extractor
+
+An extractor is available in `src/map/mod.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract map sprites
+cargo run -- map sprites "fixtures/Dispel/Map/cat1.map"
+
+# Render map to PNG
+cargo run -- map render \
+  --map "fixtures/Dispel/Map/cat1.map" \
+  --btl "fixtures/Dispel/Map/cat1.btl" \
+  --gtl "fixtures/Dispel/Map/cat1.gtl" \
+  --output cat1.png
+
+# Import map to database
+cargo run -- map to-db \
+  --database "database.sqlite" \
+  --map "fixtures/Dispel/Map/cat1.map"
+```

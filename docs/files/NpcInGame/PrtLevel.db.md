@@ -116,3 +116,17 @@ cargo run -- database import "fixtures/Dispel"
 - `PrtIni.db` - Party initialization data
 - `Npc.ini` - NPC definitions
 - Character sprite files (`.spr`)
+
+## Extractor
+
+An extractor is available in `src/references/party_level_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract PrtLevel.db to JSON
+cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

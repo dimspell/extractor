@@ -59,6 +59,20 @@ This documentation:
 - Uses **generic descriptions** of file purposes
 - Maintains **nominal fair use** for trademark references
 
+## Extractor
+
+An extractor is available in `src/references/all_map_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract AllMap.ini to JSON
+cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```
+
 ## Notes
 - The file is parsed by the `Map` struct in `src/references/all_map_ini.rs`
 - Maps are stored in a database using the `save_maps` function

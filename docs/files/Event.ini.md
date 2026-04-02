@@ -172,3 +172,17 @@ This documentation:
 - Event system forms core of game progression mechanics
 - Integrated with multiple game subsystems
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/event_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Event.ini to JSON
+cargo run -- ref event "fixtures/Dispel/Event.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

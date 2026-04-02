@@ -128,3 +128,17 @@ Frames can have variable dimensions:
 - `Monster.ini` - Monster definitions referencing sprites
 - `Extra.ini` - Object definitions referencing sprites
 - `*.map` files - Map files containing embedded sprites
+
+## Extractor
+
+An extractor is available in `src/sprite.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract individual frames
+cargo run -- sprite "fixtures/Dispel/CharacterInGame/M_BODY1.spr" "M_BODY1"
+
+# Extract as animation
+cargo run -- sprite "fixtures/Dispel/CharacterInGame/M_BODY1.spr" --mode animation
+```

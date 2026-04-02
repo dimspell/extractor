@@ -181,3 +181,17 @@ This documentation:
 - Animation sequences link to SPR file frame indices
 - Integrated with monster placement and combat systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/monster_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Monster.ini to JSON
+cargo run -- ref monster "fixtures/Dispel/CharacterInGame/Monster.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

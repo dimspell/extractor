@@ -154,3 +154,17 @@ This documentation:
 - Descriptions use EUC-KR encoding for international characters
 - Integrated with map placement and interaction systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/extra_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Extra.ini to JSON
+cargo run -- ref extra "fixtures/Dispel/Extra.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

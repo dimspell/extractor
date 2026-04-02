@@ -89,3 +89,17 @@ This documentation:
 - **Monster placement files** (`mon*.ref`): `Dispel/MonsterInGame/` directory
 - **NPC placement files** (`npc*.ref`): `Dispel/NpcInGame/` directory
 - **Extra objects files** (`Ext*.ref`): `Dispel/ExtraInGame/` directory
+
+## Extractor
+
+An extractor is available in `src/references/map_ini.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Map.ini to JSON
+cargo run -- ref map "fixtures/Dispel/Ref/Map.ini"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

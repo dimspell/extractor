@@ -74,6 +74,7 @@ Binary database file that defines shops and inns with inventories, prices, merch
 - **2**: Healing - Healing items (potions, etc.)
 - **3**: EditItem - Editable/modifiable equipment
 - **4**: MiscItem - Miscellaneous items
+- **5**: EventItem - Event items
 
 **Product Format:**
 - `(order: i16, type: i16, item_id: i16)`
@@ -117,9 +118,6 @@ VAR+640| 128  | fail  | Haggle fail text
 
 - **inn_night_cost > 0**: Inn record (no products)
 - **inn_night_cost = 0**: Shop record (with products)
-- **inn_night_cost = -1**: Special/quest shop
-- **Product type = 0**: Terminates product list
-- **Null-padded strings**: Fixed-size text fields
 
 ### Example Structures
 
@@ -221,3 +219,17 @@ Store.db serves as a comprehensive database for:
 - Quest-related commerce locations
 
 The file provides a sophisticated system for managing all commerce-related entities in the game, supporting both simple inns and complex shops with extensive inventories and interactive dialogue.
+
+## Extractor
+
+An extractor is available in `src/references/store_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Store.db to JSON
+cargo run -- ref store "fixtures/Dispel/CharacterInGame/Store.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

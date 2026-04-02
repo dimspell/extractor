@@ -137,3 +137,17 @@ The file enables analysis of:
 - Hidden object locations
 - World design balance
 - Object density and variety
+
+## Extractor
+
+An extractor is available in `src/references/draw_item.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract DrawItem.ref to JSON
+cargo run -- ref draw-item "fixtures/Dispel/Ref/DrawItem.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

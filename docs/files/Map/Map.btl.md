@@ -109,3 +109,17 @@ RGB(0,0,0) pixels are treated as transparent during rendering, allowing for prop
 | **Layer**     | Above ground | Ground level |
 | **Usage**     | Stacked for 3D effect | Single layer |
 | **Examples**  | Houses, castles | Grass, dirt, water |
+
+## Extractor
+
+An extractor is available in `src/map/tileset.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract building tiles to individual PNGs
+cargo run -- map tiles "fixtures/Dispel/Map/cat1.btl" --output "out/cat1-btl"
+
+# Generate building tileset atlas
+cargo run -- map atlas "fixtures/Dispel/Map/cat1.btl" cat1.btl.png
+```

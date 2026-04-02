@@ -155,3 +155,17 @@ This documentation:
 - Fixed record size enables efficient parsing
 - Integrated with quest progression systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/event_item_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract EventItem.db to JSON
+cargo run -- ref event-items "fixtures/Dispel/CharacterInGame/EventItem.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

@@ -174,3 +174,17 @@ This documentation:
 - Padding fields are unused and typically contain 0x00 or 0xFF values
 - Files are processed by `MonsterRef` struct in the codebase
 - **No copyrighted game content** is reproduced or distributed
+
+## Extractor
+
+An extractor is available in `src/references/monster_ref.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract Mondun01.ref to JSON
+cargo run -- ref monster-ref "fixtures/Dispel/MonsterInGame/Mondun01.ref"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

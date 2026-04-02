@@ -195,3 +195,17 @@ MiscItem.db serves as a comprehensive database for:
 - Miscellaneous game objects
 
 The file provides a simple but flexible system for managing all types of generic items in the game, supporting both functional utility items and narrative quest objects.
+
+## Extractor
+
+An extractor is available in `src/references/misc_item_db.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract MiscItem.db to JSON
+cargo run -- ref misc-item "fixtures/Dispel/CharacterInGame/MiscItem.db"
+
+# Import to SQLite database
+cargo run -- database import "fixtures/Dispel/" "database.sqlite"
+```

@@ -96,3 +96,17 @@ The `create_mask` function generates a diamond-shaped mask for proper isometric 
 
 ## Transparency Handling
 RGB(0,0,0) pixels are treated as transparent during rendering, allowing for proper layering of tiles and sprites.
+
+## Extractor
+
+An extractor is available in `src/map/tileset.rs` to parse this file format.
+
+### How to Run
+
+```bash
+# Extract tiles to individual PNGs
+cargo run -- map tiles "fixtures/Dispel/Map/cat1.gtl" --output "out/cat1-gtl"
+
+# Generate tileset atlas
+cargo run -- map atlas "fixtures/Dispel/Map/cat1.gtl" cat1.gtl.png
+```
