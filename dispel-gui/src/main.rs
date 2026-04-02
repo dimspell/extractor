@@ -30,9 +30,9 @@ pub mod party_ini_editor;
 pub mod party_level_db_editor;
 pub mod party_ref_editor;
 pub mod quest_scr_editor;
+pub mod sprite_browser;
 pub mod store_editor;
 pub mod style;
-pub mod sprite_browser;
 pub mod types;
 pub mod utils;
 pub mod view;
@@ -44,7 +44,8 @@ use crate::app::App;
 pub fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
         .theme(|_: &App| {
-            Theme::custom("Dispel Medieval",
+            Theme::custom(
+                "Medieval",
                 iced::theme::Palette {
                     background: color!(0x2a2a2a),
                     text: color!(0xeae0c8),
