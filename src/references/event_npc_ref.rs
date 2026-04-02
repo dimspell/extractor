@@ -80,7 +80,7 @@ impl Extractor for EventNpcRef {
                 .build(f),
         );
         let mut npc_refs: Vec<EventNpcRef> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if line.starts_with(";") || line.trim().is_empty() {
                 continue;
             }

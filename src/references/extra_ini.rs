@@ -89,7 +89,7 @@ impl Extractor for Extra {
                 .build(f),
         );
         let mut extras: Vec<Extra> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if line.starts_with(";") {
                 continue;
             }

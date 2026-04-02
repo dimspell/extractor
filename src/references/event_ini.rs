@@ -91,34 +91,31 @@ impl Extractor for Event {
         );
 
         let mut events: Vec<Event> = Vec::new();
-        for line in reader.lines() {
-            if let Ok(line) = line {
-                let trimmed = line.trim();
-                if trimmed.starts_with(";") || trimmed.is_empty() {
-                    continue;
-                }
-
-                let parts: Vec<&str> = trimmed.split(",").collect();
-                if parts.len() < 5 {
-                    continue;
-                }
-                let event_id = parts[0].parse::<i32>().unwrap();
-                let previous_event_id: i32 = parts[1].parse::<i32>().unwrap();
-                let event_type_id = parts[2].parse::<i32>().unwrap();
-                let event_filename = parse_null(parts[3]);
-                let counter = parts[4].parse::<i32>().unwrap();
-
-                // Convert the raw event_type_id to our type-safe enum
-                let event_type = EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
-
-                events.push(Event {
-                    event_id,
-                    previous_event_id,
-                    event_type,
-                    event_filename,
-                    counter,
-                });
+        for line in reader.lines().map_while(Result::ok) {
+            let trimmed = line.trim();
+            if trimmed.starts_with(";") || trimmed.is_empty() {
+                continue;
             }
+
+            let parts: Vec<&str> = trimmed.split(",").collect();
+            if parts.len() < 5 {
+                continue;
+            }
+            let event_id = parts[0].parse::<i32>().unwrap();
+            let previous_event_id: i32 = parts[1].parse::<i32>().unwrap();
+            let event_type_id = parts[2].parse::<i32>().unwrap();
+            let event_filename = parse_null(parts[3]);
+            let counter = parts[4].parse::<i32>().unwrap();
+
+            let event_type = EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
+
+            events.push(Event {
+                event_id,
+                previous_event_id,
+                event_type,
+                event_filename,
+                counter,
+            });
         }
         Ok(events)
     }

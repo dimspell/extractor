@@ -142,7 +142,7 @@ pub fn read_party_ini_db(source_path: &Path) -> Result<Vec<PartyIniNpc>> {
     PartyIniNpc::read_file(source_path)
 }
 
-pub fn save_party_inis(conn: &mut Connection, npcs: &Vec<PartyIniNpc>) -> DbResult<()> {
+pub fn save_party_inis(conn: &mut Connection, npcs: &[PartyIniNpc]) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_party_ini.sql"))?;

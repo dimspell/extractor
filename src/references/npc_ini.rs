@@ -74,7 +74,7 @@ impl Extractor for NpcIni {
                 .build(f),
         );
         let mut npc_inis: Vec<NpcIni> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(";") || trimmed.is_empty() {
                 continue;

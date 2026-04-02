@@ -23,8 +23,8 @@ pub fn render_map(
     output_path: &std::path::Path,
     data: &super::MapData,
     occlusion: bool,
-    gtl_tileset: &Vec<Tile>,
-    btl_tileset: &Vec<Tile>,
+    gtl_tileset: &[Tile],
+    btl_tileset: &[Tile],
     _map_id: &str,
 ) -> Result<()> {
     let image_width = if occlusion {
@@ -74,12 +74,14 @@ pub fn render_map(
         &data.model,
         occlusion,
         &data.btl_tiles,
-        btl_tileset,
-        &data.tiled_infos,
-        &data.internal_sprites,
-        &data.sprite_blocks,
-        offset_x,
-        offset_y,
+        PlotObjectsParams {
+            btl_tileset,
+            tiled_info: &data.tiled_infos,
+            internal_sprites: &data.internal_sprites,
+            sprite_blocks: &data.sprite_blocks,
+            offset_x,
+            offset_y,
+        },
     )?;
     plot_roofs(
         &mut imgbuf,
@@ -102,7 +104,7 @@ pub fn plot_base(
     model: &MapModel,
     occlusion: bool,
     gtl_tiles: &HashMap<Coords, i32>,
-    gtl_tileset: &Vec<Tile>,
+    gtl_tileset: &[Tile],
     collisions: &HashMap<Coords, bool>,
     events: &HashMap<Coords, EventBlock>,
 ) {
@@ -160,18 +162,23 @@ pub fn plot_base(
 // Object layer (sprites + tiled objects, sorted by ground-y)
 // --------------------------------------------------------------------------
 
+#[derive(Clone, Copy)]
+pub struct PlotObjectsParams<'a> {
+    btl_tileset: &'a [Tile],
+    tiled_info: &'a [TiledObjectInfo],
+    internal_sprites: &'a [SequenceInfo],
+    sprite_blocks: &'a [SpriteInfoBlock],
+    offset_x: i32,
+    offset_y: i32,
+}
+
 pub fn plot_objects(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     reader: &mut BufReader<File>,
     _model: &MapModel,
     _occlusion: bool,
     _btl_tiles: &HashMap<Coords, i32>,
-    btl_tileset: &Vec<Tile>,
-    tiled_info: &Vec<TiledObjectInfo>,
-    internal_sprites: &Vec<SequenceInfo>,
-    sprite_blocks: &Vec<SpriteInfoBlock>,
-    offset_x: i32,
-    offset_y: i32,
+    params: PlotObjectsParams,
 ) -> Result<()> {
     enum Kind {
         Sprite(usize),
@@ -184,17 +191,15 @@ pub fn plot_objects(
 
     let mut items = Vec::new();
 
-    for i in 0..sprite_blocks.len() {
-        let block = &sprite_blocks[i];
-        let sequence = &internal_sprites[block.sprite_id];
+    for (i, block) in params.sprite_blocks.iter().enumerate() {
+        let sequence = &params.internal_sprites[block.sprite_id];
         let sprite = &sequence.frame_infos[0];
         items.push(Item {
             ground_y: block.sprite_y + sprite.height,
             kind: Kind::Sprite(i),
         });
     }
-    for i in 0..tiled_info.len() {
-        let info = &tiled_info[i];
+    for (i, info) in params.tiled_info.iter().enumerate() {
         items.push(Item {
             ground_y: info.y + (info.ids.len() as i32 * TILE_HEIGHT as i32),
             kind: Kind::TiledObject(i),
@@ -207,14 +212,18 @@ pub fn plot_objects(
             Kind::Sprite(i) => plot_single_sprite(
                 imgbuf,
                 reader,
-                &sprite_blocks[i],
-                internal_sprites,
-                offset_x,
-                offset_y,
+                &params.sprite_blocks[i],
+                params.internal_sprites,
+                params.offset_x,
+                params.offset_y,
             )?,
-            Kind::TiledObject(i) => {
-                plot_single_tiled_object(imgbuf, &tiled_info[i], btl_tileset, offset_x, offset_y)
-            }
+            Kind::TiledObject(i) => plot_single_tiled_object(
+                imgbuf,
+                &params.tiled_info[i],
+                params.btl_tileset,
+                params.offset_x,
+                params.offset_y,
+            ),
         }
     }
     Ok(())
@@ -223,7 +232,7 @@ pub fn plot_objects(
 fn plot_single_tiled_object(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     tiled_info: &TiledObjectInfo,
-    btl_tileset: &Vec<Tile>,
+    btl_tileset: &[Tile],
     offset_x: i32,
     offset_y: i32,
 ) {
@@ -241,7 +250,7 @@ fn plot_single_sprite(
     imgbuf: &mut ImageBuffer<Rgb<u8>, Vec<u8>>,
     reader: &mut BufReader<File>,
     sprite_block: &SpriteInfoBlock,
-    internal_sprites: &Vec<SequenceInfo>,
+    internal_sprites: &[SequenceInfo],
     offset_x: i32,
     offset_y: i32,
 ) -> Result<()> {
@@ -291,7 +300,7 @@ pub fn plot_roofs(
     model: &MapModel,
     occlusion: bool,
     btl_tiles: &HashMap<Coords, i32>,
-    btl_tileset: &Vec<Tile>,
+    btl_tileset: &[Tile],
 ) {
     let map_diagonal_tiles = model.tiled_map_width + model.tiled_map_height;
     let width = model.tiled_map_width;
@@ -324,49 +333,52 @@ pub fn plot_roofs(
 // Atlas tile blitter (used by render_from_database)
 // --------------------------------------------------------------------------
 
+pub struct AtlasTileParams<'a> {
+    pub dest: &'a mut image::RgbaImage,
+    pub atlas: &'a image::DynamicImage,
+    pub src_x: u32,
+    pub src_y: u32,
+    pub tile_w: u32,
+    pub tile_h: u32,
+    pub dest_x: i32,
+    pub dest_y: i32,
+}
+
 /// Copies a tile from a pre-built atlas image onto the destination buffer,
 /// with per-pixel alpha blending support.
-pub fn plot_atlas_tile(
-    dest: &mut image::RgbaImage,
-    atlas: &image::DynamicImage,
-    src_x: u32,
-    src_y: u32,
-    tile_w: u32,
-    tile_h: u32,
-    dest_x: i32,
-    dest_y: i32,
-) {
+pub fn plot_atlas_tile(params: AtlasTileParams) {
     use image::GenericImageView;
 
-    if dest_x < 0 || dest_y < 0 {
+    let dest_x = if params.dest_x < 0 || params.dest_y < 0 {
         return;
-    }
-    let dest_x = dest_x as u32;
-    let dest_y = dest_y as u32;
+    } else {
+        params.dest_x as u32
+    };
+    let dest_y = params.dest_y as u32;
 
-    if dest_x + tile_w > dest.width()
-        || dest_y + tile_h > dest.height()
-        || src_x + tile_w > atlas.width()
-        || src_y + tile_h > atlas.height()
+    if dest_x + params.tile_w > params.dest.width()
+        || dest_y + params.tile_h > params.dest.height()
+        || params.src_x + params.tile_w > params.atlas.width()
+        || params.src_y + params.tile_h > params.atlas.height()
     {
         return;
     }
 
-    for py in 0..tile_h {
-        for px in 0..tile_w {
-            let pixel = atlas.get_pixel(src_x + px, src_y + py);
+    for py in 0..params.tile_h {
+        for px in 0..params.tile_w {
+            let pixel = params.atlas.get_pixel(params.src_x + px, params.src_y + py);
             let alpha = pixel[3];
             if alpha == 0 {
                 continue;
             }
             if alpha == 255 {
-                dest.put_pixel(dest_x + px, dest_y + py, pixel);
+                params.dest.put_pixel(dest_x + px, dest_y + py, pixel);
             } else {
-                let existing = *dest.get_pixel(dest_x + px, dest_y + py);
+                let existing = *params.dest.get_pixel(dest_x + px, dest_y + py);
                 let blend = |src: u8, dst: u8, a: u8| -> u8 {
                     ((src as u32 * a as u32 + dst as u32 * (255 - a as u32)) / 255) as u8
                 };
-                dest.put_pixel(
+                params.dest.put_pixel(
                     dest_x + px,
                     dest_y + py,
                     image::Rgba([
@@ -389,4 +401,60 @@ pub fn plot_atlas_tile(
 fn rgb16_565_produce_color_test() {
     let color = rgb16_565_produce_color(0);
     assert_eq!(color.r as i16 + color.g as i16 + color.b as i16, 0);
+}
+
+#[test]
+fn rgb16_565_red_max() {
+    let color = rgb16_565_produce_color(0xF800);
+    assert_eq!(color.r, 248);
+    assert_eq!(color.g, 0);
+    assert_eq!(color.b, 0);
+}
+
+#[test]
+fn rgb16_565_green_max() {
+    let color = rgb16_565_produce_color(0x07E0);
+    assert_eq!(color.r, 0);
+    assert_eq!(color.g, 252);
+    assert_eq!(color.b, 0);
+}
+
+#[test]
+fn rgb16_565_blue_max() {
+    let color = rgb16_565_produce_color(0x001F);
+    assert_eq!(color.r, 0);
+    assert_eq!(color.g, 0);
+    assert_eq!(color.b, 248);
+}
+
+#[test]
+fn rgb16_565_white() {
+    let color = rgb16_565_produce_color(0xFFFF);
+    assert_eq!(color.r, 248);
+    assert_eq!(color.g, 252);
+    assert_eq!(color.b, 248);
+}
+
+#[test]
+fn plot_atlas_tile_params() {
+    use image::{ImageBuffer, Rgba, RgbaImage};
+
+    let mut dest: RgbaImage = ImageBuffer::new(100, 100);
+    let atlas: image::DynamicImage =
+        image::DynamicImage::ImageRgba8(ImageBuffer::from_pixel(64, 64, Rgba([255, 0, 0, 255])));
+
+    plot_atlas_tile(AtlasTileParams {
+        dest: &mut dest,
+        atlas: &atlas,
+        src_x: 0,
+        src_y: 0,
+        tile_w: 32,
+        tile_h: 32,
+        dest_x: 10,
+        dest_y: 10,
+    });
+
+    let pixel = dest.get_pixel(10, 10);
+    assert_eq!(pixel[0], 255);
+    assert_eq!(pixel[3], 255);
 }

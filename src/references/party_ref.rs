@@ -90,7 +90,7 @@ impl Extractor for PartyRef {
                 .build(f),
         );
         let mut party_refs: Vec<PartyRef> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(";") || trimmed.is_empty() {
                 continue;

@@ -88,7 +88,7 @@ impl Extractor for Map {
         );
 
         let mut maps: Vec<Map> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if line.starts_with(";") {
                 continue;
             }

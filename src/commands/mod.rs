@@ -16,9 +16,11 @@ pub trait Command: Send + Sync {
     /// Execute the command
     fn execute(&self) -> Result<(), Box<dyn Error>>;
 
+    #[allow(dead_code)]
     /// Get command name
     fn name(&self) -> &'static str;
 
+    #[allow(dead_code)]
     /// Get command description
     fn description(&self) -> &'static str;
 }

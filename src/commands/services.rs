@@ -6,6 +6,12 @@ pub struct ServiceContainer {
     // pub sprite_extractor: Arc<dyn SpriteExtractorTrait>,
 }
 
+impl Default for ServiceContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServiceContainer {
     /// Create a new service container with default implementations
     pub fn new() -> Self {

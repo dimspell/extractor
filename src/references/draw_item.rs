@@ -85,7 +85,7 @@ impl Extractor for DrawItem {
                 .build(f),
         );
         let mut draw_items: Vec<DrawItem> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             if line.starts_with(";") {
                 continue;
             }

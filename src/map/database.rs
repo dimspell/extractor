@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::map::tileset;
 
-use super::render::plot_atlas_tile;
+use super::render::{plot_atlas_tile, AtlasTileParams};
 use super::sprite_loader::{load_sprite_frames, plot_entity_sprite};
 use super::types::{
     convert_map_coords_to_image_coords, TiledObjectInfo, TILE_HEIGHT_HALF,
@@ -167,16 +167,16 @@ pub fn render_from_database(
         let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
         let atlas_x = (*gtl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
         let atlas_y = (*gtl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
-        plot_atlas_tile(
-            &mut imgbuf,
-            &gtl_atlas,
-            atlas_x,
-            atlas_y,
-            tileset::TILE_WIDTH,
-            tileset::TILE_HEIGHT,
+        plot_atlas_tile(AtlasTileParams {
+            dest: &mut imgbuf,
+            atlas: &gtl_atlas,
+            src_x: atlas_x,
+            src_y: atlas_y,
+            tile_w: tileset::TILE_WIDTH,
+            tile_h: tileset::TILE_HEIGHT,
             dest_x,
             dest_y,
-        );
+        });
     }
 
     // ── Pass 2: Objects ────────────────────────────────────────────────────
@@ -191,16 +191,16 @@ pub fn render_from_database(
             let atlas_y = (btl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
             let x = obj.x + non_occluded_x;
             let y = obj.y + (i as i32 * tileset::TILE_HEIGHT as i32) + non_occluded_y;
-            plot_atlas_tile(
-                &mut imgbuf,
-                &btl_atlas,
-                atlas_x,
-                atlas_y,
-                tileset::TILE_WIDTH,
-                tileset::TILE_HEIGHT,
-                x,
-                y,
-            );
+            plot_atlas_tile(AtlasTileParams {
+                dest: &mut imgbuf,
+                atlas: &btl_atlas,
+                src_x: atlas_x,
+                src_y: atlas_y,
+                tile_w: tileset::TILE_WIDTH,
+                tile_h: tileset::TILE_HEIGHT,
+                dest_x: x,
+                dest_y: y,
+            });
         }
     }
 
@@ -212,16 +212,16 @@ pub fn render_from_database(
         let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
         let atlas_x = (*btl_id as u32 % atlas_columns) * tileset::TILE_WIDTH;
         let atlas_y = (*btl_id as u32 / atlas_columns) * tileset::TILE_HEIGHT;
-        plot_atlas_tile(
-            &mut imgbuf,
-            &btl_atlas,
-            atlas_x,
-            atlas_y,
-            tileset::TILE_WIDTH,
-            tileset::TILE_HEIGHT,
+        plot_atlas_tile(AtlasTileParams {
+            dest: &mut imgbuf,
+            atlas: &btl_atlas,
+            src_x: atlas_x,
+            src_y: atlas_y,
+            tile_w: tileset::TILE_WIDTH,
+            tile_h: tileset::TILE_HEIGHT,
             dest_x,
             dest_y,
-        );
+        });
     }
 
     // ── Pass 4: External entities (NPCs, monsters, extras) ─────────────────

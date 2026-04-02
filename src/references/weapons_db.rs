@@ -128,8 +128,8 @@ pub struct WeaponItem {
 /// - `name`        : 30 bytes, null-padded, WINDOWS-1250
 /// - `description` : 202 bytes, null-padded, WINDOWS-1250
 /// - Stats         : sequence of i16 fields (base_price, padding×3, PZ, PM, SIŁ, ZW,
-///                   MM, TF, UNK, TRF, ATK, OBR, MAG, WYT, pad×2,
-///                   REQ_SIŁ, pad, REQ_ZW, pad, REQ_MM, pad×3)
+///   MM, TF, UNK, TRF, ATK, OBR, MAG, WYT, pad×2,
+///   REQ_SIŁ, pad, REQ_ZW, pad, REQ_MM, pad×3)
 impl Extractor for WeaponItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;

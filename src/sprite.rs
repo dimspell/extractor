@@ -91,21 +91,20 @@ pub fn animation(file_path: &Path) -> Result<()> {
 
 pub fn save_sequence_anim(
     reader: &mut BufReader<File>,
-    frames: &Vec<ImageInfo>,
+    frames: &[ImageInfo],
     sequence_counter: i32,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
-    // start of CalculateDimensions
     let mut max_left = 1;
     let mut max_right = 1;
     let mut max_up = 1;
     let mut max_down = 1;
-    for i in 0..frames.len() {
-        let left = frames[i].origin_x;
-        let right = frames[i].width - frames[i].origin_x;
-        let up = frames[i].origin_y;
-        let down = frames[i].height - frames[i].origin_y;
+    for frame in frames {
+        let left = frame.origin_x;
+        let right = frame.width - frame.origin_x;
+        let up = frame.origin_y;
+        let down = frame.height - frame.origin_y;
         if right > max_right {
             max_right = right;
         }
@@ -119,10 +118,9 @@ pub fn save_sequence_anim(
             max_down = down;
         }
     }
+
     let rect_x = max_left;
     let rect_y = max_up;
-    // end of CalculateDimensions
-
     let rect_w = if frames.len() == 1 {
         frames[0].width
     } else {
@@ -139,28 +137,19 @@ pub fn save_sequence_anim(
     println!("{max_left}, {max_right}, {max_up}, {max_down} -> x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
     let mut imgbuf: RgbaImage = image::ImageBuffer::new(rect_w * (frames.len() as u32), rect_h);
-    let mut offset_x = 0;
-    let mut offset_y;
+    let mut offset_x: u32 = 0;
 
-    for i in 0..frames.len() {
-        let frame = &frames[i];
-
-        // let offset_x = if frames.len() == 1 {
-        //     0
-        // } else {
-        //     rect_x - frame.origin_x
-        // }.unsigned_abs();
-        offset_y = if frames.len() == 1 {
+    for frame in frames.iter() {
+        let offset_y: u32 = if frames.len() == 1 {
             0
         } else {
-            rect_y - frame.origin_y
-        }
-        .unsigned_abs();
+            (rect_y - frame.origin_y).unsigned_abs()
+        };
 
-        let frame_width: u32 = frame.width.try_into().unwrap();
+        let frame_width: u32 = frame.width.unsigned_abs();
 
         reader.seek(SeekFrom::Start(frame.image_start_position))?;
-        for i in 0..(frame.width * frame.height).try_into().unwrap() {
+        for i in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
             let pixel = reader.read_u16::<LittleEndian>()?;
             if pixel == 0 {
                 continue;
@@ -219,22 +208,21 @@ pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
 
 pub fn save_sequence(
     reader: &mut BufReader<File>,
-    frames: &Vec<ImageInfo>,
+    frames: &[ImageInfo],
     sequence_counter: i32,
     out_file_prefix: &String,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
-    // start of CalculateDimensions
     let mut max_left = 1;
     let mut max_right = 1;
     let mut max_up = 1;
     let mut max_down = 1;
-    for i in 0..frames.len() {
-        let left = frames[i].origin_x;
-        let right = frames[i].width - frames[i].origin_x;
-        let up = frames[i].origin_y;
-        let down = frames[i].height - frames[i].origin_y;
+    for frame in frames {
+        let left = frame.origin_x;
+        let right = frame.width - frame.origin_x;
+        let up = frame.origin_y;
+        let down = frame.height - frame.origin_y;
         if right > max_right {
             max_right = right;
         }
@@ -250,7 +238,6 @@ pub fn save_sequence(
     }
     let rect_x = max_left;
     let rect_y = max_up;
-    // end of CalculateDimensions
 
     let rect_w = if frames.len() == 1 {
         frames[0].width
@@ -265,41 +252,33 @@ pub fn save_sequence(
 
     println!("{max_left}, {max_right}, {max_up}, {max_down} -> x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
-    for i in 0..frames.len() {
-        let frame = frames[i];
-
-        // let mut bytes = vec![0; (frame.width * frame.height * 3).try_into().unwrap()];
-
+    for (i, frame) in frames.iter().enumerate() {
         let w: u32 = rect_w.try_into().unwrap();
         let h: u32 = rect_h.try_into().unwrap();
         let mut imgbuf = image::ImageBuffer::new(w, h);
 
-        let offset_x = if frames.len() == 1 {
+        let offset_x: i32 = if frames.len() == 1 {
             0
         } else {
             rect_x - frame.origin_x
         };
-        let offset_y = if frames.len() == 1 {
+        let offset_y: i32 = if frames.len() == 1 {
             0
         } else {
             rect_y - frame.origin_y
         };
-        let offset_x: u32 = offset_x.try_into().unwrap();
-        let offset_y: u32 = offset_y.try_into().unwrap();
+        let offset_x: u32 = offset_x.unsigned_abs();
+        let offset_y: u32 = offset_y.unsigned_abs();
 
-        let frame_width: u32 = frame.width.try_into().unwrap();
+        let frame_width: u32 = frame.width.unsigned_abs();
 
         reader.seek(SeekFrom::Start(frame.image_start_position))?;
-        for i in 0..(frame.width * frame.height).try_into().unwrap() {
+        for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
             let buffer = reader.read_u16::<LittleEndian>()?;
             let color = rgb16_565_produce_color(buffer);
-            // bytes[i * 3] = color.r;
-            // bytes[(i * 3) + 1] = color.g;
-            // bytes[(i * 3) + 2] = color.b;
 
-            let index: u32 = i.try_into().unwrap();
-            let x: u32 = (index % frame_width) + offset_x;
-            let y: u32 = (index / frame_width) + offset_y;
+            let x: u32 = (pixel_idx as u32 % frame_width) + offset_x;
+            let y: u32 = (pixel_idx as u32 / frame_width) + offset_y;
             imgbuf.put_pixel(x, y, image::Rgb([color.r, color.g, color.b]));
         }
 
@@ -345,6 +324,67 @@ pub fn rgb16_565_produce_color(pixel: u16) -> Color {
         b: blue,
         g: green,
         r: red,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn color_black() {
+        let color = rgb16_565_produce_color(0);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn color_red_max() {
+        let color = rgb16_565_produce_color(0xF800);
+        assert_eq!(color.r, 248);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn color_green_max() {
+        let color = rgb16_565_produce_color(0x07E0);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 252);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn color_blue_max() {
+        let color = rgb16_565_produce_color(0x001F);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 248);
+    }
+
+    #[test]
+    fn color_white() {
+        let color = rgb16_565_produce_color(0xFFFF);
+        assert_eq!(color.r, 248);
+        assert_eq!(color.g, 252);
+        assert_eq!(color.b, 248);
+    }
+
+    #[test]
+    fn color_magenta() {
+        let color = rgb16_565_produce_color(0xF81F);
+        assert_eq!(color.r, 248);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 248);
+    }
+
+    #[test]
+    fn color_cyan() {
+        let color = rgb16_565_produce_color(0x07FF);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 252);
+        assert_eq!(color.b, 248);
     }
 }
 
@@ -399,7 +439,7 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
     }
     let start_position = reader.stream_position()?;
     info.sequence_start_position = start_position;
-    for i in 0..info.frame_count.try_into().unwrap() {
+    for i in 0..info.frame_count as usize {
         let image_info = get_image_info(reader)?;
         info.frame_infos[i] = image_info;
         reader.seek(SeekFrom::Current(image_info.size_bytes))?;
@@ -479,8 +519,8 @@ pub fn seek_next_sequence(
         }
 
         let mut ints = [0; 15];
-        for i in 0..15 {
-            ints[i] = reader.read_i32::<LittleEndian>()?;
+        for int in &mut ints {
+            *int = reader.read_i32::<LittleEndian>()?;
         }
 
         if (ints[0] == 0

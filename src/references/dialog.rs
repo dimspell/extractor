@@ -96,7 +96,7 @@ impl Extractor for Dialog {
                 .build(f),
         );
         let mut dlgs: Vec<Dialog> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(";") || trimmed.is_empty() {
                 continue;

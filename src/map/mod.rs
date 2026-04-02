@@ -396,16 +396,16 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
 /// binary map file in a relational database format.
 pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> DbResult<()> {
     println!("Saving map tiles for {}...", map_id);
-    save_map_tiles(
+    save_map_tiles(SaveMapTilesParams {
         conn,
         map_id,
-        &data.gtl_tiles,
-        &data.btl_tiles,
-        &data.collisions,
-        &data.events,
-        data.model.tiled_map_width,
-        data.model.tiled_map_height,
-    )?;
+        gtl_tiles: &data.gtl_tiles,
+        btl_tiles: &data.btl_tiles,
+        collisions: &data.collisions,
+        events: &data.events,
+        width: data.model.tiled_map_width,
+        height: data.model.tiled_map_height,
+    })?;
 
     save_map_objects(conn, map_id, &data.tiled_infos)?;
 
@@ -416,16 +416,27 @@ pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData)
     Ok(())
 }
 
-pub fn save_map_tiles(
-    conn: &mut Connection,
-    map_id: &str,
-    gtl_tiles: &HashMap<Coords, i32>,
-    btl_tiles: &HashMap<Coords, i32>,
-    collisions: &HashMap<Coords, bool>,
-    events: &HashMap<Coords, EventBlock>,
-    width: i32,
-    height: i32,
-) -> DbResult<()> {
+pub struct SaveMapTilesParams<'a> {
+    pub conn: &'a mut Connection,
+    pub map_id: &'a str,
+    pub gtl_tiles: &'a HashMap<Coords, i32>,
+    pub btl_tiles: &'a HashMap<Coords, i32>,
+    pub collisions: &'a HashMap<Coords, bool>,
+    pub events: &'a HashMap<Coords, EventBlock>,
+    pub width: i32,
+    pub height: i32,
+}
+
+pub fn save_map_tiles(params: SaveMapTilesParams) -> DbResult<()> {
+    let conn = params.conn;
+    let map_id = params.map_id;
+    let gtl_tiles = params.gtl_tiles;
+    let btl_tiles = params.btl_tiles;
+    let collisions = params.collisions;
+    let events = params.events;
+    let width = params.width;
+    let height = params.height;
+
     let tx = conn.transaction()?;
 
     let offset_x = width / 2;
@@ -471,7 +482,7 @@ pub fn save_map_tiles(
 pub fn save_map_objects(
     conn: &mut Connection,
     map_id: &str,
-    tiled_infos: &Vec<TiledObjectInfo>,
+    tiled_infos: &[TiledObjectInfo],
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
@@ -496,7 +507,7 @@ pub fn save_map_objects(
 pub fn save_map_sprites(
     conn: &mut Connection,
     map_id: &str,
-    sprite_blocks: &Vec<SpriteInfoBlock>,
+    sprite_blocks: &[SpriteInfoBlock],
 ) -> DbResult<()> {
     let tx = conn.transaction()?;
     {

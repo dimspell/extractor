@@ -88,7 +88,7 @@ impl Extractor for WaveIni {
                 .build(f),
         );
         let mut waves_inis: Vec<WaveIni> = Vec::new();
-        for line in reader.lines().flatten() {
+        for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(";") || trimmed.is_empty() {
                 continue;

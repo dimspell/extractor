@@ -146,9 +146,9 @@ fn create_mask() -> [[i32; 32]; 2] {
     let mut direction: i32 = 1;
     let limit = 31;
 
-    for y in 0..TILE_HEIGHT as usize {
-        mask[0][y] = (TILE_WIDTH as i32) / 2 - pixels_x;
-        mask[1][y] = pixels_x * 2;
+    for row in mask.iter_mut() {
+        row[0] = (TILE_WIDTH as i32) / 2 - pixels_x;
+        row[1] = pixels_x * 2;
         pixels_x += step * direction;
         if pixels_x > limit {
             direction = -1;
@@ -165,13 +165,11 @@ fn create_mask() -> [[i32; 32]; 2] {
 ///
 /// * `tiles` - Vector of Tile structs to plot
 /// * `out_dir` - Output directory path
-pub fn plot_all_tiles(tiles: &Vec<Tile>, out_dir: &str) {
+pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
     let out_path = std::path::Path::new(out_dir);
     std::fs::create_dir_all(out_path).expect("Failed to create output directory");
 
-    for tile_index in 0..tiles.len() {
-        let tile = &tiles[tile_index];
-
+    for (tile_index, tile) in tiles.iter().enumerate() {
         let mut imgbuf = image::ImageBuffer::new(TILE_WIDTH, TILE_HEIGHT);
         let dest_x = 0;
         let dest_y: i32 = 0;
@@ -199,12 +197,12 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
         let mask = create_mask();
 
         let mut i = 0;
-        for y in 0..TILE_HEIGHT as usize {
-            for x in 0..mask[1][y] {
+        for (y, row) in mask.iter().enumerate().take(TILE_HEIGHT as usize) {
+            for x in 0..row[1] {
                 let pixel: Color = colors[i];
                 i += 1;
 
-                let final_x = dest_x + x + mask[0][y];
+                let final_x = dest_x + x + row[0];
                 let final_y = dest_y + y as i32;
 
                 if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
@@ -225,7 +223,7 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
 ///
 /// * `tiles` - Vector of Tile structs
 /// * `out_path` - Output file path for the atlas PNG
-pub fn plot_tileset_map(tiles: &Vec<Tile>, out_path: &str) {
+pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
     // Flexible atlas size to make it square
     // let count = tiles.len() as f64;
     // let w = count.sqrt().ceil() as u32;
@@ -286,12 +284,12 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
         let mask = create_mask();
 
         let mut i = 0;
-        for y in 0..TILE_HEIGHT as usize {
-            for x in 0..mask[1][y] {
+        for (y, row) in mask.iter().enumerate().take(TILE_HEIGHT as usize) {
+            for x in 0..row[1] {
                 let pixel: Color = colors[i];
                 i += 1;
 
-                let final_x = dest_x + x + mask[0][y];
+                let final_x = dest_x + x + row[0];
                 let final_y = dest_y + y as i32;
 
                 if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
@@ -352,4 +350,69 @@ fn rgb16_565_produce_color(pixel: u16) -> Color {
     let b = (b as f32 * 255.0 / 31.0).round() as u8;
 
     Color { r, g, b }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rgb16_565_black() {
+        let color = rgb16_565_produce_color(0);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn test_rgb16_565_red() {
+        let color = rgb16_565_produce_color(0xF800);
+        assert_eq!(color.r, 255);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn test_rgb16_565_green() {
+        let color = rgb16_565_produce_color(0x07E0);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 255);
+        assert_eq!(color.b, 0);
+    }
+
+    #[test]
+    fn test_rgb16_565_blue() {
+        let color = rgb16_565_produce_color(0x001F);
+        assert_eq!(color.r, 0);
+        assert_eq!(color.g, 0);
+        assert_eq!(color.b, 255);
+    }
+
+    #[test]
+    fn test_rgb16_565_white() {
+        let color = rgb16_565_produce_color(0xFFFF);
+        assert_eq!(color.r, 255);
+        assert_eq!(color.g, 255);
+        assert_eq!(color.b, 255);
+    }
+
+    #[test]
+    fn test_mix_color() {
+        let canvas = [Color {
+            r: 255,
+            g: 255,
+            b: 255,
+        }; 1024];
+        let color = Color { r: 0, g: 0, b: 0 };
+        let result = mix_color(canvas, color, 128);
+        assert_eq!(result[0].r, 127);
+    }
+
+    #[test]
+    fn test_create_mask() {
+        let mask = create_mask();
+        assert_eq!(mask.len(), 2);
+        assert_eq!(mask[0].len(), 32);
+        assert_eq!(mask[1].len(), 32);
+    }
 }
