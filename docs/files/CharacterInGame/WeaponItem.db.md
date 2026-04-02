@@ -153,7 +153,7 @@ Offset | Size | Field | Description
 278    | 6    | pad5  | Unused padding
 ```
 
-### Field Abbrevartion
+### Field Abbreviations
 
 | Explanation                 | Polish  | English |
 | --------------------------- | ------- | ------- |

@@ -112,7 +112,7 @@ pub struct WeaponItem {
 /// Each record is a fixed-size block containing:
 /// - `name`        : 30 bytes, null-padded, WINDOWS-1250
 /// - `description` : 202 bytes, null-padded, WINDOWS-1250
-/// - Stats         : sequence of i16 fields (base_price, padding×3, PZ, PM, SIŁ, ZW,
+/// - Stats         : sequence of i16 fields
 impl Extractor for WeaponItem {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(source_path)?;
