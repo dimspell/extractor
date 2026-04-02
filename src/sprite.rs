@@ -58,6 +58,89 @@ use std::{fs::File, path::Path};
 //
 // ===========================================================================
 
+pub fn compute_rect(frames: &[ImageInfo]) -> (i32, i32, i32, i32) {
+    let mut max_left = 1;
+    let mut max_right = 1;
+    let mut max_up = 1;
+    let mut max_down = 1;
+    for frame in frames {
+        let left = frame.origin_x;
+        let right = frame.width - frame.origin_x;
+        let up = frame.origin_y;
+        let down = frame.height - frame.origin_y;
+        if right > max_right {
+            max_right = right;
+        }
+        if left > max_left {
+            max_left = left;
+        }
+        if up > max_up {
+            max_up = up;
+        }
+        if down > max_down {
+            max_down = down;
+        }
+    }
+    let rect_x = max_left;
+    let rect_y = max_up;
+    let rect_w = if frames.len() == 1 {
+        frames[0].width
+    } else {
+        max_left + max_right
+    };
+    let rect_h = if frames.len() == 1 {
+        frames[0].height
+    } else {
+        max_up + max_down
+    };
+    (rect_x, rect_y, rect_w, rect_h)
+}
+
+pub fn compute_frame_offset(
+    frames: &[ImageInfo],
+    frame_idx: usize,
+    rect_x: i32,
+    rect_y: i32,
+) -> (u32, u32) {
+    let frame = &frames[frame_idx];
+    let offset_x: i32 = if frames.len() == 1 {
+        0
+    } else {
+        rect_x - frame.origin_x
+    };
+    let offset_y: i32 = if frames.len() == 1 {
+        0
+    } else {
+        rect_y - frame.origin_y
+    };
+    (offset_x.unsigned_abs(), offset_y.unsigned_abs())
+}
+
+pub fn render_frame_to_rgba(
+    reader: &mut BufReader<File>,
+    frame: &ImageInfo,
+    rect_w: u32,
+    rect_h: u32,
+    offset_x: u32,
+    offset_y: u32,
+) -> Result<RgbaImage> {
+    let mut imgbuf = RgbaImage::new(rect_w, rect_h);
+    let frame_width: u32 = frame.width.unsigned_abs();
+
+    reader.seek(SeekFrom::Start(frame.image_start_position))?;
+    for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
+        let pixel = reader.read_u16::<LittleEndian>()?;
+        if pixel == 0 {
+            continue;
+        }
+        let color = rgb16_565_produce_color(pixel);
+        let x: u32 = (pixel_idx as u32 % frame_width) + offset_x;
+        let y: u32 = (pixel_idx as u32 / frame_width) + offset_y;
+        imgbuf.put_pixel(x, y, image::Rgba([color.r, color.g, color.b, 255]));
+    }
+    Ok(imgbuf)
+}
+
 pub fn animation(file_path: &Path) -> Result<()> {
     let file = File::open(file_path)?;
 
@@ -96,68 +179,23 @@ pub fn save_sequence_anim(
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
-    let mut max_left = 1;
-    let mut max_right = 1;
-    let mut max_up = 1;
-    let mut max_down = 1;
-    for frame in frames {
-        let left = frame.origin_x;
-        let right = frame.width - frame.origin_x;
-        let up = frame.origin_y;
-        let down = frame.height - frame.origin_y;
-        if right > max_right {
-            max_right = right;
-        }
-        if left > max_left {
-            max_left = left;
-        }
-        if up > max_up {
-            max_up = up;
-        }
-        if down > max_down {
-            max_down = down;
-        }
-    }
+    let (rect_x, rect_y, rect_w, rect_h) = compute_rect(frames);
+    let rect_w = rect_w.unsigned_abs();
+    let rect_h = rect_h.unsigned_abs();
 
-    let rect_x = max_left;
-    let rect_y = max_up;
-    let rect_w = if frames.len() == 1 {
-        frames[0].width
-    } else {
-        max_left + max_right
-    }
-    .unsigned_abs();
-    let rect_h = if frames.len() == 1 {
-        frames[0].height
-    } else {
-        max_up + max_down
-    }
-    .unsigned_abs();
+    println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
-    println!("{max_left}, {max_right}, {max_up}, {max_down} -> x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
-
-    let mut imgbuf: RgbaImage = image::ImageBuffer::new(rect_w * (frames.len() as u32), rect_h);
+    let atlas_w = rect_w * (frames.len() as u32);
+    let mut imgbuf: RgbaImage = image::ImageBuffer::new(atlas_w, rect_h);
     let mut offset_x: u32 = 0;
 
-    for frame in frames.iter() {
-        let offset_y: u32 = if frames.len() == 1 {
-            0
-        } else {
-            (rect_y - frame.origin_y).unsigned_abs()
-        };
+    for (i, frame) in frames.iter().enumerate() {
+        let (_, offset_y) = compute_frame_offset(frames, i, rect_x as i32, rect_y as i32);
 
-        let frame_width: u32 = frame.width.unsigned_abs();
+        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, 0, offset_y)?;
 
-        reader.seek(SeekFrom::Start(frame.image_start_position))?;
-        for i in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
-            let pixel = reader.read_u16::<LittleEndian>()?;
-            if pixel == 0 {
-                continue;
-            }
-            let color = rgb16_565_produce_color(pixel);
-            let x: u32 = (i as u32 % frame_width) + offset_x;
-            let y: u32 = (i as u32 / frame_width) + offset_y;
-            imgbuf.put_pixel(x, y, image::Rgba([color.r, color.g, color.b, 255]));
+        for (px, py, pixel) in frame_rgba.enumerate_pixels() {
+            imgbuf.put_pixel(px + offset_x, py, *pixel);
         }
 
         offset_x += rect_w;
@@ -210,91 +248,23 @@ pub fn save_sequence(
     reader: &mut BufReader<File>,
     frames: &[ImageInfo],
     sequence_counter: i32,
-    out_file_prefix: &String,
+    out_file_prefix: &str,
 ) -> Result<()> {
     println!("Frames: {:?}, Sequence: {sequence_counter}", frames.len());
 
-    let mut max_left = 1;
-    let mut max_right = 1;
-    let mut max_up = 1;
-    let mut max_down = 1;
-    for frame in frames {
-        let left = frame.origin_x;
-        let right = frame.width - frame.origin_x;
-        let up = frame.origin_y;
-        let down = frame.height - frame.origin_y;
-        if right > max_right {
-            max_right = right;
-        }
-        if left > max_left {
-            max_left = left;
-        }
-        if up > max_up {
-            max_up = up;
-        }
-        if down > max_down {
-            max_down = down;
-        }
-    }
-    let rect_x = max_left;
-    let rect_y = max_up;
+    let (rect_x, rect_y, rect_w, rect_h) = compute_rect(frames);
+    let rect_w = rect_w.unsigned_abs();
+    let rect_h = rect_h.unsigned_abs();
 
-    let rect_w = if frames.len() == 1 {
-        frames[0].width
-    } else {
-        max_left + max_right
-    };
-    let rect_h = if frames.len() == 1 {
-        frames[0].height
-    } else {
-        max_up + max_down
-    };
-
-    println!("{max_left}, {max_right}, {max_up}, {max_down} -> x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
+    println!("x:{rect_x} y:{rect_y} w:{rect_w} h:{rect_h}");
 
     for (i, frame) in frames.iter().enumerate() {
-        let w: u32 = rect_w.try_into().unwrap();
-        let h: u32 = rect_h.try_into().unwrap();
-        let mut imgbuf = image::ImageBuffer::new(w, h);
+        let (offset_x, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
 
-        let offset_x: i32 = if frames.len() == 1 {
-            0
-        } else {
-            rect_x - frame.origin_x
-        };
-        let offset_y: i32 = if frames.len() == 1 {
-            0
-        } else {
-            rect_y - frame.origin_y
-        };
-        let offset_x: u32 = offset_x.unsigned_abs();
-        let offset_y: u32 = offset_y.unsigned_abs();
-
-        let frame_width: u32 = frame.width.unsigned_abs();
-
-        reader.seek(SeekFrom::Start(frame.image_start_position))?;
-        for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
-            let buffer = reader.read_u16::<LittleEndian>()?;
-            let color = rgb16_565_produce_color(buffer);
-
-            let x: u32 = (pixel_idx as u32 % frame_width) + offset_x;
-            let y: u32 = (pixel_idx as u32 / frame_width) + offset_y;
-            imgbuf.put_pixel(x, y, image::Rgb([color.r, color.g, color.b]));
-        }
+        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, offset_x, offset_y)?;
 
         let outfile = format!("./{}_{:?}-{:?}.png", out_file_prefix, sequence_counter, i);
-        // println!("{outfile}");
-        imgbuf.save(outfile).unwrap();
-
-        // image::save_buffer_with_format(
-        //     format!("image_raw_{i}.png"),
-        //     bytes.as_slice(),
-        //     frame.width.try_into().unwrap(),
-        //     frame.height.try_into().unwrap(),
-        //     image::ColorType::Rgb8,
-        //     image::ImageFormat::Png,
-        // )
-        // .unwrap();
+        frame_rgba.save(outfile).unwrap();
     }
 
     Ok(())
@@ -558,81 +528,21 @@ pub fn get_sequence_frames_as_pngs(
     reader: &mut BufReader<File>,
     info: &SequenceInfo,
 ) -> Result<Vec<Vec<u8>>> {
-    let mut max_left = 1;
-    let mut max_right = 1;
-    let mut max_up = 1;
-    let mut max_down = 1;
-
-    for frame in &info.frame_infos {
-        let left = frame.origin_x;
-        let right = frame.width - frame.origin_x;
-        let up = frame.origin_y;
-        let down = frame.height - frame.origin_y;
-        if right > max_right {
-            max_right = right;
-        }
-        if left > max_left {
-            max_left = left;
-        }
-        if up > max_up {
-            max_up = up;
-        }
-        if down > max_down {
-            max_down = down;
-        }
-    }
-
-    let rect_x = max_left;
-    let rect_y = max_up;
-    let rect_w = if info.frame_infos.len() == 1 {
-        info.frame_infos[0].width
-    } else {
-        max_left + max_right
-    }
-    .unsigned_abs();
-    let rect_h = if info.frame_infos.len() == 1 {
-        info.frame_infos[0].height
-    } else {
-        max_up + max_down
-    }
-    .unsigned_abs();
+    let (rect_x, rect_y, rect_w, rect_h) = compute_rect(&info.frame_infos);
+    let rect_w = rect_w.unsigned_abs();
+    let rect_h = rect_h.unsigned_abs();
 
     let mut pngs = Vec::new();
 
-    for frame in info.frame_infos.iter() {
-        let mut imgbuf = RgbaImage::new(rect_w, rect_h);
+    for (i, frame) in info.frame_infos.iter().enumerate() {
+        let (offset_x, offset_y) = compute_frame_offset(&info.frame_infos, i, rect_x, rect_y);
 
-        let offset_x = if info.frame_infos.len() == 1 {
-            0
-        } else {
-            rect_x - frame.origin_x
-        }
-        .unsigned_abs();
-        let offset_y = if info.frame_infos.len() == 1 {
-            0
-        } else {
-            rect_y - frame.origin_y
-        }
-        .unsigned_abs();
-
-        let frame_width: u32 = frame.width.unsigned_abs();
-
-        reader.seek(SeekFrom::Start(frame.image_start_position))?;
-        for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
-            let pixel = reader.read_u16::<LittleEndian>()?;
-            if pixel == 0 {
-                continue;
-            }
-            let color = rgb16_565_produce_color(pixel);
-            let x: u32 = (pixel_idx as u32 % frame_width) + offset_x;
-            let y: u32 = (pixel_idx as u32 / frame_width) + offset_y;
-            imgbuf.put_pixel(x, y, image::Rgba([color.r, color.g, color.b, 255]));
-        }
+        let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, offset_x, offset_y)?;
 
         let mut buf = Vec::new();
         let encoder = image::codecs::png::PngEncoder::new(Cursor::new(&mut buf));
         encoder
-            .write_image(imgbuf.as_raw(), rect_w, rect_h, image::ColorType::Rgba8)
+            .write_image(frame_rgba.as_raw(), rect_w, rect_h, image::ColorType::Rgba8)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         pngs.push(buf);
     }
