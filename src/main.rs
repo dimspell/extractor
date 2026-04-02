@@ -56,7 +56,7 @@ enum Commands {
     /// Sprite/Animation extraction
     #[command(
         about = "Extract frames or sequences from SPR files",
-        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation"
+        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation\n  dispel-extractor sprite character.spr --info"
     )]
     Sprite {
         /// Path to the source .SPR file
@@ -72,6 +72,9 @@ enum Commands {
         )]
         /// Mode: 'sprite' (individual frames) or 'animation' (full sequence)
         mode: SpriteMode,
+        /// Output sprite metadata as JSON (no rendering)
+        #[arg(long)]
+        info: bool,
     },
 
     /// Audio conversion
@@ -342,12 +345,12 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Some(Commands::Sprite { input, mode }) => {
+        Some(Commands::Sprite { input, mode, info }) => {
             let mode_enum = match mode {
                 SpriteMode::Sprite => commands::sprite::SpriteMode::Sprite,
                 SpriteMode::Animation => commands::sprite::SpriteMode::Animation,
             };
-            let command = command_factory.create_sprite_command(input.clone(), mode_enum);
+            let command = command_factory.create_sprite_command(input.clone(), mode_enum, *info);
             command.execute().expect("Command execution failed");
         }
         Some(Commands::Sound { input, output }) => {

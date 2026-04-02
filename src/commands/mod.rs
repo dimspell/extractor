@@ -58,8 +58,13 @@ impl CommandFactory {
         database::DatabaseCommand { subcommand }
     }
 
-    pub fn create_sprite_command(&self, input: String, mode: sprite::SpriteMode) -> impl Command {
-        sprite::SpriteCommand { input, mode }
+    pub fn create_sprite_command(
+        &self,
+        input: String,
+        mode: sprite::SpriteMode,
+        info: bool,
+    ) -> impl Command {
+        sprite::SpriteCommand { input, mode, info }
     }
 
     pub fn create_sound_command(&self, input: String, output: String) -> impl Command {

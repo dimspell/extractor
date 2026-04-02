@@ -369,6 +369,85 @@ pub struct SequenceInfo {
     pub frame_infos: Vec<ImageInfo>,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct FrameInfoJson {
+    pub origin_x: i32,
+    pub origin_y: i32,
+    pub width: i32,
+    pub height: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SequenceInfoJson {
+    pub sequence_index: usize,
+    pub frame_count: usize,
+    pub frames: Vec<FrameInfoJson>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SpriteInfoJson {
+    pub file_path: String,
+    pub file_size: u64,
+    pub sequence_count: usize,
+    pub total_frames: usize,
+    pub sequences: Vec<SequenceInfoJson>,
+}
+
+pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
+    let file = File::open(file_path)?;
+    let file_len = file.metadata()?.len();
+    let mut reader = BufReader::new(file);
+
+    reader.seek(SeekFrom::Start(268))?;
+
+    let mut sequences = Vec::new();
+    let mut total_frames = 0;
+    let mut seq_index = 0;
+
+    loop {
+        let pos = reader.stream_position()?;
+        if pos >= file_len {
+            break;
+        }
+
+        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
+        if !valid {
+            break;
+        }
+
+        let info = get_sequence_info(&mut reader)?;
+        let frame_count = info.frame_count as usize;
+        total_frames += frame_count;
+
+        let frames: Vec<FrameInfoJson> = info
+            .frame_infos
+            .iter()
+            .map(|f| FrameInfoJson {
+                origin_x: f.origin_x,
+                origin_y: f.origin_y,
+                width: f.width,
+                height: f.height,
+            })
+            .collect();
+
+        sequences.push(SequenceInfoJson {
+            sequence_index: seq_index,
+            frame_count,
+            frames,
+        });
+
+        seq_index += 1;
+    }
+
+    Ok(SpriteInfoJson {
+        file_path: file_path.to_string_lossy().to_string(),
+        file_size: file_len,
+        sequence_count: sequences.len(),
+        total_frames,
+        sequences,
+    })
+}
+
 pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
     let mut info: SequenceInfo = SequenceInfo {
         sequence_start_position: 0,

@@ -7,6 +7,7 @@ use std::path::Path;
 pub struct SpriteCommand {
     pub input: String,
     pub mode: SpriteMode,
+    pub info: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,6 +18,16 @@ pub enum SpriteMode {
 
 impl Command for SpriteCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
+        if self.info {
+            let info = sprite::get_sprite_info(Path::new(&self.input))
+                .expect("ERROR: could not read sprite info");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&info).expect("ERROR: could not encode JSON")
+            );
+            return Ok(());
+        }
+
         println!("Extracting sprite...");
         match &self.mode {
             SpriteMode::Sprite => {
