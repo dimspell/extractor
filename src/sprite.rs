@@ -403,26 +403,13 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
             frame_count as usize
         ];
     }
-    if info.frame_count == 0 {
-        // Metrics.Count(MetricFile.SpriteFileMetric, filename, "zeroFrame");
-        // Metrics.Count(MetricFile.SpriteFileMetric, "zeroFrames");
-    }
+
     let start_position = reader.stream_position()?;
     info.sequence_start_position = start_position;
     for i in 0..info.frame_count as usize {
         let image_info = get_image_info(reader)?;
         info.frame_infos[i] = image_info;
         reader.seek(SeekFrom::Current(image_info.size_bytes))?;
-
-        // catch (FrameInfoException)
-        // {
-        //     var oldFrames = info.FrameInfos;
-        //     info.FrameInfos = new ImageInfo[i];
-        //     for (int j = 0; j < info.FrameInfos.Length; j++)
-        //     {
-        //         info.FrameInfos[j] = oldFrames[j];
-        //     }
-        // }
     }
     info.sequence_end_position = reader.stream_position()?;
     reader.seek(SeekFrom::Start(start_position))?;
@@ -468,7 +455,6 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
         // throw new FrameInfoException();//fix for soulnet.spr missing one frame
         unimplemented!();
     }
-    // println!("Info: {info:?}");
     Ok(info)
 }
 
@@ -548,6 +534,32 @@ pub fn get_sequence_frames_as_pngs(
     }
 
     Ok(pngs)
+}
+
+pub fn get_sprite_metadata(file_path: &Path) -> Result<Vec<usize>> {
+    let file = File::open(file_path)?;
+    let file_len = file.metadata()?.len();
+    let mut reader = BufReader::new(file);
+
+    reader.seek(SeekFrom::Start(268))?;
+
+    let mut frame_counts = Vec::new();
+    loop {
+        let pos = reader.stream_position()?;
+        if pos >= file_len {
+            break;
+        }
+
+        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
+        if !valid {
+            break;
+        }
+
+        let info = get_sequence_info(&mut reader)?;
+        frame_counts.push(info.frame_count as usize);
+    }
+
+    Ok(frame_counts)
 }
 
 pub fn get_sequence_pngs_by_index(file_path: &Path, sequence_idx: usize) -> Result<Vec<Vec<u8>>> {

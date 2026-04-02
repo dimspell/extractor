@@ -40,7 +40,6 @@ use dispel_core::{
     WeaponItem, NPC,
 };
 use iced::{Element, Task};
-use std::io::Seek;
 use std::path::{Path, PathBuf};
 
 pub struct App {
@@ -2856,39 +2855,10 @@ impl App {
     }
 
     fn analyze_sprite_file(path: &Path) -> (usize, Vec<usize>) {
-        use std::fs;
-        use std::io::BufReader;
-
-        let mut frame_counts = Vec::new();
-        if let Ok(file) = fs::File::open(path) {
-            let file_len = file.metadata().map(|m| m.len()).unwrap_or(0);
-            let mut reader = BufReader::new(file);
-
-            if std::io::Seek::seek(&mut reader, std::io::SeekFrom::Start(268)).is_ok() {
-                loop {
-                    let pos = reader.stream_position().unwrap_or(0);
-                    if pos >= file_len {
-                        break;
-                    }
-                    if let Ok(valid) =
-                        dispel_core::sprite::seek_next_sequence(&mut reader, pos, file_len)
-                    {
-                        if valid {
-                            if let Ok(info) = dispel_core::sprite::get_sequence_info(&mut reader) {
-                                frame_counts.push(info.frame_count as usize);
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            }
+        match dispel_core::sprite::get_sprite_metadata(path) {
+            Ok(frame_counts) => (frame_counts.len(), frame_counts),
+            Err(_) => (0, Vec::new()),
         }
-        (frame_counts.len(), frame_counts)
     }
 
     fn find_snf_file(game_path: &str, snf_filename: &str) -> PathBuf {
