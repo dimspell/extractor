@@ -28,7 +28,7 @@ use crate::party_ref_editor;
 use crate::quest_scr_editor;
 use crate::sprite_browser;
 use crate::store_editor;
-use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
+use crate::types::{DbOp, MapOp, RefOp, Tab};
 use crate::utils::{browse_file, browse_folder};
 use crate::wave_ini_editor;
 use crate::weapon_editor;
@@ -65,12 +65,6 @@ pub struct App {
     pub ref_input: String,
     // Database fields
     pub db_op: Option<DbOp>,
-    // Sprite fields
-    pub sprite_input: String,
-    pub sprite_mode: Option<SpriteMode>,
-    // Sound fields
-    pub sound_input: String,
-    pub sound_output: String,
     // Global
     pub extractor_path: String,
     pub log: String,
@@ -159,10 +153,6 @@ impl App {
                 ref_op: Some(RefOp::AllMaps),
                 ref_input: String::new(),
                 db_op: Some(DbOp::Import),
-                sprite_input: String::new(),
-                sprite_mode: Some(SpriteMode::Sprite),
-                sound_input: String::new(),
-                sound_output: String::new(),
                 extractor_path: String::from("dispel-extractor"),
                 log: String::new(),
                 is_running: false,
@@ -298,9 +288,6 @@ impl App {
             Message::BrowseMapBtlAtlas => browse_file("map_btl_atlas"),
             Message::BrowseMapGamePath => browse_folder("map_game_path"),
             Message::BrowseRefInput => browse_file("ref_input"),
-            Message::BrowseSpriteInput => browse_file("sprite_input"),
-            Message::BrowseSoundInput => browse_file("sound_input"),
-            Message::BrowseSoundOutput => browse_file("sound_output"),
             Message::BrowseExtractorPath => browse_file("extractor_path"),
             Message::FileSelected { field, path } => {
                 if let Some(p) = path {
@@ -318,9 +305,6 @@ impl App {
                             self.shared_game_path = s;
                         }
                         "ref_input" => self.ref_input = s,
-                        "sprite_input" => self.sprite_input = s,
-                        "sound_input" => self.sound_input = s,
-                        "sound_output" => self.sound_output = s,
                         "extractor_path" => self.extractor_path = s,
                         "viewer_db" => self.viewer.db_path = s,
                         "chest_game_path" => self.shared_game_path = s,
@@ -354,24 +338,6 @@ impl App {
             // Database
             Message::DbOpSelected(op) => {
                 self.db_op = Some(op);
-                Task::none()
-            }
-            // Sprite
-            Message::SpriteInputChanged(v) => {
-                self.sprite_input = v;
-                Task::none()
-            }
-            Message::SpriteModeSelected(m) => {
-                self.sprite_mode = Some(m);
-                Task::none()
-            }
-            // Sound
-            Message::SoundInputChanged(v) => {
-                self.sound_input = v;
-                Task::none()
-            }
-            Message::SoundOutputChanged(v) => {
-                self.sound_output = v;
                 Task::none()
             }
             // Global
@@ -3033,18 +2999,6 @@ impl App {
                 // Some(Box::new(factory.create_database_command(subcommand)))
                 None
             }
-            Tab::Sprite => {
-                let mode = match self.sprite_mode {
-                    Some(SpriteMode::Animation) => commands::sprite::SpriteMode::Animation,
-                    _ => commands::sprite::SpriteMode::Sprite,
-                };
-                Some(Box::new(
-                    factory.create_sprite_command(self.sprite_input.clone(), mode),
-                ))
-            }
-            Tab::Sound => Some(Box::new(
-                factory.create_sound_command(self.sound_input.clone(), self.sound_output.clone()),
-            )),
             Tab::DbViewer | Tab::ChestEditor => None,
             Tab::WeaponEditor | Tab::HealItemEditor => None,
             Tab::MiscItemEditor

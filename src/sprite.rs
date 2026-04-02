@@ -452,8 +452,10 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
     info.image_start_position = pos;
 
     if info.width < 1 || info.height < 1 {
-        // throw new FrameInfoException();//fix for soulnet.spr missing one frame
-        unimplemented!();
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "frame width or height is zero",
+        ));
     }
     Ok(info)
 }
