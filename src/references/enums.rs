@@ -638,12 +638,25 @@ impl ItemTypeId {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(ItemTypeId::Weapon),
-            1 => Some(ItemTypeId::Healing),
-            2 => Some(ItemTypeId::Edit),
-            3 => Some(ItemTypeId::Misc),
-            4 => Some(ItemTypeId::Event),
+            1 => Some(ItemTypeId::Weapon),
+            2 => Some(ItemTypeId::Healing),
+            3 => Some(ItemTypeId::Edit),
+            4 => Some(ItemTypeId::Misc),
+            5 => Some(ItemTypeId::Event),
             _ => Some(ItemTypeId::Other),
+        }
+    }
+
+    /// Convert from a string ID
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "1" => Some(ItemTypeId::Weapon),
+            "2" => Some(ItemTypeId::Healing),
+            "3" => Some(ItemTypeId::Edit),
+            "4" => Some(ItemTypeId::Misc),
+            "5" => Some(ItemTypeId::Event),
+            "255" => Some(ItemTypeId::Other),
+            _ => None,
         }
     }
 

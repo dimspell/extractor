@@ -144,7 +144,7 @@ impl App {
                     ItemTypeId::Other,
                 ];
                 let type_value =
-                    ItemTypeId::from_name(&editor.edit_item_type).unwrap_or(ItemTypeId::Weapon);
+                    ItemTypeId::from_id(&editor.edit_item_type).unwrap_or(ItemTypeId::Other);
                 detail_content.push(labeled_select(
                     "Item Type:",
                     type_value,
@@ -184,7 +184,7 @@ impl App {
 
         let detail_panel = container(scrollable(column(detail_content).spacing(8)).height(Fill))
             .padding(16)
-            .width(250)
+            .width(Fill)
             .style(style::info_card);
 
         let list_header = row![
@@ -223,7 +223,7 @@ impl App {
                 container(list_header).style(style::grid_header_cell),
                 scrollable(column(chest_list)).height(Fill),
             ]
-            .width(Fill),
+            .width(250),
             detail_panel,
         ]
         .spacing(0)
