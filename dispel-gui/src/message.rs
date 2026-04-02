@@ -1,7 +1,7 @@
 use crate::chest_editor;
 use crate::db;
 use crate::sprite_browser;
-use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
+use crate::types::{DbOp, MapOp, RefOp, Tab};
 use std::path::PathBuf;
 
 use dispel_core::{
@@ -40,9 +40,6 @@ pub enum Message {
     BrowseMapBtlAtlas,
     BrowseMapGamePath,
     BrowseRefInput,
-    BrowseSpriteInput,
-    BrowseSoundInput,
-    BrowseSoundOutput,
     BrowseExtractorPath,
     FileSelected {
         field: String,
@@ -53,12 +50,6 @@ pub enum Message {
     RefInputChanged(String),
     // Database
     DbOpSelected(DbOp),
-    // Sprite
-    SpriteInputChanged(String),
-    SpriteModeSelected(SpriteMode),
-    // Sound
-    SoundInputChanged(String),
-    SoundOutputChanged(String),
     // Global
     ExtractorPathChanged(String),
     Run,

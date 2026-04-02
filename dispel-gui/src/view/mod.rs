@@ -35,8 +35,6 @@ pub mod party_level_db_editor;
 pub mod party_ref_editor;
 pub mod quest_scr_editor;
 pub mod ref_tab;
-pub mod sound;
-pub mod sprite;
 pub mod sprite_browser;
 pub mod store_editor;
 pub mod wave_ini_editor;
@@ -228,8 +226,6 @@ impl App {
             Tab::PartyRefEditor => self.view_party_ref_editor_tab(),
             Tab::QuestScrEditor => self.view_quest_scr_editor_tab(),
             Tab::Ref => self.view_ref_tab(),
-            Tab::Sound => self.view_sound_tab(),
-            Tab::Sprite => self.view_sprite_tab(),
             Tab::SpriteBrowser => self.view_sprite_browser_tab(),
             Tab::StoreEditor => self.view_store_editor_tab(),
             Tab::WaveIniEditor => self.view_wave_ini_editor_tab(),
@@ -253,8 +249,6 @@ impl App {
             Tab::Map => "Map Operations",
             Tab::Ref => "Reference Data Extraction",
             Tab::Database => "Database Import Pipeline",
-            Tab::Sprite => "Sprite / Animation Extraction",
-            Tab::Sound => "Audio Conversion (SNF → WAV)",
             _ => "",
         })
         .size(22);
@@ -262,8 +256,6 @@ impl App {
             Tab::Map => "Extract tiles, render maps, and manage map assets",
             Tab::Ref => "Read game DB/INI/REF files and output as JSON",
             Tab::Database => "Populate a local SQLite database from game fixtures",
-            Tab::Sprite => "Parse .SPR files to extract frames or sequences",
-            Tab::Sound => "Convert .SNF game audio to standard .WAV format",
             _ => "",
         })
         .size(13)
