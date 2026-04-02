@@ -15,6 +15,7 @@ pub use references::{
     all_map_ini::Map,
     chdata_db::ChData,
     dialog::Dialog,
+    dialogue_text::DialogueText,
     draw_item::DrawItem,
     edit_item_db::EditItem,
     enums::*,
@@ -39,5 +40,6 @@ pub use references::{
     party_ref::PartyRef,
     quest_scr::Quest,
     store_db::Store,
+    wave_ini::WaveIni,
     weapons_db::WeaponItem,
 };

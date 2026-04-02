@@ -51,7 +51,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EventNpcRef {
     /// Linear structural tracker.
     pub id: i32,

@@ -126,7 +126,7 @@ ref-message:
 	cargo run -- ref message "fixtures/Dispel/ExtraInGame/Message.scr"
 
 ref-ch-data:
-	cargo run -- ref ch-data "fixtures/Dispel/ExtraInGame/ChData.db"
+	cargo run -- ref ch-data "fixtures/Dispel/CharacterInGame/ChData.db"
 
 ref-dialog:
 	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"

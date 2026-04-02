@@ -47,7 +47,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Message {
     /// Mapping bound tracking referenced externally by `message_id` structs.
     pub id: i32,

@@ -52,7 +52,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Quest {
     /// Quest table database pointer index.
     pub id: i32,

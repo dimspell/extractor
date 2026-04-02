@@ -53,6 +53,17 @@ impl From<EventType> for i32 {
     }
 }
 
+impl std::fmt::Display for EventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EventType::Unknown => write!(f, "Unknown"),
+            EventType::Conditional => write!(f, "Conditional"),
+            EventType::ContinueOnUnsatisfied => write!(f, "ContinueOnUnsatisfied"),
+            EventType::ExecuteOnSatisfied => write!(f, "ExecuteOnSatisfied"),
+        }
+    }
+}
+
 /// Monster AI behavior types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -209,6 +220,15 @@ impl From<MapLighting> for i32 {
     }
 }
 
+impl std::fmt::Display for MapLighting {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MapLighting::Dark => write!(f, "Dark"),
+            MapLighting::Light => write!(f, "Light"),
+        }
+    }
+}
+
 /// Store types for inventory management
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -321,6 +341,15 @@ impl From<DialogType> for i32 {
     }
 }
 
+impl std::fmt::Display for DialogType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DialogType::Normal => write!(f, "Normal"),
+            DialogType::Choice => write!(f, "Choice"),
+        }
+    }
+}
+
 /// Dialog owner/speaker types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -358,6 +387,15 @@ impl TryFrom<i32> for DialogOwner {
 impl From<DialogOwner> for i32 {
     fn from(dialog_owner: DialogOwner) -> Self {
         dialog_owner.value()
+    }
+}
+
+impl std::fmt::Display for DialogOwner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DialogOwner::Player => write!(f, "Player"),
+            DialogOwner::Npc => write!(f, "Npc"),
+        }
     }
 }
 
@@ -514,6 +552,20 @@ impl From<ExtraObjectType> for u8 {
     }
 }
 
+impl std::fmt::Display for ExtraObjectType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExtraObjectType::Chest => write!(f, "Chest"),
+            ExtraObjectType::Door => write!(f, "Door"),
+            ExtraObjectType::Sign => write!(f, "Sign"),
+            ExtraObjectType::Altar => write!(f, "Altar"),
+            ExtraObjectType::Interactive => write!(f, "Interactive"),
+            ExtraObjectType::Magic => write!(f, "Magic"),
+            ExtraObjectType::Unknown => write!(f, "Unknown"),
+        }
+    }
+}
+
 /// Visibility types for map objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
@@ -551,6 +603,16 @@ impl TryFrom<u8> for VisibilityType {
 impl From<VisibilityType> for u8 {
     fn from(visibility: VisibilityType) -> Self {
         visibility.value()
+    }
+}
+
+impl std::fmt::Display for VisibilityType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VisibilityType::Visible0 => write!(f, "Visible0"),
+            VisibilityType::Visible10 => write!(f, "Visible10"),
+            VisibilityType::Unknown => write!(f, "Unknown"),
+        }
     }
 }
 
@@ -947,6 +1009,21 @@ impl TryFrom<i32> for NpcLookingDirection {
 impl From<NpcLookingDirection> for i32 {
     fn from(direction: NpcLookingDirection) -> Self {
         direction.value()
+    }
+}
+
+impl std::fmt::Display for NpcLookingDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NpcLookingDirection::Up => write!(f, "Up"),
+            NpcLookingDirection::UpRight => write!(f, "UpRight"),
+            NpcLookingDirection::Right => write!(f, "Right"),
+            NpcLookingDirection::DownRight => write!(f, "DownRight"),
+            NpcLookingDirection::Down => write!(f, "Down"),
+            NpcLookingDirection::DownLeft => write!(f, "DownLeft"),
+            NpcLookingDirection::Left => write!(f, "Left"),
+            NpcLookingDirection::UpLeft => write!(f, "UpLeft"),
+        }
     }
 }
 

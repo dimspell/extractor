@@ -33,7 +33,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ChData {
     pub magic: String,
     pub values: Vec<u16>,
@@ -43,8 +43,8 @@ pub struct ChData {
 
 /// Stores global character statistics, counts, or internal game state properties.
 ///
-/// Reads file: `ExtraInGame/ChData.db`
-/// # File Format: `ExtraInGame/ChData.db`
+/// Reads file: `CharacterInGame/ChData.db`
+/// # File Format: `CharacterInGame/ChData.db`
 ///
 /// Binary file, little-endian. Fixed-size single-record file:
 /// - Bytes 0–3   : magic signature (`Item` ASCII)

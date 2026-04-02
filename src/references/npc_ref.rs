@@ -83,7 +83,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NPC {
     /// Internal iteration index mapped from the file array.
     pub index: i32,

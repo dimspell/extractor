@@ -6,25 +6,40 @@ use crate::utils::{horizontal_rule, horizontal_space, truncate_path, vertical_sp
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
+pub mod all_map_ini_editor;
+pub mod chdata_editor;
 pub mod chest_editor;
 pub mod database;
 pub mod db_viewer;
+pub mod dialog_editor;
+pub mod dialogue_text_editor;
+pub mod draw_item_editor;
 pub mod edit_item_editor;
+pub mod event_ini_editor;
 pub mod event_item_editor;
+pub mod event_npc_ref_editor;
+pub mod extra_ini_editor;
+pub mod extra_ref_editor;
 pub mod heal_item_editor;
 pub mod magic_editor;
 pub mod map;
+pub mod map_ini_editor;
+pub mod message_scr_editor;
 pub mod misc_item_editor;
 pub mod monster_editor;
 pub mod monster_ref_editor;
 pub mod npc_ini_editor;
+pub mod npc_ref_editor;
 pub mod party_ini_editor;
+pub mod party_level_db_editor;
 pub mod party_ref_editor;
+pub mod quest_scr_editor;
 pub mod ref_tab;
 pub mod sound;
 pub mod sprite;
 pub mod sprite_browser;
 pub mod store_editor;
+pub mod wave_ini_editor;
 pub mod weapon_editor;
 
 impl App {
@@ -62,6 +77,36 @@ impl App {
             self.view_party_ini_editor_tab()
         } else if self.active_tab == Tab::MonsterRefEditor {
             self.view_monster_ref_editor_tab()
+        } else if self.active_tab == Tab::AllMapIniEditor {
+            self.view_all_map_ini_editor_tab()
+        } else if self.active_tab == Tab::DialogEditor {
+            self.view_dialog_editor_tab()
+        } else if self.active_tab == Tab::DialogueTextEditor {
+            self.view_dialogue_text_editor_tab()
+        } else if self.active_tab == Tab::DrawItemEditor {
+            self.view_draw_item_editor_tab()
+        } else if self.active_tab == Tab::EventIniEditor {
+            self.view_event_ini_editor_tab()
+        } else if self.active_tab == Tab::EventNpcRefEditor {
+            self.view_event_npc_ref_editor_tab()
+        } else if self.active_tab == Tab::ExtraIniEditor {
+            self.view_extra_ini_editor_tab()
+        } else if self.active_tab == Tab::ExtraRefEditor {
+            self.view_extra_ref_editor_tab()
+        } else if self.active_tab == Tab::MapIniEditor {
+            self.view_map_ini_editor_tab()
+        } else if self.active_tab == Tab::MessageScrEditor {
+            self.view_message_scr_editor_tab()
+        } else if self.active_tab == Tab::NpcRefEditor {
+            self.view_npc_ref_editor_tab()
+        } else if self.active_tab == Tab::PartyLevelDbEditor {
+            self.view_party_level_db_editor_tab()
+        } else if self.active_tab == Tab::QuestScrEditor {
+            self.view_quest_scr_editor_tab()
+        } else if self.active_tab == Tab::WaveIniEditor {
+            self.view_wave_ini_editor_tab()
+        } else if self.active_tab == Tab::ChDataEditor {
+            self.view_chdata_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
             let log_panel = self.view_log();
@@ -174,6 +219,21 @@ impl App {
             Tab::PartyIniEditor => self.view_party_ini_editor_tab(),
             Tab::SpriteBrowser => self.view_sprite_browser_tab(),
             Tab::MonsterRefEditor => self.view_monster_ref_editor_tab(),
+            Tab::AllMapIniEditor => self.view_all_map_ini_editor_tab(),
+            Tab::DialogEditor => self.view_dialog_editor_tab(),
+            Tab::DialogueTextEditor => self.view_dialogue_text_editor_tab(),
+            Tab::DrawItemEditor => self.view_draw_item_editor_tab(),
+            Tab::EventIniEditor => self.view_event_ini_editor_tab(),
+            Tab::EventNpcRefEditor => self.view_event_npc_ref_editor_tab(),
+            Tab::ExtraIniEditor => self.view_extra_ini_editor_tab(),
+            Tab::ExtraRefEditor => self.view_extra_ref_editor_tab(),
+            Tab::MapIniEditor => self.view_map_ini_editor_tab(),
+            Tab::MessageScrEditor => self.view_message_scr_editor_tab(),
+            Tab::NpcRefEditor => self.view_npc_ref_editor_tab(),
+            Tab::PartyLevelDbEditor => self.view_party_level_db_editor_tab(),
+            Tab::QuestScrEditor => self.view_quest_scr_editor_tab(),
+            Tab::WaveIniEditor => self.view_wave_ini_editor_tab(),
+            Tab::ChDataEditor => self.view_chdata_editor_tab(),
         };
         let run_btn: Element<'_, Message> = if self.is_running {
             button(text("⏳ Running…").size(14))

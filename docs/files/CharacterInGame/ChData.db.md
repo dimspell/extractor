@@ -1,7 +1,7 @@
 # ChData.db - Character Statistics
 
 ## File Information
-- **Location**: `ExtraInGame/ChData.db`
+- **Location**: `CharacterInGame/ChData.db`
 - **Format**: Binary (Little-Endian)
 - **Record Size**: 84 bytes
 - **Single-record file**: Contains one comprehensive record
@@ -54,7 +54,7 @@
 
 ### Extract and display character data:
 ```bash
-cargo run -- ref chdata "fixtures/Dispel/ExtraInGame/ChData.db"
+cargo run -- ref chdata "fixtures/Dispel/CharacterInGame/ChData.db"
 ```
 
 ### Format Structure

@@ -1,26 +1,43 @@
+use crate::all_map_ini_editor;
+use crate::chdata_editor;
 use crate::chest_editor;
 use crate::db;
 use crate::db_viewer_state::{DbViewerState, PAGE_SIZE};
+use crate::dialog_editor;
+use crate::dialogue_text_editor;
+use crate::draw_item_editor;
 use crate::edit_item_editor;
+use crate::event_ini_editor;
 use crate::event_item_editor;
+use crate::event_npc_ref_editor;
+use crate::extra_ini_editor;
+use crate::extra_ref_editor;
 use crate::heal_item_editor;
 use crate::magic_editor;
+use crate::map_ini_editor;
 use crate::message::Message;
+use crate::message_scr_editor;
 use crate::misc_item_editor;
 use crate::monster_editor;
 use crate::monster_ref_editor;
 use crate::npc_ini_editor;
+use crate::npc_ref_editor;
 use crate::party_ini_editor;
+use crate::party_level_db_editor;
 use crate::party_ref_editor;
+use crate::quest_scr_editor;
 use crate::sprite_browser;
 use crate::store_editor;
 use crate::types::{DbOp, MapOp, RefOp, SpriteMode, Tab};
 use crate::utils::{browse_file, browse_folder};
+use crate::wave_ini_editor;
 use crate::weapon_editor;
 use dispel_core::commands::{self, Command, CommandFactory};
 use dispel_core::{
-    EditItem, EventItem, Extractor, HealItem, MagicSpell, MiscItem, Monster, MonsterRef, NpcIni, PartyIniNpc,
-    PartyRef, Store, WeaponItem,
+    ChData, Dialog, DialogueText, DrawItem, EditItem, Event, EventItem, EventNpcRef, Extra,
+    ExtraRef, Extractor, HealItem, MagicSpell, Map, MapIni, Message as ScrMessage, MiscItem,
+    Monster, MonsterRef, NpcIni, PartyIniNpc, PartyLevelNpc, PartyRef, Quest, Store, WaveIni,
+    WeaponItem, NPC,
 };
 use iced::{Element, Task};
 use std::io::Seek;
@@ -89,6 +106,36 @@ pub struct App {
     pub monster_ref_editor: Box<monster_ref_editor::MonsterRefEditorState>,
     // Sprite Browser
     pub sprite_browser: Box<sprite_browser::SpriteBrowserState>,
+    // All Map Ini Editor
+    pub all_map_ini_editor: Box<all_map_ini_editor::AllMapIniEditorState>,
+    // Dialog Editor
+    pub dialog_editor: Box<dialog_editor::DialogEditorState>,
+    // Dialogue Text Editor
+    pub dialogue_text_editor: Box<dialogue_text_editor::DialogueTextEditorState>,
+    // Draw Item Editor
+    pub draw_item_editor: Box<draw_item_editor::DrawItemEditorState>,
+    // Event Ini Editor
+    pub event_ini_editor: Box<event_ini_editor::EventIniEditorState>,
+    // Event Npc Ref Editor
+    pub event_npc_ref_editor: Box<event_npc_ref_editor::EventNpcRefEditorState>,
+    // Extra Ini Editor
+    pub extra_ini_editor: Box<extra_ini_editor::ExtraIniEditorState>,
+    // Extra Ref Editor
+    pub extra_ref_editor: Box<extra_ref_editor::ExtraRefEditorState>,
+    // Map Ini Editor
+    pub map_ini_editor: Box<map_ini_editor::MapIniEditorState>,
+    // Message Scr Editor
+    pub message_scr_editor: Box<message_scr_editor::MessageScrEditorState>,
+    // Npc Ref Editor
+    pub npc_ref_editor: Box<npc_ref_editor::NpcRefEditorState>,
+    // Party Level Db Editor
+    pub party_level_db_editor: Box<party_level_db_editor::PartyLevelDbEditorState>,
+    // Quest Scr Editor
+    pub quest_scr_editor: Box<quest_scr_editor::QuestScrEditorState>,
+    // Wave Ini Editor
+    pub wave_ini_editor: Box<wave_ini_editor::WaveIniEditorState>,
+    // ChData Editor
+    pub chdata_editor: Box<chdata_editor::ChDataEditorState>,
 }
 
 impl App {
@@ -135,6 +182,21 @@ impl App {
                 party_ini_editor: Box::default(),
                 monster_ref_editor: Box::default(),
                 sprite_browser: Box::default(),
+                all_map_ini_editor: Box::default(),
+                dialog_editor: Box::default(),
+                dialogue_text_editor: Box::default(),
+                draw_item_editor: Box::default(),
+                event_ini_editor: Box::default(),
+                event_npc_ref_editor: Box::default(),
+                extra_ini_editor: Box::default(),
+                extra_ref_editor: Box::default(),
+                map_ini_editor: Box::default(),
+                message_scr_editor: Box::default(),
+                npc_ref_editor: Box::default(),
+                party_level_db_editor: Box::default(),
+                quest_scr_editor: Box::default(),
+                wave_ini_editor: Box::default(),
+                chdata_editor: Box::default(),
             },
             Task::none(),
         )
@@ -1103,7 +1165,11 @@ impl App {
                         let edit_count = edit.as_ref().map(|e| e.len()).unwrap_or(0);
                         self.store_editor.status_msg = format!(
                             "Loaded: {} stores, {} weapons, {} heals, {} misc, {} edit items",
-                            stores.len(), weapons_count, heals_count, misc_count, edit_count
+                            stores.len(),
+                            weapons_count,
+                            heals_count,
+                            misc_count,
+                            edit_count
                         )
                         .into();
                         self.store_editor.refresh_stores();
@@ -1602,8 +1668,7 @@ impl App {
                         if let Ok(entries) = std::fs::read_dir(&path) {
                             for entry in entries.flatten() {
                                 let p = entry.path();
-                                if p.is_file()
-                                    && p.extension().map(|e| e == "ref").unwrap_or(false)
+                                if p.is_file() && p.extension().map(|e| e == "ref").unwrap_or(false)
                                 {
                                     let name = p
                                         .file_name()
@@ -1645,10 +1710,12 @@ impl App {
                 self.monster_ref_editor.is_loading = false;
                 match result {
                     Ok(_) => {
-                        self.monster_ref_editor.status_msg = "Monster ref saved successfully.".into()
+                        self.monster_ref_editor.status_msg =
+                            "Monster ref saved successfully.".into()
                     }
                     Err(e) => {
-                        self.monster_ref_editor.status_msg = format!("Error saving monster ref: {}", e)
+                        self.monster_ref_editor.status_msg =
+                            format!("Error saving monster ref: {}", e)
                     }
                 }
                 Task::none()
@@ -1669,6 +1736,900 @@ impl App {
                 }
                 Task::none()
             }
+            // All Map Ini Editor
+            Message::AllMapIniOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::AllMapIniOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.all_map_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.all_map_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path).join("AllMap.ini");
+                Task::perform(
+                    async move { Map::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::AllMapIniCatalogLoaded(res),
+                )
+            }
+            Message::AllMapIniCatalogLoaded(res) => {
+                self.all_map_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.all_map_ini_editor.catalog = Some(catalog.clone());
+                        self.all_map_ini_editor.status_msg =
+                            format!("Map catalog loaded: {} maps", catalog.len()).into();
+                        self.all_map_ini_editor.refresh_maps();
+                    }
+                    Err(e) => {
+                        self.all_map_ini_editor.status_msg =
+                            format!("Error loading map catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::AllMapIniOpSelectMap(idx) => {
+                self.all_map_ini_editor.select_map(idx);
+                Task::none()
+            }
+            Message::AllMapIniOpFieldChanged(idx, field, val) => {
+                self.all_map_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::AllMapIniOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.all_map_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.all_map_ini_editor.is_loading = true;
+                let result = self.all_map_ini_editor.save_maps(&self.shared_game_path);
+                self.all_map_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.all_map_ini_editor.status_msg = "Maps saved successfully.".into(),
+                    Err(e) => {
+                        self.all_map_ini_editor.status_msg = format!("Error saving maps: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Dialog Editor
+            Message::DialogOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::DialogOpBrowseFile => crate::utils::browse_file("dialog_file"),
+            Message::DialogOpSelectFile(path) => {
+                self.dialog_editor.current_file = path.to_string_lossy().to_string();
+                self.dialog_editor.is_loading = true;
+                Task::perform(
+                    async move { Dialog::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::DialogCatalogLoaded(res),
+                )
+            }
+            Message::DialogOpLoadCatalog => {
+                if self.dialog_editor.current_file.is_empty() {
+                    self.dialog_editor.status_msg = "Please select a dialog file first.".into();
+                    return Task::none();
+                }
+                self.dialog_editor.is_loading = true;
+                let path = PathBuf::from(&self.dialog_editor.current_file);
+                Task::perform(
+                    async move { Dialog::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::DialogCatalogLoaded(res),
+                )
+            }
+            Message::DialogCatalogLoaded(res) => {
+                self.dialog_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.dialog_editor.catalog = Some(catalog.clone());
+                        self.dialog_editor.status_msg =
+                            format!("Dialog catalog loaded: {} entries", catalog.len()).into();
+                        self.dialog_editor.refresh_dialogs();
+                    }
+                    Err(e) => {
+                        self.dialog_editor.status_msg =
+                            format!("Error loading dialog catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::DialogOpSelectDialog(idx) => {
+                self.dialog_editor.select_dialog(idx);
+                Task::none()
+            }
+            Message::DialogOpFieldChanged(idx, field, val) => {
+                self.dialog_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::DialogOpSave => {
+                if self.shared_game_path.is_empty() || self.dialog_editor.current_file.is_empty() {
+                    self.dialog_editor.status_msg =
+                        "Please select game path and file first.".into();
+                    return Task::none();
+                }
+                self.dialog_editor.is_loading = true;
+                let filename = std::path::Path::new(&self.dialog_editor.current_file)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "dialog.dlg".to_string());
+                let result = self
+                    .dialog_editor
+                    .save_dialogs(&self.shared_game_path, &filename);
+                self.dialog_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.dialog_editor.status_msg = "Dialogs saved successfully.".into(),
+                    Err(e) => {
+                        self.dialog_editor.status_msg = format!("Error saving dialogs: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Dialogue Text Editor
+            Message::DialogueTextOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::DialogueTextOpBrowseFile => crate::utils::browse_file("dialogue_text_file"),
+            Message::DialogueTextOpSelectFile(path) => {
+                self.dialogue_text_editor.current_file = path.to_string_lossy().to_string();
+                self.dialogue_text_editor.is_loading = true;
+                Task::perform(
+                    async move {
+                        DialogueText::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::DialogueTextCatalogLoaded(res),
+                )
+            }
+            Message::DialogueTextOpLoadCatalog => {
+                if self.dialogue_text_editor.current_file.is_empty() {
+                    self.dialogue_text_editor.status_msg = "Please select a file first.".into();
+                    return Task::none();
+                }
+                self.dialogue_text_editor.is_loading = true;
+                let path = PathBuf::from(&self.dialogue_text_editor.current_file);
+                Task::perform(
+                    async move {
+                        DialogueText::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::DialogueTextCatalogLoaded(res),
+                )
+            }
+            Message::DialogueTextCatalogLoaded(res) => {
+                self.dialogue_text_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.dialogue_text_editor.catalog = Some(catalog.clone());
+                        self.dialogue_text_editor.status_msg =
+                            format!("Text catalog loaded: {} entries", catalog.len()).into();
+                        self.dialogue_text_editor.refresh_texts();
+                    }
+                    Err(e) => {
+                        self.dialogue_text_editor.status_msg =
+                            format!("Error loading text catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::DialogueTextOpSelectText(idx) => {
+                self.dialogue_text_editor.select_text(idx);
+                Task::none()
+            }
+            Message::DialogueTextOpFieldChanged(idx, field, val) => {
+                self.dialogue_text_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::DialogueTextOpSave => {
+                if self.shared_game_path.is_empty()
+                    || self.dialogue_text_editor.current_file.is_empty()
+                {
+                    self.dialogue_text_editor.status_msg =
+                        "Please select game path and file first.".into();
+                    return Task::none();
+                }
+                self.dialogue_text_editor.is_loading = true;
+                let filename = std::path::Path::new(&self.dialogue_text_editor.current_file)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "text.pgp".to_string());
+                let result = self
+                    .dialogue_text_editor
+                    .save_texts(&self.shared_game_path, &filename);
+                self.dialogue_text_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.dialogue_text_editor.status_msg = "Texts saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.dialogue_text_editor.status_msg = format!("Error saving texts: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Draw Item Editor
+            Message::DrawItemOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::DrawItemOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.draw_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.draw_item_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("Ref")
+                    .join("DRAWITEM.ref");
+                Task::perform(
+                    async move { DrawItem::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::DrawItemCatalogLoaded(res),
+                )
+            }
+            Message::DrawItemCatalogLoaded(res) => {
+                self.draw_item_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.draw_item_editor.catalog = Some(catalog.clone());
+                        self.draw_item_editor.status_msg =
+                            format!("Draw item catalog loaded: {} entries", catalog.len()).into();
+                        self.draw_item_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.draw_item_editor.status_msg =
+                            format!("Error loading draw item catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::DrawItemOpSelectItem(idx) => {
+                self.draw_item_editor.select_item(idx);
+                Task::none()
+            }
+            Message::DrawItemOpFieldChanged(idx, field, val) => {
+                self.draw_item_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::DrawItemOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.draw_item_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.draw_item_editor.is_loading = true;
+                let result = self.draw_item_editor.save_items(&self.shared_game_path);
+                self.draw_item_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.draw_item_editor.status_msg = "Draw items saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.draw_item_editor.status_msg = format!("Error saving draw items: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Event Ini Editor
+            Message::EventIniOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::EventIniOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.event_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path).join("Event.ini");
+                Task::perform(
+                    async move { Event::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::EventIniCatalogLoaded(res),
+                )
+            }
+            Message::EventIniCatalogLoaded(res) => {
+                self.event_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.event_ini_editor.catalog = Some(catalog.clone());
+                        self.event_ini_editor.status_msg =
+                            format!("Event catalog loaded: {} entries", catalog.len()).into();
+                        self.event_ini_editor.refresh_events();
+                    }
+                    Err(e) => {
+                        self.event_ini_editor.status_msg =
+                            format!("Error loading event catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EventIniOpSelectEvent(idx) => {
+                self.event_ini_editor.select_event(idx);
+                Task::none()
+            }
+            Message::EventIniOpFieldChanged(idx, field, val) => {
+                self.event_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::EventIniOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.event_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_ini_editor.is_loading = true;
+                let result = self.event_ini_editor.save_events(&self.shared_game_path);
+                self.event_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.event_ini_editor.status_msg = "Events saved successfully.".into(),
+                    Err(e) => {
+                        self.event_ini_editor.status_msg = format!("Error saving events: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Event Npc Ref Editor
+            Message::EventNpcRefOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::EventNpcRefOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.event_npc_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_npc_ref_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("NpcInGame")
+                    .join("Eventnpc.ref");
+                Task::perform(
+                    async move {
+                        EventNpcRef::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::EventNpcRefCatalogLoaded(res),
+                )
+            }
+            Message::EventNpcRefCatalogLoaded(res) => {
+                self.event_npc_ref_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.event_npc_ref_editor.catalog = Some(catalog.clone());
+                        self.event_npc_ref_editor.status_msg =
+                            format!("Event NPC catalog loaded: {} entries", catalog.len()).into();
+                        self.event_npc_ref_editor.refresh_npcs();
+                    }
+                    Err(e) => {
+                        self.event_npc_ref_editor.status_msg =
+                            format!("Error loading event NPC catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::EventNpcRefOpSelectNpc(idx) => {
+                self.event_npc_ref_editor.select_npc(idx);
+                Task::none()
+            }
+            Message::EventNpcRefOpFieldChanged(idx, field, val) => {
+                self.event_npc_ref_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::EventNpcRefOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.event_npc_ref_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.event_npc_ref_editor.is_loading = true;
+                let result = self.event_npc_ref_editor.save_npcs(&self.shared_game_path);
+                self.event_npc_ref_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.event_npc_ref_editor.status_msg =
+                            "Event NPCs saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.event_npc_ref_editor.status_msg =
+                            format!("Error saving event NPCs: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Extra Ini Editor
+            Message::ExtraIniOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::ExtraIniOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.extra_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.extra_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path).join("Extra.ini");
+                Task::perform(
+                    async move { Extra::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::ExtraIniCatalogLoaded(res),
+                )
+            }
+            Message::ExtraIniCatalogLoaded(res) => {
+                self.extra_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.extra_ini_editor.catalog = Some(catalog.clone());
+                        self.extra_ini_editor.status_msg =
+                            format!("Extra catalog loaded: {} entries", catalog.len()).into();
+                        self.extra_ini_editor.refresh_extras();
+                    }
+                    Err(e) => {
+                        self.extra_ini_editor.status_msg =
+                            format!("Error loading extra catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::ExtraIniOpSelectExtra(idx) => {
+                self.extra_ini_editor.select_extra(idx);
+                Task::none()
+            }
+            Message::ExtraIniOpFieldChanged(idx, field, val) => {
+                self.extra_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::ExtraIniOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.extra_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.extra_ini_editor.is_loading = true;
+                let result = self.extra_ini_editor.save_extras(&self.shared_game_path);
+                self.extra_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.extra_ini_editor.status_msg = "Extras saved successfully.".into(),
+                    Err(e) => {
+                        self.extra_ini_editor.status_msg = format!("Error saving extras: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Extra Ref Editor
+            Message::ExtraRefOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::ExtraRefOpBrowseMapFile => crate::utils::browse_file("extra_ref_map_file"),
+            Message::ExtraRefOpSelectMapFile(path) => {
+                self.extra_ref_editor.current_map_file = path.to_string_lossy().to_string();
+                self.extra_ref_editor.is_loading = true;
+                Task::perform(
+                    async move { ExtraRef::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::ExtraRefCatalogLoaded(res),
+                )
+            }
+            Message::ExtraRefOpLoadCatalog => {
+                if self.extra_ref_editor.current_map_file.is_empty() {
+                    self.extra_ref_editor.status_msg = "Please select a map file first.".into();
+                    return Task::none();
+                }
+                self.extra_ref_editor.is_loading = true;
+                let path = PathBuf::from(&self.extra_ref_editor.current_map_file);
+                Task::perform(
+                    async move { ExtraRef::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::ExtraRefCatalogLoaded(res),
+                )
+            }
+            Message::ExtraRefCatalogLoaded(res) => {
+                self.extra_ref_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.extra_ref_editor.catalog = Some(catalog.clone());
+                        self.extra_ref_editor.status_msg =
+                            format!("Extra ref catalog loaded: {} entries", catalog.len()).into();
+                        self.extra_ref_editor.refresh_items();
+                    }
+                    Err(e) => {
+                        self.extra_ref_editor.status_msg =
+                            format!("Error loading extra ref catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::ExtraRefOpSelectItem(idx) => {
+                self.extra_ref_editor.select_item(idx);
+                Task::none()
+            }
+            Message::ExtraRefOpFieldChanged(idx, field, val) => {
+                self.extra_ref_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::ExtraRefOpSave => {
+                self.extra_ref_editor.is_loading = true;
+                let result = self.extra_ref_editor.save_items();
+                self.extra_ref_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.extra_ref_editor.status_msg = "Extra refs saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.extra_ref_editor.status_msg = format!("Error saving extra refs: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Map Ini Editor
+            Message::MapIniOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::MapIniOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.map_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.map_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("Ref")
+                    .join("Map.ini");
+                Task::perform(
+                    async move { MapIni::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::MapIniCatalogLoaded(res),
+                )
+            }
+            Message::MapIniCatalogLoaded(res) => {
+                self.map_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.map_ini_editor.catalog = Some(catalog.clone());
+                        self.map_ini_editor.status_msg =
+                            format!("Map ini catalog loaded: {} entries", catalog.len()).into();
+                        self.map_ini_editor.refresh_maps();
+                    }
+                    Err(e) => {
+                        self.map_ini_editor.status_msg =
+                            format!("Error loading map ini catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MapIniOpSelectMap(idx) => {
+                self.map_ini_editor.select_map(idx);
+                Task::none()
+            }
+            Message::MapIniOpFieldChanged(idx, field, val) => {
+                self.map_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MapIniOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.map_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.map_ini_editor.is_loading = true;
+                let result = self.map_ini_editor.save_maps(&self.shared_game_path);
+                self.map_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.map_ini_editor.status_msg = "Map ini saved successfully.".into(),
+                    Err(e) => {
+                        self.map_ini_editor.status_msg = format!("Error saving map ini: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Message Scr Editor
+            Message::MessageScrOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::MessageScrOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.message_scr_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.message_scr_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("ExtraInGame")
+                    .join("Message.scr");
+                Task::perform(
+                    async move {
+                        ScrMessage::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::MessageScrCatalogLoaded(res),
+                )
+            }
+            Message::MessageScrCatalogLoaded(res) => {
+                self.message_scr_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.message_scr_editor.catalog = Some(catalog.clone());
+                        self.message_scr_editor.status_msg =
+                            format!("Message catalog loaded: {} entries", catalog.len()).into();
+                        self.message_scr_editor.refresh_messages();
+                    }
+                    Err(e) => {
+                        self.message_scr_editor.status_msg =
+                            format!("Error loading message catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::MessageScrOpSelectMessage(idx) => {
+                self.message_scr_editor.select_message(idx);
+                Task::none()
+            }
+            Message::MessageScrOpFieldChanged(idx, field, val) => {
+                self.message_scr_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::MessageScrOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.message_scr_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.message_scr_editor.is_loading = true;
+                let result = self
+                    .message_scr_editor
+                    .save_messages(&self.shared_game_path);
+                self.message_scr_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.message_scr_editor.status_msg = "Messages saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.message_scr_editor.status_msg = format!("Error saving messages: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Npc Ref Editor
+            Message::NpcRefOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::NpcRefOpBrowseMapFile => crate::utils::browse_file("npc_ref_map_file"),
+            Message::NpcRefOpSelectMapFile(path) => {
+                self.npc_ref_editor.current_map_file = path.to_string_lossy().to_string();
+                self.npc_ref_editor.is_loading = true;
+                Task::perform(
+                    async move { NPC::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::NpcRefCatalogLoaded(res),
+                )
+            }
+            Message::NpcRefOpLoadCatalog => {
+                if self.npc_ref_editor.current_map_file.is_empty() {
+                    self.npc_ref_editor.status_msg = "Please select a map file first.".into();
+                    return Task::none();
+                }
+                self.npc_ref_editor.is_loading = true;
+                let path = PathBuf::from(&self.npc_ref_editor.current_map_file);
+                Task::perform(
+                    async move { NPC::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::NpcRefCatalogLoaded(res),
+                )
+            }
+            Message::NpcRefCatalogLoaded(res) => {
+                self.npc_ref_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.npc_ref_editor.catalog = Some(catalog.clone());
+                        self.npc_ref_editor.status_msg =
+                            format!("NPC ref catalog loaded: {} entries", catalog.len()).into();
+                        self.npc_ref_editor.refresh_npcs();
+                    }
+                    Err(e) => {
+                        self.npc_ref_editor.status_msg =
+                            format!("Error loading NPC ref catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::NpcRefOpSelectNpc(idx) => {
+                self.npc_ref_editor.select_npc(idx);
+                Task::none()
+            }
+            Message::NpcRefOpFieldChanged(idx, field, val) => {
+                self.npc_ref_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::NpcRefOpSave => {
+                self.npc_ref_editor.is_loading = true;
+                let result = self.npc_ref_editor.save_npcs();
+                self.npc_ref_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.npc_ref_editor.status_msg = "NPC refs saved successfully.".into(),
+                    Err(e) => {
+                        self.npc_ref_editor.status_msg = format!("Error saving NPC refs: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Party Level Db Editor
+            Message::PartyLevelDbOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::PartyLevelDbOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.party_level_db_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_level_db_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("NpcInGame")
+                    .join("PrtLevel.db");
+                Task::perform(
+                    async move {
+                        PartyLevelNpc::read_file(&path).map_err(|e: std::io::Error| e.to_string())
+                    },
+                    |res| Message::PartyLevelDbCatalogLoaded(res),
+                )
+            }
+            Message::PartyLevelDbCatalogLoaded(res) => {
+                self.party_level_db_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.party_level_db_editor.catalog = Some(catalog.clone());
+                        self.party_level_db_editor.status_msg =
+                            format!("Party level catalog loaded: {} NPCs", catalog.len()).into();
+                    }
+                    Err(e) => {
+                        self.party_level_db_editor.status_msg =
+                            format!("Error loading party level catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::PartyLevelDbOpSelectNpc(idx) => {
+                self.party_level_db_editor.select_npc(idx);
+                Task::none()
+            }
+            Message::PartyLevelDbOpSelectRecord(idx) => {
+                self.party_level_db_editor.select_record(idx);
+                Task::none()
+            }
+            Message::PartyLevelDbOpFieldChanged(field, val) => {
+                self.party_level_db_editor.update_field(&field, val);
+                Task::none()
+            }
+            Message::PartyLevelDbOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.party_level_db_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.party_level_db_editor.is_loading = true;
+                let result = self
+                    .party_level_db_editor
+                    .save_levels(&self.shared_game_path);
+                self.party_level_db_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.party_level_db_editor.status_msg =
+                            "Party levels saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.party_level_db_editor.status_msg =
+                            format!("Error saving party levels: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Quest Scr Editor
+            Message::QuestScrOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::QuestScrOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.quest_scr_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.quest_scr_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("ExtraInGame")
+                    .join("Quest.scr");
+                Task::perform(
+                    async move { Quest::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::QuestScrCatalogLoaded(res),
+                )
+            }
+            Message::QuestScrCatalogLoaded(res) => {
+                self.quest_scr_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.quest_scr_editor.catalog = Some(catalog.clone());
+                        self.quest_scr_editor.status_msg =
+                            format!("Quest catalog loaded: {} entries", catalog.len()).into();
+                        self.quest_scr_editor.refresh_quests();
+                    }
+                    Err(e) => {
+                        self.quest_scr_editor.status_msg =
+                            format!("Error loading quest catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::QuestScrOpSelectQuest(idx) => {
+                self.quest_scr_editor.select_quest(idx);
+                Task::none()
+            }
+            Message::QuestScrOpFieldChanged(idx, field, val) => {
+                self.quest_scr_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::QuestScrOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.quest_scr_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.quest_scr_editor.is_loading = true;
+                let result = self.quest_scr_editor.save_quests(&self.shared_game_path);
+                self.quest_scr_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.quest_scr_editor.status_msg = "Quests saved successfully.".into(),
+                    Err(e) => {
+                        self.quest_scr_editor.status_msg = format!("Error saving quests: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // Wave Ini Editor
+            Message::WaveIniOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::WaveIniOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.wave_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.wave_ini_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path).join("Wave.ini");
+                Task::perform(
+                    async move { WaveIni::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::WaveIniCatalogLoaded(res),
+                )
+            }
+            Message::WaveIniCatalogLoaded(res) => {
+                self.wave_ini_editor.is_loading = false;
+                match res {
+                    Ok(catalog) => {
+                        self.wave_ini_editor.catalog = Some(catalog.clone());
+                        self.wave_ini_editor.status_msg =
+                            format!("Wave catalog loaded: {} entries", catalog.len()).into();
+                        self.wave_ini_editor.refresh_waves();
+                    }
+                    Err(e) => {
+                        self.wave_ini_editor.status_msg =
+                            format!("Error loading wave catalog: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::WaveIniOpSelectWave(idx) => {
+                self.wave_ini_editor.select_wave(idx);
+                Task::none()
+            }
+            Message::WaveIniOpFieldChanged(idx, field, val) => {
+                self.wave_ini_editor.update_field(idx, &field, val);
+                Task::none()
+            }
+            Message::WaveIniOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.wave_ini_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.wave_ini_editor.is_loading = true;
+                let result = self.wave_ini_editor.save_waves(&self.shared_game_path);
+                self.wave_ini_editor.is_loading = false;
+                match result {
+                    Ok(_) => {
+                        self.wave_ini_editor.status_msg = "Wave ini saved successfully.".into()
+                    }
+                    Err(e) => {
+                        self.wave_ini_editor.status_msg = format!("Error saving wave ini: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            // ChData Editor
+            Message::ChDataOpBrowseGamePath => browse_folder("shared_game_path"),
+            Message::ChDataOpLoadCatalog => {
+                if self.shared_game_path.is_empty() {
+                    self.chdata_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.chdata_editor.is_loading = true;
+                let path = PathBuf::from(&self.shared_game_path)
+                    .join("CharacterInGame")
+                    .join("ChData.db");
+                Task::perform(
+                    async move { ChData::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
+                    |res| Message::ChDataCatalogLoaded(res),
+                )
+            }
+            Message::ChDataCatalogLoaded(res) => {
+                self.chdata_editor.is_loading = false;
+                match res {
+                    Ok(_) => {
+                        self.chdata_editor.select_data();
+                        self.chdata_editor.status_msg = "ChData loaded successfully.".into();
+                    }
+                    Err(e) => {
+                        self.chdata_editor.status_msg = format!("Error loading ChData: {}", e)
+                    }
+                }
+                Task::none()
+            }
+            Message::ChDataOpFieldChanged(field, val) => {
+                self.chdata_editor.update_field(&field, val);
+                Task::none()
+            }
+            Message::ChDataOpSave => {
+                if self.shared_game_path.is_empty() {
+                    self.chdata_editor.status_msg = "Please select game path first.".into();
+                    return Task::none();
+                }
+                self.chdata_editor.is_loading = true;
+                let result = self.chdata_editor.save_data(&self.shared_game_path);
+                self.chdata_editor.is_loading = false;
+                match result {
+                    Ok(_) => self.chdata_editor.status_msg = "ChData saved successfully.".into(),
+                    Err(e) => self.chdata_editor.status_msg = format!("Error saving ChData: {}", e),
+                }
+                Task::none()
+            }
         }
     }
 
@@ -1684,8 +2645,7 @@ impl App {
                             .file_stem()
                             .map(|s| s.to_string_lossy().to_string())
                             .unwrap_or_default();
-                        let (seq_count, frame_counts) =
-                            Self::analyze_sprite_file(&path);
+                        let (seq_count, frame_counts) = Self::analyze_sprite_file(&path);
                         results.push(sprite_browser::SpriteEntry {
                             path,
                             name,
@@ -1902,10 +2862,25 @@ impl App {
             | Tab::NpcIniEditor
             | Tab::MagicEditor
             | Tab::StoreEditor
-            |             Tab::PartyRefEditor
+            | Tab::PartyRefEditor
             | Tab::PartyIniEditor
             | Tab::SpriteBrowser
-            | Tab::MonsterRefEditor => None,
+            | Tab::MonsterRefEditor
+            | Tab::AllMapIniEditor
+            | Tab::DialogEditor
+            | Tab::DialogueTextEditor
+            | Tab::DrawItemEditor
+            | Tab::EventIniEditor
+            | Tab::EventNpcRefEditor
+            | Tab::ExtraIniEditor
+            | Tab::ExtraRefEditor
+            | Tab::MapIniEditor
+            | Tab::MessageScrEditor
+            | Tab::NpcRefEditor
+            | Tab::PartyLevelDbEditor
+            | Tab::QuestScrEditor
+            | Tab::WaveIniEditor
+            | Tab::ChDataEditor => None,
         }
     }
 }

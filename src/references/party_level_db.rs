@@ -67,7 +67,7 @@ use std::path::Path;
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PartyLevelRecord {
     /// Derived multiplier level tracking.
     pub level: u32,
@@ -91,7 +91,7 @@ pub struct PartyLevelRecord {
     pub defense: u16,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PartyLevelNpc {
     pub npc_index: usize,
     pub records: Vec<PartyLevelRecord>,
