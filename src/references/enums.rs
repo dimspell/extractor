@@ -621,15 +621,15 @@ impl std::fmt::Display for VisibilityType {
 #[repr(u8)]
 pub enum ItemTypeId {
     /// Weapon item type
-    Weapon = 0,
+    Weapon = 1,
     /// Healing item type
-    Healing = 1,
+    Healing = 2,
     /// Edit item type
-    Edit = 2,
+    Edit = 3,
     /// Miscellaneous item type
-    Misc = 3,
+    Misc = 4,
     /// Event item type
-    Event = 4,
+    Event = 5,
     /// Other/Unknown item type (catch-all for undefined values)
     Other = 255,
 }
@@ -1343,15 +1343,15 @@ mod tests {
 
     #[test]
     fn test_item_type_id_conversion() {
-        assert_eq!(ItemTypeId::from_u8(0), Some(ItemTypeId::Weapon));
-        assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Healing));
-        assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Edit));
-        assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Misc));
-        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
-        assert_eq!(ItemTypeId::from_u8(99), Some(ItemTypeId::Other));
+        assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
+        assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Healing));
+        assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Edit));
+        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Misc));
+        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::Other));
 
-        assert_eq!(u8::from(ItemTypeId::Edit), 2);
-        assert_eq!(ItemTypeId::Edit.value(), 2);
+        assert_eq!(u8::from(ItemTypeId::Edit), 3);
+        assert_eq!(ItemTypeId::Edit.value(), 3);
     }
 
     #[test]
