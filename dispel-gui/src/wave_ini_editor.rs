@@ -1,5 +1,5 @@
-use dispel_core::WaveIni;
 use dispel_core::Extractor;
+use dispel_core::WaveIni;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
@@ -11,6 +11,8 @@ pub struct WaveIniEditorState {
     pub edit_id: String,
     pub edit_snf_filename: String,
     pub edit_unknown_flag: String,
+
+    pub export_status: String,
 
     pub status_msg: String,
     pub is_loading: bool,
@@ -67,5 +69,27 @@ impl WaveIniEditorState {
         } else {
             Err("No catalog loaded".to_string())
         }
+    }
+
+    pub fn export_wav(
+        &self,
+        game_path: &str,
+        wave_id: i32,
+        output_path: &PathBuf,
+    ) -> Result<(), String> {
+        let snf_filename = self
+            .catalog
+            .as_ref()
+            .and_then(|cat| cat.iter().find(|w| w.id == wave_id))
+            .and_then(|w| w.snf_filename.as_ref())
+            .ok_or_else(|| format!("SNF filename not found for wave ID {}", wave_id))?;
+
+        let snf_path = PathBuf::from(game_path).join(snf_filename);
+        if !snf_path.exists() {
+            return Err(format!("SNF file not found: {}", snf_path.display()));
+        }
+
+        dispel_core::snf::extract(&snf_path, output_path)
+            .map_err(|e| format!("Failed to convert SNF to WAV: {}", e))
     }
 }

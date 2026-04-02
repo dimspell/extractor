@@ -2583,6 +2583,59 @@ impl App {
                 }
                 Task::none()
             }
+            Message::WaveIniOpExportWav(idx) => {
+                if self.shared_game_path.is_empty() {
+                    self.wave_ini_editor.export_status = "Please select game path first.".into();
+                    return Task::none();
+                }
+                if let Some((_, wave)) = self.wave_ini_editor.filtered_waves.get(idx) {
+                    let snf_filename = match &wave.snf_filename {
+                        Some(f) => f.clone(),
+                        None => {
+                            self.wave_ini_editor.export_status = "No SNF filename for this entry.".into();
+                            return Task::none();
+                        }
+                    };
+                    let stem = std::path::Path::new(&snf_filename)
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().to_string())
+                        .unwrap_or_else(|| format!("wave_{}", wave.id));
+                    let game_path = self.shared_game_path.clone();
+                    self.wave_ini_editor.is_loading = true;
+                    return Task::perform(
+                        async move {
+                            let handle = rfd::AsyncFileDialog::new()
+                                .set_file_name(&format!("{}.wav", stem))
+                                .add_filter("WAV Audio", &["wav"])
+                                .save_file()
+                                .await;
+                            match handle {
+                                Some(h) => {
+                                    let output_path = h.path().to_path_buf();
+                                    if let Some(parent) = output_path.parent() {
+                                        let _ = std::fs::create_dir_all(parent);
+                                    }
+                                    let snf_path = App::find_snf_file(&game_path, &snf_filename);
+                                    dispel_core::snf::extract(&snf_path, &output_path)
+                                        .map(|_| output_path.to_string_lossy().to_string())
+                                        .map_err(|e| e.to_string())
+                                }
+                                None => Err("Export cancelled".into()),
+                            }
+                        },
+                        Message::WaveIniWavExported,
+                    );
+                }
+                Task::none()
+            }
+            Message::WaveIniWavExported(res) => {
+                self.wave_ini_editor.is_loading = false;
+                match res {
+                    Ok(p) => self.wave_ini_editor.export_status = format!("Exported to {}", p),
+                    Err(e) => self.wave_ini_editor.export_status = format!("Export failed: {}", e),
+                }
+                Task::none()
+            }
             // ChData Editor
             Message::ChDataOpBrowseGamePath => browse_folder("shared_game_path"),
             Message::ChDataOpLoadCatalog => {
@@ -2692,6 +2745,31 @@ impl App {
             }
         }
         (frame_counts.len(), frame_counts)
+    }
+
+    fn find_snf_file(game_path: &str, snf_filename: &str) -> PathBuf {
+        let direct = PathBuf::from(game_path).join(snf_filename);
+        if direct.exists() {
+            return direct;
+        }
+
+        let candidate = PathBuf::from(game_path).join("Sound").join(snf_filename);
+        if candidate.exists() {
+            return candidate;
+        }
+
+        if let Ok(entries) = std::fs::read_dir(game_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    let candidate = path.join(snf_filename);
+                    if candidate.exists() {
+                        return candidate;
+                    }
+                }
+            }
+        }
+        direct
     }
 
     /// Fetch data using the built table query (filters + sorting).

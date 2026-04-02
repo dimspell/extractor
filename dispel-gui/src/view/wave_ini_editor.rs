@@ -38,7 +38,7 @@ impl App {
         ];
 
         if let Some(idx) = editor.selected_idx {
-            if let Some((orig_idx, _wave)) = editor.filtered_waves.get(idx) {
+            if let Some((orig_idx, wave)) = editor.filtered_waves.get(idx) {
                 let orig = *orig_idx;
 
                 detail_content.push(labeled_input("ID:", &editor.edit_id, move |v| {
@@ -54,6 +54,17 @@ impl App {
                     &editor.edit_unknown_flag,
                     move |v| Message::WaveIniOpFieldChanged(orig, "unknown_flag".into(), v),
                 ));
+
+                if wave.snf_filename.is_some() {
+                    detail_content.push(vertical_space().height(8).into());
+                    detail_content.push(
+                        button(text("Export to WAV").size(13))
+                            .on_press(Message::WaveIniOpExportWav(orig))
+                            .padding([8, 16])
+                            .style(style::commit_button)
+                            .into(),
+                    );
+                }
             }
         } else {
             detail_content.push(
@@ -98,6 +109,15 @@ impl App {
                 row![
                     text(&editor.status_msg).size(13).style(style::subtle_text),
                     horizontal_space(),
+                    if !editor.export_status.is_empty() {
+                        Element::from(
+                            text(&editor.export_status)
+                                .size(12)
+                                .style(style::subtle_text),
+                        )
+                    } else {
+                        Element::from(text(""))
+                    },
                     if editor.is_loading {
                         Element::from(text("Loading...").size(13))
                     } else {
