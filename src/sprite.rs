@@ -549,3 +549,35 @@ pub fn get_sequence_frames_as_pngs(
 
     Ok(pngs)
 }
+
+pub fn get_sequence_pngs_by_index(file_path: &Path, sequence_idx: usize) -> Result<Vec<Vec<u8>>> {
+    let file = File::open(file_path)?;
+    let file_len = file.metadata()?.len();
+    let mut reader = BufReader::new(file);
+
+    reader.seek(SeekFrom::Start(268))?;
+
+    let mut seq_counter = 0;
+    loop {
+        let pos = reader.stream_position()?;
+        if pos >= file_len {
+            break;
+        }
+
+        let valid = seek_next_sequence(&mut reader, pos, file_len)?;
+        if !valid {
+            break;
+        }
+
+        let info = get_sequence_info(&mut reader)?;
+        if seq_counter == sequence_idx {
+            return get_sequence_frames_as_pngs(&mut reader, &info);
+        }
+        seq_counter += 1;
+    }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        format!("Sequence {} not found", sequence_idx),
+    ))
+}
