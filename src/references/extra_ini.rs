@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 //
 // FIELD DEFINITIONS:
 // - id: Unique interactive object ID
-// - sprite_filename: SPR/SPX filename or "null"
+// - sprite_filename: SPR filename or "null"
 // - unknown: Flag (0 or 1)
 // - description: Object description or "null"
 //
@@ -61,7 +61,7 @@ use serde::{Deserialize, Serialize};
 pub struct Extra {
     /// Tool or object identifier.
     pub id: i32,
-    /// Base SPR/SPX filename for the object.
+    /// Base SPR filename for the object.
     pub sprite_filename: Option<String>,
     /// Internal unknown flag.
     pub unknown: i32,

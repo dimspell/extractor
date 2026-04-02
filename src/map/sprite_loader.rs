@@ -9,7 +9,7 @@ use crate::sprite::{self, rgb16_565_produce_color};
 // Types
 // --------------------------------------------------------------------------
 
-/// A single decoded frame from a game sprite file (`.SPR` / `.SPX`),
+/// A single decoded frame from a game sprite file (`.SPR`),
 /// with its anchor offsets so it can be placed correctly on the map.
 pub struct LoadedSpriteFrame {
     pub image: image::RgbaImage,

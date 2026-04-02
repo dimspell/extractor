@@ -56,10 +56,10 @@ enum Commands {
     /// Sprite/Animation extraction
     #[command(
         about = "Extract frames or sequences from SPR files",
-        long_about = "Parses .SPR (Sprite) or .SPX (Animated Sprite) files.\n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spx --mode animation"
+        long_about = "Parses .SPR (Sprite) \n\nUsage Examples:\n  dispel-extractor sprite character.spr\n  dispel-extractor sprite animation_effect.spr --mode animation"
     )]
     Sprite {
-        /// Path to the source .SPR or .SPX file
+        /// Path to the source .SPR file
         input: String,
         #[arg(
             long,

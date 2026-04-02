@@ -262,7 +262,7 @@ impl App {
             Tab::Map => "Extract tiles, render maps, and manage map assets",
             Tab::Ref => "Read game DB/INI/REF files and output as JSON",
             Tab::Database => "Populate a local SQLite database from game fixtures",
-            Tab::Sprite => "Parse .SPR / .SPX files to extract frames or sequences",
+            Tab::Sprite => "Parse .SPR files to extract frames or sequences",
             Tab::Sound => "Convert .SNF game audio to standard .WAV format",
             _ => "",
         })

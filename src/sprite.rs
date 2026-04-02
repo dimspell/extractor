@@ -4,7 +4,7 @@ use std::io::{BufReader, Cursor, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
 // ===========================================================================
-// DISPEL SPRITE FILE FORMAT (.SPR/.SPX)
+// DISPEL SPRITE FILE FORMAT (.SPR)
 // ===========================================================================
 //
 // ASCII Structure:

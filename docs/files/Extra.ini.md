@@ -35,7 +35,7 @@ id,sprite_filename,flag,description
 | Field | Type | Description |
 |-------|------|-------------|
 | id | i32 | Unique interactive object identifier (0-181) |
-| sprite_filename | string | SPR/SPX filename or "null" |
+| sprite_filename | string | SPR filename or "null" |
 | flag | i32 | Object flag (0 = standard, 1 = special) |
 | description | string | Object description or "null" |
 

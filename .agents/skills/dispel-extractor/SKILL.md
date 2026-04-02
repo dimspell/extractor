@@ -55,7 +55,7 @@ cargo run -- database maps <game_path> <db_path>
 
 # Sprite extraction
 cargo run -- sprite <input.spr>
-cargo run -- sprite <input.spx> --mode animation
+cargo run -- sprite <input.spr> --mode animation
 
 # Audio conversion
 cargo run -- sound <input.snf> <output.wav>
@@ -88,7 +88,7 @@ A `CommandFactory` provides dependency injection for creating commands.
 | `src/commands/map.rs` | Map parsing and rendering (`MapSubcommand` enum) |
 | `src/commands/ref_command.rs` | INI/DB/REF file parsers (`RefSubcommand` enum) |
 | `src/commands/database.rs` | SQLite import/export (`DatabaseSubcommand` enum) |
-| `src/commands/sprite.rs` | SPR/SPX sprite parsing |
+| `src/commands/sprite.rs` | SPR sprite parsing |
 | `src/commands/sound.rs` | SNF to WAV conversion |
 | `src/map/` | Binary map format parsing |
 | `src/references/` | Game reference file parsers |
@@ -97,7 +97,7 @@ A `CommandFactory` provides dependency injection for creating commands.
 ### Supported File Formats
 
 **Maps:** `.map`, `.gtl` (ground tiles), `.btl` (building tiles)
-**Sprites:** `.spr` (static), `.spx` (animated)
+**Sprites:** `.spr` (static or animated)
 **Audio:** `.snf` (raw PCM)
 **Reference Files:** `.ini`, `.db`, `.ref`, `.dlg`, `.pgp`, `.scr`
 
