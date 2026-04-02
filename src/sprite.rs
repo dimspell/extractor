@@ -7,54 +7,26 @@ use std::{fs::File, path::Path};
 // DISPEL SPRITE FILE FORMAT (.SPR)
 // ===========================================================================
 //
-// ASCII Structure:
+// Sprite files store character sprites, animations, and visual effects used
+// for rendering NPCs, monsters, party members, and special effects in the
+// isometric game world. Each file contains one or more animation sequences,
+// where each sequence contains one or more frames of pixel data.
 //
-// +--------------------------------------+
-// | Sprite File - Animation Sequences   |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Color Format: RGB565 (2 bytes/pixel)|
-// | Header Offset: 268 bytes             |
-// +--------------------------------------+
-// | [File Header]                       |
-// | - 268 bytes unknown header           |
-// +--------------------------------------+
-// | [Sequence 1]                        |
-// | - Sequence header (variable)        |
-// | - Frame 1 metadata                 |
-// | - Frame 1 pixel data (RGB565)       |
-// | - Frame 2 metadata                 |
-// | - Frame 2 pixel data (RGB565)       |
-// | - ...                              |
-// +--------------------------------------+
-// | [Sequence 2]                        |
-// | - Sequence header                  |
-// | - Frame metadata + pixel data       |
-// | - ...                              |
-// +--------------------------------------+
+// Full documentation: docs/files/Map/Sprites.spr.md
 //
-// SEQUENCE STRUCTURE:
-// - Stamp: i32 (8 or 0) - sequence marker
-// - Frame count: i32 - number of frames
-// - For each frame:
-//   - 6 × i32 unknown data
-//   - origin_x: i32 - X offset from origin
-//   - origin_y: i32 - Y offset from origin
-//   - width: i32 - frame width in pixels
-//   - height: i32 - frame height in pixels
-//   - size_bytes: u32 - pixel data size
-//   - RGB565 pixel data (width × height × 2 bytes)
+// Quick reference:
+//   - 268-byte unknown header, then variable-length sequences
+//   - Sequences found by scanning for valid header patterns (15×i32)
+//   - Each sequence: header → frame metadata blocks → RGB565 pixel data
+//   - RGB565: 5R/6G/5B, 0x0000=transparent, little-endian
+//   - Frames have origin_x/origin_y for alignment in a bounding rect
 //
-// COLOR FORMAT:
-// - RGB565: 5 bits red, 6 bits green, 5 bits blue
-// - 2 bytes per pixel
-// - 0x0000 = transparent
-// - Little-endian byte order
-//
-// FILE PURPOSE:
-// Stores character sprites, animations, and visual effects.
-// Used for rendering NPCs, monsters, party members, and special
-// effects in the isometric game world.
+// Reading flow:
+//   1. seek(268)
+//   2. seek_next_sequence() → find header or EOF
+//   3. get_sequence_info() → parse header + frame metadata
+//   4. seek(sequence_start_position) → render frames
+//   5. seek(sequence_end_position) → continue to next sequence
 //
 // ===========================================================================
 
@@ -62,27 +34,52 @@ use std::{fs::File, path::Path};
 // Types
 // ===========================================================================
 
+/// Metadata for a single frame within a sprite sequence.
+///
+/// The `origin_x` and `origin_y` fields define the anchor point relative to
+/// the frame's top-left corner. Frames within a sequence may have different
+/// sizes and origins, so a bounding rectangle must be computed to align them.
 #[derive(Debug, Clone, Copy)]
 pub struct ImageInfo {
+    /// X offset from the frame's top-left to its anchor point.
     pub origin_x: i32,
+    /// Y offset from the frame's top-left to its anchor point.
     pub origin_y: i32,
+    /// Frame width in pixels.
     pub width: i32,
+    /// Frame height in pixels.
     pub height: i32,
+    /// Size of the pixel data in bytes (width × height × 2).
     pub size_bytes: i64,
+    /// File offset where this frame's RGB565 pixel data begins.
     pub image_start_position: u64,
 }
 
+/// Parsed information for a single animation sequence.
+///
+/// Contains the file offsets needed to navigate between sequences and
+/// the metadata for all frames within this sequence.
 pub struct SequenceInfo {
+    /// File offset where this sequence's frame metadata begins.
+    /// Seek here before reading pixel data for rendering.
     pub sequence_start_position: u64,
+    /// File offset after the last frame's pixel data.
+    /// Seek here to continue scanning for the next sequence.
     pub sequence_end_position: u64,
+    /// Number of frames in this sequence.
     pub frame_count: i32,
+    /// Metadata for each frame in this sequence.
     pub frame_infos: Vec<ImageInfo>,
 }
 
+/// An RGB color decoded from a 16-bit RGB565 pixel value.
 #[derive(Clone, Copy, Debug)]
 pub struct Color {
+    /// Red component (0-255).
     pub r: u8,
+    /// Green component (0-255).
     pub g: u8,
+    /// Blue component (0-255).
     pub b: u8,
 }
 
@@ -114,6 +111,13 @@ pub struct SpriteInfoJson {
 // Low-level parsing
 // ===========================================================================
 
+/// Decodes a 16-bit RGB565 pixel value into an 8-bit RGB `Color`.
+///
+/// The RGB565 format uses 5 bits for red, 6 for green, and 5 for blue.
+/// Values are expanded to 8-bit by left-shifting: R<<3, G<<2, B<<3.
+///
+/// A pixel value of `0` represents transparency and should be skipped
+/// during rendering.
 pub fn rgb16_565_produce_color(pixel: u16) -> Color {
     let red_mask: u16 = 0xF800;
     let green_mask: u16 = 0x7E0;
@@ -160,6 +164,15 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
     })
 }
 
+/// Parses a single sequence header and all its frame metadata.
+///
+/// The reader must be positioned at the start of a valid sequence header
+/// (as found by `seek_next_sequence`). After this function returns, the
+/// reader is positioned at `sequence_end_position` (after all pixel data),
+/// ready for the next `seek_next_sequence` call.
+///
+/// To render the frames, seek back to `sequence_start_position` before
+/// reading pixel data.
 pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
     let mut stamp = reader.read_i32::<LittleEndian>()?;
     if stamp == 8 {
@@ -189,6 +202,13 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
     })
 }
 
+/// Scans forward from `start_pos` to find the next valid sequence header.
+///
+/// Reads 15 consecutive i32 values (60 bytes) and checks for known sequence
+/// patterns. If no match, advances by 4 bytes and retries.
+///
+/// Returns `true` if a valid sequence header was found (reader positioned
+/// at the header). Returns `false` if no more sequences exist in the file.
 pub fn seek_next_sequence(
     reader: &mut BufReader<File>,
     start_pos: u64,
