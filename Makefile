@@ -83,6 +83,9 @@ ref-monsters:
 ref-heal-item:
 	cargo run -- ref heal-items "fixtures/Dispel/CharacterInGame/HealItem.db"
 
+ref-draw-item:
+	cargo run -- ref draw-item "fixtures/Dispel/Ref/DRAWITEM.ref"
+
 ref-misc-item:
 	cargo run -- ref misc-item "fixtures/Dispel/CharacterInGame/MiscItem.db"
 
