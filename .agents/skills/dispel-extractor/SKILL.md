@@ -1,3 +1,8 @@
+---
+name: dispel-extractor
+description: Helps to execute the dispel extractor CLI tool to extract data and assets from the Dispel game
+---
+
 # Dispel Extractor Implementation Skill
 
 ## Overview
