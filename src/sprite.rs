@@ -162,7 +162,9 @@ pub fn animation(file_path: &Path) -> Result<()> {
         let valid_sprite_sequence = seek_next_sequence(&mut reader, pos, file_len)?;
         if valid_sprite_sequence {
             let info: SequenceInfo = get_sequence_info(&mut reader)?;
+            reader.seek(SeekFrom::Start(info.sequence_start_position))?;
             save_sequence_anim(&mut reader, &info.frame_infos, sequence_counter)?;
+            reader.seek(SeekFrom::Start(info.sequence_end_position))?;
             sequence_counter += 1;
         } else {
             break;
@@ -229,12 +231,14 @@ pub fn extract(file_path: &Path, out_file_prefix: String) -> Result<()> {
         let valid_sprite_sequence = seek_next_sequence(&mut reader, pos, file_len)?;
         if valid_sprite_sequence {
             let info: SequenceInfo = get_sequence_info(&mut reader)?;
+            reader.seek(SeekFrom::Start(info.sequence_start_position))?;
             save_sequence(
                 &mut reader,
                 &info.frame_infos,
                 sequence_counter,
                 &out_file_prefix,
             )?;
+            reader.seek(SeekFrom::Start(info.sequence_end_position))?;
             sequence_counter += 1;
         } else {
             break;
@@ -412,7 +416,6 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
         reader.seek(SeekFrom::Current(image_info.size_bytes))?;
     }
     info.sequence_end_position = reader.stream_position()?;
-    reader.seek(SeekFrom::Start(start_position))?;
 
     Ok(info)
 }
