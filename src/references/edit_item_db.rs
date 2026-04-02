@@ -160,6 +160,7 @@ impl Extractor for EditItem {
             let mut buffer = [0u8; 30];
             reader.read_exact(&mut buffer)?;
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
+            let name = name.trim();
 
             let mut buffer = [0u8; 202];
             reader.read_exact(&mut buffer)?;
