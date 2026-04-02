@@ -119,9 +119,6 @@ ref-event-npc-ref:
 ref-party-ini:
 	cargo run -- ref party-ini fixtures/Dispel/NpcInGame/PrtIni.db
 
-ref-dialogue-text:
-	cargo run -- ref dialogue-text "fixtures/Dispel/NpcInGame/PartyDlg.dlg"
-
 ref-quest:
 	cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
 
@@ -133,6 +130,9 @@ ref-ch-data:
 
 ref-dialog:
 	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+
+ref-dialogue-text:
+	cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
 
 database-import:
 	cargo run -- database import "fixtures/Dispel" "database.sqlite"
@@ -148,9 +148,8 @@ refs-help:
 	cargo run -- ref wave "fixtures/Dispel/Wave.ini"
 	cargo run -- ref party-ref "fixtures/Dispel/Ref/PartyRef.ref"
 	cargo run -- ref draw-item "fixtures/Dispel/Ref/DRAWITEM.ref"
-	cargo run -- ref party-pgp "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
-	cargo run -- ref party-dialog "fixtures/Dispel/NpcInGame/PartyDlg.dlg"
 	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+	cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
 	cargo run -- ref weapons "fixtures/Dispel/CharacterInGame/weaponItem.db"
 	cargo run -- ref monsters "fixtures/Dispel/MonsterInGame/Monster.db"
 	# cargo run -- ref multi-magic "fixtures/Dispel/MagicInGame/MulMagic.db"

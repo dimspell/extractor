@@ -1,3 +1,5 @@
+use crate::references::dialogue_text::read_dialogue_texts;
+
 use super::super::references::{
     all_map_ini, chdata_db, dialog, draw_item, edit_item_db, event_ini, event_item_db,
     event_npc_ref, extra_ini, extra_ref, heal_item_db, magic_db, map_ini, message_scr,
@@ -17,6 +19,7 @@ pub enum RefSubcommand {
     AllMaps { input: String },
     ChData { input: String },
     Dialog { input: String },
+    DialogTexts { input: String },
     DrawItem { input: String },
     EditItems { input: String },
     Event { input: String },
@@ -35,7 +38,6 @@ pub enum RefSubcommand {
     MultiMagic { input: String },
     Npc { input: String },
     NpcRef { input: String },
-    PartyDialog { input: String },
     PartyIni { input: String },
     PartyLevel { input: String },
     PartyRef { input: String },
@@ -120,17 +122,17 @@ impl Command for RefCommand {
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")
                 );
             }
-            RefSubcommand::PartyRef { input } => {
-                let data = party_ref::read_part_refs(Path::new(input))
-                    .expect("ERROR: could not read file");
+            RefSubcommand::DialogTexts { input } => {
+                let data =
+                    read_dialogue_texts(Path::new(input)).expect("ERROR: could not read file");
                 println!(
                     "{}",
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")
                 );
             }
-            RefSubcommand::PartyDialog { input } => {
-                let data =
-                    dialog::read_dialogs(Path::new(input)).expect("ERROR: could not read file");
+            RefSubcommand::PartyRef { input } => {
+                let data = party_ref::read_part_refs(Path::new(input))
+                    .expect("ERROR: could not read file");
                 println!(
                     "{}",
                     serde_json::to_string(&data).expect("ERROR: could not encode JSON")

@@ -255,10 +255,10 @@ enum RefCommands {
     PartyRef { input: String },
     /// Read DRAWITEM.ref (Map Placements)
     DrawItem { input: String },
-    /// Read Dlgcat1.dlg (Dialogue Category 1)
-    PartyDialog { input: String },
     /// Read Generic .dlg file
     Dialog { input: String },
+    /// Read Dlgcat1.pgp
+    DialogTexts { input: String },
     /// Read weaponItem.db (Armor & Weapons)
     Weapons { input: String },
     /// Read Monster.db (Monster Stats)
@@ -451,8 +451,8 @@ fn main() {
                             input: input.clone(),
                         }
                     }
-                    RefCommands::PartyDialog { input } => {
-                        commands::ref_command::RefSubcommand::PartyDialog {
+                    RefCommands::DialogTexts { input } => {
+                        commands::ref_command::RefSubcommand::DialogTexts {
                             input: input.clone(),
                         }
                     }

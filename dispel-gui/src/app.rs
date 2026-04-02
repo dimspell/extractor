@@ -3023,8 +3023,8 @@ impl App {
                     RefOp::Wave => commands::ref_command::RefSubcommand::Wave { input },
                     RefOp::PartyRef => commands::ref_command::RefSubcommand::PartyRef { input },
                     RefOp::DrawItem => commands::ref_command::RefSubcommand::DrawItem { input },
-                    RefOp::PartyDialog => {
-                        commands::ref_command::RefSubcommand::PartyDialog { input }
+                    RefOp::DialogTexts => {
+                        commands::ref_command::RefSubcommand::DialogTexts { input }
                     }
                     RefOp::Dialog => commands::ref_command::RefSubcommand::Dialog { input },
                     RefOp::Weapons => commands::ref_command::RefSubcommand::Weapons { input },
