@@ -20,7 +20,11 @@ impl Command for SpriteCommand {
         println!("Extracting sprite...");
         match &self.mode {
             SpriteMode::Sprite => {
-                sprite::extract(Path::new(&self.input), "todo_prefix".to_string())
+                let prefix = Path::new(&self.input)
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("sprite");
+                sprite::extract(Path::new(&self.input), prefix.to_string())
                     .expect("ERROR: could not export sprite");
             }
             SpriteMode::Animation => {

@@ -1,6 +1,6 @@
 use byteorder::{LittleEndian, ReadBytesExt};
-use image::RgbaImage;
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use image::{ImageEncoder, RgbaImage};
+use std::io::{BufReader, Cursor, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
 // ===========================================================================
@@ -552,4 +552,90 @@ pub fn seek_next_sequence(
 
     reader.seek(SeekFrom::Start(start_pos + (number_of_skips * 4 * 15)))?;
     Ok(valid_sprite_seq)
+}
+
+pub fn get_sequence_frames_as_pngs(
+    reader: &mut BufReader<File>,
+    info: &SequenceInfo,
+) -> Result<Vec<Vec<u8>>> {
+    let mut max_left = 1;
+    let mut max_right = 1;
+    let mut max_up = 1;
+    let mut max_down = 1;
+
+    for frame in &info.frame_infos {
+        let left = frame.origin_x;
+        let right = frame.width - frame.origin_x;
+        let up = frame.origin_y;
+        let down = frame.height - frame.origin_y;
+        if right > max_right {
+            max_right = right;
+        }
+        if left > max_left {
+            max_left = left;
+        }
+        if up > max_up {
+            max_up = up;
+        }
+        if down > max_down {
+            max_down = down;
+        }
+    }
+
+    let rect_x = max_left;
+    let rect_y = max_up;
+    let rect_w = if info.frame_infos.len() == 1 {
+        info.frame_infos[0].width
+    } else {
+        max_left + max_right
+    }
+    .unsigned_abs();
+    let rect_h = if info.frame_infos.len() == 1 {
+        info.frame_infos[0].height
+    } else {
+        max_up + max_down
+    }
+    .unsigned_abs();
+
+    let mut pngs = Vec::new();
+
+    for frame in info.frame_infos.iter() {
+        let mut imgbuf = RgbaImage::new(rect_w, rect_h);
+
+        let offset_x = if info.frame_infos.len() == 1 {
+            0
+        } else {
+            rect_x - frame.origin_x
+        }
+        .unsigned_abs();
+        let offset_y = if info.frame_infos.len() == 1 {
+            0
+        } else {
+            rect_y - frame.origin_y
+        }
+        .unsigned_abs();
+
+        let frame_width: u32 = frame.width.unsigned_abs();
+
+        reader.seek(SeekFrom::Start(frame.image_start_position))?;
+        for pixel_idx in 0..(frame.width.unsigned_abs() * frame.height.unsigned_abs()) as usize {
+            let pixel = reader.read_u16::<LittleEndian>()?;
+            if pixel == 0 {
+                continue;
+            }
+            let color = rgb16_565_produce_color(pixel);
+            let x: u32 = (pixel_idx as u32 % frame_width) + offset_x;
+            let y: u32 = (pixel_idx as u32 / frame_width) + offset_y;
+            imgbuf.put_pixel(x, y, image::Rgba([color.r, color.g, color.b, 255]));
+        }
+
+        let mut buf = Vec::new();
+        let encoder = image::codecs::png::PngEncoder::new(Cursor::new(&mut buf));
+        encoder
+            .write_image(imgbuf.as_raw(), rect_w, rect_h, image::ColorType::Rgba8)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        pngs.push(buf);
+    }
+
+    Ok(pngs)
 }
