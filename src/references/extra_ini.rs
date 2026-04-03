@@ -130,7 +130,7 @@ pub fn read_extra_ini(source_path: &Path) -> std::io::Result<Vec<Extra>> {
     Extra::read_file(source_path)
 }
 
-pub fn save_extras(conn: &mut Connection, extras: &Vec<Extra>) -> Result<()> {
+pub fn save_extras(conn: &mut Connection, extras: &[Extra]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_extra.sql"))?;

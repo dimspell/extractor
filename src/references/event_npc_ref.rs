@@ -113,7 +113,7 @@ pub fn read_event_npc_ref(source_path: &Path) -> std::io::Result<Vec<EventNpcRef
     EventNpcRef::read_file(source_path)
 }
 
-pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
+pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &[EventNpcRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_npc_ref.sql"))?;

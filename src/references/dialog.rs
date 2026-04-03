@@ -167,7 +167,7 @@ pub fn read_dialogs(source_path: &Path) -> std::io::Result<Vec<Dialog>> {
     Dialog::read_file(source_path)
 }
 
-pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &Vec<Dialog>) -> Result<()> {
+pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &[Dialog]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_dialog.sql"))?;

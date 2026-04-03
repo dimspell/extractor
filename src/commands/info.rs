@@ -174,8 +174,8 @@ impl Command for ListCommand {
                 }
 
                 println!(
-                    "{:<20} {:<18} {:<8} {}",
-                    "Type", "Name", "Ext", "Description"
+                    "{:<20} {:<18} {:<8} Description",
+                    "Type", "Name", "Ext"
                 );
                 println!("{}", "-".repeat(80));
                 for ft in &types {
@@ -675,7 +675,7 @@ impl From<&FileType> for TypeInfo {
         TypeInfo {
             name: ft.key,
             description: ft.description,
-            extensions: ft.extensions.iter().copied().collect(),
+            extensions: ft.extensions.to_vec(),
             record_type: ft.key.to_string(),
         }
     }

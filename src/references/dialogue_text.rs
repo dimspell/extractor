@@ -195,7 +195,7 @@ pub fn read_dialogue_texts(source_path: &Path) -> std::io::Result<Vec<DialogueTe
 pub fn save_dialogue_texts(
     conn: &mut Connection,
     file_name: &str,
-    texts: &Vec<DialogueText>,
+    texts: &[DialogueText],
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {

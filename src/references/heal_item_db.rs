@@ -236,7 +236,7 @@ pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
     HealItem::read_file(source_path)
 }
 
-pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Result<()> {
+pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_heal_item.sql"))?;

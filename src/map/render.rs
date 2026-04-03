@@ -91,7 +91,9 @@ pub fn render_map(
         btl_tileset,
     );
 
-    imgbuf.save(output_path).unwrap();
+    imgbuf
+        .save(output_path)
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
     Ok(())
 }
 
@@ -134,7 +136,7 @@ pub fn plot_base(
                 }
 
                 let event_id = event_block.map(|e| e.event_id).unwrap_or(0);
-                let is_collision = collision.copied().unwrap_or(false);
+                let _is_collision = collision.copied().unwrap_or(false);
 
                 let tile_colors = if event_id > 0 {
                     mix_color(
@@ -146,8 +148,6 @@ pub fn plot_base(
                         },
                         50,
                     )
-                } else if is_collision {
-                    gtl_tile.colors
                 } else {
                     gtl_tile.colors
                 };

@@ -145,7 +145,7 @@ pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
     MiscItem::read_file(source_path)
 }
 
-pub fn save_misc_items(conn: &mut Connection, misc_items: &Vec<MiscItem>) -> Result<()> {
+pub fn save_misc_items(conn: &mut Connection, misc_items: &[MiscItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_misc_item.sql"))?;

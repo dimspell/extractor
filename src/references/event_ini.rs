@@ -140,7 +140,7 @@ pub fn read_event_ini(source_path: &Path) -> std::io::Result<Vec<Event>> {
     Event::read_file(source_path)
 }
 
-pub fn save_events(conn: &mut Connection, events: &Vec<Event>) -> Result<()> {
+pub fn save_events(conn: &mut Connection, events: &[Event]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event.sql"))?;

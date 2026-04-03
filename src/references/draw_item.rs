@@ -132,7 +132,7 @@ pub fn read_draw_items(source_path: &Path) -> std::io::Result<Vec<DrawItem>> {
     DrawItem::read_file(source_path)
 }
 
-pub fn save_draw_items(conn: &mut Connection, draw_items: &Vec<DrawItem>) -> Result<()> {
+pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_draw_item.sql"))?;

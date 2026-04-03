@@ -135,7 +135,7 @@ pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>>
     EventItem::read_file(source_path)
 }
 
-pub fn save_event_items(conn: &mut Connection, event_items: &Vec<EventItem>) -> Result<()> {
+pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;

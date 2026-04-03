@@ -144,7 +144,7 @@ pub fn read_messages(path: &Path) -> std::io::Result<Vec<Message>> {
     Message::read_file(path)
 }
 
-pub fn save_messages(conn: &mut Connection, messages: &Vec<Message>) -> Result<()> {
+pub fn save_messages(conn: &mut Connection, messages: &[Message]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_message.sql"))?;

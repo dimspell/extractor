@@ -230,7 +230,7 @@ pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
     Store::read_file(source_path)
 }
 
-pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
+pub fn save_stores(conn: &mut Connection, stores: &[Store]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt_store = tx.prepare(include_str!("../queries/insert_store.sql"))?;

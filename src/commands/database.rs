@@ -27,49 +27,38 @@ use super::super::references::store_db::save_stores;
 use super::super::references::wave_ini::save_wave_inis;
 use super::super::references::weapons_db::save_weapons;
 use super::Command;
+use crate::cli::DatabaseCommands;
 use rusqlite::Connection;
 use std::error::Error;
 use std::path::Path;
 
 /// Database command implementation
 pub struct DatabaseCommand {
-    pub subcommand: DatabaseSubcommand,
-}
-
-pub enum DatabaseSubcommand {
-    Import { game_path: String, db_path: String },
-    DialogTexts { game_path: String, db_path: String },
-    Maps { game_path: String, db_path: String },
-    Databases { game_path: String, db_path: String },
-    Refs { game_path: String, db_path: String },
-    Rest { game_path: String, db_path: String },
+    pub subcommand: DatabaseCommands,
 }
 
 impl Command for DatabaseCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         match &self.subcommand {
-            DatabaseSubcommand::Import { game_path, db_path } => {
+            DatabaseCommands::Import { game_path, db_path } => {
                 save_all(Path::new(game_path), db_path)?;
             }
-            DatabaseSubcommand::DialogTexts { game_path, db_path } => {
-                let mut conn = Connection::open(db_path)?;
-                import_dialog_texts(Path::new(game_path), &mut conn)?;
+            DatabaseCommands::DialogTexts { game_path, db_path } => {
+                with_connection(db_path, |conn| {
+                    import_dialog_texts(Path::new(game_path), conn)
+                })?;
             }
-            DatabaseSubcommand::Maps { game_path, db_path } => {
-                let mut conn = Connection::open(db_path)?;
-                import_maps(Path::new(game_path), &mut conn)?;
+            DatabaseCommands::Maps { game_path, db_path } => {
+                with_connection(db_path, |conn| import_maps(Path::new(game_path), conn))?;
             }
-            DatabaseSubcommand::Databases { game_path, db_path } => {
-                let mut conn = Connection::open(db_path)?;
-                import_databases(Path::new(game_path), &mut conn)?;
+            DatabaseCommands::Databases { game_path, db_path } => {
+                with_connection(db_path, |conn| import_databases(Path::new(game_path), conn))?;
             }
-            DatabaseSubcommand::Refs { game_path, db_path } => {
-                let mut conn = Connection::open(db_path)?;
-                import_refs(Path::new(game_path), &mut conn)?;
+            DatabaseCommands::Refs { game_path, db_path } => {
+                with_connection(db_path, |conn| import_refs(Path::new(game_path), conn))?;
             }
-            DatabaseSubcommand::Rest { game_path, db_path } => {
-                let mut conn = Connection::open(db_path)?;
-                import_rest(Path::new(game_path), &mut conn)?;
+            DatabaseCommands::Rest { game_path, db_path } => {
+                with_connection(db_path, |conn| import_rest(Path::new(game_path), conn))?;
             }
         }
         Ok(())
@@ -84,11 +73,20 @@ impl Command for DatabaseCommand {
     }
 }
 
-fn save_all(game_path: &Path, db_path: &String) -> Result<(), Box<dyn Error>> {
-    println!("Saving all data...");
+fn with_connection(
+    db_path: &str,
+    f: impl FnOnce(&mut Connection) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    let mut conn = Connection::open(db_path)?;
+    f(&mut conn)?;
+    let _ = conn.close();
+    Ok(())
+}
+
+fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
+    eprintln!("Saving all data...");
 
     let mut conn = Connection::open(db_path)?;
-
     initialize_database(&conn)?;
 
     import_maps(game_path, &mut conn)?;
@@ -97,8 +95,7 @@ fn save_all(game_path: &Path, db_path: &String) -> Result<(), Box<dyn Error>> {
     import_dialog_texts(game_path, &mut conn)?;
     import_databases(game_path, &mut conn)?;
 
-    conn.close().unwrap();
-
+    let _ = conn.close();
     Ok(())
 }
 

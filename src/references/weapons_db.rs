@@ -250,7 +250,7 @@ pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {
     WeaponItem::read_file(source_path)
 }
 
-pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
+pub fn save_weapons(conn: &mut Connection, weapons: &[WeaponItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_weapon.sql"))?;

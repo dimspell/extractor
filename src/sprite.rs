@@ -418,7 +418,7 @@ pub fn save_sequence_anim(
     let mut offset_x: u32 = 0;
 
     for (i, frame) in frames.iter().enumerate() {
-        let (_, offset_y) = compute_frame_offset(frames, i, rect_x as i32, rect_y as i32);
+        let (_, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
 
         let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, 0, offset_y)?;
 
@@ -485,7 +485,7 @@ pub fn get_sequence_frames_as_pngs(
         let encoder = image::codecs::png::PngEncoder::new(Cursor::new(&mut buf));
         encoder
             .write_image(frame_rgba.as_raw(), rect_w, rect_h, image::ColorType::Rgba8)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         pngs.push(buf);
     }
 

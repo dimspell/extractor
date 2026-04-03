@@ -353,7 +353,7 @@ pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
     Monster::read_file(source_path)
 }
 
-pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<()> {
+pub fn save_monsters(conn: &mut Connection, monsters: &[Monster]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_monster.sql"))?;

@@ -58,10 +58,10 @@ use image::{Rgb, RgbImage, RgbaImage};
 use std::io::{BufReader, Result, Seek};
 use std::{fs::File, path::Path};
 
+use crate::map::types::TILE_PIXEL_NUMBER;
 use crate::sprite::Color;
 
 // Constants for tile dimensions and pixel count
-pub const TILE_PIXEL_NUMBER: i32 = 32 * 32;
 pub const TILE_WIDTH: u32 = 62;
 pub const TILE_HEIGHT: u32 = 32;
 
@@ -175,7 +175,7 @@ pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
         let dest_y: i32 = 0;
         plot_tile_rgba(&mut imgbuf, tile.colors, dest_x, dest_y);
         let file_path = out_path.join(format!("tile_{:04}.png", tile_index));
-        imgbuf.save(file_path).unwrap();
+        let _ = imgbuf.save(file_path);
     }
 }
 
@@ -207,8 +207,8 @@ pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest
 
                 if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
                     imgbuf.put_pixel(
-                        final_x.try_into().unwrap(),
-                        final_y.try_into().unwrap(),
+                        final_x.try_into().unwrap_or(0),
+                        final_y.try_into().unwrap_or(0),
                         Rgb([pixel.r, pixel.g, pixel.b]),
                     );
                 }
@@ -255,15 +255,15 @@ pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
             // }
 
             let dest_x: u32 = x * TILE_WIDTH + offset_x;
-            let dest_x: i32 = dest_x.try_into().unwrap();
+            let dest_x: i32 = dest_x.try_into().unwrap_or(0);
             let dest_y: u32 = y * TILE_HEIGHT + offset_y;
-            let dest_y: i32 = dest_y.try_into().unwrap();
+            let dest_y: i32 = dest_y.try_into().unwrap_or(0);
 
             plot_tile_rgba(&mut bitmap, tile.colors, dest_x, dest_y)
         }
     }
 
-    bitmap.save(out_path).unwrap();
+    let _ = bitmap.save(out_path);
 }
 
 /// Plots a single tile onto an RGBA image buffer
@@ -294,8 +294,8 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
 
                 if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
                     imgbuf.put_pixel(
-                        final_x.try_into().unwrap(),
-                        final_y.try_into().unwrap(),
+                        final_x.try_into().unwrap_or(0),
+                        final_y.try_into().unwrap_or(0),
                         image::Rgba([pixel.r, pixel.g, pixel.b, 255]),
                     );
                 }
@@ -316,7 +316,6 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
 ///
 /// New color data with the mixed colors
 pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024] {
-    const TILE_PIXEL_NUMBER: i32 = 32 * 32; // 1024
     let mut pixels = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_NUMBER as usize];
     let amount: f64 = alpha as f64 / 255.0;
 

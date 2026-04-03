@@ -1,34 +1,33 @@
-use super::super::sprite;
 use super::Command;
+use crate::cli::SpriteMode as CliSpriteMode;
+use crate::sprite;
 use std::error::Error;
 use std::path::Path;
 
 /// Sprite command implementation
 pub struct SpriteCommand {
     pub input: String,
-    pub mode: SpriteMode,
+    pub mode: CliSpriteMode,
     pub info: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SpriteMode {
-    Sprite,
-    Animation,
-}
+/// Re-export for main.rs dispatch
+pub use crate::cli::SpriteMode;
 
 impl Command for SpriteCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
         if self.info {
             let info = sprite::get_sprite_info(Path::new(&self.input))
-                .expect("ERROR: could not read sprite info");
+                .map_err(|e| format!("ERROR: could not read sprite info: {e}"))?;
             println!(
                 "{}",
-                serde_json::to_string_pretty(&info).expect("ERROR: could not encode JSON")
+                serde_json::to_string_pretty(&info)
+                    .map_err(|e| format!("ERROR: could not encode JSON: {e}"))?
             );
             return Ok(());
         }
 
-        println!("Extracting sprite...");
+        eprintln!("Extracting sprite...");
         match &self.mode {
             SpriteMode::Sprite => {
                 let prefix = Path::new(&self.input)
@@ -36,10 +35,11 @@ impl Command for SpriteCommand {
                     .and_then(|n| n.to_str())
                     .unwrap_or("sprite");
                 sprite::extract(Path::new(&self.input), prefix.to_string())
-                    .expect("ERROR: could not export sprite");
+                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
             SpriteMode::Animation => {
-                sprite::animation(Path::new(&self.input)).expect("ERROR: could not export sprite");
+                sprite::animation(Path::new(&self.input))
+                    .map_err(|e| format!("ERROR: could not export sprite: {e}"))?;
             }
         }
         Ok(())

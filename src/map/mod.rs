@@ -420,21 +420,19 @@ pub fn extract(
     input_btl_file: &Path,
     input_gtl_file: &Path,
     output_path: &Path,
-    save_map_sprites: &bool,
+    save_map_sprites: bool,
 ) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+    let map_id = input_map_file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
-    if *save_map_sprites {
+    if save_map_sprites {
         for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
-            crate::sprite::save_sequence(
-                &mut reader,
-                &sprite.frame_infos,
-                i as i32,
-                &map_id.to_string(),
-            )?;
+            crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, map_id)?;
         }
     }
 
@@ -482,10 +480,13 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+    let map_id = input_map_file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
     std::fs::create_dir_all(output_path)?;
-    let output_dir_str = output_path.to_str().unwrap();
+    let output_dir_str = output_path.to_str().unwrap_or("out");
 
     for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
         let prefix = format!("{}/{}", output_dir_str, map_id);
@@ -533,7 +534,10 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
     let file = File::open(map_path)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = map_path.file_stem().unwrap().to_str().unwrap();
+    let map_id = map_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
     save_to_db(&mut conn, map_id, &map_data).map_err(|e| std::io::Error::other(e.to_string()))
 }

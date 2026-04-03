@@ -143,7 +143,7 @@ pub fn read_quests(path: &Path) -> std::io::Result<Vec<Quest>> {
     Quest::read_file(path)
 }
 
-pub fn save_quests(conn: &mut Connection, quests: &Vec<Quest>) -> Result<()> {
+pub fn save_quests(conn: &mut Connection, quests: &[Quest]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_quest.sql"))?;

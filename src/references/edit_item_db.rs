@@ -269,7 +269,7 @@ pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {
     EditItem::read_file(source_path)
 }
 
-pub fn save_edit_items(conn: &mut Connection, edit_items: &Vec<EditItem>) -> Result<()> {
+pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_edit_item.sql"))?;

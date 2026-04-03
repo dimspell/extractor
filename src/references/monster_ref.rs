@@ -225,7 +225,7 @@ pub fn read_monster_ref(source_path: &Path) -> std::io::Result<Vec<MonsterRef>> 
 pub fn save_monster_refs(
     conn: &mut Connection,
     file_path: &str,
-    monster_refs: &Vec<MonsterRef>,
+    monster_refs: &[MonsterRef],
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {

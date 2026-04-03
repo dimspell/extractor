@@ -54,7 +54,10 @@ pub fn sprite_block(reader: &mut BufReader<File>) -> Result<Vec<SequenceInfo>> {
         } else if image_stamp == 9 {
             2996
         } else {
-            unimplemented!("Unexpected image-stamp {image_stamp}");
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Unexpected image-stamp {image_stamp}"),
+            ));
         };
 
         reader.seek(SeekFrom::Current(264))?;
@@ -79,7 +82,7 @@ pub fn sprite_info_block(
     sprites: &[SequenceInfo],
 ) -> Result<Vec<SpriteInfoBlock>> {
     let count = reader.read_i32::<LittleEndian>()?;
-    let mut info = Vec::with_capacity(count.try_into().unwrap());
+    let mut info = Vec::with_capacity(count.try_into().unwrap_or(0));
 
     for _ in 0..count {
         let sprite_id = reader.read_i32::<LittleEndian>()?;
@@ -90,7 +93,7 @@ pub fn sprite_info_block(
         let sprite_x = reader.read_i32::<LittleEndian>()?;
         let sprite_y = reader.read_i32::<LittleEndian>()?;
 
-        let sprite_id: usize = sprite_id.try_into().unwrap();
+        let sprite_id: usize = sprite_id.try_into().unwrap_or(0);
         let skip = (sprites[sprite_id].frame_count - 1) * 6 * 4;
         reader.seek(SeekFrom::Current(skip.into()))?;
 

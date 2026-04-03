@@ -452,7 +452,7 @@ pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
 pub fn save_extra_refs(
     conn: &mut Connection,
     file_path: &str,
-    extra_refs: &Vec<ExtraRef>,
+    extra_refs: &[ExtraRef],
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
