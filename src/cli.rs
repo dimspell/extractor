@@ -2,8 +2,11 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::commands::info::{ListArgs, SchemaArgs, TemplateArgs, ValidateArgs};
+use crate::commands::list::ListArgs;
+use crate::commands::schema::SchemaArgs;
+use crate::commands::template::TemplateArgs;
 use crate::commands::unified::{ExtractArgs, PatchArgs};
+use crate::commands::validate::ValidateArgs;
 
 #[derive(Parser)]
 #[command(about = "Tool to extract assets from the Dispel game")]

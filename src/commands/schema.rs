@@ -1,37 +1,7 @@
 use std::error::Error;
-use std::fs;
-use std::path::Path;
-
-use serde::Serialize;
 
 use crate::commands::registry::{self, FileType};
 use crate::commands::Command;
-
-#[derive(clap::Args, Clone)]
-pub struct ValidateArgs {
-    /// Path to JSON file
-    #[arg(short, long)]
-    pub input: String,
-
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-
-    /// Verbose output
-    #[arg(long)]
-    pub verbose: bool,
-}
-
-#[derive(clap::Args, Clone)]
-pub struct ListArgs {
-    /// Output format (text or json)
-    #[arg(long, default_value = "text")]
-    pub format: String,
-
-    /// Filter types by name
-    #[arg(long)]
-    pub filter: Option<String>,
-}
 
 #[derive(clap::Args, Clone)]
 pub struct SchemaArgs {
@@ -40,165 +10,8 @@ pub struct SchemaArgs {
     pub r#type: String,
 }
 
-#[derive(clap::Args, Clone)]
-pub struct TemplateArgs {
-    /// File type
-    #[arg(long)]
-    pub r#type: String,
-
-    /// Pretty-print JSON
-    #[arg(short, long)]
-    pub pretty: bool,
-}
-
-pub struct ValidateCommand {
-    pub args: ValidateArgs,
-}
-
-pub struct ListCommand {
-    pub args: ListArgs,
-}
-
 pub struct SchemaCommand {
     pub args: SchemaArgs,
-}
-
-pub struct TemplateCommand {
-    pub args: TemplateArgs,
-}
-
-impl Command for ValidateCommand {
-    fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let input_path = Path::new(&self.args.input);
-
-        if !input_path.exists() {
-            return Err(format!("File not found: {}", input_path.display()).into());
-        }
-
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
-            format!(
-                "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
-                registry::format_type_list()
-            )
-        })?;
-
-        let json_data = fs::read_to_string(input_path)
-            .map_err(|e| format!("Failed to read {}: {}", input_path.display(), e))?;
-
-        let data: serde_json::Value = serde_json::from_str(&json_data)
-            .map_err(|e| format!("Invalid JSON in {}: {}", input_path.display(), e))?;
-
-        // Unwrap { "_meta": ..., "data": [...] } format if present
-        let validate_data = if let Some(inner) = data.get("data") {
-            inner.clone()
-        } else {
-            data.clone()
-        };
-
-        if let Some(validate_fn) = file_type.validate_fn {
-            match validate_fn(&validate_data) {
-                Ok(()) => {
-                    println!(
-                        "Valid: {} matches '{}' format",
-                        input_path.display(),
-                        file_type.key
-                    );
-                    Ok(())
-                }
-                Err(errors) => {
-                    if self.args.verbose {
-                        let error_json = serde_json::json!({
-                            "valid": false,
-                            "type": file_type.key,
-                            "errors": errors
-                        });
-                        eprintln!("{}", serde_json::to_string_pretty(&error_json).unwrap());
-                    } else {
-                        for err in &errors {
-                            eprintln!("Error: {}", err);
-                        }
-                    }
-                    Err(format!("Validation failed: {} errors found", errors.len()).into())
-                }
-            }
-        } else {
-            eprintln!(
-                "No validation available for type '{}'. JSON parse succeeded.",
-                file_type.key
-            );
-            Ok(())
-        }
-    }
-
-    fn name(&self) -> &'static str {
-        "validate"
-    }
-
-    fn description(&self) -> &'static str {
-        "Validate JSON against file format schema"
-    }
-}
-
-impl Command for ListCommand {
-    fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let types: Vec<&FileType> = registry::FILE_TYPES
-            .iter()
-            .filter(|ft| {
-                if let Some(ref filter) = self.args.filter {
-                    let filter_lower = filter.to_lowercase();
-                    ft.key.to_lowercase().contains(&filter_lower)
-                        || ft.name.to_lowercase().contains(&filter_lower)
-                        || ft.description.to_lowercase().contains(&filter_lower)
-                } else {
-                    true
-                }
-            })
-            .collect();
-
-        match self.args.format.as_str() {
-            "json" => {
-                let output = ListOutput {
-                    types: types.iter().map(|ft| TypeInfo::from(*ft)).collect(),
-                };
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&output)
-                        .map_err(|e| format!("Failed to serialize JSON: {}", e))?
-                );
-            }
-            _ => {
-                if types.is_empty() {
-                    println!("No matching file types found.");
-                    return Ok(());
-                }
-
-                println!(
-                    "{:<20} {:<18} {:<8} Description",
-                    "Type", "Name", "Ext"
-                );
-                println!("{}", "-".repeat(80));
-                for ft in &types {
-                    let ext = ft.extensions.join(", ");
-                    println!(
-                        "{:<20} {:<18} {:<8} {}",
-                        ft.key, ft.name, ext, ft.description
-                    );
-                }
-                println!("\n{} file types listed", types.len());
-            }
-        }
-
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "list"
-    }
-
-    fn description(&self) -> &'static str {
-        "List supported file types"
-    }
 }
 
 impl Command for SchemaCommand {
@@ -227,38 +40,6 @@ impl Command for SchemaCommand {
 
     fn description(&self) -> &'static str {
         "Generate JSON Schema for a file type"
-    }
-}
-
-impl Command for TemplateCommand {
-    fn execute(&self) -> Result<(), Box<dyn Error>> {
-        let file_type = registry::get_by_key(&self.args.r#type).ok_or_else(|| {
-            format!(
-                "Unknown file type '{}'. Available types:\n{}",
-                self.args.r#type,
-                registry::format_type_list()
-            )
-        })?;
-
-        let template = generate_template(file_type);
-        let output = if self.args.pretty {
-            serde_json::to_string_pretty(&template)
-                .map_err(|e| format!("Failed to serialize JSON: {}", e))?
-        } else {
-            serde_json::to_string(&template)
-                .map_err(|e| format!("Failed to serialize JSON: {}", e))?
-        };
-
-        println!("{}", output);
-        Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "template"
-    }
-
-    fn description(&self) -> &'static str {
-        "Generate a minimal JSON template for a file type"
     }
 }
 
@@ -477,49 +258,10 @@ fn infer_json_type(field: &str) -> serde_json::Value {
         return serde_json::json!({ "type": "boolean" });
     }
 
-    // Default: most fields in game data are integers
     serde_json::json!({ "type": "integer" })
 }
 
-// ===========================================================================
-// Template generation
-// ===========================================================================
-
-fn generate_template(ft: &FileType) -> serde_json::Value {
-    let fields = get_type_fields(ft);
-
-    let mut template = serde_json::Map::new();
-    for field in &fields {
-        template.insert(field.clone(), default_value_for_field(field));
-    }
-
-    serde_json::Value::Object(template)
-}
-
-fn default_value_for_field(field: &str) -> serde_json::Value {
-    if field == "id" {
-        return serde_json::json!(0);
-    }
-
-    if field.contains("name") || field.contains("description") || field.contains("filename") {
-        return serde_json::json!("");
-    }
-
-    if field.contains("flag") || field.starts_with("is_") || field.starts_with("has_") {
-        return serde_json::json!(false);
-    }
-
-    // Numeric fields default to 0
-    serde_json::json!(0)
-}
-
-// ===========================================================================
-// Field extraction from actual data
-// ===========================================================================
-
 fn get_type_fields(ft: &FileType) -> Vec<String> {
-    // Try to get fields from the type's known field list first
-    // If not available, we return common patterns
     match ft.key {
         "weapons" => vec![
             "id",
@@ -643,40 +385,9 @@ fn get_type_fields(ft: &FileType) -> Vec<String> {
             "haggle_max",
             "dialog_id",
         ],
-        _ => {
-            // For types without explicit field lists, return a minimal set
-            vec!["id"]
-        }
+        _ => vec!["id"],
     }
     .into_iter()
     .map(String::from)
     .collect()
-}
-
-// ===========================================================================
-// Output types
-// ===========================================================================
-
-#[derive(Serialize)]
-struct ListOutput {
-    types: Vec<TypeInfo>,
-}
-
-#[derive(Serialize)]
-struct TypeInfo {
-    name: &'static str,
-    description: &'static str,
-    extensions: Vec<&'static str>,
-    record_type: String,
-}
-
-impl From<&FileType> for TypeInfo {
-    fn from(ft: &FileType) -> Self {
-        TypeInfo {
-            name: ft.key,
-            description: ft.description,
-            extensions: ft.extensions.to_vec(),
-            record_type: ft.key.to_string(),
-        }
-    }
 }

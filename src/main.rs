@@ -1,13 +1,16 @@
 use clap::Parser;
 use dispel_core::cli::{Cli, Commands};
 use dispel_core::commands::database::DatabaseCommand;
-use dispel_core::commands::info::{ListCommand, SchemaCommand, TemplateCommand, ValidateCommand};
+use dispel_core::commands::list::ListCommand;
 use dispel_core::commands::map::MapCommand;
 use dispel_core::commands::ref_command::RefCommand;
+use dispel_core::commands::schema::SchemaCommand;
 use dispel_core::commands::sound::SoundCommand;
 use dispel_core::commands::sprite::SpriteCommand;
+use dispel_core::commands::template::TemplateCommand;
 use dispel_core::commands::test::TestCommand;
 use dispel_core::commands::unified::{ExtractCommand, PatchCommand};
+use dispel_core::commands::validate::ValidateCommand;
 use dispel_core::commands::Command;
 
 fn main() {

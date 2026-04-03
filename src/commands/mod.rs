@@ -2,14 +2,17 @@
 // This will contain the Command trait and command implementations
 
 pub mod database;
-pub mod info;
+pub mod list;
 pub mod map;
 pub mod ref_command;
 pub mod registry;
+pub mod schema;
 pub mod sound;
 pub mod sprite;
+pub mod template;
 pub mod test;
 pub mod unified;
+pub mod validate;
 
 use std::error::Error;
 
