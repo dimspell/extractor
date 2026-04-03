@@ -1,184 +1,9 @@
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::sync::LazyLock;
+use super::types::{
+    extract_as, extract_map_file, extract_sprite_info, extract_tileset, patch_as,
+    patch_not_supported, validate_as, DetectKind, FileType,
+};
 
-use crate::references::extractor::Extractor;
-
-/// Detection strategy for a file type.
-pub(crate) enum DetectKind {
-    /// Match by known INI filename (case-insensitive).
-    Ini(&'static str),
-    /// Match by known DB filename (case-insensitive).
-    Db(&'static [&'static str]),
-    /// Match by known REF filename prefix (case-insensitive).
-    RefPrefix(&'static str),
-    /// Match by known SCR filename (case-insensitive).
-    Scr(&'static str),
-    /// Match by known DLG filename prefix (case-insensitive).
-    DlgPrefix(&'static str),
-    /// Match by known PGP filename prefix (case-insensitive).
-    PgpPrefix(&'static str),
-}
-
-/// Function pointer types for the file type registry.
-pub(crate) type ExtractFn = fn(&Path) -> Result<serde_json::Value, Box<dyn std::error::Error>>;
-pub(crate) type PatchFn = fn(&serde_json::Value, &Path) -> Result<(), Box<dyn std::error::Error>>;
-pub(crate) type ValidateFn = fn(&serde_json::Value) -> Result<(), Vec<String>>;
-
-/// A registered file type with detection, extraction, and patching capabilities.
-pub struct FileType {
-    pub key: &'static str,
-    pub name: &'static str,
-    pub description: &'static str,
-    pub extensions: &'static [&'static str],
-    detect_kind: DetectKind,
-    pub extract_fn: ExtractFn,
-    pub patch_fn: PatchFn,
-    pub validate_fn: Option<ValidateFn>,
-}
-
-impl FileType {
-    pub fn matches(&self, path: &Path) -> bool {
-        match self.detect_kind {
-            DetectKind::Ini(name) => detect_filename(path, name),
-            DetectKind::Db(names) => detect_db_filename(path, names),
-            DetectKind::RefPrefix(prefix) => detect_filename_prefix(path, prefix),
-            DetectKind::Scr(name) => detect_filename(path, name),
-            DetectKind::DlgPrefix(prefix) => detect_filename_prefix(path, prefix),
-            DetectKind::PgpPrefix(prefix) => detect_filename_prefix(path, prefix),
-        }
-    }
-}
-
-/// Result of file type detection.
-pub enum DetectResult {
-    /// Exactly one type matched.
-    Single(&'static FileType),
-    /// No type matched.
-    None,
-}
-
-// impl DetectResult {
-//     pub fn into_single(self) -> Option<&'static FileType> {
-//         match self {
-//             DetectResult::Single(ft) => Some(ft),
-//             DetectResult::None => None,
-//         }
-//     }
-// }
-
-/// The static registry of all supported file types.
-pub static FILE_TYPES: LazyLock<Vec<FileType>> = LazyLock::new(|| {
-    vec![
-        // INI types
-        make_all_map_ini(),
-        make_map_ini(),
-        make_extra_ini(),
-        make_event_ini(),
-        make_monster_ini(),
-        make_npc_ini(),
-        make_wave_ini(),
-        // DB types
-        make_weapons(),
-        make_monsters(),
-        make_magic(),
-        make_store(),
-        make_misc_item(),
-        make_heal_item(),
-        make_event_item(),
-        make_edit_item(),
-        make_party_level(),
-        make_party_ini(),
-        make_chdata(),
-        // REF types
-        make_party_ref(),
-        make_draw_item(),
-        make_npc_ref(),
-        make_monster_ref(),
-        make_extra_ref(),
-        make_event_npc_ref(),
-        // DLG/PGP types
-        make_dialog(),
-        make_dialog_text(),
-        // SCR types
-        make_quest(),
-        make_message(),
-        // Map types (extract only, no patch)
-        make_map_file(),
-        make_gtl(),
-        make_btl(),
-        // Sprite files (extract only, no patch)
-        make_sprite(),
-    ]
-});
-
-/// Look up a file type by its key.
-pub fn get_by_key(key: &str) -> Option<&'static FileType> {
-    FILE_TYPES.iter().find(|ft| ft.key == key)
-}
-
-/// Detect the file type for a given path.
-pub fn detect(path: &Path) -> DetectResult {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase());
-
-    let ext = match ext {
-        Some(e) => e,
-        None => return DetectResult::None,
-    };
-
-    let candidates: Vec<&FileType> = FILE_TYPES
-        .iter()
-        .filter(|ft| {
-            ft.extensions.iter().any(|&ext_match| {
-                let normalized = ext_match.trim_start_matches('.');
-                ext == normalized
-            })
-        })
-        .collect();
-
-    if candidates.is_empty() {
-        return DetectResult::None;
-    }
-
-    if candidates.len() == 1 {
-        return DetectResult::Single(candidates[0]);
-    }
-
-    // Try each candidate's detection function; first match wins
-    for ft in &candidates {
-        if ft.matches(path) {
-            return DetectResult::Single(ft);
-        }
-    }
-
-    // Fall back to the first candidate in registry order
-    DetectResult::Single(candidates[0])
-}
-
-/// Get a human-friendly list of all file types for error messages.
-pub fn format_type_list() -> String {
-    FILE_TYPES
-        .iter()
-        .map(|ft| {
-            format!(
-                "  {} ({}) — {}",
-                ft.key,
-                ft.extensions.join(", "),
-                ft.description
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-// ===========================================================================
-// Registry entry builders
-// ===========================================================================
-
-fn make_all_map_ini() -> FileType {
+pub(crate) fn make_all_map_ini() -> FileType {
     FileType {
         key: "all_maps",
         name: "AllMap.ini",
@@ -191,7 +16,7 @@ fn make_all_map_ini() -> FileType {
     }
 }
 
-fn make_map_ini() -> FileType {
+pub(crate) fn make_map_ini() -> FileType {
     FileType {
         key: "map_ini",
         name: "Map.ini",
@@ -204,7 +29,7 @@ fn make_map_ini() -> FileType {
     }
 }
 
-fn make_extra_ini() -> FileType {
+pub(crate) fn make_extra_ini() -> FileType {
     FileType {
         key: "extra_ini",
         name: "Extra.ini",
@@ -217,7 +42,7 @@ fn make_extra_ini() -> FileType {
     }
 }
 
-fn make_event_ini() -> FileType {
+pub(crate) fn make_event_ini() -> FileType {
     FileType {
         key: "event_ini",
         name: "Event.ini",
@@ -230,7 +55,7 @@ fn make_event_ini() -> FileType {
     }
 }
 
-fn make_monster_ini() -> FileType {
+pub(crate) fn make_monster_ini() -> FileType {
     FileType {
         key: "monster_ini",
         name: "Monster.ini",
@@ -243,7 +68,7 @@ fn make_monster_ini() -> FileType {
     }
 }
 
-fn make_npc_ini() -> FileType {
+pub(crate) fn make_npc_ini() -> FileType {
     FileType {
         key: "npc_ini",
         name: "Npc.ini",
@@ -256,7 +81,7 @@ fn make_npc_ini() -> FileType {
     }
 }
 
-fn make_wave_ini() -> FileType {
+pub(crate) fn make_wave_ini() -> FileType {
     FileType {
         key: "wave_ini",
         name: "Wave.ini",
@@ -269,7 +94,7 @@ fn make_wave_ini() -> FileType {
     }
 }
 
-fn make_weapons() -> FileType {
+pub(crate) fn make_weapons() -> FileType {
     FileType {
         key: "weapons",
         name: "WeaponItem.db",
@@ -282,7 +107,7 @@ fn make_weapons() -> FileType {
     }
 }
 
-fn make_monsters() -> FileType {
+pub(crate) fn make_monsters() -> FileType {
     FileType {
         key: "monsters",
         name: "Monster.db",
@@ -295,7 +120,7 @@ fn make_monsters() -> FileType {
     }
 }
 
-fn make_magic() -> FileType {
+pub(crate) fn make_magic() -> FileType {
     FileType {
         key: "magic",
         name: "Magic.db",
@@ -308,7 +133,7 @@ fn make_magic() -> FileType {
     }
 }
 
-fn make_store() -> FileType {
+pub(crate) fn make_store() -> FileType {
     FileType {
         key: "store",
         name: "Store.db",
@@ -321,7 +146,7 @@ fn make_store() -> FileType {
     }
 }
 
-fn make_misc_item() -> FileType {
+pub(crate) fn make_misc_item() -> FileType {
     FileType {
         key: "misc_item",
         name: "MiscItem.db",
@@ -334,7 +159,7 @@ fn make_misc_item() -> FileType {
     }
 }
 
-fn make_heal_item() -> FileType {
+pub(crate) fn make_heal_item() -> FileType {
     FileType {
         key: "heal_item",
         name: "HealItem.db",
@@ -347,7 +172,7 @@ fn make_heal_item() -> FileType {
     }
 }
 
-fn make_event_item() -> FileType {
+pub(crate) fn make_event_item() -> FileType {
     FileType {
         key: "event_item",
         name: "EventItem.db",
@@ -360,7 +185,7 @@ fn make_event_item() -> FileType {
     }
 }
 
-fn make_edit_item() -> FileType {
+pub(crate) fn make_edit_item() -> FileType {
     FileType {
         key: "edit_item",
         name: "EditItem.db",
@@ -373,7 +198,7 @@ fn make_edit_item() -> FileType {
     }
 }
 
-fn make_party_level() -> FileType {
+pub(crate) fn make_party_level() -> FileType {
     FileType {
         key: "party_level",
         name: "PrtLevel.db",
@@ -386,7 +211,7 @@ fn make_party_level() -> FileType {
     }
 }
 
-fn make_party_ini() -> FileType {
+pub(crate) fn make_party_ini() -> FileType {
     FileType {
         key: "party_ini",
         name: "PrtIni.db",
@@ -399,7 +224,7 @@ fn make_party_ini() -> FileType {
     }
 }
 
-fn make_chdata() -> FileType {
+pub(crate) fn make_chdata() -> FileType {
     FileType {
         key: "chdata",
         name: "ChData.db",
@@ -412,7 +237,7 @@ fn make_chdata() -> FileType {
     }
 }
 
-fn make_party_ref() -> FileType {
+pub(crate) fn make_party_ref() -> FileType {
     FileType {
         key: "party_ref",
         name: "PartyRef.ref",
@@ -425,7 +250,7 @@ fn make_party_ref() -> FileType {
     }
 }
 
-fn make_draw_item() -> FileType {
+pub(crate) fn make_draw_item() -> FileType {
     FileType {
         key: "draw_item",
         name: "DRAWITEM.ref",
@@ -438,7 +263,7 @@ fn make_draw_item() -> FileType {
     }
 }
 
-fn make_npc_ref() -> FileType {
+pub(crate) fn make_npc_ref() -> FileType {
     FileType {
         key: "npc_ref",
         name: "Npc*.ref",
@@ -451,7 +276,7 @@ fn make_npc_ref() -> FileType {
     }
 }
 
-fn make_monster_ref() -> FileType {
+pub(crate) fn make_monster_ref() -> FileType {
     FileType {
         key: "monster_ref",
         name: "Mon*.ref",
@@ -464,7 +289,7 @@ fn make_monster_ref() -> FileType {
     }
 }
 
-fn make_extra_ref() -> FileType {
+pub(crate) fn make_extra_ref() -> FileType {
     FileType {
         key: "extra_ref",
         name: "Ext*.ref",
@@ -477,7 +302,7 @@ fn make_extra_ref() -> FileType {
     }
 }
 
-fn make_event_npc_ref() -> FileType {
+pub(crate) fn make_event_npc_ref() -> FileType {
     FileType {
         key: "event_npc_ref",
         name: "Eventnpc.ref",
@@ -490,7 +315,7 @@ fn make_event_npc_ref() -> FileType {
     }
 }
 
-fn make_dialog() -> FileType {
+pub(crate) fn make_dialog() -> FileType {
     FileType {
         key: "dialog",
         name: "*.dlg",
@@ -503,7 +328,7 @@ fn make_dialog() -> FileType {
     }
 }
 
-fn make_dialog_text() -> FileType {
+pub(crate) fn make_dialog_text() -> FileType {
     FileType {
         key: "dialog_text",
         name: "*.pgp",
@@ -516,7 +341,7 @@ fn make_dialog_text() -> FileType {
     }
 }
 
-fn make_quest() -> FileType {
+pub(crate) fn make_quest() -> FileType {
     FileType {
         key: "quest",
         name: "Quest.scr",
@@ -529,7 +354,7 @@ fn make_quest() -> FileType {
     }
 }
 
-fn make_message() -> FileType {
+pub(crate) fn make_message() -> FileType {
     FileType {
         key: "message",
         name: "Message.scr",
@@ -542,7 +367,7 @@ fn make_message() -> FileType {
     }
 }
 
-fn make_map_file() -> FileType {
+pub(crate) fn make_map_file() -> FileType {
     FileType {
         key: "map_file",
         name: "*.map",
@@ -555,7 +380,7 @@ fn make_map_file() -> FileType {
     }
 }
 
-fn make_gtl() -> FileType {
+pub(crate) fn make_gtl() -> FileType {
     FileType {
         key: "gtl",
         name: "*.gtl",
@@ -568,7 +393,7 @@ fn make_gtl() -> FileType {
     }
 }
 
-fn make_btl() -> FileType {
+pub(crate) fn make_btl() -> FileType {
     FileType {
         key: "btl",
         name: "*.btl",
@@ -581,7 +406,7 @@ fn make_btl() -> FileType {
     }
 }
 
-fn make_sprite() -> FileType {
+pub(crate) fn make_sprite() -> FileType {
     FileType {
         key: "sprite",
         name: "*.spr",
@@ -592,120 +417,4 @@ fn make_sprite() -> FileType {
         patch_fn: patch_not_supported,
         validate_fn: None,
     }
-}
-
-// ===========================================================================
-// Generic extract/patch/validate helpers
-// ===========================================================================
-
-fn extract_as<T>(path: &Path) -> Result<serde_json::Value, Box<dyn std::error::Error>>
-where
-    T: Extractor + Serialize,
-{
-    let records = T::read_file(path)?;
-    let value = serde_json::to_value(&records)?;
-    Ok(value)
-}
-
-fn patch_as<T>(data: &serde_json::Value, path: &Path) -> Result<(), Box<dyn std::error::Error>>
-where
-    T: Extractor + for<'de> Deserialize<'de>,
-{
-    let records: Vec<T> = serde_json::from_value(data.clone())?;
-    T::save_file(&records, path)?;
-    Ok(())
-}
-
-fn validate_as<T>(data: &serde_json::Value) -> Result<(), Vec<String>>
-where
-    T: for<'de> Deserialize<'de>,
-{
-    let result: Result<Vec<T>, serde_json::Error> = serde_json::from_value(data.clone());
-    match result {
-        Ok(_) => Ok(()),
-        Err(e) => Err(vec![format!("Deserialization error: {}", e)]),
-    }
-}
-
-fn patch_not_supported(
-    _data: &serde_json::Value,
-    _path: &Path,
-) -> Result<(), Box<dyn std::error::Error>> {
-    Err("Patch operation not supported for this file type".into())
-}
-
-fn extract_map_file(path: &Path) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    use crate::map;
-    use std::fs::File;
-    use std::io::BufReader;
-
-    let file = File::open(path)?;
-    let mut reader = BufReader::new(file);
-    let map_data = map::read_map_data(&mut reader)?;
-    let json = map_data.to_json();
-    Ok(serde_json::to_value(&json)?)
-}
-
-fn extract_tileset(path: &Path) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    use crate::map::tileset;
-
-    let tiles = tileset::extract(path)?;
-    let tile_entries: Vec<serde_json::Value> = tiles
-        .iter()
-        .enumerate()
-        .map(|(i, _tile)| {
-            serde_json::json!({
-                "index": i,
-                "pixels": null,
-            })
-        })
-        .collect();
-
-    Ok(serde_json::json!({
-        "tile_count": tiles.len(),
-        "tile_width": 32,
-        "tile_height": 32,
-        "rendered_width": 62,
-        "rendered_height": 32,
-        "color_format": "RGB565",
-        "tiles": tile_entries,
-        "note": "Pixel data omitted. Use 'map tiles' command to extract individual tile images.",
-    }))
-}
-
-fn extract_sprite_info(path: &Path) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
-    use crate::sprite;
-    let info = sprite::get_sprite_info(path)?;
-    Ok(serde_json::to_value(&info)?)
-}
-
-// ===========================================================================
-// Detection helpers
-// ===========================================================================
-
-/// Check if the filename matches one of the known names (case-insensitive).
-fn detect_db_filename(path: &Path, names: &[&str]) -> bool {
-    let file_name = match path.file_name().and_then(|n| n.to_str()) {
-        Some(n) => n.to_lowercase(),
-        None => return false,
-    };
-    names.iter().any(|&name| file_name == name.to_lowercase())
-}
-
-/// Check if the filename starts with the given prefix (case-insensitive).
-fn detect_filename_prefix(path: &Path, prefix: &str) -> bool {
-    let file_name = match path.file_name().and_then(|n| n.to_str()) {
-        Some(n) => n.to_lowercase(),
-        None => return false,
-    };
-    file_name.starts_with(&prefix.to_lowercase())
-}
-
-/// Check if the filename matches exactly (case-insensitive).
-fn detect_filename(path: &Path, name: &str) -> bool {
-    let file_name = match path.file_name().and_then(|n| n.to_str()) {
-        Some(n) => n.to_lowercase(),
-        None => return false,
-    };
-    file_name == name.to_lowercase()
 }
