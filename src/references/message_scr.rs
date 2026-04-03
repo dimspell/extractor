@@ -6,7 +6,7 @@ use crate::references::extractor::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // MESSAGE.SCR FILE FORMAT
@@ -47,7 +47,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
     /// Mapping bound tracking referenced externally by `message_id` structs.
     pub id: i32,

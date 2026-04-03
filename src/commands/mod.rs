@@ -2,12 +2,15 @@
 // This will contain the Command trait and command implementations
 
 pub mod database;
+pub mod info;
 pub mod map;
 pub mod ref_command;
+pub mod registry;
 pub mod services;
 pub mod sound;
 pub mod sprite;
 pub mod test;
+pub mod unified;
 
 use std::error::Error;
 
@@ -73,5 +76,29 @@ impl CommandFactory {
 
     pub fn create_test_command(&self, message: String) -> impl Command {
         test::TestCommand { message }
+    }
+
+    pub fn create_extract_command(&self, args: unified::ExtractArgs) -> impl Command {
+        unified::ExtractCommand { args }
+    }
+
+    pub fn create_patch_command(&self, args: unified::PatchArgs) -> impl Command {
+        unified::PatchCommand { args }
+    }
+
+    pub fn create_validate_command(&self, args: info::ValidateArgs) -> impl Command {
+        info::ValidateCommand { args }
+    }
+
+    pub fn create_list_command(&self, args: info::ListArgs) -> impl Command {
+        info::ListCommand { args }
+    }
+
+    pub fn create_schema_command(&self, args: info::SchemaArgs) -> impl Command {
+        info::SchemaCommand { args }
+    }
+
+    pub fn create_template_command(&self, args: info::TemplateArgs) -> impl Command {
+        info::TemplateCommand { args }
     }
 }

@@ -7,7 +7,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // NPCREF.REF FILE FORMAT
@@ -83,7 +83,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NPC {
     /// Internal iteration index mapped from the file array.
     pub index: i32,

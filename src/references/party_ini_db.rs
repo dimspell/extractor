@@ -1,7 +1,7 @@
 use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Read, Result, Write};
 use std::path::Path;
@@ -49,7 +49,7 @@ use std::path::Path;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyIniNpc {
     /// Null-terminated root character identifier string.
     pub name: String,

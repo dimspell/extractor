@@ -1,6 +1,6 @@
 use crate::message::Message;
 use crate::style;
-use iced::widget::{button, row, text, text_input, space::Space, rule::Rule};
+use iced::widget::{button, row, rule::Rule, space::Space, text, text_input};
 use iced::{Element, Length, Task};
 
 pub fn horizontal_space() -> Space {

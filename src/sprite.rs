@@ -39,7 +39,7 @@ use std::{fs::File, path::Path};
 /// The `origin_x` and `origin_y` fields define the anchor point relative to
 /// the frame's top-left corner. Frames within a sequence may have different
 /// sizes and origins, so a bounding rectangle must be computed to align them.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ImageInfo {
     /// X offset from the frame's top-left to its anchor point.
     pub origin_x: i32,
@@ -59,6 +59,7 @@ pub struct ImageInfo {
 ///
 /// Contains the file offsets needed to navigate between sequences and
 /// the metadata for all frames within this sequence.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SequenceInfo {
     /// File offset where this sequence's frame metadata begins.
     /// Seek here before reading pixel data for rendering.

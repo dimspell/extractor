@@ -1,5 +1,5 @@
-use dispel_core::MapIni;
 use dispel_core::Extractor;
+use dispel_core::MapIni;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]

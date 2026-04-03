@@ -1,6 +1,7 @@
 use super::super::map;
 use super::Command;
 use std::error::Error;
+use std::fs;
 use std::path::Path;
 
 /// Map command implementation
@@ -40,6 +41,11 @@ pub enum MapSubcommand {
     Sprites {
         input: String,
         output: String,
+    },
+    ToJson {
+        input: String,
+        output: Option<String>,
+        pretty: bool,
     },
 }
 
@@ -119,6 +125,33 @@ impl Command for MapCommand {
 
                 map::extract_sprites(Path::new(input), Path::new(output))
                     .expect("ERROR: could not extract sprites");
+                Ok(())
+            }
+            MapSubcommand::ToJson {
+                input,
+                output,
+                pretty,
+            } => {
+                let file =
+                    fs::File::open(input).map_err(|e| format!("Failed to open map file: {}", e))?;
+                let mut reader = std::io::BufReader::new(file);
+                let map_data = map::read_map_data(&mut reader)
+                    .map_err(|e| format!("Failed to parse map file: {}", e))?;
+                let json_data = map_data.to_json();
+                let json_str = if *pretty {
+                    serde_json::to_string_pretty(&json_data)
+                        .map_err(|e| format!("Failed to serialize JSON: {}", e))?
+                } else {
+                    serde_json::to_string(&json_data)
+                        .map_err(|e| format!("Failed to serialize JSON: {}", e))?
+                };
+                if let Some(output_path) = output {
+                    fs::write(output_path, &json_str)
+                        .map_err(|e| format!("Failed to write to {}: {}", output_path, e))?;
+                    eprintln!("Extracted map data to {}", output_path);
+                } else {
+                    println!("{}", json_str);
+                }
                 Ok(())
             }
         }

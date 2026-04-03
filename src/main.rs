@@ -9,6 +9,8 @@ pub mod sprite;
 mod commands;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
+use commands::info::{ListArgs, SchemaArgs, TemplateArgs, ValidateArgs};
+use commands::unified::{ExtractArgs, PatchArgs};
 use commands::{Command, CommandFactory};
 
 #[derive(Parser)]
@@ -32,17 +34,59 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Map related operations
+    /// Extract game file data to JSON
+    #[command(
+        about = "Extract game file data to JSON",
+        long_about = "Reads game reference files and outputs their contents as JSON.\n\nUsage Examples:\n  dispel-extractor extract -i fixtures/Dispel/Monster.ini\n  dispel-extractor extract -i fixtures/Dispel/CharacterInGame/weaponItem.db -o weapons.json --pretty"
+    )]
+    Extract(ExtractArgs),
+
+    /// Patch game files from JSON data
+    #[command(
+        about = "Patch game files from JSON data",
+        long_about = "Writes JSON data back to game binary files.\n\nUsage Examples:\n  dispel-extractor patch -i weapons.json -t fixtures/Dispel/CharacterInGame/weaponItem.db --in-place"
+    )]
+    Patch(PatchArgs),
+
+    /// Validate JSON against file format
+    #[command(
+        about = "Validate JSON against file format",
+        long_about = "Validates JSON data against a file format schema.\n\nUsage Examples:\n  dispel-extractor validate -i weapons.json --type weapons"
+    )]
+    Validate(ValidateArgs),
+
+    /// List supported file types
+    #[command(
+        about = "List supported file types",
+        long_about = "Lists all supported file types with descriptions.\n\nUsage Examples:\n  dispel-extractor list\n  dispel-extractor list --format json --filter monster"
+    )]
+    List(ListArgs),
+
+    /// Generate JSON Schema for a file type
+    #[command(
+        about = "Generate JSON Schema for a file type",
+        long_about = "Outputs a JSON Schema describing the structure of a file type's records.\n\nUsage Examples:\n  dispel-extractor schema --type weapons"
+    )]
+    Schema(SchemaArgs),
+
+    /// Generate a minimal JSON template for a file type
+    #[command(
+        about = "Generate a minimal JSON template for a file type",
+        long_about = "Outputs a minimal JSON template for a single record of a file type.\n\nUsage Examples:\n  dispel-extractor template --type weapons --pretty"
+    )]
+    Template(TemplateArgs),
+
+    /// Map operations (tiles, atlas, render)
     #[command(
         about = "Extract and render map assets",
         long_about = "Operations for handling binary .MAP files and their associated .GTL/.BTL tilesets.\n\nUsage Examples:\n  dispel-extractor map tiles cat1.gtl\n  dispel-extractor map atlas cat1.gtl atlas.png\n  dispel-extractor map render --map cat1.map --btl cat1.btl --gtl cat1.gtl --output map.png"
     )]
     Map(MapArgs),
 
-    /// Reference data extraction
+    /// Reference data extraction (deprecated, use extract)
     #[command(
-        about = "Convert game DB/INI/REF files to JSON",
-        long_about = "Reads internal game reference files and outputs their contents as JSON for external analysis.\n\nUsage Examples:\n  dispel-extractor ref monster fixtures/Dispel/Monster.ini\n  dispel-extractor ref weapons fixtures/Dispel/CharacterInGame/weaponItem.db"
+        about = "Convert game DB/INI/REF files to JSON (deprecated, use extract)",
+        long_about = "DEPRECATED: Use 'extract' instead.\n\nReads internal game reference files and outputs their contents as JSON for external analysis.\n\nUsage Examples:\n  dispel-extractor ref monster fixtures/Dispel/Monster.ini\n  dispel-extractor ref weapons fixtures/Dispel/CharacterInGame/weaponItem.db"
     )]
     Ref(RefArgs),
 
@@ -228,6 +272,24 @@ enum MapCommands {
         #[arg(short, long, default_value = "out")]
         output: String,
     },
+    /// Extract map data to JSON
+    #[command(
+        about = "Extract map data to JSON",
+        long_about = "Parses a .MAP file and outputs its complete data structure as JSON.\n\nUsage Examples:\n  dispel-extractor map to-json --input cat1.map --output cat1.json\n  dispel-extractor map to-json --input cat1.map --pretty"
+    )]
+    ToJson {
+        /// Path to the .MAP file
+        #[arg(short, long)]
+        input: String,
+
+        /// Output JSON file path (default: stdout)
+        #[arg(short, long)]
+        output: Option<String>,
+
+        /// Pretty-print JSON
+        #[arg(short, long)]
+        pretty: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -345,6 +407,30 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
+        Some(Commands::Extract(args)) => {
+            let command = command_factory.create_extract_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
+        Some(Commands::Patch(args)) => {
+            let command = command_factory.create_patch_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
+        Some(Commands::Validate(args)) => {
+            let command = command_factory.create_validate_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
+        Some(Commands::List(args)) => {
+            let command = command_factory.create_list_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
+        Some(Commands::Schema(args)) => {
+            let command = command_factory.create_schema_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
+        Some(Commands::Template(args)) => {
+            let command = command_factory.create_template_command(args.clone());
+            command.execute().expect("Command execution failed");
+        }
         Some(Commands::Sprite { input, mode, info }) => {
             let mode_enum = match mode {
                 SpriteMode::Sprite => commands::sprite::SpriteMode::Sprite,
@@ -408,13 +494,58 @@ fn main() {
                             output: output.clone(),
                         }
                     }
+                    MapCommands::ToJson {
+                        input,
+                        output,
+                        pretty,
+                    } => commands::map::MapSubcommand::ToJson {
+                        input: input.clone(),
+                        output: output.clone(),
+                        pretty: *pretty,
+                    },
                 };
                 let command = command_factory.create_map_command(subcommand);
                 command.execute().expect("Command execution failed");
             }
         }
         Some(Commands::Ref(ref_args)) => {
+            eprintln!("Note: 'ref' command is deprecated. Use 'extract' instead:");
             if let Some(ref_command) = &ref_args.command {
+                let subcommand_type = match ref_command {
+                    RefCommands::AllMaps { .. } => "all_maps",
+                    RefCommands::Map { .. } => "map_ini",
+                    RefCommands::Extra { .. } => "extra_ini",
+                    RefCommands::Event { .. } => "event_ini",
+                    RefCommands::Monster { .. } => "monster_ini",
+                    RefCommands::Npc { .. } => "npc_ini",
+                    RefCommands::Wave { .. } => "wave_ini",
+                    RefCommands::DrawItem { .. } => "draw_item",
+                    RefCommands::Dialog { .. } => "dialog",
+                    RefCommands::PartyRef { .. } => "party_ref",
+                    RefCommands::DialogTexts { .. } => "dialog_text",
+                    RefCommands::Weapons { .. } => "weapons",
+                    RefCommands::MultiMagic { .. } => "magic",
+                    RefCommands::Store { .. } => "store",
+                    RefCommands::EventNpcRef { .. } => "event_npc_ref",
+                    RefCommands::NpcRef { .. } => "npc_ref",
+                    RefCommands::Monsters { .. } => "monsters",
+                    RefCommands::MonsterRef { .. } => "monster_ref",
+                    RefCommands::MiscItem { .. } => "misc_item",
+                    RefCommands::HealItems { .. } => "heal_item",
+                    RefCommands::ExtraRef { .. } => "extra_ref",
+                    RefCommands::EventItems { .. } => "event_item",
+                    RefCommands::EditItems { .. } => "edit_item",
+                    RefCommands::PartyLevel { .. } => "party_level",
+                    RefCommands::PartyIni { .. } => "party_ini",
+                    RefCommands::Magic { .. } => "magic",
+                    RefCommands::Quest { .. } => "quest",
+                    RefCommands::Message { .. } => "message",
+                    RefCommands::ChData { .. } => "chdata",
+                };
+                eprintln!(
+                    "  dispel-extractor extract --input <file> --type {}",
+                    subcommand_type
+                );
                 let subcommand = match ref_command {
                     RefCommands::AllMaps { input } => {
                         commands::ref_command::RefSubcommand::AllMaps {

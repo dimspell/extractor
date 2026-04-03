@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// Isometric (x, y) tile coordinate.
 pub type Coords = (i32, i32);
 
@@ -14,7 +16,7 @@ pub fn convert_map_coords_to_image_coords(x: i32, y: i32, map_diagonal_tiles: i3
 }
 
 /// An event trigger attached to a tile on the map.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct EventBlock {
     pub x: i32,
     pub y: i32,
@@ -23,7 +25,7 @@ pub struct EventBlock {
 }
 
 /// Placement record for a sprite embedded directly in the map file.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct SpriteInfoBlock {
     pub sprite_id: usize,
     pub sprite_x: i32,
@@ -31,7 +33,7 @@ pub struct SpriteInfoBlock {
 }
 
 /// A building/object made up of stacked BTL tileset tiles.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TiledObjectInfo {
     pub ids: Vec<i16>,
     pub x: i32,

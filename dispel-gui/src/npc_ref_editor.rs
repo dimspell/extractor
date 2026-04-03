@@ -1,5 +1,5 @@
-use dispel_core::NPC;
 use dispel_core::Extractor;
+use dispel_core::NPC;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]

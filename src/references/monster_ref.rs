@@ -5,7 +5,7 @@ use crate::references::enums::ItemTypeId;
 use crate::references::extractor::{read_mapper, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // MONSTERREF.REF FILE FORMAT
@@ -55,7 +55,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonsterRef {
     /// Record index relative to the Mondun struct array.
     pub index: i32,

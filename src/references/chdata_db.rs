@@ -3,7 +3,7 @@ use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
 
@@ -33,7 +33,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChData {
     pub magic: String,
     pub values: Vec<u16>,

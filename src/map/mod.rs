@@ -107,6 +107,7 @@ use std::path::Path;
 
 use crate::sprite::SequenceInfo;
 use rusqlite::{params, Connection, Result as DbResult};
+use serde::{Deserialize, Serialize};
 
 /// IO Result type for file operations
 type IoResult<T> = std::io::Result<T>;
@@ -130,6 +131,173 @@ pub struct MapData {
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
+}
+
+/// JSON-serializable representation of map data.
+/// Converts HashMap-based fields to arrays for JSON compatibility.
+#[derive(Serialize, Deserialize)]
+pub struct MapDataJson {
+    pub metadata: MapMetadataJson,
+    pub gtl_tiles: Vec<TileEntryJson>,
+    pub btl_tiles: Vec<TileEntryJson>,
+    pub collisions: Vec<CollisionEntryJson>,
+    pub events: Vec<EventEntryJson>,
+    pub tiled_objects: Vec<TiledObjectJson>,
+    pub sprites: Vec<SpritePlacementJson>,
+    pub internal_sprites: Vec<InternalSpriteJson>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MapMetadataJson {
+    pub chunk_width: i32,
+    pub chunk_height: i32,
+    pub tiled_width: i32,
+    pub tiled_height: i32,
+    pub map_width_in_pixels: i32,
+    pub map_height_in_pixels: i32,
+    pub non_occluded_start_x: i32,
+    pub non_occluded_start_y: i32,
+    pub occluded_width: i32,
+    pub occluded_height: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TileEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub tile_id: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CollisionEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub blocked: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EventEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub event_id: i16,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TiledObjectJson {
+    pub index: usize,
+    pub x: i32,
+    pub y: i32,
+    pub tile_ids: Vec<i16>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SpritePlacementJson {
+    pub index: usize,
+    pub sprite_id: usize,
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InternalSpriteJson {
+    pub index: usize,
+    pub image_stamp: i32,
+    pub frame_count: usize,
+    pub frames: Vec<SpriteFrameJson>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SpriteFrameJson {
+    pub width: i32,
+    pub height: i32,
+    pub origin_x: i32,
+    pub origin_y: i32,
+}
+
+impl MapData {
+    /// Convert MapData to JSON-serializable format.
+    pub fn to_json(&self) -> MapDataJson {
+        MapDataJson {
+            metadata: MapMetadataJson {
+                chunk_width: 0, // Not stored in MapModel, compute from tiled_width
+                chunk_height: 0,
+                tiled_width: self.model.tiled_map_width,
+                tiled_height: self.model.tiled_map_height,
+                map_width_in_pixels: self.model.map_width_in_pixels,
+                map_height_in_pixels: self.model.map_height_in_pixels,
+                non_occluded_start_x: self.model.map_non_occluded_start_x,
+                non_occluded_start_y: self.model.map_non_occluded_start_y,
+                occluded_width: self.model.occluded_map_in_pixels_width,
+                occluded_height: self.model.occluded_map_in_pixels_height,
+            },
+            gtl_tiles: self
+                .gtl_tiles
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
+                .collect(),
+            btl_tiles: self
+                .btl_tiles
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
+                .collect(),
+            collisions: self
+                .collisions
+                .iter()
+                .map(|(&(x, y), &blocked)| CollisionEntryJson { x, y, blocked })
+                .collect(),
+            events: self
+                .events
+                .iter()
+                .map(|(&(x, y), event)| EventEntryJson {
+                    x,
+                    y,
+                    event_id: event.event_id,
+                })
+                .collect(),
+            tiled_objects: self
+                .tiled_infos
+                .iter()
+                .enumerate()
+                .map(|(index, obj)| TiledObjectJson {
+                    index,
+                    x: obj.x,
+                    y: obj.y,
+                    tile_ids: obj.ids.clone(),
+                })
+                .collect(),
+            sprites: self
+                .sprite_blocks
+                .iter()
+                .enumerate()
+                .map(|(index, sp)| SpritePlacementJson {
+                    index,
+                    sprite_id: sp.sprite_id,
+                    x: sp.sprite_x,
+                    y: sp.sprite_y,
+                })
+                .collect(),
+            internal_sprites: self
+                .internal_sprites
+                .iter()
+                .enumerate()
+                .map(|(index, seq)| InternalSpriteJson {
+                    index,
+                    image_stamp: 0,
+                    frame_count: seq.frame_infos.len(),
+                    frames: seq
+                        .frame_infos
+                        .iter()
+                        .map(|f| SpriteFrameJson {
+                            width: f.width,
+                            height: f.height,
+                            origin_x: f.origin_x,
+                            origin_y: f.origin_y,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
 }
 
 // --------------------------------------------------------------------------
