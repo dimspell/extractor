@@ -132,6 +132,7 @@ impl Extractor for WeaponItem {
             let mut buffer = [0u8; 30];
             reader.read_exact(&mut buffer)?;
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
+            let name = name.trim();
 
             // description
             let mut buffer = [0u8; 202];
@@ -155,16 +156,16 @@ impl Extractor for WeaponItem {
             let defense = reader.read_i16::<LittleEndian>()?;
             let magical_strength = reader.read_i16::<LittleEndian>()?;
             let durability = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
+            reader.read_i16::<LittleEndian>()?; // Always zero
+            reader.read_i16::<LittleEndian>()?; // Always zero
             let req_strength = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
+            reader.read_i16::<LittleEndian>()?; // Always zero
             let req_agility = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
+            reader.read_i16::<LittleEndian>()?; // Always zero
             let req_wisdom = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
+            reader.read_i16::<LittleEndian>()?; // Always zero
+            reader.read_i16::<LittleEndian>()?; // Always zero
+            reader.read_i16::<LittleEndian>()?; // Always zero
 
             let item = WeaponItem {
                 id: i as i32,

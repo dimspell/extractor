@@ -134,6 +134,9 @@ ref-dialog:
 ref-dialogue-text:
 	cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
 
+ref-weapons:
+	cargo run -- ref weapons "fixtures/Dispel/CharacterInGame/weaponItem.db"
+
 database-import:
 	cargo run -- database import "fixtures/Dispel" "database.sqlite"
 
