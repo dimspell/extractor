@@ -8,7 +8,7 @@ impl App {
         build_editor_view(
             self,
             &self.state.event_item_editor,
-            Message::EventItemOpBrowseGamePath,
+            Message::EventItemOpScanItems,
             Message::EventItemOpSave,
             Message::EventItemOpSelectItem,
             Message::EventItemOpFieldChanged,

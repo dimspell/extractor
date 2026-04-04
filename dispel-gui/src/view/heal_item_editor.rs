@@ -8,7 +8,7 @@ impl App {
         build_editor_view(
             self,
             &self.state.heal_item_editor,
-            Message::HealItemOpBrowseGamePath,
+            Message::HealItemOpScanItems,
             Message::HealItemOpSave,
             Message::HealItemOpSelectItem,
             Message::HealItemOpFieldChanged,
