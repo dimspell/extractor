@@ -396,6 +396,9 @@ impl App {
                         "viewer_db" => self.state.viewer.db_path = s,
                         "chest_game_path" => self.state.shared_game_path = s,
                         "chest_map_file" => self.state.chest_editor.current_map_file = s,
+                        "extra_ref_map_file" => {
+                            self.state.extra_ref_editor.current_map_file = s.clone();
+                        }
                         "monster_ref_file" => {
                             let path = PathBuf::from(&s);
                             self.state.monster_ref_editor.select_file(path);
@@ -3297,8 +3300,11 @@ impl App {
 
             // ─── Spreadsheet View (Demo Editors) ────────────────────
             Message::HealItemSpreadsheet(msg) => {
-                use crate::view::editor::{SpreadsheetMessage as SM, view_spreadsheet as _};
+                use crate::view::editor::SpreadsheetMessage as SM;
                 match msg {
+                    SM::ToggleActive => {
+                        self.state.heal_item_spreadsheet.toggle_active();
+                    }
                     SM::SortColumn(col) => {
                         self.state.heal_item_spreadsheet.toggle_sort(col);
                         if let Some(catalog) = &self.state.heal_item_editor.catalog {
@@ -3345,6 +3351,9 @@ impl App {
             Message::MiscItemSpreadsheet(msg) => {
                 use crate::view::editor::SpreadsheetMessage as SM;
                 match msg {
+                    SM::ToggleActive => {
+                        self.state.misc_item_spreadsheet.toggle_active();
+                    }
                     SM::SortColumn(col) => {
                         self.state.misc_item_spreadsheet.toggle_sort(col);
                         if let Some(catalog) = &self.state.misc_item_editor.catalog {
@@ -3391,6 +3400,9 @@ impl App {
             Message::MagicSpreadsheet(msg) => {
                 use crate::view::editor::SpreadsheetMessage as SM;
                 match msg {
+                    SM::ToggleActive => {
+                        self.state.magic_spreadsheet.toggle_active();
+                    }
                     SM::SortColumn(col) => {
                         self.state.magic_spreadsheet.toggle_sort(col);
                         if let Some(catalog) = &self.state.magic_editor.catalog {

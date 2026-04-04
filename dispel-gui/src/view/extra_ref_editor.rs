@@ -322,7 +322,7 @@ impl App {
                         text("Map Files").size(14),
                         horizontal_space(),
                         button(text("Scan"))
-                            .on_press(Message::ExtraRefOpBrowseGamePath)
+                            .on_press(Message::ExtraRefOpLoadCatalog)
                             .style(style::chip)
                     ]
                     .padding(10)

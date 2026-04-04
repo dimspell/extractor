@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Default)]
 pub struct SpreadsheetState {
+    pub active: bool,
     pub sort_column: Option<usize>,
     pub sort_ascending: bool,
     pub filter_query: String,
@@ -139,10 +140,15 @@ impl SpreadsheetState {
     pub fn toggle_inspector(&mut self) {
         self.show_inspector = !self.show_inspector;
     }
+
+    pub fn toggle_active(&mut self) {
+        self.active = !self.active;
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum SpreadsheetMessage {
+    ToggleActive,
     SortColumn(usize),
     FilterChanged(String),
     SelectRow(usize, bool),
@@ -175,6 +181,9 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
                 Element::from(text(""))
             },
             horizontal_space().width(20),
+            button(text("List View"))
+                .on_press(spreadsheet_msg(SpreadsheetMessage::ToggleActive))
+                .style(style::browse_button),
             button(text("Inspector"))
                 .on_press(spreadsheet_msg(SpreadsheetMessage::ToggleInspector))
                 .style(style::browse_button),
