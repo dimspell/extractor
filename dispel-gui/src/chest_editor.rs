@@ -9,8 +9,8 @@ pub struct ItemCatalog {
     pub weapons: Vec<WeaponItem>,
     pub healing: Vec<HealItem>,
     pub misc: Vec<MiscItem>,
-    pub edit: Vec<EditItem>,
     pub event: Vec<EventItem>,
+    pub edit: Vec<EditItem>,
 }
 
 impl ItemCatalog {
@@ -47,8 +47,8 @@ impl ItemCatalog {
                 .map_err(|e| e.to_string())?,
             healing: HealItem::read_file(&load_db("HealItem.db")?).map_err(|e| e.to_string())?,
             misc: MiscItem::read_file(&load_db("MiscItem.db")?).map_err(|e| e.to_string())?,
-            edit: EditItem::read_file(&load_db("EditItem.db")?).map_err(|e| e.to_string())?,
             event: EventItem::read_file(&load_db("EventItem.db")?).map_err(|e| e.to_string())?,
+            edit: EditItem::read_file(&load_db("EditItem.db")?).map_err(|e| e.to_string())?,
         })
     }
 

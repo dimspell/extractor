@@ -61,7 +61,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct WeaponItem {
     /// Internal record index (0-based) for the weapon/armor.
     pub id: i32,

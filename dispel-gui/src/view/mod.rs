@@ -20,6 +20,7 @@ pub mod event_item_editor;
 pub mod event_npc_ref_editor;
 pub mod extra_ini_editor;
 pub mod extra_ref_editor;
+pub mod generic_editor;
 pub mod heal_item_editor;
 pub mod magic_editor;
 pub mod map;

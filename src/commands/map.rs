@@ -5,6 +5,9 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+/// Compatibility alias for GUI (was MapSubcommand, now uses cli::MapCommands).
+pub use crate::cli::MapCommands as MapSubcommand;
+
 pub struct MapCommand {
     pub subcommand: MapCommands,
 }

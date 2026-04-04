@@ -32,6 +32,9 @@ use rusqlite::Connection;
 use std::error::Error;
 use std::path::Path;
 
+/// Compatibility alias for GUI.
+pub use crate::cli::DatabaseCommands as DatabaseSubcommand;
+
 /// Database command implementation
 pub struct DatabaseCommand {
     pub subcommand: DatabaseCommands,

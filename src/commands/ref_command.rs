@@ -12,6 +12,9 @@ use serde::Serialize;
 use std::error::Error;
 use std::path::Path;
 
+/// Compatibility alias for GUI.
+pub use crate::cli::RefCommands as RefSubcommand;
+
 /// Reference command implementation
 pub struct RefCommand {
     pub subcommand: RefCommands,
