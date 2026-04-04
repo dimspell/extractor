@@ -351,6 +351,8 @@ pub enum Message {
     ChDataCatalogLoaded(Result<Vec<ChData>, String>),
     // Workspace
     Workspace(WorkspaceMessage),
+    // App
+    CloseRequested,
 }
 
 #[derive(Debug, Clone)]

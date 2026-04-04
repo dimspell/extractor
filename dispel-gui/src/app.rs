@@ -17,25 +17,38 @@ use dispel_core::{
     WeaponItem, NPC,
 };
 use iced::widget::{button, column, container, row, text};
-use iced::{Element, Fill, Task};
+use iced::{Element, Fill, Subscription, Task};
 use std::path::{Path, PathBuf};
 
 pub struct App {
     pub state: AppState,
     pub file_tree: FileTree,
     pub workspace_mode: bool,
+    pub window_id: iced::window::Id,
 }
 
 impl App {
     pub fn new() -> (Self, Task<Message>) {
+        let mut state = AppState::default();
+        if let Err(e) = state.load_workspace() {
+            eprintln!("Failed to load workspace: {}", e);
+        }
         (
             Self {
-                state: AppState::default(),
+                state,
                 file_tree: FileTree::default(),
-                workspace_mode: false,
+                workspace_mode: true,
+                window_id: iced::window::Id::unique(),
             },
             Task::none(),
         )
+    }
+
+    pub fn subscription(&self) -> Subscription<Message> {
+        use iced::window;
+        window::close_requests()
+            .map(|_| Message::CloseRequested)
+            .into()
     }
 
     pub fn update_workspace(&mut self, msg: WorkspaceMessage) -> Task<Message> {
@@ -68,18 +81,27 @@ impl App {
         match msg {
             TabBarMessage::SelectTab(idx) => {
                 self.state.workspace.active_tab = Some(idx);
+                self.save_workspace();
                 Task::none()
             }
             TabBarMessage::CloseTab(idx) => {
                 self.state.workspace.close(idx);
+                self.save_workspace();
                 Task::none()
             }
             TabBarMessage::TogglePin(idx) => {
                 if let Some(tab) = self.state.workspace.tabs.get_mut(idx) {
                     tab.pinned = !tab.pinned;
                 }
+                self.save_workspace();
                 Task::none()
             }
+        }
+    }
+
+    fn save_workspace(&self) {
+        if let Err(e) = self.state.save_workspace() {
+            eprintln!("Failed to save workspace: {}", e);
         }
     }
 
@@ -90,6 +112,7 @@ impl App {
             .unwrap_or_default();
 
         self.state.workspace.open(label, Some(path.to_path_buf()));
+        self.save_workspace();
 
         // Auto-load the file based on extension
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
@@ -2928,6 +2951,28 @@ impl App {
 
             // ─── Workspace messages ──────────────────────────────
             Message::Workspace(ws_msg) => self.update_workspace(ws_msg),
+
+            // ─── App close ────────────────────────────────────────
+            Message::CloseRequested => {
+                use rfd::MessageDialog;
+                use rfd::MessageDialogResult;
+                use rfd::MessageButtons;
+                let dialog = MessageDialog::new()
+                    .set_title("Save workspace?")
+                    .set_description("Do you want to save your workspace before closing?")
+                    .set_buttons(MessageButtons::YesNoCancel);
+                let result = dialog.show();
+                match result {
+                    MessageDialogResult::Yes => {
+                        self.save_workspace();
+                        return iced::window::close(self.window_id);
+                    }
+                    MessageDialogResult::No => {
+                        return iced::window::close(self.window_id);
+                    }
+                    _ => Task::none(),
+                }
+            }
         }
     }
 
