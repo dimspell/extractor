@@ -3252,6 +3252,49 @@ impl App {
                 return Task::none();
             }
 
+            // ─── Auto-Save Drafts ─────────────────────────────────────
+            Message::ToggleAutoSave => {
+                self.draft_manager.toggle_auto_save();
+                let status = if self.draft_manager.is_auto_save_enabled() {
+                    "Auto-save drafts enabled"
+                } else {
+                    "Auto-save drafts disabled"
+                };
+                self.state.status_msg = status.to_string();
+                return Task::none();
+            }
+            Message::CheckDraftConflicts => {
+                let conflicts = self.draft_manager.check_conflicts();
+                if conflicts.is_empty() {
+                    self.state.status_msg = "No conflicts detected".to_string();
+                } else {
+                    self.state.status_msg = format!(
+                        "{} file(s) have conflicts",
+                        conflicts.len()
+                    );
+                }
+                return Task::none();
+            }
+            Message::ApplyDraft(file_path) => {
+                let path = PathBuf::from(&file_path);
+                match self.draft_manager.apply_draft(&path) {
+                    Ok(()) => {
+                        self.draft_manager.discard_draft(&path);
+                        self.state.status_msg = format!("Draft applied for {}", file_path);
+                    }
+                    Err(e) => {
+                        self.state.status_msg = format!("Failed to apply draft: {}", e);
+                    }
+                }
+                return Task::none();
+            }
+            Message::DiscardDraft(file_path) => {
+                let path = PathBuf::from(&file_path);
+                self.draft_manager.discard_draft(&path);
+                self.state.status_msg = format!("Draft discarded for {}", file_path);
+                return Task::none();
+            }
+
             // ─── App close ────────────────────────────────────────
             Message::CloseRequested => {
                 use rfd::MessageDialog;

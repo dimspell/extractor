@@ -368,6 +368,11 @@ pub enum Message {
     ToggleGlobalSearch,
     GlobalSearchInput(String),
     GlobalSearchSelect(usize),
+    // Auto-Save Drafts
+    ToggleAutoSave,
+    CheckDraftConflicts,
+    ApplyDraft(String),
+    DiscardDraft(String),
 }
 
 #[derive(Debug, Clone)]
