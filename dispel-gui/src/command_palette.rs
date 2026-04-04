@@ -40,6 +40,12 @@ impl Command {
                 action: || Message::ToggleCommandPalette,
             },
             Command {
+                id: "toggle-global-search",
+                label: "Toggle Global Search",
+                shortcut: Some("Ctrl+F"),
+                action: || Message::ToggleGlobalSearch,
+            },
+            Command {
                 id: "goto-map",
                 label: "Go to Map",
                 shortcut: None,

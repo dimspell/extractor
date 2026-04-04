@@ -22,6 +22,7 @@ pub mod event_npc_ref_editor;
 pub mod extra_ini_editor;
 pub mod extra_ref_editor;
 pub mod generic_editor;
+pub mod global_search;
 pub mod heal_item_editor;
 pub mod history_panel;
 pub mod magic_editor;
@@ -117,6 +118,26 @@ impl App {
                 });
 
             let overlay = container(palette_view)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill);
+
+            return column![backdrop, overlay].width(Fill).height(Fill).into();
+        }
+
+        if self.global_search.is_visible {
+            let search_view = global_search::view(&self.global_search);
+
+            let backdrop = container(main_container)
+                .width(Fill)
+                .height(Fill)
+                .style(|_theme| iced::widget::container::Style {
+                    background: Some(iced::Background::Color(iced::Color::from_rgb(
+                        0.0, 0.0, 0.0,
+                    ))),
+                    ..Default::default()
+                });
+
+            let overlay = container(search_view)
                 .center_x(Length::Fill)
                 .center_y(Length::Fill);
 

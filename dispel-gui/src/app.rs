@@ -32,6 +32,7 @@ pub struct App {
     pub history_panel_visible: bool,
     pub empty_edit_history: EditHistory,
     pub command_palette: Option<CommandPalette>,
+    pub global_search: crate::global_search::GlobalSearch,
 }
 
 impl App {
@@ -55,6 +56,7 @@ impl App {
                 history_panel_visible: false,
                 empty_edit_history: EditHistory::default(),
                 command_palette: None,
+                global_search: crate::global_search::GlobalSearch::new(),
             },
             Task::none(),
         )
@@ -109,6 +111,7 @@ impl App {
                             'y' => Some(Message::Redo),
                             'h' => Some(Message::ToggleHistoryPanel),
                             'p' => Some(Message::ToggleCommandPalette),
+                            'f' => Some(Message::ToggleGlobalSearch),
                             _ => None,
                         };
                     }
@@ -3204,6 +3207,45 @@ impl App {
                         self.command_palette = None;
                         return self.update(action_msg);
                     }
+                }
+                return Task::none();
+            }
+
+            // ─── Global Search ─────────────────────────────────────
+            Message::ToggleGlobalSearch => {
+                self.global_search.toggle();
+                if self.global_search.is_visible {
+                    self.command_palette = None;
+                }
+                return Task::none();
+            }
+            Message::GlobalSearchInput(input) => {
+                self.global_search.query = input;
+                self.global_search.search(&self.state, &self.state.chest_editor.catalog);
+                return Task::none();
+            }
+            Message::GlobalSearchSelect(idx) => {
+                if let Some(result) = self.global_search.results.get(idx) {
+                    let tab = match result.catalog_type.as_str() {
+                        "Weapon" => Tab::WeaponEditor,
+                        "HealItem" => Tab::HealItemEditor,
+                        "MiscItem" => Tab::MiscItemEditor,
+                        "EditItem" => Tab::EditItemEditor,
+                        "EventItem" => Tab::EventItemEditor,
+                        "Monster" => Tab::MonsterEditor,
+                        "NpcIni" => Tab::NpcIniEditor,
+                        "MagicSpell" => Tab::MagicEditor,
+                        "Dialog" => Tab::DialogEditor,
+                        "DialogueText" => Tab::DialogueTextEditor,
+                        "Store" => Tab::StoreEditor,
+                        "PartyRef" => Tab::PartyRefEditor,
+                        "PartyIni" => Tab::PartyIniEditor,
+                        _ => Tab::WeaponEditor,
+                    };
+                    self.state.active_tab = tab;
+                    self.global_search.is_visible = false;
+                    self.global_search.query.clear();
+                    self.state.status_msg = format!("Navigated to {} via search", result.display_text);
                 }
                 return Task::none();
             }

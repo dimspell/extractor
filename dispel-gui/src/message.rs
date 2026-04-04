@@ -364,6 +364,10 @@ pub enum Message {
     CommandPaletteArrowUp,
     CommandPaletteArrowDown,
     CommandPaletteConfirm,
+    // Global Search
+    ToggleGlobalSearch,
+    GlobalSearchInput(String),
+    GlobalSearchSelect(usize),
 }
 
 #[derive(Debug, Clone)]

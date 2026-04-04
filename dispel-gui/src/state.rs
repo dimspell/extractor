@@ -11,6 +11,7 @@ use crate::event_item_editor;
 use crate::event_npc_ref_editor;
 use crate::extra_ini_editor;
 use crate::extra_ref_editor;
+use crate::global_search::GlobalSearch;
 use crate::heal_item_editor;
 use crate::magic_editor;
 use crate::map_ini_editor;
@@ -115,6 +116,9 @@ pub struct AppState {
 
     /// Workspace for dynamic tab management.
     pub workspace: Workspace,
+
+    /// Global search across all catalogs.
+    pub global_search: GlobalSearch,
 }
 
 impl AppState {
@@ -194,6 +198,7 @@ impl Default for AppState {
             chdata_editor: Box::default(),
             lookups: HashMap::new(),
             workspace: Workspace::new(),
+            global_search: GlobalSearch::new(),
         }
     }
 }
