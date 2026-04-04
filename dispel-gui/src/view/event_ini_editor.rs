@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.event_ini_editor,
-            Message::UeventUiniOpScanItems,
-            Message::UeventUiniOpSave,
-            Message::UeventUiniOpSelectItem,
-            Message::UeventUiniOpFieldChanged,
+            Message::EventIniOpLoadCatalog,
+            Message::EventIniOpSave,
+            Message::EventIniOpSelectEvent,
+            Message::EventIniOpFieldChanged,
             &self.state.lookups,
         )
     }

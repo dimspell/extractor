@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.event_npc_ref_editor,
-            Message::UeventUnpcUrefOpScanItems,
-            Message::UeventUnpcUrefOpSave,
-            Message::UeventUnpcUrefOpSelectItem,
-            Message::UeventUnpcUrefOpFieldChanged,
+            Message::EventNpcRefOpLoadCatalog,
+            Message::EventNpcRefOpSave,
+            Message::EventNpcRefOpSelectNpc,
+            Message::EventNpcRefOpFieldChanged,
             &self.state.lookups,
         )
     }

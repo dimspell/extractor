@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.party_ref_editor,
-            Message::UpartyUrefOpScanItems,
-            Message::UpartyUrefOpSave,
-            Message::UpartyUrefOpSelectItem,
-            Message::UpartyUrefOpFieldChanged,
+            Message::PartyRefOpLoadCatalog,
+            Message::PartyRefOpSave,
+            Message::PartyRefOpSelectMember,
+            Message::PartyRefOpFieldChanged,
             &self.state.lookups,
         )
     }

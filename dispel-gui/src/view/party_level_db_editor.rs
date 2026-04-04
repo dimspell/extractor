@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.party_level_db_editor,
-            Message::UpartyUlevelUdbOpScanItems,
-            Message::UpartyUlevelUdbOpSave,
-            Message::UpartyUlevelUdbOpSelectItem,
-            Message::UpartyUlevelUdbOpFieldChanged,
+            Message::PartyLevelDbOpLoadCatalog,
+            Message::PartyLevelDbOpSave,
+            Message::PartyLevelDbOpSelectRecord,
+            Message::PartyLevelDbOpFieldChanged,
             &self.state.lookups,
         )
     }

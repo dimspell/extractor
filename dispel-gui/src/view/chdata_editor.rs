@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.chdata_editor,
-            Message::UchdataOpScanItems,
-            Message::UchdataOpSave,
-            Message::UchdataOpSelectItem,
-            Message::UchdataOpFieldChanged,
+            Message::ChDataOpLoadCatalog,
+            Message::ChDataOpSave,
+            Message::ChDataOpSelectData,
+            Message::ChDataOpFieldChanged,
             &self.state.lookups,
         )
     }

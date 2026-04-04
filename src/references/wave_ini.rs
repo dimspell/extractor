@@ -59,7 +59,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WaveIni {
     /// Sound effect reference identifier.
     pub id: i32,

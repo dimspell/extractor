@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.wave_ini_editor,
-            Message::UwaveUiniOpScanItems,
-            Message::UwaveUiniOpSave,
-            Message::UwaveUiniOpSelectItem,
-            Message::UwaveUiniOpFieldChanged,
+            Message::WaveIniOpLoadCatalog,
+            Message::WaveIniOpSave,
+            Message::WaveIniOpSelectWave,
+            Message::WaveIniOpFieldChanged,
             &self.state.lookups,
         )
     }

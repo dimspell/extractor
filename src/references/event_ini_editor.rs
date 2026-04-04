@@ -1,5 +1,4 @@
 use super::editable::{EditableRecord, FieldDescriptor, FieldKind};
-use super::enums::EventType;
 use super::event_ini::Event;
 
 impl EditableRecord for Event {

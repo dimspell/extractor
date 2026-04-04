@@ -111,5 +111,6 @@ pub mod quest_scr;
 mod quest_scr_editor;
 pub mod store_db;
 pub mod wave_ini;
+mod wave_ini_editor;
 mod weapon_editor;
 pub mod weapons_db;

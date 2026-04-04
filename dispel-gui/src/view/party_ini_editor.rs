@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.party_ini_editor,
-            Message::UpartyUiniOpScanItems,
-            Message::UpartyUiniOpSave,
-            Message::UpartyUiniOpSelectItem,
-            Message::UpartyUiniOpFieldChanged,
+            Message::PartyIniOpLoadCatalog,
+            Message::PartyIniOpSave,
+            Message::PartyIniOpSelectNpc,
+            Message::PartyIniOpFieldChanged,
             &self.state.lookups,
         )
     }

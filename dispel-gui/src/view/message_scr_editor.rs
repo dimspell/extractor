@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.message_scr_editor,
-            Message::UmessageUscrOpScanItems,
-            Message::UmessageUscrOpSave,
-            Message::UmessageUscrOpSelectItem,
-            Message::UmessageUscrOpFieldChanged,
+            Message::MessageScrOpLoadCatalog,
+            Message::MessageScrOpSave,
+            Message::MessageScrOpSelectMessage,
+            Message::MessageScrOpFieldChanged,
             &self.state.lookups,
         )
     }

@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.quest_scr_editor,
-            Message::UquestUscrOpScanItems,
-            Message::UquestUscrOpSave,
-            Message::UquestUscrOpSelectItem,
-            Message::UquestUscrOpFieldChanged,
+            Message::QuestScrOpLoadCatalog,
+            Message::QuestScrOpSave,
+            Message::QuestScrOpSelectQuest,
+            Message::QuestScrOpFieldChanged,
             &self.state.lookups,
         )
     }

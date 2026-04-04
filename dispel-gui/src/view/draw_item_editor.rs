@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.draw_item_editor,
-            Message::UdrawUitemOpScanItems,
-            Message::UdrawUitemOpSave,
-            Message::UdrawUitemOpSelectItem,
-            Message::UdrawUitemOpFieldChanged,
+            Message::DrawItemOpLoadCatalog,
+            Message::DrawItemOpSave,
+            Message::DrawItemOpSelectItem,
+            Message::DrawItemOpFieldChanged,
             &self.state.lookups,
         )
     }

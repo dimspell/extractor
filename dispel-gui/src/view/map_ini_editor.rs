@@ -8,10 +8,10 @@ impl App {
         build_editor_view(
             self,
             &self.state.map_ini_editor,
-            Message::UmapUiniOpScanItems,
-            Message::UmapUiniOpSave,
-            Message::UmapUiniOpSelectItem,
-            Message::UmapUiniOpFieldChanged,
+            Message::MapIniOpLoadCatalog,
+            Message::MapIniOpSave,
+            Message::MapIniOpSelectMap,
+            Message::MapIniOpFieldChanged,
             &self.state.lookups,
         )
     }

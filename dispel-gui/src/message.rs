@@ -315,20 +315,16 @@ pub enum Message {
     NpcRefOpSelectNpc(usize),
     NpcRefOpFieldChanged(usize, String, String),
     NpcRefOpSave,
+    NpcRefOpAddEntry,
+    NpcRefOpRemoveEntry(usize),
     NpcRefCatalogLoaded(Result<Vec<NPC>, String>),
     // Party Level Db Editor
     PartyLevelDbOpBrowseGamePath,
     PartyLevelDbOpLoadCatalog,
-    PartyLevelDbOpSelectNpc(usize),
     PartyLevelDbOpSelectRecord(usize),
-    PartyLevelDbOpFieldChanged(String, String),
+    PartyLevelDbOpFieldChanged(usize, String, String),
     PartyLevelDbOpSave,
-    PartyLevelDbCatalogLoaded(
-        (
-            Result<Vec<PartyLevelNpc>, String>,
-            Result<Vec<PartyRef>, String>,
-        ),
-    ),
+    PartyLevelDbCatalogLoaded(Result<Vec<PartyLevelNpc>, String>),
     // Quest Scr Editor
     QuestScrOpBrowseGamePath,
     QuestScrOpLoadCatalog,
@@ -349,7 +345,8 @@ pub enum Message {
     // ChData Editor
     ChDataOpBrowseGamePath,
     ChDataOpLoadCatalog,
-    ChDataOpFieldChanged(String, String),
+    ChDataOpSelectData(usize),
+    ChDataOpFieldChanged(usize, String, String),
     ChDataOpSave,
     ChDataCatalogLoaded(Result<Vec<ChData>, String>),
     // Workspace
