@@ -33,10 +33,16 @@ impl App {
         if let Err(e) = state.load_workspace() {
             eprintln!("Failed to load workspace: {}", e);
         }
+        let game_path = state.workspace.game_path.clone();
+        let file_tree = if let Some(ref path) = game_path {
+            FileTree::scan(path)
+        } else {
+            FileTree::default()
+        };
         (
             Self {
                 state,
-                file_tree: FileTree::default(),
+                file_tree,
                 workspace_mode: true,
                 window_id: iced::window::Id::unique(),
             },
@@ -46,6 +52,7 @@ impl App {
 
     pub fn subscription(&self) -> Subscription<Message> {
         use iced::window;
+
         window::close_requests()
             .map(|_| Message::CloseRequested)
             .into()
@@ -260,7 +267,13 @@ impl App {
                 Task::none()
             }
             // Shared Game Path
-            Message::BrowseSharedGamePath => browse_folder("shared_game_path"),
+            Message::BrowseSharedGamePath => {
+                if self.workspace_mode {
+                    browse_folder("workspace_game_path")
+                } else {
+                    browse_folder("shared_game_path")
+                }
+            }
             Message::LoadSharedGamePath => {
                 if self.state.shared_game_path.is_empty() {
                     return browse_folder("shared_game_path");
@@ -282,6 +295,12 @@ impl App {
                     let s = p.to_string_lossy().to_string();
                     match field.as_str() {
                         "shared_game_path" => self.state.shared_game_path = s.clone(),
+                        "workspace_game_path" => {
+                            let pathbuf = PathBuf::from(&s);
+                            self.state.workspace.game_path = Some(pathbuf.clone());
+                            self.file_tree = FileTree::scan(&pathbuf);
+                            self.save_workspace();
+                        }
                         "map_input" => self.state.map_input = s,
                         "map_map_path" => self.state.map_map_path = s,
                         "map_btl_path" => self.state.map_btl_path = s,
@@ -726,6 +745,44 @@ impl App {
                 if self.state.shared_game_path.is_empty() {
                     self.state.heal_item_editor.status_msg =
                         "Please select game path first.".into();
+                    return Task::none();
+                }
+                // Pre-save validation
+                let validation_errors = self.state.heal_item_editor.validate_all();
+                if !validation_errors.is_empty() {
+                    let error_summary: Vec<String> = validation_errors
+                        .iter()
+                        .take(5)
+                        .map(|(idx, errs)| {
+                            let record_label = format!("Record #{}", idx);
+                            let field_errors: String = errs
+                                .iter()
+                                .map(|(f, e)| format!("{}: {}", f, e))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            format!("{}: {}", record_label, field_errors)
+                        })
+                        .collect();
+                    let error_msg = if validation_errors.len() > 5 {
+                        format!(
+                            "Found {} records with validation errors:\n{}\n... and {} more",
+                            validation_errors.len(),
+                            error_summary.join("\n"),
+                            validation_errors.len() - 5
+                        )
+                    } else {
+                        format!(
+                            "Found {} records with validation errors:\n{}",
+                            validation_errors.len(),
+                            error_summary.join("\n")
+                        )
+                    };
+                    use rfd::MessageDialog;
+                    MessageDialog::new()
+                        .set_title("Validation Errors")
+                        .set_description(&error_msg)
+                        .set_buttons(rfd::MessageButtons::Ok)
+                        .show();
                     return Task::none();
                 }
                 self.state.heal_item_editor.is_loading = true;
@@ -2952,6 +3009,16 @@ impl App {
             // ─── Workspace messages ──────────────────────────────
             Message::Workspace(ws_msg) => self.update_workspace(ws_msg),
 
+            // ─── Undo/Redo ────────────────────────────────────────
+            Message::Undo => {
+                self.state.status_msg = "Undo not yet implemented".to_string();
+                return Task::none();
+            }
+            Message::Redo => {
+                self.state.status_msg = "Redo not yet implemented".to_string();
+                return Task::none();
+            }
+
             // ─── App close ────────────────────────────────────────
             Message::CloseRequested => {
                 use rfd::MessageDialog;
@@ -3223,6 +3290,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
 fn view_workspace(app: &App) -> Element<'_, Message> {
     use crate::message::WorkspaceMessage;
     use crate::tab_bar::view_tab_bar;
+
+    let game_path = app.state.workspace.game_path.clone();
+    if game_path.is_none() {
+        return container(
+            column![
+                text("Welcome to Workspace Mode").size(20),
+                horizontal_space(),
+                text("Set a game path to browse files").size(14).style(style::subtle_text),
+                horizontal_space(),
+                button(text("Select Game Folder"))
+                    .on_press(Message::BrowseSharedGamePath),
+            ]
+            .spacing(20),
+        )
+        .width(Fill)
+        .height(Fill)
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center)
+        .into();
+    }
 
     let sidebar = container(
         column![

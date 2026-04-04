@@ -43,6 +43,9 @@ pub struct AppState {
     // Navigation
     pub active_tab: Tab,
 
+    // Shared status message for undo/redo notifications
+    pub status_msg: String,
+
     // Shared Game Path (set once, used by all editor tabs)
     pub shared_game_path: String,
 
@@ -156,6 +159,7 @@ impl Default for AppState {
             ref_input: String::new(),
             db_op: Some(DbOp::Import),
             extractor_path: String::from("dispel-extractor"),
+            status_msg: String::new(),
             log: String::new(),
             is_running: false,
             viewer: Box::default(),

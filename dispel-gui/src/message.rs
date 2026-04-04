@@ -353,6 +353,8 @@ pub enum Message {
     Workspace(WorkspaceMessage),
     // App
     CloseRequested,
+    Undo,
+    Redo,
 }
 
 #[derive(Debug, Clone)]

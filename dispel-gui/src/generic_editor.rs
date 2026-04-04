@@ -1,5 +1,5 @@
 use dispel_core::references::editable::EditableRecord;
-use dispel_core::Extractor;
+use dispel_core::references::extractor::Extractor;
 use std::path::{Path, PathBuf};
 
 /// Generic editor state that works with any `EditableRecord` type.
@@ -42,8 +42,14 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     }
 
     /// Update a field value in the edit buffer, the filtered record, and the original catalog.
-    pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
+    /// Returns true if the field was valid and updated, false if validation failed.
+    pub fn update_field(&mut self, idx: usize, field: &str, value: String) -> bool {
         if let Some((orig_idx, record)) = self.filtered.get_mut(idx) {
+            // First validate before attempting to set
+            if let Some(error) = record.validate_field(field, &value) {
+                self.status_msg = format!("Invalid '{}': {}", field, error);
+                return false;
+            }
             if record.set_field(field, value.clone()) {
                 // Update the matching buffer
                 if let Some(pos) = R::field_descriptors().iter().position(|d| d.name == field) {
@@ -56,8 +62,10 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                         *catalog_record = record.clone();
                     }
                 }
+                return true;
             }
         }
+        false
     }
 
     /// Save the catalog to disk, creating a timestamped .bak backup first.
@@ -82,6 +90,20 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         } else {
             Err("No catalog loaded".to_string())
         }
+    }
+
+    /// Validate all records in the catalog and return errors grouped by record index.
+    pub fn validate_all(&self) -> Vec<(usize, Vec<(&'static str, String)>)> {
+        let mut errors = Vec::new();
+        if let Some(catalog) = &self.catalog {
+            for (idx, record) in catalog.iter().enumerate() {
+                let record_errors = record.validate_all();
+                if !record_errors.is_empty() {
+                    errors.push((idx, record_errors));
+                }
+            }
+        }
+        errors
     }
 
     /// Read a file from disk.

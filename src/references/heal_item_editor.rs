@@ -162,6 +162,33 @@ impl EditableRecord for HealItem {
         }
     }
 
+    fn validate_field(&self, field: &str, value: &str) -> Option<String> {
+        match field {
+            "name" | "description" => {
+                if value.trim().is_empty() {
+                    return Some(format!("{} cannot be empty", field));
+                }
+                None
+            }
+            "base_price" | "health_points" | "mana_points" => match value.parse::<i32>() {
+                Ok(v) if v < 0 => Some(format!("{} must be non-negative", field)),
+                Err(_) => Some(format!("{} must be a valid integer", field)),
+                _ => None,
+            },
+            "restore_full_health"
+            | "restore_full_mana"
+            | "poison_heal"
+            | "petrif_heal"
+            | "polimorph_heal" => {
+                if HealItemFlag::from_name(value).is_none() {
+                    return Some(format!("Invalid {}", field));
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
     fn list_label(&self) -> String {
         format!(
             "[{}] {} - {}g (HP:{}/MP:{})",

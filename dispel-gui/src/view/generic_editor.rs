@@ -105,8 +105,7 @@ fn build_editor_view_inner<'a, R: EditableRecord>(
         // vertical_space().height(10)
     ];
 
-    if let Some((orig_idx, _record)) = editor.selected_idx.and_then(|idx| editor.filtered.get(idx))
-    {
+    if let Some((orig_idx, record)) = editor.selected_idx.and_then(|idx| editor.filtered.get(idx)) {
         let descriptors = R::field_descriptors();
         for (i, descriptor) in descriptors.iter().enumerate() {
             let _field_name = descriptor.name.to_string();
@@ -115,6 +114,7 @@ fn build_editor_view_inner<'a, R: EditableRecord>(
                 descriptor,
                 value,
                 *orig_idx,
+                record,
                 lookups,
                 field_changed_msg,
             ));
@@ -302,7 +302,7 @@ fn build_multi_file_editor_view_inner<'a, R: EditableRecord>(
         vertical_space().height(10)
     ];
 
-    if let Some((orig_idx, _record)) = editor
+    if let Some((orig_idx, record)) = editor
         .editor
         .selected_idx
         .and_then(|idx| editor.editor.filtered.get(idx))
@@ -319,6 +319,7 @@ fn build_multi_file_editor_view_inner<'a, R: EditableRecord>(
                 descriptor,
                 value,
                 *orig_idx,
+                record,
                 lookups,
                 field_changed_msg,
             ));
@@ -348,7 +349,35 @@ fn build_multi_file_editor_view_inner<'a, R: EditableRecord>(
 // Field input builder
 // ===========================================================================
 
-fn build_field_input<'a>(
+fn build_field_input<'a, R: EditableRecord>(
+    descriptor: &'a FieldDescriptor,
+    value: &'a str,
+    orig_idx: usize,
+    record: &R,
+    lookups: &'a HashMap<String, Vec<(String, String)>>,
+    field_changed_msg: fn(usize, String, String) -> Message,
+) -> Element<'a, Message> {
+    let validation_error = record.validate_field(descriptor.name, value);
+    let input = build_field_input_inner(descriptor, value, orig_idx, lookups, field_changed_msg);
+
+    if let Some(error_msg) = validation_error {
+        column![
+            input,
+            text(error_msg)
+                .size(11)
+                .style(|theme| iced::widget::text::Style {
+                    color: Some(iced::color!(0xff4444)),
+                    ..Default::default()
+                }),
+        ]
+        .spacing(2)
+        .into()
+    } else {
+        input
+    }
+}
+
+fn build_field_input_inner<'a>(
     descriptor: &'a FieldDescriptor,
     value: &'a str,
     orig_idx: usize,

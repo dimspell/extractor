@@ -20,6 +20,7 @@ pub struct Workspace {
     pub tabs: Vec<WorkspaceTab>,
     pub active_tab: Option<usize>,
     pub next_id: usize,
+    pub game_path: Option<PathBuf>,
 }
 
 impl Workspace {
@@ -28,6 +29,7 @@ impl Workspace {
             tabs: Vec::new(),
             active_tab: None,
             next_id: 0,
+            game_path: None,
         }
     }
 

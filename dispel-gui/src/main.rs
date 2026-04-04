@@ -11,6 +11,7 @@ pub mod dialog_editor;
 pub mod dialogue_text_editor;
 pub mod draw_item_editor;
 pub mod edit_item_editor;
+pub mod edit_history;
 pub mod event_ini_editor;
 pub mod event_item_editor;
 pub mod event_npc_ref_editor;

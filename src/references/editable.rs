@@ -42,6 +42,27 @@ pub trait EditableRecord:
     /// Write a field's value from a string. Returns `true` if the value was valid and applied.
     fn set_field(&mut self, field: &str, value: String) -> bool;
 
+    /// Validate a field value. Returns `Some(error_message)` if invalid, `None` if valid.
+    fn validate_field(&self, field: &str, value: &str) -> Option<String> {
+        let _ = field;
+        let _ = value;
+        None
+    }
+
+    /// Validate all fields and return a list of (field_name, error_message) pairs.
+    /// Default implementation iterates through field_descriptors.
+    fn validate_all(&self) -> Vec<(&'static str, String)> {
+        let mut errors = Vec::new();
+        let descriptors = Self::field_descriptors();
+        for descriptor in descriptors {
+            let value = self.get_field(descriptor.name);
+            if let Some(error) = self.validate_field(descriptor.name, &value) {
+                errors.push((descriptor.name, error));
+            }
+        }
+        errors
+    }
+
     /// Format this record for display in the item list.
     fn list_label(&self) -> String;
 
