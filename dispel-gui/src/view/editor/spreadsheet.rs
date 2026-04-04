@@ -7,6 +7,9 @@ use iced::widget::{button, column, container, row, scrollable, text, text_input}
 use iced::{Element, Fill, Font, Length};
 use std::collections::HashMap;
 
+const ROW_HEIGHT: f32 = 26.0;
+const ID_COL_WIDTH: Length = Length::Fixed(40.0);
+
 #[derive(Debug, Clone, Default)]
 pub struct SpreadsheetState {
     pub active: bool,
@@ -144,6 +147,10 @@ impl SpreadsheetState {
     pub fn toggle_active(&mut self) {
         self.active = !self.active;
     }
+
+    pub fn init_filter<R: EditableRecord>(&mut self, catalog: &[R]) {
+        self.filtered_indices = (0..catalog.len()).collect();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -219,10 +226,20 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
     .spacing(8)
     .align_y(iced::Alignment::Center);
 
-    let header_cells: Vec<Element<Message>> = descriptors
-        .iter()
-        .enumerate()
-        .map(|(col, desc)| {
+    let catalog = editor.catalog.as_ref();
+    let table_rows: Vec<Element<Message>> = if let Some(catalog) = catalog {
+        let mut rows = Vec::new();
+
+        // Header row with ID column
+        let mut header_cells: Vec<Element<Message>> =
+            vec![container(text("#").size(10).style(style::subtle_text))
+                .width(ID_COL_WIDTH)
+                .padding(2)
+                .height(ROW_HEIGHT)
+                .align_y(iced::Alignment::Center)
+                .into()];
+
+        for (col, desc) in descriptors.iter().enumerate() {
             let sort_indicator = if spreadsheet.sort_column == Some(col) {
                 if spreadsheet.sort_ascending {
                     " \u{25B2}"
@@ -232,38 +249,55 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
             } else {
                 ""
             };
-            button(text(format!("{}{}", desc.label, sort_indicator)).size(11))
-                .on_press(spreadsheet_msg(SpreadsheetMessage::SortColumn(col)))
-                .style(style::chip)
-                .padding([6, 8])
-                .into()
-        })
-        .collect();
+            header_cells.push(
+                container(
+                    button(text(format!("{}{}", desc.label, sort_indicator)).size(10))
+                        .on_press(spreadsheet_msg(SpreadsheetMessage::SortColumn(col)))
+                        .style(style::chip)
+                        .padding([2, 4])
+                        .width(Length::Fill),
+                )
+                .width(Length::FillPortion(1))
+                .padding(2)
+                .height(ROW_HEIGHT)
+                .align_y(iced::Alignment::Center)
+                .into(),
+            );
+        }
 
-    let header_row = container(row(header_cells).spacing(2))
-        .width(Fill)
-        .style(style::status_bar);
+        rows.push(
+            container(row(header_cells).spacing(2))
+                .width(Fill)
+                .style(style::status_bar)
+                .into(),
+        );
 
-    let catalog = editor.catalog.as_ref();
-    let rows: Vec<Element<Message>> = if let Some(catalog) = catalog {
-        spreadsheet
-            .filtered_indices
-            .iter()
-            .enumerate()
-            .map(|(filtered_idx, &orig_idx)| {
-                let record = &catalog[orig_idx];
-                let is_selected = spreadsheet.selected_rows.contains(&filtered_idx);
-                let is_editing = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
+        // Data rows
+        for (filtered_idx, &orig_idx) in spreadsheet.filtered_indices.iter().enumerate() {
+            let record = &catalog[orig_idx];
+            let is_selected = spreadsheet.selected_rows.contains(&filtered_idx);
+            let is_editing = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
 
-                let cells: Vec<Element<Message>> = descriptors
-                    .iter()
-                    .enumerate()
-                    .map(|(col, desc)| {
-                        let value = record.get_field(desc.name);
-                        let is_cell_editing =
-                            is_editing && spreadsheet.editing_cell.map(|(_, c)| c) == Some(col);
+            let mut cells: Vec<Element<Message>> = vec![container(
+                text(format!("{}", orig_idx + 1))
+                    .size(10)
+                    .font(Font::MONOSPACE)
+                    .style(style::subtle_text),
+            )
+            .width(ID_COL_WIDTH)
+            .padding(2)
+            .height(ROW_HEIGHT)
+            .align_y(iced::Alignment::Center)
+            .into()];
 
-                        if is_cell_editing {
+            for (col, desc) in descriptors.iter().enumerate() {
+                let value = record.get_field(desc.name);
+                let is_cell_editing =
+                    is_editing && spreadsheet.editing_cell.map(|(_, c)| c) == Some(col);
+
+                if is_cell_editing {
+                    cells.push(
+                        container(
                             text_input("", &spreadsheet.edit_buffer)
                                 .on_input(move |v| {
                                     spreadsheet_msg(SpreadsheetMessage::EditCellInput(v))
@@ -271,18 +305,26 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
                                 .on_submit(spreadsheet_msg(SpreadsheetMessage::CommitEdit(
                                     orig_idx,
                                 )))
-                                .padding(4)
-                                .size(11)
+                                .padding(2)
+                                .size(10)
                                 .font(Font::MONOSPACE)
-                                .width(Length::Fill)
-                                .into()
-                        } else {
-                            let display = if value.len() > 30 {
-                                format!("{}...", &value[..30])
-                            } else {
-                                value
-                            };
-                            button(text(display).size(11).font(Font::MONOSPACE))
+                                .width(Length::Fill),
+                        )
+                        .width(Length::FillPortion(1))
+                        .padding(2)
+                        .height(ROW_HEIGHT)
+                        .align_y(iced::Alignment::Center)
+                        .into(),
+                    );
+                } else {
+                    let display = if value.len() > 16 {
+                        format!("{}...", &value[..16])
+                    } else {
+                        value.clone()
+                    };
+                    cells.push(
+                        container(
+                            button(text(display).size(10).font(Font::MONOSPACE))
                                 .on_press(spreadsheet_msg(SpreadsheetMessage::StartEdit(
                                     filtered_idx,
                                     col,
@@ -292,23 +334,36 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
                                 } else {
                                     style::chip
                                 })
-                                .padding([4, 8])
-                                .width(Length::Fill)
-                                .into()
-                        }
-                    })
-                    .collect();
+                                .padding([2, 4])
+                                .width(Length::Fill),
+                        )
+                        .width(Length::FillPortion(1))
+                        .padding(2)
+                        .height(ROW_HEIGHT)
+                        .align_y(iced::Alignment::Center)
+                        .into(),
+                    );
+                }
+            }
 
-                container(row(cells).spacing(2))
+            rows.push(
+                button(row(cells).spacing(2))
+                    .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(
+                        filtered_idx,
+                        false,
+                    )))
                     .width(Fill)
+                    .padding(0)
                     .style(if is_selected {
-                        style::selected_row
+                        style::selected_row_button
                     } else {
-                        style::normal_row
+                        style::normal_row_button
                     })
-                    .into()
-            })
-            .collect()
+                    .into(),
+            );
+        }
+
+        rows
     } else {
         vec![container(
             text("No data loaded. Click Scan to load records.")
@@ -320,14 +375,14 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         .into()]
     };
 
-    let table_scroll = scrollable(column(rows).spacing(1))
+    let table_scroll = scrollable(column(table_rows).spacing(1))
         .height(Length::Fill)
         .width(Length::Fill);
 
     let main_content = if spreadsheet.show_inspector {
         let inspector_panel =
             build_inspector_panel(editor, spreadsheet, lookups, field_changed_msg);
-        row![table_scroll, inspector_panel].spacing(16).width(Fill)
+        row![table_scroll, inspector_panel].spacing(8).width(Fill)
     } else {
         row![table_scroll].width(Fill)
     };
@@ -336,7 +391,6 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         horizontal_rule(1),
         filter_bar,
         horizontal_rule(1),
-        header_row,
         main_content,
         status_row
     ]
@@ -355,28 +409,32 @@ fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut content = column![text("Inspector").size(14)].padding([8, 12]);
 
-    if let Some(&orig_idx) = spreadsheet
-        .selected_rows
-        .first()
-        .and_then(|f| spreadsheet.filtered_indices.get(*f))
-    {
-        if let Some(_record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
-            for (i, desc) in descriptors.iter().enumerate() {
-                let value = editor.edit_buffers.get(i).map(|s| s.as_str()).unwrap_or("");
-                content = content.push(build_inspector_field(
-                    desc,
-                    value,
-                    orig_idx,
-                    lookups,
-                    field_changed_msg,
-                ));
+    if let Some(&filtered_idx) = spreadsheet.selected_rows.first() {
+        if let Some(&orig_idx) = spreadsheet.filtered_indices.get(filtered_idx) {
+            if let Some(_record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
+                for (i, desc) in descriptors.iter().enumerate() {
+                    let value = editor.edit_buffers.get(i).map(|s| s.as_str()).unwrap_or("");
+                    content = content.push(build_inspector_field(
+                        desc,
+                        value,
+                        orig_idx,
+                        lookups,
+                        field_changed_msg,
+                    ));
+                }
             }
         }
     } else {
-        content = content.push(text("No row selected").size(12).style(style::subtle_text));
+        content = content.push(
+            text("Click a row to inspect")
+                .size(12)
+                .style(style::subtle_text),
+        );
     }
 
-    container(content)
+    let scroll = scrollable(content.spacing(6)).height(Length::Fill);
+
+    container(scroll)
         .width(320)
         .style(style::sidebar_container)
         .into()

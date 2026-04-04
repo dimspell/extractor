@@ -472,3 +472,43 @@ pub fn normal_row(_theme: &Theme) -> container::Style {
         ..Default::default()
     }
 }
+
+pub fn selected_row_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(color!(0x8b5a2b, 0.25))),
+        text_color: color!(0xd2b48c),
+        border: Border {
+            color: color!(0xdaa520, 0.5),
+            width: 1.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(color!(0x8b5a2b, 0.35))),
+            ..base
+        },
+        _ => base,
+    }
+}
+
+pub fn normal_row_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: color!(0xbcaaa4),
+        border: Border {
+            color: color!(0x3d2b1f, 0.2),
+            width: 1.0,
+            radius: 0.into(),
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(color!(0x3d2b1f, 0.3))),
+            ..base
+        },
+        _ => base,
+    }
+}

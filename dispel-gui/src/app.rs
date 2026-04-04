@@ -3304,6 +3304,11 @@ impl App {
                 match msg {
                     SM::ToggleActive => {
                         self.state.heal_item_spreadsheet.toggle_active();
+                        if self.state.heal_item_spreadsheet.active {
+                            if let Some(catalog) = &self.state.heal_item_editor.catalog {
+                                self.state.heal_item_spreadsheet.init_filter(catalog);
+                            }
+                        }
                     }
                     SM::SortColumn(col) => {
                         self.state.heal_item_spreadsheet.toggle_sort(col);
@@ -3353,6 +3358,11 @@ impl App {
                 match msg {
                     SM::ToggleActive => {
                         self.state.misc_item_spreadsheet.toggle_active();
+                        if self.state.misc_item_spreadsheet.active {
+                            if let Some(catalog) = &self.state.misc_item_editor.catalog {
+                                self.state.misc_item_spreadsheet.init_filter(catalog);
+                            }
+                        }
                     }
                     SM::SortColumn(col) => {
                         self.state.misc_item_spreadsheet.toggle_sort(col);
@@ -3402,6 +3412,11 @@ impl App {
                 match msg {
                     SM::ToggleActive => {
                         self.state.magic_spreadsheet.toggle_active();
+                        if self.state.magic_spreadsheet.active {
+                            if let Some(catalog) = &self.state.magic_editor.catalog {
+                                self.state.magic_spreadsheet.init_filter(catalog);
+                            }
+                        }
                     }
                     SM::SortColumn(col) => {
                         self.state.magic_spreadsheet.toggle_sort(col);
