@@ -1,7 +1,9 @@
 use crate::chest_editor::ItemCatalog;
 use crate::db;
 use crate::db_viewer_state::PAGE_SIZE;
+use crate::edit_history::EditHistory;
 use crate::file_tree::FileTree;
+use crate::generic_editor::UndoRedo;
 use crate::message::{Message, WorkspaceMessage};
 use crate::sprite_browser::SpriteEntry;
 use crate::state::AppState;
@@ -25,6 +27,8 @@ pub struct App {
     pub file_tree: FileTree,
     pub workspace_mode: bool,
     pub window_id: iced::window::Id,
+    pub history_panel_visible: bool,
+    pub empty_edit_history: EditHistory,
 }
 
 impl App {
@@ -45,9 +49,44 @@ impl App {
                 file_tree,
                 workspace_mode: true,
                 window_id: iced::window::Id::unique(),
+                history_panel_visible: false,
+                empty_edit_history: EditHistory::default(),
             },
             Task::none(),
         )
+    }
+
+    pub fn get_active_edit_history(&self) -> &EditHistory {
+        use crate::generic_editor::UndoRedo;
+        match self.state.active_tab {
+            Tab::HealItemEditor => self.state.heal_item_editor.edit_history(),
+            Tab::MiscItemEditor => self.state.misc_item_editor.edit_history(),
+            Tab::EditItemEditor => self.state.edit_item_editor.edit_history(),
+            Tab::EventItemEditor => self.state.event_item_editor.edit_history(),
+            Tab::MagicEditor => self.state.magic_editor.edit_history(),
+            Tab::WeaponEditor => self.state.weapon_editor.edit_history(),
+            Tab::MonsterRefEditor => self.state.monster_ref_editor.edit_history(),
+            Tab::ExtraRefEditor => self.state.extra_ref_editor.edit_history(),
+            Tab::NpcRefEditor => self.state.npc_ref_editor.edit_history(),
+            Tab::DialogEditor => self.state.dialog_editor.edit_history(),
+            Tab::DialogueTextEditor => self.state.dialogue_text_editor.edit_history(),
+            Tab::DrawItemEditor => self.state.draw_item_editor.edit_history(),
+            Tab::EventIniEditor => self.state.event_ini_editor.edit_history(),
+            Tab::EventNpcRefEditor => self.state.event_npc_ref_editor.edit_history(),
+            Tab::ExtraIniEditor => self.state.extra_ini_editor.edit_history(),
+            Tab::MapIniEditor => self.state.map_ini_editor.edit_history(),
+            Tab::MessageScrEditor => self.state.message_scr_editor.edit_history(),
+            Tab::PartyLevelDbEditor => self.state.party_level_db_editor.edit_history(),
+            Tab::QuestScrEditor => self.state.quest_scr_editor.edit_history(),
+            Tab::WaveIniEditor => self.state.wave_ini_editor.edit_history(),
+            Tab::AllMapIniEditor => self.state.all_map_ini_editor.edit_history(),
+            Tab::ChDataEditor => self.state.chdata_editor.edit_history(),
+            Tab::PartyRefEditor => self.state.party_ref_editor.edit_history(),
+            Tab::PartyIniEditor => self.state.party_ini_editor.edit_history(),
+            Tab::NpcIniEditor => self.state.npc_ini_editor.edit_history(),
+            Tab::StoreEditor => self.state.store_editor.edit_history(),
+            _ => &self.empty_edit_history,
+        }
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -64,6 +103,7 @@ impl App {
                         return match ch {
                             'z' => Some(Message::Undo),
                             'y' => Some(Message::Redo),
+                            'h' => Some(Message::ToggleHistoryPanel),
                             _ => None,
                         };
                     }
@@ -3095,6 +3135,10 @@ impl App {
                 self.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
                 return Task::none();
             }
+            Message::ToggleHistoryPanel => {
+                self.history_panel_visible = !self.history_panel_visible;
+                return Task::none();
+            }
 
             // ─── App close ────────────────────────────────────────
             Message::CloseRequested => {
@@ -3434,7 +3478,13 @@ fn view_workspace(app: &App) -> Element<'_, Message> {
         .spacing(0)
         .height(Fill);
 
-    let layout = row![sidebar, main].height(Fill).width(Fill);
+    let layout = if app.history_panel_visible {
+        use crate::view::history_panel::view_history_panel;
+        let history = app.get_active_edit_history();
+        row![sidebar, main, view_history_panel(history)].height(Fill).width(Fill)
+    } else {
+        row![sidebar, main].height(Fill).width(Fill)
+    };
     container(layout)
         .width(Fill)
         .height(Fill)

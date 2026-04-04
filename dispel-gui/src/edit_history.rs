@@ -20,6 +20,24 @@ pub enum EditAction {
     },
 }
 
+impl EditAction {
+    pub fn display_text(&self) -> String {
+        match self {
+            EditAction::FieldChange {
+                field, new_value, ..
+            } => {
+                format!("Changed {} to \"{}\"", field, new_value)
+            }
+            EditAction::RecordAdd { record_idx } => {
+                format!("Added record #{}", record_idx)
+            }
+            EditAction::RecordRemove { record_idx, .. } => {
+                format!("Removed record #{}", record_idx)
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct EditHistory {
     undo_stack: VecDeque<EditAction>,
@@ -45,6 +63,14 @@ impl EditHistory {
 
     pub fn can_redo(&self) -> bool {
         !self.redo_stack.is_empty()
+    }
+
+    pub fn undo_stack(&self) -> &VecDeque<EditAction> {
+        &self.undo_stack
+    }
+
+    pub fn redo_stack(&self) -> &VecDeque<EditAction> {
+        &self.redo_stack
     }
 
     pub fn undo(&mut self) -> Option<EditAction> {

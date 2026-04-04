@@ -55,6 +55,10 @@ impl UndoRedo for StoreEditorState {
     fn can_redo(&self) -> bool {
         self.edit_history.can_redo()
     }
+
+    fn edit_history(&self) -> &EditHistory {
+        &self.edit_history
+    }
 }
 
 impl StoreEditorState {

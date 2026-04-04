@@ -8,6 +8,7 @@ pub trait UndoRedo {
     fn redo(&mut self) -> Option<String>;
     fn can_undo(&self) -> bool;
     fn can_redo(&self) -> bool;
+    fn edit_history(&self) -> &EditHistory;
 }
 
 /// Generic editor state that works with any `EditableRecord` type.
@@ -194,6 +195,10 @@ impl<R: EditableRecord + Extractor> UndoRedo for GenericEditorState<R> {
     fn can_redo(&self) -> bool {
         self.edit_history.can_redo()
     }
+
+    fn edit_history(&self) -> &EditHistory {
+        &self.edit_history
+    }
 }
 
 impl<R: EditableRecord + Extractor> GenericEditorState<R> {
@@ -237,6 +242,10 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     /// Read a file from disk.
     pub fn scan_and_read(base_path: &Path, db_path: &str) -> Result<Vec<R>, String> {
         R::read_file(&base_path.join(db_path)).map_err(|e| format!("Failed to read: {}", e))
+    }
+
+    pub fn edit_history(&self) -> &EditHistory {
+        &self.edit_history
     }
 }
 
@@ -351,6 +360,10 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
 
     pub fn can_redo(&self) -> bool {
         self.editor.can_redo()
+    }
+
+    pub fn edit_history(&self) -> &EditHistory {
+        self.editor.edit_history()
     }
 
     /// Save the current file's catalog back to disk, creating a timestamped .bak backup first.

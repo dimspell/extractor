@@ -355,6 +355,7 @@ pub enum Message {
     CloseRequested,
     Undo,
     Redo,
+    ToggleHistoryPanel,
 }
 
 #[derive(Debug, Clone)]
