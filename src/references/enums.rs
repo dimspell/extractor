@@ -120,6 +120,12 @@ impl From<MonsterAiType> for i32 {
     }
 }
 
+impl Default for MonsterAiType {
+    fn default() -> Self {
+        MonsterAiType::Passive
+    }
+}
+
 /// Binary property flag (Present/Absent)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -181,6 +187,12 @@ impl From<bool> for PropertyFlag {
     }
 }
 
+impl Default for PropertyFlag {
+    fn default() -> Self {
+        PropertyFlag::Absent
+    }
+}
+
 /// Map lighting types for rendering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -218,6 +230,12 @@ impl TryFrom<i32> for MapLighting {
 impl From<MapLighting> for i32 {
     fn from(lighting: MapLighting) -> Self {
         lighting.value()
+    }
+}
+
+impl Default for MapLighting {
+    fn default() -> Self {
+        MapLighting::Light
     }
 }
 
@@ -574,6 +592,12 @@ impl From<ExtraObjectType> for u8 {
     }
 }
 
+impl Default for ExtraObjectType {
+    fn default() -> Self {
+        ExtraObjectType::Chest
+    }
+}
+
 impl std::fmt::Display for ExtraObjectType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -625,6 +649,12 @@ impl TryFrom<u8> for VisibilityType {
 impl From<VisibilityType> for u8 {
     fn from(visibility: VisibilityType) -> Self {
         visibility.value()
+    }
+}
+
+impl Default for VisibilityType {
+    fn default() -> Self {
+        VisibilityType::Visible0
     }
 }
 
@@ -1245,6 +1275,12 @@ impl TryFrom<i32> for ProductType {
 impl From<ProductType> for i32 {
     fn from(product_type: ProductType) -> Self {
         product_type.value()
+    }
+}
+
+impl Default for ProductType {
+    fn default() -> Self {
+        ProductType::Weapon
     }
 }
 

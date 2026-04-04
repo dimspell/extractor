@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
 /// A workspace tab that can hold any editor or view.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceTab {
     pub id: usize,
     pub label: String,
@@ -11,10 +13,11 @@ pub struct WorkspaceTab {
 }
 
 /// The workspace manages dynamic tabs instead of a fixed Tab enum.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Workspace {
     pub tabs: Vec<WorkspaceTab>,
     pub active_tab: Option<usize>, // index into tabs
+    #[serde(skip)]
     next_id: usize,
 }
 

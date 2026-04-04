@@ -64,7 +64,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DialogueText {
     /// Translation line identity reference.
     pub id: i32,

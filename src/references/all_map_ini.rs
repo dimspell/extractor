@@ -47,7 +47,7 @@ use crate::references::extractor::{parse_null, Extractor};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Map {
     /// Map identifier.
     pub id: i32,

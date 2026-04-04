@@ -64,10 +64,13 @@
 // ===========================================================================
 
 pub mod all_map_ini;
+mod all_map_ini_editor;
 pub mod chdata_db;
 mod chdata_editor;
 pub mod dialog;
+mod dialog_editor;
 pub mod dialogue_text;
+mod dialogue_text_editor;
 pub mod draw_item;
 mod draw_item_editor;
 pub mod edit_item_db;
@@ -83,6 +86,7 @@ mod event_npc_ref_editor;
 pub mod extra_ini;
 mod extra_ini_editor;
 pub mod extra_ref;
+mod extra_ref_editor;
 pub mod extractor;
 pub mod heal_item_db;
 mod heal_item_editor;
@@ -110,6 +114,7 @@ mod party_ref_editor;
 pub mod quest_scr;
 mod quest_scr_editor;
 pub mod store_db;
+mod store_db_editor;
 pub mod wave_ini;
 mod wave_ini_editor;
 mod weapon_editor;
