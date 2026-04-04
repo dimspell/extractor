@@ -46,74 +46,46 @@ impl App {
         let sidebar = self.view_sidebar();
         let game_path_toolbar = self.view_shared_game_path_toolbar();
 
-        let content = if self.state.active_tab == Tab::DbViewer {
-            self.view_db_viewer()
-        } else if self.state.active_tab == Tab::ChestEditor {
-            self.view_chest_editor_tab()
-        } else if self.state.active_tab == Tab::WeaponEditor {
-            self.view_weapon_editor_tab()
-        } else if self.state.active_tab == Tab::SpriteBrowser {
-            self.view_sprite_browser_tab()
-        } else if self.state.active_tab == Tab::HealItemEditor {
-            self.view_heal_item_editor_tab()
-        } else if self.state.active_tab == Tab::MiscItemEditor {
-            self.view_misc_item_editor_tab()
-        } else if self.state.active_tab == Tab::EditItemEditor {
-            self.view_edit_item_editor_tab()
-        } else if self.state.active_tab == Tab::EventItemEditor {
-            self.view_event_item_editor_tab()
-        } else if self.state.active_tab == Tab::MonsterEditor {
-            self.view_monster_editor_tab()
-        } else if self.state.active_tab == Tab::NpcIniEditor {
-            self.view_npc_ini_editor_tab()
-        } else if self.state.active_tab == Tab::MagicEditor {
-            self.view_magic_editor_tab()
-        } else if self.state.active_tab == Tab::StoreEditor {
-            self.view_store_editor_tab()
-        } else if self.state.active_tab == Tab::PartyRefEditor {
-            self.view_party_ref_editor_tab()
-        } else if self.state.active_tab == Tab::PartyIniEditor {
-            self.view_party_ini_editor_tab()
-        } else if self.state.active_tab == Tab::MonsterRefEditor {
-            self.view_monster_ref_editor_tab()
-        } else if self.state.active_tab == Tab::AllMapIniEditor {
-            self.view_all_map_ini_editor_tab()
-        } else if self.state.active_tab == Tab::DialogEditor {
-            self.view_dialog_editor_tab()
-        } else if self.state.active_tab == Tab::DialogueTextEditor {
-            self.view_dialogue_text_editor_tab()
-        } else if self.state.active_tab == Tab::DrawItemEditor {
-            self.view_draw_item_editor_tab()
-        } else if self.state.active_tab == Tab::EventIniEditor {
-            self.view_event_ini_editor_tab()
-        } else if self.state.active_tab == Tab::EventNpcRefEditor {
-            self.view_event_npc_ref_editor_tab()
-        } else if self.state.active_tab == Tab::ExtraIniEditor {
-            self.view_extra_ini_editor_tab()
-        } else if self.state.active_tab == Tab::ExtraRefEditor {
-            self.view_extra_ref_editor_tab()
-        } else if self.state.active_tab == Tab::MapIniEditor {
-            self.view_map_ini_editor_tab()
-        } else if self.state.active_tab == Tab::MessageScrEditor {
-            self.view_message_scr_editor_tab()
-        } else if self.state.active_tab == Tab::NpcRefEditor {
-            self.view_npc_ref_editor_tab()
-        } else if self.state.active_tab == Tab::PartyLevelDbEditor {
-            self.view_party_level_db_editor_tab()
-        } else if self.state.active_tab == Tab::QuestScrEditor {
-            self.view_quest_scr_editor_tab()
-        } else if self.state.active_tab == Tab::WaveIniEditor {
-            self.view_wave_ini_editor_tab()
-        } else if self.state.active_tab == Tab::ChDataEditor {
-            self.view_chdata_editor_tab()
-        } else {
-            let tab_content = self.view_tab_content();
-            let log_panel = self.view_log();
-            column![tab_content, horizontal_rule(1), log_panel]
-                .spacing(0)
-                .width(Fill)
-                .height(Fill)
-                .into()
+        let content = match self.state.active_tab {
+            Tab::DbViewer => self.view_db_viewer(),
+            Tab::ChestEditor => self.view_chest_editor_tab(),
+            Tab::WeaponEditor => self.view_weapon_editor_tab(),
+            Tab::SpriteBrowser => self.view_sprite_browser_tab(),
+            Tab::HealItemEditor => self.view_heal_item_editor_tab(),
+            Tab::MiscItemEditor => self.view_misc_item_editor_tab(),
+            Tab::EditItemEditor => self.view_edit_item_editor_tab(),
+            Tab::EventItemEditor => self.view_event_item_editor_tab(),
+            Tab::MonsterEditor => self.view_monster_editor_tab(),
+            Tab::NpcIniEditor => self.view_npc_ini_editor_tab(),
+            Tab::MagicEditor => self.view_magic_editor_tab(),
+            Tab::StoreEditor => self.view_store_editor_tab(),
+            Tab::PartyRefEditor => self.view_party_ref_editor_tab(),
+            Tab::PartyIniEditor => self.view_party_ini_editor_tab(),
+            Tab::MonsterRefEditor => self.view_monster_ref_editor_tab(),
+            Tab::AllMapIniEditor => self.view_all_map_ini_editor_tab(),
+            Tab::DialogEditor => self.view_dialog_editor_tab(),
+            Tab::DialogueTextEditor => self.view_dialogue_text_editor_tab(),
+            Tab::DrawItemEditor => self.view_draw_item_editor_tab(),
+            Tab::EventIniEditor => self.view_event_ini_editor_tab(),
+            Tab::EventNpcRefEditor => self.view_event_npc_ref_editor_tab(),
+            Tab::ExtraIniEditor => self.view_extra_ini_editor_tab(),
+            Tab::ExtraRefEditor => self.view_extra_ref_editor_tab(),
+            Tab::MapIniEditor => self.view_map_ini_editor_tab(),
+            Tab::MessageScrEditor => self.view_message_scr_editor_tab(),
+            Tab::NpcRefEditor => self.view_npc_ref_editor_tab(),
+            Tab::PartyLevelDbEditor => self.view_party_level_db_editor_tab(),
+            Tab::QuestScrEditor => self.view_quest_scr_editor_tab(),
+            Tab::WaveIniEditor => self.view_wave_ini_editor_tab(),
+            Tab::ChDataEditor => self.view_chdata_editor_tab(),
+            Tab::Map | Tab::Ref | Tab::Database => {
+                let tab_content = self.view_tab_content();
+                let log_panel = self.view_log();
+                return column![tab_content, horizontal_rule(1), log_panel]
+                    .spacing(0)
+                    .width(Fill)
+                    .height(Fill)
+                    .into();
+            }
         };
 
         let main_content = column![game_path_toolbar, content].spacing(0).height(Fill);
@@ -237,7 +209,9 @@ impl App {
                 .padding([10, 28])
                 .style(style::run_button_disabled)
                 .into()
-        } else if self.state.active_tab == Tab::WeaponEditor || self.state.active_tab == Tab::SpriteBrowser {
+        } else if self.state.active_tab == Tab::WeaponEditor
+            || self.state.active_tab == Tab::SpriteBrowser
+        {
             text("").into()
         } else {
             button(text("▶  Run Command").size(14))
@@ -286,8 +260,13 @@ impl App {
         ]
         .align_y(iced::Alignment::Center);
 
-        let content =
-            container(text(&self.state.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12);
+        let content = container(
+            text(&self.state.log)
+                .size(12)
+                .font(Font::MONOSPACE)
+                .width(Fill),
+        )
+        .padding(12);
 
         container(column![title, content].spacing(8))
             .padding(16)

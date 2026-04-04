@@ -400,10 +400,11 @@ impl std::fmt::Display for DialogOwner {
 }
 
 /// Edit item modification flag
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum EditItemModification {
     /// Item does not modify other items
+    #[default]
     DoesNotModify = 0,
     /// Item can modify other items
     CanModify = 1,
@@ -422,6 +423,15 @@ impl EditItemModification {
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "DoesNotModify" => Some(EditItemModification::DoesNotModify),
+            "CanModify" => Some(EditItemModification::CanModify),
+            _ => None,
+        }
     }
 }
 
@@ -456,10 +466,11 @@ impl From<bool> for EditItemModification {
 }
 
 /// Edit item additional effect types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i16)]
 pub enum EditItemEffect {
     /// No additional effect
+    #[default]
     None = 0,
     /// Fire effect
     Fire = 1,
@@ -481,6 +492,16 @@ impl EditItemEffect {
     /// Get the numeric value
     pub fn value(&self) -> i16 {
         *self as i16
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "None" => Some(EditItemEffect::None),
+            "Fire" => Some(EditItemEffect::Fire),
+            "ManaDrain" | "Mana Drain" => Some(EditItemEffect::ManaDrain),
+            _ => None,
+        }
     }
 }
 
@@ -621,6 +642,7 @@ impl std::fmt::Display for VisibilityType {
 #[repr(u8)]
 pub enum ItemTypeId {
     /// Weapon item type
+    #[default]
     Weapon = 1,
     /// Healing item type
     Healing = 2,
@@ -631,7 +653,6 @@ pub enum ItemTypeId {
     /// Miscellaneous item type
     Misc = 5,
     /// Other/Unknown item type (catch-all for undefined values)
-    #[default]
     Other = 255,
 }
 
@@ -708,10 +729,11 @@ impl From<ItemTypeId> for u8 {
 }
 
 /// Healing item flags for restoration effects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum HealItemFlag {
     /// No effect
+    #[default]
     None = 0,
     /// Full restoration effect
     FullRestoration = 1,
@@ -739,6 +761,15 @@ impl HealItemFlag {
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "None" => Some(HealItemFlag::None),
+            "FullRestoration" | "Full Restoration" => Some(HealItemFlag::FullRestoration),
+            _ => None,
+        }
     }
 }
 
@@ -773,10 +804,11 @@ impl From<bool> for HealItemFlag {
 }
 
 /// Magic school types for spell classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSchool {
     /// Unknown or unclassified magic school
+    #[default]
     Unknown = 0,
     /// School 1 (specific type unknown)
     School1 = 1,
@@ -811,6 +843,20 @@ impl MagicSchool {
     pub fn value(&self) -> u32 {
         *self as u32
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Unknown" => Some(MagicSchool::Unknown),
+            "School1" => Some(MagicSchool::School1),
+            "School2" => Some(MagicSchool::School2),
+            "School3" => Some(MagicSchool::School3),
+            "School4" => Some(MagicSchool::School4),
+            "School5" => Some(MagicSchool::School5),
+            "School6" => Some(MagicSchool::School6),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<u32> for MagicSchool {
@@ -828,10 +874,11 @@ impl From<MagicSchool> for u32 {
 }
 
 /// Spell target types for magic effects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum SpellTargetType {
     /// Single target spell
+    #[default]
     Single = 1,
     /// Self-targeted spell
     SelfTarget = 2,
@@ -857,6 +904,17 @@ impl SpellTargetType {
     pub fn value(&self) -> u32 {
         *self as u32
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Single" => Some(SpellTargetType::Single),
+            "SelfTarget" | "Self" => Some(SpellTargetType::SelfTarget),
+            "AreaOfEffect" | "Area Of Effect" => Some(SpellTargetType::AreaOfEffect),
+            "MultiTarget" | "Multi Target" => Some(SpellTargetType::MultiTarget),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<u32> for SpellTargetType {
@@ -874,10 +932,11 @@ impl From<SpellTargetType> for u32 {
 }
 
 /// Magic spell boolean flags
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSpellFlag {
     /// Flag is disabled/false
+    #[default]
     Disabled = 0,
     /// Flag is enabled/true
     Enabled = 1,
@@ -896,6 +955,15 @@ impl MagicSpellFlag {
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Disabled" => Some(MagicSpellFlag::Disabled),
+            "Enabled" => Some(MagicSpellFlag::Enabled),
+            _ => None,
+        }
     }
 }
 
@@ -930,10 +998,11 @@ impl From<bool> for MagicSpellFlag {
 }
 
 /// Magic spell constant values
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSpellConstant {
     /// Invalid/unknown constant
+    #[default]
     Invalid = 0,
     /// Standard constant value
     Standard = 1,
@@ -951,6 +1020,15 @@ impl MagicSpellConstant {
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Invalid" => Some(MagicSpellConstant::Invalid),
+            "Standard" => Some(MagicSpellConstant::Standard),
+            _ => None,
+        }
     }
 }
 

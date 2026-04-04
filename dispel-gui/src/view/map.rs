@@ -31,7 +31,11 @@ impl App {
                     Message::MapInputChanged,
                     Message::BrowseMapInput
                 ),
-                labeled_input("Output dir:", &self.state.map_output, Message::MapOutputChanged),
+                labeled_input(
+                    "Output dir:",
+                    &self.state.map_output,
+                    Message::MapOutputChanged
+                ),
             ]
             .spacing(10)
             .into(),
@@ -42,7 +46,11 @@ impl App {
                     Message::MapInputChanged,
                     Message::BrowseMapInput
                 ),
-                labeled_input("Output PNG:", &self.state.map_output, Message::MapOutputChanged),
+                labeled_input(
+                    "Output PNG:",
+                    &self.state.map_output,
+                    Message::MapOutputChanged
+                ),
             ]
             .spacing(10)
             .into(),
@@ -65,7 +73,11 @@ impl App {
                     Message::MapGtlPathChanged,
                     Message::BrowseMapGtlPath
                 ),
-                labeled_input("Output PNG:", &self.state.map_output, Message::MapOutputChanged),
+                labeled_input(
+                    "Output PNG:",
+                    &self.state.map_output,
+                    Message::MapOutputChanged
+                ),
                 toggler(self.state.map_save_sprites)
                     .label("Save sprites")
                     .on_toggle(Message::MapSaveSpritesToggled)
@@ -75,7 +87,11 @@ impl App {
             .spacing(10)
             .into(),
             Some(MapOp::FromDb) => column![
-                labeled_input("Database:", &self.state.map_database, Message::MapDatabaseChanged),
+                labeled_input(
+                    "Database:",
+                    &self.state.map_database,
+                    Message::MapDatabaseChanged
+                ),
                 labeled_input("Map ID:", &self.state.map_map_id, Message::MapMapIdChanged),
                 labeled_file_row(
                     "GTL Atlas:",
@@ -105,7 +121,11 @@ impl App {
             .spacing(10)
             .into(),
             Some(MapOp::ToDb) => column![
-                labeled_input("Database:", &self.state.map_database, Message::MapDatabaseChanged),
+                labeled_input(
+                    "Database:",
+                    &self.state.map_database,
+                    Message::MapDatabaseChanged
+                ),
                 labeled_file_row(
                     "MAP file:",
                     &self.state.map_map_path,
