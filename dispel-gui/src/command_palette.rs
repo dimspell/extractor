@@ -243,6 +243,292 @@ impl Command {
                 shortcut: None,
                 action: || Message::TabSelected(Tab::ChDataEditor),
             },
+            // ── File operations ──────────────────────────────────────────────
+            Command {
+                id: "browse-game-path",
+                label: "Set Game Path…",
+                shortcut: None,
+                action: || Message::BrowseSharedGamePath,
+            },
+            Command {
+                id: "load-game-path",
+                label: "Load Game Catalogs from Path",
+                shortcut: None,
+                action: || Message::LoadSharedGamePath,
+            },
+            // ── Weapon Editor ────────────────────────────────────────────────
+            Command {
+                id: "scan-weapons",
+                label: "Scan: Load Weapon catalog",
+                shortcut: None,
+                action: || Message::WeaponOpScanWeapons,
+            },
+            Command {
+                id: "save-weapons",
+                label: "Save: Weapon Editor",
+                shortcut: None,
+                action: || Message::WeaponOpSave,
+            },
+            // ── Heal Item Editor ─────────────────────────────────────────────
+            Command {
+                id: "scan-heal-items",
+                label: "Scan: Load Heal Item catalog",
+                shortcut: None,
+                action: || Message::HealItemOpScanItems,
+            },
+            Command {
+                id: "save-heal-items",
+                label: "Save: Heal Item Editor",
+                shortcut: None,
+                action: || Message::HealItemOpSave,
+            },
+            // ── Misc Item Editor ─────────────────────────────────────────────
+            Command {
+                id: "scan-misc-items",
+                label: "Scan: Load Misc Item catalog",
+                shortcut: None,
+                action: || Message::MiscItemOpScanItems,
+            },
+            Command {
+                id: "save-misc-items",
+                label: "Save: Misc Item Editor",
+                shortcut: None,
+                action: || Message::MiscItemOpSave,
+            },
+            // ── Magic Editor ─────────────────────────────────────────────────
+            Command {
+                id: "scan-magic",
+                label: "Scan: Load Magic catalog",
+                shortcut: None,
+                action: || Message::MagicOpScanSpells,
+            },
+            Command {
+                id: "save-magic",
+                label: "Save: Magic Editor",
+                shortcut: None,
+                action: || Message::MagicOpSave,
+            },
+            // ── Monster Editor ───────────────────────────────────────────────
+            Command {
+                id: "scan-monsters",
+                label: "Scan: Load Monster catalog",
+                shortcut: None,
+                action: || Message::MonsterOpScanMonsters,
+            },
+            Command {
+                id: "save-monsters",
+                label: "Save: Monster Editor",
+                shortcut: None,
+                action: || Message::MonsterOpSave,
+            },
+            // ── Party Ref Editor ─────────────────────────────────────────────
+            Command {
+                id: "scan-party-ref",
+                label: "Scan: Load Party Ref catalog",
+                shortcut: None,
+                action: || Message::PartyRefOpScanParty,
+            },
+            Command {
+                id: "save-party-ref",
+                label: "Save: Party Ref Editor",
+                shortcut: None,
+                action: || Message::PartyRefOpSave,
+            },
+            // ── Party Ini Editor ─────────────────────────────────────────────
+            Command {
+                id: "scan-party-ini",
+                label: "Scan: Load Party Ini catalog",
+                shortcut: None,
+                action: || Message::PartyIniOpScanNpcs,
+            },
+            Command {
+                id: "save-party-ini",
+                label: "Save: Party Ini Editor",
+                shortcut: None,
+                action: || Message::PartyIniOpSave,
+            },
+            // ── ChData Editor ────────────────────────────────────────────────
+            Command {
+                id: "load-chdata",
+                label: "Scan: Load ChData catalog",
+                shortcut: None,
+                action: || Message::ChDataOpLoadCatalog,
+            },
+            Command {
+                id: "save-chdata",
+                label: "Save: ChData Editor",
+                shortcut: None,
+                action: || Message::ChDataOpSave,
+            },
+            // ── Map Ini Editor ───────────────────────────────────────────────
+            Command {
+                id: "load-map-ini",
+                label: "Scan: Load Map Ini catalog",
+                shortcut: None,
+                action: || Message::MapIniOpLoadCatalog,
+            },
+            Command {
+                id: "save-map-ini",
+                label: "Save: Map Ini Editor",
+                shortcut: None,
+                action: || Message::MapIniOpSave,
+            },
+            // ── Wave Ini Editor ──────────────────────────────────────────────
+            Command {
+                id: "load-wave-ini",
+                label: "Scan: Load Wave Ini catalog",
+                shortcut: None,
+                action: || Message::WaveIniOpLoadCatalog,
+            },
+            Command {
+                id: "save-wave-ini",
+                label: "Save: Wave Ini Editor",
+                shortcut: None,
+                action: || Message::WaveIniOpSave,
+            },
+            // ── Event Ini Editor ─────────────────────────────────────────────
+            Command {
+                id: "load-event-ini",
+                label: "Scan: Load Event Ini catalog",
+                shortcut: None,
+                action: || Message::EventIniOpLoadCatalog,
+            },
+            Command {
+                id: "save-event-ini",
+                label: "Save: Event Ini Editor",
+                shortcut: None,
+                action: || Message::EventIniOpSave,
+            },
+            // ── NPC Ini Editor ───────────────────────────────────────────────
+            Command {
+                id: "scan-npc-ini",
+                label: "Scan: Load NPC Ini catalog",
+                shortcut: None,
+                action: || Message::NpcIniOpScanNpcs,
+            },
+            Command {
+                id: "save-npc-ini",
+                label: "Save: NPC Ini Editor",
+                shortcut: None,
+                action: || Message::NpcIniOpSave,
+            },
+            // ── Quest Scr Editor ─────────────────────────────────────────────
+            Command {
+                id: "load-quest-scr",
+                label: "Scan: Load Quest catalog",
+                shortcut: None,
+                action: || Message::QuestScrOpLoadCatalog,
+            },
+            Command {
+                id: "save-quest-scr",
+                label: "Save: Quest Scr Editor",
+                shortcut: None,
+                action: || Message::QuestScrOpSave,
+            },
+            // ── Message Scr Editor ───────────────────────────────────────────
+            Command {
+                id: "load-message-scr",
+                label: "Scan: Load Message catalog",
+                shortcut: None,
+                action: || Message::MessageScrOpLoadCatalog,
+            },
+            Command {
+                id: "save-message-scr",
+                label: "Save: Message Scr Editor",
+                shortcut: None,
+                action: || Message::MessageScrOpSave,
+            },
+            // ── Extra Ini Editor ─────────────────────────────────────────────
+            Command {
+                id: "load-extra-ini",
+                label: "Scan: Load Extra Ini catalog",
+                shortcut: None,
+                action: || Message::ExtraIniOpLoadCatalog,
+            },
+            Command {
+                id: "save-extra-ini",
+                label: "Save: Extra Ini Editor",
+                shortcut: None,
+                action: || Message::ExtraIniOpSave,
+            },
+            // ── Event NpcRef Editor ──────────────────────────────────────────
+            Command {
+                id: "load-event-npc-ref",
+                label: "Scan: Load Event NPC Ref catalog",
+                shortcut: None,
+                action: || Message::EventNpcRefOpLoadCatalog,
+            },
+            Command {
+                id: "save-event-npc-ref",
+                label: "Save: Event NPC Ref Editor",
+                shortcut: None,
+                action: || Message::EventNpcRefOpSave,
+            },
+            // ── All Map Ini Editor ───────────────────────────────────────────
+            Command {
+                id: "load-all-map-ini",
+                label: "Scan: Load All Map Ini catalog",
+                shortcut: None,
+                action: || Message::AllMapIniOpLoadCatalog,
+            },
+            Command {
+                id: "save-all-map-ini",
+                label: "Save: All Map Ini Editor",
+                shortcut: None,
+                action: || Message::AllMapIniOpSave,
+            },
+            // ── Party Level Db Editor ────────────────────────────────────────
+            Command {
+                id: "load-party-level-db",
+                label: "Scan: Load Party Level Db catalog",
+                shortcut: None,
+                action: || Message::PartyLevelDbOpLoadCatalog,
+            },
+            Command {
+                id: "save-party-level-db",
+                label: "Save: Party Level Db Editor",
+                shortcut: None,
+                action: || Message::PartyLevelDbOpSave,
+            },
+            // ── Draw Item Editor ─────────────────────────────────────────────
+            Command {
+                id: "load-draw-item",
+                label: "Scan: Load Draw Item catalog",
+                shortcut: None,
+                action: || Message::DrawItemOpLoadCatalog,
+            },
+            Command {
+                id: "save-draw-item",
+                label: "Save: Draw Item Editor",
+                shortcut: None,
+                action: || Message::DrawItemOpSave,
+            },
+            // ── Edit Item Editor ─────────────────────────────────────────────
+            Command {
+                id: "scan-edit-items",
+                label: "Scan: Load Edit Item catalog",
+                shortcut: None,
+                action: || Message::EditItemOpScanItems,
+            },
+            Command {
+                id: "save-edit-items",
+                label: "Save: Edit Item Editor",
+                shortcut: None,
+                action: || Message::EditItemOpSave,
+            },
+            // ── Event Item Editor ────────────────────────────────────────────
+            Command {
+                id: "scan-event-items",
+                label: "Scan: Load Event Item catalog",
+                shortcut: None,
+                action: || Message::EventItemOpScanItems,
+            },
+            Command {
+                id: "save-event-items",
+                label: "Save: Event Item Editor",
+                shortcut: None,
+                action: || Message::EventItemOpSave,
+            },
         ]
     }
 }

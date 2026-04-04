@@ -203,6 +203,9 @@ impl<R: EditableRecord + Extractor> UndoRedo for GenericEditorState<R> {
 
 impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     pub fn save(&self, game_path: &str, db_path: &str) -> Result<(), String> {
+        // Run pre-save validation first
+        self.validate_before_save()?;
+
         let path = std::path::PathBuf::from(game_path).join(db_path);
         if let Some(catalog) = &self.catalog {
             // Create timestamped backup
@@ -223,6 +226,24 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         } else {
             Err("No catalog loaded".to_string())
         }
+    }
+
+    /// Validate all records and return a formatted error if any fail.
+    ///
+    /// Returns `Ok(())` when all records pass, or an `Err` with a summary
+    /// like `"3 record(s) have validation errors:\n  #0 field 'foo': too large\n  ..."`.
+    pub fn validate_before_save(&self) -> Result<(), String> {
+        let errors = self.validate_all();
+        if errors.is_empty() {
+            return Ok(());
+        }
+        let mut msg = format!("{} record(s) have validation errors:", errors.len());
+        for (record_idx, field_errors) in &errors {
+            for (field, err) in field_errors {
+                msg.push_str(&format!("\n  #{} field '{}': {}", record_idx, field, err));
+            }
+        }
+        Err(msg)
     }
 
     /// Validate all records in the catalog and return errors grouped by record index.

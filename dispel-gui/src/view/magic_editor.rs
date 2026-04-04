@@ -4,7 +4,7 @@ use crate::style;
 use crate::view::editor::view_spreadsheet;
 use crate::view::generic_editor::build_editor_view;
 use iced::widget::{button, column, container, row, text};
-use iced::{Element, Fill, Length};
+use iced::{Element, Fill};
 
 impl App {
     pub fn view_magic_editor_tab(&self) -> Element<'_, Message> {

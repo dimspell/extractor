@@ -26,6 +26,36 @@ impl DraftManager {
         }
     }
 
+    /// Load draft state from the default disk path, falling back to a fresh instance.
+    pub fn load() -> Self {
+        let path = Self::persist_path();
+        if path.exists() {
+            if let Ok(data) = fs::read(&path) {
+                if let Ok(manager) = serde_json::from_slice::<DraftManager>(&data) {
+                    return manager;
+                }
+            }
+        }
+        Self::new()
+    }
+
+    /// Persist draft state to disk.
+    pub fn save_to_disk(&self) {
+        let path = Self::persist_path();
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        if let Ok(data) = serde_json::to_vec_pretty(self) {
+            let _ = fs::write(&path, data);
+        }
+    }
+
+    /// Default path: ~/.config/dispel-gui/drafts.json
+    fn persist_path() -> PathBuf {
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        base.join("dispel-gui").join("drafts.json")
+    }
+
     pub fn toggle_auto_save(&mut self) {
         self.auto_save_enabled = !self.auto_save_enabled;
     }
@@ -49,6 +79,7 @@ impl DraftManager {
                 original_mtime,
             },
         );
+        self.save_to_disk();
     }
 
     pub fn has_draft(&self, file_path: &Path) -> bool {
@@ -99,6 +130,7 @@ impl DraftManager {
 
     pub fn discard_draft(&mut self, file_path: &Path) {
         self.clear_draft(file_path);
+        self.save_to_disk();
     }
 
     pub fn draft_count(&self) -> usize {

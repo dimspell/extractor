@@ -58,7 +58,7 @@ impl App {
                 empty_edit_history: EditHistory::default(),
                 command_palette: None,
                 global_search: crate::global_search::GlobalSearch::new(),
-                draft_manager: crate::auto_save::DraftManager::new(),
+                draft_manager: crate::auto_save::DraftManager::load(),
             },
             Task::none(),
         )
@@ -3231,20 +3231,60 @@ impl App {
             }
             Message::GlobalSearchSelect(idx) => {
                 if let Some(result) = self.global_search.results.get(idx) {
+                    let record_idx = result.record_idx;
                     let tab = match result.catalog_type.as_str() {
-                        "Weapon" => Tab::WeaponEditor,
-                        "HealItem" => Tab::HealItemEditor,
-                        "MiscItem" => Tab::MiscItemEditor,
-                        "EditItem" => Tab::EditItemEditor,
-                        "EventItem" => Tab::EventItemEditor,
-                        "Monster" => Tab::MonsterEditor,
-                        "NpcIni" => Tab::NpcIniEditor,
-                        "MagicSpell" => Tab::MagicEditor,
-                        "Dialog" => Tab::DialogEditor,
-                        "DialogueText" => Tab::DialogueTextEditor,
-                        "Store" => Tab::StoreEditor,
-                        "PartyRef" => Tab::PartyRefEditor,
-                        "PartyIni" => Tab::PartyIniEditor,
+                        "Weapon" => {
+                            self.state.weapon_editor.select(record_idx);
+                            Tab::WeaponEditor
+                        }
+                        "HealItem" => {
+                            self.state.heal_item_editor.select(record_idx);
+                            Tab::HealItemEditor
+                        }
+                        "MiscItem" => {
+                            self.state.misc_item_editor.select(record_idx);
+                            Tab::MiscItemEditor
+                        }
+                        "EditItem" => {
+                            self.state.edit_item_editor.select(record_idx);
+                            Tab::EditItemEditor
+                        }
+                        "EventItem" => {
+                            self.state.event_item_editor.select(record_idx);
+                            Tab::EventItemEditor
+                        }
+                        "Monster" => {
+                            self.state.monster_editor.select_monster(record_idx);
+                            Tab::MonsterEditor
+                        }
+                        "NpcIni" => {
+                            self.state.npc_ini_editor.select_npc(record_idx);
+                            Tab::NpcIniEditor
+                        }
+                        "MagicSpell" => {
+                            self.state.magic_editor.select(record_idx);
+                            Tab::MagicEditor
+                        }
+                        "Dialog" => {
+                            self.state.dialog_editor.select_dialog(record_idx);
+                            Tab::DialogEditor
+                        }
+                        "DialogueText" => {
+                            self.state.dialogue_text_editor.select_text(record_idx);
+                            Tab::DialogueTextEditor
+                        }
+                        "Store" => {
+                            self.state.store_editor.select_store(record_idx);
+                            Tab::StoreEditor
+                        }
+                        "PartyRef" => {
+                            self.state.party_ref_editor.select(record_idx);
+                            Tab::PartyRefEditor
+                        }
+                        "PartyIni" => {
+                            self.state.party_ini_editor.select(record_idx);
+                            Tab::PartyIniEditor
+                        }
                         _ => Tab::WeaponEditor,
                     };
                     self.state.active_tab = tab;
