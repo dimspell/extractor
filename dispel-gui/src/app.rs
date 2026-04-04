@@ -19,7 +19,7 @@ use dispel_core::{
     WeaponItem, NPC,
 };
 use iced::widget::{button, column, container, row, text};
-use iced::{Element, Fill, Subscription, Task};
+use iced::{Element, Fill, Length, Subscription, Task};
 use std::path::{Path, PathBuf};
 
 pub use dispel_core::commands::Command;
@@ -3553,9 +3553,31 @@ fn view_workspace(app: &App) -> Element<'_, Message> {
     } else {
         row![sidebar, main].height(Fill).width(Fill)
     };
-    container(layout)
+
+    let main_container = container(layout)
         .width(Fill)
         .height(Fill)
-        .style(style::root_container)
-        .into()
+        .style(style::root_container);
+
+    if let Some(ref palette) = app.command_palette {
+        let palette_view = palette.view();
+
+        let backdrop = container(main_container)
+            .width(Fill)
+            .height(Fill)
+            .style(|_theme| iced::widget::container::Style {
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    0.0, 0.0, 0.0,
+                ))),
+                ..Default::default()
+            });
+
+        let overlay = container(palette_view)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill);
+
+        return column![backdrop, overlay].width(Fill).height(Fill).into();
+    }
+
+    main_container.into()
 }
