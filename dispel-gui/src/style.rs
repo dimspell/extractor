@@ -412,3 +412,39 @@ pub fn loading_progress_bar(_theme: &Theme) -> progress_bar::Style {
         },
     }
 }
+
+pub fn modal_container(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x2a2a2a))),
+        border: Border {
+            color: color!(0x5d4037),
+            width: 1.0,
+            radius: 8.into(),
+        },
+        shadow: Shadow {
+            color: Color::BLACK,
+            offset: Vector::new(0.0, 4.0),
+            blur_radius: 16.0,
+        },
+        snap: false,
+        text_color: None,
+    }
+}
+
+pub fn selected_button(_theme: &Theme, _status: button::Status) -> button::Style {
+    button::Style {
+        background: Some(Background::Color(color!(0x5d4037))),
+        text_color: color!(0xffd700),
+        border: Border {
+            color: color!(0xdaa520),
+            width: 1.0,
+            radius: 4.into(),
+        },
+        shadow: Shadow {
+            color: color!(0xdaa520, 0.2),
+            offset: Vector::ZERO,
+            blur_radius: 4.0,
+        },
+        snap: false,
+    }
+}

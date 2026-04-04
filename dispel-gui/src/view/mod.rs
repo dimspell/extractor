@@ -3,6 +3,7 @@ use crate::message::Message;
 use crate::style;
 use crate::types::Tab;
 use crate::utils::{horizontal_space, truncate_path, vertical_space};
+use crate::view::history_panel::view_history_panel;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
@@ -82,12 +83,47 @@ impl App {
         };
 
         let main_content = column![game_path_toolbar, content].spacing(0).height(Fill);
-        let layout = row![sidebar, main_content].height(Fill).width(Fill);
-        container(layout)
+
+        let history_panel = if self.history_panel_visible {
+            Some(view_history_panel(self.get_active_edit_history()))
+        } else {
+            None
+        };
+
+        let layout = if self.history_panel_visible {
+            row![sidebar, main_content, history_panel.unwrap()]
+                .height(Fill)
+                .width(Fill)
+        } else {
+            row![sidebar, main_content].height(Fill).width(Fill)
+        };
+
+        let main_container = container(layout)
             .width(Fill)
             .height(Fill)
-            .style(style::root_container)
-            .into()
+            .style(style::root_container);
+
+        if let Some(ref palette) = self.command_palette {
+            let palette_view = palette.view();
+
+            let backdrop = container(main_container)
+                .width(Fill)
+                .height(Fill)
+                .style(|_theme| iced::widget::container::Style {
+                    background: Some(iced::Background::Color(iced::Color::from_rgb(
+                        0.0, 0.0, 0.0,
+                    ))),
+                    ..Default::default()
+                });
+
+            let overlay = container(palette_view)
+                .center_x(Length::Fill)
+                .center_y(Length::Fill);
+
+            return column![backdrop, overlay].width(Fill).height(Fill).into();
+        }
+
+        main_container.into()
     }
 
     fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {

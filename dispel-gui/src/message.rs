@@ -356,6 +356,14 @@ pub enum Message {
     Undo,
     Redo,
     ToggleHistoryPanel,
+    // Command Palette
+    ToggleCommandPalette,
+    CommandPaletteInput(String),
+    CommandPaletteSelect(usize),
+    CommandPaletteClose,
+    CommandPaletteArrowUp,
+    CommandPaletteArrowDown,
+    CommandPaletteConfirm,
 }
 
 #[derive(Debug, Clone)]

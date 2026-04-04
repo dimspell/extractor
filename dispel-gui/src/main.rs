@@ -5,6 +5,7 @@ pub mod all_map_ini_editor;
 pub mod app;
 pub mod chdata_editor;
 pub mod chest_editor;
+pub mod command_palette;
 pub mod db;
 pub mod db_viewer_state;
 pub mod dialog_editor;

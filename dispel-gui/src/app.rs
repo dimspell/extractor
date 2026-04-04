@@ -1,9 +1,9 @@
 use crate::chest_editor::ItemCatalog;
+use crate::command_palette::CommandPalette;
 use crate::db;
 use crate::db_viewer_state::PAGE_SIZE;
 use crate::edit_history::EditHistory;
 use crate::file_tree::FileTree;
-use crate::generic_editor::UndoRedo;
 use crate::message::{Message, WorkspaceMessage};
 use crate::sprite_browser::SpriteEntry;
 use crate::state::AppState;
@@ -11,7 +11,7 @@ use crate::style;
 use crate::tab_bar::TabBarMessage;
 use crate::types::{MapOp, RefOp, Tab};
 use crate::utils::{browse_file, browse_folder, horizontal_rule, horizontal_space};
-use dispel_core::commands::{self, Command, CommandFactory};
+use dispel_core::commands::{self, CommandFactory};
 use dispel_core::{
     ChData, Dialog, DialogueText, DrawItem, EditItem, Event, EventItem, EventNpcRef, Extra,
     ExtraRef, Extractor, HealItem, MagicSpell, Map, MapIni, Message as ScrMessage, MiscItem,
@@ -22,6 +22,8 @@ use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Subscription, Task};
 use std::path::{Path, PathBuf};
 
+pub use dispel_core::commands::Command;
+
 pub struct App {
     pub state: AppState,
     pub file_tree: FileTree,
@@ -29,6 +31,7 @@ pub struct App {
     pub window_id: iced::window::Id,
     pub history_panel_visible: bool,
     pub empty_edit_history: EditHistory,
+    pub command_palette: Option<CommandPalette>,
 }
 
 impl App {
@@ -51,6 +54,7 @@ impl App {
                 window_id: iced::window::Id::unique(),
                 history_panel_visible: false,
                 empty_edit_history: EditHistory::default(),
+                command_palette: None,
             },
             Task::none(),
         )
@@ -90,7 +94,7 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        use iced::keyboard::{self, Key};
+        use iced::keyboard::{self, key::Named, Key};
         use iced::window;
 
         let close = window::close_requests().map(|_| Message::CloseRequested);
@@ -104,12 +108,25 @@ impl App {
                             'z' => Some(Message::Undo),
                             'y' => Some(Message::Redo),
                             'h' => Some(Message::ToggleHistoryPanel),
+                            'p' => Some(Message::ToggleCommandPalette),
                             _ => None,
                         };
                     }
                 }
+                if let Key::Named(named) = key.as_ref() {
+                    match named {
+                        Named::Escape => Some(Message::CommandPaletteClose),
+                        Named::Enter => Some(Message::CommandPaletteConfirm),
+                        Named::ArrowUp => Some(Message::CommandPaletteArrowUp),
+                        Named::ArrowDown => Some(Message::CommandPaletteArrowDown),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
             }
-            None
         });
 
         Subscription::batch([close, keyboard_sub])
@@ -3137,6 +3154,56 @@ impl App {
             }
             Message::ToggleHistoryPanel => {
                 self.history_panel_visible = !self.history_panel_visible;
+                return Task::none();
+            }
+            Message::ToggleCommandPalette => {
+                if self.command_palette.is_some() {
+                    self.command_palette = None;
+                } else {
+                    self.command_palette = Some(CommandPalette::new());
+                }
+                return Task::none();
+            }
+            Message::CommandPaletteInput(input) => {
+                if let Some(palette) = &mut self.command_palette {
+                    palette.update_input(input);
+                }
+                return Task::none();
+            }
+            Message::CommandPaletteSelect(idx) => {
+                if let Some(palette) = &self.command_palette {
+                    if let Some(cmd) = palette.filtered_commands.get(idx) {
+                        let action_msg = (cmd.action)();
+                        self.command_palette = None;
+                        return self.update(action_msg);
+                    }
+                }
+                return Task::none();
+            }
+            Message::CommandPaletteClose => {
+                self.command_palette = None;
+                return Task::none();
+            }
+            Message::CommandPaletteArrowUp => {
+                if let Some(palette) = &mut self.command_palette {
+                    palette.select_previous();
+                }
+                return Task::none();
+            }
+            Message::CommandPaletteArrowDown => {
+                if let Some(palette) = &mut self.command_palette {
+                    palette.select_next();
+                }
+                return Task::none();
+            }
+            Message::CommandPaletteConfirm => {
+                if let Some(palette) = &self.command_palette {
+                    if let Some(cmd) = palette.selected_command() {
+                        let action_msg = (cmd.action)();
+                        self.command_palette = None;
+                        return self.update(action_msg);
+                    }
+                }
                 return Task::none();
             }
 
