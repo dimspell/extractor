@@ -11,7 +11,7 @@ impl App {
         let op_buttons: Vec<Element<Message>> = MapOp::ALL
             .iter()
             .map(|op| {
-                let is_active = self.map_op == Some(*op);
+                let is_active = self.state.map_op == Some(*op);
                 let btn = button(text(op.label()).size(12))
                     .padding([6, 12])
                     .on_press(Message::MapOpSelected(*op));
@@ -23,50 +23,50 @@ impl App {
                 .into()
             })
             .collect();
-        let fields: Element<Message> = match self.map_op {
+        let fields: Element<Message> = match self.state.map_op {
             Some(MapOp::Tiles) | Some(MapOp::Sprites) => column![
                 labeled_file_row(
                     "Input:",
-                    &self.map_input,
+                    &self.state.map_input,
                     Message::MapInputChanged,
                     Message::BrowseMapInput
                 ),
-                labeled_input("Output dir:", &self.map_output, Message::MapOutputChanged),
+                labeled_input("Output dir:", &self.state.map_output, Message::MapOutputChanged),
             ]
             .spacing(10)
             .into(),
             Some(MapOp::Atlas) => column![
                 labeled_file_row(
                     "Input:",
-                    &self.map_input,
+                    &self.state.map_input,
                     Message::MapInputChanged,
                     Message::BrowseMapInput
                 ),
-                labeled_input("Output PNG:", &self.map_output, Message::MapOutputChanged),
+                labeled_input("Output PNG:", &self.state.map_output, Message::MapOutputChanged),
             ]
             .spacing(10)
             .into(),
             Some(MapOp::Render) => column![
                 labeled_file_row(
                     "MAP file:",
-                    &self.map_map_path,
+                    &self.state.map_map_path,
                     Message::MapMapPathChanged,
                     Message::BrowseMapMapPath
                 ),
                 labeled_file_row(
                     "BTL file:",
-                    &self.map_btl_path,
+                    &self.state.map_btl_path,
                     Message::MapBtlPathChanged,
                     Message::BrowseMapBtlPath
                 ),
                 labeled_file_row(
                     "GTL file:",
-                    &self.map_gtl_path,
+                    &self.state.map_gtl_path,
                     Message::MapGtlPathChanged,
                     Message::BrowseMapGtlPath
                 ),
-                labeled_input("Output PNG:", &self.map_output, Message::MapOutputChanged),
-                toggler(self.map_save_sprites)
+                labeled_input("Output PNG:", &self.state.map_output, Message::MapOutputChanged),
+                toggler(self.state.map_save_sprites)
                     .label("Save sprites")
                     .on_toggle(Message::MapSaveSpritesToggled)
                     .size(18)
@@ -75,29 +75,29 @@ impl App {
             .spacing(10)
             .into(),
             Some(MapOp::FromDb) => column![
-                labeled_input("Database:", &self.map_database, Message::MapDatabaseChanged),
-                labeled_input("Map ID:", &self.map_map_id, Message::MapMapIdChanged),
+                labeled_input("Database:", &self.state.map_database, Message::MapDatabaseChanged),
+                labeled_input("Map ID:", &self.state.map_map_id, Message::MapMapIdChanged),
                 labeled_file_row(
                     "GTL Atlas:",
-                    &self.map_gtl_atlas,
+                    &self.state.map_gtl_atlas,
                     Message::MapGtlAtlasChanged,
                     Message::BrowseMapGtlAtlas
                 ),
                 labeled_file_row(
                     "BTL Atlas:",
-                    &self.map_btl_atlas,
+                    &self.state.map_btl_atlas,
                     Message::MapBtlAtlasChanged,
                     Message::BrowseMapBtlAtlas
                 ),
                 labeled_input(
                     "Columns:",
-                    &self.map_atlas_columns,
+                    &self.state.map_atlas_columns,
                     Message::MapAtlasColumnsChanged
                 ),
-                labeled_input("Output:", &self.map_output, Message::MapOutputChanged),
+                labeled_input("Output:", &self.state.map_output, Message::MapOutputChanged),
                 labeled_file_row(
                     "Game Path:",
-                    &self.map_game_path,
+                    &self.state.map_game_path,
                     Message::MapGamePathChanged,
                     Message::BrowseMapGamePath
                 ),
@@ -105,10 +105,10 @@ impl App {
             .spacing(10)
             .into(),
             Some(MapOp::ToDb) => column![
-                labeled_input("Database:", &self.map_database, Message::MapDatabaseChanged),
+                labeled_input("Database:", &self.state.map_database, Message::MapDatabaseChanged),
                 labeled_file_row(
                     "MAP file:",
-                    &self.map_map_path,
+                    &self.state.map_map_path,
                     Message::MapMapPathChanged,
                     Message::BrowseMapMapPath
                 ),

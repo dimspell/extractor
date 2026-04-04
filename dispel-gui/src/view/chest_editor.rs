@@ -10,7 +10,7 @@ use iced::{Element, Fill, Font};
 
 impl App {
     pub fn view_chest_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.chest_editor;
+        let editor = &self.state.chest_editor;
 
         let map_file_row = row![
             text("Map:").size(12).width(60).style(style::subtle_text),

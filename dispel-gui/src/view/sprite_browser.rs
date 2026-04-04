@@ -33,7 +33,7 @@ fn wrapped_grid<'a>(
 
 impl App {
     pub fn view_sprite_browser_tab(&self) -> Element<'_, Message> {
-        let browser = &self.sprite_browser;
+        let browser = &self.state.sprite_browser;
 
         // Sprite list items
         let item_list: Vec<Element<'_, Message>> = if browser.is_loading {

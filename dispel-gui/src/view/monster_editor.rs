@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_monster_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.monster_editor;
+        let editor = &self.state.monster_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_monsters

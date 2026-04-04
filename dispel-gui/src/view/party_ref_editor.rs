@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_party_ref_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.party_ref_editor;
+        let editor = &self.state.party_ref_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_party

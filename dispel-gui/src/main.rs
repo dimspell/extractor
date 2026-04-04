@@ -32,6 +32,7 @@ pub mod party_level_db_editor;
 pub mod party_ref_editor;
 pub mod quest_scr_editor;
 pub mod sprite_browser;
+pub mod state;
 pub mod store_editor;
 pub mod style;
 pub mod types;

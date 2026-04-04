@@ -46,65 +46,65 @@ impl App {
         let sidebar = self.view_sidebar();
         let game_path_toolbar = self.view_shared_game_path_toolbar();
 
-        let content = if self.active_tab == Tab::DbViewer {
+        let content = if self.state.active_tab == Tab::DbViewer {
             self.view_db_viewer()
-        } else if self.active_tab == Tab::ChestEditor {
+        } else if self.state.active_tab == Tab::ChestEditor {
             self.view_chest_editor_tab()
-        } else if self.active_tab == Tab::WeaponEditor {
+        } else if self.state.active_tab == Tab::WeaponEditor {
             self.view_weapon_editor_tab()
-        } else if self.active_tab == Tab::SpriteBrowser {
+        } else if self.state.active_tab == Tab::SpriteBrowser {
             self.view_sprite_browser_tab()
-        } else if self.active_tab == Tab::HealItemEditor {
+        } else if self.state.active_tab == Tab::HealItemEditor {
             self.view_heal_item_editor_tab()
-        } else if self.active_tab == Tab::MiscItemEditor {
+        } else if self.state.active_tab == Tab::MiscItemEditor {
             self.view_misc_item_editor_tab()
-        } else if self.active_tab == Tab::EditItemEditor {
+        } else if self.state.active_tab == Tab::EditItemEditor {
             self.view_edit_item_editor_tab()
-        } else if self.active_tab == Tab::EventItemEditor {
+        } else if self.state.active_tab == Tab::EventItemEditor {
             self.view_event_item_editor_tab()
-        } else if self.active_tab == Tab::MonsterEditor {
+        } else if self.state.active_tab == Tab::MonsterEditor {
             self.view_monster_editor_tab()
-        } else if self.active_tab == Tab::NpcIniEditor {
+        } else if self.state.active_tab == Tab::NpcIniEditor {
             self.view_npc_ini_editor_tab()
-        } else if self.active_tab == Tab::MagicEditor {
+        } else if self.state.active_tab == Tab::MagicEditor {
             self.view_magic_editor_tab()
-        } else if self.active_tab == Tab::StoreEditor {
+        } else if self.state.active_tab == Tab::StoreEditor {
             self.view_store_editor_tab()
-        } else if self.active_tab == Tab::PartyRefEditor {
+        } else if self.state.active_tab == Tab::PartyRefEditor {
             self.view_party_ref_editor_tab()
-        } else if self.active_tab == Tab::PartyIniEditor {
+        } else if self.state.active_tab == Tab::PartyIniEditor {
             self.view_party_ini_editor_tab()
-        } else if self.active_tab == Tab::MonsterRefEditor {
+        } else if self.state.active_tab == Tab::MonsterRefEditor {
             self.view_monster_ref_editor_tab()
-        } else if self.active_tab == Tab::AllMapIniEditor {
+        } else if self.state.active_tab == Tab::AllMapIniEditor {
             self.view_all_map_ini_editor_tab()
-        } else if self.active_tab == Tab::DialogEditor {
+        } else if self.state.active_tab == Tab::DialogEditor {
             self.view_dialog_editor_tab()
-        } else if self.active_tab == Tab::DialogueTextEditor {
+        } else if self.state.active_tab == Tab::DialogueTextEditor {
             self.view_dialogue_text_editor_tab()
-        } else if self.active_tab == Tab::DrawItemEditor {
+        } else if self.state.active_tab == Tab::DrawItemEditor {
             self.view_draw_item_editor_tab()
-        } else if self.active_tab == Tab::EventIniEditor {
+        } else if self.state.active_tab == Tab::EventIniEditor {
             self.view_event_ini_editor_tab()
-        } else if self.active_tab == Tab::EventNpcRefEditor {
+        } else if self.state.active_tab == Tab::EventNpcRefEditor {
             self.view_event_npc_ref_editor_tab()
-        } else if self.active_tab == Tab::ExtraIniEditor {
+        } else if self.state.active_tab == Tab::ExtraIniEditor {
             self.view_extra_ini_editor_tab()
-        } else if self.active_tab == Tab::ExtraRefEditor {
+        } else if self.state.active_tab == Tab::ExtraRefEditor {
             self.view_extra_ref_editor_tab()
-        } else if self.active_tab == Tab::MapIniEditor {
+        } else if self.state.active_tab == Tab::MapIniEditor {
             self.view_map_ini_editor_tab()
-        } else if self.active_tab == Tab::MessageScrEditor {
+        } else if self.state.active_tab == Tab::MessageScrEditor {
             self.view_message_scr_editor_tab()
-        } else if self.active_tab == Tab::NpcRefEditor {
+        } else if self.state.active_tab == Tab::NpcRefEditor {
             self.view_npc_ref_editor_tab()
-        } else if self.active_tab == Tab::PartyLevelDbEditor {
+        } else if self.state.active_tab == Tab::PartyLevelDbEditor {
             self.view_party_level_db_editor_tab()
-        } else if self.active_tab == Tab::QuestScrEditor {
+        } else if self.state.active_tab == Tab::QuestScrEditor {
             self.view_quest_scr_editor_tab()
-        } else if self.active_tab == Tab::WaveIniEditor {
+        } else if self.state.active_tab == Tab::WaveIniEditor {
             self.view_wave_ini_editor_tab()
-        } else if self.active_tab == Tab::ChDataEditor {
+        } else if self.state.active_tab == Tab::ChDataEditor {
             self.view_chdata_editor_tab()
         } else {
             let tab_content = self.view_tab_content();
@@ -126,10 +126,10 @@ impl App {
     }
 
     fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {
-        let path_display = if self.shared_game_path.is_empty() {
+        let path_display = if self.state.shared_game_path.is_empty() {
             "No game path set - click Browse to select"
         } else {
-            &self.shared_game_path
+            &self.state.shared_game_path
         };
 
         let path_text = container(
@@ -167,7 +167,7 @@ impl App {
         let tabs: Vec<Element<Message>> = Tab::ALL
             .iter()
             .map(|tab| {
-                let is_active = *tab == self.active_tab;
+                let is_active = *tab == self.state.active_tab;
                 let btn = button(text(tab.label()).size(14))
                     .width(Fill)
                     .padding([10, 16])
@@ -197,7 +197,7 @@ impl App {
     }
 
     fn view_tab_content(&self) -> Element<'_, Message> {
-        let inner = match self.active_tab {
+        let inner = match self.state.active_tab {
             Tab::AllMapIniEditor => self.view_all_map_ini_editor_tab(),
             Tab::ChDataEditor => self.view_chdata_editor_tab(),
             Tab::ChestEditor => self.view_chest_editor_tab(),
@@ -232,12 +232,12 @@ impl App {
             Tab::WaveIniEditor => self.view_wave_ini_editor_tab(),
             Tab::WeaponEditor => self.view_weapon_editor_tab(),
         };
-        let run_btn: Element<'_, Message> = if self.is_running {
+        let run_btn: Element<'_, Message> = if self.state.is_running {
             button(text("⏳ Running…").size(14))
                 .padding([10, 28])
                 .style(style::run_button_disabled)
                 .into()
-        } else if self.active_tab == Tab::WeaponEditor || self.active_tab == Tab::SpriteBrowser {
+        } else if self.state.active_tab == Tab::WeaponEditor || self.state.active_tab == Tab::SpriteBrowser {
             text("").into()
         } else {
             button(text("▶  Run Command").size(14))
@@ -246,14 +246,14 @@ impl App {
                 .style(style::run_button)
                 .into()
         };
-        let header = text(match self.active_tab {
+        let header = text(match self.state.active_tab {
             Tab::Map => "Map Operations",
             Tab::Ref => "Reference Data Extraction",
             Tab::Database => "Database Import Pipeline",
             _ => "",
         })
         .size(22);
-        let subtitle = text(match self.active_tab {
+        let subtitle = text(match self.state.active_tab {
             Tab::Map => "Extract tiles, render maps, and manage map assets",
             Tab::Ref => "Read game DB/INI/REF files and output as JSON",
             Tab::Database => "Populate a local SQLite database from game fixtures",
@@ -287,7 +287,7 @@ impl App {
         .align_y(iced::Alignment::Center);
 
         let content =
-            container(text(&self.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12);
+            container(text(&self.state.log).size(12).font(Font::MONOSPACE).width(Fill)).padding(12);
 
         container(column![title, content].spacing(8))
             .padding(16)

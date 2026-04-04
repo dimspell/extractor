@@ -10,7 +10,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_heal_item_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.heal_item_editor;
+        let editor = &self.state.heal_item_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_items

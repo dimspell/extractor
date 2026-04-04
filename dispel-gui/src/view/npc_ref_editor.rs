@@ -10,7 +10,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_npc_ref_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.npc_ref_editor;
+        let editor = &self.state.npc_ref_editor;
 
         let file_list: Vec<Element<Message>> = editor
             .map_files

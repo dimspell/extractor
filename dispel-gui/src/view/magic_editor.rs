@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_magic_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.magic_editor;
+        let editor = &self.state.magic_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_spells

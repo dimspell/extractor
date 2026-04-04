@@ -7,7 +7,7 @@ impl App {
     pub fn view_monster_ref_editor_tab(&self) -> Element<'_, Message> {
         build_multi_file_editor_view(
             self,
-            &self.monster_ref_editor,
+            &self.state.monster_ref_editor,
             Message::MonsterRefOpScanFiles,
             Message::MonsterRefOpSelectFile,
             Message::MonsterRefOpSave,
@@ -15,7 +15,7 @@ impl App {
             Message::MonsterRefOpRemoveEntry,
             Message::MonsterRefOpSelectEntry,
             Message::MonsterRefOpFieldChanged,
-            &self.lookups,
+            &self.state.lookups,
         )
     }
 }

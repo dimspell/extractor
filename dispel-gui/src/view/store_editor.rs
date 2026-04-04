@@ -55,7 +55,7 @@ impl ProductTypeOption {
 
 impl App {
     pub fn view_store_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.store_editor;
+        let editor = &self.state.store_editor;
 
         // Header
         let header = row![
@@ -139,10 +139,10 @@ impl App {
                 let item_name = editor.get_product_item_name(
                     prod.product_type,
                     item_id,
-                    &self.weapon_editor.catalog,
-                    &self.heal_item_editor.catalog,
-                    &self.misc_item_editor.catalog,
-                    &self.edit_item_editor.catalog,
+                    &self.state.weapon_editor.catalog,
+                    &self.state.heal_item_editor.catalog,
+                    &self.state.misc_item_editor.catalog,
+                    &self.state.edit_item_editor.catalog,
                 );
 
                 let btn = button(
@@ -174,10 +174,10 @@ impl App {
                         let item_name = editor.get_product_item_name(
                             prod.product_type,
                             prod.item_id,
-                            &self.weapon_editor.catalog,
-                            &self.heal_item_editor.catalog,
-                            &self.misc_item_editor.catalog,
-                            &self.edit_item_editor.catalog,
+                            &self.state.weapon_editor.catalog,
+                            &self.state.heal_item_editor.catalog,
+                            &self.state.misc_item_editor.catalog,
+                            &self.state.edit_item_editor.catalog,
                         );
                         let item_name_owned = item_name.clone();
                         column![

@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_event_item_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.event_item_editor;
+        let editor = &self.state.event_item_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_items

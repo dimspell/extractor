@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_extra_ini_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.extra_ini_editor;
+        let editor = &self.state.extra_ini_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_extras

@@ -8,7 +8,7 @@ use iced::{Element, Fill, Font};
 
 impl App {
     pub fn view_db_viewer(&self) -> Element<'_, Message> {
-        let v = &self.viewer;
+        let v = &self.state.viewer;
 
         // ── Connection toolbar ──
         let conn_row = container(
@@ -193,7 +193,7 @@ impl App {
     }
 
     pub fn view_grid(&self) -> Element<'_, Message> {
-        let v = &self.viewer;
+        let v = &self.state.viewer;
         if v.columns.is_empty() {
             return container(
                 text("Select a table to view its data.")

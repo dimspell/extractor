@@ -11,7 +11,7 @@ impl App {
         let op_buttons: Vec<Element<Message>> = DbOp::ALL
             .iter()
             .map(|op| {
-                let is_active = self.db_op == Some(*op);
+                let is_active = self.state.db_op == Some(*op);
                 let btn = button(text(op.label()).size(12))
                     .padding([6, 14])
                     .on_press(Message::DbOpSelected(*op));
@@ -23,7 +23,7 @@ impl App {
                 .into()
             })
             .collect();
-        let desc = match self.db_op {
+        let desc = match self.state.db_op {
             Some(DbOp::Import) => {
                 "Imports everything: maps → refs → rest → dialog-texts → databases"
             }

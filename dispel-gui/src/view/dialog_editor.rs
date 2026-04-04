@@ -10,7 +10,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_dialog_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.dialog_editor;
+        let editor = &self.state.dialog_editor;
 
         let file_list: Vec<Element<Message>> = editor
             .dialog_files

@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_party_level_db_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.party_level_db_editor;
+        let editor = &self.state.party_level_db_editor;
 
         let npc_list: Vec<Element<Message>> = if let Some(catalog) = &editor.catalog {
             catalog

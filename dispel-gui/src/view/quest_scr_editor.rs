@@ -9,7 +9,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_quest_scr_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.quest_scr_editor;
+        let editor = &self.state.quest_scr_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_quests

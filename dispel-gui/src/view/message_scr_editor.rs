@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_message_scr_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.message_scr_editor;
+        let editor = &self.state.message_scr_editor;
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_messages

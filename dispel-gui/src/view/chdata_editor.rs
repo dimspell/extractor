@@ -7,7 +7,7 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_chdata_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.chdata_editor;
+        let editor = &self.state.chdata_editor;
 
         let mut detail_content: Vec<Element<Message>> = vec![
             text("Character Data").size(16).font(Font::MONOSPACE).into(),

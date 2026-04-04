@@ -10,7 +10,7 @@ use iced::{Element, Fill, Font};
 
 impl App {
     pub fn view_extra_ref_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.extra_ref_editor;
+        let editor = &self.state.extra_ref_editor;
 
         let file_path_row = row![
             text("File:").size(12).width(60).style(style::subtle_text),

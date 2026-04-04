@@ -7,7 +7,7 @@ use iced::Element;
 
 impl App {
     pub fn view_ref_tab(&self) -> Element<'_, Message> {
-        let picker = pick_list(RefOp::ALL, self.ref_op, Message::RefOpSelected)
+        let picker = pick_list(RefOp::ALL, self.state.ref_op, Message::RefOpSelected)
             .placeholder("Select…")
             .padding(8);
         column![
@@ -16,7 +16,7 @@ impl App {
                 .align_y(iced::Alignment::Center),
             labeled_file_row(
                 "Input file:",
-                &self.ref_input,
+                &self.state.ref_input,
                 Message::RefInputChanged,
                 Message::BrowseRefInput
             ),

@@ -7,7 +7,7 @@ use iced::{Element, Fill, Length};
 
 impl App {
     pub fn view_party_ini_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.party_ini_editor;
+        let editor = &self.state.party_ini_editor;
 
         // Header
         let header = row![

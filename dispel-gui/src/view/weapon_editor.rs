@@ -7,12 +7,12 @@ impl App {
     pub fn view_weapon_editor_tab(&self) -> Element<'_, Message> {
         build_editor_view(
             self,
-            &self.weapon_editor,
+            &self.state.weapon_editor,
             Message::WeaponOpScanWeapons,
             Message::WeaponOpSave,
             Message::WeaponOpSelectWeapon,
             Message::WeaponOpFieldChanged,
-            &self.lookups,
+            &self.state.lookups,
         )
     }
 }
