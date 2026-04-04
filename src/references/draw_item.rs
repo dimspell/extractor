@@ -54,7 +54,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DrawItem {
     /// Target map for placement.
     pub map_id: i32,

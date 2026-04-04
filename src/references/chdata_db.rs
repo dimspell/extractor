@@ -33,7 +33,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ChData {
     pub magic: String,
     pub values: Vec<u16>,

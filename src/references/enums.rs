@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 /// Event types for game scripting and quest progression
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum EventType {
     /// Default/Unknown event type
+    #[default]
     Unknown = 0,
     /// Conditional execution (executed N times unconditionally)
     Conditional = 2,
@@ -1047,10 +1048,11 @@ impl From<MagicSpellConstant> for u32 {
 }
 
 /// NPC looking direction (compass orientation)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum NpcLookingDirection {
     /// Facing up (north)
+    #[default]
     Up = 0,
     /// Facing up-right (northeast)
     UpRight = 1,
@@ -1163,10 +1165,11 @@ impl From<PartyRootMapId> for i32 {
 }
 
 /// Ghost face identifiers for party members
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum GhostFaceId {
     /// No ghost face/unknown
+    #[default]
     None = 0,
 }
 

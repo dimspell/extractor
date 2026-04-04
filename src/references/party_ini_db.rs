@@ -49,7 +49,7 @@ use std::path::Path;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyIniNpc {
     /// Null-terminated root character identifier string.
     pub name: String,
