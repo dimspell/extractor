@@ -75,6 +75,10 @@ cargo run -- database maps <game_path> <db_path>
 # Sprite extraction
 cargo run -- sprite <input.spr>
 cargo run -- sprite <input.spr> --mode animation
+cargo run -- sprite <input.spr> --info
+
+# Extract sprite info via unified extract command (auto-detected by .spr extension)
+cargo run -- extract -i <input.spr> [--pretty]
 
 # Audio conversion
 cargo run -- sound <input.snf> <output.wav>
@@ -167,6 +171,7 @@ A `CommandFactory` provides dependency injection for creating commands.
 | `map_file` | .map | Map geometry, sprites, events, tiles | **No** |
 | `gtl` | .gtl | Ground tile layer | **No** |
 | `btl` | .btl | Building tile layer | **No** |
+| `sprite` | .spr | Sprite/animation file | **No** |
 
 ### Auto-Detection
 
@@ -227,7 +232,6 @@ cargo test
 
 ## References
 - **Extractor CLI**: `cargo run -- --help`
-- **CLI Redesign Plan**: [PLAN_CLI_REDESIGN.md](PLAN_CLI_REDESIGN.md)
 - **File Formats**: `docs/file_formats.md`
 - **Cross-Reference Guide**: [CROSS_REFERENCES.md](docs/files/CROSS_REFERENCES.md)
 - **INI Files**:
