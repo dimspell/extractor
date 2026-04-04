@@ -51,11 +51,28 @@ impl App {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
+        use iced::keyboard::{self, Key};
         use iced::window;
 
-        window::close_requests()
-            .map(|_| Message::CloseRequested)
-            .into()
+        let close = window::close_requests().map(|_| Message::CloseRequested);
+
+        let keyboard_sub = keyboard::listen().filter_map(|event| {
+            if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                if modifiers.control() || modifiers.command() {
+                    if let Key::Character(c) = key.as_ref() {
+                        let ch = c.chars().next()?;
+                        return match ch {
+                            'z' => Some(Message::Undo),
+                            'y' => Some(Message::Redo),
+                            _ => None,
+                        };
+                    }
+                }
+            }
+            None
+        });
+
+        Subscription::batch([close, keyboard_sub])
     }
 
     pub fn update_workspace(&mut self, msg: WorkspaceMessage) -> Task<Message> {
@@ -3011,11 +3028,71 @@ impl App {
 
             // ─── Undo/Redo ────────────────────────────────────────
             Message::Undo => {
-                self.state.status_msg = "Undo not yet implemented".to_string();
+                use crate::generic_editor::UndoRedo;
+                let result = match self.state.active_tab {
+                    Tab::HealItemEditor => self.state.heal_item_editor.undo(),
+                    Tab::MiscItemEditor => self.state.misc_item_editor.undo(),
+                    Tab::EditItemEditor => self.state.edit_item_editor.undo(),
+                    Tab::EventItemEditor => self.state.event_item_editor.undo(),
+                    Tab::MagicEditor => self.state.magic_editor.undo(),
+                    Tab::WeaponEditor => self.state.weapon_editor.undo(),
+                    Tab::MonsterRefEditor => self.state.monster_ref_editor.undo(),
+                    Tab::ExtraRefEditor => self.state.extra_ref_editor.undo(),
+                    Tab::NpcRefEditor => self.state.npc_ref_editor.undo(),
+                    Tab::DialogEditor => self.state.dialog_editor.undo(),
+                    Tab::DialogueTextEditor => self.state.dialogue_text_editor.undo(),
+                    Tab::DrawItemEditor => self.state.draw_item_editor.undo(),
+                    Tab::EventIniEditor => self.state.event_ini_editor.undo(),
+                    Tab::EventNpcRefEditor => self.state.event_npc_ref_editor.undo(),
+                    Tab::ExtraIniEditor => self.state.extra_ini_editor.undo(),
+                    Tab::MapIniEditor => self.state.map_ini_editor.undo(),
+                    Tab::MessageScrEditor => self.state.message_scr_editor.undo(),
+                    Tab::PartyLevelDbEditor => self.state.party_level_db_editor.undo(),
+                    Tab::QuestScrEditor => self.state.quest_scr_editor.undo(),
+                    Tab::WaveIniEditor => self.state.wave_ini_editor.undo(),
+                    Tab::AllMapIniEditor => self.state.all_map_ini_editor.undo(),
+                    Tab::ChDataEditor => self.state.chdata_editor.undo(),
+                    Tab::PartyRefEditor => self.state.party_ref_editor.undo(),
+                    Tab::PartyIniEditor => self.state.party_ini_editor.undo(),
+                    Tab::NpcIniEditor => self.state.npc_ini_editor.undo(),
+                    Tab::StoreEditor => self.state.store_editor.undo(),
+                    _ => None,
+                };
+                self.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
                 return Task::none();
             }
             Message::Redo => {
-                self.state.status_msg = "Redo not yet implemented".to_string();
+                use crate::generic_editor::UndoRedo;
+                let result = match self.state.active_tab {
+                    Tab::HealItemEditor => self.state.heal_item_editor.redo(),
+                    Tab::MiscItemEditor => self.state.misc_item_editor.redo(),
+                    Tab::EditItemEditor => self.state.edit_item_editor.redo(),
+                    Tab::EventItemEditor => self.state.event_item_editor.redo(),
+                    Tab::MagicEditor => self.state.magic_editor.redo(),
+                    Tab::WeaponEditor => self.state.weapon_editor.redo(),
+                    Tab::MonsterRefEditor => self.state.monster_ref_editor.redo(),
+                    Tab::ExtraRefEditor => self.state.extra_ref_editor.redo(),
+                    Tab::NpcRefEditor => self.state.npc_ref_editor.redo(),
+                    Tab::DialogEditor => self.state.dialog_editor.redo(),
+                    Tab::DialogueTextEditor => self.state.dialogue_text_editor.redo(),
+                    Tab::DrawItemEditor => self.state.draw_item_editor.redo(),
+                    Tab::EventIniEditor => self.state.event_ini_editor.redo(),
+                    Tab::EventNpcRefEditor => self.state.event_npc_ref_editor.redo(),
+                    Tab::ExtraIniEditor => self.state.extra_ini_editor.redo(),
+                    Tab::MapIniEditor => self.state.map_ini_editor.redo(),
+                    Tab::MessageScrEditor => self.state.message_scr_editor.redo(),
+                    Tab::PartyLevelDbEditor => self.state.party_level_db_editor.redo(),
+                    Tab::QuestScrEditor => self.state.quest_scr_editor.redo(),
+                    Tab::WaveIniEditor => self.state.wave_ini_editor.redo(),
+                    Tab::AllMapIniEditor => self.state.all_map_ini_editor.redo(),
+                    Tab::ChDataEditor => self.state.chdata_editor.redo(),
+                    Tab::PartyRefEditor => self.state.party_ref_editor.redo(),
+                    Tab::PartyIniEditor => self.state.party_ini_editor.redo(),
+                    Tab::NpcIniEditor => self.state.npc_ini_editor.redo(),
+                    Tab::StoreEditor => self.state.store_editor.redo(),
+                    _ => None,
+                };
+                self.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
                 return Task::none();
             }
 

@@ -1,6 +1,14 @@
+use crate::edit_history::EditHistory;
 use dispel_core::references::editable::EditableRecord;
 use dispel_core::references::extractor::Extractor;
 use std::path::{Path, PathBuf};
+
+pub trait UndoRedo {
+    fn undo(&mut self) -> Option<String>;
+    fn redo(&mut self) -> Option<String>;
+    fn can_undo(&self) -> bool;
+    fn can_redo(&self) -> bool;
+}
 
 /// Generic editor state that works with any `EditableRecord` type.
 ///
@@ -15,6 +23,7 @@ pub struct GenericEditorState<R: EditableRecord> {
     pub edit_buffers: Vec<String>,
     pub status_msg: String,
     pub is_loading: bool,
+    pub edit_history: EditHistory,
 }
 
 impl<R: EditableRecord + Extractor> GenericEditorState<R> {
@@ -45,12 +54,24 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     /// Returns true if the field was valid and updated, false if validation failed.
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) -> bool {
         if let Some((orig_idx, record)) = self.filtered.get_mut(idx) {
+            let old_value = record.get_field(field);
+            if old_value == value {
+                return true;
+            }
             // First validate before attempting to set
             if let Some(error) = record.validate_field(field, &value) {
                 self.status_msg = format!("Invalid '{}': {}", field, error);
                 return false;
             }
             if record.set_field(field, value.clone()) {
+                // Record the change in history
+                self.edit_history
+                    .push(crate::edit_history::EditAction::FieldChange {
+                        record_idx: *orig_idx,
+                        field: field.to_string(),
+                        old_value,
+                        new_value: value.clone(),
+                    });
                 // Update the matching buffer
                 if let Some(pos) = R::field_descriptors().iter().position(|d| d.name == field) {
                     self.edit_buffers[pos] = value;
@@ -68,7 +89,114 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         false
     }
 
-    /// Save the catalog to disk, creating a timestamped .bak backup first.
+    /// Undo the last edit and return information about what was undone.
+    pub fn undo(&mut self) -> Option<String> {
+        if let Some(action) = self.edit_history.undo() {
+            match action {
+                crate::edit_history::EditAction::FieldChange {
+                    record_idx,
+                    field,
+                    old_value,
+                    new_value,
+                } => {
+                    // Apply the old value back
+                    if let Some((_, record)) =
+                        self.filtered.iter_mut().find(|(i, _)| *i == record_idx)
+                    {
+                        let _ = record.set_field(&field, old_value.clone());
+                        // Update buffer
+                        if let Some(pos) =
+                            R::field_descriptors().iter().position(|d| d.name == field)
+                        {
+                            if let Some(buf) = self.edit_buffers.get_mut(pos) {
+                                *buf = old_value.clone();
+                            }
+                        }
+                        // Update catalog
+                        if let Some(catalog) = &mut self.catalog {
+                            if let Some(cat_record) = catalog.get_mut(record_idx) {
+                                let _ = cat_record.set_field(&field, old_value);
+                            }
+                        }
+                        return Some(format!("Undo: {} changed back", field));
+                    }
+                    None
+                }
+                _ => Some("Undo: complex actions not yet supported".to_string()),
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Redo a previously undone edit.
+    pub fn redo(&mut self) -> Option<String> {
+        if let Some(action) = self.edit_history.redo() {
+            match action {
+                crate::edit_history::EditAction::FieldChange {
+                    record_idx,
+                    field,
+                    old_value,
+                    new_value,
+                } => {
+                    // Apply the new value
+                    if let Some((_, record)) =
+                        self.filtered.iter_mut().find(|(i, _)| *i == record_idx)
+                    {
+                        let _ = record.set_field(&field, new_value.clone());
+                        // Update buffer
+                        if let Some(pos) =
+                            R::field_descriptors().iter().position(|d| d.name == field)
+                        {
+                            if let Some(buf) = self.edit_buffers.get_mut(pos) {
+                                *buf = new_value.clone();
+                            }
+                        }
+                        // Update catalog
+                        if let Some(catalog) = &mut self.catalog {
+                            if let Some(cat_record) = catalog.get_mut(record_idx) {
+                                let _ = cat_record.set_field(&field, new_value);
+                            }
+                        }
+                        return Some(format!("Redo: {} changed", field));
+                    }
+                    None
+                }
+                _ => Some("Redo: complex actions not yet supported".to_string()),
+            }
+        } else {
+            None
+        }
+    }
+
+    fn can_undo(&self) -> bool {
+        self.edit_history.can_undo()
+    }
+
+    fn can_redo(&self) -> bool {
+        self.edit_history.can_redo()
+    }
+}
+
+impl<R: EditableRecord + Extractor> UndoRedo for GenericEditorState<R> {
+    fn undo(&mut self) -> Option<String> {
+        GenericEditorState::undo(self)
+    }
+
+    fn redo(&mut self) -> Option<String> {
+        GenericEditorState::redo(self)
+    }
+
+    fn can_undo(&self) -> bool {
+        self.edit_history.can_undo()
+    }
+
+    fn can_redo(&self) -> bool {
+        self.edit_history.can_redo()
+    }
+}
+
+impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     pub fn save(&self, game_path: &str, db_path: &str) -> Result<(), String> {
         let path = std::path::PathBuf::from(game_path).join(db_path);
         if let Some(catalog) = &self.catalog {
@@ -207,6 +335,22 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
                 }
             }
         }
+    }
+
+    pub fn undo(&mut self) -> Option<String> {
+        self.editor.undo()
+    }
+
+    pub fn redo(&mut self) -> Option<String> {
+        self.editor.redo()
+    }
+
+    pub fn can_undo(&self) -> bool {
+        self.editor.can_undo()
+    }
+
+    pub fn can_redo(&self) -> bool {
+        self.editor.can_redo()
     }
 
     /// Save the current file's catalog back to disk, creating a timestamped .bak backup first.

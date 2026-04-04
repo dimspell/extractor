@@ -1,3 +1,5 @@
+use crate::edit_history::EditHistory;
+use crate::generic_editor::UndoRedo;
 use dispel_core::Dialog;
 use dispel_core::Extractor;
 use std::path::PathBuf;
@@ -20,6 +22,33 @@ pub struct DialogEditorState {
 
     pub status_msg: String,
     pub is_loading: bool,
+    pub edit_history: EditHistory,
+}
+
+impl UndoRedo for DialogEditorState {
+    fn undo(&mut self) -> Option<String> {
+        if let Some(action) = self.edit_history.undo() {
+            Some(format!("Undid: {:?}", action))
+        } else {
+            None
+        }
+    }
+
+    fn redo(&mut self) -> Option<String> {
+        if let Some(action) = self.edit_history.redo() {
+            Some(format!("Redid: {:?}", action))
+        } else {
+            None
+        }
+    }
+
+    fn can_undo(&self) -> bool {
+        self.edit_history.can_undo()
+    }
+
+    fn can_redo(&self) -> bool {
+        self.edit_history.can_redo()
+    }
 }
 
 impl DialogEditorState {
