@@ -10,7 +10,7 @@ CREATE TABLE monster_refs
     padding2        INTEGER,
     padding3        INTEGER,
     padding4        INTEGER,
-    padding5        INTEGER,
+    event_id        INTEGER,
     loot1_item_id   INTEGER,
     loot1_item_type INTEGER,
     padding6        INTEGER,

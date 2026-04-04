@@ -18,69 +18,100 @@ use serde::{Deserialize, Serialize};
 // +--------------------------------------+
 // | Encoding: Binary (Little-Endian)     |
 // | Header: 4-byte record count          |
-// | Record Size: 56 bytes (14 × i32)      |
+// | Record Size: 56 bytes                |
 // +--------------------------------------+
-// | [Header]                            |
+// | [Header]                             |
 // | - record_count: i32                  |
 // +--------------------------------------+
-// | [Record 1]                           |
+// | [Record]                             |
 // | - file_id: i32                       |
 // | - mon_id: i32 (monster type ID)      |
 // | - pos_x: i32 (tile X coordinate)     |
 // | - pos_y: i32 (tile Y coordinate)     |
-// | - padding: 5 × i32                   |
-// | - loot1_item_id: u8                   |
+// | - padding1: i32 (flag: 0 or 1)       |
+// | - padding2: i32 (flag: 0 or 1)       |
+// | - padding3: i32 (flag: always 0)     |
+// | - padding4: i32 (flag: -1/0/1)       |
+// | - event_id: i32 (Event.ini link)     |
+// | - loot1_item_id: u8                  |
 // | - loot1_item_type: u8                |
-// | - padding: 2 × u8                    |
-// | - loot2_item_id: u8                   |
+// | - padding6: u8 (0 or 255)            |
+// | - padding7: u8 (0 or 255)            |
+// | - loot2_item_id: u8                  |
 // | - loot2_item_type: u8                |
-// | - padding: 2 × u8                    |
-// | - loot3_item_id: u8                   |
+// | - padding8: u8 (0 or 255)            |
+// | - padding9: u8 (0 or 255)            |
+// | - loot3_item_id: u8                  |
 // | - loot3_item_type: u8                |
-// | - padding: 2 × u8                    |
-// | - padding: 2 × i32                   |
-// +--------------------------------------+
-// | [Record 2]                           |
-// | ... (same structure) ...             |
+// | - padding10: u8 (0 or 255)           |
+// | - padding11: u8 (0 or 255)           |
+// | - padding12: i32 (flag: -1/0/1)      |
+// | - padding13: i32 (flag: 0 or 1)      |
 // +--------------------------------------+
 //
 // MONSTER TYPE IDS:
 // - Links to Monster.db entries
 //
+// EVENT IDS:
+// - Links to Event.ini entries
+//
 // FILE PURPOSE:
 // Defines monster placements on specific maps with
-// exact coordinates and loot drop configurations.
-// Used for populating dungeons and areas with enemies
-// and their associated rewards.
+// exact coordinates, event triggers, and loot drop
+// configurations. Used for populating dungeons and
+// areas with enemies and their associated rewards.
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MonsterRef {
-    /// Record index relative to the Mondun struct array.
+    /// Record index relative to the file (0-based).
     pub index: i32,
+    /// File identifier / record number.
     pub file_id: i32,
+    /// ID of the monster type from Monster.db.
     pub mon_id: i32,
+    /// Position on the map (tile X coordinate).
     pub pos_x: i32,
+    /// Position on the map (tile Y coordinate).
     pub pos_y: i32,
+    /// Unknown flag (observed values: 0 or 1).
     pub padding1: i32,
+    /// Unknown flag (observed values: 0 or 1).
     pub padding2: i32,
+    /// Unknown flag (observed values: always 0).
     pub padding3: i32,
+    /// Unknown flag (observed values: -1, 0, or 1).
     pub padding4: i32,
-    pub padding5: i32,
+    /// Event trigger ID, links to Event.ini.
+    pub event_id: i32,
+    /// First loot drop item ID.
     pub loot1_item_id: u8,
+    /// First loot drop item type.
     pub loot1_item_type: ItemTypeId,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding6: u8,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding7: u8,
+    /// Second loot drop item ID.
     pub loot2_item_id: u8,
+    /// Second loot drop item type.
     pub loot2_item_type: ItemTypeId,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding8: u8,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding9: u8,
+    /// Third loot drop item ID.
     pub loot3_item_id: u8,
+    /// Third loot drop item type.
     pub loot3_item_type: ItemTypeId,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding10: u8,
+    /// Unknown byte (observed values: 0 or 255).
     pub padding11: u8,
+    /// Unknown flag (observed values: -1, 0, or 1).
     pub padding12: i32,
+    /// Unknown flag (observed values: 0 or 1).
     pub padding13: i32,
 }
 
@@ -156,7 +187,7 @@ impl Extractor for MonsterRef {
                 padding2,
                 padding3,
                 padding4,
-                padding5,
+                event_id: padding5,
                 loot1_item_id,
                 loot1_item_type,
                 padding6,
@@ -194,7 +225,7 @@ impl Extractor for MonsterRef {
             writer.write_i32::<LittleEndian>(record.padding2)?;
             writer.write_i32::<LittleEndian>(record.padding3)?;
             writer.write_i32::<LittleEndian>(record.padding4)?;
-            writer.write_i32::<LittleEndian>(record.padding5)?;
+            writer.write_i32::<LittleEndian>(record.event_id)?;
 
             writer.write_u8(record.loot1_item_id)?;
             writer.write_u8(u8::from(record.loot1_item_type))?;
@@ -242,7 +273,7 @@ pub fn save_monster_refs(
                 monster_ref.padding2,
                 monster_ref.padding3,
                 monster_ref.padding4,
-                monster_ref.padding5,
+                monster_ref.event_id,
                 monster_ref.loot1_item_id,
                 u8::from(monster_ref.loot1_item_type),
                 monster_ref.padding6,
