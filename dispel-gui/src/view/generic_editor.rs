@@ -6,7 +6,7 @@ use crate::utils::{
     horizontal_rule, horizontal_space, labeled_input, labeled_select, vertical_space,
 };
 use dispel_core::references::editable::{EditableRecord, FieldDescriptor, FieldKind};
-use iced::widget::{button, column, container, pick_list, row, scrollable, text};
+use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 use std::collections::HashMap;
 
@@ -109,7 +109,7 @@ fn build_editor_view_inner<'a, R: EditableRecord>(
     {
         let descriptors = R::field_descriptors();
         for (i, descriptor) in descriptors.iter().enumerate() {
-            let field_name = descriptor.name.to_string();
+            let _field_name = descriptor.name.to_string();
             let value = editor.edit_buffers.get(i).map(|s| s.as_str()).unwrap_or("");
             detail_content = detail_content.push(build_field_input(
                 descriptor,

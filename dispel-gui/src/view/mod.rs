@@ -168,7 +168,7 @@ impl App {
             .into()
     }
 
-    fn view_tab_content(&self) -> Element<'_, Message> {
+    pub fn view_tab_content(&self) -> Element<'_, Message> {
         let inner = match self.state.active_tab {
             Tab::AllMapIniEditor => self.view_all_map_ini_editor_tab(),
             Tab::ChDataEditor => self.view_chdata_editor_tab(),

@@ -29,6 +29,7 @@ use crate::store_editor;
 use crate::types::{DbOp, MapOp, RefOp, Tab};
 use crate::wave_ini_editor;
 use crate::weapon_editor;
+use crate::workspace::Workspace;
 use std::collections::HashMap;
 
 /// Application state — all mutable data for the GUI.
@@ -105,6 +106,9 @@ pub struct AppState {
 
     /// Lookup data for dropdown fields: lookup_key -> Vec<(id, display_name)>
     pub lookups: HashMap<String, Vec<(String, String)>>,
+
+    /// Workspace for dynamic tab management.
+    pub workspace: Workspace,
 }
 
 impl Default for AppState {
@@ -145,7 +149,6 @@ impl Default for AppState {
             party_ref_editor: Box::default(),
             party_ini_editor: Box::default(),
             monster_ref_editor: Box::default(),
-            lookups: HashMap::new(),
             sprite_browser: Box::default(),
             all_map_ini_editor: Box::default(),
             dialog_editor: Box::default(),
@@ -162,6 +165,8 @@ impl Default for AppState {
             quest_scr_editor: Box::default(),
             wave_ini_editor: Box::default(),
             chdata_editor: Box::default(),
+            lookups: HashMap::new(),
+            workspace: Workspace::new(),
         }
     }
 }

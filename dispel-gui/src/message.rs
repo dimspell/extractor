@@ -1,6 +1,8 @@
 use crate::chest_editor;
 use crate::db;
+use crate::file_tree::FileTreeMessage;
 use crate::sprite_browser;
+use crate::tab_bar::TabBarMessage;
 use crate::types::{DbOp, MapOp, RefOp, Tab};
 use std::path::PathBuf;
 
@@ -350,4 +352,13 @@ pub enum Message {
     ChDataOpFieldChanged(String, String),
     ChDataOpSave,
     ChDataCatalogLoaded(Result<Vec<ChData>, String>),
+    // Workspace
+    Workspace(WorkspaceMessage),
+}
+
+#[derive(Debug, Clone)]
+pub enum WorkspaceMessage {
+    FileTree(FileTreeMessage),
+    TabBar(TabBarMessage),
+    ToggleWorkspaceMode,
 }

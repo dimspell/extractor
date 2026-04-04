@@ -1,23 +1,29 @@
 use crate::chest_editor::ItemCatalog;
 use crate::db;
 use crate::db_viewer_state::PAGE_SIZE;
-use crate::message::Message;
+use crate::file_tree::FileTree;
+use crate::message::{Message, WorkspaceMessage};
 use crate::sprite_browser::SpriteEntry;
 use crate::state::AppState;
-use crate::types::{DbOp, MapOp, RefOp, Tab};
-use crate::utils::{browse_file, browse_folder};
+    use crate::tab_bar::TabBarMessage;
+use crate::types::{MapOp, RefOp, Tab};
+use crate::utils::{browse_file, browse_folder, horizontal_rule, horizontal_space};
+use crate::style;
 use dispel_core::commands::{self, Command, CommandFactory};
 use dispel_core::{
     ChData, Dialog, DialogueText, DrawItem, EditItem, Event, EventItem, EventNpcRef, Extra,
     ExtraRef, Extractor, HealItem, MagicSpell, Map, MapIni, Message as ScrMessage, MiscItem,
-    Monster, MonsterIni, MonsterRef, NpcIni, PartyIniNpc, PartyLevelNpc, PartyRef, Quest, Store, WaveIni,
+    Monster, MonsterIni, NpcIni, PartyIniNpc, PartyLevelNpc, PartyRef, Quest, Store, WaveIni,
     WeaponItem, NPC,
 };
-use iced::{Element, Task};
+use iced::widget::{button, column, container, row, text};
+use iced::{Element, Fill, Task};
 use std::path::{Path, PathBuf};
 
 pub struct App {
     pub state: AppState,
+    pub file_tree: FileTree,
+    pub workspace_mode: bool,
 }
 
 impl App {
@@ -25,9 +31,126 @@ impl App {
         (
             Self {
                 state: AppState::default(),
+                file_tree: FileTree::default(),
+                workspace_mode: false,
             },
             Task::none(),
         )
+    }
+
+    pub fn update_workspace(&mut self, msg: WorkspaceMessage) -> Task<Message> {
+        match msg {
+            WorkspaceMessage::FileTree(ft_msg) => self.handle_file_tree(ft_msg),
+            WorkspaceMessage::TabBar(tb_msg) => self.handle_tab_bar(tb_msg),
+            WorkspaceMessage::ToggleWorkspaceMode => {
+                self.workspace_mode = !self.workspace_mode;
+                Task::none()
+            }
+        }
+    }
+
+    fn handle_file_tree(&mut self, msg: crate::file_tree::FileTreeMessage) -> Task<Message> {
+        use crate::file_tree::FileTreeMessage as FTM;
+        match msg {
+            FTM::ToggleDir(path) => {
+                self.file_tree.toggle(&path);
+                Task::none()
+            }
+            FTM::OpenFile(path) => self.open_file_in_workspace(&path),
+            FTM::Search(query) => {
+                self.file_tree.search_query = query;
+                Task::none()
+            }
+        }
+    }
+
+    fn handle_tab_bar(&mut self, msg: TabBarMessage) -> Task<Message> {
+        match msg {
+            TabBarMessage::SelectTab(idx) => {
+                self.state.workspace.active_tab = Some(idx);
+                Task::none()
+            }
+            TabBarMessage::CloseTab(idx) => {
+                self.state.workspace.close(idx);
+                Task::none()
+            }
+            TabBarMessage::TogglePin(idx) => {
+                if let Some(tab) = self.state.workspace.tabs.get_mut(idx) {
+                    tab.pinned = !tab.pinned;
+                }
+                Task::none()
+            }
+        }
+    }
+
+    fn open_file_in_workspace(&mut self, path: &Path) -> Task<Message> {
+        let label = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        self.state.workspace.open(label, Some(path.to_path_buf()));
+
+        // Auto-load the file based on extension
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let stem = path.file_stem().map(|s| s.to_string_lossy().to_lowercase()).unwrap_or_default();
+            match ext {
+                "db" => match stem.as_str() {
+                    "weaponitem" => self.load_editor_auto("weapons", path),
+                    "monster" => self.load_editor_auto("monsters", path),
+                    "healitem" => self.load_editor_auto("heal_items", path),
+                    "miscitem" => self.load_editor_auto("misc_items", path),
+                    "edititem" => self.load_editor_auto("edit_items", path),
+                    "eventitem" => self.load_editor_auto("event_items", path),
+                    "store" => self.load_editor_auto("stores", path),
+                    "magic" => self.load_editor_auto("magic", path),
+                    "chdata" => self.load_editor_auto("chdata", path),
+                    "prtlevel" => self.load_editor_auto("party_levels", path),
+                    "prtini" => self.load_editor_auto("party_ini", path),
+                    _ => {}
+                },
+                "ini" => match stem.as_str() {
+                    "allmap" => self.load_editor_auto("all_maps", path),
+                    "map" => self.load_editor_auto("map_ini", path),
+                    "extra" => self.load_editor_auto("extra_ini", path),
+                    "event" => self.load_editor_auto("event_ini", path),
+                    "monster" => self.load_editor_auto("monster_ini", path),
+                    "npc" => self.load_editor_auto("npc_ini", path),
+                    "wave" => self.load_editor_auto("wave_ini", path),
+                    _ => {}
+                },
+                "ref" => match stem.as_str() {
+                    "partyref" => self.load_editor_auto("party_ref", path),
+                    "drawitem" => self.load_editor_auto("draw_items", path),
+                    "eventnpc" => self.load_editor_auto("event_npc_ref", path),
+                    _ => {
+                        if stem.starts_with("npc") {
+                            self.load_editor_auto("npc_ref", path);
+                        } else if stem.starts_with("mon") {
+                            self.load_editor_auto("monster_ref", path);
+                        } else if stem.starts_with("ext") {
+                            self.load_editor_auto("extra_ref", path);
+                        }
+                    }
+                },
+                "scr" => match stem.as_str() {
+                    "quest" => self.load_editor_auto("quests", path),
+                    "message" => self.load_editor_auto("messages", path),
+                    _ => {}
+                },
+                "dlg" => self.load_editor_auto("dialogs", path),
+                "pgp" => self.load_editor_auto("dialogue_texts", path),
+                _ => {}
+            }
+        }
+
+        Task::none()
+    }
+
+    fn load_editor_auto(&mut self, _type_name: &str, _path: &Path) {
+        // For now, just open the tab. Loading will happen when the user
+        // navigates to the appropriate editor tab.
+        // TODO: Auto-load the file into the appropriate editor state.
     }
 
     pub fn refresh_chests(&mut self) {
@@ -2599,13 +2722,11 @@ impl App {
                 self.state.chdata_editor.is_loading = false;
                 match res {
                     Ok(catalog) => {
-                        self.state.chdata_editor.catalog = Some(catalog);
+                        self.state.chdata_editor.catalog = Some(catalog.clone());
+                        self.state.chdata_editor.status_msg = format!("Loaded {} ChData records.", catalog.len());
                         self.state.chdata_editor.select_data();
-                        self.state.chdata_editor.status_msg = "ChData loaded successfully.".into();
                     }
-                    Err(e) => {
-                        self.state.chdata_editor.status_msg = format!("Error loading ChData: {}", e)
-                    }
+                    Err(e) => self.state.chdata_editor.status_msg = format!("Error loading ChData: {}", e),
                 }
                 Task::none()
             }
@@ -2627,6 +2748,9 @@ impl App {
                 }
                 Task::none()
             }
+
+            // ─── Workspace messages ──────────────────────────────
+            Message::Workspace(ws_msg) => self.update_workspace(ws_msg),
         }
     }
 
@@ -2867,5 +2991,65 @@ impl App {
 }
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    app.view()
+    if app.workspace_mode {
+        view_workspace(app)
+    } else {
+        app.view()
+    }
+}
+
+fn view_workspace(app: &App) -> Element<'_, Message> {
+    use crate::message::WorkspaceMessage;
+    use crate::tab_bar::view_tab_bar;
+
+    let sidebar = container(
+        column![
+            row![
+                text("Explorer").size(14),
+                horizontal_space(),
+                button(text("Legacy").size(11))
+                    .on_press(Message::Workspace(WorkspaceMessage::ToggleWorkspaceMode))
+                    .style(style::chip),
+            ]
+            .padding([8, 12]),
+            horizontal_rule(1),
+            app.file_tree.view().map(|m| Message::Workspace(WorkspaceMessage::FileTree(m))),
+        ]
+        .spacing(0)
+        .height(Fill),
+    )
+    .width(220)
+    .style(style::sidebar_container);
+
+    let tab_bar = view_tab_bar(&app.state.workspace)
+        .map(|m| Message::Workspace(WorkspaceMessage::TabBar(m)));
+
+    let content = match app.state.workspace.active() {
+        Some(_tab) => app.view_tab_content(),
+        None => container(
+            column![
+                text("Open a file from the explorer").size(16),
+                text("or set a game path to browse").size(12).style(style::subtle_text),
+            ]
+            .spacing(8),
+        )
+        .width(Fill)
+        .height(Fill)
+        .align_x(iced::alignment::Horizontal::Center)
+        .align_y(iced::alignment::Vertical::Center)
+        .into(),
+    };
+
+    let main = column![
+        tab_bar,
+        horizontal_rule(1),
+        content,
+    ].spacing(0).height(Fill);
+
+    let layout = row![sidebar, main].height(Fill).width(Fill);
+    container(layout)
+        .width(Fill)
+        .height(Fill)
+        .style(style::root_container)
+        .into()
 }

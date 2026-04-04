@@ -16,6 +16,7 @@ pub mod event_item_editor;
 pub mod event_npc_ref_editor;
 pub mod extra_ini_editor;
 pub mod extra_ref_editor;
+pub mod file_tree;
 pub mod generic_editor;
 pub mod heal_item_editor;
 pub mod magic_editor;
@@ -35,11 +36,13 @@ pub mod sprite_browser;
 pub mod state;
 pub mod store_editor;
 pub mod style;
+pub mod tab_bar;
 pub mod types;
 pub mod utils;
 pub mod view;
 pub mod wave_ini_editor;
 pub mod weapon_editor;
+pub mod workspace;
 
 use crate::app::App;
 
