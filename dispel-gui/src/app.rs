@@ -372,6 +372,7 @@ impl App {
                         "workspace_game_path" => {
                             let pathbuf = PathBuf::from(&s);
                             self.state.workspace.game_path = Some(pathbuf.clone());
+                            self.state.shared_game_path = s.clone();
                             self.file_tree = FileTree::scan(&pathbuf);
                             self.save_workspace();
                         }
