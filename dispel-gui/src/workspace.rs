@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io;
 
 /// A workspace tab that can hold any editor or view.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,9 +18,8 @@ pub struct WorkspaceTab {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Workspace {
     pub tabs: Vec<WorkspaceTab>,
-    pub active_tab: Option<usize>, // index into tabs
-    #[serde(skip)]
-    next_id: usize,
+    pub active_tab: Option<usize>,
+    pub next_id: usize,
 }
 
 impl Workspace {
@@ -30,9 +31,22 @@ impl Workspace {
         }
     }
 
-    /// Open a new tab, or focus the existing one if already open.
+    pub fn save(&self, path: &PathBuf) -> io::Result<()> {
+        let json = serde_json::to_string_pretty(self)?;
+        fs::write(path, json)?;
+        Ok(())
+    }
+
+    pub fn load(path: &PathBuf) -> io::Result<Self> {
+        if !path.exists() {
+            return Ok(Self::new());
+        }
+        let json = fs::read_to_string(path)?;
+        let workspace: Workspace = serde_json::from_str(&json)?;
+        Ok(workspace)
+    }
+
     pub fn open(&mut self, label: String, path: Option<PathBuf>) -> usize {
-        // Check if already open
         if let Some(idx) = self.tabs.iter().position(|t| t.path == path) {
             self.active_tab = Some(idx);
             return idx;
@@ -51,7 +65,6 @@ impl Workspace {
         idx
     }
 
-    /// Close a tab by index.
     pub fn close(&mut self, idx: usize) {
         if idx >= self.tabs.len() {
             return;
@@ -71,17 +84,14 @@ impl Workspace {
         }
     }
 
-    /// Get the currently active tab.
     pub fn active(&self) -> Option<&WorkspaceTab> {
         self.active_tab.and_then(|idx| self.tabs.get(idx))
     }
 
-    /// Get the currently active tab index.
     pub fn active_index(&self) -> Option<usize> {
         self.active_tab
     }
 
-    /// Mark the active tab as modified.
     pub fn mark_modified(&mut self) {
         if let Some(idx) = self.active_tab {
             if let Some(tab) = self.tabs.get_mut(idx) {
@@ -90,7 +100,6 @@ impl Workspace {
         }
     }
 
-    /// Clear the modified flag on the active tab.
     pub fn clear_modified(&mut self) {
         if let Some(idx) = self.active_tab {
             if let Some(tab) = self.tabs.get_mut(idx) {

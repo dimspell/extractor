@@ -30,7 +30,10 @@ use crate::types::{DbOp, MapOp, RefOp, Tab};
 use crate::wave_ini_editor;
 use crate::weapon_editor;
 use crate::workspace::Workspace;
+use dirs;
 use std::collections::HashMap;
+use std::io;
+use std::path::PathBuf;
 
 /// Application state — all mutable data for the GUI.
 ///
@@ -109,6 +112,26 @@ pub struct AppState {
 
     /// Workspace for dynamic tab management.
     pub workspace: Workspace,
+}
+
+impl AppState {
+    /// Save workspace state to disk
+    pub fn save_workspace(&self) -> io::Result<()> {
+        self.workspace.save(&Self::workspace_path())
+    }
+
+    /// Load workspace state from disk
+    pub fn load_workspace(&mut self) -> io::Result<()> {
+        self.workspace = Workspace::load(&Self::workspace_path()).unwrap_or_default();
+        Ok(())
+    }
+
+    fn workspace_path() -> PathBuf {
+        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        path.push("dispel-gui");
+        path.push("workspace.json");
+        path
+    }
 }
 
 impl Default for AppState {
