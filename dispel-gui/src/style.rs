@@ -448,3 +448,27 @@ pub fn selected_button(_theme: &Theme, _status: button::Status) -> button::Style
         snap: false,
     }
 }
+
+pub fn selected_row(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x8b5a2b, 0.15))),
+        border: Border {
+            color: color!(0xdaa520, 0.3),
+            width: 1.0,
+            radius: 2.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn normal_row(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        border: Border {
+            color: color!(0x3d2b1f, 0.3),
+            width: 1.0,
+            radius: 2.into(),
+        },
+        ..Default::default()
+    }
+}

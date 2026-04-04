@@ -28,6 +28,7 @@ use crate::quest_scr_editor;
 use crate::sprite_browser;
 use crate::store_editor;
 use crate::types::{DbOp, MapOp, RefOp, Tab};
+use crate::view::editor::SpreadsheetState;
 use crate::wave_ini_editor;
 use crate::weapon_editor;
 use crate::workspace::Workspace;
@@ -119,6 +120,11 @@ pub struct AppState {
 
     /// Global search across all catalogs.
     pub global_search: GlobalSearch,
+
+    /// Spreadsheet view states for demo editors
+    pub heal_item_spreadsheet: SpreadsheetState,
+    pub misc_item_spreadsheet: SpreadsheetState,
+    pub magic_spreadsheet: SpreadsheetState,
 }
 
 impl AppState {
@@ -199,6 +205,9 @@ impl Default for AppState {
             lookups: HashMap::new(),
             workspace: Workspace::new(),
             global_search: GlobalSearch::new(),
+            heal_item_spreadsheet: SpreadsheetState::new(),
+            misc_item_spreadsheet: SpreadsheetState::new(),
+            magic_spreadsheet: SpreadsheetState::new(),
         }
     }
 }

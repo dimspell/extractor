@@ -33,14 +33,6 @@ use serde::{Deserialize, Serialize};
 // - unknown: Flag (0 or 1)
 // - description: Object description or "null"
 //
-// OBJECT TYPES (by ID range):
-// - 1-100: Containers (chests, barrels)
-// - 101-200: Doors and gates
-// - 201-300: Switches and levers
-// - 301-400: Readable objects
-// - 401-500: Destructible objects
-// - 501-600: Teleporters and portals
-//
 // UNKNOWN FLAG MEANINGS:
 // - 0: Standard interactive object
 // - 1: Special/quest-related object

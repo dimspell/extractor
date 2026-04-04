@@ -373,6 +373,10 @@ pub enum Message {
     CheckDraftConflicts,
     ApplyDraft(String),
     DiscardDraft(String),
+    // Spreadsheet View (demo editors)
+    HealItemSpreadsheet(crate::view::editor::SpreadsheetMessage),
+    MiscItemSpreadsheet(crate::view::editor::SpreadsheetMessage),
+    MagicSpreadsheet(crate::view::editor::SpreadsheetMessage),
 }
 
 #[derive(Debug, Clone)]

@@ -3295,6 +3295,146 @@ impl App {
                 return Task::none();
             }
 
+            // ─── Spreadsheet View (Demo Editors) ────────────────────
+            Message::HealItemSpreadsheet(msg) => {
+                use crate::view::editor::{SpreadsheetMessage as SM, view_spreadsheet as _};
+                match msg {
+                    SM::SortColumn(col) => {
+                        self.state.heal_item_spreadsheet.toggle_sort(col);
+                        if let Some(catalog) = &self.state.heal_item_editor.catalog {
+                            self.state.heal_item_spreadsheet.apply_sort(catalog);
+                        }
+                    }
+                    SM::FilterChanged(query) => {
+                        self.state.heal_item_spreadsheet.filter_query = query;
+                        if let Some(catalog) = &self.state.heal_item_editor.catalog {
+                            self.state.heal_item_spreadsheet.apply_filter(catalog);
+                        }
+                    }
+                    SM::SelectRow(filtered_idx, modifiers) => {
+                        self.state.heal_item_spreadsheet.toggle_row_selection(filtered_idx, modifiers);
+                    }
+                    SM::StartEdit(filtered_idx, col) => {
+                        if let Some(catalog) = &self.state.heal_item_editor.catalog {
+                            self.state.heal_item_spreadsheet.start_editing(filtered_idx, col, catalog);
+                        }
+                    }
+                    SM::EditCellInput(v) => {
+                        self.state.heal_item_spreadsheet.edit_buffer = v;
+                    }
+                    SM::CommitEdit(orig_idx) => {
+                        if let Some(catalog) = &mut self.state.heal_item_editor.catalog {
+                            if let Some(msg) = self.state.heal_item_spreadsheet.commit_edit(
+                                catalog,
+                                Message::HealItemOpFieldChanged,
+                                orig_idx,
+                            ) {
+                                return self.update(msg);
+                            }
+                        }
+                    }
+                    SM::CancelEdit => {
+                        self.state.heal_item_spreadsheet.cancel_editing();
+                    }
+                    SM::ToggleInspector => {
+                        self.state.heal_item_spreadsheet.toggle_inspector();
+                    }
+                }
+                return Task::none();
+            }
+            Message::MiscItemSpreadsheet(msg) => {
+                use crate::view::editor::SpreadsheetMessage as SM;
+                match msg {
+                    SM::SortColumn(col) => {
+                        self.state.misc_item_spreadsheet.toggle_sort(col);
+                        if let Some(catalog) = &self.state.misc_item_editor.catalog {
+                            self.state.misc_item_spreadsheet.apply_sort(catalog);
+                        }
+                    }
+                    SM::FilterChanged(query) => {
+                        self.state.misc_item_spreadsheet.filter_query = query;
+                        if let Some(catalog) = &self.state.misc_item_editor.catalog {
+                            self.state.misc_item_spreadsheet.apply_filter(catalog);
+                        }
+                    }
+                    SM::SelectRow(filtered_idx, modifiers) => {
+                        self.state.misc_item_spreadsheet.toggle_row_selection(filtered_idx, modifiers);
+                    }
+                    SM::StartEdit(filtered_idx, col) => {
+                        if let Some(catalog) = &self.state.misc_item_editor.catalog {
+                            self.state.misc_item_spreadsheet.start_editing(filtered_idx, col, catalog);
+                        }
+                    }
+                    SM::EditCellInput(v) => {
+                        self.state.misc_item_spreadsheet.edit_buffer = v;
+                    }
+                    SM::CommitEdit(orig_idx) => {
+                        if let Some(catalog) = &mut self.state.misc_item_editor.catalog {
+                            if let Some(msg) = self.state.misc_item_spreadsheet.commit_edit(
+                                catalog,
+                                Message::MiscItemOpFieldChanged,
+                                orig_idx,
+                            ) {
+                                return self.update(msg);
+                            }
+                        }
+                    }
+                    SM::CancelEdit => {
+                        self.state.misc_item_spreadsheet.cancel_editing();
+                    }
+                    SM::ToggleInspector => {
+                        self.state.misc_item_spreadsheet.toggle_inspector();
+                    }
+                }
+                return Task::none();
+            }
+            Message::MagicSpreadsheet(msg) => {
+                use crate::view::editor::SpreadsheetMessage as SM;
+                match msg {
+                    SM::SortColumn(col) => {
+                        self.state.magic_spreadsheet.toggle_sort(col);
+                        if let Some(catalog) = &self.state.magic_editor.catalog {
+                            self.state.magic_spreadsheet.apply_sort(catalog);
+                        }
+                    }
+                    SM::FilterChanged(query) => {
+                        self.state.magic_spreadsheet.filter_query = query;
+                        if let Some(catalog) = &self.state.magic_editor.catalog {
+                            self.state.magic_spreadsheet.apply_filter(catalog);
+                        }
+                    }
+                    SM::SelectRow(filtered_idx, modifiers) => {
+                        self.state.magic_spreadsheet.toggle_row_selection(filtered_idx, modifiers);
+                    }
+                    SM::StartEdit(filtered_idx, col) => {
+                        if let Some(catalog) = &self.state.magic_editor.catalog {
+                            self.state.magic_spreadsheet.start_editing(filtered_idx, col, catalog);
+                        }
+                    }
+                    SM::EditCellInput(v) => {
+                        self.state.magic_spreadsheet.edit_buffer = v;
+                    }
+                    SM::CommitEdit(orig_idx) => {
+                        if let Some(catalog) = &mut self.state.magic_editor.catalog {
+                            if let Some(msg) = self.state.magic_spreadsheet.commit_edit(
+                                catalog,
+                                Message::MagicOpFieldChanged,
+                                orig_idx,
+                            ) {
+                                return self.update(msg);
+                            }
+                        }
+                    }
+                    SM::CancelEdit => {
+                        self.state.magic_spreadsheet.cancel_editing();
+                    }
+                    SM::ToggleInspector => {
+                        self.state.magic_spreadsheet.toggle_inspector();
+                    }
+                }
+                return Task::none();
+            }
+
             // ─── App close ────────────────────────────────────────
             Message::CloseRequested => {
                 use rfd::MessageDialog;
