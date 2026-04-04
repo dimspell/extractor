@@ -22,7 +22,6 @@ pub mod event_npc_ref_editor;
 pub mod extra_ini_editor;
 pub mod extra_ref_editor;
 pub mod generic_editor;
-pub mod global_search;
 pub mod heal_item_editor;
 pub mod history_panel;
 pub mod magic_editor;
@@ -124,8 +123,8 @@ impl App {
             return column![backdrop, overlay].width(Fill).height(Fill).into();
         }
 
-        if self.global_search.is_visible {
-            let search_view = global_search::view(&self.global_search);
+        if self.state.global_search.is_visible {
+            let search_view = self.state.global_search.view();
 
             let backdrop = container(main_container)
                 .width(Fill)

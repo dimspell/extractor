@@ -1,9 +1,6 @@
-use crate::chest_editor::ItemCatalog;
-use crate::generic_editor::GenericEditorState;
 use crate::message::Message;
 use crate::state::AppState;
 use crate::style;
-use crate::types::Tab;
 use crate::utils::{horizontal_rule, horizontal_space};
 use dispel_core::references::editable::EditableRecord;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
@@ -14,7 +11,6 @@ pub struct SearchResult {
     pub catalog_type: String,
     pub record_idx: usize,
     pub display_text: String,
-    pub field_matches: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -43,7 +39,7 @@ impl GlobalSearch {
         }
     }
 
-    pub fn search(&mut self, state: &AppState, catalog: &Option<ItemCatalog>) {
+    pub fn search(&mut self, state: &AppState) {
         self.results.clear();
         self.selected_index = 0;
 
@@ -53,105 +49,172 @@ impl GlobalSearch {
 
         let query_lower = self.query.to_lowercase();
 
-        if let Some(cat) = catalog {
-            for (idx, item) in cat.weapons.iter().enumerate() {
-                if matches_search(&item.list_label(), &query_lower) {
-                    self.results.push(SearchResult {
-                        catalog_type: "Weapon".to_string(),
-                        record_idx: idx,
-                        display_text: format!("[Weapon] {}", item.list_label()),
-                        field_matches: vec![],
-                    });
-                }
-            }
-            for (idx, item) in cat.healing.iter().enumerate() {
-                if matches_search(&item.list_label(), &query_lower) {
-                    self.results.push(SearchResult {
-                        catalog_type: "HealItem".to_string(),
-                        record_idx: idx,
-                        display_text: format!("[Heal] {}", item.list_label()),
-                        field_matches: vec![],
-                    });
-                }
-            }
-            for (idx, item) in cat.misc.iter().enumerate() {
-                if matches_search(&item.list_label(), &query_lower) {
-                    self.results.push(SearchResult {
-                        catalog_type: "MiscItem".to_string(),
-                        record_idx: idx,
-                        display_text: format!("[Misc] {}", item.list_label()),
-                        field_matches: vec![],
-                    });
-                }
-            }
-            for (idx, item) in cat.edit.iter().enumerate() {
-                if matches_search(&item.list_label(), &query_lower) {
-                    self.results.push(SearchResult {
-                        catalog_type: "EditItem".to_string(),
-                        record_idx: idx,
-                        display_text: format!("[Edit] {}", item.list_label()),
-                        field_matches: vec![],
-                    });
-                }
-            }
-            for (idx, item) in cat.event.iter().enumerate() {
-                if matches_search(&item.list_label(), &query_lower) {
-                    self.results.push(SearchResult {
-                        catalog_type: "EventItem".to_string(),
-                        record_idx: idx,
-                        display_text: format!("[Event] {}", item.list_label()),
-                        field_matches: vec![],
-                    });
-                }
-            }
+        if let Some(cat) = &state.chest_editor.catalog {
+            search_catalog(&mut self.results, &cat.weapons, "Weapon", &query_lower);
+            search_catalog(&mut self.results, &cat.healing, "HealItem", &query_lower);
+            search_catalog(&mut self.results, &cat.misc, "MiscItem", &query_lower);
+            search_catalog(&mut self.results, &cat.edit, "EditItem", &query_lower);
+            search_catalog(&mut self.results, &cat.event, "EventItem", &query_lower);
         }
 
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.monster_editor,
-            "Monster",
+            &state.weapon_editor.catalog,
+            "Weapon",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.npc_ini_editor,
-            "NpcIni",
+            &state.heal_item_editor.catalog,
+            "HealItem",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.magic_editor,
+            &state.misc_item_editor.catalog,
+            "MiscItem",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.edit_item_editor.catalog,
+            "EditItem",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.event_item_editor.catalog,
+            "EventItem",
+            &query_lower,
+        );
+        search_monster_catalog(
+            &mut self.results,
+            &state.monster_editor.catalog,
+            &query_lower,
+        );
+        search_npc_ini_catalog(
+            &mut self.results,
+            &state.npc_ini_editor.catalog,
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.magic_editor.catalog,
             "MagicSpell",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.dialog_editor,
+            &state.dialog_editor.catalog,
             "Dialog",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.dialogue_text_editor,
+            &state.dialogue_text_editor.catalog,
             "DialogueText",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.store_editor,
+            &state.store_editor.catalog,
             "Store",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.party_ref_editor,
+            &state.party_ref_editor.catalog,
             "PartyRef",
             &query_lower,
         );
-        search_generic_editor(
+        search_editor_catalog(
             &mut self.results,
-            &state.party_ini_editor,
+            &state.party_ini_editor.catalog,
             "PartyIni",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.draw_item_editor.catalog,
+            "DrawItem",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.event_ini_editor.catalog,
+            "Event",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.event_npc_ref_editor.catalog,
+            "EventNpcRef",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.extra_ini_editor.catalog,
+            "Extra",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.extra_ref_editor.catalog,
+            "ExtraRef",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.map_ini_editor.catalog,
+            "MapIni",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.message_scr_editor.catalog,
+            "Message",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.npc_ref_editor.editor.catalog,
+            "NpcRef",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.party_level_db_editor.catalog,
+            "PartyLevel",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.quest_scr_editor.catalog,
+            "Quest",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.wave_ini_editor.catalog,
+            "WaveIni",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.chdata_editor.catalog,
+            "ChData",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.all_map_ini_editor.catalog,
+            "Map",
+            &query_lower,
+        );
+        search_editor_catalog(
+            &mut self.results,
+            &state.monster_ref_editor.editor.catalog,
+            "MonsterRef",
             &query_lower,
         );
     }
@@ -236,26 +299,69 @@ fn matches_search(label: &str, query: &str) -> bool {
     label.to_lowercase().contains(query)
 }
 
-fn search_generic_editor<R: EditableRecord>(
+fn search_catalog<R: EditableRecord>(
     results: &mut Vec<SearchResult>,
-    editor: &GenericEditorState<R>,
+    catalog: &[R],
     type_name: &str,
     query: &str,
 ) {
-    if let Some(catalog) = &editor.catalog {
-        for (idx, record) in catalog.iter().enumerate() {
-            if matches_search(&record.list_label(), query) {
+    for (idx, record) in catalog.iter().enumerate() {
+        let label = record.list_label();
+        if matches_search(&label, query) {
+            results.push(SearchResult {
+                catalog_type: type_name.to_string(),
+                record_idx: idx,
+                display_text: format!("[{}] {}", type_name, label),
+            });
+        }
+    }
+}
+
+fn search_editor_catalog<R: EditableRecord>(
+    results: &mut Vec<SearchResult>,
+    catalog: &Option<Vec<R>>,
+    type_name: &str,
+    query: &str,
+) {
+    if let Some(cat) = catalog {
+        search_catalog(results, cat, type_name, query);
+    }
+}
+
+fn search_npc_ini_catalog(
+    results: &mut Vec<SearchResult>,
+    catalog: &Option<Vec<dispel_core::NpcIni>>,
+    query: &str,
+) {
+    if let Some(cat) = catalog {
+        for (idx, npc) in cat.iter().enumerate() {
+            let label = format!("#{} {}", npc.id, npc.description);
+            if matches_search(&label, query) {
                 results.push(SearchResult {
-                    catalog_type: type_name.to_string(),
+                    catalog_type: "NpcIni".to_string(),
                     record_idx: idx,
-                    display_text: format!("[{}] {}", type_name, record.list_label()),
-                    field_matches: vec![],
+                    display_text: format!("[NpcIni] {}", label),
                 });
             }
         }
     }
 }
 
-pub fn view(search: &GlobalSearch) -> Element<'_, Message> {
-    search.view()
+fn search_monster_catalog(
+    results: &mut Vec<SearchResult>,
+    catalog: &Option<Vec<dispel_core::Monster>>,
+    query: &str,
+) {
+    if let Some(cat) = catalog {
+        for (idx, monster) in cat.iter().enumerate() {
+            let label = format!("#{} {}", monster.id, monster.name);
+            if matches_search(&label, query) {
+                results.push(SearchResult {
+                    catalog_type: "Monster".to_string(),
+                    record_idx: idx,
+                    display_text: format!("[Monster] {}", label),
+                });
+            }
+        }
+    }
 }

@@ -3,6 +3,7 @@ use iced::Theme;
 
 pub mod all_map_ini_editor;
 pub mod app;
+pub mod auto_save;
 pub mod chdata_editor;
 pub mod chest_editor;
 pub mod command_palette;
@@ -20,6 +21,7 @@ pub mod extra_ini_editor;
 pub mod extra_ref_editor;
 pub mod file_tree;
 pub mod generic_editor;
+pub mod global_search;
 pub mod heal_item_editor;
 pub mod magic_editor;
 pub mod map_ini_editor;

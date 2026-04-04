@@ -33,6 +33,7 @@ pub struct App {
     pub empty_edit_history: EditHistory,
     pub command_palette: Option<CommandPalette>,
     pub global_search: crate::global_search::GlobalSearch,
+    pub draft_manager: crate::auto_save::DraftManager,
 }
 
 impl App {
@@ -57,6 +58,7 @@ impl App {
                 empty_edit_history: EditHistory::default(),
                 command_palette: None,
                 global_search: crate::global_search::GlobalSearch::new(),
+                draft_manager: crate::auto_save::DraftManager::new(),
             },
             Task::none(),
         )
@@ -3221,7 +3223,7 @@ impl App {
             }
             Message::GlobalSearchInput(input) => {
                 self.global_search.query = input;
-                self.global_search.search(&self.state, &self.state.chest_editor.catalog);
+                self.global_search.search(&self.state);
                 return Task::none();
             }
             Message::GlobalSearchSelect(idx) => {
