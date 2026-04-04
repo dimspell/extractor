@@ -308,12 +308,16 @@ Message.scr (UI messages)
 | Store.db | products (type=2) | HealItem.db | id | Healing items |
 | Store.db | products (type=3) | MiscItem.db | id | Misc items |
 | Store.db | products (type=4) | EditItem.db | id | Modifiable items |
-| Extra.ref | item_type_id=0,1 | WeaponItem.db | id | Weapons/Armor |
+| Extra.ref | item_type_id=1 | WeaponItem.db | id | Weapons/Armor |
 | Extra.ref | item_type_id=2 | HealItem.db | id | Healing items |
-| Extra.ref | item_type_id=3 | MiscItem.db | id | Misc items |
-| Extra.ref | item_type_id=4 | EditItem.db | id | Modifiable items |
-| Extra.ref | item_type_id=5 | EventItem.db | id | Quest items |
-| MondunMonmap.ref | loot*_item_type | Item databases | id | Monster loot |
+| Extra.ref | item_type_id=3 | EditItem.db | id | Modifiable items |
+| Extra.ref | item_type_id=4 | EventItem.db | id | Quest items |
+| Extra.ref | item_type_id=5 | MiscItem.db | id | Misc items |
+| MondunMonmap.ref | loot*_item_type=1 | WeaponItem.db | id | Weapon loot |
+| MondunMonmap.ref | loot*_item_type=2 | HealItem.db | id | Healing loot |
+| MondunMonmap.ref | loot*_item_type=3 | EditItem.db | id | Editable loot |
+| MondunMonmap.ref | loot*_item_type=4 | EventItem.db | id | Event loot |
+| MondunMonmap.ref | loot*_item_type=5 | MiscItem.db | id | Misc loot |
 | Wave.ini | snf_filename | .snf files | filename | Audio |
 
 ## Data Flow Summary
@@ -331,42 +335,41 @@ Message.scr (UI messages)
 
 ## Item Database Relationships
 
-### Item Type Enum (used in Extra.ref and Store.db)
+### Item Type Enum (ItemTypeId)
 ```
-0: Weapon → WeaponItem.db
-1: Armor → WeaponItem.db
-2: Heal → HealItem.db
-3: Misc → MiscItem.db
-4: Edit → EditItem.db
-5: Event → EventItem.db
-6: Extra → Extra item type
+1: Weapon → WeaponItem.db
+2: Healing → HealItem.db
+3: Edit → EditItem.db
+4: Event → EventItem.db
+5: Misc → MiscItem.db
+255: Other → catch-all
 ```
 
 ### Item Database Cross-References
 ```
 WeaponItem.db (weapons/armor)
     ├── Referenced by Store.db products (type=0,1)
-    ├── Referenced by Extra.ref contents (item_type_id=0,1)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    ├── Referenced by Extra.ref contents (item_type_id=1)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=1)
 
 HealItem.db (consumable healing)
     ├── Referenced by Store.db products (type=2)
     ├── Referenced by Extra.ref contents (item_type_id=2)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
-
-MiscItem.db (generic utility items)
-    ├── Referenced by Store.db products (type=3)
-    ├── Referenced by Extra.ref contents (item_type_id=3)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=2)
 
 EditItem.db (modifiable equipment)
     ├── Referenced by Store.db products (type=4)
-    ├── Referenced by Extra.ref contents (item_type_id=4)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    ├── Referenced by Extra.ref contents (item_type_id=3)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=3)
 
 EventItem.db (quest items)
-    ├── Referenced by Extra.ref contents (item_type_id=5)
+    ├── Referenced by Extra.ref contents (item_type_id=4)
     └── Quest progression tracking
+
+MiscItem.db (generic utility items)
+    ├── Referenced by Store.db products (type=3)
+    ├── Referenced by Extra.ref contents (item_type_id=5)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=5)
 ```
 
 ## File Encoding Summary

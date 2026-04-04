@@ -617,7 +617,7 @@ impl std::fmt::Display for VisibilityType {
 }
 
 /// Item type identifiers for inventory and requirements
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum ItemTypeId {
     /// Weapon item type
@@ -626,11 +626,12 @@ pub enum ItemTypeId {
     Healing = 2,
     /// Edit item type
     Edit = 3,
-    /// Miscellaneous item type
-    Misc = 4,
     /// Event item type
-    Event = 5,
+    Event = 4,
+    /// Miscellaneous item type
+    Misc = 5,
     /// Other/Unknown item type (catch-all for undefined values)
+    #[default]
     Other = 255,
 }
 
@@ -641,8 +642,8 @@ impl ItemTypeId {
             1 => Some(ItemTypeId::Weapon),
             2 => Some(ItemTypeId::Healing),
             3 => Some(ItemTypeId::Edit),
-            4 => Some(ItemTypeId::Misc),
-            5 => Some(ItemTypeId::Event),
+            4 => Some(ItemTypeId::Event),
+            5 => Some(ItemTypeId::Misc),
             _ => Some(ItemTypeId::Other),
         }
     }
@@ -653,8 +654,8 @@ impl ItemTypeId {
             "1" => Some(ItemTypeId::Weapon),
             "2" => Some(ItemTypeId::Healing),
             "3" => Some(ItemTypeId::Edit),
-            "4" => Some(ItemTypeId::Misc),
-            "5" => Some(ItemTypeId::Event),
+            "4" => Some(ItemTypeId::Event),
+            "5" => Some(ItemTypeId::Misc),
             "255" => Some(ItemTypeId::Other),
             _ => None,
         }
@@ -685,8 +686,8 @@ impl std::fmt::Display for ItemTypeId {
             ItemTypeId::Weapon => write!(f, "Weapon"),
             ItemTypeId::Healing => write!(f, "Healing"),
             ItemTypeId::Edit => write!(f, "Edit"),
-            ItemTypeId::Misc => write!(f, "Misc"),
             ItemTypeId::Event => write!(f, "Event"),
+            ItemTypeId::Misc => write!(f, "Misc"),
             ItemTypeId::Other => write!(f, "Other"),
         }
     }
@@ -1346,8 +1347,8 @@ mod tests {
         assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
         assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Healing));
         assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Edit));
-        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Misc));
-        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Misc));
         assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::Other));
 
         assert_eq!(u8::from(ItemTypeId::Edit), 3);

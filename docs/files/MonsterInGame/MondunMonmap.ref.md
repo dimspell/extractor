@@ -89,7 +89,7 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 
 **loot*_item_id**: Item IDs that the monster can drop when defeated.
 
-**loot*_item_type**: Item type from the ItemTypeId enum (Weapon=1, Armor, Healing=2, Misc=4, Edit=3, Event=5, Other=255).
+**loot*_item_type**: Item type from the ItemTypeId enum (Weapon=1, Healing=2, Edit=3, Event=4, Misc=5, Other=255).
 
 ## Usage in Game
 
@@ -114,11 +114,10 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 
 ### Item Types
 - `Weapon` (1): Weapons and combat items
-- `Armor` (1): Protective gear (shares type ID with Weapon)
 - `Healing` (2): Health restoration items
-- `Misc` (4): Various utility items
 - `Edit` (3): Modifiable equipment
-- `Event` (5): Quest-related objects
+- `Event` (4): Quest-related objects
+- `Misc` (5): Various utility items
 - `Other` (255): Undefined/catch-all
 
 ## File Purpose
