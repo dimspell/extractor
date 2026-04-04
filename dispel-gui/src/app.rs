@@ -542,7 +542,7 @@ impl App {
                         self.state.heal_item_editor.catalog = Some(catalog.clone());
                         self.state.heal_item_editor.status_msg =
                             format!("Heal item catalog loaded: {} items", catalog.len()).into();
-                        self.state.heal_item_editor.refresh_items();
+                        self.state.heal_item_editor.refresh();
                     }
                     Err(e) => {
                         self.state.heal_item_editor.status_msg =
@@ -552,7 +552,7 @@ impl App {
                 Task::none()
             }
             Message::HealItemOpSelectItem(idx) => {
-                self.state.heal_item_editor.select_item(idx);
+                self.state.heal_item_editor.select(idx);
                 Task::none()
             }
             Message::HealItemOpFieldChanged(idx, field, val) => {
@@ -565,7 +565,7 @@ impl App {
                     return Task::none();
                 }
                 self.state.heal_item_editor.is_loading = true;
-                let result = self.state.heal_item_editor.save_items(&self.state.shared_game_path);
+                let result = self.state.heal_item_editor.save(&self.state.shared_game_path, "CharacterInGame/HealItem.db");
                 self.state.heal_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -600,7 +600,7 @@ impl App {
                         self.state.misc_item_editor.catalog = Some(catalog.clone());
                         self.state.misc_item_editor.status_msg =
                             format!("Misc item catalog loaded: {} items", catalog.len()).into();
-                        self.state.misc_item_editor.refresh_items();
+                        self.state.misc_item_editor.refresh();
                     }
                     Err(e) => {
                         self.state.misc_item_editor.status_msg =
@@ -610,7 +610,7 @@ impl App {
                 Task::none()
             }
             Message::MiscItemOpSelectItem(idx) => {
-                self.state.misc_item_editor.select_item(idx);
+                self.state.misc_item_editor.select(idx);
                 Task::none()
             }
             Message::MiscItemOpFieldChanged(idx, field, val) => {
@@ -623,7 +623,7 @@ impl App {
                     return Task::none();
                 }
                 self.state.misc_item_editor.is_loading = true;
-                let result = self.state.misc_item_editor.save_items(&self.state.shared_game_path);
+                let result = self.state.misc_item_editor.save(&self.state.shared_game_path, "CharacterInGame/MiscItem.db");
                 self.state.misc_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -658,7 +658,7 @@ impl App {
                         self.state.edit_item_editor.catalog = Some(catalog.clone());
                         self.state.edit_item_editor.status_msg =
                             format!("Edit item catalog loaded: {} items", catalog.len()).into();
-                        self.state.edit_item_editor.refresh_items();
+                        self.state.edit_item_editor.refresh();
                     }
                     Err(e) => {
                         self.state.edit_item_editor.status_msg =
@@ -668,7 +668,7 @@ impl App {
                 Task::none()
             }
             Message::EditItemOpSelectItem(idx) => {
-                self.state.edit_item_editor.select_item(idx);
+                self.state.edit_item_editor.select(idx);
                 Task::none()
             }
             Message::EditItemOpFieldChanged(idx, field, val) => {
@@ -681,7 +681,7 @@ impl App {
                     return Task::none();
                 }
                 self.state.edit_item_editor.is_loading = true;
-                let result = self.state.edit_item_editor.save_items(&self.state.shared_game_path);
+                let result = self.state.edit_item_editor.save(&self.state.shared_game_path, "CharacterInGame/EditItem.db");
                 self.state.edit_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -716,7 +716,7 @@ impl App {
                         self.state.event_item_editor.catalog = Some(catalog.clone());
                         self.state.event_item_editor.status_msg =
                             format!("Event item catalog loaded: {} items", catalog.len()).into();
-                        self.state.event_item_editor.refresh_items();
+                        self.state.event_item_editor.refresh();
                     }
                     Err(e) => {
                         self.state.event_item_editor.status_msg =
@@ -726,7 +726,7 @@ impl App {
                 Task::none()
             }
             Message::EventItemOpSelectItem(idx) => {
-                self.state.event_item_editor.select_item(idx);
+                self.state.event_item_editor.select(idx);
                 Task::none()
             }
             Message::EventItemOpFieldChanged(idx, field, val) => {
@@ -739,7 +739,7 @@ impl App {
                     return Task::none();
                 }
                 self.state.event_item_editor.is_loading = true;
-                let result = self.state.event_item_editor.save_items(&self.state.shared_game_path);
+                let result = self.state.event_item_editor.save(&self.state.shared_game_path, "CharacterInGame/EventItem.db");
                 self.state.event_item_editor.is_loading = false;
                 match result {
                     Ok(_) => {
@@ -949,11 +949,11 @@ impl App {
                         self.state.weapon_editor.catalog = weapons.clone();
                         self.state.weapon_editor.refresh();
                         self.state.heal_item_editor.catalog = heals.clone();
-                        self.state.heal_item_editor.refresh_items();
+                        self.state.heal_item_editor.refresh();
                         self.state.misc_item_editor.catalog = misc.clone();
-                        self.state.misc_item_editor.refresh_items();
+                        self.state.misc_item_editor.refresh();
                         self.state.edit_item_editor.catalog = edit.clone();
-                        self.state.edit_item_editor.refresh_items();
+                        self.state.edit_item_editor.refresh();
                         self.state.store_editor.catalog = Some(stores.clone());
                         let weapons_count = weapons.as_ref().map(|w| w.len()).unwrap_or(0);
                         let heals_count = heals.as_ref().map(|h| h.len()).unwrap_or(0);

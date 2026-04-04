@@ -1,5 +1,5 @@
 use super::editable::{EditableRecord, FieldDescriptor, FieldKind};
-use super::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
+use super::enums::{MagicSchool, MagicSpellFlag, SpellTargetType};
 use super::magic_db::MagicSpell;
 
 impl EditableRecord for MagicSpell {
