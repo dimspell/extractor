@@ -77,15 +77,7 @@ impl App {
             Tab::QuestScrEditor => self.view_quest_scr_editor_tab(),
             Tab::WaveIniEditor => self.view_wave_ini_editor_tab(),
             Tab::ChDataEditor => self.view_chdata_editor_tab(),
-            Tab::Map | Tab::Ref | Tab::Database => {
-                let tab_content = self.view_tab_content();
-                let log_panel = self.view_log();
-                return column![tab_content, horizontal_rule(1), log_panel]
-                    .spacing(0)
-                    .width(Fill)
-                    .height(Fill)
-                    .into();
-            }
+            Tab::Map | Tab::Ref | Tab::Database => self.view_tab_content(),
         };
 
         let main_content = column![game_path_toolbar, content].spacing(0).height(Fill);
