@@ -1,67 +1,15 @@
 # Dispel Game File Extractor
 
-A **research tool** for reverse engineering and extracting data from Dispel game files. Written in Rust, this project focuses on analyzing file formats, data structures, and technical specifications for educational and interoperability purposes.
+A **research tool** for modding Dispel game files. Written in Rust, this project focuses on analyzing file formats, data structures, and technical specifications for educational and interoperability purposes.
 
 ⚠️ **Important Legal Notice**: This tool is for **educational and research purposes only**. It does not distribute copyrighted game content and complies with fair use principles for reverse engineering research.
 
 ---
 
-## 📋 Table of Contents
-
-- [🎯 Purpose](#-purpose)
-- [⚖️ Legal Compliance](#%EF%B8%8F-legal-compliance)
-- [🛠️ Features](#%EF%B8%8F-features)
-- [📦 Project Structure](#-project-structure)
-- [🚀 Installation & Usage](#-installation--usage)
-- [🗺️ Map Extraction](#%EF%B8%80-map-extraction)
-- [🎨 Sprite & Animation Extraction](#-sprite--animation-extraction)
-- [🔊 Sound Conversion](#-sound-conversion)
-- [🗃️ Database & References](#%EF%B8%80-database--references)
-- [📊 Supported File Types](#-supported-file-types)
-- [📚 Documentation](#-documentation)
-- [🤝 Contributing](#-contributing)
-- [📜 License](#-license)
-
----
-
 ## 🎯 Purpose
-
-This project is a **technical research tool** designed to:
-
-- Reverse engineer and document the file formats used by the DISPEL® game
-- Extract and analyze game data structures (maps, sprites, items, monsters, etc.)
-- Provide educational insights into game file organization and encoding
-- Support interoperability research without violating intellectual property rights
 
 The tool focuses exclusively on **technical specifications** and does not include or distribute any copyrighted game assets.
 
----
-
-## ⚖️ Legal Compliance
-
-### Disclaimer
-
-⚠️ **DISPEL® is a registered trademark** of its respective owner. This project is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-### Compliance Statement
-
-- ✅ **Educational & Research Purposes Only**: This tool is designed for technical analysis and documentation
-- ✅ **No Copyrighted Content**: No game assets, artwork, or proprietary code are included or distributed
-- ✅ **Technical Focus**: All documentation focuses on file format specifications, data structures, and encoding information
-- ✅ **Nominal Fair Use**: References to "Dispel" are for identification and compatibility purposes only
-- ✅ **User Responsibility**: Users must own a legitimate copy of the game for testing and comply with all applicable laws
-
-### Prohibited Use
-
-This tool must **NOT** be used for:
-
-- Distributing copyrighted game content
-- Creating derivative works that infringe on intellectual property
-- Commercial exploitation of game assets
-- Bypassing copy protection mechanisms
-- Any illegal or unethical purposes
-
----
 
 ## 🛠️ Features
 
@@ -74,47 +22,11 @@ This tool must **NOT** be used for:
 | **Database Import** | Import game data into SQLite database for analysis |
 | **Reference Parsing** | Parse `.ini`, `.db`, `.ref` files and export as JSON |
 | **Atlas Generation** | Generate sprite atlases for visualization |
-
----
-
-## 📦 Project Structure
-
-```
-dispel-extractor/
-├── Cargo.toml                    # Rust project configuration
-├── Makefile                      # Common build and analysis tasks
-├── src/
-│   ├── main.rs                   # CLI entry point and command dispatcher
-│   ├── lib.rs                    # Core library with data structures
-│   ├── database.rs               # SQLite database interaction
-│   ├── map/                      # Map file parsing and rendering
-│   │   ├── mod.rs                # Map module exports
-│   │   ├── reader.rs             # Binary map file reader
-│   │   ├── render.rs             # Map rendering logic
-│   │   ├── tileset.rs            # Tile extraction and plotting
-│   │   ├── sprite_loader.rs      # Sprite loading utilities
-│   │   ├── model.rs              # Map data structures
-│   │   └── types.rs              # Type definitions
-│   ├── sprite.rs                 # Sprite and animation extraction
-│   ├── snf.rs                    # SNF audio file conversion
-│   └── commands/                 # CLI command implementations
-│       ├── map.rs                # Map-related commands
-│       ├── sprite.rs             # Sprite-related commands
-│       ├── sound.rs              # Sound conversion commands
-│       ├── database.rs           # Database import commands
-│       └── refs.rs               # Reference file parsing commands
-├── dispel-gui/                   # Optional GUI frontend (workspace member)
-├── fixtures/                     # Sample game files for testing
-├── database.sqlite               # Extracted game data database
-├── docs/                         # Technical documentation
-│   ├── overview.md
-│   ├── file_formats.md
-│   ├── database_and_references.md
-│   └── files/                    # Detailed file format specifications
-└── target/                       # Build artifacts
-```
-
----
+| **Unified Workflow** | Extract, patch, and validate game files using JSON |
+| **Schema Generation** | Generate JSON schemas for file types |
+| **Template Generation** | Create minimal JSON templates for editing |
+| **Dialogue Support** | Parse and extract `.dlg` and `.pgp` dialogue files |
+| **GUI Editor** | Full-featured graphical editor with 27 editor types |
 
 ## 🚀 Installation & Usage
 
@@ -127,12 +39,6 @@ dispel-extractor/
 ### Build Instructions
 
 ```bash
-# Clone the repository
-git clone .../dispel-extractor.git
-
-# Build the tool
-cd dispel-extractor
-
 # Build the project
 cargo build --release
 
@@ -147,8 +53,16 @@ cargo build
 ./target/release/dispel-extractor --help
 
 # View command-specific help
-./target/release/dispel-extractor map --help
-./target/release/dispel-extractor ref --help
+./target/release/dispel-extractor extract --help
+./target/release/dispel-extractor patch --help
+./target/release/dispel-extractor validate --help
+```
+
+### Running the GUI
+
+```bash
+# Build and run the GUI application
+cargo run -p dispel-gui
 ```
 
 ---
@@ -232,94 +146,53 @@ Convert Dispel `.snf` audio files to standard `.wav` format.
 
 ## 🗃️ Database & References
 
-### Import Game Data to SQLite
+### Extract Game Data to JSON
 
 ```bash
-# Import all supported game data into database.sqlite
-./target/release/dispel-extractor database import
+# Extract a specific file to JSON
+./target/release/dispel-extractor extract -i fixtures/Dispel/Monster.ini
+
+# Extract with pretty formatting
+./target/release/dispel-extractor extract -i fixtures/Dispel/CharacterInGame/weaponItem.db --pretty
 ```
 
-### Parse Reference Files
+### Patch Game Files from JSON
 
 ```bash
-# Parse a specific reference file and export as JSON
-./target/release/dispel-extractor ref map fixtures/Dispel/Ref/Map.ini
-
-# Parse all supported reference types
-./target/release/dispel-extractor ref all-maps fixtures/Dispel/AllMap.ini
-./target/release/dispel-extractor ref weapons fixtures/Dispel/CharacterInGame/weaponItem.db
-./target/release/dispel-extractor ref monsters fixtures/Dispel/MonsterInGame/Monster.db
-./target/release/dispel-extractor ref heal-items fixtures/Dispel/CharacterInGame/HealItem.db
+# Patch a file in-place
+./target/release/dispel-extractor patch -i weapons.json -t fixtures/Dispel/CharacterInGame/weaponItem.db --in-place
 ```
 
----
+### Validate JSON Against Schema
 
-## 📊 Supported File Types
+```bash
+# Validate JSON data
+./target/release/dispel-extractor validate -i weapons.json --type weapons
+```
 
-| File Type | Description | Supported |
-|-----------|-------------|-----------|
-| `.map` | Map definition files | ✅ |
-| `.btl` | Background tile layer files | ✅ |
-| `.gtl` | Ground tile layer files | ✅ |
-| `.SPR` | Sprite and animation files | ✅ |
-| `.snf` | Sound effect files | ✅ |
-| `.ini` | Configuration files | ✅ |
-| `.db` | Database files (items, monsters, etc.) | ✅ |
-| `.ref` | Reference files | ✅ |
-| `.dlg` | Dialogue files | ✅ |
-| `.scr` | Script files | ✅ |
+### List Supported File Types
 
----
+```bash
+# List all supported file types
+./target/release/dispel-extractor list
 
-## 📚 Documentation
+# Filter by type
+./target/release/dispel-extractor list --filter monster
+```
 
-Detailed technical documentation is available in the [`docs/`](docs/) directory:
+### Generate JSON Schema
 
-- **[overview.md](docs/overview.md)**: High-level overview of the project structure and workflow
-- **[file_formats.md](docs/file_formats.md)**: Detailed specifications of file formats
-- **[database_and_references.md](docs/database_and_references.md)**: Database schema and reference file formats
-- **[rendering.md](docs/rendering.md)**: Map rendering techniques and algorithms
-- **[files/](docs/files/)**: Individual file format specifications
+```bash
+# Generate schema for a file type
+./target/release/dispel-extractor schema --type weapons
+```
 
----
+### Generate JSON Template
 
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-### What to Contribute
-
-- Improve file format documentation
-- Add support for new file types
-- Enhance error handling and validation
-- Improve code quality and safety
-- Add unit tests
-- Update technical specifications
-
-### How to Contribute
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Make your changes
-4. Test thoroughly
-5. Commit with clear messages
-6. Push to your fork
-7. Open a pull request
-
-### Code Style
-
-- Follow Rust community style guidelines
-- Use `rustfmt` for formatting
-- Include comments for complex logic
-- Write clear, concise commit messages
-
-### Legal Requirements
-
-All contributions must:
-- Maintain compliance with the legal disclaimer
-- Focus on technical analysis, not content distribution
-- Not include any copyrighted material
-- Respect trademark usage guidelines
+```bash
+# Generate a minimal template
+./target/release/dispel-extractor template --type weapons --pretty
+```
 
 ---
 
@@ -331,45 +204,6 @@ This research tool is licensed under the **[MIT License](LICENSE)** for the **co
 
 ✅ **Applies to**: All source code in this repository
 ❌ **Does not apply to**: Game content, assets, or proprietary formats
-
-### Attribution
-
-```
-Copyright (c) 2024 Dispel Extractor Contributors
-
-Permission is hereby granted... (standard MIT license text)
-```
-
----
-
-## 📧 Contact & Support
-
-For legal inquiries, compliance questions, or general support:
-
-1. **Open an Issue**: [GitHub Issues](https://github.com/your-org/dispel-extractor/issues)
-2. **Review Documentation**: Check the [`docs/`](docs/) directory for technical details
-3. **Check Compliance**: Review the [Legal Compliance](#%EF%B8%8F-legal-compliance) section
-
----
-
-## 🙏 Acknowledgments
-
-- The DISPEL® game developers for creating the original game
-- The reverse engineering community for inspiration and guidance
-- Rust open-source community for excellent tools and libraries
-
----
-
-## 📈 Project Status
-
-- ✅ Core map rendering and extraction
-- ✅ Sprite and animation extraction
-- ✅ Sound conversion
-- ✅ Database import and reference parsing
-- ✅ Extensive technical documentation
-- 🚧 GUI frontend (in development)
-- 🚧 Additional file format support
-- 🚧 Performance optimization
 
 ---
 

@@ -228,7 +228,7 @@ An extractor is available in `src/references/store_db.rs` to parse this file for
 
 ```bash
 # Extract Store.db to JSON
-cargo run -- ref store "fixtures/Dispel/CharacterInGame/Store.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/Store.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

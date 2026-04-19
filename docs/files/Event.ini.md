@@ -23,7 +23,7 @@ Text file that defines event scripts with execution conditions, prerequisites, a
 
 ```ini
 ; Comment line explaining event types and execution conditions
-event_id,previous_event_id,event_type,script_filename,counter
+event_id,required_event_id,event_type,script_filename,counter
 0,0,0,null,0
 1,0,2,script0001.scr,0
 2,0,2,script0002.scr,0
@@ -35,7 +35,7 @@ event_id,previous_event_id,event_type,script_filename,counter
 | Field | Type | Description |
 |-------|------|-------------|
 | event_id | i32 | Unique event identifier (0-2250+) |
-| previous_event_id | i32 | Prerequisite event ID that must be completed first |
+| required_event_id | i32 | Prerequisite event ID that must be completed first |
 | event_type | i32 | Execution condition type (0-8) |
 | script_filename | string | Script filename or "null" for no script |
 | counter | i32 | Execution limit (0 = unlimited, N = max executions) |
@@ -181,7 +181,7 @@ An extractor is available in `src/references/event_ini.rs` to parse this file fo
 
 ```bash
 # Extract Event.ini to JSON
-cargo run -- ref event "fixtures/Dispel/Event.ini"
+cargo run -- extract -i "fixtures/Dispel/Event.ini"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

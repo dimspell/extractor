@@ -1,7 +1,7 @@
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
@@ -51,7 +51,7 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EventNpcRef {
     /// Linear structural tracker.
     pub id: i32,
@@ -113,7 +113,7 @@ pub fn read_event_npc_ref(source_path: &Path) -> std::io::Result<Vec<EventNpcRef
     EventNpcRef::read_file(source_path)
 }
 
-pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &Vec<EventNpcRef>) -> Result<()> {
+pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &[EventNpcRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_npc_ref.sql"))?;

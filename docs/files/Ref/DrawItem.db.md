@@ -17,7 +17,24 @@
 - `map_id`: i32 - Target map identifier
 - `x_coord`: i32 - Tile X coordinate (isometric)
 - `y_coord`: i32 - Tile Y coordinate (isometric)
-- `item_id`: i32 - Encoded item/object identifier
+- `item_id`: i32 - Encoded item/object identifier (format: `[item_id, item_type, 0, 0]`)
+
+### Item ID Encoding
+The `item_id` field uses a 32-bit encoded format:
+- **Structure**: `[item_id, item_type, 0, 0]` (little-endian)
+- **item_id**: u8 (byte 0) - Specific object ID (0-255)
+- **item_type**: u8 (byte 1) - Object type/category ID
+- **Bytes 2-3**: Always 0
+
+### Item Types
+| Value | Type | Description |
+|-------|------|-------------|
+| 1 | Weapon | Weapon objects |
+| 2 | Healing | Healing/health items |
+| 3 | Edit | Editable/interactive objects |
+| 4 | Event | Event-triggering objects |
+| 5 | Misc | Miscellaneous objects |
+| 255 | Other | Unknown/other types |
 
 ## Field Definitions
 
@@ -31,29 +48,6 @@
 - Reference specific positions on the map
 - Used for precise object placement
 
-### item_id
-- Encoded 32-bit integer combining multiple fields
-- Structure: `[item_id, group_id, 0, 0]`
-- Combines specific object ID and group/category ID
-
-## Item ID Encoding
-
-### Format
-- 32-bit integer: `0x0000IIGG`
-- `II`: Item ID (specific object)
-- `GG`: Group ID (object category)
-
-### Examples
-- `1001` = Group 1, Item 1 (e.g., basic chest)
-- `2005` = Group 20, Item 5 (e.g., special quest object)
-- `3010` = Group 30, Item 10 (e.g., elite container)
-
-### Common Groups
-- 1-10: Basic containers and chests
-- 11-20: Quest-related objects
-- 21-30: Environmental decorations
-- 31-40: Interactive mechanisms
-- 41-50: Special/hidden objects
 
 ## Special Values
 - Lines starting with `;` are comments
@@ -99,24 +93,32 @@ Defines placement of interactive and decorative objects on specific maps with ex
 ## Implementation
 - **Rust Module**: `src/references/draw_item.rs`
 - **Extractor**: `DrawItem` struct implementing `Extractor` trait
-- **Data Structure**: `DrawItem` with map coordinates and item ID
-- **Database**: Saved to SQLite via `save_draw_items` function
+- **Data Structure**: `DrawItem` with separate `item_type` and `item_id` fields
+- **Database**: Stores decoded form with separate `item_id` and `item_type` columns
+- **File I/O**: Maintains encoded i32 format for game compatibility
 
 ## Example Usage
 
 ### Extract and display object placements:
 ```bash
-cargo run -- ref draw-item "Dispel/Ref/DrawItem.ref"
+cargo run -- extract -i "Dispel/Ref/DrawItem.ref"
 ```
 
 ### Format Example
 ```
 ; Map 1 object placements
-(1,5,10,1001)    ; Basic chest at position 5,10
-(1,6,11,1002)    ; Basic chest at position 6,11
-(1,10,15,2005)   ; Quest object at position 10,15
-(2,3,8,3010)     ; Elite container at position 3,8
+(1,5,10,1001)    ; Basic chest: item_id=222, item_type=4 (Event)
+(1,6,11,1002)    ; Basic chest: item_id=223, item_type=4 (Event)  
+(1,10,15,2005)   ; Quest object: item_id=245, item_type=8 (Misc)
+(2,3,8,3010)     ; Elite container: item_id=246, item_type=12 (Other)
 ```
+
+### Decoding Example
+The value `1001` decodes as:
+- Hex: `0x000004DE`
+- Bytes: `[0xDE, 0x04, 0x00, 0x00]`
+- item_id: `0xDE` = 222
+- item_type: `0x04` = Event
 
 ## Coordinate System
 - Isometric tile-based coordinates
@@ -146,7 +148,7 @@ An extractor is available in `src/references/draw_item.rs` to parse this file fo
 
 ```bash
 # Extract DrawItem.ref to JSON
-cargo run -- ref draw-item "fixtures/Dispel/Ref/DrawItem.ref"
+cargo run -- extract -i "fixtures/Dispel/Ref/DrawItem.ref"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

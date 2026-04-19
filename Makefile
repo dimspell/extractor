@@ -58,7 +58,8 @@ map-render:
 		--map="fixtures/Dispel/Map/${map_id}.map" \
 		--btl="fixtures/Dispel/Map/${map_id}.btl" \
 		--gtl="fixtures/Dispel/Map/${map_id}.gtl" \
-		--output="map.png"
+		--output="map.png" \
+		--game-path="fixtures/Dispel"
 
 map-extract-sprites:
 	cargo run -- map sprites \
@@ -71,101 +72,114 @@ map-from-db:
 map-from-db-with-sprite:
 	cargo run -- map from-db --map-id ${map_id} --gtl-atlas ${map_id}.gtl.png --btl-atlas ${map_id}.btl.png -o out_${map_id}.png --game-path "fixtures/Dispel"
 
-ref-all-maps:
-	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
+extract-all-maps:
+	cargo run -- extract -i "fixtures/Dispel/AllMap.ini"
 
-ref-map:
-	cargo run -- ref map &Path::new("sample-data/Ref/Map.ini")
+extract-map:
+	cargo run -- extract -i "fixtures/Dispel/Ref/Map.ini"
 
-ref-monsters:
-	cargo run -- ref monsters "fixtures/Dispel/MonsterInGame/Monster.db"
+extract-monsters:
+	cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Monster.db"
 
-ref-heal-item:
-	cargo run -- ref heal-items "fixtures/Dispel/CharacterInGame/HealItem.db"
+extract-heal-item:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/HealItem.db"
 
-ref-draw-item:
-	cargo run -- ref draw-item "fixtures/Dispel/Ref/DRAWITEM.ref"
+extract-draw-item:
+	cargo run -- extract -i "fixtures/Dispel/Ref/DRAWITEM.ref"
 
-ref-misc-item:
-	cargo run -- ref misc-item "fixtures/Dispel/CharacterInGame/MiscItem.db"
+extract-misc-item:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/MiscItem.db"
 
-ref-edit-item:
-	cargo run -- ref edit-items "fixtures/Dispel/CharacterInGame/EditItem.db"
+extract-edit-item:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EditItem.db"
 
-ref-event-item:
-	cargo run -- ref event-items "fixtures/Dispel/CharacterInGame/EventItem.db"
+extract-event-item:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EventItem.db"
 
-ref-store-db:
-	cargo run -- ref store "fixtures/Dispel/CharacterInGame/STORE.DB"
+extract-store-db:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/STORE.DB"
 
-ref-extra-ref:
-	cargo run -- ref extra-ref "fixtures/Dispel/ExtraInGame/Extdun01.ref"
+extract-extra-ref:
+	cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Extdun01.ref"
 
-ref-monster-ref:
-	cargo run -- ref monster-ref "fixtures/Dispel/MonsterInGame/Mondun01.ref"
+extract-monster-ref:
+	cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Mondun01.ref"
 
-ref-npc-ref:
-	cargo run -- ref npc-ref "fixtures/Dispel/NpcInGame/Npccat1.ref"
+extract-npc-ref:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Npccat1.ref"
 
-ref-multi-magic:
-	cargo run -- ref multi-magic "fixtures/Dispel/MagicInGame/MulMagic.db"
+extract-multi-magic:
+	cargo run -- extract -i "fixtures/Dispel/MagicInGame/MulMagic.db"
 
-ref-party-level:
-	cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
+extract-party-level:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
 
-ref-event-npc-ref:
-	cargo run -- ref event-npc-ref "fixtures/Dispel/NpcInGame/Eventnpc.ref"
+extract-event-npc-ref:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Eventnpc.ref"
 
-ref-party-ini:
-	cargo run -- ref party-ini fixtures/Dispel/NpcInGame/PrtIni.db
+extract-party-ini:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtIni.db"
 
-ref-quest:
-	cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
+extract-quest:
+	cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Quest.scr"
 
-ref-message:
-	cargo run -- ref message "fixtures/Dispel/ExtraInGame/Message.scr"
+extract-message:
+	cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Message.scr"
 
-ref-ch-data:
-	cargo run -- ref ch-data "fixtures/Dispel/CharacterInGame/ChData.db"
+extract-ch-data:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/ChData.db"
 
-ref-dialog:
-	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+extract-dialog:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
 
-ref-dialogue-text:
-	cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
+extract-dialogue-text:
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
 
-ref-weapons:
-	cargo run -- ref weapons "fixtures/Dispel/CharacterInGame/weaponItem.db"
+extract-weapons:
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/weaponItem.db"
 
 database-import:
 	cargo run -- database import "fixtures/Dispel" "database.sqlite"
 
-refs-help:
-	cargo run -- ref --help
-	cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
-	cargo run -- ref map "fixtures/Dispel/Ref/Map.ini"
-	cargo run -- ref extra "fixtures/Dispel/Extra.ini"
-	cargo run -- ref event "fixtures/Dispel/Event.ini"
-	cargo run -- ref monster "fixtures/Dispel/Monster.ini"
-	cargo run -- ref npc "fixtures/Dispel/Npc.ini"
-	cargo run -- ref wave "fixtures/Dispel/Wave.ini"
-	cargo run -- ref party-ref "fixtures/Dispel/Ref/PartyRef.ref"
-	cargo run -- ref draw-item "fixtures/Dispel/Ref/DRAWITEM.ref"
-	cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
-	cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
-	cargo run -- ref weapons "fixtures/Dispel/CharacterInGame/weaponItem.db"
-	cargo run -- ref monsters "fixtures/Dispel/MonsterInGame/Monster.db"
-	# cargo run -- ref multi-magic "fixtures/Dispel/MagicInGame/MulMagic.db"
-	cargo run -- ref store "fixtures/Dispel/CharacterInGame/STORE.DB"
-	cargo run -- ref npc-ref "fixtures/Dispel/NpcInGame/Npccat1.ref"
-	cargo run -- ref monster-ref "fixtures/Dispel/MonsterInGame/Mondun01.ref"
-	cargo run -- ref misc-item "fixtures/Dispel/CharacterInGame/MiscItem.db"
-	cargo run -- ref heal-items "fixtures/Dispel/CharacterInGame/HealItem.db"
-	cargo run -- ref extra-ref "fixtures/Dispel/ExtraInGame/Extdun01.ref"
-	cargo run -- ref event-items "fixtures/Dispel/CharacterInGame/EventItem.db"
-	cargo run -- ref edit-items "fixtures/Dispel/CharacterInGame/EditItem.db"
-	cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
-	cargo run -- ref event-npc-ref "fixtures/Dispel/NpcInGame/Eventnpc.ref"
+dialogs:
+	# Show dialog flow (without text content)
+	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg
+
+	# Show dialog flow with text from PGP file
+	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg -p fixtures/Dispel/NpcInGame/Pgp$(map_id).pgp
+
+	# Show dialog flow with NPC names from NPC ref file
+	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg -n fixtures/Dispel/NpcInGame/Npc$(map_id).ref
+
+	# Full usage with all options
+	cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg -p fixtures/Dispel/NpcInGame/Pgp$(map_id).pgp -n fixtures/Dispel/NpcInGame/Npc$(map_id).ref
+
+extracts-help:
+	cargo run -- extract --help
+	cargo run -- extract -i "fixtures/Dispel/AllMap.ini"
+	cargo run -- extract -i "fixtures/Dispel/Ref/Map.ini"
+	cargo run -- extract -i "fixtures/Dispel/Extra.ini"
+	cargo run -- extract -i "fixtures/Dispel/Event.ini"
+	cargo run -- extract -i "fixtures/Dispel/Monster.ini"
+	cargo run -- extract -i "fixtures/Dispel/Npc.ini"
+	cargo run -- extract -i "fixtures/Dispel/Wave.ini"
+	cargo run -- extract -i "fixtures/Dispel/Ref/PartyRef.ref"
+	cargo run -- extract -i "fixtures/Dispel/Ref/DRAWITEM.ref"
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PartyPgp.pgp"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/weaponItem.db"
+	cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Monster.db"
+	# cargo run -- extract -i "fixtures/Dispel/MagicInGame/MulMagic.db"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/STORE.DB"
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Npccat1.ref"
+	cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Mondun01.ref"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/MiscItem.db"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/HealItem.db"
+	cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Extdun01.ref"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EventItem.db"
+	cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EditItem.db"
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
+	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Eventnpc.ref"
 
 help:
 	cargo run -- --help

@@ -47,7 +47,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct EventItem {
     /// Internal record ID representing the quest item.
     pub id: i32,
@@ -55,6 +55,8 @@ pub struct EventItem {
     pub name: String,
     /// Item tooltip giving clues on application.
     pub description: String,
+    /// Padding field to preserve binary compatibility.
+    pub padding: [u8; 8],
 }
 
 /// Stores definitions and parameters for quest/event specific items.
@@ -91,13 +93,17 @@ impl Extractor for EventItem {
             reader.read_exact(&mut buffer)?;
             let description = read_null_terminated_windows_1250(&buffer).unwrap();
 
-            let mut buffer = [0u8; 8];
-            reader.read_exact(&mut buffer)?;
+            let padding = {
+                let mut buffer = [0u8; 8];
+                reader.read_exact(&mut buffer)?;
+                buffer
+            };
 
             items.push(EventItem {
                 id: i,
                 name: name.to_string(),
                 description: description.to_string(),
+                padding,
             })
         }
 
@@ -124,7 +130,7 @@ impl Extractor for EventItem {
             desc_buf[..len].copy_from_slice(&cow[..len]);
             writer.write_all(&desc_buf)?;
 
-            writer.write_all(&[0u8; 8])?;
+            writer.write_all(&record.padding)?;
         }
 
         Ok(())
@@ -135,12 +141,12 @@ pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>>
     EventItem::read_file(source_path)
 }
 
-pub fn save_event_items(conn: &mut Connection, event_items: &Vec<EventItem>) -> Result<()> {
+pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event_item.sql"))?;
         for item in event_items {
-            stmt.execute(params![item.id, item.name, item.description,])?;
+            stmt.execute(params![item.id, item.name, item.description, item.padding])?;
         }
     }
     tx.commit()?;

@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MapIni {
     /// Map ini identifier.
     pub id: i32,
@@ -159,7 +159,7 @@ pub fn read_map_ini(source_path: &Path) -> std::io::Result<Vec<MapIni>> {
     MapIni::read_file(source_path)
 }
 
-pub fn save_map_inis(conn: &mut Connection, map_inis: &Vec<MapIni>) -> Result<()> {
+pub fn save_map_inis(conn: &mut Connection, map_inis: &[MapIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_map_ini.sql"))?;

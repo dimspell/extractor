@@ -107,6 +107,7 @@ use std::path::Path;
 
 use crate::sprite::SequenceInfo;
 use rusqlite::{params, Connection, Result as DbResult};
+use serde::{Deserialize, Serialize};
 
 /// IO Result type for file operations
 type IoResult<T> = std::io::Result<T>;
@@ -115,7 +116,7 @@ use reader::{
     first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
     sprite_block, sprite_info_block, tiled_objects_block,
 };
-use render::render_map;
+use render::{render_map, MapRenderConfig};
 
 // --------------------------------------------------------------------------
 // MapData – the in-memory representation of a parsed .map file
@@ -130,6 +131,173 @@ pub struct MapData {
     pub tiled_infos: Vec<TiledObjectInfo>,
     pub internal_sprites: Vec<SequenceInfo>,
     pub sprite_blocks: Vec<SpriteInfoBlock>,
+}
+
+/// JSON-serializable representation of map data.
+/// Converts HashMap-based fields to arrays for JSON compatibility.
+#[derive(Serialize, Deserialize)]
+pub struct MapDataJson {
+    pub metadata: MapMetadataJson,
+    pub gtl_tiles: Vec<TileEntryJson>,
+    pub btl_tiles: Vec<TileEntryJson>,
+    pub collisions: Vec<CollisionEntryJson>,
+    pub events: Vec<EventEntryJson>,
+    pub tiled_objects: Vec<TiledObjectJson>,
+    pub sprites: Vec<SpritePlacementJson>,
+    pub internal_sprites: Vec<InternalSpriteJson>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MapMetadataJson {
+    pub chunk_width: i32,
+    pub chunk_height: i32,
+    pub tiled_width: i32,
+    pub tiled_height: i32,
+    pub map_width_in_pixels: i32,
+    pub map_height_in_pixels: i32,
+    pub non_occluded_start_x: i32,
+    pub non_occluded_start_y: i32,
+    pub occluded_width: i32,
+    pub occluded_height: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TileEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub tile_id: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CollisionEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub blocked: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EventEntryJson {
+    pub x: i32,
+    pub y: i32,
+    pub event_id: i16,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TiledObjectJson {
+    pub index: usize,
+    pub x: i32,
+    pub y: i32,
+    pub tile_ids: Vec<i16>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SpritePlacementJson {
+    pub index: usize,
+    pub sprite_id: usize,
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InternalSpriteJson {
+    pub index: usize,
+    pub image_stamp: i32,
+    pub frame_count: usize,
+    pub frames: Vec<SpriteFrameJson>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct SpriteFrameJson {
+    pub width: i32,
+    pub height: i32,
+    pub origin_x: i32,
+    pub origin_y: i32,
+}
+
+impl MapData {
+    /// Convert MapData to JSON-serializable format.
+    pub fn to_json(&self) -> MapDataJson {
+        MapDataJson {
+            metadata: MapMetadataJson {
+                chunk_width: 0, // Not stored in MapModel, compute from tiled_width
+                chunk_height: 0,
+                tiled_width: self.model.tiled_map_width,
+                tiled_height: self.model.tiled_map_height,
+                map_width_in_pixels: self.model.map_width_in_pixels,
+                map_height_in_pixels: self.model.map_height_in_pixels,
+                non_occluded_start_x: self.model.map_non_occluded_start_x,
+                non_occluded_start_y: self.model.map_non_occluded_start_y,
+                occluded_width: self.model.occluded_map_in_pixels_width,
+                occluded_height: self.model.occluded_map_in_pixels_height,
+            },
+            gtl_tiles: self
+                .gtl_tiles
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
+                .collect(),
+            btl_tiles: self
+                .btl_tiles
+                .iter()
+                .map(|(&(x, y), &tile_id)| TileEntryJson { x, y, tile_id })
+                .collect(),
+            collisions: self
+                .collisions
+                .iter()
+                .map(|(&(x, y), &blocked)| CollisionEntryJson { x, y, blocked })
+                .collect(),
+            events: self
+                .events
+                .iter()
+                .map(|(&(x, y), event)| EventEntryJson {
+                    x,
+                    y,
+                    event_id: event.event_id,
+                })
+                .collect(),
+            tiled_objects: self
+                .tiled_infos
+                .iter()
+                .enumerate()
+                .map(|(index, obj)| TiledObjectJson {
+                    index,
+                    x: obj.x,
+                    y: obj.y,
+                    tile_ids: obj.ids.clone(),
+                })
+                .collect(),
+            sprites: self
+                .sprite_blocks
+                .iter()
+                .enumerate()
+                .map(|(index, sp)| SpritePlacementJson {
+                    index,
+                    sprite_id: sp.sprite_id,
+                    x: sp.sprite_x,
+                    y: sp.sprite_y,
+                })
+                .collect(),
+            internal_sprites: self
+                .internal_sprites
+                .iter()
+                .enumerate()
+                .map(|(index, seq)| InternalSpriteJson {
+                    index,
+                    image_stamp: 0,
+                    frame_count: seq.frame_infos.len(),
+                    frames: seq
+                        .frame_infos
+                        .iter()
+                        .map(|f| SpriteFrameJson {
+                            width: f.width,
+                            height: f.height,
+                            origin_x: f.origin_x,
+                            origin_y: f.origin_y,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
 }
 
 // --------------------------------------------------------------------------
@@ -182,8 +350,22 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
     let tiled_infos = tiled_objects_block(reader)?;
 
     // Event and tile blocks live at the end of the file
-    let skip = -(tiled_map_height * tiled_map_width * 4 * 3);
-    reader.seek(SeekFrom::End(skip.into()))?;
+    // Calculate expected size for the three end blocks
+    let expected_end_blocks_size = tiled_map_height * tiled_map_width * 4 * 3;
+
+    // Validate that we have enough data for the end blocks
+    if file_len < expected_end_blocks_size as u64 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+                "File too small for expected map dimensions. File size: {}, Expected end blocks: {}",
+                file_len, expected_end_blocks_size
+            ),
+        ));
+    }
+
+    let skip = -(expected_end_blocks_size as i64);
+    reader.seek(SeekFrom::End(skip))?;
 
     let events = read_events_block(reader, tiled_map_width, tiled_map_height)?;
     let (gtl_tiles, collisions) =
@@ -191,8 +373,19 @@ pub fn read_map_data(reader: &mut BufReader<File>) -> IoResult<MapData> {
 
     let mut btl_tiles = HashMap::new();
     let current_pos = reader.stream_position()?;
-    if current_pos + (tiled_map_width * tiled_map_height * 4) as u64 <= file_len {
+    let remaining_bytes = file_len - current_pos;
+    let expected_roof_size = (tiled_map_width * tiled_map_height * 4) as u64;
+
+    // Only read roof tiles if we have exactly the expected amount of data remaining
+    if remaining_bytes >= expected_roof_size {
         btl_tiles = read_roof_tiles(reader, tiled_map_width, tiled_map_height)?;
+    } else if remaining_bytes > 0 {
+        // If there are remaining bytes but not enough for a full roof block,
+        // this might indicate a different file structure or corruption
+        eprintln!(
+            "Warning: Found {} bytes after tile blocks, expected {} for roof tiles. Skipping.",
+            remaining_bytes, expected_roof_size
+        );
     }
 
     Ok(MapData {
@@ -252,36 +445,36 @@ pub fn extract(
     input_btl_file: &Path,
     input_gtl_file: &Path,
     output_path: &Path,
-    save_map_sprites: &bool,
+    save_map_sprites: bool,
+    game_path: Option<&Path>,
 ) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+    let map_id = input_map_file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
-    if *save_map_sprites {
+    if save_map_sprites {
         for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
-            crate::sprite::save_sequence(
-                &mut reader,
-                &sprite.frame_infos,
-                i as i32,
-                &map_id.to_string(),
-            )?;
+            crate::sprite::save_sequence(&mut reader, &sprite.frame_infos, i as i32, map_id)?;
         }
     }
 
     let btl_tileset = tileset::extract(input_btl_file)?;
     let gtl_tileset = tileset::extract(input_gtl_file)?;
 
-    render_map(
-        &mut reader,
+    render_map(MapRenderConfig {
+        reader: &mut reader,
         output_path,
-        &map_data,
-        true,
-        &gtl_tileset,
-        &btl_tileset,
+        data: &map_data,
+        occlusion: true,
+        gtl_tileset: &gtl_tileset,
+        btl_tileset: &btl_tileset,
         map_id,
-    )
+        game_path,
+    })
 }
 
 /// Extracts all internal sprites from a map file to separate PNGs.
@@ -314,10 +507,13 @@ pub fn extract_sprites(input_map_file: &Path, output_path: &Path) -> IoResult<()
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = input_map_file.file_stem().unwrap().to_str().unwrap();
+    let map_id = input_map_file
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
     std::fs::create_dir_all(output_path)?;
-    let output_dir_str = output_path.to_str().unwrap();
+    let output_dir_str = output_path.to_str().unwrap_or("out");
 
     for (i, sprite) in map_data.internal_sprites.iter().enumerate() {
         let prefix = format!("{}/{}", output_dir_str, map_id);
@@ -365,7 +561,10 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
     let file = File::open(map_path)?;
     let mut reader = BufReader::new(file);
     let map_data = read_map_data(&mut reader)?;
-    let map_id = map_path.file_stem().unwrap().to_str().unwrap();
+    let map_id = map_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("map");
 
     save_to_db(&mut conn, map_id, &map_data).map_err(|e| std::io::Error::other(e.to_string()))
 }

@@ -98,7 +98,7 @@ Defines character progression statistics for levels 1-20, used for:
 
 ### Extract and display progression data:
 ```bash
-cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
 ```
 
 ### Import to database:
@@ -125,7 +125,7 @@ An extractor is available in `src/references/party_level_db.rs` to parse this fi
 
 ```bash
 # Extract PrtLevel.db to JSON
-cargo run -- ref party-level "fixtures/Dispel/NpcInGame/PrtLevel.db"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

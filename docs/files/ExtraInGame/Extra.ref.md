@@ -258,7 +258,7 @@ An extractor is available in `src/references/extra_ref.rs` to parse this file fo
 
 ```bash
 # Extract Extdun01.ref to JSON
-cargo run -- ref extra-ref "fixtures/Dispel/ExtraInGame/Extdun01.ref"
+cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Extdun01.ref"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

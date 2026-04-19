@@ -1,5 +1,5 @@
-use super::super::snf;
 use super::Command;
+use dispel_core::snf;
 use std::error::Error;
 use std::path::Path;
 
@@ -11,17 +11,9 @@ pub struct SoundCommand {
 
 impl Command for SoundCommand {
     fn execute(&self) -> Result<(), Box<dyn Error>> {
-        println!("Extracting sound file to {}...", self.output);
+        eprintln!("Extracting sound file to {}...", self.output);
         snf::extract(Path::new(&self.input), Path::new(&self.output))
-            .expect("ERROR: could not convert SNF file to WAV");
+            .map_err(|e| format!("ERROR: could not convert SNF file to WAV: {e}"))?;
         Ok(())
-    }
-
-    fn name(&self) -> &'static str {
-        "sound"
-    }
-
-    fn description(&self) -> &'static str {
-        "Convert SNF audio to WAV"
     }
 }

@@ -1,52 +1,31 @@
 use crate::app::App;
-use crate::message::Message;
+use crate::message::{editor::chest::ChestEditorMessage, Message, MessageExt};
 use crate::style;
-use crate::utils::{
-    horizontal_rule, horizontal_space, labeled_input, labeled_select, truncate_path, vertical_space,
-};
+use crate::utils::{horizontal_space, labeled_input, labeled_select, vertical_space};
 use dispel_core::ItemTypeId;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font};
 
 impl App {
     pub fn view_chest_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.chest_editor;
+        let editor = &self.state.chest_editor;
 
-        let map_file_row = row![
-            text("Map:").size(12).width(60).style(style::subtle_text),
-            container(
-                text(truncate_path(&editor.current_map_file, 60))
-                    .size(11)
-                    .font(Font::MONOSPACE)
-            )
-            .padding([4, 10])
-            .width(Fill)
-            .style(style::sql_editor_container),
-            button(text("Browse").size(11))
-                .on_press(Message::ChestOpBrowseMapFile)
-                .padding([5, 10])
-                .style(style::browse_button),
-            button(text("Load Map").size(11))
-                .on_press(Message::ChestOpSelectMap)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .spacing(10)
-        .padding([0, 8])
-        .align_y(iced::Alignment::Center);
+        // TODO: Events to remove:
+        // ChestEditorMessage::SelectMap
+        // ChestEditorMessage::BrowseMapFile
 
         let status_row = container(
             row![
                 text(&editor.status_msg).size(13).style(style::subtle_text),
                 horizontal_space(),
-                if editor.is_loading {
+                if editor.loading_state.is_loading() {
                     Element::from(text("Loading...").size(13))
                 } else {
                     Element::from(text(""))
                 },
                 horizontal_space().width(20),
                 button(text("Save Map Changes"))
-                    .on_press(Message::ChestOpSave)
+                    .on_press(Message::chest(ChestEditorMessage::Save))
                     .style(style::commit_button),
             ]
             .padding([10, 20])
@@ -63,7 +42,9 @@ impl App {
                 let btn =
                     button(text(path.file_name().unwrap_or_default().to_string_lossy()).size(12))
                         .width(Fill)
-                        .on_press(Message::ChestOpSelectMapFromFile(path.clone()));
+                        .on_press(Message::chest(ChestEditorMessage::SelectMapFromFile(
+                            path.to_string_lossy().into_owned(),
+                        )));
                 if is_selected {
                     btn.style(style::active_tab_button).into()
                 } else {
@@ -96,7 +77,7 @@ impl App {
 
                 let btn = button(text(label).size(11).font(Font::MONOSPACE))
                     .width(Fill)
-                    .on_press(Message::ChestOpSelectChest(idx));
+                    .on_press(Message::chest(ChestEditorMessage::SelectChest(idx)));
 
                 if is_selected {
                     btn.style(style::active_chip).into()
@@ -116,24 +97,30 @@ impl App {
                 let orig = *orig_idx;
 
                 detail_content.push(labeled_input("Name:", &editor.edit_name, move |v| {
-                    Message::ChestOpFieldChanged(orig, "name".into(), v)
+                    Message::chest(ChestEditorMessage::FieldChanged(orig, "name".into(), v))
                 }));
                 detail_content.push(labeled_input("X Pos:", &editor.edit_x, move |v| {
-                    Message::ChestOpFieldChanged(orig, "x".into(), v)
+                    Message::chest(ChestEditorMessage::FieldChanged(orig, "x".into(), v))
                 }));
                 detail_content.push(labeled_input("Y Pos:", &editor.edit_y, move |v| {
-                    Message::ChestOpFieldChanged(orig, "y".into(), v)
+                    Message::chest(ChestEditorMessage::FieldChanged(orig, "y".into(), v))
                 }));
                 detail_content.push(labeled_input("Gold:", &editor.edit_gold, move |v| {
-                    Message::ChestOpFieldChanged(orig, "gold".into(), v)
+                    Message::chest(ChestEditorMessage::FieldChanged(orig, "gold".into(), v))
                 }));
                 detail_content.push(labeled_input(
                     "Item Count:",
                     &editor.edit_item_count,
-                    move |v| Message::ChestOpFieldChanged(orig, "item_count".into(), v),
+                    move |v| {
+                        Message::chest(ChestEditorMessage::FieldChanged(
+                            orig,
+                            "item_count".into(),
+                            v,
+                        ))
+                    },
                 ));
                 detail_content.push(labeled_input("Item ID:", &editor.edit_item_id, move |v| {
-                    Message::ChestOpFieldChanged(orig, "item_id".into(), v)
+                    Message::chest(ChestEditorMessage::FieldChanged(orig, "item_id".into(), v))
                 }));
                 let type_options = vec![
                     ItemTypeId::Weapon,
@@ -150,13 +137,19 @@ impl App {
                     type_value,
                     type_options,
                     move |v| {
-                        Message::ChestOpFieldChanged(orig, "item_type".into(), format!("{:?}", v))
+                        Message::chest(ChestEditorMessage::FieldChanged(
+                            orig,
+                            "item_type".into(),
+                            format!("{:?}", v),
+                        ))
                     },
                 ));
                 detail_content.push(labeled_input(
                     "Closed (0=open, 1=closed):",
                     &editor.edit_closed,
-                    move |v| Message::ChestOpFieldChanged(orig, "closed".into(), v),
+                    move |v| {
+                        Message::chest(ChestEditorMessage::FieldChanged(orig, "closed".into(), v))
+                    },
                 ));
 
                 let item_name = editor
@@ -195,7 +188,7 @@ impl App {
                 .style(style::subtle_text),
             horizontal_space().width(12),
             button(text("Load Catalog").size(11))
-                .on_press(Message::ChestOpLoadCatalog)
+                .on_press(Message::chest(ChestEditorMessage::LoadCatalog))
                 .padding([5, 10])
                 .style(style::chip),
         ]
@@ -209,7 +202,7 @@ impl App {
                         text("Maps").size(14),
                         horizontal_space(),
                         button(text("Scan"))
-                            .on_press(Message::ChestOpScanMaps)
+                            .on_press(Message::chest(ChestEditorMessage::ScanMaps))
                             .style(style::chip)
                     ]
                     .padding(10)
@@ -229,13 +222,6 @@ impl App {
         .spacing(0)
         .height(Fill);
 
-        column![
-            container(column![map_file_row].padding(10).spacing(8)).style(style::toolbar_container),
-            horizontal_rule(1),
-            main_content,
-            status_row,
-        ]
-        .spacing(0)
-        .into()
+        column![main_content, status_row,].spacing(0).into()
     }
 }

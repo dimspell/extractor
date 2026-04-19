@@ -1,125 +1,23 @@
 use crate::app::App;
-use crate::message::Message;
-use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space, labeled_input, vertical_space};
-use iced::widget::{button, column, container, row, scrollable, text};
-use iced::{Element, Fill, Font, Length};
+use crate::message::{editor::drawitem::DrawItemEditorMessage, Message, MessageExt};
+use crate::view::editor::view_spreadsheet;
+use iced::Element;
 
 impl App {
-    pub fn view_draw_item_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.draw_item_editor;
-
-        let item_list: Vec<Element<Message>> = editor
-            .filtered_items
-            .iter()
-            .enumerate()
-            .map(|(idx, (_, item))| {
-                let is_selected = editor.selected_idx == Some(idx);
-                let label = format!(
-                    "[{}] map:{} x:{} y:{} item:{}",
-                    idx, item.map_id, item.x_coord, item.y_coord, item.item_id
-                );
-
-                let btn = button(text(label).size(11).font(Font::MONOSPACE))
-                    .width(Fill)
-                    .on_press(Message::DrawItemOpSelectItem(idx));
-
-                if is_selected {
-                    btn.style(style::active_chip).into()
-                } else {
-                    btn.style(style::chip).into()
-                }
-            })
-            .collect();
-
-        let item_scroll = scrollable(column(item_list).spacing(4)).height(Length::Fill);
-
-        let mut detail_content: Vec<Element<Message>> = vec![
-            text("Draw Item Details")
-                .size(16)
-                .font(Font::MONOSPACE)
-                .into(),
-            vertical_space().height(10).into(),
-        ];
-
-        if let Some(idx) = editor.selected_idx {
-            if let Some((orig_idx, _item)) = editor.filtered_items.get(idx) {
-                let orig = *orig_idx;
-
-                detail_content.push(labeled_input("Map ID:", &editor.edit_map_id, move |v| {
-                    Message::DrawItemOpFieldChanged(orig, "map_id".into(), v)
-                }));
-                detail_content.push(labeled_input("X Coord:", &editor.edit_x_coord, move |v| {
-                    Message::DrawItemOpFieldChanged(orig, "x_coord".into(), v)
-                }));
-                detail_content.push(labeled_input("Y Coord:", &editor.edit_y_coord, move |v| {
-                    Message::DrawItemOpFieldChanged(orig, "y_coord".into(), v)
-                }));
-                detail_content.push(labeled_input("Item ID:", &editor.edit_item_id, move |v| {
-                    Message::DrawItemOpFieldChanged(orig, "item_id".into(), v)
-                }));
-            }
-        } else {
-            detail_content.push(
-                text("No draw item selected")
-                    .size(13)
-                    .style(style::subtle_text)
-                    .into(),
-            );
-        }
-
-        let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
-
-        let detail_panel = container(detail_scroll)
-            .padding(16)
-            .width(380)
-            .style(style::info_card);
-
-        let item_list_header = row![
-            text("Draw Items").size(14),
-            horizontal_space(),
-            button(text("Scan"))
-                .on_press(Message::DrawItemOpLoadCatalog)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .padding(10)
-        .align_y(iced::Alignment::Center);
-
-        let left_panel = column![
-            container(item_list_header).style(style::grid_header_cell),
-            item_scroll,
-        ];
-
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
-            .spacing(0)
-            .height(Length::Fill);
-
-        column![
-            horizontal_rule(1),
-            main_content,
-            container(
-                row![
-                    text(&editor.status_msg).size(13).style(style::subtle_text),
-                    horizontal_space(),
-                    if editor.is_loading {
-                        Element::from(text("Loading...").size(13))
-                    } else {
-                        Element::from(text(""))
-                    },
-                    horizontal_space().width(20),
-                    button(text("Save Draw Items"))
-                        .on_press(Message::DrawItemOpSave)
-                        .style(style::commit_button),
-                ]
-                .padding([10, 20])
-                .align_y(iced::Alignment::Center),
-            )
-            .width(Fill)
-            .style(style::status_bar),
-        ]
-        .spacing(0)
-        .height(Length::Fill)
-        .into()
+    pub fn view_draw_item_tab(&self) -> Element<'_, Message> {
+        view_spreadsheet(
+            &self.state.draw_item_editor,
+            &self.state.draw_item_spreadsheet,
+            Message::draw_item(DrawItemEditorMessage::LoadCatalog),
+            Message::draw_item(DrawItemEditorMessage::Save),
+            |idx| Message::draw_item(DrawItemEditorMessage::SelectItem(idx)),
+            |idx, field, val| {
+                Message::draw_item(DrawItemEditorMessage::FieldChanged(idx, field, val))
+            },
+            |msg| Message::draw_item(DrawItemEditorMessage::Spreadsheet(msg)),
+            &self.state.lookups,
+            |msg| Message::draw_item(DrawItemEditorMessage::PaneResized(msg)),
+            |pane| Message::draw_item(DrawItemEditorMessage::PaneClicked(pane)),
+        )
     }
 }

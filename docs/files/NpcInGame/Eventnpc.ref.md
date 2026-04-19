@@ -57,7 +57,7 @@ An extractor is available in `src/references/event_npc_ref.rs` to parse this fil
 
 ```bash
 # Extract Eventnpc.ref to JSON
-cargo run -- ref event-npc-ref "fixtures/Dispel/NpcInGame/Eventnpc.ref"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/Eventnpc.ref"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

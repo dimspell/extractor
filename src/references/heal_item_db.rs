@@ -69,7 +69,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HealItem {
     /// Record index mapping internally.
     pub id: i32,
@@ -236,7 +236,7 @@ pub fn read_heal_item_db(source_path: &Path) -> std::io::Result<Vec<HealItem>> {
     HealItem::read_file(source_path)
 }
 
-pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Result<()> {
+pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_heal_item.sql"))?;
@@ -263,4 +263,10 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &Vec<HealItem>) -> Res
     }
     tx.commit()?;
     Ok(())
+}
+
+impl std::fmt::Display for HealItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "HealItem({} - {})", self.id, self.name)
+    }
 }

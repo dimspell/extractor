@@ -118,7 +118,7 @@ Complete spell database defining all magical abilities with statistics, requirem
 
 ### Extract and display spells:
 ```bash
-cargo run -- ref magic "Dispel/MagicInGame/Magic.db"
+cargo run -- extract -i "Dispel/MagicInGame/Magic.db"
 ```
 
 ### Import to database:
@@ -134,7 +134,7 @@ An extractor is available in `src/references/magic_db.rs` to parse this file for
 
 ```bash
 # Extract Magic.db to JSON
-cargo run -- ref magic "fixtures/Dispel/Ref/Magic.db"
+cargo run -- extract -i "fixtures/Dispel/Ref/Magic.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

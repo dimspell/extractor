@@ -245,7 +245,7 @@ An extractor is available in `src/references/heal_item_db.rs` to parse this file
 
 ```bash
 # Extract HealItem.db to JSON
-cargo run -- ref heal-items "fixtures/Dispel/CharacterInGame/HealItem.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/HealItem.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

@@ -36,12 +36,6 @@
 - "null" for unnamed characters
 - WINDOWS-1250 encoding for special characters
 
-### job
-- Character class or job title
-- Determines character role
-- "null" for characters without specific jobs
-- Examples: "Fighter", "Mage", "Rogue"
-
 ### map_id
 - Origin map identifier
 - Where character is initially found
@@ -102,7 +96,7 @@ Defines all party characters with their names, classes, origin locations, dialog
 
 ### Extract and display party characters:
 ```bash
-cargo run -- ref party-ref "fixtures/Dispel/Ref/PartyRef.ref"
+cargo run -- extract -i "fixtures/Dispel/Ref/PartyRef.ref"
 ```
 
 ### Format Example
@@ -205,7 +199,7 @@ An extractor is available in `src/references/party_ref.rs` to parse this file fo
 
 ```bash
 # Extract PartyRef.ref to JSON
-cargo run -- ref party-ref "fixtures/Dispel/Ref/PartyRef.ref"
+cargo run -- extract -i "fixtures/Dispel/Ref/PartyRef.ref"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

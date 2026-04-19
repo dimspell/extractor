@@ -164,7 +164,7 @@ An extractor is available in `src/references/event_item_db.rs` to parse this fil
 
 ```bash
 # Extract EventItem.db to JSON
-cargo run -- ref event-items "fixtures/Dispel/CharacterInGame/EventItem.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EventItem.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

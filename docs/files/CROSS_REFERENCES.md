@@ -190,7 +190,7 @@ DrawItem.db (object placements)
 
 ```
 Event.ini (event definitions)
-    ├── previous_event_id → Event.ini.id (prerequisite)
+    ├── required_event_id → Event.ini.id (prerequisite)
     ├── script_filename → Script files (.scr)
     └── event_type (0-8) determines execution logic
 
@@ -308,12 +308,16 @@ Message.scr (UI messages)
 | Store.db | products (type=2) | HealItem.db | id | Healing items |
 | Store.db | products (type=3) | MiscItem.db | id | Misc items |
 | Store.db | products (type=4) | EditItem.db | id | Modifiable items |
-| Extra.ref | item_type_id=0,1 | WeaponItem.db | id | Weapons/Armor |
+| Extra.ref | item_type_id=1 | WeaponItem.db | id | Weapons/Armor |
 | Extra.ref | item_type_id=2 | HealItem.db | id | Healing items |
-| Extra.ref | item_type_id=3 | MiscItem.db | id | Misc items |
-| Extra.ref | item_type_id=4 | EditItem.db | id | Modifiable items |
-| Extra.ref | item_type_id=5 | EventItem.db | id | Quest items |
-| MondunMonmap.ref | loot*_item_type | Item databases | id | Monster loot |
+| Extra.ref | item_type_id=3 | EditItem.db | id | Modifiable items |
+| Extra.ref | item_type_id=4 | EventItem.db | id | Quest items |
+| Extra.ref | item_type_id=5 | MiscItem.db | id | Misc items |
+| MondunMonmap.ref | loot*_item_type=1 | WeaponItem.db | id | Weapon loot |
+| MondunMonmap.ref | loot*_item_type=2 | HealItem.db | id | Healing loot |
+| MondunMonmap.ref | loot*_item_type=3 | EditItem.db | id | Editable loot |
+| MondunMonmap.ref | loot*_item_type=4 | EventItem.db | id | Event loot |
+| MondunMonmap.ref | loot*_item_type=5 | MiscItem.db | id | Misc loot |
 | Wave.ini | snf_filename | .snf files | filename | Audio |
 
 ## Data Flow Summary
@@ -331,42 +335,41 @@ Message.scr (UI messages)
 
 ## Item Database Relationships
 
-### Item Type Enum (used in Extra.ref and Store.db)
+### Item Type Enum (ItemTypeId)
 ```
-0: Weapon → WeaponItem.db
-1: Armor → WeaponItem.db
-2: Heal → HealItem.db
-3: Misc → MiscItem.db
-4: Edit → EditItem.db
-5: Event → EventItem.db
-6: Extra → Extra item type
+1: Weapon → WeaponItem.db
+2: Healing → HealItem.db
+3: Edit → EditItem.db
+4: Event → EventItem.db
+5: Misc → MiscItem.db
+255: Other → catch-all
 ```
 
 ### Item Database Cross-References
 ```
 WeaponItem.db (weapons/armor)
     ├── Referenced by Store.db products (type=0,1)
-    ├── Referenced by Extra.ref contents (item_type_id=0,1)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    ├── Referenced by Extra.ref contents (item_type_id=1)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=1)
 
 HealItem.db (consumable healing)
     ├── Referenced by Store.db products (type=2)
     ├── Referenced by Extra.ref contents (item_type_id=2)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
-
-MiscItem.db (generic utility items)
-    ├── Referenced by Store.db products (type=3)
-    ├── Referenced by Extra.ref contents (item_type_id=3)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=2)
 
 EditItem.db (modifiable equipment)
     ├── Referenced by Store.db products (type=4)
-    ├── Referenced by Extra.ref contents (item_type_id=4)
-    └── Referenced by MondunMonmap.ref loot (loot*_item_type)
+    ├── Referenced by Extra.ref contents (item_type_id=3)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=3)
 
 EventItem.db (quest items)
-    ├── Referenced by Extra.ref contents (item_type_id=5)
+    ├── Referenced by Extra.ref contents (item_type_id=4)
     └── Quest progression tracking
+
+MiscItem.db (generic utility items)
+    ├── Referenced by Store.db products (type=3)
+    ├── Referenced by Extra.ref contents (item_type_id=5)
+    └── Referenced by MondunMonmap.ref loot (loot*_item_type=5)
 ```
 
 ## File Encoding Summary
@@ -398,38 +401,38 @@ The extractor tool (`src/`) provides commands to parse and extract data from all
 cargo build --release
 
 # Extract INI files to JSON
-cargo run -- ref all-maps "path/to/AllMap.ini"
-cargo run -- ref event "path/to/Event.ini"
-cargo run -- ref extra "path/to/Extra.ini"
-cargo run -- ref monster "path/to/Monster.ini"
-cargo run -- ref npc "path/to/Npc.ini"
-cargo run -- ref wave "path/to/Wave.ini"
-cargo run -- ref map "path/to/Map.ini"
+cargo run -- extract -i "path/to/AllMap.ini"
+cargo run -- extract -i "path/to/Event.ini"
+cargo run -- extract -i "path/to/Extra.ini"
+cargo run -- extract -i "path/to/Monster.ini"
+cargo run -- extract -i "path/to/Npc.ini"
+cargo run -- extract -i "path/to/Wave.ini"
+cargo run -- extract -i "path/to/Map.ini"
 
 # Extract database files to JSON
-cargo run -- ref weapons "path/to/weaponItem.db"
-cargo run -- ref monsters "path/to/Monster.db"
-cargo run -- ref heal-items "path/to/HealItem.db"
-cargo run -- ref misc-item "path/to/MiscItem.db"
-cargo run -- ref edit-items "path/to/EditItem.db"
-cargo run -- ref event-items "path/to/EventItem.db"
-cargo run -- ref store "path/to/STORE.DB"
-cargo run -- ref magic "path/to/Magic.db"
-cargo run -- ref party-level "path/to/PrtLevel.db"
-cargo run -- ref chdata "path/to/ChData.db"
+cargo run -- extract -i "path/to/weaponItem.db"
+cargo run -- extract -i "path/to/Monster.db"
+cargo run -- extract -i "path/to/HealItem.db"
+cargo run -- extract -i "path/to/MiscItem.db"
+cargo run -- extract -i "path/to/EditItem.db"
+cargo run -- extract -i "path/to/EventItem.db"
+cargo run -- extract -i "path/to/STORE.DB"
+cargo run -- extract -i "path/to/Magic.db"
+cargo run -- extract -i "path/to/PrtLevel.db"
+cargo run -- extract -i "path/to/ChData.db"
 
 # Extract reference files to JSON
-cargo run -- ref party-ref "path/to/PartyRef.ref"
-cargo run -- ref draw-item "path/to/DrawItem.ref"
-cargo run -- ref npc-ref "path/to/Npccat1.ref"
-cargo run -- ref monster-ref "path/to/Mondun01.ref"
-cargo run -- ref extra-ref "path/to/Extdun01.ref"
-cargo run -- ref event-npc-ref "path/to/Eventnpc.ref"
+cargo run -- extract -i "path/to/PartyRef.ref"
+cargo run -- extract -i "path/to/DrawItem.ref"
+cargo run -- extract -i "path/to/Npccat1.ref"
+cargo run -- extract -i "path/to/Mondun01.ref"
+cargo run -- extract -i "path/to/Extdun01.ref"
+cargo run -- extract -i "path/to/Eventnpc.ref"
 
 # Extract script files to JSON
-cargo run -- ref dialog "path/to/Dlgcat1.dlg"
-cargo run -- ref message "path/to/Message.scr"
-cargo run -- ref quest "path/to/Quest.scr"
+cargo run -- extract -i "path/to/Dlgcat1.dlg"
+cargo run -- extract -i "path/to/Message.scr"
+cargo run -- extract -i "path/to/Quest.scr"
 
 # Extract sprites
 cargo run -- sprite "path/to/file.spr" "output_name"

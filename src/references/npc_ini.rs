@@ -45,7 +45,7 @@ use crate::references::extractor::{parse_null, Extractor};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NpcIni {
     /// NPC visual type identifier.
     pub id: i32,
@@ -114,7 +114,7 @@ pub fn read_npc_ini(source_path: &Path) -> std::io::Result<Vec<NpcIni>> {
     NpcIni::read_file(source_path)
 }
 
-pub fn save_npc_inis(conn: &mut Connection, npc_inis: &Vec<NpcIni>) -> Result<()> {
+pub fn save_npc_inis(conn: &mut Connection, npc_inis: &[NpcIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ini.sql"))?;

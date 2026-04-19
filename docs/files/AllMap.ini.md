@@ -67,7 +67,7 @@ An extractor is available in `src/references/all_map_ini.rs` to parse this file 
 
 ```bash
 # Extract AllMap.ini to JSON
-cargo run -- ref all-maps "fixtures/Dispel/AllMap.ini"
+cargo run -- extract -i "fixtures/Dispel/AllMap.ini"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

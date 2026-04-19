@@ -49,7 +49,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct MiscItem {
     /// Numeric tracking index.
     pub id: i32,
@@ -59,6 +59,8 @@ pub struct MiscItem {
     pub description: String,
     /// Value retrieved when standard bartering.
     pub base_price: i32,
+    /// Padding field to preserve binary compatibility.
+    pub padding: [u8; 20],
 }
 
 /// Stores definitions, stats, and prices for generic miscellaneous items.
@@ -100,14 +102,18 @@ impl Extractor for MiscItem {
 
             let base_price = reader.read_i32::<LittleEndian>()?;
 
-            let mut _buffer = [0u8; 20];
-            reader.read_exact(&mut _buffer)?;
+            let padding = {
+                let mut buffer = [0u8; 20];
+                reader.read_exact(&mut buffer)?;
+                buffer
+            };
 
             items.push(MiscItem {
                 id: i,
                 base_price,
                 name: name.to_string(),
                 description: description.to_string(),
+                padding,
             })
         }
 
@@ -135,7 +141,7 @@ impl Extractor for MiscItem {
             writer.write_all(&desc_buf)?;
 
             writer.write_i32::<LittleEndian>(record.base_price)?;
-            writer.write_all(&[0u8; 20])?;
+            writer.write_all(&record.padding)?;
         }
         Ok(())
     }
@@ -145,7 +151,7 @@ pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
     MiscItem::read_file(source_path)
 }
 
-pub fn save_misc_items(conn: &mut Connection, misc_items: &Vec<MiscItem>) -> Result<()> {
+pub fn save_misc_items(conn: &mut Connection, misc_items: &[MiscItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_misc_item.sql"))?;
@@ -154,7 +160,8 @@ pub fn save_misc_items(conn: &mut Connection, misc_items: &Vec<MiscItem>) -> Res
                 item.id,
                 item.name,
                 item.description,
-                item.base_price
+                item.base_price,
+                item.padding
             ])?;
         }
     }

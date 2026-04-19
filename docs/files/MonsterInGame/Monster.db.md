@@ -327,7 +327,7 @@ An extractor is available in `src/references/monster_db.rs` to parse this file f
 
 ```bash
 # Extract Monster.db to JSON
-cargo run -- ref monsters "fixtures/Dispel/MonsterInGame/Monster.db"
+cargo run -- extract -i "fixtures/Dispel/MonsterInGame/Monster.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

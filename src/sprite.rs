@@ -39,7 +39,7 @@ use std::{fs::File, path::Path};
 /// The `origin_x` and `origin_y` fields define the anchor point relative to
 /// the frame's top-left corner. Frames within a sequence may have different
 /// sizes and origins, so a bounding rectangle must be computed to align them.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ImageInfo {
     /// X offset from the frame's top-left to its anchor point.
     pub origin_x: i32,
@@ -59,6 +59,7 @@ pub struct ImageInfo {
 ///
 /// Contains the file offsets needed to navigate between sequences and
 /// the metadata for all frames within this sequence.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SequenceInfo {
     /// File offset where this sequence's frame metadata begins.
     /// Seek here before reading pixel data for rendering.
@@ -148,10 +149,14 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
     let image_start_position = reader.stream_position()?;
 
     if width < 1 || height < 1 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "frame width or height is zero",
-        ));
+        // return Err(std::io::Error::new(
+        //     std::io::ErrorKind::InvalidData,
+        //     "frame width or height is zero",
+        // ));
+        // True for the following:
+        // fixtures/Dispel/CharacterInGame/m_hair1_5.spr
+        // fixtures/Dispel/CharacterInGame/m_hair1_2.spr
+        // fixtures/Dispel/CharacterInGame/m_hair1_3.spr
     }
 
     Ok(ImageInfo {
@@ -417,7 +422,7 @@ pub fn save_sequence_anim(
     let mut offset_x: u32 = 0;
 
     for (i, frame) in frames.iter().enumerate() {
-        let (_, offset_y) = compute_frame_offset(frames, i, rect_x as i32, rect_y as i32);
+        let (_, offset_y) = compute_frame_offset(frames, i, rect_x, rect_y);
 
         let frame_rgba = render_frame_to_rgba(reader, frame, rect_w, rect_h, 0, offset_y)?;
 
@@ -484,20 +489,26 @@ pub fn get_sequence_frames_as_pngs(
         let encoder = image::codecs::png::PngEncoder::new(Cursor::new(&mut buf));
         encoder
             .write_image(frame_rgba.as_raw(), rect_w, rect_h, image::ColorType::Rgba8)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            .map_err(std::io::Error::other)?;
         pngs.push(buf);
     }
 
     Ok(pngs)
 }
 
-pub fn get_sprite_metadata(file_path: &Path) -> Result<Vec<usize>> {
+/// Extract metadata for all sequences in a sprite file
+/// Use (frame_counts.len(), frame_counts) to return (sequence_count, frame_counts_per_sequence)
+pub fn get_sprite_metadata(file_path: &Path) -> Result<(usize, Vec<usize>)> {
     let mut frame_counts = Vec::new();
+    let mut sequence_count = 0;
+
     for_each_sequence(file_path, |_, info, _| {
         frame_counts.push(info.frame_count as usize);
+        sequence_count += 1;
         Ok(())
     })?;
-    Ok(frame_counts)
+
+    Ok((sequence_count, frame_counts))
 }
 
 pub fn get_sequence_pngs_by_index(file_path: &Path, sequence_idx: usize) -> Result<Vec<Vec<u8>>> {

@@ -58,10 +58,10 @@ use image::{Rgb, RgbImage, RgbaImage};
 use std::io::{BufReader, Result, Seek};
 use std::{fs::File, path::Path};
 
+use crate::map::types::TILE_PIXEL_NUMBER;
 use crate::sprite::Color;
 
 // Constants for tile dimensions and pixel count
-pub const TILE_PIXEL_NUMBER: i32 = 32 * 32;
 pub const TILE_WIDTH: u32 = 62;
 pub const TILE_HEIGHT: u32 = 32;
 
@@ -136,19 +136,20 @@ pub fn extract(source_path: &Path) -> Result<Vec<Tile>> {
     Ok(tiles)
 }
 
-/// Creates a mask for isometric tile rendering
+/// Creates a mask for isometric tile rendering.
 ///
-/// This mask determines the diamond shape of isometric tiles
-fn create_mask() -> [[i32; 32]; 2] {
-    let mut mask = [[0i32; TILE_HEIGHT as usize]; 2];
+/// Returns `[[x_offset, width]; 32]` — one entry per scanline of the 32-row tile.
+/// The mask describes the diamond shape: narrow at top/bottom, full-width in the middle.
+fn create_mask() -> [[i32; 2]; 32] {
+    let mut mask = [[0i32; 2]; TILE_HEIGHT as usize];
     let mut pixels_x: i32 = 1;
     let step: i32 = 2;
     let mut direction: i32 = 1;
     let limit = 31;
 
     for row in mask.iter_mut() {
-        row[0] = (TILE_WIDTH as i32) / 2 - pixels_x;
-        row[1] = pixels_x * 2;
+        row[0] = (TILE_WIDTH as i32) / 2 - pixels_x; // x_offset
+        row[1] = pixels_x * 2; // width
         pixels_x += step * direction;
         if pixels_x > limit {
             direction = -1;
@@ -175,7 +176,7 @@ pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
         let dest_y: i32 = 0;
         plot_tile_rgba(&mut imgbuf, tile.colors, dest_x, dest_y);
         let file_path = out_path.join(format!("tile_{:04}.png", tile_index));
-        imgbuf.save(file_path).unwrap();
+        let _ = imgbuf.save(file_path);
     }
 }
 
@@ -188,30 +189,38 @@ pub fn plot_all_tiles(tiles: &[Tile], out_dir: &str) {
 /// * `dest_x` - X coordinate to plot the tile
 /// * `dest_y` - Y coordinate to plot the tile
 pub fn plot_tile(imgbuf: &mut RgbImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
-    if dest_x + TILE_WIDTH as i32 <= imgbuf.width() as i32
-        && dest_x >= 0
-        && dest_y >= 0
-        && dest_y + TILE_HEIGHT as i32 <= imgbuf.height() as i32
+    let img_w = imgbuf.width() as i32;
+    let img_h = imgbuf.height() as i32;
+
+    // Early-out: tile is entirely outside the image
+    if dest_x + TILE_WIDTH as i32 <= 0
+        || dest_x >= img_w
+        || dest_y + TILE_HEIGHT as i32 <= 0
+        || dest_y >= img_h
     {
-        // Todo: calculate it only once
-        let mask = create_mask();
+        return;
+    }
 
-        let mut i = 0;
-        for (y, row) in mask.iter().enumerate().take(TILE_HEIGHT as usize) {
-            for x in 0..row[1] {
-                let pixel: Color = colors[i];
-                i += 1;
+    let mask = create_mask();
+    let mut i = 0;
+    for (y, row) in mask.iter().enumerate() {
+        for x in 0..row[1] {
+            let pixel: Color = colors[i];
+            i += 1;
 
-                let final_x = dest_x + x + row[0];
-                let final_y = dest_y + y as i32;
+            if pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
+                continue;
+            }
 
-                if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
-                    imgbuf.put_pixel(
-                        final_x.try_into().unwrap(),
-                        final_y.try_into().unwrap(),
-                        Rgb([pixel.r, pixel.g, pixel.b]),
-                    );
-                }
+            let final_x = dest_x + x + row[0];
+            let final_y = dest_y + y as i32;
+
+            if final_x >= 0 && final_x < img_w && final_y >= 0 && final_y < img_h {
+                imgbuf.put_pixel(
+                    final_x as u32,
+                    final_y as u32,
+                    Rgb([pixel.r, pixel.g, pixel.b]),
+                );
             }
         }
     }
@@ -255,15 +264,15 @@ pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
             // }
 
             let dest_x: u32 = x * TILE_WIDTH + offset_x;
-            let dest_x: i32 = dest_x.try_into().unwrap();
+            let dest_x: i32 = dest_x.try_into().unwrap_or(0);
             let dest_y: u32 = y * TILE_HEIGHT + offset_y;
-            let dest_y: i32 = dest_y.try_into().unwrap();
+            let dest_y: i32 = dest_y.try_into().unwrap_or(0);
 
             plot_tile_rgba(&mut bitmap, tile.colors, dest_x, dest_y)
         }
     }
 
-    bitmap.save(out_path).unwrap();
+    let _ = bitmap.save(out_path);
 }
 
 /// Plots a single tile onto an RGBA image buffer
@@ -275,30 +284,38 @@ pub fn plot_tileset_map(tiles: &[Tile], out_path: &str) {
 /// * `dest_x` - X coordinate to plot the tile
 /// * `dest_y` - Y coordinate to plot the tile
 pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
-    if dest_x + TILE_WIDTH as i32 <= imgbuf.width() as i32
-        && dest_x >= 0
-        && dest_y >= 0
-        && dest_y + TILE_HEIGHT as i32 <= imgbuf.height() as i32
+    let img_w = imgbuf.width() as i32;
+    let img_h = imgbuf.height() as i32;
+
+    // Early-out: tile is entirely outside the image
+    if dest_x + TILE_WIDTH as i32 <= 0
+        || dest_x >= img_w
+        || dest_y + TILE_HEIGHT as i32 <= 0
+        || dest_y >= img_h
     {
-        // Todo: calculate it only once
-        let mask = create_mask();
+        return;
+    }
 
-        let mut i = 0;
-        for (y, row) in mask.iter().enumerate().take(TILE_HEIGHT as usize) {
-            for x in 0..row[1] {
-                let pixel: Color = colors[i];
-                i += 1;
+    let mask = create_mask();
+    let mut i = 0;
+    for (y, row) in mask.iter().enumerate() {
+        for x in 0..row[1] {
+            let pixel: Color = colors[i];
+            i += 1;
 
-                let final_x = dest_x + x + row[0];
-                let final_y = dest_y + y as i32;
+            if pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
+                continue;
+            }
 
-                if pixel.r != 0 || pixel.g != 0 || pixel.b != 0 {
-                    imgbuf.put_pixel(
-                        final_x.try_into().unwrap(),
-                        final_y.try_into().unwrap(),
-                        image::Rgba([pixel.r, pixel.g, pixel.b, 255]),
-                    );
-                }
+            let final_x = dest_x + x + row[0];
+            let final_y = dest_y + y as i32;
+
+            if final_x >= 0 && final_x < img_w && final_y >= 0 && final_y < img_h {
+                imgbuf.put_pixel(
+                    final_x as u32,
+                    final_y as u32,
+                    image::Rgba([pixel.r, pixel.g, pixel.b, 255]),
+                );
             }
         }
     }
@@ -316,7 +333,6 @@ pub fn plot_tile_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32
 ///
 /// New color data with the mixed colors
 pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024] {
-    const TILE_PIXEL_NUMBER: i32 = 32 * 32; // 1024
     let mut pixels = [Color { r: 0, g: 0, b: 0 }; TILE_PIXEL_NUMBER as usize];
     let amount: f64 = alpha as f64 / 255.0;
 
@@ -324,7 +340,7 @@ pub fn mix_color(canvas: [Color; 1024], color: Color, alpha: u8) -> [Color; 1024
         let base = canvas[i];
         let r = ((color.r as f64 * amount) + base.r as f64 * (1.0 - amount)) as u8;
         let g: u8 = ((color.g as f64 * amount) + base.g as f64 * (1.0 - amount)) as u8;
-        let b: u8 = ((color.r as f64 * amount) + base.b as f64 * (1.0 - amount)) as u8;
+        let b: u8 = ((color.b as f64 * amount) + base.b as f64 * (1.0 - amount)) as u8;
         pixels[i] = Color { r, g, b };
     }
     pixels
@@ -411,8 +427,25 @@ mod tests {
     #[test]
     fn test_create_mask() {
         let mask = create_mask();
-        assert_eq!(mask.len(), 2);
-        assert_eq!(mask[0].len(), 32);
-        assert_eq!(mask[1].len(), 32);
+        // 32 scanlines, each with [x_offset, width]
+        assert_eq!(mask.len(), 32);
+        assert_eq!(mask[0].len(), 2);
+
+        // Top row: narrowest (width=2, offset=30)
+        assert_eq!(mask[0][1], 2, "top row width should be 2");
+        assert_eq!(mask[0][0], 30, "top row offset should be 30");
+
+        // Middle rows (y=15 and y=16): widest (width=62, offset=0)
+        assert_eq!(mask[15][1], 62, "middle row width should be 62");
+        assert_eq!(mask[15][0], 0, "middle row offset should be 0");
+        assert_eq!(mask[16][1], 62, "second middle row width should be 62");
+
+        // Bottom row: narrowest again
+        assert_eq!(mask[31][1], 2, "bottom row width should be 2");
+        assert_eq!(mask[31][0], 30, "bottom row offset should be 30");
+
+        // Total pixels must equal 1024
+        let total: i32 = mask.iter().map(|row| row[1]).sum();
+        assert_eq!(total, 1024, "total pixels across all rows must be 1024");
     }
 }

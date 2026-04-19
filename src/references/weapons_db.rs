@@ -61,7 +61,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct WeaponItem {
     /// Internal record index (0-based) for the weapon/armor.
     pub id: i32,
@@ -250,7 +250,7 @@ pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {
     WeaponItem::read_file(source_path)
 }
 
-pub fn save_weapons(conn: &mut Connection, weapons: &Vec<WeaponItem>) -> Result<()> {
+pub fn save_weapons(conn: &mut Connection, weapons: &[WeaponItem]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_weapon.sql"))?;

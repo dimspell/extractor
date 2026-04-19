@@ -1,0 +1,38 @@
+// Test the message migration approach
+use crate::message_migration::*;
+
+#[test]
+fn test_message_conversion() {
+    // Test conversion from old to new
+    let old_msg = crate::message::Message::WeaponOpScanWeapons;
+    let new_msg = message_migration::conversion::convert_to_new(old_msg).unwrap();
+
+    // Test conversion back to old
+    let converted_back = message_migration::conversion::convert_to_old(new_msg);
+
+    // Should be the same
+    match (old_msg, converted_back) {
+        (
+            crate::message::Message::WeaponOpScanWeapons,
+            crate::message::Message::WeaponOpScanWeapons,
+        ) => {}
+        _ => panic!("Conversion failed"),
+    }
+}
+
+#[test]
+fn test_trait_extension() {
+    use crate::message_migration::MessageExt;
+
+    let old_msg = crate::message::Message::WeaponOpScanWeapons;
+    let new_msg = old_msg.to_new();
+    let converted_back = crate::message::Message::from_new(new_msg);
+
+    match (old_msg, converted_back) {
+        (
+            crate::message::Message::WeaponOpScanWeapons,
+            crate::message::Message::WeaponOpScanWeapons,
+        ) => {}
+        _ => panic!("Trait conversion failed"),
+    }
+}

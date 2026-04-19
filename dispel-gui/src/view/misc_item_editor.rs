@@ -1,123 +1,23 @@
 use crate::app::App;
-use crate::message::Message;
-use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space, labeled_input, vertical_space};
-use iced::widget::{button, column, container, row, scrollable, text};
-use iced::{Element, Fill, Font, Length};
+use crate::message::{editor::miscitem::MiscItemEditorMessage, Message, MessageExt};
+use crate::view::editor::view_spreadsheet;
+use iced::Element;
 
 impl App {
     pub fn view_misc_item_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.misc_item_editor;
-
-        let item_list: Vec<Element<Message>> = editor
-            .filtered_items
-            .iter()
-            .enumerate()
-            .map(|(idx, (_, item))| {
-                let is_selected = editor.selected_idx == Some(idx);
-                let label = format!("[{}] {} - {}g", item.id, item.name, item.base_price);
-
-                let btn = button(text(label).size(11).font(Font::MONOSPACE))
-                    .width(Fill)
-                    .on_press(Message::MiscItemOpSelectItem(idx));
-
-                if is_selected {
-                    btn.style(style::active_chip).into()
-                } else {
-                    btn.style(style::chip).into()
-                }
-            })
-            .collect();
-
-        let item_scroll = scrollable(column(item_list).spacing(4)).height(Length::Fill);
-
-        let mut detail_content: Vec<Element<Message>> = vec![
-            text("Misc Item Details")
-                .size(16)
-                .font(Font::MONOSPACE)
-                .into(),
-            vertical_space().height(10).into(),
-        ];
-
-        if let Some(idx) = editor.selected_idx {
-            if let Some((orig_idx, _item)) = editor.filtered_items.get(idx) {
-                let orig = *orig_idx;
-
-                detail_content.push(labeled_input("Name:", &editor.edit_name, move |v| {
-                    Message::MiscItemOpFieldChanged(orig, "name".into(), v)
-                }));
-                detail_content.push(labeled_input(
-                    "Description:",
-                    &editor.edit_description,
-                    move |v| Message::MiscItemOpFieldChanged(orig, "description".into(), v),
-                ));
-                detail_content.push(labeled_input(
-                    "Base Price (gold):",
-                    &editor.edit_base_price,
-                    move |v| Message::MiscItemOpFieldChanged(orig, "base_price".into(), v),
-                ));
-            }
-        } else {
-            detail_content.push(
-                text("No misc item selected")
-                    .size(13)
-                    .style(style::subtle_text)
-                    .into(),
-            );
-        }
-
-        let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
-
-        let detail_panel = container(detail_scroll)
-            .padding(16)
-            .width(380)
-            .style(style::info_card);
-
-        let item_list_header = row![
-            text("Misc Items").size(14),
-            horizontal_space(),
-            button(text("Scan"))
-                .on_press(Message::MiscItemOpScanItems)
-                .padding([5, 10])
-                .style(style::run_button),
-        ]
-        .padding(10)
-        .align_y(iced::Alignment::Center);
-
-        let left_panel = column![
-            container(item_list_header).style(style::grid_header_cell),
-            item_scroll,
-        ];
-
-        let main_content = row![left_panel, detail_panel.width(Length::FillPortion(2)),]
-            .spacing(0)
-            .height(Length::Fill);
-
-        column![
-            horizontal_rule(1),
-            main_content,
-            container(
-                row![
-                    text(&editor.status_msg).size(13).style(style::subtle_text),
-                    horizontal_space(),
-                    if editor.is_loading {
-                        Element::from(text("Loading...").size(13))
-                    } else {
-                        Element::from(text(""))
-                    },
-                    horizontal_space().width(20),
-                    button(text("Save Misc Items"))
-                        .on_press(Message::MiscItemOpSave)
-                        .style(style::commit_button),
-                ]
-                .padding([10, 20])
-                .align_y(iced::Alignment::Center),
-            )
-            .width(Fill)
-            .style(style::status_bar),
-        ]
-        .spacing(0)
-        .height(Length::Fill)
-        .into()
+        view_spreadsheet(
+            &self.state.misc_item_editor,
+            &self.state.misc_item_spreadsheet,
+            Message::misc_item(MiscItemEditorMessage::ScanItems),
+            Message::misc_item(MiscItemEditorMessage::Save),
+            |idx| Message::misc_item(MiscItemEditorMessage::SelectItem(idx)),
+            |idx, field, val| {
+                Message::misc_item(MiscItemEditorMessage::FieldChanged(idx, field, val))
+            },
+            |msg| Message::misc_item(MiscItemEditorMessage::Spreadsheet(msg)),
+            &self.state.lookups,
+            |msg| Message::misc_item(MiscItemEditorMessage::PaneResized(msg)),
+            |pane| Message::misc_item(MiscItemEditorMessage::PaneClicked(pane)),
+        )
     }
 }

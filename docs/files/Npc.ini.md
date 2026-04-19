@@ -106,7 +106,7 @@ An extractor is available in `src/references/npc_ini.rs` to parse this file form
 
 ```bash
 # Extract Npc.ini to JSON
-cargo run -- ref npc "fixtures/Dispel/Npc.ini"
+cargo run -- extract -i "fixtures/Dispel/Npc.ini"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

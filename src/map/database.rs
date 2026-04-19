@@ -1,6 +1,9 @@
 use std::collections::HashMap;
-use std::io::Result;
+use std::fs::File;
+use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::path::Path;
+
+use byteorder::{LittleEndian, ReadBytesExt};
 
 use crate::map::tileset;
 
@@ -11,26 +14,34 @@ use super::types::{
     TILE_HORIZONTAL_OFFSET_HALF, TILE_WIDTH_HALF,
 };
 
+/// Configuration for rendering a map from database
+pub struct RenderConfig<'a> {
+    pub database_path: &'a Path,
+    pub map_id: &'a str,
+    pub gtl_atlas_path: &'a Path,
+    pub btl_atlas_path: &'a Path,
+    pub atlas_columns: u32,
+    pub output_path: &'a Path,
+    pub game_path: Option<&'a Path>,
+    pub map_file_path: Option<&'a Path>,
+}
+
 /// Renders a map image from data stored in the SQLite database together with
 /// pre-built tileset atlas PNG files.
 ///
 /// # Arguments
-/// * `database_path` - Path to `database.sqlite`
-/// * `map_id`        - Map identifier string, e.g. `"cat1"`
-/// * `gtl_atlas_path`- Path to the ground-tile atlas PNG
-/// * `btl_atlas_path`- Path to the building/roof-tile atlas PNG
-/// * `atlas_columns` - Number of tiles per row in each atlas
-/// * `output_path`   - Output PNG file path
-/// * `game_path`     - Optional game directory; enables real sprite rendering
-pub fn render_from_database(
-    database_path: &Path,
-    map_id: &str,
-    gtl_atlas_path: &Path,
-    btl_atlas_path: &Path,
-    atlas_columns: u32,
-    output_path: &Path,
-    game_path: Option<&Path>,
-) -> Result<()> {
+/// * `config` - Render configuration
+pub fn render_from_database(config: RenderConfig) -> Result<()> {
+    let RenderConfig {
+        database_path,
+        map_id,
+        gtl_atlas_path,
+        btl_atlas_path,
+        atlas_columns,
+        output_path,
+        game_path,
+        map_file_path,
+    } = config;
     use image::RgbaImage;
     use rusqlite::Connection;
 
@@ -102,7 +113,9 @@ pub fn render_from_database(
     }
 
     // ── Tiled objects ──────────────────────────────────────────────────────
-    let mut objects_map: HashMap<i32, TiledObjectInfo> = HashMap::new();
+    // Preserve object_index as tiebreaker: equal PositionOrder (y + size*TILE_HEIGHT)
+    // must resolve in object_index order, matching C# IInterlacedOrderObjectComparer.
+    let mut objects_map: HashMap<i32, (i32, TiledObjectInfo)> = HashMap::new();
     {
         let mut stmt = conn
             .prepare("SELECT x, y, btl_tile_id, object_index FROM map_objects WHERE map_id = ? ORDER BY object_index, stack_order")
@@ -120,15 +133,18 @@ pub fn render_from_database(
 
         for row in iter {
             let (x, y, tile_id, idx) = row.map_err(|e| std::io::Error::other(e.to_string()))?;
-            let entry = objects_map.entry(idx).or_insert(TiledObjectInfo {
-                ids: Vec::new(),
-                x,
-                y,
-            });
-            entry.ids.push(tile_id as i16);
+            let entry = objects_map.entry(idx).or_insert((
+                idx,
+                TiledObjectInfo {
+                    ids: Vec::new(),
+                    x,
+                    y,
+                },
+            ));
+            entry.1.ids.push(tile_id as i16);
         }
     }
-    let mut objects: Vec<TiledObjectInfo> = objects_map.into_values().collect();
+    let mut objects: Vec<(i32, TiledObjectInfo)> = objects_map.into_values().collect();
 
     // ── Map metadata (original dimensions + offsets) ───────────────────────
     let metadata: (Option<i32>, Option<i32>, Option<i32>, Option<i32>) = conn
@@ -181,8 +197,13 @@ pub fn render_from_database(
 
     // ── Pass 2: Objects ────────────────────────────────────────────────────
     println!("Rendering pass 2: Objects...");
-    objects.sort_by_key(|o| o.y + (o.ids.len() as i32 * tileset::TILE_HEIGHT as i32));
-    for obj in &objects {
+    objects.sort_by_key(|(idx, o)| {
+        (
+            o.y + (o.ids.len() as i32 * tileset::TILE_HEIGHT as i32),
+            *idx,
+        )
+    });
+    for (_, obj) in &objects {
         for (i, &btl_id) in obj.ids.iter().enumerate() {
             if btl_id <= 0 {
                 continue;
@@ -222,6 +243,113 @@ pub fn render_from_database(
             dest_x,
             dest_y,
         });
+    }
+
+    // ── Pass 3.5: Internal sprites from .map file ──────────────────────
+    if let Some(map_file) = map_file_path {
+        println!("Rendering pass 3.5: Internal sprites...");
+        println!("  Loading map file: {}", map_file.display());
+        if let Ok(file) = File::open(map_file) {
+            let mut reader = BufReader::new(file);
+            println!("  Skipping first two blocks...");
+            // Skip first block (unknown data)
+            println!("    Skipping first block...");
+            if let Err(e) = super::reader::first_block(&mut reader) {
+                println!("  Warning: Failed to skip first block: {}", e);
+            } else {
+                println!("    First block skipped");
+            }
+            // Skip second block (unknown data)
+            println!("    Skipping second block...");
+            if let Err(e) = super::reader::second_block(&mut reader) {
+                println!("  Warning: Failed to skip second block: {}", e);
+            } else {
+                println!("    Second block skipped");
+            }
+            println!("  Loading sprite sequences...");
+            match super::reader::sprite_block(&mut reader) {
+                Ok(internal_sprites) => {
+                    println!("  Loaded {} sprite sequences", internal_sprites.len());
+                    match super::reader::sprite_info_block(&mut reader, &internal_sprites) {
+                        Ok(sprite_blocks) => {
+                            println!("  Loaded {} sprite blocks", sprite_blocks.len());
+                            // Render internal sprites
+                            for (i, block) in sprite_blocks.iter().enumerate() {
+                                if block.sprite_id >= internal_sprites.len() {
+                                    continue;
+                                }
+                                let sequence = &internal_sprites[block.sprite_id];
+                                if sequence.frame_infos.is_empty() {
+                                    continue;
+                                }
+                                let sprite = &sequence.frame_infos[0];
+                                let (dest_x, dest_y) = convert_map_coords_to_image_coords(
+                                    block.sprite_x + offset_x_tiles,
+                                    block.sprite_y + offset_y_tiles,
+                                    diagonal,
+                                );
+                                // Plot internal sprite on RGBA image
+                                if dest_x + sprite.width <= imgbuf.width() as i32
+                                    && dest_x >= 0
+                                    && dest_y >= 0
+                                    && dest_y + sprite.height <= imgbuf.height() as i32
+                                {
+                                    // Reopen the file for this sprite to avoid reader position issues
+                                    if let Ok(sprite_file) = File::open(map_file) {
+                                        let mut sprite_reader = BufReader::new(sprite_file);
+                                        if let Err(e) = sprite_reader
+                                            .seek(SeekFrom::Start(sprite.image_start_position))
+                                        {
+                                            println!(
+                                                "  Warning: Failed to seek in sprite {}: {}",
+                                                i, e
+                                            );
+                                        } else {
+                                            for y in 0..sprite.height {
+                                                for x in 0..sprite.width {
+                                                    let pixel = sprite_reader
+                                                        .read_u16::<LittleEndian>()
+                                                        .ok();
+                                                    if let Some(pixel_val) = pixel {
+                                                        if pixel_val > 0 {
+                                                            // Convert RGB565 to RGBA8
+                                                            let r =
+                                                                ((pixel_val >> 11) & 0x1F) as u8;
+                                                            let g = ((pixel_val >> 5) & 0x3F) as u8;
+                                                            let b = (pixel_val & 0x1F) as u8;
+                                                            // Scale 5/6/5 bit values to 8 bits
+                                                            let r8 = (r as u16 * 255 + 15) / 31;
+                                                            let g8 = (g as u16 * 255 + 31) / 63;
+                                                            let b8 = (b as u16 * 255 + 15) / 31;
+                                                            imgbuf.put_pixel(
+                                                                (dest_x + x) as u32,
+                                                                (dest_y + y) as u32,
+                                                                image::Rgba([
+                                                                    r8 as u8, g8 as u8, b8 as u8,
+                                                                    255,
+                                                                ]),
+                                                            );
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            println!("  Warning: Failed to load sprite info block: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    println!("  Warning: Failed to load sprite block: {}", e);
+                }
+            }
+        } else {
+            println!("  Warning: Failed to open map file");
+        }
     }
 
     // ── Pass 4: External entities (NPCs, monsters, extras) ─────────────────
@@ -264,18 +392,19 @@ fn render_external_entities(
     map_id: &str,
     game_path: Option<&Path>,
     diagonal: i32,
-    offset_x_tiles: i32,
-    offset_y_tiles: i32,
+    _offset_x_tiles: i32,
+    _offset_y_tiles: i32,
 ) {
     let refs_query = "
         SELECT i.monsters_filename, i.npc_filename, i.extra_filename
         FROM map_inis i
         JOIN maps m ON m.id = i.map_id
         WHERE m.map_filename = ? COLLATE NOCASE
+        LIMIT 1
     ";
 
     let refs = conn
-        .query_row(refs_query, [format!("{}.map", map_id).as_str()], |row| {
+        .query_row(refs_query, [map_id], |row| {
             Ok((
                 row.get::<_, Option<String>>(0)?,
                 row.get::<_, Option<String>>(1)?,
@@ -298,9 +427,10 @@ fn render_external_entities(
         HashMap::new();
 
     for entity in &entities {
-        let x = entity.x + offset_x_tiles;
-        let y = entity.y + offset_y_tiles;
-        let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
+        // Entity tile coordinates are raw game tile coords (same system as the
+        // .ref files store them). Unlike DB tile coords they are NOT shifted by
+        // offset_x_tiles, so pass directly to convert_map_coords_to_image_coords.
+        let (dest_x, dest_y) = convert_map_coords_to_image_coords(entity.x, entity.y, diagonal);
         let cx = dest_x + TILE_WIDTH_HALF;
         let cy = dest_y + TILE_HEIGHT_HALF;
 
@@ -308,10 +438,22 @@ fn render_external_entities(
 
         if let Some(gp) = game_path {
             if let Some(ref sf) = entity.sprite_filename {
+                // Try case-insensitive path resolution
+                let try_paths = vec![
+                    gp.join(entity.sprite_dir).join(sf),
+                    gp.join(entity.sprite_dir).join(sf.to_ascii_uppercase()),
+                    gp.join(entity.sprite_dir).join(sf.to_ascii_lowercase()),
+                ];
+
+                let actual_path = try_paths.into_iter().find(|p| p.exists());
+
                 let key = format!("{}/{}", entity.sprite_dir, sf);
                 if !sprite_cache.contains_key(&key) {
-                    let path = gp.join(entity.sprite_dir).join(sf);
-                    sprite_cache.insert(key.clone(), load_sprite_frames(&path));
+                    if let Some(path) = actual_path {
+                        sprite_cache.insert(key.clone(), load_sprite_frames(&path));
+                    } else {
+                        sprite_cache.insert(key.clone(), None);
+                    }
                 }
                 if let Some(Some(frames)) = sprite_cache.get(&key) {
                     if !frames.is_empty() {
@@ -385,7 +527,11 @@ fn collect_npcs(
         f = f.replace('\\', "/");
         if let Some(name) = f.split('/').next_back() {
             let q = format!(
-                "SELECT nr.goto1_x, nr.goto1_y, ni.sprite_filename, nr.looking_direction \
+                "SELECT nr.show_on_event, nr.goto1_filled, nr.goto1_x, nr.goto1_y,
+                        nr.goto2_filled, nr.goto2_x, nr.goto2_y,
+                        nr.goto3_filled, nr.goto3_x, nr.goto3_y,
+                        nr.goto4_filled, nr.goto4_x, nr.goto4_y,
+                        ni.sprite_filename, nr.looking_direction \
                  FROM npc_refs nr \
                  LEFT JOIN npc_inis ni ON ni.id = nr.npc_id \
                  WHERE nr.file_path LIKE '%{}'",
@@ -394,24 +540,49 @@ fn collect_npcs(
             if let Ok(mut stmt) = conn.prepare(&q) {
                 if let Ok(iter) = stmt.query_map([], |row| {
                     Ok((
-                        row.get::<_, i32>(0)?,
-                        row.get::<_, i32>(1)?,
-                        row.get::<_, Option<String>>(2)?,
-                        row.get::<_, i32>(3)?,
+                        row.get::<_, i32>(0)?,             // show_on_event
+                        row.get::<_, i32>(1)?,             // goto1_filled
+                        row.get::<_, i32>(2)?,             // goto1_x
+                        row.get::<_, i32>(3)?,             // goto1_y
+                        row.get::<_, i32>(4)?,             // goto2_filled
+                        row.get::<_, i32>(5)?,             // goto2_x
+                        row.get::<_, i32>(6)?,             // goto2_y
+                        row.get::<_, i32>(7)?,             // goto3_filled
+                        row.get::<_, i32>(8)?,             // goto3_x
+                        row.get::<_, i32>(9)?,             // goto3_y
+                        row.get::<_, i32>(10)?,            // goto4_filled
+                        row.get::<_, i32>(11)?,            // goto4_x
+                        row.get::<_, i32>(12)?,            // goto4_y
+                        row.get::<_, Option<String>>(13)?, // sprite_filename
+                        row.get::<_, i32>(14)?,            // looking_direction
                     ))
                 }) {
                     for row in iter.filter_map(|r| r.ok()) {
-                        let direction = row.3;
+                        // Find first active waypoint
+                        let waypoints = [
+                            (row.1, row.2, row.3),    // goto1
+                            (row.4, row.5, row.6),    // goto2
+                            (row.7, row.8, row.9),    // goto3
+                            (row.10, row.11, row.12), // goto4
+                        ];
+
+                        let (x, y) = waypoints
+                            .iter()
+                            .find(|(filled, _, _)| *filled != 0)
+                            .map(|(_, x, y)| (*x, *y))
+                            .unwrap_or((row.2, row.3)); // Fallback to goto1
+
+                        let direction = row.14;
                         let seq = if direction > 4 {
                             (8 - direction) as usize
                         } else {
                             direction as usize
                         };
                         entities.push(ExternalEntity {
-                            x: row.0,
-                            y: row.1,
+                            x,
+                            y,
                             color: image::Rgba([60, 255, 60, 255]),
-                            sprite_filename: row.2,
+                            sprite_filename: row.13,
                             sprite_dir: "NpcInGame",
                             sprite_sequence: seq,
                             flip: direction > 4,

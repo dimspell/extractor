@@ -78,7 +78,7 @@ An extractor is available in `src/references/npc_ref.rs` to parse this file form
 
 ```bash
 # Extract Npccat1.ref to JSON
-cargo run -- ref npc-ref "fixtures/Dispel/NpcInGame/Npccat1.ref"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/Npccat1.ref"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

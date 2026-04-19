@@ -6,7 +6,7 @@ use crate::references::extractor::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // QUEST.SCR FILE FORMAT
@@ -52,7 +52,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Quest {
     /// Quest table database pointer index.
     pub id: i32,
@@ -143,7 +143,7 @@ pub fn read_quests(path: &Path) -> std::io::Result<Vec<Quest>> {
     Quest::read_file(path)
 }
 
-pub fn save_quests(conn: &mut Connection, quests: &Vec<Quest>) -> Result<()> {
+pub fn save_quests(conn: &mut Connection, quests: &[Quest]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_quest.sql"))?;

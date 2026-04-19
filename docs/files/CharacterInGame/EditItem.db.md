@@ -212,7 +212,7 @@ An extractor is available in `src/references/edit_item_db.rs` to parse this file
 
 ```bash
 # Extract EditItem.db to JSON
-cargo run -- ref edit-items "fixtures/Dispel/CharacterInGame/EditItem.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/EditItem.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

@@ -66,7 +66,7 @@ An extractor is available in `src/references/dialog.rs` to parse this file forma
 
 ```bash
 # Extract Dlgcat1.dlg to JSON
-cargo run -- ref dialog "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/Dlgcat1.dlg"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

@@ -62,7 +62,7 @@ Stores multi-line text messages for UI elements such as:
 
 ### Extract and display messages:
 ```bash
-cargo run -- ref message "Dispel/ExtraInGame/Message.scr"
+cargo run -- extract -i "Dispel/ExtraInGame/Message.scr"
 ```
 
 ### Format Example
@@ -96,7 +96,7 @@ An extractor is available in `src/references/message_scr.rs` to parse this file 
 
 ```bash
 # Extract Message.scr to JSON
-cargo run -- ref message "fixtures/Dispel/ExtraInGame/Message.scr"
+cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Message.scr"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

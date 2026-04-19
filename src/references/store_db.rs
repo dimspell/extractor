@@ -5,7 +5,7 @@ use std::{fs::File, path::Path};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::references::enums::ProductType;
 use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
@@ -65,7 +65,7 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Store {
     /// Logical ordering of the store script.
     pub index: i32,
@@ -230,7 +230,7 @@ pub fn read_store_db(source_path: &Path) -> std::io::Result<Vec<Store>> {
     Store::read_file(source_path)
 }
 
-pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
+pub fn save_stores(conn: &mut Connection, stores: &[Store]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt_store = tx.prepare(include_str!("../queries/insert_store.sql"))?;
@@ -259,4 +259,10 @@ pub fn save_stores(conn: &mut Connection, stores: &Vec<Store>) -> Result<()> {
     }
     tx.commit()?;
     Ok(())
+}
+
+impl std::fmt::Display for Store {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Store({} - {})", self.index, self.store_name)
+    }
 }

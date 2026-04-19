@@ -1,47 +1,32 @@
 use iced::color;
 use iced::Theme;
 
-pub mod all_map_ini_editor;
 pub mod app;
-pub mod chdata_editor;
-pub mod chest_editor;
+pub mod auto_save;
+pub mod components;
 pub mod db;
-pub mod db_viewer_state;
-pub mod dialog_editor;
-pub mod dialogue_text_editor;
-pub mod draw_item_editor;
-pub mod edit_item_editor;
-pub mod event_ini_editor;
-pub mod event_item_editor;
-pub mod event_npc_ref_editor;
-pub mod extra_ini_editor;
-pub mod extra_ref_editor;
-pub mod heal_item_editor;
-pub mod magic_editor;
-pub mod map_ini_editor;
+pub mod edit_history;
+pub mod file_index_cache;
+pub mod generic_editor;
+pub mod global_search;
+pub mod indexation_service;
+pub mod loading_state;
 pub mod message;
-pub mod message_scr_editor;
-pub mod misc_item_editor;
-pub mod monster_editor;
-pub mod monster_ref_editor;
-pub mod npc_ini_editor;
-pub mod npc_ref_editor;
-pub mod party_ini_editor;
-pub mod party_level_db_editor;
-pub mod party_ref_editor;
-pub mod quest_scr_editor;
-pub mod sprite_browser;
-pub mod store_editor;
+pub mod search_index;
+mod state;
 pub mod style;
 pub mod types;
+pub mod update;
 pub mod utils;
 pub mod view;
-pub mod wave_ini_editor;
-pub mod weapon_editor;
+pub mod workspace;
 
 use crate::app::App;
 
 pub fn main() -> iced::Result {
+    // Initialize logging
+    env_logger::init();
+
     iced::application(App::new, App::update, App::view)
         .theme(|_: &App| {
             Theme::custom(
@@ -56,6 +41,8 @@ pub fn main() -> iced::Result {
                 },
             )
         })
+        .title("Dispel Extractor")
+        .subscription(App::subscription)
         .window_size((1100.0, 800.0))
         .run()
 }

@@ -1,6 +1,6 @@
-use crate::message::Message;
+use crate::message::{system::SystemMessage, Message};
 use crate::style;
-use iced::widget::{button, row, text, text_input, space::Space, rule::Rule};
+use iced::widget::{button, row, rule::Rule, space::Space, text, text_input};
 use iced::{Element, Length, Task};
 
 pub fn horizontal_space() -> Space {
@@ -32,14 +32,14 @@ pub fn labeled_input<'a>(
     .into()
 }
 
-pub fn labeled_select<'a, T: Clone + ToString + 'static>(
+pub fn labeled_select<'a, T>(
     label: &'a str,
     value: T,
     options: Vec<T>,
     on_change: impl Fn(T) -> Message + 'a,
 ) -> Element<'a, Message>
 where
-    T: PartialEq,
+    T: Clone + ToString + PartialEq + 'static,
 {
     use iced::widget::pick_list;
     row![
@@ -84,9 +84,11 @@ pub fn browse_file(field: &str) -> Task<Message> {
                 .await
                 .map(|h| h.path().to_path_buf())
         },
-        move |path| Message::FileSelected {
-            field: field.clone(),
-            path,
+        move |path| {
+            Message::System(SystemMessage::FileSelected {
+                field: field.clone(),
+                path: Some(path.unwrap_or_default()),
+            })
         },
     )
 }
@@ -100,46 +102,25 @@ pub fn browse_folder(field: &str) -> Task<Message> {
                 .await
                 .map(|h| h.path().to_path_buf())
         },
-        move |path| Message::FileSelected {
-            field: field.clone(),
-            path,
+        move |path| {
+            Message::System(SystemMessage::FileSelected {
+                field: field.clone(),
+                path: Some(path.unwrap_or_default()),
+            })
         },
     )
 }
 
-pub async fn run_command(exe: String, args: Vec<String>) -> Result<String, String> {
-    use tokio::process::Command;
-    let output = Command::new(&exe)
-        .args(&args)
-        .output()
-        .await
-        .map_err(|e| format!("Failed to spawn '{}': {}", exe, e))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    let mut result = String::new();
-    if !stdout.is_empty() {
-        result.push_str(&stdout);
-    }
-    if !stderr.is_empty() {
-        result.push_str(&stderr);
-    }
-    if output.status.success() {
-        Ok(result)
-    } else {
-        Err(format!(
-            "Exit code {}.\n{}",
-            output.status.code().unwrap_or(-1),
-            result
-        ))
-    }
-}
 pub fn truncate_path(path: &str, max_len: usize) -> String {
-    if path.len() <= max_len {
+    let char_count = path.chars().count();
+    if char_count <= max_len {
         return path.to_string();
     }
     let half = (max_len.saturating_sub(3)) / 2;
     if half == 0 {
         return path.chars().take(max_len).collect();
     }
-    format!("{}...{}", &path[..half], &path[path.len() - half..])
+    let start: String = path.chars().take(half).collect();
+    let end: String = path.chars().skip(char_count - half).collect();
+    format!("{}...{}", start, end)
 }

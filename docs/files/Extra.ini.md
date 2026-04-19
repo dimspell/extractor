@@ -163,7 +163,7 @@ An extractor is available in `src/references/extra_ini.rs` to parse this file fo
 
 ```bash
 # Extract Extra.ini to JSON
-cargo run -- ref extra "fixtures/Dispel/Extra.ini"
+cargo run -- extract -i "fixtures/Dispel/Extra.ini"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

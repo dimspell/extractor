@@ -54,7 +54,7 @@
 
 ### Extract and display character data:
 ```bash
-cargo run -- ref chdata "fixtures/Dispel/CharacterInGame/ChData.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/ChData.db"
 ```
 
 ### Format Structure
@@ -119,7 +119,7 @@ An extractor is available in `src/references/chdata_db.rs` to parse this file fo
 
 ```bash
 # Extract ChData.db to JSON
-cargo run -- ref chdata "fixtures/Dispel/CharacterInGame/ChData.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/ChData.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

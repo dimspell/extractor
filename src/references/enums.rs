@@ -8,10 +8,11 @@ use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 
 /// Event types for game scripting and quest progression
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum EventType {
     /// Default/Unknown event type
+    #[default]
     Unknown = 0,
     /// Conditional execution (executed N times unconditionally)
     Conditional = 2,
@@ -67,8 +68,10 @@ impl std::fmt::Display for EventType {
 /// Monster AI behavior types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum MonsterAiType {
     /// Passive monster with no AI
+    #[default]
     Passive = 0,
     /// Aggressive monster that attacks on sight
     Aggressive = 1,
@@ -120,10 +123,11 @@ impl From<MonsterAiType> for i32 {
 }
 
 /// Binary property flag (Present/Absent)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[repr(i32)]
 pub enum PropertyFlag {
     /// Property is false/absent
+    #[default]
     Absent = 0,
     /// Property is true/present
     Present = 1,
@@ -183,10 +187,12 @@ impl From<bool> for PropertyFlag {
 /// Map lighting types for rendering
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum MapLighting {
     /// Dark map (interior, dungeon)
     Dark = 0,
     /// Light map (exterior, daytime)
+    #[default]
     Light = 1,
 }
 
@@ -305,7 +311,7 @@ pub enum ExtraType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum DialogType {
-    /// Normal dialog line
+    /// Normal dialog line (linear)
     Normal = 0,
     /// Choice dialog (branching conversation)
     Choice = 1,
@@ -400,10 +406,11 @@ impl std::fmt::Display for DialogOwner {
 }
 
 /// Edit item modification flag
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum EditItemModification {
     /// Item does not modify other items
+    #[default]
     DoesNotModify = 0,
     /// Item can modify other items
     CanModify = 1,
@@ -422,6 +429,15 @@ impl EditItemModification {
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "DoesNotModify" => Some(EditItemModification::DoesNotModify),
+            "CanModify" => Some(EditItemModification::CanModify),
+            _ => None,
+        }
     }
 }
 
@@ -456,10 +472,11 @@ impl From<bool> for EditItemModification {
 }
 
 /// Edit item additional effect types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i16)]
 pub enum EditItemEffect {
     /// No additional effect
+    #[default]
     None = 0,
     /// Fire effect
     Fire = 1,
@@ -482,6 +499,16 @@ impl EditItemEffect {
     pub fn value(&self) -> i16 {
         *self as i16
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "None" => Some(EditItemEffect::None),
+            "Fire" => Some(EditItemEffect::Fire),
+            "ManaDrain" | "Mana Drain" => Some(EditItemEffect::ManaDrain),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<i16> for EditItemEffect {
@@ -501,8 +528,10 @@ impl From<EditItemEffect> for i16 {
 /// Extra object types for interactive map objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum ExtraObjectType {
     /// Chest object
+    #[default]
     Chest = 0,
     /// Door object
     Door = 2,
@@ -569,7 +598,9 @@ impl std::fmt::Display for ExtraObjectType {
 /// Visibility types for map objects
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
+#[derive(Default)]
 pub enum VisibilityType {
+    #[default]
     Visible0 = 0,
     Visible10 = 10,
     /// Unknown visibility type
@@ -617,19 +648,20 @@ impl std::fmt::Display for VisibilityType {
 }
 
 /// Item type identifiers for inventory and requirements
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum ItemTypeId {
     /// Weapon item type
+    #[default]
     Weapon = 1,
     /// Healing item type
     Healing = 2,
     /// Edit item type
     Edit = 3,
-    /// Miscellaneous item type
-    Misc = 4,
     /// Event item type
-    Event = 5,
+    Event = 4,
+    /// Miscellaneous item type
+    Misc = 5,
     /// Other/Unknown item type (catch-all for undefined values)
     Other = 255,
 }
@@ -641,8 +673,8 @@ impl ItemTypeId {
             1 => Some(ItemTypeId::Weapon),
             2 => Some(ItemTypeId::Healing),
             3 => Some(ItemTypeId::Edit),
-            4 => Some(ItemTypeId::Misc),
-            5 => Some(ItemTypeId::Event),
+            4 => Some(ItemTypeId::Event),
+            5 => Some(ItemTypeId::Misc),
             _ => Some(ItemTypeId::Other),
         }
     }
@@ -653,8 +685,8 @@ impl ItemTypeId {
             "1" => Some(ItemTypeId::Weapon),
             "2" => Some(ItemTypeId::Healing),
             "3" => Some(ItemTypeId::Edit),
-            "4" => Some(ItemTypeId::Misc),
-            "5" => Some(ItemTypeId::Event),
+            "4" => Some(ItemTypeId::Event),
+            "5" => Some(ItemTypeId::Misc),
             "255" => Some(ItemTypeId::Other),
             _ => None,
         }
@@ -685,8 +717,8 @@ impl std::fmt::Display for ItemTypeId {
             ItemTypeId::Weapon => write!(f, "Weapon"),
             ItemTypeId::Healing => write!(f, "Healing"),
             ItemTypeId::Edit => write!(f, "Edit"),
-            ItemTypeId::Misc => write!(f, "Misc"),
             ItemTypeId::Event => write!(f, "Event"),
+            ItemTypeId::Misc => write!(f, "Misc"),
             ItemTypeId::Other => write!(f, "Other"),
         }
     }
@@ -706,11 +738,417 @@ impl From<ItemTypeId> for u8 {
     }
 }
 
+/// Enum for boolean flags (0 = false, 1 = true)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum BooleanFlag {
+    /// False/Disabled/Not filled
+    #[default]
+    False = 0,
+    /// True/Enabled/Filled
+    True = 1,
+}
+
+impl BooleanFlag {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(BooleanFlag::False),
+            1 => Some(BooleanFlag::True),
+            _ => None,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(BooleanFlag::False),
+            1 => Some(BooleanFlag::True),
+            _ => None,
+        }
+    }
+}
+
+impl From<BooleanFlag> for i32 {
+    fn from(flag: BooleanFlag) -> Self {
+        flag as i32
+    }
+}
+
+impl From<BooleanFlag> for u8 {
+    fn from(flag: BooleanFlag) -> Self {
+        flag as u8
+    }
+}
+
+impl std::fmt::Display for BooleanFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BooleanFlag::False => write!(f, "False"),
+            BooleanFlag::True => write!(f, "True"),
+        }
+    }
+}
+
+impl std::str::FromStr for BooleanFlag {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "False" => Ok(BooleanFlag::False),
+            "True" => Ok(BooleanFlag::True),
+            _ => Err("Invalid BooleanFlag value"),
+        }
+    }
+}
+
+/// Enum for unknown field with values 0, 1, or 2
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum Unknown012 {
+    /// Value 0
+    #[default]
+    Value0 = 0,
+    /// Value 1
+    Value1 = 1,
+    /// Value 2
+    Value2 = 2,
+}
+
+impl Unknown012 {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Unknown012::Value0),
+            1 => Some(Unknown012::Value1),
+            2 => Some(Unknown012::Value2),
+            _ => None,
+        }
+    }
+}
+
+impl From<Unknown012> for i32 {
+    fn from(value: Unknown012) -> Self {
+        value as i32
+    }
+}
+
+/// Enum for unknown field with values 0-7
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum Unknown0to7 {
+    /// Value 0
+    #[default]
+    Value0 = 0,
+    /// Value 1
+    Value1 = 1,
+    /// Value 2
+    Value2 = 2,
+    /// Value 3
+    Value3 = 3,
+    /// Value 4
+    Value4 = 4,
+    /// Value 5
+    Value5 = 5,
+    /// Value 6
+    Value6 = 6,
+    /// Value 7
+    Value7 = 7,
+}
+
+impl Unknown0to7 {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Unknown0to7::Value0),
+            1 => Some(Unknown0to7::Value1),
+            2 => Some(Unknown0to7::Value2),
+            3 => Some(Unknown0to7::Value3),
+            4 => Some(Unknown0to7::Value4),
+            5 => Some(Unknown0to7::Value5),
+            6 => Some(Unknown0to7::Value6),
+            7 => Some(Unknown0to7::Value7),
+            _ => None,
+        }
+    }
+}
+
+impl From<Unknown0to7> for i32 {
+    fn from(value: Unknown0to7) -> Self {
+        value as i32
+    }
+}
+
+/// Enum for unknown field with values 0, 1, or 10
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum Unknown0110 {
+    /// Value 0
+    #[default]
+    Value0 = 0,
+    /// Value 1
+    Value1 = 1,
+    /// Value 10
+    Value10 = 10,
+}
+
+impl Unknown0110 {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Unknown0110::Value0),
+            1 => Some(Unknown0110::Value1),
+            10 => Some(Unknown0110::Value10),
+            _ => None,
+        }
+    }
+}
+
+impl From<Unknown0110> for i32 {
+    fn from(value: Unknown0110) -> Self {
+        value as i32
+    }
+}
+
+/// Enum for tri-state flags (-1, 0, 1)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum TriStateFlag {
+    /// Value -1
+    MinusOne = -1,
+    /// Value 0 (default)
+    #[default]
+    Zero = 0,
+    /// Value 1
+    One = 1,
+}
+
+impl TriStateFlag {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            -1 => Some(TriStateFlag::MinusOne),
+            0 => Some(TriStateFlag::Zero),
+            1 => Some(TriStateFlag::One),
+            _ => None,
+        }
+    }
+}
+
+impl From<TriStateFlag> for i32 {
+    fn from(flag: TriStateFlag) -> Self {
+        flag as i32
+    }
+}
+
+impl std::fmt::Display for TriStateFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TriStateFlag::MinusOne => write!(f, "-1"),
+            TriStateFlag::Zero => write!(f, "0"),
+            TriStateFlag::One => write!(f, "1"),
+        }
+    }
+}
+
+impl std::str::FromStr for TriStateFlag {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "-1" => Ok(TriStateFlag::MinusOne),
+            "0" => Ok(TriStateFlag::Zero),
+            "1" => Ok(TriStateFlag::One),
+            _ => Err("Invalid TriStateFlag value"),
+        }
+    }
+}
+
+/// Enum for byte flags (0 or 255)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(u8)]
+pub enum ByteFlag {
+    /// Value 0 (default)
+    #[default]
+    Zero = 0,
+    /// Value 255
+    FF = 255,
+}
+
+impl ByteFlag {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(ByteFlag::Zero),
+            255 => Some(ByteFlag::FF),
+            _ => None,
+        }
+    }
+}
+
+impl From<ByteFlag> for u8 {
+    fn from(flag: ByteFlag) -> Self {
+        flag as u8
+    }
+}
+
+impl std::fmt::Display for ByteFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ByteFlag::Zero => write!(f, "0"),
+            ByteFlag::FF => write!(f, "255"),
+        }
+    }
+}
+
+impl std::str::FromStr for ByteFlag {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(ByteFlag::Zero),
+            "255" => Ok(ByteFlag::FF),
+            _ => Err("Invalid ByteFlag value"),
+        }
+    }
+}
+
+/// Enum for special value flags (0 or 9999)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum Special9999Flag {
+    /// Value 0 (default)
+    #[default]
+    Zero = 0,
+    /// Value 9999
+    Max = 9999,
+}
+
+impl Special9999Flag {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Special9999Flag::Zero),
+            9999 => Some(Special9999Flag::Max),
+            _ => None,
+        }
+    }
+}
+
+impl From<Special9999Flag> for i32 {
+    fn from(flag: Special9999Flag) -> Self {
+        flag as i32
+    }
+}
+
+/// Enum for small range values (0, 1, 2, 3)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum SmallRange0to3 {
+    /// Value 0 (default)
+    #[default]
+    Value0 = 0,
+    /// Value 1
+    Value1 = 1,
+    /// Value 2
+    Value2 = 2,
+    /// Value 3
+    Value3 = 3,
+}
+
+impl SmallRange0to3 {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(SmallRange0to3::Value0),
+            1 => Some(SmallRange0to3::Value1),
+            2 => Some(SmallRange0to3::Value2),
+            3 => Some(SmallRange0to3::Value3),
+            _ => None,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0 => Some(SmallRange0to3::Value0),
+            1 => Some(SmallRange0to3::Value1),
+            2 => Some(SmallRange0to3::Value2),
+            3 => Some(SmallRange0to3::Value3),
+            _ => None,
+        }
+    }
+}
+
+impl From<SmallRange0to3> for i32 {
+    fn from(value: SmallRange0to3) -> Self {
+        value as i32
+    }
+}
+
+impl From<SmallRange0to3> for u8 {
+    fn from(value: SmallRange0to3) -> Self {
+        value as u8
+    }
+}
+
+impl std::fmt::Display for SmallRange0to3 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SmallRange0to3::Value0 => write!(f, "0"),
+            SmallRange0to3::Value1 => write!(f, "1"),
+            SmallRange0to3::Value2 => write!(f, "2"),
+            SmallRange0to3::Value3 => write!(f, "3"),
+        }
+    }
+}
+
+impl std::str::FromStr for SmallRange0to3 {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "0" => Ok(SmallRange0to3::Value0),
+            "1" => Ok(SmallRange0to3::Value1),
+            "2" => Ok(SmallRange0to3::Value2),
+            "3" => Ok(SmallRange0to3::Value3),
+            _ => Err("Invalid SmallRange0to3 value"),
+        }
+    }
+}
+
+/// Enum for special pattern (0, 28, 84, 258, 9999)
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum SpecialPatternFlag {
+    /// Value 0 (default)
+    #[default]
+    Zero = 0,
+    /// Value 28
+    Value28 = 28,
+    /// Value 84
+    Value84 = 84,
+    /// Value 258
+    Value258 = 258,
+    /// Value 9999
+    Value9999 = 9999,
+}
+
+impl SpecialPatternFlag {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(SpecialPatternFlag::Zero),
+            28 => Some(SpecialPatternFlag::Value28),
+            84 => Some(SpecialPatternFlag::Value84),
+            258 => Some(SpecialPatternFlag::Value258),
+            9999 => Some(SpecialPatternFlag::Value9999),
+            _ => None,
+        }
+    }
+}
+
+impl From<SpecialPatternFlag> for i32 {
+    fn from(flag: SpecialPatternFlag) -> Self {
+        flag as i32
+    }
+}
+
 /// Healing item flags for restoration effects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum HealItemFlag {
     /// No effect
+    #[default]
     None = 0,
     /// Full restoration effect
     FullRestoration = 1,
@@ -738,6 +1176,15 @@ impl HealItemFlag {
     /// Get the numeric value
     pub fn value(&self) -> u8 {
         *self as u8
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "None" => Some(HealItemFlag::None),
+            "FullRestoration" | "Full Restoration" => Some(HealItemFlag::FullRestoration),
+            _ => None,
+        }
     }
 }
 
@@ -772,10 +1219,11 @@ impl From<bool> for HealItemFlag {
 }
 
 /// Magic school types for spell classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSchool {
     /// Unknown or unclassified magic school
+    #[default]
     Unknown = 0,
     /// School 1 (specific type unknown)
     School1 = 1,
@@ -810,6 +1258,20 @@ impl MagicSchool {
     pub fn value(&self) -> u32 {
         *self as u32
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Unknown" => Some(MagicSchool::Unknown),
+            "School1" => Some(MagicSchool::School1),
+            "School2" => Some(MagicSchool::School2),
+            "School3" => Some(MagicSchool::School3),
+            "School4" => Some(MagicSchool::School4),
+            "School5" => Some(MagicSchool::School5),
+            "School6" => Some(MagicSchool::School6),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<u32> for MagicSchool {
@@ -827,10 +1289,11 @@ impl From<MagicSchool> for u32 {
 }
 
 /// Spell target types for magic effects
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum SpellTargetType {
     /// Single target spell
+    #[default]
     Single = 1,
     /// Self-targeted spell
     SelfTarget = 2,
@@ -856,6 +1319,17 @@ impl SpellTargetType {
     pub fn value(&self) -> u32 {
         *self as u32
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Single" => Some(SpellTargetType::Single),
+            "SelfTarget" | "Self" => Some(SpellTargetType::SelfTarget),
+            "AreaOfEffect" | "Area Of Effect" => Some(SpellTargetType::AreaOfEffect),
+            "MultiTarget" | "Multi Target" => Some(SpellTargetType::MultiTarget),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<u32> for SpellTargetType {
@@ -873,10 +1347,11 @@ impl From<SpellTargetType> for u32 {
 }
 
 /// Magic spell boolean flags
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSpellFlag {
     /// Flag is disabled/false
+    #[default]
     Disabled = 0,
     /// Flag is enabled/true
     Enabled = 1,
@@ -895,6 +1370,15 @@ impl MagicSpellFlag {
     /// Get the numeric value
     pub fn value(&self) -> u32 {
         *self as u32
+    }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Disabled" => Some(MagicSpellFlag::Disabled),
+            "Enabled" => Some(MagicSpellFlag::Enabled),
+            _ => None,
+        }
     }
 }
 
@@ -929,10 +1413,11 @@ impl From<bool> for MagicSpellFlag {
 }
 
 /// Magic spell constant values
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
 pub enum MagicSpellConstant {
     /// Invalid/unknown constant
+    #[default]
     Invalid = 0,
     /// Standard constant value
     Standard = 1,
@@ -951,6 +1436,15 @@ impl MagicSpellConstant {
     pub fn value(&self) -> u32 {
         *self as u32
     }
+
+    /// Convert from display name
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Invalid" => Some(MagicSpellConstant::Invalid),
+            "Standard" => Some(MagicSpellConstant::Standard),
+            _ => None,
+        }
+    }
 }
 
 impl TryFrom<u32> for MagicSpellConstant {
@@ -968,10 +1462,11 @@ impl From<MagicSpellConstant> for u32 {
 }
 
 /// NPC looking direction (compass orientation)
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum NpcLookingDirection {
     /// Facing up (north)
+    #[default]
     Up = 0,
     /// Facing up-right (northeast)
     UpRight = 1,
@@ -1084,10 +1579,11 @@ impl From<PartyRootMapId> for i32 {
 }
 
 /// Ghost face identifiers for party members
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
 pub enum GhostFaceId {
     /// No ghost face/unknown
+    #[default]
     None = 0,
 }
 
@@ -1123,8 +1619,10 @@ impl From<GhostFaceId> for i32 {
 /// Product types for store inventory items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum ProductType {
     /// Weapon or armor
+    #[default]
     Weapon = 1,
     /// Healing item (potions, etc.)
     Healing = 2,
@@ -1346,8 +1844,8 @@ mod tests {
         assert_eq!(ItemTypeId::from_u8(1), Some(ItemTypeId::Weapon));
         assert_eq!(ItemTypeId::from_u8(2), Some(ItemTypeId::Healing));
         assert_eq!(ItemTypeId::from_u8(3), Some(ItemTypeId::Edit));
-        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Misc));
-        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(4), Some(ItemTypeId::Event));
+        assert_eq!(ItemTypeId::from_u8(5), Some(ItemTypeId::Misc));
         assert_eq!(ItemTypeId::from_u8(255), Some(ItemTypeId::Other));
 
         assert_eq!(u8::from(ItemTypeId::Edit), 3);

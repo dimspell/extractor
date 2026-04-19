@@ -1,6 +1,6 @@
 use crate::app::App;
-use crate::db_viewer_state::PAGE_SIZE;
-use crate::message::Message;
+use crate::message::{viewer::ViewerMessage, Message};
+use crate::state::db_viewer_state::PAGE_SIZE;
 use crate::style;
 use crate::utils::{horizontal_space, vertical_space};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
@@ -8,22 +8,22 @@ use iced::{Element, Fill, Font};
 
 impl App {
     pub fn view_db_viewer(&self) -> Element<'_, Message> {
-        let v = &self.viewer;
+        let v = &self.state.viewer;
 
         // ── Connection toolbar ──
         let conn_row = container(
             row![
                 text_input("database.sqlite", &v.db_path)
-                    .on_input(Message::ViewerDbPathChanged)
+                    .on_input(|s| Message::Viewer(ViewerMessage::DbPathChanged(s)))
                     .padding(8)
                     .size(13),
                 button(text("…").size(12))
                     .padding([6, 12])
-                    .on_press(Message::ViewerBrowseDb)
+                    .on_press(Message::Viewer(ViewerMessage::BrowseDb))
                     .style(style::browse_button),
                 button(text("Connect").size(13))
                     .padding([8, 16])
-                    .on_press(Message::ViewerConnect)
+                    .on_press(Message::Viewer(ViewerMessage::Connect))
                     .style(style::run_button),
             ]
             .spacing(8)
@@ -41,7 +41,7 @@ impl App {
                 let is_active = v.active_table.as_deref() == Some(t.as_str());
                 let btn = button(text(t).size(11))
                     .padding([4, 10])
-                    .on_press(Message::ViewerSelectTable(t.clone()));
+                    .on_press(Message::Viewer(ViewerMessage::SelectTable(t.clone())));
                 if is_active {
                     btn.style(style::active_chip)
                 } else {
@@ -64,24 +64,24 @@ impl App {
 
         // ── Action toolbar ──
         let search_input = text_input("🔍 Search all columns…", &v.search)
-            .on_input(Message::ViewerSearch)
+            .on_input(|s| Message::Viewer(ViewerMessage::Search(s)))
             .padding(8)
             .size(12)
             .width(250);
         let sql_toggle = button(text(if v.sql_mode { "Hide SQL" } else { "SQL Editor" }).size(11))
             .padding([5, 10])
-            .on_press(Message::ViewerToggleSql)
+            .on_press(Message::Viewer(ViewerMessage::ToggleSql))
             .style(style::chip);
         let export_btn = button(text("📥 Export CSV").size(11))
             .padding([5, 10])
-            .on_press(Message::ViewerExportCsv)
+            .on_press(Message::Viewer(ViewerMessage::ExportCsv))
             .style(style::chip);
 
         let edit_count = v.pending_edits.len();
         let commit_btn = if edit_count > 0 {
             button(text(format!("💾 Commit ({edit_count})")).size(11))
                 .padding([5, 10])
-                .on_press(Message::ViewerCommit)
+                .on_press(Message::Viewer(ViewerMessage::Commit))
                 .style(style::commit_button)
         } else {
             button(text("💾 Commit").size(11))
@@ -91,7 +91,7 @@ impl App {
         let revert_btn = if edit_count > 0 {
             button(text("↩ Revert").size(11))
                 .padding([5, 10])
-                .on_press(Message::ViewerRevertEdits)
+                .on_press(Message::Viewer(ViewerMessage::RevertEdits))
                 .style(style::chip)
         } else {
             button(text("↩ Revert").size(11))
@@ -118,13 +118,13 @@ impl App {
         // ── SQL editor (collapsible) ──
         let sql_area: Element<Message> = if v.sql_mode {
             let sql_input = text_input("SELECT * FROM ...", &v.sql_query)
-                .on_input(Message::ViewerSqlChanged)
+                .on_input(|s| Message::Viewer(ViewerMessage::SqlChanged(s)))
                 .padding(10)
                 .size(13)
                 .font(Font::MONOSPACE);
             let run_btn = button(text("▶ Run").size(12))
                 .padding([6, 14])
-                .on_press(Message::ViewerRunSql)
+                .on_press(Message::Viewer(ViewerMessage::RunSql))
                 .style(style::run_button);
             container(
                 row![sql_input, run_btn]
@@ -151,7 +151,7 @@ impl App {
         let prev_btn = if v.page > 0 {
             button(text("◀ Prev").size(11))
                 .padding([4, 10])
-                .on_press(Message::ViewerPrevPage)
+                .on_press(Message::Viewer(ViewerMessage::PrevPage))
                 .style(style::chip)
         } else {
             button(text("◀ Prev").size(11))
@@ -161,7 +161,7 @@ impl App {
         let next_btn = if v.page < max_page {
             button(text("Next ▶").size(11))
                 .padding([4, 10])
-                .on_press(Message::ViewerNextPage)
+                .on_press(Message::Viewer(ViewerMessage::NextPage))
                 .style(style::chip)
         } else {
             button(text("Next ▶").size(11))
@@ -193,7 +193,7 @@ impl App {
     }
 
     pub fn view_grid(&self) -> Element<'_, Message> {
-        let v = &self.viewer;
+        let v = &self.state.viewer;
         if v.columns.is_empty() {
             return container(
                 text("Select a table to view its data.")
@@ -227,7 +227,7 @@ impl App {
                 )
                 .width(150)
                 .padding([8, 6])
-                .on_press(Message::ViewerSortColumn(i))
+                .on_press(Message::Viewer(ViewerMessage::SortColumn(i)))
                 .style(style::grid_header_button)
                 .into()
             })
@@ -256,8 +256,8 @@ impl App {
 
                         let inner: Element<Message> = if is_editing {
                             text_input("", &v.edit_buffer)
-                                .on_input(Message::ViewerCellEdit)
-                                .on_submit(Message::ViewerCellConfirm)
+                                .on_input(|s| Message::Viewer(ViewerMessage::CellEdit(s)))
+                                .on_submit(Message::Viewer(ViewerMessage::CellConfirm))
                                 .padding(4)
                                 .size(11)
                                 .font(Font::MONOSPACE)
@@ -266,7 +266,7 @@ impl App {
                             button(text(display_val).size(11).font(Font::MONOSPACE))
                                 .width(Fill)
                                 .padding([6, 4])
-                                .on_press(Message::ViewerCellClick(ri, ci))
+                                .on_press(Message::Viewer(ViewerMessage::CellClick(ri, ci)))
                                 .style(style::grid_cell_button)
                                 .into()
                         };

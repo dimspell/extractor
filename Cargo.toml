@@ -2,6 +2,12 @@
 members = [".", "dispel-gui"]
 resolver = "2"
 
+[workspace.dependencies]
+iced_test = "0.14.0"
+
+[workspace.metadata]
+features = ["iced_test"]
+
 [lib]
 name = "dispel_core"
 path = "src/lib.rs"
@@ -23,5 +29,9 @@ serde_json = { version = "1.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
 
 [dependencies.rusqlite]
-version = "0.30.0"
+version = "0.39.0"
 features = ["bundled"]
+
+[dev-dependencies]
+proptest = "1.4"
+tempfile = "3.8"

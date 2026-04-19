@@ -1,7 +1,7 @@
 use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Result};
 use std::path::Path;
@@ -67,7 +67,7 @@ use std::path::Path;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyLevelRecord {
     /// Derived multiplier level tracking.
     pub level: u32,
@@ -91,7 +91,7 @@ pub struct PartyLevelRecord {
     pub defense: u16,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyLevelNpc {
     pub npc_index: usize,
     pub records: Vec<PartyLevelRecord>,
@@ -115,7 +115,6 @@ impl Extractor for PartyLevelNpc {
         let mut reader = BufReader::new(file);
         let mut npcs = Vec::new();
 
-        // The file is 5760 bytes. Based on reverse engineering:
         // 8 NPCs * 720 bytes = 5760 bytes.
         // Each 720 byte block is 20 sub-blocks of 36 bytes.
         // Each 36 byte sub-block starts with a 4-byte sentinel followed by 8 u32 data fields.
@@ -187,7 +186,7 @@ pub fn read_party_level_db(source_path: &Path) -> Result<Vec<PartyLevelNpc>> {
     PartyLevelNpc::read_file(source_path)
 }
 
-pub fn save_party_levels(conn: &mut Connection, npcs: &Vec<PartyLevelNpc>) -> DbResult<()> {
+pub fn save_party_levels(conn: &mut Connection, npcs: &[PartyLevelNpc]) -> DbResult<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_party_level.sql"))?;

@@ -93,7 +93,7 @@ Defines all quests with categories, titles, and descriptions. Used for:
 
 ### Extract and display quests:
 ```bash
-cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
+cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Quest.scr"
 ```
 
 ### Format Example
@@ -117,7 +117,7 @@ An extractor is available in `src/references/quest_scr.rs` to parse this file fo
 
 ```bash
 # Extract Quest.scr to JSON
-cargo run -- ref quest "fixtures/Dispel/ExtraInGame/Quest.scr"
+cargo run -- extract -i "fixtures/Dispel/ExtraInGame/Quest.scr"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

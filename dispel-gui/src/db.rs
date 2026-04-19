@@ -101,7 +101,9 @@ pub fn execute_query(
 
     // Count total rows for the base query (wrap user sql in a subquery)
     let count_sql = format!("SELECT COUNT(*) FROM ({sql})");
-    let total_rows: usize = conn.query_row(&count_sql, [], |r| r.get(0)).unwrap_or(0);
+    let total_rows: usize = conn
+        .query_row(&count_sql, [], |r| r.get::<_, i64>(0))
+        .unwrap_or(0) as usize;
 
     // The actual paginated fetch
     let paged_sql = format!("{sql} LIMIT {limit} OFFSET {offset}");

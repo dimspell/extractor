@@ -1,5 +1,5 @@
 INSERT OR REPLACE INTO events(event_id,
-                   previous_event_id,
+                   required_event_id,
                    event_type_id,
                    event_filename,
                    counter)

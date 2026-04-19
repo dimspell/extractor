@@ -11,12 +11,4 @@ impl Command for TestCommand {
         println!("Test command executed: {}", self.message);
         Ok(())
     }
-
-    fn name(&self) -> &'static str {
-        "test"
-    }
-
-    fn description(&self) -> &'static str {
-        "Test command for verifying the command pattern"
-    }
 }

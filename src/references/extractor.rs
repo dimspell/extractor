@@ -17,11 +17,7 @@ pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<S
     let data_len = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
 
     // Decode the Windows-1250 portion before the null terminator
-    let out = WINDOWS_1250.decode(&bytes[..data_len]);
-    // .(|e| format!("Decoding error: {}", e))?;
-
-    let decoded = out.0;
-    let had_errors = out.2;
+    let (decoded, _, had_errors) = WINDOWS_1250.decode(&bytes[..data_len]);
 
     if had_errors {
         return Err("Invalid Windows-1250 sequence".to_string());
@@ -78,7 +74,6 @@ pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
         println!("{:?}", buffer);
     }
 
-    // println!("{:?} {:?} {:?}", file_len, elements, pos);
     Ok(())
 }
 

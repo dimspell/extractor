@@ -5,7 +5,7 @@ use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, 
 use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 const MAGIC_RECORD_SIZE: usize = 88;
 
@@ -58,7 +58,7 @@ const MAGIC_RECORD_SIZE: usize = 88;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MagicSpell {
     /// Record index (0-based)
     pub id: i32,
@@ -299,7 +299,7 @@ pub fn read_magic_db(source_path: &Path) -> std::io::Result<Vec<MagicSpell>> {
     MagicSpell::read_file(source_path)
 }
 
-pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Result<()> {
+pub fn save_magic_spells(conn: &mut Connection, spells: &[MagicSpell]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_magic_spell.sql"))?;
@@ -333,4 +333,14 @@ pub fn save_magic_spells(conn: &mut Connection, spells: &Vec<MagicSpell>) -> Res
     }
     tx.commit()?;
     Ok(())
+}
+
+impl std::fmt::Display for MagicSpell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MagicSpell({} - mana: {}, damage: {})",
+            self.id, self.mana_cost, self.base_damage
+        )
+    }
 }

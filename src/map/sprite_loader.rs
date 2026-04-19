@@ -28,6 +28,10 @@ pub fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> 
     let file = File::open(sprite_path).ok()?;
     let file_len = file.metadata().ok()?.len();
     let mut reader = BufReader::new(file);
+
+    // Skip 268-byte header (same as get_sprite_info)
+    reader.seek(SeekFrom::Start(268)).ok()?;
+
     let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
 
     loop {

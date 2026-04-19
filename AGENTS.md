@@ -1,168 +1,242 @@
-# Agent Guidelines and Legal Compliance
+# AGENTS.md — Dispel Game File Extractor
 
-## Purpose
-
-This document outlines the guidelines for all agents and contributors working on the Dispel Game File Extractor project to ensure legal compliance and ethical research practices.
-
-## Legal Compliance Principles
-
-### 1. Scope Limitations
-
-**✅ PERMITTED:**
-- Analyzing file formats and data structures
-- Documenting technical specifications
-- Researching data organization and relationships
-- Creating tools for technical analysis
-- Educational demonstrations of file parsing
-- Using the "Dispel" name **only for identification and compatibility purposes**
-
-**❌ PROHIBITED:**
-- Extracting or distributing copyrighted game content
-- Reproducing game assets, artwork, or creative works
-- Bypassing copy protection mechanisms
-- Creating derivative works that infringe IP rights
-- Commercial exploitation of game data
-- **Using the DISPEL® trademark in any way that suggests affiliation, endorsement, or sponsorship**
-- Creating confusion about the source or origin of this project
-- Using the DISPEL® trademark for any commercial purpose
-
-### 2. Documentation Standards
-
-All documentation must:
-- Focus on **technical specifications only**
-- Use **generic placeholders** instead of actual game content
-- Describe **data structures**, not creative expressions
-- Avoid reproducing copyrighted material
-- Maintain a **fact-based, technical approach**
-- **Include proper trademark disclaimers** when referencing "Dispel"
-- Use **nominal fair use** principles for trademark references
-
-### 3. Code Development Guidelines
-
-When writing code:
-- Process only **file structures and organization**
-- Avoid hardcoding game-specific creative content
-- Use generic variable names and examples
-- Focus on **format parsing**, not content extraction
-- Include appropriate legal disclaimers
-
-### 4. Research Methodology
-
-**Acceptable Research Methods:**
-- Analyzing file headers and metadata
-- Documenting field layouts and data types
-- Studying file relationships and references
-- Creating format specifications
-- Developing parsing algorithms
-
-**Unacceptable Practices:**
-- Distributing extracted game assets
-- Reverse engineering creative content
-- Sharing proprietary algorithms or code
-- Violating terms of service or EULAs
-- Encouraging piracy or infringement
-
-### 5. Documentation Review Process
-
-All documentation must be reviewed for:
-1. **Technical accuracy** - Correct format specifications
-2. **Legal compliance** - No copyrighted content
-3. **Neutral language** - No endorsement of infringement
-4. **Educational focus** - Research-oriented content only
-5. **Trademark compliance** - Proper trademark usage and disclaimers
-
-### 5.1 Trademark Compliance Checklist
-
-For any documentation mentioning "Dispel":
-- [ ] Uses **DISPEL®** with proper trademark symbol on first mention
-- [ ] Includes **trademark disclaimer** in the document
-- [ ] Uses trademark **only for identification/compatibility purposes**
-- [ ] Does **not suggest affiliation or endorsement**
-- [ ] Avoids **prominent or decorative use** of the trademark
-- [ ] Uses **generic terms** where possible instead of the trademark
-
-### 6. Agent Responsibilities
-
-All agents must:
-- Comply with these guidelines in all work
-- Report any potential compliance issues immediately
-- Maintain professional and ethical standards
-- Respect intellectual property rights
-- Focus on technical research objectives
-
-### 7. Handling Sensitive Information
-
-If game content is encountered during analysis:
-- **Do not** store or reproduce it in documentation
-- Use **generic placeholders** in examples
-- Focus on **structural analysis** only
-- Document only **technical characteristics**
-
-### 8. Example Compliance
-
-**✅ COMPLIANT:**
-```
-// Technical documentation example
-Field: monster_id (i32)
-Description: Links to monster type definitions
-Range: 0-65535
-```
-
-**❌ NON-COMPLIANT:**
-```
-// Problematic documentation example
-Field: monster_id (i32)
-Description: Links to "Goblin King" with attack power 45
-Example: monster_id=73 represents Goblin King from Dungeon 5
-```
-
-### 9. Legal Disclaimers
-
-All agents must include appropriate disclaimers in their work:
-- State the **educational/research purpose**
-- Clarify **no affiliation, endorsement, or sponsorship** by trademark owners
-- Emphasize **compliance with laws** including trademark protection
-- Specify **permitted use cases only**
-- Include **proper trademark notices** for any referenced marks
-- State that **DISPEL® is a registered trademark** used only for identification
-
-### 10. Reporting Violations
-
-Any suspected violations should be reported to:
-- Project maintainers
-- Repository administrators
-- Legal compliance officers
-
-## Ethical Considerations
-
-Beyond legal compliance, agents should:
-- Respect the work of original developers
-- Maintain academic integrity
-- Promote responsible research practices
-- Encourage ethical use of knowledge
-- Support the gaming community positively
-
-## Consequences of Non-Compliance
-
-Failure to comply with these guidelines may result in:
-- Removal of contributions
-- Revocation of access privileges
-- Legal liability for infringement
-- Damage to professional reputation
-- Project termination
-
-## Resources
-
-For questions about compliance:
-- Consult the project README
-- Review existing compliant documentation
-- Ask project maintainers for guidance
-- Research fair use and reverse engineering laws
+**A game modding toolkit for Dispel RPG.** Reads/writes game files in native binary, INI, and DB formats. All edits are persisted directly—no intermediate database.
 
 ---
 
-*Last updated: [Date]
-*Version: 1.0
-*Status: Active
+## Project Structure
 
-**All agents acknowledge and agree to comply with these guidelines by contributing to this project.**
+```
+dispel-extractor/
+├── src/ (dispel-core)    Parsers, binary readers, EditableRecord trait
+├── main.rs               CLI binary wrapping dispel-core
+└── dispel-gui/           Desktop GUI (Iced 0.14, Elm/MVU)
+```
+
+**Separation of concerns:**
+- `dispel-core`: game logic only. Zero GUI/presentation code.
+- `dispel-gui`: UI consumer of dispel-core. Zero game logic.
+- `dispel-extractor`: thin CLI wrapper.
+
+---
+
+## Game Data Model
+
+### File Formats
+
+| Ext | Category | Encoding | Purpose |
+|-----|----------|----------|---------|
+| `.db` | Database | Binary + text | Items, monsters, magic, stats |
+| `.ini` | Config | EUC-KR or 1250 | Maps, NPCs, monsters, visuals |
+| `.ref` | Placement | 1250 | Entity instances on maps |
+| `.dlg` / `.pgp` | Dialogue | EUC-KR / 1250 | Scripts + text |
+| `.scr` | Script | 1250 | Quests, messages |
+| `.map` | Geometry | Binary | Tiles, sprites, events |
+| `.gtl` / `.btl` | Tilesets | RGB 565 | Ground/roof tiles (32×32) |
+| `.spr` | Sprites | RGB 565 | Character animations |
+| `.snf` | Audio | PCM | Sound effects |
+
+**Encoding is critical:** `Event.ini`, `Npc.ini`, `Monster.db` (desc) → **EUC-KR**. `Monster.ini`, `Store.db`, `WeaponItem.db` → **WINDOWS-1250**.
+
+### Item Type Enum
+| Value | Type | Database |
+|-------|------|----------|
+| 0/1 | Weapon/Armor | WeaponItem.db |
+| 2 | Heal | HealItem.db |
+| 3 | Misc | MiscItem.db |
+| 4 | Edit | EditItem.db |
+| 5 | Event | EventItem.db |
+
+### File Dependencies
+- **AllMap.ini** → Map.ini (per-map config) → Map.map (geometry, sprites, events)
+- **Monster.ini** (visual) + **Monster.db** (combat stats)
+- **Npc.ini** (visual) + **DlgMapFiles.dlg** (dialogue)
+- See `/docs` for full dependency graphs.
+
+---
+
+## Binary Format Essentials
+
+- **All integers**: little-endian
+- **Colors**: RGB 565 (16-bit)
+- **Map tiles**: seeked from EOF, event/GTL/BTL layers
+- **Sprites**: start at byte 268; validation: `ints[11] * ints[12] == ints[13]`
+- **Tilesets**: contiguous 32×32 tiles, RGB 565 (2 bytes/pixel)
+- **Map rendering**: isometric projection, 62×32 display size. **Warning:** full map = ~300MB; use viewport + LRU cache (≤50MB).
+- **SNF audio**: custom PCM header, prepend RIFF WAVE header for conversion.
+
+See `/docs` for detailed format specs.
+
+---
+
+## GUI Architecture
+
+### Tech Stack
+- **UI**: Iced 0.14 (GPU via wgpu, Elm/MVU)
+- **Async**: Tokio
+- **Core**: dispel_core (sibling crate)
+- **Search**: nucleo-matcher (fuzzy)
+- **SQLite**: optional (DbViewer only)
+
+### Flow
+`user action → Message → update/ handler (mutates AppState) → view/ (pure render)`
+
+### Editor System
+**27 editor types**, one per game data category. All use:
+```rust
+pub struct GenericEditorState<R: EditableRecord> {
+    pub catalog: Option<Vec<R>>,
+    pub selected_idx: Option<usize>,
+    pub edit_history: EditHistory,
+}
+```
+
+**`EditableRecord` trait** (dispel-core):
+```rust
+fn field_descriptors() -> &'static [FieldDescriptor];
+fn get_field(&self, field: &str) -> String;
+fn set_field(&mut self, field: &str, value: String) -> bool;
+fn list_label(&self) -> String;
+```
+
+**Field kinds:** String, Integer, Enum, Lookup (runtime dropdown).
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `app.rs` | App struct, AppState, init |
+| `workspace.rs` | Tab management, recent files |
+| `generic_editor.rs` | GenericEditorState<R>, filtering, history |
+| `message/` | Message enum + routing macro |
+| `update/` | Domain handlers |
+| `view/` | Pure render functions (one per editor) |
+| `state/` | Per-editor state structs (27 types) |
+
+### Adding a New Editor
+
+1. Implement `EditableRecord` in `dispel-core/src/references/`
+2. Create state alias: `pub type MyEditorState = GenericEditorState<MyType>;`
+3. Create view: `impl App { pub fn view_my_editor_tab(&self) -> Element { ... } }`
+4. Add field to `AppState`
+5. Add `Message` variants (use `define_message_ext!` macro)
+6. Add handler in `update/editor/`
+7. Wire `EditorType::from_path()` for file extension detection
+8. Wire `view/mod.rs` dispatch
+9. Delete old editor code—never keep both
+
+### Conventions
+
+- **Async**: Use `iced::Task` + Tokio. Never block the UI thread.
+- **State mutation**: `update/` only. Views are pure.
+- **Views**: defined as `impl App` blocks in `view/*.rs`, not `app.rs`.
+- **Messages**: use `define_message_ext!` macro.
+- **Scan vs Browse**: "Scan" = load from `shared_game_path`; "Browse" = file picker.
+- **SQLite**: only `DbViewer`. Other editors read/write game files directly.
+
+### Iced 0.14 Lessons
+
+| Problem | Fix |
+|---------|-----|
+| Views in both `app.rs` and `view/mod.rs` | Keep only in `view/*.rs` |
+| `center_x()` compile error | Use `container(...).align_x(Horizontal::Center)` |
+| Deprecated patterns | Check Iced 0.14 docs |
+
+---
+
+## Development Best Practices
+
+### Error Handling
+- `dispel-core`: `thiserror` for enumerable error types
+- GUI/CLI: `anyhow` for contextual bubbling
+- Never `.unwrap()` on file I/O—show errors in `status_msg`
+
+### State & Async
+- Use **enums over booleans**: `LoadingState<T> { Idle, Loading, Loaded(T), Failed(String) }`
+- Always use `Task::perform` for async work—never block
+
+### Code Quality
+- Clippy: zero warnings (`cargo clippy --workspace --all-features -- -D warnings`)
+- Format: `cargo fmt --all` before commit
+- Validate all binary bounds before indexing
+
+### Testing
+- **dispel-core**: unit test every new parser with hardcoded byte slices
+- **dispel-gui**: test state transitions, not visuals
+- **Round-trip tests**: read → parse → write → verify byte-for-byte match
+- Run before every commit: `cargo test --workspace --all-features`
+
+### Tools
+- `cargo check --message-format=short`: fast compile errors
+- `rtk cargo test`: optimized test runs
+- `ripgrep` / `rg`: fast code search
+- `fd`: faster than `find`
+- `rust-analyzer`: essential LSP
+
+---
+
+## CLI Reference
+
+```bash
+# Extract INI/DB/reference files to JSON
+cargo run -- extract -i "AllMap.ini"
+cargo run -- extract -i "Monster.db"
+
+# Sprites
+cargo run -- sprite "file.spr" output_name
+
+# Maps
+cargo run -- map tiles "file.gtl" --output dir/
+cargo run -- map render --map file.map --btl file.btl --gtl file.gtl --output out.png
+
+# Audio
+cargo run -- sound "file.snf" output.wav
+
+# SQLite (optional)
+cargo run -- database import "path/to/Dispel/" db.sqlite
+```
+
+---
+
+## Legal Compliance
+
+**✅ Permitted:**
+- Analyzing file formats, documenting specs
+- Creating modding/interoperability tools
+- Using "Dispel" for identification only
+
+**❌ Prohibited:**
+- Extracting/distributing copyrighted content
+- Bypassing copy protection
+- Commercial exploitation
+- Using DISPEL® trademark beyond identification
+
+**When mentioning Dispel:** Use **DISPEL®** with ® symbol on first mention. Include disclaimer: "not affiliated with, endorsed by, or sponsored by the trademark owner."
+
+---
+
+## Common Pitfalls
+
+- **Circular imports**: GUI ↔ core must never share presentation code
+- **Blocking UI**: All file I/O is async via Task
+- **Unsafe parsing**: Validate all bounds before indexing
+- **Hardcoded paths**: Use `dirs` crate for config/cache
+- **Text encoding**: Check encoding table before reading—wrong codec = corruption
+- **Map memory**: Never load full rendered map (~300MB); use viewport + LRU cache
+
+---
+
+## Quick Commands
+
+```bash
+cargo build --workspace                           # Build all
+cargo test --workspace --all-features             # Test all
+cargo clippy --workspace -- -D warnings           # Lint
+cargo fmt --all                                   # Format
+cargo check -p dispel-gui --message-format=short # Fast errors
+```
+
+---
+
+*Last updated: 2026-04-18*  
+**DISPEL®** is a registered trademark. This project is **not affiliated with, endorsed by, or sponsored by** the trademark owner.

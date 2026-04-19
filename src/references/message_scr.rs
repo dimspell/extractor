@@ -6,7 +6,7 @@ use crate::references::extractor::Extractor;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // ===========================================================================
 // MESSAGE.SCR FILE FORMAT
@@ -47,7 +47,7 @@ use serde::Serialize;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Message {
     /// Mapping bound tracking referenced externally by `message_id` structs.
     pub id: i32,
@@ -144,7 +144,7 @@ pub fn read_messages(path: &Path) -> std::io::Result<Vec<Message>> {
     Message::read_file(path)
 }
 
-pub fn save_messages(conn: &mut Connection, messages: &Vec<Message>) -> Result<()> {
+pub fn save_messages(conn: &mut Connection, messages: &[Message]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_message.sql"))?;

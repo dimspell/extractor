@@ -47,7 +47,7 @@ use crate::references::extractor::{parse_null, Extractor};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Map {
     /// Map identifier.
     pub id: i32,
@@ -151,7 +151,7 @@ pub fn read_all_map_ini(source_path: &Path) -> std::io::Result<Vec<Map>> {
     Map::read_file(source_path)
 }
 
-pub fn save_maps(conn: &mut Connection, maps: &Vec<Map>) -> Result<()> {
+pub fn save_maps(conn: &mut Connection, maps: &[Map]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_map.sql"))?;

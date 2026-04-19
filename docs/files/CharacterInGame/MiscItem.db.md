@@ -204,7 +204,7 @@ An extractor is available in `src/references/misc_item_db.rs` to parse this file
 
 ```bash
 # Extract MiscItem.db to JSON
-cargo run -- ref misc-item "fixtures/Dispel/CharacterInGame/MiscItem.db"
+cargo run -- extract -i "fixtures/Dispel/CharacterInGame/MiscItem.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

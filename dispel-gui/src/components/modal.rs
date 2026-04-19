@@ -1,0 +1,347 @@
+use iced::advanced::layout::{self, Layout};
+use iced::advanced::widget::{self, Widget};
+use iced::advanced::{self, overlay, renderer, Clipboard, Shell};
+use iced::alignment::Alignment;
+use iced::keyboard::key;
+use iced::{
+    keyboard, mouse, Color, Element, Event, Length, Point, Rectangle, Shadow, Size, Vector,
+};
+
+/// Display a `modal` overlay on top of `base`, dimming it with `backdrop_alpha`.
+///
+/// Clicking outside the modal or pressing Escape calls `on_blur`.
+pub fn modal<'a, Message, Theme, Renderer>(
+    base: impl Into<Element<'a, Message, Theme, Renderer>>,
+    modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+    on_blur: impl Fn() -> Message + 'a,
+    backdrop_alpha: f32,
+) -> Element<'a, Message, Theme, Renderer>
+where
+    Theme: 'a,
+    Renderer: 'a + advanced::Renderer,
+    Message: 'a,
+{
+    Modal::new(base, modal, on_blur, backdrop_alpha).into()
+}
+
+struct Modal<'a, Message, Theme, Renderer> {
+    base: Element<'a, Message, Theme, Renderer>,
+    modal: Element<'a, Message, Theme, Renderer>,
+    on_blur: Box<dyn Fn() -> Message + 'a>,
+    backdrop: Color,
+    shadow: Shadow,
+}
+
+impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
+    fn new(
+        base: impl Into<Element<'a, Message, Theme, Renderer>>,
+        modal: impl Into<Element<'a, Message, Theme, Renderer>>,
+        on_blur: impl Fn() -> Message + 'a,
+        backdrop_alpha: f32,
+    ) -> Self {
+        Self {
+            base: base.into(),
+            modal: modal.into(),
+            on_blur: Box::new(on_blur),
+            backdrop: Color {
+                a: backdrop_alpha.clamp(0.0, 1.0),
+                ..Color::BLACK
+            },
+            shadow: Shadow {
+                color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
+                offset: Vector::new(0.0, 10.0),
+                blur_radius: 24.0,
+            },
+        }
+    }
+}
+
+// TODO: The order of `impl` members differs from the trait
+impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
+    for Modal<'_, Message, Theme, Renderer>
+where
+    Renderer: advanced::Renderer,
+{
+    fn children(&self) -> Vec<widget::Tree> {
+        vec![
+            widget::Tree::new(&self.base),
+            widget::Tree::new(&self.modal),
+        ]
+    }
+
+    fn diff(&self, tree: &mut widget::Tree) {
+        tree.diff_children(&[&self.base, &self.modal]);
+    }
+
+    fn size(&self) -> Size<Length> {
+        self.base.as_widget().size()
+    }
+
+    fn layout(
+        &mut self,
+        tree: &mut widget::Tree,
+        renderer: &Renderer,
+        limits: &layout::Limits,
+    ) -> layout::Node {
+        self.base
+            .as_widget_mut()
+            .layout(&mut tree.children[0], renderer, limits)
+    }
+
+    fn update(
+        &mut self,
+        state: &mut widget::Tree,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+        viewport: &Rectangle,
+    ) {
+        // Block all input events from reaching the base while modal is open.
+        if matches!(event, Event::Mouse(_) | Event::Keyboard(_)) {
+            return;
+        }
+        self.base.as_widget_mut().update(
+            &mut state.children[0],
+            event,
+            layout,
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        );
+    }
+
+    fn draw(
+        &self,
+        state: &widget::Tree,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        viewport: &Rectangle,
+    ) {
+        self.base.as_widget().draw(
+            &state.children[0],
+            renderer,
+            theme,
+            style,
+            layout,
+            mouse::Cursor::Unavailable,
+            viewport,
+        );
+    }
+
+    fn overlay<'b>(
+        &'b mut self,
+        state: &'b mut widget::Tree,
+        layout: Layout<'b>,
+        _renderer: &Renderer,
+        viewport: &Rectangle,
+        translation: Vector,
+    ) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
+        Some(overlay::Element::new(Box::new(ModalOverlay {
+            position: layout.position() + translation,
+            content: &mut self.modal,
+            tree: &mut state.children[1],
+            size: layout.bounds().size(),
+            on_blur: &self.on_blur,
+            backdrop: self.backdrop,
+            shadow: self.shadow,
+            viewport: *viewport,
+        })))
+    }
+
+    fn mouse_interaction(
+        &self,
+        _state: &widget::Tree,
+        _layout: Layout<'_>,
+        _cursor: mouse::Cursor,
+        _viewport: &Rectangle,
+        _renderer: &Renderer,
+    ) -> mouse::Interaction {
+        mouse::Interaction::default()
+    }
+
+    fn operate(
+        &mut self,
+        state: &mut widget::Tree,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn widget::Operation<()>,
+    ) {
+        self.base
+            .as_widget_mut()
+            .operate(&mut state.children[0], layout, renderer, operation);
+    }
+}
+
+impl<'a, Message, Theme, Renderer> From<Modal<'a, Message, Theme, Renderer>>
+    for Element<'a, Message, Theme, Renderer>
+where
+    Theme: 'a,
+    Renderer: 'a + advanced::Renderer,
+    Message: 'a,
+{
+    fn from(m: Modal<'a, Message, Theme, Renderer>) -> Self {
+        Element::new(m)
+    }
+}
+
+// ── Overlay ───────────────────────────────────────────────────────────────────
+
+struct ModalOverlay<'a, 'b, Message, Theme, Renderer> {
+    position: Point,
+    content: &'b mut Element<'a, Message, Theme, Renderer>,
+    tree: &'b mut widget::Tree,
+    size: Size,
+    on_blur: &'b dyn Fn() -> Message,
+    backdrop: Color,
+    shadow: Shadow,
+    viewport: Rectangle,
+}
+
+// TODO: The order of `impl` members differs from the trait
+impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
+    for ModalOverlay<'_, '_, Message, Theme, Renderer>
+where
+    Renderer: advanced::Renderer,
+{
+    fn layout(&mut self, renderer: &Renderer, _bounds: Size) -> layout::Node {
+        let limits = layout::Limits::new(Size::ZERO, self.size)
+            .width(Length::Fill)
+            .height(Length::Fill);
+        let child = self
+            .content
+            .as_widget_mut()
+            .layout(self.tree, renderer, &limits)
+            .align(Alignment::Center, Alignment::Center, limits.max());
+        layout::Node::with_children(self.size, vec![child]).move_to(self.position)
+    }
+
+    fn update(
+        &mut self,
+        event: &Event,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn Clipboard,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        match event {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key: keyboard::Key::Named(key::Named::Escape),
+                ..
+            }) => {
+                shell.publish((self.on_blur)());
+                shell.capture_event();
+                return;
+            }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                let bounds = layout.children().next().unwrap().bounds();
+                if !cursor.is_over(bounds) {
+                    shell.publish((self.on_blur)());
+                    shell.capture_event();
+                    return;
+                }
+            }
+            _ => {}
+        }
+        self.content.as_widget_mut().update(
+            self.tree,
+            event,
+            layout.children().next().unwrap(),
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            &layout.bounds(),
+        );
+    }
+
+    fn draw(
+        &self,
+        renderer: &mut Renderer,
+        theme: &Theme,
+        style: &renderer::Style,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+    ) {
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: layout.bounds(),
+                ..renderer::Quad::default()
+            },
+            self.backdrop,
+        );
+        let bounds = layout.children().next().unwrap().bounds();
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds,
+                border: iced::Border {
+                    radius: 4.0.into(),
+                    ..iced::Border::default()
+                },
+                shadow: self.shadow,
+                ..renderer::Quad::default()
+            },
+            Color::TRANSPARENT,
+        );
+        self.content.as_widget().draw(
+            self.tree,
+            renderer,
+            theme,
+            style,
+            layout.children().next().unwrap(),
+            cursor,
+            &layout.bounds(),
+        );
+    }
+
+    fn operate(
+        &mut self,
+        layout: Layout<'_>,
+        renderer: &Renderer,
+        operation: &mut dyn widget::Operation<()>,
+    ) {
+        self.content.as_widget_mut().operate(
+            self.tree,
+            layout.children().next().unwrap(),
+            renderer,
+            operation,
+        );
+    }
+
+    fn mouse_interaction(
+        &self,
+        layout: Layout<'_>,
+        cursor: mouse::Cursor,
+        renderer: &Renderer,
+    ) -> mouse::Interaction {
+        self.content.as_widget().mouse_interaction(
+            self.tree,
+            layout.children().next().unwrap(),
+            cursor,
+            &layout.bounds(),
+            renderer,
+        )
+    }
+
+    fn overlay<'c>(
+        &'c mut self,
+        layout: Layout<'c>,
+        renderer: &Renderer,
+    ) -> Option<overlay::Element<'c, Message, Theme, Renderer>> {
+        self.content.as_widget_mut().overlay(
+            self.tree,
+            layout.children().next().unwrap(),
+            renderer,
+            &self.viewport,
+            Vector::ZERO,
+        )
+    }
+}

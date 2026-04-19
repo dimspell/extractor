@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::Message;
+use crate::message::{editor::dialog::DialogEditorMessage, Message, MessageExt};
 use crate::style;
 use crate::utils::{
     horizontal_rule, horizontal_space, labeled_input, labeled_select, truncate_path, vertical_space,
@@ -10,33 +10,39 @@ use iced::{Element, Fill, Font, Length};
 
 impl App {
     pub fn view_dialog_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.dialog_editor;
+        let tab_id = self
+            .state
+            .workspace
+            .active()
+            .map(|t| t.id)
+            .unwrap_or(usize::MAX);
 
-        let file_list: Vec<Element<Message>> = editor
-            .dialog_files
-            .iter()
-            .enumerate()
-            .map(|(_idx, path)| {
-                let is_selected = editor.current_file == path.to_string_lossy();
-                let name = path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                let label = truncate_path(&name, 30);
+        let Some(editor) = self.state.dialog_editors.get(&tab_id) else {
+            return container(
+                text("Dialog file not loaded")
+                    .size(14)
+                    .style(style::subtle_text),
+            )
+            .width(Fill)
+            .height(Fill)
+            .padding(16)
+            .into();
+        };
 
-                let btn = button(text(label).size(11).font(Font::MONOSPACE))
-                    .width(Fill)
-                    .on_press(Message::DialogOpSelectFile(path.clone()));
-
-                if is_selected {
-                    btn.style(style::active_chip).into()
-                } else {
-                    btn.style(style::chip).into()
-                }
-            })
-            .collect();
-
-        let file_scroll = scrollable(column(file_list).spacing(4)).height(Length::Fill);
+        let file_path_row = row![
+            text("File:").size(12).width(40).style(style::subtle_text),
+            container(
+                text(truncate_path(&editor.current_file, 80))
+                    .size(11)
+                    .font(Font::MONOSPACE)
+            )
+            .padding([4, 10])
+            .width(Fill)
+            .style(style::sql_editor_container),
+        ]
+        .spacing(10)
+        .padding([0, 8])
+        .align_y(iced::Alignment::Center);
 
         let item_list: Vec<Element<Message>> = editor
             .filtered_dialogs
@@ -60,14 +66,14 @@ impl App {
                         .map(|d| d.to_string())
                         .unwrap_or_else(|| "null".into()),
                     dialog
-                        .event_id
+                        .required_event_id
                         .map(|e| e.to_string())
                         .unwrap_or_else(|| "null".into()),
                 );
 
                 let btn = button(text(label).size(11).font(Font::MONOSPACE))
                     .width(Fill)
-                    .on_press(Message::DialogOpSelectDialog(idx));
+                    .on_press(Message::dialog(DialogEditorMessage::SelectDialog(idx)));
 
                 if is_selected {
                     btn.style(style::active_chip).into()
@@ -89,24 +95,34 @@ impl App {
                 let orig = *orig_idx;
 
                 detail_content.push(labeled_input("ID:", &editor.edit_id, move |v| {
-                    Message::DialogOpFieldChanged(orig, "id".into(), v)
+                    Message::dialog(DialogEditorMessage::FieldChanged(orig, "id".into(), v))
                 }));
                 detail_content.push(labeled_input(
                     "Previous Event ID:",
-                    &editor.edit_previous_event_id,
-                    move |v| Message::DialogOpFieldChanged(orig, "previous_event_id".into(), v),
+                    &editor.edit_required_event_id,
+                    move |v| {
+                        Message::dialog(DialogEditorMessage::FieldChanged(
+                            orig,
+                            "required_event_id".into(),
+                            v,
+                        ))
+                    },
                 ));
                 detail_content.push(labeled_input(
                     "Next Dialog to Check:",
                     &editor.edit_next_dialog_to_check,
-                    move |v| Message::DialogOpFieldChanged(orig, "next_dialog_to_check".into(), v),
+                    move |v| {
+                        Message::dialog(DialogEditorMessage::FieldChanged(
+                            orig,
+                            "next_dialog_to_check".into(),
+                            v,
+                        ))
+                    },
                 ));
 
                 let dialog_type_options = vec![DialogType::Normal, DialogType::Choice];
                 let dialog_type_value = if editor.edit_dialog_type.contains("Choice") {
                     DialogType::Choice
-                } else if editor.edit_dialog_type.contains("Normal") {
-                    DialogType::Normal
                 } else {
                     DialogType::Normal
                 };
@@ -115,11 +131,11 @@ impl App {
                     dialog_type_value,
                     dialog_type_options,
                     move |v| {
-                        Message::DialogOpFieldChanged(
+                        Message::dialog(DialogEditorMessage::FieldChanged(
                             orig,
                             "dialog_type".into(),
                             format!("{:?}", v),
-                        )
+                        ))
                     },
                 ));
 
@@ -134,23 +150,35 @@ impl App {
                     dialog_owner_value,
                     dialog_owner_options,
                     move |v| {
-                        Message::DialogOpFieldChanged(
+                        Message::dialog(DialogEditorMessage::FieldChanged(
                             orig,
                             "dialog_owner".into(),
                             format!("{:?}", v),
-                        )
+                        ))
                     },
                 ));
 
                 detail_content.push(labeled_input(
                     "Dialog ID:",
                     &editor.edit_dialog_id,
-                    move |v| Message::DialogOpFieldChanged(orig, "dialog_id".into(), v),
+                    move |v| {
+                        Message::dialog(DialogEditorMessage::FieldChanged(
+                            orig,
+                            "dialog_id".into(),
+                            v,
+                        ))
+                    },
                 ));
                 detail_content.push(labeled_input(
                     "Event ID:",
                     &editor.edit_event_id,
-                    move |v| Message::DialogOpFieldChanged(orig, "event_id".into(), v),
+                    move |v| {
+                        Message::dialog(DialogEditorMessage::FieldChanged(
+                            orig,
+                            "event_id".into(),
+                            v,
+                        ))
+                    },
                 ));
             }
         } else {
@@ -163,64 +191,47 @@ impl App {
         }
 
         let detail_scroll = scrollable(column(detail_content).spacing(8)).height(Length::Fill);
-
         let detail_panel = container(detail_scroll)
             .padding(16)
             .width(Length::FillPortion(2))
             .style(style::info_card);
 
-        let file_header = row![
-            text("Dialog Files").size(14),
+        let item_list_header = row![
+            text("Entries").size(14),
             horizontal_space(),
-            button(text("Scan"))
-                .on_press(Message::DialogOpScanFiles)
-                .padding([5, 10])
-                .style(style::run_button),
-            button(text("Browse"))
-                .on_press(Message::DialogOpBrowseFile)
-                .padding([5, 10])
-                .style(style::browse_button),
+            text(format!("{} found", editor.filtered_dialogs.len()))
+                .size(12)
+                .style(style::subtle_text),
         ]
         .padding(10)
         .align_y(iced::Alignment::Center);
-
-        let item_list_header = row![text("Entries").size(14), horizontal_space()]
-            .padding(10)
-            .align_y(iced::Alignment::Center);
-
-        let file_panel = column![
-            container(file_header).style(style::grid_header_cell),
-            file_scroll,
-        ];
 
         let item_panel = column![
             container(item_list_header).style(style::grid_header_cell),
             item_scroll,
         ];
 
-        let main_content = row![
-            file_panel.width(Length::FillPortion(1)),
-            item_panel.width(Length::FillPortion(1)),
-            detail_panel,
-        ]
-        .spacing(0)
-        .height(Length::Fill);
+        let main_content = row![item_panel.width(Length::FillPortion(1)), detail_panel,]
+            .spacing(0)
+            .height(Length::Fill);
 
         column![
+            container(column![file_path_row].padding(10).spacing(8))
+                .style(style::toolbar_container),
             horizontal_rule(1),
             main_content,
             container(
                 row![
                     text(&editor.status_msg).size(13).style(style::subtle_text),
                     horizontal_space(),
-                    if editor.is_loading {
+                    if editor.loading_state.is_loading() {
                         Element::from(text("Loading...").size(13))
                     } else {
                         Element::from(text(""))
                     },
                     horizontal_space().width(20),
                     button(text("Save Dialogs"))
-                        .on_press(Message::DialogOpSave)
+                        .on_press(Message::dialog(DialogEditorMessage::Save))
                         .style(style::commit_button),
                 ]
                 .padding([10, 20])

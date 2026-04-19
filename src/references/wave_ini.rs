@@ -59,7 +59,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WaveIni {
     /// Sound effect reference identifier.
     pub id: i32,
@@ -130,7 +130,7 @@ pub fn read_wave_ini(source_path: &Path) -> std::io::Result<Vec<WaveIni>> {
     WaveIni::read_file(source_path)
 }
 
-pub fn save_wave_inis(conn: &mut Connection, wave_inis: &Vec<WaveIni>) -> Result<()> {
+pub fn save_wave_inis(conn: &mut Connection, wave_inis: &[WaveIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_wave_ini.sql"))?;

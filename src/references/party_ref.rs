@@ -51,7 +51,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyRef {
     /// Party member identifier.
     pub id: i32,
@@ -155,7 +155,7 @@ pub fn read_part_refs(source_path: &Path) -> std::io::Result<Vec<PartyRef>> {
     PartyRef::read_file(source_path)
 }
 
-pub fn save_party_refs(conn: &mut Connection, party_refs: &Vec<PartyRef>) -> Result<()> {
+pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_party_ref.sql"))?;

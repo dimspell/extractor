@@ -165,7 +165,7 @@ An extractor is available in `src/references/wave_ini.rs` to parse this file for
 
 ```bash
 # Extract Wave.ini to JSON
-cargo run -- ref wave "fixtures/Dispel/Wave.ini"
+cargo run -- extract -i "fixtures/Dispel/Wave.ini"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

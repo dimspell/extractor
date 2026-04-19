@@ -65,7 +65,7 @@ An extractor is available in `src/references/dialogue_text.rs` to parse this fil
 
 ```bash
 # Extract Pgpmap1.pgp to JSON
-cargo run -- ref dialog-texts "fixtures/Dispel/NpcInGame/Pgpmap1.pgp"
+cargo run -- extract -i "fixtures/Dispel/NpcInGame/Pgpmap1.pgp"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

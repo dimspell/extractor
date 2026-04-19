@@ -55,12 +55,12 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Event {
     /// Unique event identifier.
     pub event_id: i32,
     /// Prerequisite event ID that must have occurred.
-    pub previous_event_id: i32,
+    pub required_event_id: i32,
     /// Determines execution condition (e.g. unconditionally, N times, if previous succeeded).
     pub event_type: EventType,
     /// Filename of the event script.
@@ -76,7 +76,7 @@ pub struct Event {
 ///
 /// Text file, EUC-KR encoded. One record per line, CSV format:
 /// ```text
-/// event_id,previous_event_id,event_type_id,event_filename,counter
+/// event_id,required_event_id,event_type_id,event_filename,counter
 /// ```
 /// - `event_filename` uses literal `null` when absent.
 /// - `event_type_id` controls execution condition (see `EventType` variants).
@@ -102,7 +102,7 @@ impl Extractor for Event {
                 continue;
             }
             let event_id = parts[0].parse::<i32>().unwrap();
-            let previous_event_id: i32 = parts[1].parse::<i32>().unwrap();
+            let required_event_id: i32 = parts[1].parse::<i32>().unwrap();
             let event_type_id = parts[2].parse::<i32>().unwrap();
             let event_filename = parse_null(parts[3]);
             let counter = parts[4].parse::<i32>().unwrap();
@@ -111,7 +111,7 @@ impl Extractor for Event {
 
             events.push(Event {
                 event_id,
-                previous_event_id,
+                required_event_id,
                 event_type,
                 event_filename,
                 counter,
@@ -127,7 +127,7 @@ impl Extractor for Event {
             let event_type_id: i32 = record.event_type.into();
             let line = format!(
                 "{},{},{},{},{}\r\n",
-                record.event_id, record.previous_event_id, event_type_id, filename, record.counter
+                record.event_id, record.required_event_id, event_type_id, filename, record.counter
             );
             let (cow, _, _) = EUC_KR.encode(&line);
             file.write_all(&cow)?;
@@ -140,14 +140,14 @@ pub fn read_event_ini(source_path: &Path) -> std::io::Result<Vec<Event>> {
     Event::read_file(source_path)
 }
 
-pub fn save_events(conn: &mut Connection, events: &Vec<Event>) -> Result<()> {
+pub fn save_events(conn: &mut Connection, events: &[Event]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_event.sql"))?;
         for event in events {
             stmt.execute(params![
                 event.event_id,
-                event.previous_event_id,
+                event.required_event_id,
                 i32::from(event.event_type),
                 event.event_filename,
                 event.counter,

@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 // +--------------------------------------+
 // | Encoding: Binary (Little-Endian)     |
 // | Text Encoding: EUC-KR                |
-// | Record Size: 160 bytes (40 × i32)      |
+// | Record Size: 160 bytes               |
 // | No header - count from file size     |
 // +--------------------------------------+
 // | [Record 1]                           |
@@ -89,7 +89,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Monster {
     /// Unique monster archetype tracking ID.
     pub id: i32,
@@ -188,7 +188,7 @@ impl Extractor for Monster {
         let mut reader = BufReader::new(file);
 
         const COUNTER_SIZE: u8 = 0;
-        const PROPERTY_ITEM_SIZE: i32 = 40 * 4;
+        const PROPERTY_ITEM_SIZE: i32 = 40 * 4; // Each object has 160 bytes (name - 24 bytes and 34 i32 fields)
 
         let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
         let mut monsters: Vec<Monster> = Vec::with_capacity(elements as usize);
@@ -353,7 +353,7 @@ pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {
     Monster::read_file(source_path)
 }
 
-pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<()> {
+pub fn save_monsters(conn: &mut Connection, monsters: &[Monster]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_monster.sql"))?;
@@ -400,4 +400,10 @@ pub fn save_monsters(conn: &mut Connection, monsters: &Vec<Monster>) -> Result<(
     }
     tx.commit()?;
     Ok(())
+}
+
+impl std::fmt::Display for Monster {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Monster({} - {} HP)", self.id, self.health_points_max)
+    }
 }

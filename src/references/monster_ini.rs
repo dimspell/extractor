@@ -55,7 +55,7 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MonsterIni {
     /// Monster visual type identifier.
     pub id: i32,
@@ -160,7 +160,7 @@ pub fn read_monster_ini(source_path: &Path) -> std::io::Result<Vec<MonsterIni>> 
     MonsterIni::read_file(source_path)
 }
 
-pub fn save_monster_inis(conn: &mut Connection, monster_inis: &Vec<MonsterIni>) -> Result<()> {
+pub fn save_monster_inis(conn: &mut Connection, monster_inis: &[MonsterIni]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ini.sql"))?;
