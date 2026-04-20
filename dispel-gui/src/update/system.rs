@@ -199,7 +199,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             app.search_index.indexing = false;
             app.search_index.progress = 1.0;
             app.state.status_msg =
-                format!("Index complete: {} entries", app.search_index.entries.len());
+                format!("Index complete: {} files indexed", app.search_index.file_mappings.len());
             Task::none()
         }
         SystemMessage::ClearLog => {

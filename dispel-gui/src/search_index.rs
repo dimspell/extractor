@@ -1,10 +1,4 @@
-use crate::components::editor::editable::EditableRecord;
-use dispel_core::Extractor;
-use dispel_core::{
-    ChData, DrawItem, EditItem, Event, EventItem, EventNpcRef, Extra, HealItem, MagicSpell, Map,
-    MapIni, Message as ScrMessage, MiscItem, Monster, NpcIni, PartyIniNpc, PartyLevelNpc, PartyRef,
-    Quest, Store, WaveIni, WeaponItem,
-};
+
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -48,27 +42,25 @@ impl SearchIndex {
         Self::default()
     }
 
-    /// Search the index for entries matching the query.
-    pub fn search(&self, query: &str) -> Vec<&IndexedEntry> {
-        if query.is_empty() {
-            return Vec::new();
-        }
-        let query_lower = query.to_lowercase();
-        self.entries
-            .iter()
-            .filter(|e| e.label.to_lowercase().contains(&query_lower))
-            .collect()
-    }
+
 
     /// Search for file mappings matching the query.
-    pub fn search_files(&self, query: &str) -> Vec<&FileMapping> {
+    /// Optimized to return only top results for performance.
+    pub fn search_files(&self, query: &str) -> Vec<FileMapping> {
         if query.is_empty() {
             return Vec::new();
         }
+        
         let query_lower = query.to_lowercase();
+        
+        // Optimize: Limit to reasonable number of results for UI performance
+        const MAX_RESULTS: usize = 100;
+        
         self.file_mappings
             .iter()
             .filter(|m| m.file_path.to_lowercase().contains(&query_lower))
+            .take(MAX_RESULTS)
+            .cloned()
             .collect()
     }
 
@@ -106,163 +98,59 @@ impl SearchIndex {
     }
 }
 
-/// Known catalog file paths and their editor types.
-/// Each entry: (relative_path, editor_type, catalog_type_name)
-fn catalog_files() -> Vec<(&'static str, &'static str, &'static str)> {
-    vec![
-        ("CharacterInGame/weaponItem.db", "Weapon", "weaponItem"),
-        ("CharacterInGame/HealItem.db", "HealItem", "HealItem"),
-        ("CharacterInGame/MiscItem.db", "MiscItem", "MiscItem"),
-        ("CharacterInGame/EditItem.db", "EditItem", "EditItem"),
-        ("CharacterInGame/EventItem.db", "EventItem", "EventItem"),
-        ("MonsterInGame/Monster.db", "Monster", "Monster"),
-        ("Npc.ini", "NpcIni", "NpcIni"),
-        ("MagicInGame/Magic.db", "MagicSpell", "MagicSpell"),
-        ("CharacterInGame/STORE.DB", "Store", "Store"),
-        ("Ref/PartyRef.ref", "PartyRef", "PartyRef"),
-        ("NpcInGame/PrtIni.db", "PartyIni", "PartyIni"),
-        ("AllMap.ini", "Map", "Map"),
-        ("Ref/DRAWITEM.ref", "DrawItem", "DrawItem"),
-        ("Event.ini", "Event", "Event"),
-        ("NpcInGame/Eventnpc.ref", "EventNpcRef", "EventNpcRef"),
-        ("Extra.ini", "Extra", "Extra"),
-        ("Ref/Map.ini", "MapIni", "MapIni"),
-        ("ExtraInGame/Message.scr", "Message", "Message"),
-        ("NpcInGame/PrtLevel.db", "PartyLevel", "PartyLevel"),
-        ("ExtraInGame/Quest.scr", "Quest", "Quest"),
-        ("Wave.ini", "WaveIni", "WaveIni"),
-        ("CharacterInGame/ChData.db", "ChData", "ChData"),
-    ]
-}
+
 
 /// Build a search index from the given game path.
 pub async fn build_index(game_path: &Path) -> SearchIndex {
     let mut index = SearchIndex::new();
     index.game_path = Some(game_path.to_string_lossy().to_string());
 
-    // Build file mappings
-    for (rel_path, editor_type, _catalog_type) in catalog_files() {
-        index.file_mappings.push(FileMapping {
-            file_path: rel_path.to_string(),
-            editor_type: editor_type.to_string(),
-        });
-    }
+    // Recursively index all common game file types in all directories
+    index_all_files_recursive(game_path, game_path, &mut index.file_mappings);
 
-    // Index each catalog file
-    for (rel_path, editor_type, _catalog_type) in catalog_files() {
-        let full_path = game_path.join(rel_path);
-        index_entries_for_file(&full_path, editor_type, &mut index.entries);
-    }
-
-    // Index sprite files
+    // Index sprite files (for file mappings only)
     index_sprites(game_path, &mut index.entries, &mut index.file_mappings);
 
     index
 }
 
-fn index_entries_for_file(path: &Path, editor_type: &str, entries: &mut Vec<IndexedEntry>) {
-    if !path.exists() {
-        return;
-    }
 
-    let source = path.to_string_lossy().to_string();
 
-    match editor_type {
-        "Weapon" => index_catalog::<WeaponItem>(path, editor_type, &source, entries),
-        "HealItem" => index_catalog::<HealItem>(path, editor_type, &source, entries),
-        "MiscItem" => index_catalog::<MiscItem>(path, editor_type, &source, entries),
-        "EditItem" => index_catalog::<EditItem>(path, editor_type, &source, entries),
-        "EventItem" => index_catalog::<EventItem>(path, editor_type, &source, entries),
-        "Monster" => index_monsters(path, &source, entries),
-        "NpcIni" => index_npc_ini(path, &source, entries),
-        "MagicSpell" => index_catalog::<MagicSpell>(path, editor_type, &source, entries),
-        "Store" => index_catalog::<Store>(path, editor_type, &source, entries),
-        "PartyRef" => index_catalog::<PartyRef>(path, editor_type, &source, entries),
-        "PartyIni" => index_party_ini(path, &source, entries),
-        "Map" => index_all_map(path, &source, entries),
-        "DrawItem" => index_catalog::<DrawItem>(path, editor_type, &source, entries),
-        "Event" => index_catalog::<Event>(path, editor_type, &source, entries),
-        "EventNpcRef" => index_catalog::<EventNpcRef>(path, editor_type, &source, entries),
-        "Extra" => index_catalog::<Extra>(path, editor_type, &source, entries),
-        "MapIni" => index_catalog::<MapIni>(path, editor_type, &source, entries),
-        "Message" => index_catalog::<ScrMessage>(path, editor_type, &source, entries),
-        "PartyLevel" => index_catalog::<PartyLevelNpc>(path, editor_type, &source, entries),
-        "Quest" => index_catalog::<Quest>(path, editor_type, &source, entries),
-        "WaveIni" => index_catalog::<WaveIni>(path, editor_type, &source, entries),
-        "ChData" => index_catalog::<ChData>(path, editor_type, &source, entries),
-        _ => {}
-    }
-}
-
-fn index_catalog<R: EditableRecord + Extractor>(
-    path: &Path,
-    editor_type: &str,
-    source: &str,
-    entries: &mut Vec<IndexedEntry>,
+fn index_all_files_recursive(
+    game_path: &Path,
+    dir: &Path,
+    file_mappings: &mut Vec<FileMapping>,
 ) {
-    if let Ok(records) = R::read_file(path) {
-        for (idx, record) in records.iter().enumerate() {
-            entries.push(IndexedEntry {
-                label: record.list_label(),
-                editor_type: editor_type.to_string(),
-                record_idx: idx,
-                source_file: Some(source.to_string()),
-            });
+    if let Ok(read_dir) = std::fs::read_dir(dir) {
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                index_all_files_recursive(game_path, &path, file_mappings);
+            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if let Ok(relative_path) = path.strip_prefix(game_path) {
+                    let editor_type = match ext.to_lowercase().as_str() {
+                        "db" => "DatabaseEditor",
+                        "ini" => "IniEditor",
+                        "ref" => "RefEditor",
+                        "scr" => "ScriptEditor",
+                        "map" => "MapEditor",
+                        "dlg" | "pgp" => "DialogEditor",
+                        "gtl" | "btl" => "TilesetEditor",
+                        "spr" => "SpriteViewer",
+                        _ => "UnknownEditor",
+                    };
+                    
+                    file_mappings.push(FileMapping {
+                        file_path: relative_path.to_string_lossy().to_string(),
+                        editor_type: editor_type.to_string(),
+                    });
+                }
+            }
         }
     }
 }
 
-fn index_monsters(path: &Path, source: &str, entries: &mut Vec<IndexedEntry>) {
-    if let Ok(records) = Monster::read_file(path) {
-        for (idx, monster) in records.iter().enumerate() {
-            entries.push(IndexedEntry {
-                label: format!("#{} {}", monster.id, monster.name),
-                editor_type: "Monster".to_string(),
-                record_idx: idx,
-                source_file: Some(source.to_string()),
-            });
-        }
-    }
-}
 
-fn index_npc_ini(path: &Path, source: &str, entries: &mut Vec<IndexedEntry>) {
-    if let Ok(records) = NpcIni::read_file(path) {
-        for (idx, npc) in records.iter().enumerate() {
-            entries.push(IndexedEntry {
-                label: format!("#{} {}", npc.id, npc.description),
-                editor_type: "NpcIni".to_string(),
-                record_idx: idx,
-                source_file: Some(source.to_string()),
-            });
-        }
-    }
-}
-
-fn index_party_ini(path: &Path, source: &str, entries: &mut Vec<IndexedEntry>) {
-    if let Ok(records) = PartyIniNpc::read_file(path) {
-        for (idx, npc) in records.iter().enumerate() {
-            entries.push(IndexedEntry {
-                label: format!("#{} {}", idx + 1, npc.name),
-                editor_type: "PartyIni".to_string(),
-                record_idx: idx,
-                source_file: Some(source.to_string()),
-            });
-        }
-    }
-}
-
-fn index_all_map(path: &Path, source: &str, entries: &mut Vec<IndexedEntry>) {
-    if let Ok(records) = Map::read_file(path) {
-        for (idx, map) in records.iter().enumerate() {
-            entries.push(IndexedEntry {
-                label: format!("#{} {}", map.id, map.map_name),
-                editor_type: "Map".to_string(),
-                record_idx: idx,
-                source_file: Some(source.to_string()),
-            });
-        }
-    }
-}
 
 fn index_sprites(
     game_path: &Path,

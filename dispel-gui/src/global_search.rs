@@ -1,5 +1,4 @@
 use crate::message::{workspace::WorkspaceMessage, Message};
-use crate::search_index::SearchIndex;
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
@@ -16,20 +15,21 @@ pub struct SearchResult {
 #[derive(Debug, Clone, Default)]
 pub struct GlobalSearch {
     pub query: String,
-    pub pending_query: String,
     pub results: Vec<SearchResult>,
     pub selected_index: usize,
     pub is_visible: bool,
+    /// Maximum number of results to display for performance
+    pub max_results: usize,
 }
 
 impl GlobalSearch {
     pub fn new() -> Self {
         Self {
             query: String::new(),
-            pending_query: String::new(),
             results: Vec::new(),
             selected_index: 0,
             is_visible: false,
+            max_results: 100, // Reasonable default for performance
         }
     }
 
@@ -37,29 +37,11 @@ impl GlobalSearch {
         self.is_visible = !self.is_visible;
         if !self.is_visible {
             self.query.clear();
-            self.pending_query.clear();
             self.results.clear();
         }
     }
 
-    pub fn search(&mut self, index: &SearchIndex) {
-        self.results.clear();
-        self.selected_index = 0;
 
-        if self.query.is_empty() {
-            return;
-        }
-
-        let indexed_results = index.search(&self.query);
-        for entry in indexed_results {
-            self.results.push(SearchResult {
-                catalog_type: entry.editor_type.clone(),
-                record_idx: entry.record_idx,
-                display_text: format!("[{}] {}", entry.editor_type, entry.label),
-                source_file: entry.source_file.clone(),
-            });
-        }
-    }
 
     pub fn select_next(&mut self) {
         if !self.results.is_empty() {
@@ -86,7 +68,7 @@ impl GlobalSearch {
     }
 
     pub fn view(&self) -> Element<'_, Message> {
-        let input = text_input("Search all records...", &self.query)
+        let input = text_input("Search files...", &self.query)
             .id(Self::input_id())
             .on_input(|s| Message::Workspace(WorkspaceMessage::GlobalSearchInput(s)))
             .padding(12);
@@ -120,7 +102,12 @@ impl GlobalSearch {
         let count = if self.results.is_empty() && !self.query.is_empty() {
             text("No results").size(12).style(style::subtle_text)
         } else {
-            text(format!("{} results", self.results.len()))
+            let result_text = if self.results.len() >= self.max_results {
+                format!("{}+ results (showing first {})", self.results.len(), self.max_results)
+            } else {
+                format!("{} results", self.results.len())
+            };
+            text(result_text)
                 .size(11)
                 .style(style::subtle_text)
         };

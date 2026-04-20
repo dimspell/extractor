@@ -80,7 +80,7 @@ impl App {
         };
 
         let init_task: Option<Task<Message>> =
-            if game_path.is_some() && search_index.entries.is_empty() {
+            if game_path.is_some() && search_index.file_mappings.is_empty() {
                 game_path.map(|gp| {
                     Task::perform(
                         async move { crate::search_index::build_index(&gp).await },

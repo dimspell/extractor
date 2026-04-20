@@ -21,7 +21,7 @@ pub enum WorkspaceMessage {
     GlobalSearchConfirm,
     GlobalSearchArrowUp,
     GlobalSearchArrowDown,
-    GlobalSearchDebounceTick,
+    GlobalSearchAsync(String),
     OpenToolTab(crate::workspace::EditorType),
     PaneClicked(pane_grid::Pane),
     PaneDragged(pane_grid::DragEvent),

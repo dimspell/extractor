@@ -149,196 +149,82 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         }
         // Global Search
         WorkspaceMessage::GlobalSearchInput(input) => {
-            app.global_search.pending_query = input;
-            Task::perform(
-                async {
-                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                },
-                |_| Message::Workspace(WorkspaceMessage::GlobalSearchDebounceTick),
-            )
-        }
-        WorkspaceMessage::GlobalSearchSelect(index) => {
-            // In non-legacy mode, use workspace-based navigation
-            if let Some(result) = app.global_search.results.get(index) {
-                let record_index = result.record_idx;
-                match result.catalog_type.as_str() {
-                    "Weapon" => app.state.weapon_editor.select(record_index),
-                    "HealItem" => app.state.heal_item_editor.select(record_index),
-                    "MiscItem" => app.state.misc_item_editor.select(record_index),
-                    "EditItem" => app.state.edit_item_editor.select(record_index),
-                    "EventItem" => app.state.event_item_editor.select(record_index),
-                    "Monster" => app.state.monster_editor.select(record_index),
-                    "NpcIni" => app.state.npc_ini_editor.select_npc(record_index),
-                    "MagicSpell" => app.state.magic_editor.select(record_index),
-                    "Dialog" => {
-                        let tab_id = app
-                            .state
-                            .workspace
-                            .active()
-                            .map(|t| t.id)
-                            .unwrap_or(usize::MAX);
-                        if let Some(ed) = app.state.dialog_editors.get_mut(&tab_id) {
-                            ed.select_dialog(record_index);
-                        }
-                    }
-                    "DialogueText" => {
-                        let tab_id = app
-                            .state
-                            .workspace
-                            .active()
-                            .map(|t| t.id)
-                            .unwrap_or(usize::MAX);
-                        if let Some(ed) = app.state.dialogue_text_editors.get_mut(&tab_id) {
-                            ed.select_text(record_index);
-                        }
-                    }
-                    "Store" => app.state.store_editor.select_store(record_index),
-                    "PartyRef" => app.state.party_ref_editor.select(record_index),
-                    "PartyIni" => app.state.party_ini_editor.select(record_index),
-                    "DrawItem" => app.state.draw_item_editor.select(record_index),
-                    "Event" => app.state.event_ini_editor.select(record_index),
-                    "EventNpcRef" => app.state.event_npc_ref_editor.select(record_index),
-                    "Extra" => app.state.extra_ini_editor.select(record_index),
-                    "ExtraRef" => {
-                        let tab_id = app
-                            .state
-                            .workspace
-                            .active()
-                            .map(|t| t.id)
-                            .unwrap_or(usize::MAX);
-                        if let Some(ed) = app.state.extra_ref_editors.get_mut(&tab_id) {
-                            ed.select(record_index);
-                        }
-                    }
-                    "MapIni" => app.state.map_ini_editor.select(record_index),
-                    "Message" => app.state.message_scr_editor.select(record_index),
-                    "NpcRef" => {
-                        let tab_id = app
-                            .state
-                            .workspace
-                            .active()
-                            .map(|t| t.id)
-                            .unwrap_or(usize::MAX);
-                        if let Some(ed) = app.state.npc_ref_editors.get_mut(&tab_id) {
-                            ed.select(record_index);
-                        }
-                    }
-                    "PartyLevel" => app.state.party_level_db_editor.select(record_index),
-                    "Quest" => app.state.quest_scr_editor.select(record_index),
-                    "Wave" => app.state.wave_ini_editor.select(record_index),
-                    "ChData" => app.state.chdata_editor.select(record_index),
-                    "Map" => app.state.all_map_ini_editor.select(record_index),
-                    _ => {}
-                }
-                app.global_search.is_visible = false;
-                app.global_search.query.clear();
-                app.state.status_msg = format!("Navigated to {} via search", result.display_text);
+            app.global_search.query = input.clone();
+            
+            // Optimize: Only search if query has minimum length
+            if input.len() >= 2 || input.is_empty() {
+                // Use async search to keep UI responsive
+                let query = input.clone();
+                return Task::perform(
+                    async move { 
+                        // Simulate async work (in real app, this would be actual async I/O)
+                        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+                        query
+                    },
+                    |query| Message::Workspace(WorkspaceMessage::GlobalSearchAsync(query)),
+                );
+            } else if !input.is_empty() {
+                // Clear results for very short queries
+                app.global_search.results.clear();
+                app.global_search.selected_index = 0;
             }
             Task::none()
         }
-        WorkspaceMessage::GlobalSearchConfirm => {
-            if let Some(selected_index) = app.global_search.selected_index.checked_sub(0) {
-                if let Some(result) = app.global_search.results.get(selected_index) {
-                    {
-                        // Workspace-based navigation
-                        let record_index = result.record_idx;
-                        match result.catalog_type.as_str() {
-                            "Weapon" => app.state.weapon_editor.select(record_index),
-                            "HealItem" => app.state.heal_item_editor.select(record_index),
-                            "MiscItem" => app.state.misc_item_editor.select(record_index),
-                            "EditItem" => app.state.edit_item_editor.select(record_index),
-                            "EventItem" => app.state.event_item_editor.select(record_index),
-                            "Monster" => app.state.monster_editor.select(record_index),
-                            "NpcIni" => app.state.npc_ini_editor.select_npc(record_index),
-                            "MagicSpell" => app.state.magic_editor.select(record_index),
-                            "Dialog" => {
-                                let tab_id = app
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                if let Some(ed) = app.state.dialog_editors.get_mut(&tab_id) {
-                                    ed.select_dialog(record_index);
-                                }
-                            }
-                            "DialogueText" => {
-                                let tab_id = app
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                if let Some(ed) = app.state.dialogue_text_editors.get_mut(&tab_id) {
-                                    ed.select_text(record_index);
-                                }
-                            }
-                            "Store" => app.state.store_editor.select_store(record_index),
-                            "PartyRef" => app.state.party_ref_editor.select(record_index),
-                            "PartyIni" => app.state.party_ini_editor.select(record_index),
-                            "DrawItem" => app.state.draw_item_editor.select(record_index),
-                            "Event" => app.state.event_ini_editor.select(record_index),
-                            "EventNpcRef" => app.state.event_npc_ref_editor.select(record_index),
-                            "Extra" => app.state.extra_ini_editor.select(record_index),
-                            "ExtraRef" => {
-                                let tab_id = app
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                if let Some(ed) = app.state.extra_ref_editors.get_mut(&tab_id) {
-                                    ed.select(record_index);
-                                }
-                            }
-                            "MapIni" => app.state.map_ini_editor.select(record_index),
-                            "Message" => app.state.message_scr_editor.select(record_index),
-                            "NpcRef" => {
-                                let tab_id = app
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                if let Some(ed) = app.state.npc_ref_editors.get_mut(&tab_id) {
-                                    ed.select(record_index);
-                                }
-                            }
-                            "PartyLevel" => app.state.party_level_db_editor.select(record_index),
-                            "Quest" => app.state.quest_scr_editor.select(record_index),
-                            "Wave" => app.state.wave_ini_editor.select(record_index),
-                            "AllMap" => app.state.all_map_ini_editor.select(record_index),
-                            "Chest" => {
-                                app.state.chest_editor.selected_idx = Some(record_index);
-                                if let Some((_, record)) =
-                                    app.state.chest_editor.filtered_chests.get(record_index)
-                                {
-                                    app.state.chest_editor.edit_name = record.name.clone();
-                                    app.state.chest_editor.edit_x = record.x_pos.to_string();
-                                    app.state.chest_editor.edit_y = record.y_pos.to_string();
-                                    app.state.chest_editor.edit_gold = "0".to_string();
-                                    app.state.chest_editor.edit_item_count = "0".to_string();
-                                    app.state.chest_editor.edit_item_id = "0".to_string();
-                                    app.state.chest_editor.edit_item_type = "0".to_string();
-                                    app.state.chest_editor.edit_closed = record.closed.to_string();
-                                }
-                            }
-                            _ => {}
-                        }
-
-                        // Open the file in workspace
-                        if let Some(path) = &result.source_file {
-                            let label = result.display_text.clone();
-                            app.state.workspace.open(label, Some(PathBuf::from(path)));
-                        }
-
+        WorkspaceMessage::GlobalSearchSelect(index) => {
+            if let Some(result) = app.global_search.results.get(index) {
+                if let Some(relative_path) = &result.source_file {
+                    // Construct full path by combining game path with relative path
+                    if !app.state.shared_game_path.is_empty() {
+                        let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                        // Close search dialog and clear query before opening file
                         app.global_search.is_visible = false;
                         app.global_search.query.clear();
-                        app.state.status_msg =
-                            format!("Navigated to {} via search", result.display_text);
+                        return app.open_file_in_workspace(&full_path);
                     }
                 }
             }
+            app.global_search.is_visible = false;
+            app.global_search.query.clear();
+            Task::none()
+        }
+        WorkspaceMessage::GlobalSearchAsync(query) => {
+            // Process async search query on main thread
+            app.global_search.results.clear();
+            app.global_search.selected_index = 0;
+            
+            if query.is_empty() {
+                Task::none()
+            } else {
+                let file_results = app.search_index.search_files(&query);
+                for entry in file_results.iter().take(app.global_search.max_results) {
+                    app.global_search.results.push(crate::global_search::SearchResult {
+                        catalog_type: entry.editor_type.clone(),
+                        record_idx: 0,
+                        display_text: entry.file_path.clone(),
+                        source_file: Some(entry.file_path.clone()),
+                    });
+                }
+                Task::none()
+            }
+        }
+
+        WorkspaceMessage::GlobalSearchConfirm => {
+            if let Some(selected_index) = app.global_search.selected_index.checked_sub(0) {
+                if let Some(result) = app.global_search.results.get(selected_index) {
+                    if let Some(relative_path) = &result.source_file {
+                        // Construct full path by combining game path with relative path
+                        if !app.state.shared_game_path.is_empty() {
+                            let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                            // Close search dialog and clear query before opening file
+                            app.global_search.is_visible = false;
+                            app.global_search.query.clear();
+                            return app.open_file_in_workspace(&full_path);
+                        }
+                    }
+                }
+            }
+            app.global_search.is_visible = false;
+            app.global_search.query.clear();
             Task::none()
         }
         WorkspaceMessage::GlobalSearchArrowUp => {
@@ -349,14 +235,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             app.global_search.select_next();
             Task::none()
         }
-        WorkspaceMessage::GlobalSearchDebounceTick => {
-            let pending = app.global_search.pending_query.clone();
-            if app.global_search.query != pending {
-                app.global_search.query = pending;
-                app.global_search.search(&app.search_index);
-            }
-            Task::none()
-        }
+
         // Tools
         WorkspaceMessage::OpenToolTab(editor_type) => {
             use crate::workspace::EditorType;
