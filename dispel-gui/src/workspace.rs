@@ -5,7 +5,7 @@ use std::fs;
 use std::io;
 
 /// Editor type identifier for workspace tabs
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EditorType {
     WeaponEditor,
     MonsterEditor,

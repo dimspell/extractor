@@ -43,9 +43,112 @@ macro_rules! handle_spreadsheet_messages {
             }
             SM::NavigateNextHighlight => {
                 $app.state.$spreadsheet.navigate_next_highlight();
+                if let Some(orig_idx) = $app.state.$spreadsheet.current_highlight_orig_idx() {
+                    if let Some(fidx) = $app
+                        .state
+                        .$spreadsheet
+                        .filtered_indices
+                        .iter()
+                        .position(|&i| i == orig_idx)
+                    {
+                        let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                        let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                        return iced::widget::operation::scroll_to(
+                            $app.state.$spreadsheet.body_scroll_id.clone(),
+                            iced::widget::scrollable::AbsoluteOffset { x, y },
+                        );
+                    }
+                }
             }
             SM::NavigatePrevHighlight => {
                 $app.state.$spreadsheet.navigate_prev_highlight();
+                if let Some(orig_idx) = $app.state.$spreadsheet.current_highlight_orig_idx() {
+                    if let Some(fidx) = $app
+                        .state
+                        .$spreadsheet
+                        .filtered_indices
+                        .iter()
+                        .position(|&i| i == orig_idx)
+                    {
+                        let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                        let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                        return iced::widget::operation::scroll_to(
+                            $app.state.$spreadsheet.body_scroll_id.clone(),
+                            iced::widget::scrollable::AbsoluteOffset { x, y },
+                        );
+                    }
+                }
+            }
+            SM::NavigateUp => {
+                if let Some(fidx) = $app.state.$spreadsheet.navigate_up() {
+                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
+                        if !$app.state.$spreadsheet.show_inspector {
+                            $app.state.$spreadsheet.show_inspector = true;
+                            $app.state.$spreadsheet.ensure_inspector_pane();
+                        }
+                    }
+                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    return iced::widget::operation::scroll_to(
+                        $app.state.$spreadsheet.body_scroll_id.clone(),
+                        iced::widget::scrollable::AbsoluteOffset { x, y },
+                    );
+                }
+            }
+            SM::NavigateDown => {
+                if let Some(fidx) = $app.state.$spreadsheet.navigate_down() {
+                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
+                        if !$app.state.$spreadsheet.show_inspector {
+                            $app.state.$spreadsheet.show_inspector = true;
+                            $app.state.$spreadsheet.ensure_inspector_pane();
+                        }
+                    }
+                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    return iced::widget::operation::scroll_to(
+                        $app.state.$spreadsheet.body_scroll_id.clone(),
+                        iced::widget::scrollable::AbsoluteOffset { x, y },
+                    );
+                }
+            }
+            SM::NavigateTop => {
+                if let Some(fidx) = $app.state.$spreadsheet.navigate_top() {
+                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
+                    }
+                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    return iced::widget::operation::scroll_to(
+                        $app.state.$spreadsheet.body_scroll_id.clone(),
+                        iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
+                    );
+                }
+            }
+            SM::NavigateBottom => {
+                if let Some(fidx) = $app.state.$spreadsheet.navigate_bottom() {
+                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
+                    }
+                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    return iced::widget::operation::scroll_to(
+                        $app.state.$spreadsheet.body_scroll_id.clone(),
+                        iced::widget::scrollable::AbsoluteOffset { x, y },
+                    );
+                }
             }
             SM::SelectRow(filtered_idx) => {
                 $app.state.$spreadsheet.select_row(filtered_idx);
@@ -147,7 +250,10 @@ macro_rules! handle_spreadsheet_messages {
                     $app.state.$editor.status_msg = format!("CSV export failed: {}", e);
                 }
             },
-            SM::BodyScrolled(offset) => {
+            SM::BodyScrolled(offset, viewport_height) => {
+                $app.state.$spreadsheet.vertical_scroll_offset = offset.y;
+                $app.state.$spreadsheet.horizontal_scroll_offset = offset.x;
+                $app.state.$spreadsheet.viewport_height = viewport_height;
                 return iced::widget::operation::scroll_to(
                     $app.state.$spreadsheet.header_scroll_id.clone(),
                     iced::widget::scrollable::AbsoluteOffset {
@@ -167,6 +273,30 @@ macro_rules! handle_spreadsheet_messages {
             }
             SM::ResetColumnWidth(col) => {
                 $app.state.$spreadsheet.reset_column_width(col);
+            }
+            SM::OpenColumnFilter(col) => {
+                // Toggle: second click on the same column closes the dropdown.
+                if $app.state.$spreadsheet.active_column_filter == Some(col) {
+                    $app.state.$spreadsheet.active_column_filter = None;
+                } else {
+                    $app.state.$spreadsheet.column_filter_options =
+                        $app.state.$editor.unique_values_for_column(col);
+                    $app.state.$spreadsheet.active_column_filter = Some(col);
+                }
+            }
+            SM::ApplyColumnFilter(col, value) => {
+                $app.state.$spreadsheet.column_filters.insert(col, value);
+                $app.state.$spreadsheet.active_column_filter = None;
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                }
+            }
+            SM::ClearColumnFilter(col) => {
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.clear_column_filter(col, catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                }
             }
         }
     };
@@ -232,8 +362,83 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 ss.set_filter_mode(mode, c);
                             }
                         }
-                        SM::NavigateNextHighlight => ss.navigate_next_highlight(),
-                        SM::NavigatePrevHighlight => ss.navigate_prev_highlight(),
+                        SM::NavigateNextHighlight => {
+                            ss.navigate_next_highlight();
+                            if let Some(orig_idx) = ss.current_highlight_orig_idx() {
+                                if let Some(fidx) =
+                                    ss.filtered_indices.iter().position(|&i| i == orig_idx)
+                                {
+                                    let y = ss.scroll_y_for_row(fidx);
+                                    let x = ss.horizontal_scroll_offset;
+                                    return iced::widget::operation::scroll_to(
+                                        ss.body_scroll_id.clone(),
+                                        iced::widget::scrollable::AbsoluteOffset { x, y },
+                                    );
+                                }
+                            }
+                        }
+                        SM::NavigatePrevHighlight => {
+                            ss.navigate_prev_highlight();
+                            if let Some(orig_idx) = ss.current_highlight_orig_idx() {
+                                if let Some(fidx) =
+                                    ss.filtered_indices.iter().position(|&i| i == orig_idx)
+                                {
+                                    let y = ss.scroll_y_for_row(fidx);
+                                    let x = ss.horizontal_scroll_offset;
+                                    return iced::widget::operation::scroll_to(
+                                        ss.body_scroll_id.clone(),
+                                        iced::widget::scrollable::AbsoluteOffset { x, y },
+                                    );
+                                }
+                            }
+                        }
+                        SM::NavigateUp => {
+                            if let Some(fidx) = ss.navigate_up() {
+                                if let Some(&orig_idx) = ss.filtered_indices.get(fidx) {
+                                    ss.inspector_textarea_contents =
+                                        ed.editor.make_inspector_textarea_contents(orig_idx);
+                                }
+                                let y = ss.scroll_y_for_row(fidx);
+                                let x = ss.horizontal_scroll_offset;
+                                return iced::widget::operation::scroll_to(
+                                    ss.body_scroll_id.clone(),
+                                    iced::widget::scrollable::AbsoluteOffset { x, y },
+                                );
+                            }
+                        }
+                        SM::NavigateDown => {
+                            if let Some(fidx) = ss.navigate_down() {
+                                if let Some(&orig_idx) = ss.filtered_indices.get(fidx) {
+                                    ss.inspector_textarea_contents =
+                                        ed.editor.make_inspector_textarea_contents(orig_idx);
+                                }
+                                let y = ss.scroll_y_for_row(fidx);
+                                let x = ss.horizontal_scroll_offset;
+                                return iced::widget::operation::scroll_to(
+                                    ss.body_scroll_id.clone(),
+                                    iced::widget::scrollable::AbsoluteOffset { x, y },
+                                );
+                            }
+                        }
+                        SM::NavigateTop => {
+                            if let Some(_fidx) = ss.navigate_top() {
+                                let x = ss.horizontal_scroll_offset;
+                                return iced::widget::operation::scroll_to(
+                                    ss.body_scroll_id.clone(),
+                                    iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
+                                );
+                            }
+                        }
+                        SM::NavigateBottom => {
+                            if let Some(fidx) = ss.navigate_bottom() {
+                                let y = ss.scroll_y_for_row(fidx);
+                                let x = ss.horizontal_scroll_offset;
+                                return iced::widget::operation::scroll_to(
+                                    ss.body_scroll_id.clone(),
+                                    iced::widget::scrollable::AbsoluteOffset { x, y },
+                                );
+                            }
+                        }
                         SM::SelectRow(filtered_idx) => {
                             ss.select_row(filtered_idx);
                             if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
@@ -303,7 +508,10 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 ed.editor.status_msg = format!("CSV export failed: {}", e);
                             }
                         },
-                        SM::BodyScrolled(offset) => {
+                        SM::BodyScrolled(offset, viewport_height) => {
+                            ss.vertical_scroll_offset = offset.y;
+                            ss.horizontal_scroll_offset = offset.x;
+                            ss.viewport_height = viewport_height;
                             return iced::widget::operation::scroll_to(
                                 ss.header_scroll_id.clone(),
                                 iced::widget::scrollable::AbsoluteOffset {
@@ -316,6 +524,29 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::ResizeColumnCursor(x) => ss.update_column_resize(x),
                         SM::EndResizeColumn => ss.end_column_resize(),
                         SM::ResetColumnWidth(col) => ss.reset_column_width(col),
+                        SM::OpenColumnFilter(col) => {
+                            if ss.active_column_filter == Some(col) {
+                                ss.active_column_filter = None;
+                            } else {
+                                ss.column_filter_options =
+                                    ed.editor.unique_values_for_column(col);
+                                ss.active_column_filter = Some(col);
+                            }
+                        }
+                        SM::ApplyColumnFilter(col, value) => {
+                            ss.column_filters.insert(col, value);
+                            ss.active_column_filter = None;
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.apply_filter(catalog);
+                                ss.apply_sort(catalog);
+                            }
+                        }
+                        SM::ClearColumnFilter(col) => {
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.clear_column_filter(col, catalog);
+                                ss.apply_sort(catalog);
+                            }
+                        }
                         SM::CommitEdit(_) => unreachable!(),
                     }
                 }

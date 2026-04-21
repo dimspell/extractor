@@ -320,6 +320,26 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         map
     }
 
+    /// Return a sorted, deduplicated list of every value that appears in
+    /// column `col` (by field descriptor index) across the full catalog.
+    /// Returns an empty `Vec` when `col` is out of range or no catalog is loaded.
+    pub fn unique_values_for_column(&self, col: usize) -> Vec<String> {
+        let descriptors = R::field_descriptors();
+        let Some(desc) = descriptors.get(col) else {
+            return Vec::new();
+        };
+        let Some(catalog) = &self.catalog else {
+            return Vec::new();
+        };
+        let mut seen = std::collections::HashSet::new();
+        for record in catalog {
+            seen.insert(record.get_field(desc.name));
+        }
+        let mut values: Vec<String> = seen.into_iter().collect();
+        values.sort();
+        values
+    }
+
     pub fn init_pane_state(&mut self) {
         let (mut state, first) = pane_grid::State::new(PaneContent::ItemList);
         state.split(pane_grid::Axis::Vertical, first, PaneContent::Inspector);

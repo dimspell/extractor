@@ -109,6 +109,24 @@ pub struct SpreadsheetState {
     /// Active drag state for the column the user is currently resizing.
     pub resizing_column: Option<ColumnDragState>,
 
+    // ── Scroll / viewport ─────────────────────────────────────────────────
+    /// Absolute vertical scroll offset — updated on `BodyScrolled` and used
+    /// by `scroll_y_for_row` to avoid scrolling when a row is already visible.
+    pub vertical_scroll_offset: f32,
+    /// Absolute horizontal scroll offset, preserved when issuing scroll-to-row
+    /// commands so the horizontal position isn't accidentally reset.
+    pub horizontal_scroll_offset: f32,
+    /// Height of the body scrollable's visible area. Updated from `BodyScrolled`.
+    pub viewport_height: f32,
+
+    // ── Column quick-filter ────────────────────────────────────────────────
+    /// Per-column exact-match filters.  Key = column index, value = required cell value.
+    pub column_filters: HashMap<usize, String>,
+    /// Which column's quick-filter dropdown is currently open (`None` = closed).
+    pub active_column_filter: Option<usize>,
+    /// Pre-computed unique values for the open column filter dropdown.
+    pub column_filter_options: Vec<String>,
+
     // ── Inspector textarea state ───────────────────────────────────────────
     /// One `text_editor::Content` per TextArea field of the currently-inspected
     /// record, keyed by field name. Populated on `SelectRow`, cleared on
@@ -164,6 +182,12 @@ impl Default for SpreadsheetState {
             header_scroll_id: iced::advanced::widget::Id::unique(),
             column_widths: HashMap::new(),
             resizing_column: None,
+            vertical_scroll_offset: 0.0,
+            horizontal_scroll_offset: 0.0,
+            viewport_height: 400.0,
+            column_filters: HashMap::new(),
+            active_column_filter: None,
+            column_filter_options: Vec::new(),
             inspector_textarea_contents: HashMap::new(),
         }
     }
@@ -184,12 +208,28 @@ impl SpreadsheetState {
     }
 
     /// Rebuild `filtered_indices` / `highlighted_indices` from the current
-    /// `filter_query` and `filter_mode`.
+    /// `filter_query`, `filter_mode`, and `column_filters`.
     pub fn apply_filter<R: EditableRecord>(&mut self, catalog: &[R]) {
         self.highlighted_indices.clear();
         self.current_highlight_pos = None;
 
-        if self.filter_query.is_empty() {
+        let descriptors = R::field_descriptors();
+        let has_query = !self.filter_query.is_empty();
+        let has_col = !self.column_filters.is_empty();
+
+        // Column filters always hard-filter rows regardless of mode.
+        let col_matches = |record: &R| -> bool {
+            for (&col, required) in &self.column_filters {
+                if let Some(desc) = descriptors.get(col) {
+                    if !record.get_field(desc.name).eq_ignore_ascii_case(required) {
+                        return false;
+                    }
+                }
+            }
+            true
+        };
+
+        if !has_query && !has_col {
             self.filtered_indices = (0..catalog.len()).collect();
             return;
         }
@@ -201,16 +241,22 @@ impl SpreadsheetState {
             GlobalFilterMode::FilterOut => {
                 self.filtered_indices.clear();
                 for (idx, record) in catalog.iter().enumerate() {
-                    if matches_query(record) {
+                    let col_ok = !has_col || col_matches(record);
+                    let q_ok = !has_query || matches_query(record);
+                    if col_ok && q_ok {
                         self.filtered_indices.push(idx);
                     }
                 }
             }
             GlobalFilterMode::Highlight => {
-                self.filtered_indices = (0..catalog.len()).collect();
+                // Column filters hard-filter; global query only highlights.
+                self.filtered_indices.clear();
                 for (idx, record) in catalog.iter().enumerate() {
-                    if matches_query(record) {
-                        self.highlighted_indices.push(idx);
+                    if !has_col || col_matches(record) {
+                        self.filtered_indices.push(idx);
+                        if has_query && matches_query(record) {
+                            self.highlighted_indices.push(idx);
+                        }
                     }
                 }
                 if !self.highlighted_indices.is_empty() {
@@ -237,12 +283,17 @@ impl SpreadsheetState {
         record.list_label().to_lowercase().contains(query_lower)
     }
 
-    /// Reset the filter bar to its initial state.
+    /// Clear the text query but keep any active column filters.
     pub fn clear_filter<R: EditableRecord>(&mut self, catalog: &[R]) {
         self.filter_query.clear();
-        self.highlighted_indices.clear();
-        self.current_highlight_pos = None;
-        self.filtered_indices = (0..catalog.len()).collect();
+        self.apply_filter(catalog);
+    }
+
+    /// Remove the quick-filter for a single column and re-apply filters.
+    pub fn clear_column_filter<R: EditableRecord>(&mut self, col: usize, catalog: &[R]) {
+        self.column_filters.remove(&col);
+        self.active_column_filter = None;
+        self.apply_filter(catalog);
     }
 
     pub fn set_filter_mode<R: EditableRecord>(&mut self, mode: GlobalFilterMode, catalog: &[R]) {
@@ -461,6 +512,74 @@ impl SpreadsheetState {
         self.mode = EditingMode::Normal;
     }
 
+    /// Move selection one row up; returns the new `filtered_idx` or `None`
+    /// when there is nothing to navigate.
+    pub fn navigate_up(&mut self) -> Option<usize> {
+        let total = self.filtered_indices.len();
+        if total == 0 {
+            return None;
+        }
+        let new_idx = match self.selected_row {
+            Some(idx) if idx > 0 => idx - 1,
+            Some(idx) => idx,
+            None => total.saturating_sub(1),
+        };
+        self.select_row(new_idx);
+        Some(new_idx)
+    }
+
+    /// Move selection one row down; returns the new `filtered_idx`.
+    pub fn navigate_down(&mut self) -> Option<usize> {
+        let total = self.filtered_indices.len();
+        if total == 0 {
+            return None;
+        }
+        let new_idx = match self.selected_row {
+            Some(idx) if idx + 1 < total => idx + 1,
+            Some(idx) => idx,
+            None => 0,
+        };
+        self.select_row(new_idx);
+        Some(new_idx)
+    }
+
+    /// Jump to the first visible row.
+    pub fn navigate_top(&mut self) -> Option<usize> {
+        if self.filtered_indices.is_empty() {
+            return None;
+        }
+        self.select_row(0);
+        Some(0)
+    }
+
+    /// Jump to the last visible row.
+    pub fn navigate_bottom(&mut self) -> Option<usize> {
+        let total = self.filtered_indices.len();
+        if total == 0 {
+            return None;
+        }
+        let last = total - 1;
+        self.select_row(last);
+        Some(last)
+    }
+
+    /// Compute the body-scrollable Y offset needed to keep `filtered_idx`
+    /// in view, without scrolling if the row is already visible.
+    pub fn scroll_y_for_row(&self, filtered_idx: usize) -> f32 {
+        let row_top = filtered_idx as f32 * ROW_HEIGHT;
+        let row_bottom = row_top + ROW_HEIGHT;
+        let vp_top = self.vertical_scroll_offset;
+        let vp_bottom = vp_top + self.viewport_height.max(ROW_HEIGHT * 2.0);
+
+        if row_top < vp_top {
+            row_top
+        } else if row_bottom > vp_bottom {
+            (row_bottom - self.viewport_height).max(0.0)
+        } else {
+            vp_top
+        }
+    }
+
     pub fn toggle_inspector(&mut self) {
         self.show_inspector = !self.show_inspector;
     }
@@ -556,6 +675,11 @@ pub enum SpreadsheetMessage {
     SetFilterMode(GlobalFilterMode),
     NavigateNextHighlight,
     NavigatePrevHighlight,
+    /// Arrow-key row navigation (keyboard shortcuts wired at the app level).
+    NavigateUp,
+    NavigateDown,
+    NavigateTop,
+    NavigateBottom,
     SelectRow(usize),
     StartEdit(usize, usize),
     EditCellInput(String),
@@ -567,10 +691,19 @@ pub enum SpreadsheetMessage {
     /// Emitted after the async CSV save completes; payload is `Ok(path)` or
     /// `Err(msg)`. Per-editor handlers forward it into the status bar.
     CsvExported(Result<std::path::PathBuf, String>),
-    /// Fired by the body scrollable on every scroll delta; carries the
-    /// absolute offset so the handler can mirror horizontal scrolling onto
-    /// the sticky header.
-    BodyScrolled(iced::widget::scrollable::AbsoluteOffset),
+    /// Fired by the body scrollable on every scroll delta. Carries the
+    /// absolute offset (to mirror horizontal scrolling onto the sticky header
+    /// and drive virtual rendering) and the visible viewport height.
+    BodyScrolled(iced::widget::scrollable::AbsoluteOffset, f32),
+
+    // ── Column quick-filter ────────────────────────────────────────────────
+    /// Toggle the quick-filter dropdown for `col` open/closed. The handler
+    /// pre-computes the unique values list before opening.
+    OpenColumnFilter(usize),
+    /// Apply the picked unique-value filter for `col`.
+    ApplyColumnFilter(usize, String),
+    /// Remove the quick-filter for `col` and re-apply.
+    ClearColumnFilter(usize),
 
     // ── Column resizing ────────────────────────────────────────────────────
     /// Mouse-down on a column's resize handle; `col` is the index into
@@ -756,11 +889,38 @@ fn build_filter_bar<'a, R: EditableRecord>(
         }
     };
 
+    // Column quick-filter pick_list (visible only when a column filter menu is open).
+    let col_filter_area: Element<Message> =
+        if let Some(col) = spreadsheet.active_column_filter {
+            let options = spreadsheet.column_filter_options.clone();
+            let current = spreadsheet.column_filters.get(&col).cloned();
+            let col_filter_pick = pick_list(options, current, move |val| {
+                spreadsheet_msg(SpreadsheetMessage::ApplyColumnFilter(col, val))
+            })
+            .placeholder("Pick value…")
+            .width(Length::Fixed(160.0));
+            let close_btn = button(text("✕").size(11))
+                .padding([2, 6])
+                .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
+                .style(style::browse_button);
+            row![
+                text("Col filter:").size(11).style(style::subtle_text),
+                col_filter_pick,
+                close_btn,
+            ]
+            .spacing(4)
+            .align_y(iced::Alignment::Center)
+            .into()
+        } else {
+            horizontal_space().width(Length::Fixed(0.0)).into()
+        };
+
     row![
         text("Filter:").size(12).style(style::subtle_text),
         mode_toggle,
         filter_input,
         clear_btn,
+        col_filter_area,
         horizontal_space(),
         status_area,
         horizontal_space().width(12),
@@ -964,7 +1124,10 @@ fn build_table_content<'a, R: EditableRecord>(
                 horizontal: Default::default(),
             })
             .on_scroll(move |vp| {
-                spreadsheet_msg(SpreadsheetMessage::BodyScrolled(vp.absolute_offset()))
+                spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
+                    vp.absolute_offset(),
+                    vp.bounds().height,
+                ))
             })
             .height(Length::Fill)
             .width(Length::Fill);
@@ -1018,20 +1181,49 @@ fn build_header_row<'a>(
         };
 
         let col_width = spreadsheet.column_width(col);
-        let label_width = (col_width - RESIZE_HANDLE_WIDTH).max(0.0);
+        let has_col_filter = spreadsheet.column_filters.contains_key(&col);
+        // Reserve room for the filter badge when a filter is active (14 px).
+        let badge_width = if has_col_filter { 14.0 } else { 0.0 };
+        let label_width = (col_width - RESIZE_HANDLE_WIDTH - badge_width).max(0.0);
+
+        // ─ Filter badge: small "◼ ×" shown when a column filter is active ─
+        let filter_badge: Element<Message> = if has_col_filter {
+            button(text("◼").size(8))
+                .padding([0, 2])
+                .on_press(spreadsheet_msg(SpreadsheetMessage::ClearColumnFilter(col)))
+                .style(style::spreadsheet_header_button)
+                .into()
+        } else {
+            horizontal_space().width(Length::Fixed(0.0)).into()
+        };
+
+        // The sort+label button also doubles as the quick-filter trigger on
+        // right-click. For now, left-click sorts and a separate "▾" affordance
+        // opens the value list — added here as a tiny icon after the label.
+        let filter_btn: Element<Message> = button(text("▾").size(8))
+            .padding([0, 2])
+            .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
+            .style(style::spreadsheet_header_button)
+            .into();
 
         let label_cell = container(
-            button(
-                text(format!("{}{}", desc.label, sort_indicator))
-                    .size(10)
-                    .font(Font::MONOSPACE),
-            )
-            .on_press(spreadsheet_msg(SpreadsheetMessage::SortColumn(col)))
-            .style(style::spreadsheet_header_button)
-            .padding([0, 6])
-            .width(Length::Fill),
+            row![
+                button(
+                    text(format!("{}{}", desc.label, sort_indicator))
+                        .size(10)
+                        .font(Font::MONOSPACE),
+                )
+                .on_press(spreadsheet_msg(SpreadsheetMessage::SortColumn(col)))
+                .style(style::spreadsheet_header_button)
+                .padding([0, 6])
+                .width(Length::Fill),
+                filter_btn,
+                filter_badge,
+            ]
+            .spacing(0)
+            .align_y(iced::Alignment::Center),
         )
-        .width(Length::Fixed(label_width))
+        .width(Length::Fixed(label_width + badge_width))
         .height(ROW_HEIGHT)
         .align_y(iced::Alignment::Center);
 
