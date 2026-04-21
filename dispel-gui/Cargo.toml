@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-iced = { version = "0.14", default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced"] }
+iced = { version = "0.14", default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "fs", "sync"] }
 rfd = "0.17.2"

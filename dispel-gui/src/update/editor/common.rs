@@ -251,7 +251,6 @@ macro_rules! handle_spreadsheet_messages {
                 }
             },
             SM::BodyScrolled(offset, viewport_height) => {
-                $app.state.$spreadsheet.vertical_scroll_offset = offset.y;
                 $app.state.$spreadsheet.horizontal_scroll_offset = offset.x;
                 $app.state.$spreadsheet.viewport_height = viewport_height;
                 return iced::widget::operation::scroll_to(
@@ -509,7 +508,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         },
                         SM::BodyScrolled(offset, viewport_height) => {
-                            ss.vertical_scroll_offset = offset.y;
                             ss.horizontal_scroll_offset = offset.x;
                             ss.viewport_height = viewport_height;
                             return iced::widget::operation::scroll_to(

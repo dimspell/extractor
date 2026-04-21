@@ -110,14 +110,16 @@ pub struct SpreadsheetState {
     pub resizing_column: Option<ColumnDragState>,
 
     // ── Scroll / viewport ─────────────────────────────────────────────────
-    /// Absolute vertical scroll offset — updated on `BodyScrolled` and used
-    /// by `scroll_y_for_row` to avoid scrolling when a row is already visible.
-    pub vertical_scroll_offset: f32,
     /// Absolute horizontal scroll offset, preserved when issuing scroll-to-row
     /// commands so the horizontal position isn't accidentally reset.
     pub horizontal_scroll_offset: f32,
     /// Height of the body scrollable's visible area. Updated from `BodyScrolled`.
     pub viewport_height: f32,
+
+    // ── Lazy-row cache invalidation ────────────────────────────────────────
+    /// Bumped whenever any column width changes. Included in each row's lazy
+    /// key so all rows rebuild on resize without an expensive full hash.
+    pub col_widths_gen: u32,
 
     // ── Column quick-filter ────────────────────────────────────────────────
     /// Per-column exact-match filters.  Key = column index, value = required cell value.
@@ -182,9 +184,9 @@ impl Default for SpreadsheetState {
             header_scroll_id: iced::advanced::widget::Id::unique(),
             column_widths: HashMap::new(),
             resizing_column: None,
-            vertical_scroll_offset: 0.0,
             horizontal_scroll_offset: 0.0,
             viewport_height: 400.0,
+            col_widths_gen: 0,
             column_filters: HashMap::new(),
             active_column_filter: None,
             column_filter_options: Vec::new(),
@@ -493,6 +495,7 @@ impl SpreadsheetState {
         let delta = cursor_x - anchor_x;
         let new_width = (drag.anchor_width + delta).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
         self.column_widths.insert(drag.col, new_width);
+        self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
     pub fn end_column_resize(&mut self) {
@@ -503,6 +506,7 @@ impl SpreadsheetState {
     /// default `COL_WIDTH`.
     pub fn reset_column_width(&mut self, col: usize) {
         self.column_widths.remove(&col);
+        self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
     pub fn cancel_editing(&mut self) {
@@ -563,21 +567,10 @@ impl SpreadsheetState {
         Some(last)
     }
 
-    /// Compute the body-scrollable Y offset needed to keep `filtered_idx`
-    /// in view, without scrolling if the row is already visible.
+    /// Compute the body-scrollable Y offset that centers `filtered_idx` in
+    /// the visible viewport. Used by keyboard navigation commands.
     pub fn scroll_y_for_row(&self, filtered_idx: usize) -> f32 {
-        let row_top = filtered_idx as f32 * ROW_HEIGHT;
-        let row_bottom = row_top + ROW_HEIGHT;
-        let vp_top = self.vertical_scroll_offset;
-        let vp_bottom = vp_top + self.viewport_height.max(ROW_HEIGHT * 2.0);
-
-        if row_top < vp_top {
-            row_top
-        } else if row_bottom > vp_bottom {
-            (row_bottom - self.viewport_height).max(0.0)
-        } else {
-            vp_top
-        }
+        ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
     }
 
     pub fn toggle_inspector(&mut self) {
@@ -1046,59 +1039,167 @@ fn build_table_content<'a, R: EditableRecord>(
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
         let is_editing_row = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
 
-        let row_style = style::spreadsheet_row(
-            is_selected,
-            filtered_idx,
-            is_highlighted,
-            is_current_highlight,
-        );
-
-        // ── Row-number cell ─────────────────────────────────────────────
-        let id_cell: Element<Message> = container(
-            text(format!("{}", orig_idx + 1))
-                .size(10)
-                .font(Font::MONOSPACE),
-        )
-        .width(ID_COL_WIDTH)
-        .padding([0, 6])
-        .height(ROW_HEIGHT)
-        .align_y(iced::Alignment::Center)
-        .style(if is_selected || is_current_highlight {
-            style::spreadsheet_id_cell_selected
-        } else {
-            style::spreadsheet_id_cell
-        })
-        .into();
-
-        let mut cells: Vec<Element<Message>> = vec![id_cell];
-
-        for (col, desc) in descriptors.iter().enumerate() {
-            let value = record.get_field(desc.name);
-            let is_cell_editing =
-                is_editing_row && spreadsheet.editing_cell.map(|(_, c)| c) == Some(col);
-
-            cells.push(build_data_cell(
-                desc,
-                &value,
-                filtered_idx,
-                col,
-                orig_idx,
-                is_cell_editing,
+        if is_editing_row {
+            // Non-lazy path: the editing row contains a `text_input` that borrows
+            // `spreadsheet.edit_buffer`, so it cannot be wrapped in `lazy` (which
+            // requires `Element<'static, ...>`). At most one row is ever in this
+            // state, so the cost is negligible.
+            let row_style = style::spreadsheet_row(
                 is_selected,
-                spreadsheet.column_width(col),
-                spreadsheet,
-                record,
-                spreadsheet_msg,
-            ));
-        }
+                filtered_idx,
+                is_highlighted,
+                is_current_highlight,
+            );
+            let id_cell: Element<Message> = container(
+                text(format!("{}", orig_idx + 1)).size(10).font(Font::MONOSPACE),
+            )
+            .width(ID_COL_WIDTH)
+            .padding([0, 6])
+            .height(ROW_HEIGHT)
+            .align_y(iced::Alignment::Center)
+            .style(if is_selected || is_current_highlight {
+                style::spreadsheet_id_cell_selected
+            } else {
+                style::spreadsheet_id_cell
+            })
+            .into();
+            let mut cells: Vec<Element<Message>> = vec![id_cell];
+            for (col, desc) in descriptors.iter().enumerate() {
+                let value = record.get_field(desc.name);
+                let is_cell_editing = spreadsheet.editing_cell.map(|(_, c)| c) == Some(col);
+                cells.push(build_data_cell(
+                    desc,
+                    &value,
+                    filtered_idx,
+                    col,
+                    orig_idx,
+                    is_cell_editing,
+                    is_selected,
+                    spreadsheet.column_width(col),
+                    spreadsheet,
+                    record,
+                    spreadsheet_msg,
+                ));
+            }
+            data_rows.push(
+                button(row(cells).spacing(0))
+                    .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
+                    .padding(0)
+                    .style(row_style)
+                    .into(),
+            );
+        } else {
+            // Lazy path: pre-compute all owned data the closure needs.
+            // The closure is only executed when its key changes; during scroll
+            // the key is stable so iced reuses the cached widget tree, giving
+            // near-zero CPU cost per scroll event.
+            let field_values: Vec<String> = descriptors
+                .iter()
+                .map(|d| record.get_field(d.name))
+                .collect();
+            let validation_errors: Vec<bool> = descriptors
+                .iter()
+                .zip(field_values.iter())
+                .map(|(d, v)| record.validate_field(d.name, v).is_some())
+                .collect();
+            let col_widths: Vec<f32> = (0..descriptors.len())
+                .map(|c| spreadsheet.column_width(c))
+                .collect();
 
-        data_rows.push(
-            button(row(cells).spacing(0))
-                .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
-                .padding(0)
-                .style(row_style)
+            // Hash the field values into a single u64 so the key tuple stays
+            // cheap to compare (no Vec comparison on every render).
+            let field_hash: u64 = {
+                use std::hash::{Hash, Hasher};
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                field_values.hash(&mut h);
+                h.finish()
+            };
+
+            let row_key = (
+                filtered_idx,
+                orig_idx,
+                is_selected as u8,
+                is_highlighted as u8,
+                is_current_highlight as u8,
+                field_hash,
+                spreadsheet.col_widths_gen,
+            );
+
+            data_rows.push(
+                iced::widget::lazy(row_key, move |_| -> Element<'static, Message> {
+                    let row_style = style::spreadsheet_row(
+                        is_selected,
+                        filtered_idx,
+                        is_highlighted,
+                        is_current_highlight,
+                    );
+                    let id_cell: Element<'static, Message> = container(
+                        text(format!("{}", orig_idx + 1)).size(10).font(Font::MONOSPACE),
+                    )
+                    .width(ID_COL_WIDTH)
+                    .padding([0, 6])
+                    .height(ROW_HEIGHT)
+                    .align_y(iced::Alignment::Center)
+                    .style(if is_selected || is_current_highlight {
+                        style::spreadsheet_id_cell_selected
+                    } else {
+                        style::spreadsheet_id_cell
+                    })
+                    .into();
+
+                    let mut cells: Vec<Element<'static, Message>> = vec![id_cell];
+                    for (col, _desc) in descriptors.iter().enumerate() {
+                        let value = &field_values[col];
+                        let col_width = col_widths[col];
+                        let is_invalid = validation_errors[col];
+
+                        let char_budget = ((col_width / 7.0) as usize).max(4);
+                        let display: String = if value.chars().count() > char_budget {
+                            format!(
+                                "{}…",
+                                value.chars().take(char_budget).collect::<String>()
+                            )
+                        } else {
+                            value.clone()
+                        };
+
+                        let press_msg = if is_selected {
+                            SpreadsheetMessage::StartEdit(filtered_idx, col)
+                        } else {
+                            SpreadsheetMessage::SelectRow(filtered_idx)
+                        };
+
+                        let container_style = if is_invalid {
+                            style::spreadsheet_cell_invalid
+                        } else {
+                            style::spreadsheet_cell
+                        };
+
+                        cells.push(
+                            container(
+                                button(text(display).size(10).font(Font::MONOSPACE))
+                                    .on_press(spreadsheet_msg(press_msg))
+                                    .style(style::spreadsheet_cell_btn)
+                                    .padding([3, 8])
+                                    .width(Length::Fill),
+                            )
+                            .width(Length::Fixed(col_width))
+                            .height(ROW_HEIGHT)
+                            .align_y(iced::Alignment::Center)
+                            .style(container_style)
+                            .into(),
+                        );
+                    }
+
+                    button(row(cells).spacing(0))
+                        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
+                        .padding(0)
+                        .style(row_style)
+                        .into()
+                })
                 .into(),
-        );
+            );
+        }
     }
 
     // ── Sticky header ─────────────────────────────────────────────────────
