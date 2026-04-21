@@ -1,4 +1,3 @@
-pub mod generic_editor;
 pub mod spreadsheet;
 
 pub use spreadsheet::{
