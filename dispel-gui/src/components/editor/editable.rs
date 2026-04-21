@@ -16,8 +16,8 @@ pub struct FieldDescriptor {
 pub enum FieldKind {
     /// Free-form text input.
     String,
-    /// Free-form text input (alias for String).
-    Text,
+    /// Multi-line text input (text area).
+    TextArea,
     /// Integer input (parsed with `str::parse`).
     Integer,
     /// Boolean input (toggle).

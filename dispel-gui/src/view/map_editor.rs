@@ -468,7 +468,7 @@ fn inspector_field_row<'a>(
     const LABEL_W: f32 = 140.0;
     match kind {
         FieldKind::String
-        | FieldKind::Text
+        | FieldKind::TextArea
         | FieldKind::Integer
         | FieldKind::Boolean
         | FieldKind::Lookup(_) => row![

@@ -221,7 +221,6 @@ fn build_editor_view_inner<'a, R: EditableRecord>(
                 {
                     let descriptors = R::field_descriptors();
                     for (i, descriptor) in descriptors.iter().enumerate() {
-                        let _field_name = descriptor.name.to_string();
                         let value = editor.edit_buffers.get(i).map(|s| s.as_str()).unwrap_or("");
                         detail_content = detail_content.push(build_field_input(
                             descriptor,
@@ -455,7 +454,7 @@ fn build_field_input_inner<'a>(
     field_changed_msg: fn(usize, String, String) -> Message,
 ) -> Element<'a, Message> {
     match descriptor.kind {
-        FieldKind::String | FieldKind::Text | FieldKind::Integer => {
+        FieldKind::String | FieldKind::Integer | FieldKind::TextArea => {
             labeled_input(descriptor.label, value, move |v| {
                 field_changed_msg(orig_idx, descriptor.name.to_string(), v)
             })

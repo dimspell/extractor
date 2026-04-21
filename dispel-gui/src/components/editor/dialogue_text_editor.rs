@@ -12,12 +12,12 @@ impl EditableRecord for DialogueText {
             FieldDescriptor {
                 name: "text",
                 label: "Text:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
                 name: "comment",
                 label: "Comment:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
                 name: "param1",

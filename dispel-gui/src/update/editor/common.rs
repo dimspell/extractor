@@ -51,10 +51,34 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state
                     .$spreadsheet
                     .toggle_row_selection(filtered_idx, modifiers);
+                // Initialise textarea contents for the newly-selected record.
+                if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(filtered_idx)
+                {
+                    $app.state.$spreadsheet.inspector_textarea_contents = $app
+                        .state
+                        .$editor
+                        .make_inspector_textarea_contents(orig_idx);
+                } else {
+                    $app.state.$spreadsheet.inspector_textarea_contents.clear();
+                }
                 // Show inspector on first row click
                 if !$app.state.$spreadsheet.show_inspector {
                     $app.state.$spreadsheet.show_inspector = true;
                     $app.state.$spreadsheet.ensure_inspector_pane();
+                }
+            }
+            SM::TextAreaChanged(orig_idx, field, action) => {
+                if let Some(tc) = $app
+                    .state
+                    .$spreadsheet
+                    .inspector_textarea_contents
+                    .get_mut(&field)
+                {
+                    tc.0.perform(action);
+                    let raw = tc.0.text();
+                    let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
+                    let msg = $field_changed_msg(orig_idx, field, new_text);
+                    return $app.update(msg);
                 }
             }
             SM::StartEdit(filtered_idx, col) => {
@@ -214,9 +238,24 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::NavigatePrevHighlight => ss.navigate_prev_highlight(),
                         SM::SelectRow(filtered_idx, modifiers) => {
                             ss.toggle_row_selection(filtered_idx, modifiers);
+                            if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
+                                ss.inspector_textarea_contents =
+                                    ed.editor.make_inspector_textarea_contents(orig_idx);
+                            } else {
+                                ss.inspector_textarea_contents.clear();
+                            }
                             if !ss.show_inspector {
                                 ss.show_inspector = true;
                                 ss.ensure_inspector_pane();
+                            }
+                        }
+                        SM::TextAreaChanged(orig_idx, field, action) => {
+                            if let Some(tc) = ss.inspector_textarea_contents.get_mut(&field) {
+                                tc.0.perform(action);
+                                let raw = tc.0.text();
+                                let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
+                                let msg = $field_changed_msg(orig_idx, field, new_text);
+                                return $app.update(msg);
                             }
                         }
                         SM::StartEdit(filtered_idx, col) => {

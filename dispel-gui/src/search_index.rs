@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
@@ -42,20 +41,18 @@ impl SearchIndex {
         Self::default()
     }
 
-
-
     /// Search for file mappings matching the query.
     /// Optimized to return only top results for performance.
     pub fn search_files(&self, query: &str) -> Vec<FileMapping> {
         if query.is_empty() {
             return Vec::new();
         }
-        
+
         let query_lower = query.to_lowercase();
-        
+
         // Optimize: Limit to reasonable number of results for UI performance
         const MAX_RESULTS: usize = 100;
-        
+
         self.file_mappings
             .iter()
             .filter(|m| m.file_path.to_lowercase().contains(&query_lower))
@@ -98,8 +95,6 @@ impl SearchIndex {
     }
 }
 
-
-
 /// Build a search index from the given game path.
 pub async fn build_index(game_path: &Path) -> SearchIndex {
     let mut index = SearchIndex::new();
@@ -114,13 +109,7 @@ pub async fn build_index(game_path: &Path) -> SearchIndex {
     index
 }
 
-
-
-fn index_all_files_recursive(
-    game_path: &Path,
-    dir: &Path,
-    file_mappings: &mut Vec<FileMapping>,
-) {
+fn index_all_files_recursive(game_path: &Path, dir: &Path, file_mappings: &mut Vec<FileMapping>) {
     if let Ok(read_dir) = std::fs::read_dir(dir) {
         for entry in read_dir.flatten() {
             let path = entry.path();
@@ -139,7 +128,7 @@ fn index_all_files_recursive(
                         "spr" => "SpriteViewer",
                         _ => "UnknownEditor",
                     };
-                    
+
                     file_mappings.push(FileMapping {
                         file_path: relative_path.to_string_lossy().to_string(),
                         editor_type: editor_type.to_string(),
@@ -149,8 +138,6 @@ fn index_all_files_recursive(
         }
     }
 }
-
-
 
 fn index_sprites(
     game_path: &Path,

@@ -14,7 +14,7 @@ impl EditableRecord for EditItem {
             FieldDescriptor {
                 name: "description",
                 label: "Description:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
                 name: "base_price",

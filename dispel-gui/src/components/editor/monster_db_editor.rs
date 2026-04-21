@@ -12,7 +12,7 @@ impl EditableRecord for Monster {
             FieldDescriptor {
                 name: "name",
                 label: "Name:",
-                kind: FieldKind::Text,
+                kind: FieldKind::String,
             },
             FieldDescriptor {
                 name: "health_points_max",

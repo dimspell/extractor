@@ -12,7 +12,7 @@ impl EditableRecord for EventItem {
             FieldDescriptor {
                 name: "description",
                 label: "Description:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
         ]
     }

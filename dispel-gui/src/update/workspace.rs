@@ -150,13 +150,13 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         // Global Search
         WorkspaceMessage::GlobalSearchInput(input) => {
             app.global_search.query = input.clone();
-            
+
             // Optimize: Only search if query has minimum length
             if input.len() >= 2 || input.is_empty() {
                 // Use async search to keep UI responsive
                 let query = input.clone();
                 return Task::perform(
-                    async move { 
+                    async move {
                         // Simulate async work (in real app, this would be actual async I/O)
                         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
                         query
@@ -175,7 +175,8 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 if let Some(relative_path) = &result.source_file {
                     // Construct full path by combining game path with relative path
                     if !app.state.shared_game_path.is_empty() {
-                        let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                        let full_path =
+                            PathBuf::from(&app.state.shared_game_path).join(relative_path);
                         // Close search dialog and clear query before opening file
                         app.global_search.is_visible = false;
                         app.global_search.query.clear();
@@ -191,18 +192,20 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             // Process async search query on main thread
             app.global_search.results.clear();
             app.global_search.selected_index = 0;
-            
+
             if query.is_empty() {
                 Task::none()
             } else {
                 let file_results = app.search_index.search_files(&query);
                 for entry in file_results.iter().take(app.global_search.max_results) {
-                    app.global_search.results.push(crate::global_search::SearchResult {
-                        catalog_type: entry.editor_type.clone(),
-                        record_idx: 0,
-                        display_text: entry.file_path.clone(),
-                        source_file: Some(entry.file_path.clone()),
-                    });
+                    app.global_search
+                        .results
+                        .push(crate::global_search::SearchResult {
+                            catalog_type: entry.editor_type.clone(),
+                            record_idx: 0,
+                            display_text: entry.file_path.clone(),
+                            source_file: Some(entry.file_path.clone()),
+                        });
                 }
                 Task::none()
             }
@@ -214,7 +217,8 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                     if let Some(relative_path) = &result.source_file {
                         // Construct full path by combining game path with relative path
                         if !app.state.shared_game_path.is_empty() {
-                            let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                            let full_path =
+                                PathBuf::from(&app.state.shared_game_path).join(relative_path);
                             // Close search dialog and clear query before opening file
                             app.global_search.is_visible = false;
                             app.global_search.query.clear();

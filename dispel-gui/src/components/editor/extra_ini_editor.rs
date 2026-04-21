@@ -22,7 +22,7 @@ impl EditableRecord for Extra {
             FieldDescriptor {
                 name: "description",
                 label: "Description:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
         ]
     }

@@ -12,17 +12,17 @@ impl EditableRecord for ScrMessage {
             FieldDescriptor {
                 name: "line1",
                 label: "Line 1:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
                 name: "line2",
                 label: "Line 2:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
                 name: "line3",
                 label: "Line 3:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
         ]
     }

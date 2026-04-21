@@ -17,7 +17,7 @@ impl EditableRecord for NpcIni {
             FieldDescriptor {
                 name: "description",
                 label: "Description:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
         ]
     }

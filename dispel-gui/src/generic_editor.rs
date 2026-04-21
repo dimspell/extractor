@@ -1,7 +1,10 @@
 use crate::components::editor::editable::EditableRecord;
+use crate::components::textarea::TextAreaContent;
 use crate::edit_history::EditHistory;
 use dispel_core::Extractor;
-use iced::widget::pane_grid::{self, Pane};
+use iced::widget::pane_grid;
+use iced::widget::pane_grid::Pane;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 pub trait UndoRedo {
@@ -100,7 +103,9 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                     });
                 // Update the matching buffer
                 if let Some(pos) = R::field_descriptors().iter().position(|d| d.name == field) {
-                    self.edit_buffers[pos] = value;
+                    if let Some(buf) = self.edit_buffers.get_mut(pos) {
+                        *buf = value;
+                    }
                 }
                 // Sync back to the original catalog entry
                 let orig = *orig_idx;
@@ -292,6 +297,27 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
 
     pub fn edit_history(&self) -> &EditHistory {
         &self.edit_history
+    }
+
+    /// Build a fresh map of `TextAreaContent` for every field of `orig_idx`'s
+    /// record. Called by `handle_spreadsheet_messages!` when a row is selected
+    /// so the inspector's `text_editor` widgets have stable state across renders.
+    pub fn make_inspector_textarea_contents(
+        &self,
+        orig_idx: usize,
+    ) -> HashMap<String, TextAreaContent> {
+        let mut map = HashMap::new();
+        if let Some(catalog) = &self.catalog {
+            if let Some(record) = catalog.get(orig_idx) {
+                for d in R::field_descriptors() {
+                    map.insert(
+                        d.name.to_string(),
+                        TextAreaContent::with_text(&record.get_field(d.name)),
+                    );
+                }
+            }
+        }
+        map
     }
 
     pub fn init_pane_state(&mut self) {

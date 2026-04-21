@@ -41,8 +41,6 @@ impl GlobalSearch {
         }
     }
 
-
-
     pub fn select_next(&mut self) {
         if !self.results.is_empty() {
             self.selected_index = (self.selected_index + 1) % self.results.len();
@@ -103,13 +101,15 @@ impl GlobalSearch {
             text("No results").size(12).style(style::subtle_text)
         } else {
             let result_text = if self.results.len() >= self.max_results {
-                format!("{}+ results (showing first {})", self.results.len(), self.max_results)
+                format!(
+                    "{}+ results (showing first {})",
+                    self.results.len(),
+                    self.max_results
+                )
             } else {
                 format!("{} results", self.results.len())
             };
-            text(result_text)
-                .size(11)
-                .style(style::subtle_text)
+            text(result_text).size(11).style(style::subtle_text)
         };
 
         let content = column![

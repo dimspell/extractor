@@ -2,6 +2,28 @@ use iced::advanced::text::Wrapping;
 use iced::widget::text_editor;
 use iced::{color, Background, Border, Color, Element};
 
+/// Owned `text_editor::Content` that can be stored in app state.
+///
+/// `text_editor::Content` doesn't implement `Clone`/`Debug` directly because
+/// it wraps a renderer-backed buffer. This newtype provides those impls so
+/// it can live inside `#[derive(Clone, Debug)]` state structs. Cloning
+/// recreates the content from its text (cursor position is lost, which is
+/// acceptable for undo/redo or row-switch resets).
+#[derive(Debug)]
+pub struct TextAreaContent(pub text_editor::Content);
+
+impl TextAreaContent {
+    pub fn with_text(s: &str) -> Self {
+        TextAreaContent(text_editor::Content::with_text(s))
+    }
+}
+
+impl Clone for TextAreaContent {
+    fn clone(&self) -> Self {
+        TextAreaContent(text_editor::Content::with_text(&self.0.text()))
+    }
+}
+
 /// Styled multiline text area using the project's leather/medieval theme.
 ///
 /// Matches the color palette of other input fields in the project.
@@ -22,7 +44,7 @@ where
         .into()
 }
 
-fn textarea_style(_theme: &iced::Theme, status: text_editor::Status) -> text_editor::Style {
+pub fn textarea_style(_theme: &iced::Theme, status: text_editor::Status) -> text_editor::Style {
     let border_color = match status {
         text_editor::Status::Focused { .. } => color!(0xdaa520),
         text_editor::Status::Hovered => color!(0x8d6e63),

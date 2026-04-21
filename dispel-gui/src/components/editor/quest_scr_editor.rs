@@ -22,7 +22,7 @@ impl EditableRecord for Quest {
             FieldDescriptor {
                 name: "description",
                 label: "Description:",
-                kind: FieldKind::String,
+                kind: FieldKind::TextArea,
             },
         ]
     }

@@ -13,12 +13,14 @@
 //! * One-click CSV export of the currently-filtered view.
 
 use crate::components::editor::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self, Pane};
 use iced::widget::scrollable::Direction as ScrollDir;
+use iced::widget::text_editor;
 use iced::widget::{
     button, column, container, pick_list, progress_bar, row, scrollable, text, text_input, Column,
 };
@@ -107,6 +109,12 @@ pub struct SpreadsheetState {
     pub column_widths: HashMap<usize, f32>,
     /// Active drag state for the column the user is currently resizing.
     pub resizing_column: Option<ColumnDragState>,
+
+    // ── Inspector textarea state ───────────────────────────────────────────
+    /// One `text_editor::Content` per TextArea field of the currently-inspected
+    /// record, keyed by field name. Populated on `SelectRow`, cleared on
+    /// row change. Allows the cursor / selection to survive re-renders.
+    pub inspector_textarea_contents: HashMap<String, TextAreaContent>,
 }
 
 /// Transient state for an in-progress column-resize drag.
@@ -158,6 +166,7 @@ impl Default for SpreadsheetState {
             header_scroll_id: iced::advanced::widget::Id::unique(),
             column_widths: HashMap::new(),
             resizing_column: None,
+            inspector_textarea_contents: HashMap::new(),
         }
     }
 }
@@ -595,6 +604,13 @@ pub enum SpreadsheetMessage {
     EndResizeColumn,
     /// Double-click on a resize handle: drop the width override for `col`.
     ResetColumnWidth(usize),
+
+    // ── Inspector textarea editing ─────────────────────────────────────────
+    /// Fired by a `text_editor` widget in the inspector panel.
+    /// `(orig_idx, field_name, action)` — the handler performs the action on
+    /// the stored `TextAreaContent` and syncs the string value back to the
+    /// record via `FieldChanged`.
+    TextAreaChanged(usize, String, text_editor::Action),
 }
 
 // ===========================================================================
@@ -1189,6 +1205,8 @@ fn build_inspector_panel<'a, R: EditableRecord>(
                         lookup_data,
                         validation_error,
                         field_changed_msg,
+                        &spreadsheet.inspector_textarea_contents,
+                        spreadsheet_msg,
                     ));
                 }
             }
@@ -1210,17 +1228,39 @@ fn build_inspector_panel<'a, R: EditableRecord>(
         .into()
 }
 
-fn build_inspector_field(
-    descriptor: &FieldDescriptor,
+fn build_inspector_field<'a>(
+    descriptor: &'a FieldDescriptor,
     value: String,
     orig_idx: usize,
     lookups: Option<Vec<(String, String)>>,
     validation_error: Option<String>,
     field_changed_msg: fn(usize, String, String) -> Message,
-) -> Element<'static, Message> {
+    textarea_contents: &'a HashMap<String, TextAreaContent>,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
     let label = text(descriptor.label).size(11).style(style::subtle_text);
 
-    let body: Element<Message> = match &descriptor.kind {
+    let body: Element<'a, Message> = match &descriptor.kind {
+        FieldKind::TextArea => {
+            let field_name = descriptor.name.to_string();
+            if let Some(tc) = textarea_contents.get(descriptor.name) {
+                textarea::textarea(&tc.0, move |action| {
+                    spreadsheet_msg(SpreadsheetMessage::TextAreaChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        action,
+                    ))
+                })
+            } else {
+                // Fallback before the first SelectRow initialises the content.
+                text_input("", &value)
+                    .on_input(move |v| field_changed_msg(orig_idx, field_name.clone(), v))
+                    .padding(4)
+                    .size(11)
+                    .width(Length::Fill)
+                    .into()
+            }
+        }
         FieldKind::Lookup(_) => {
             if let Some(options) = lookups {
                 let field_name = descriptor.name.to_string();
