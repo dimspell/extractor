@@ -1228,6 +1228,7 @@ fn build_inspector_panel<'a, R: EditableRecord>(
         .into()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_inspector_field<'a>(
     descriptor: &'a FieldDescriptor,
     value: String,

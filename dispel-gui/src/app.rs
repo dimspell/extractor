@@ -587,10 +587,12 @@ impl App {
                             let path_str = path.to_string_lossy().to_string();
                             let editor_state = crate::state::dialog_editor::DialogEditorState {
                                 current_file: path_str,
-                                loading_state: crate::loading_state::LoadingState::Loading,
-                                ..Default::default()
+                                editor: Default::default(),
                             };
                             self.state.dialog_editors.insert(tab_id, editor_state);
+                            self.state
+                                .dialog_spreadsheets
+                                .insert(tab_id, Default::default());
                             let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
@@ -600,7 +602,7 @@ impl App {
                                 move |result| {
                                     crate::message::Message::Editor(
                                         crate::message::editor::EditorMessage::Dialog(
-                                            crate::message::editor::dialog::DialogEditorMessage::CatalogLoaded(tab_id, result),
+                                            crate::message::editor::dialog::DialogEditorMessage::Scanned(result),
                                         ),
                                     )
                                 },
