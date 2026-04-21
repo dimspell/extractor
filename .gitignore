@@ -3,3 +3,10 @@
 *.png
 *.sqlite
 *.sqlite-*
+.agents
+.claude
+.vibe
+.rtk
+skills-lock.json
+/plans
+/plan

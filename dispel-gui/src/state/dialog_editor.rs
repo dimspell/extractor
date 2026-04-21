@@ -49,13 +49,8 @@ impl DialogEditorState {
             return Err("No file selected".to_string());
         }
         if let Some(catalog) = &self.editor.catalog {
-            std::path::Path::new(&self.current_file)
-                .try_into()
-                .map_err(|_| "Invalid path".to_string())
-                .and_then(|path: std::path::PathBuf| {
-                    Dialog::save_file(catalog, &path)
-                        .map_err(|e| format!("Failed to save dialogs: {}", e))
-                })
+            let path = std::path::PathBuf::from(&self.current_file);
+            Dialog::save_file(catalog, &path).map_err(|e| format!("Failed to save dialogs: {}", e))
         } else {
             Err("No catalog loaded".to_string())
         }

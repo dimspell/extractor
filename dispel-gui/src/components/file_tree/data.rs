@@ -7,7 +7,9 @@ use crate::components::file_tree::tree_node::TreeNode;
 use crate::file_index_cache;
 use crate::style;
 
-use super::filter::{fuzzy_match, FileTreeError, FileTreeFilter, FileTreeResult};
+#[cfg(feature = "tokio")]
+use super::filter::FileTreeResult;
+use super::filter::{fuzzy_match, FileTreeError, FileTreeFilter};
 use super::message::FileTreeMessage;
 use crate::components::context_menu::ContextMenu;
 

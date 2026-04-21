@@ -53,7 +53,7 @@ pub fn handle(message: DialogueTextEditorMessage, app: &mut App) -> Task<crate::
                             app.state.dialogue_text_spreadsheets.get_mut(&tab_id)
                         {
                             spreadsheet.active = true;
-                            spreadsheet.init_filter(&editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
                             spreadsheet.init_pane_state();
                         }
                     }
