@@ -79,8 +79,7 @@ pub struct SpreadsheetState {
     pub filtered_indices: Vec<usize>,
 
     // ── Selection / editing ────────────────────────────────────────────────
-    pub selected_rows: Vec<usize>,
-    pub last_selected: Option<usize>,
+    pub selected_row: Option<usize>,
     /// `Some((filtered_idx, col))` when a cell is being edited.
     pub editing_cell: Option<(usize, usize)>,
     pub edit_buffer: String,
@@ -152,8 +151,7 @@ impl Default for SpreadsheetState {
             highlighted_indices: Vec::new(),
             current_highlight_pos: None,
             filtered_indices: Vec::new(),
-            selected_rows: Vec::new(),
-            last_selected: None,
+            selected_row: None,
             editing_cell: None,
             edit_buffer: String::new(),
             edit_invalid: false,
@@ -315,25 +313,8 @@ impl SpreadsheetState {
         });
     }
 
-    pub fn toggle_row_selection(&mut self, filtered_idx: usize, modifiers: bool) {
-        if modifiers {
-            if let Some(last) = self.last_selected {
-                let start = last.min(filtered_idx);
-                let end = last.max(filtered_idx);
-                self.selected_rows.clear();
-                for i in start..=end {
-                    if !self.selected_rows.contains(&i) {
-                        self.selected_rows.push(i);
-                    }
-                }
-            } else if !self.selected_rows.contains(&filtered_idx) {
-                self.selected_rows.push(filtered_idx);
-            }
-        } else {
-            self.selected_rows.clear();
-            self.selected_rows.push(filtered_idx);
-        }
-        self.last_selected = Some(filtered_idx);
+    pub fn select_row(&mut self, filtered_idx: usize) {
+        self.selected_row = Some(filtered_idx);
     }
 
     pub fn start_editing<R: EditableRecord>(
@@ -357,10 +338,8 @@ impl SpreadsheetState {
         self.edit_invalid = false;
         self.mode = EditingMode::Edit;
         // Keep selection consistent with the row being edited.
-        if !self.selected_rows.contains(&filtered_idx) {
-            self.selected_rows.clear();
-            self.selected_rows.push(filtered_idx);
-            self.last_selected = Some(filtered_idx);
+        if self.selected_row != Some(filtered_idx) {
+            self.selected_row = Some(filtered_idx);
         }
     }
 
@@ -577,7 +556,7 @@ pub enum SpreadsheetMessage {
     SetFilterMode(GlobalFilterMode),
     NavigateNextHighlight,
     NavigatePrevHighlight,
-    SelectRow(usize, bool),
+    SelectRow(usize),
     StartEdit(usize, usize),
     EditCellInput(String),
     CommitEdit(usize),
@@ -901,7 +880,7 @@ fn build_table_content<'a, R: EditableRecord>(
         let Some(record) = catalog.get(orig_idx) else {
             continue;
         };
-        let is_selected = spreadsheet.selected_rows.contains(&filtered_idx);
+        let is_selected = spreadsheet.selected_row == Some(filtered_idx);
         let is_highlighted = spreadsheet.filter_mode == GlobalFilterMode::Highlight
             && highlight_set.contains(&orig_idx);
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
@@ -955,10 +934,7 @@ fn build_table_content<'a, R: EditableRecord>(
 
         data_rows.push(
             button(row(cells).spacing(0))
-                .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(
-                    filtered_idx,
-                    false,
-                )))
+                .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
                 .padding(0)
                 .style(row_style)
                 .into(),
@@ -1134,7 +1110,7 @@ fn build_data_cell<'a, R: EditableRecord>(
     let press_msg = if is_row_selected {
         SpreadsheetMessage::StartEdit(filtered_idx, col)
     } else {
-        SpreadsheetMessage::SelectRow(filtered_idx, false)
+        SpreadsheetMessage::SelectRow(filtered_idx)
     };
 
     let invalid = record.validate_field(desc.name, value).is_some();
@@ -1188,7 +1164,7 @@ fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
-    if let Some(&filtered_idx) = spreadsheet.selected_rows.first() {
+    if let Some(filtered_idx) = spreadsheet.selected_row {
         if let Some(&orig_idx) = spreadsheet.filtered_indices.get(filtered_idx) {
             if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
                 for desc in descriptors.iter() {

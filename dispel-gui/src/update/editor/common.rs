@@ -47,10 +47,8 @@ macro_rules! handle_spreadsheet_messages {
             SM::NavigatePrevHighlight => {
                 $app.state.$spreadsheet.navigate_prev_highlight();
             }
-            SM::SelectRow(filtered_idx, modifiers) => {
-                $app.state
-                    .$spreadsheet
-                    .toggle_row_selection(filtered_idx, modifiers);
+            SM::SelectRow(filtered_idx) => {
+                $app.state.$spreadsheet.select_row(filtered_idx);
                 // Initialise textarea contents for the newly-selected record.
                 if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(filtered_idx)
                 {
@@ -236,8 +234,8 @@ macro_rules! handle_spreadsheet_messages_tab {
                         }
                         SM::NavigateNextHighlight => ss.navigate_next_highlight(),
                         SM::NavigatePrevHighlight => ss.navigate_prev_highlight(),
-                        SM::SelectRow(filtered_idx, modifiers) => {
-                            ss.toggle_row_selection(filtered_idx, modifiers);
+                        SM::SelectRow(filtered_idx) => {
+                            ss.select_row(filtered_idx);
                             if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
                                 ss.inspector_textarea_contents =
                                     ed.editor.make_inspector_textarea_contents(orig_idx);
