@@ -1,121 +1,56 @@
 use crate::edit_history::EditHistory;
-use crate::generic_editor::UndoRedo;
+use crate::generic_editor::{GenericEditorState, UndoRedo};
 use dispel_core::DialogueText;
 use dispel_core::Extractor;
-use iced::widget::text_editor;
 use std::path::PathBuf;
 
 #[derive(Debug, Default)]
 pub struct DialogueTextEditorState {
-    pub catalog: Option<Vec<DialogueText>>,
-    pub filtered_texts: Vec<(usize, DialogueText)>,
-    pub selected_idx: Option<usize>,
+    pub editor: GenericEditorState<DialogueText>,
     pub current_file: String,
-
-    pub edit_id: String,
-    pub edit_text_content: text_editor::Content,
-    pub edit_comment_content: text_editor::Content,
-    pub edit_param1: String,
-    pub edit_wave_ini_entry_id: String,
-
-    pub status_msg: String,
-    pub loading_state: crate::loading_state::LoadingState<()>,
-    pub edit_history: EditHistory,
 }
 
 impl UndoRedo for DialogueTextEditorState {
     fn undo(&mut self) -> Option<String> {
-        self.edit_history
-            .undo()
-            .map(|action| format!("Undid: {:?}", action))
+        self.editor.undo()
     }
 
     fn redo(&mut self) -> Option<String> {
-        self.edit_history
-            .redo()
-            .map(|action| format!("Redid: {:?}", action))
+        self.editor.redo()
     }
 
     fn can_undo(&self) -> bool {
-        self.edit_history.can_undo()
+        self.editor.can_undo()
     }
 
     fn can_redo(&self) -> bool {
-        self.edit_history.can_redo()
+        self.editor.can_redo()
     }
 
     fn edit_history(&self) -> &EditHistory {
-        &self.edit_history
+        self.editor.edit_history()
     }
 }
 
 impl DialogueTextEditorState {
-    pub fn refresh_texts(&mut self) {
-        if let Some(catalog) = &self.catalog {
-            self.filtered_texts = catalog
-                .iter()
-                .enumerate()
-                .map(|(i, r)| (i, r.clone()))
-                .collect::<Vec<_>>();
-        }
+    pub fn refresh(&mut self) {
+        self.editor.refresh();
     }
 
-    pub fn select_text(&mut self, idx: usize) {
-        self.selected_idx = Some(idx);
-        if let Some((_, record)) = self.filtered_texts.get(idx) {
-            self.edit_id = record.id.to_string();
-            self.edit_text_content = text_editor::Content::with_text(&record.text);
-            self.edit_comment_content = text_editor::Content::with_text(&record.comment);
-            self.edit_param1 = record.param1.to_string();
-            self.edit_wave_ini_entry_id = record.wave_ini_entry_id.to_string();
-        }
+    pub fn select(&mut self, idx: usize) {
+        self.editor.select(idx);
     }
 
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) {
-        if let Some(record) = self.filtered_texts.get_mut(idx).map(|(_, r)| r) {
-            match field {
-                "id" => {
-                    self.edit_id = value.clone();
-                    if let Ok(v) = value.parse() {
-                        record.id = v
-                    }
-                }
-                "param1" => {
-                    self.edit_param1 = value.clone();
-                    if let Ok(v) = value.parse() {
-                        record.param1 = v
-                    }
-                }
-                "wave_ini_entry_id" => {
-                    self.edit_wave_ini_entry_id = value.clone();
-                    if let Ok(v) = value.parse() {
-                        record.wave_ini_entry_id = v
-                    }
-                }
-                _ => {}
-            }
-            self.refresh_texts();
-        }
-    }
-
-    pub fn update_text_content(&mut self, idx: usize) {
-        if let Some(record) = self.filtered_texts.get_mut(idx).map(|(_, r)| r) {
-            record.text = self.edit_text_content.text().to_string();
-        }
-    }
-
-    pub fn update_comment_content(&mut self, idx: usize) {
-        if let Some(record) = self.filtered_texts.get_mut(idx).map(|(_, r)| r) {
-            record.comment = self.edit_comment_content.text().to_string();
-        }
+        self.editor.update_field(idx, field, value);
     }
 
     pub fn save(&self) -> Result<(), String> {
         if self.current_file.is_empty() {
             return Err("No file selected".to_string());
         }
-        let path = PathBuf::from(&self.current_file);
-        if let Some(catalog) = &self.catalog {
+        if let Some(catalog) = &self.editor.catalog {
+            let path = PathBuf::from(&self.current_file);
             DialogueText::save_file(catalog, &path)
                 .map_err(|e| format!("Failed to save texts: {}", e))
         } else {

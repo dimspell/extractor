@@ -70,6 +70,7 @@ pub struct AppState {
     pub dialog_editors: HashMap<usize, dialog_editor::DialogEditorState>,
     pub dialog_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub dialogue_text_editors: HashMap<usize, dialogue_text_editor::DialogueTextEditorState>,
+    pub dialogue_text_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub draw_item_editor: Box<draw_item_editor::DrawItemEditorState>,
     pub event_ini_editor: Box<event_ini_editor::EventIniEditorState>,
     pub event_npc_ref_editor: Box<event_npc_ref_editor::EventNpcRefEditorState>,
@@ -274,7 +275,9 @@ impl AppState {
         self.sprite_viewers.clear();
         self.tileset_editors.clear();
         self.dialog_editors.clear();
+        self.dialog_spreadsheets.clear();
         self.dialogue_text_editors.clear();
+        self.dialogue_text_spreadsheets.clear();
         self.monster_ref_editors.clear();
         self.monster_ref_spreadsheets.clear();
         self.extra_ref_editors.clear();
@@ -341,6 +344,7 @@ impl Default for AppState {
             dialog_editors: HashMap::new(),
             dialog_spreadsheets: HashMap::new(),
             dialogue_text_editors: HashMap::new(),
+            dialogue_text_spreadsheets: HashMap::new(),
             draw_item_editor: Box::default(),
             event_ini_editor: Box::default(),
             event_npc_ref_editor: Box::default(),

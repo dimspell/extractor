@@ -617,13 +617,15 @@ impl App {
                             let path_str = path.to_string_lossy().to_string();
                             let editor_state =
                                 crate::state::dialogue_text_editor::DialogueTextEditorState {
+                                    editor: crate::generic_editor::GenericEditorState::default(),
                                     current_file: path_str,
-                                    loading_state: crate::loading_state::LoadingState::Loading,
-                                    ..Default::default()
                                 };
                             self.state
                                 .dialogue_text_editors
                                 .insert(tab_id, editor_state);
+                            self.state
+                                .dialogue_text_spreadsheets
+                                .insert(tab_id, Default::default());
                             let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
