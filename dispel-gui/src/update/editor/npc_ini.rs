@@ -40,6 +40,7 @@ pub fn handle(message: NpcIniEditorMessage, app: &mut App) -> Task<crate::messag
                     app.state.npc_ini_editor.refresh_npcs();
                     app.state.npc_ini_editor.init_pane_state();
                     app.state.npc_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.npc_ini_spreadsheet.compute_all_caches(&catalog);
                     app.state.npc_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

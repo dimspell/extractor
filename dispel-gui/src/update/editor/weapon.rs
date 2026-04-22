@@ -46,6 +46,7 @@ pub fn handle(message: WeaponEditorMessage, app: &mut App) -> Task<crate::messag
                     app.state.weapon_editor.refresh();
                     app.state.weapon_editor.init_pane_state();
                     app.state.weapon_spreadsheet.apply_filter(&catalog);
+                    app.state.weapon_spreadsheet.compute_all_caches(&catalog);
                     app.state.weapon_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

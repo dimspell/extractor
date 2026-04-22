@@ -36,6 +36,7 @@ pub fn handle(message: ChDataEditorMessage, app: &mut App) -> Task<crate::messag
                         format!("Loaded {} ChData records.", catalog.len());
                     app.state.chdata_editor.init_pane_state();
                     app.state.chdata_spreadsheet.apply_filter(&catalog);
+                    app.state.chdata_spreadsheet.compute_all_caches(&catalog);
                     app.state.chdata_spreadsheet.is_loading = false;
                     if !catalog.is_empty() {
                         app.state.chdata_editor.select(0);

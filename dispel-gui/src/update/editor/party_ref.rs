@@ -43,6 +43,7 @@ pub fn handle(message: PartyRefEditorMessage, app: &mut App) -> Task<crate::mess
                     app.state.party_ref_editor.refresh();
                     app.state.party_ref_editor.init_pane_state();
                     app.state.party_ref_spreadsheet.apply_filter(&catalog);
+                    app.state.party_ref_spreadsheet.compute_all_caches(&catalog);
                     app.state.party_ref_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

@@ -15,6 +15,7 @@ macro_rules! handle_spreadsheet_messages {
                 if $app.state.$spreadsheet.active {
                     if let Some(catalog) = &$app.state.$editor.catalog {
                         $app.state.$spreadsheet.init_filter(catalog);
+                        $app.state.$spreadsheet.compute_all_caches(catalog);
                         $app.state.$spreadsheet.init_pane_state();
                     }
                 }
@@ -259,6 +260,15 @@ macro_rules! handle_spreadsheet_messages {
                 }
             },
             SM::BodyScrolled(offset, viewport_height) => {
+                use std::time::Instant;
+                let now = Instant::now();
+                let min_interval = std::time::Duration::from_millis(16);
+                if let Some(last) = $app.state.$spreadsheet.last_scroll_update {
+                    if now.duration_since(last) < min_interval {
+                        return iced::Task::none();
+                    }
+                }
+                $app.state.$spreadsheet.last_scroll_update = Some(now);
                 $app.state.$spreadsheet.horizontal_scroll_offset = offset.x;
                 $app.state.$spreadsheet.vertical_scroll_offset = offset.y;
                 $app.state.$spreadsheet.viewport_height = viewport_height;
@@ -350,6 +360,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             if ss.active {
                                 if let Some(c) = &ed.editor.catalog {
                                     ss.init_filter(c);
+                                    ss.compute_all_caches(c);
                                     ss.init_pane_state();
                                 }
                             }
@@ -527,6 +538,15 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         },
                         SM::BodyScrolled(offset, viewport_height) => {
+                            use std::time::Instant;
+                            let now = Instant::now();
+                            let min_interval = std::time::Duration::from_millis(16);
+                            if let Some(last) = ss.last_scroll_update {
+                                if now.duration_since(last) < min_interval {
+                                    return iced::Task::none();
+                                }
+                            }
+                            ss.last_scroll_update = Some(now);
                             ss.horizontal_scroll_offset = offset.x;
                             ss.viewport_height = viewport_height;
                             return iced::widget::operation::scroll_to(

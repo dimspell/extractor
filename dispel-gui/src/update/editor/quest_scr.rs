@@ -41,6 +41,7 @@ pub fn handle(message: QuestScrEditorMessage, app: &mut App) -> Task<crate::mess
                     app.state.quest_scr_editor.refresh_quests();
                     app.state.quest_scr_editor.init_pane_state();
                     app.state.quest_scr_spreadsheet.apply_filter(&catalog);
+                    app.state.quest_scr_spreadsheet.compute_all_caches(&catalog);
                     app.state.quest_scr_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

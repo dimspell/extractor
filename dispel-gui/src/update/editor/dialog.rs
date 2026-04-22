@@ -52,6 +52,7 @@ pub fn handle(message: DialogEditorMessage, app: &mut App) -> Task<crate::messag
                         if let Some(spreadsheet) = app.state.dialog_spreadsheets.get_mut(&tab_id) {
                             spreadsheet.active = true;
                             spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet.compute_all_caches(editor.editor.catalog.as_ref().unwrap());
                             spreadsheet.init_pane_state();
                         }
                     }

@@ -37,6 +37,7 @@ pub fn handle(message: MapIniEditorMessage, app: &mut App) -> Task<crate::messag
                     app.state.map_ini_editor.refresh_maps();
                     app.state.map_ini_editor.init_pane_state();
                     app.state.map_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.map_ini_spreadsheet.compute_all_caches(&catalog);
                     app.state.map_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

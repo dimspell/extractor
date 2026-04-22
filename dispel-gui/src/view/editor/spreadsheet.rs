@@ -30,11 +30,11 @@ use std::collections::HashMap;
 const ROW_HEIGHT: f32 = 24.0;
 /// How many extra rows to render above and below the visible viewport.
 /// Large enough to hide pop-in between window steps during fast scrolling.
-const OVERSCAN_ROWS: usize = 30;
+const OVERSCAN_ROWS: usize = 128;
 /// The virtual window boundary only shifts when `first_row` crosses a multiple
 /// of this value.  Snapping prevents a widget-tree rebuild (and costly
 /// cosmic-text Korean glyph layout) on every single scroll pixel.
-const WINDOW_STEP: usize = 8;
+const WINDOW_STEP: usize = 64;
 const ID_COL_WIDTH_PX: f32 = 42.0;
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
@@ -136,6 +136,25 @@ pub struct SpreadsheetState {
     /// Bumped whenever any column width changes. Included in each row's lazy
     /// key so all rows rebuild on resize without an expensive full hash.
     pub col_widths_gen: u32,
+    /// Pre-computed hash for each row's field values. Updated when catalog loads
+    /// so the lazy key doesn't recompute on every render.
+    pub row_hashes: Vec<u64>,
+    /// Pre-computed display strings for all rows. Each entry is a Vec<String> of
+    /// truncated field values for display (one per column). Computed once on catalog load.
+    pub display_cache: Vec<Vec<String>>,
+    /// Pre-computed truncated display strings (with column widths factored in).
+    /// Invalidated when column widths change.
+    pub truncated_cache: Vec<Vec<String>>,
+    /// Pre-computed validation status for all rows. Each entry is a Vec<bool> where
+    /// true = validation error. Computed once on catalog load.
+    pub validation_cache: Vec<Vec<bool>>,
+    /// Pre-computed row number strings ("1", "2", etc.) for the ID column.
+    pub row_numbers: Vec<String>,
+
+    // ── Scroll throttling ─────────────────────────────────────────────────
+    /// Timestamp of the last scroll update we processed. Used to throttle
+    /// frequent BodyScrolled messages during fast scrolling.
+    pub last_scroll_update: Option<std::time::Instant>,
 
     // ── Column quick-filter ────────────────────────────────────────────────
     /// Per-column exact-match filters.  Key = column index, value = required cell value.
@@ -205,15 +224,23 @@ impl Default for SpreadsheetState {
             vertical_scroll_offset: 0.0,
             viewport_height: 400.0,
             col_widths_gen: 0,
+            row_hashes: Vec::new(),
+            display_cache: Vec::new(),
+            truncated_cache: Vec::new(),
+            validation_cache: Vec::new(),
+            row_numbers: Vec::new(),
             column_filters: HashMap::new(),
             active_column_filter: None,
             column_filter_options: Vec::new(),
             inspector_textarea_contents: HashMap::new(),
+            last_scroll_update: None,
         }
     }
 }
 
 impl SpreadsheetState {
+    pub const SCROLL_THROTTLE_MS: u64 = 16;
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -534,6 +561,8 @@ impl SpreadsheetState {
 
     pub fn end_column_resize(&mut self) {
         self.resizing_column = None;
+        self.rebuild_truncated_cache();
+        self.col_widths_gen += 1;
     }
 
     /// Double-click auto-size: measure the longest cell value in the visible
@@ -640,6 +669,102 @@ impl SpreadsheetState {
 
     pub fn init_filter<R: EditableRecord>(&mut self, catalog: &[R]) {
         self.filtered_indices = (0..catalog.len()).collect();
+    }
+
+    /// Compute and cache row hashes, raw field values, and validation status.
+/// Call when catalog loads to avoid recomputing on every render.
+    pub fn compute_all_caches<R: EditableRecord>(&mut self, catalog: &[R]) {
+        use std::hash::{Hash, Hasher};
+        let descriptors = R::field_descriptors();
+        let num_cols = descriptors.len();
+        self.row_hashes.clear();
+        self.display_cache.clear();
+        self.validation_cache.clear();
+        self.row_numbers.clear();
+        self.row_hashes.reserve(catalog.len());
+        self.display_cache.reserve(catalog.len());
+        self.validation_cache.reserve(catalog.len());
+        self.row_numbers.reserve(catalog.len());
+        for (i, record) in catalog.iter().enumerate() {
+            self.row_numbers.push(format!("{}", i + 1));
+            let values: Vec<String> = (0..num_cols)
+                .map(|j| record.get_field(descriptors[j].name))
+                .collect();
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            values.hash(&mut h);
+            self.row_hashes.push(h.finish());
+            let validation: Vec<bool> = (0..num_cols)
+                .map(|j| record.validate_field(descriptors[j].name, &values[j]).is_some())
+                .collect();
+            self.display_cache.push(values);
+            self.validation_cache.push(validation);
+        }
+        // Compute truncated strings for initial column widths
+        self.rebuild_truncated_cache();
+        self.col_widths_gen += 1;
+    }
+
+    /// Get pre-truncated display string for a cell (cloned).
+    pub fn get_display(&self, orig_idx: usize, col: usize) -> String {
+        if let Some(truncated) = self.truncated_cache.get(orig_idx) {
+            if let Some(s) = truncated.get(col) {
+                return s.clone();
+            }
+        }
+        if let Some(raw) = self.display_cache.get(orig_idx) {
+            if let Some(s) = raw.get(col) {
+                return s.clone();
+            }
+        }
+        String::new()
+    }
+
+    /// Get reference to cached display string (avoids clone if caller only needs to borrow).
+    pub fn get_display_ref(&self, orig_idx: usize, col: usize) -> Option<&String> {
+        self.truncated_cache
+            .get(orig_idx)
+            .and_then(|row| row.get(col))
+            .or_else(|| self.display_cache.get(orig_idx).and_then(|row| row.get(col)))
+    }
+
+    /// Update truncated cache when column widths change.
+    pub fn rebuild_truncated_cache(&mut self) {
+        if self.display_cache.is_empty() {
+            return;
+        }
+        self.truncated_cache = self
+            .display_cache
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .enumerate()
+                    .map(|(col, value)| {
+                        let col_width = self.column_width(col);
+                        let char_budget = ((col_width / 7.0) as usize).max(8);
+                        if value.len() <= char_budget && value.is_ascii() {
+                            value.clone()
+                        } else if value.chars().count() > char_budget {
+                            let mut truncated = String::with_capacity(char_budget + 3);
+                            for (i, c) in value.chars().enumerate() {
+                                if i >= char_budget {
+                                    truncated.push('…');
+                                    break;
+                                }
+                                truncated.push(c);
+                            }
+                            truncated
+                        } else {
+                            value.clone()
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+    }
+
+    /// Get the cached hash for a row by original index.
+    pub fn row_hash(&self, orig_idx: usize) -> u64 {
+        self.row_hashes.get(orig_idx).copied().unwrap_or(0)
     }
 
     /// Export the *currently visible* rows (respecting filter + sort) to CSV.
@@ -1097,20 +1222,22 @@ fn build_table_content<'a, R: EditableRecord>(
 
     let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
 
-    // Precompute the `orig_idx` of the "currently highlighted" row for O(1)
-    // checks while building each row.
     let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
-    let highlight_set: std::collections::HashSet<usize> =
-        spreadsheet.highlighted_indices.iter().copied().collect();
+    let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
 
     let total_visible = spreadsheet.filtered_indices.len();
 
     // Virtual-scroll window: only render rows that are in (or near) the viewport.
-    let first_row = ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize)
-        .saturating_sub(OVERSCAN_ROWS);
+    // Snap first_row to WINDOW_STEP multiples so the widget tree only rebuilds
+    // every WINDOW_STEP rows of scroll rather than on every scroll pixel —
+    // this keeps cosmic-text Korean layout from blocking the scroll thread.
+    let raw_first =
+        ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize).saturating_sub(OVERSCAN_ROWS);
+    let first_row = (raw_first / WINDOW_STEP) * WINDOW_STEP;
     let last_row = (((spreadsheet.vertical_scroll_offset + spreadsheet.viewport_height)
         / ROW_HEIGHT) as usize
-        + OVERSCAN_ROWS)
+        + OVERSCAN_ROWS
+        + WINDOW_STEP)
         .min(total_visible);
 
     // Top spacer fills the height of all rows above the render window so the
@@ -1131,6 +1258,12 @@ fn build_table_content<'a, R: EditableRecord>(
         );
     }
 
+    let col_widths: Vec<f32> = (0..descriptors.len())
+        .map(|c| spreadsheet.column_width(c))
+        .collect();
+    let col_widths_static = col_widths.clone();
+    let row_numbers_static = spreadsheet.row_numbers.clone();
+
     for (filtered_idx, &orig_idx) in spreadsheet
         .filtered_indices
         .iter()
@@ -1142,24 +1275,22 @@ fn build_table_content<'a, R: EditableRecord>(
             continue;
         };
         let is_selected = spreadsheet.selected_row == Some(filtered_idx);
-        let is_highlighted = spreadsheet.filter_mode == GlobalFilterMode::Highlight
-            && highlight_set.contains(&orig_idx);
+        let is_highlighted = is_highlight_mode
+            && spreadsheet.highlighted_indices.contains(&orig_idx);
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
         let is_editing_row = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
 
         if is_editing_row {
-            // Non-lazy path: the editing row contains a `text_input` that borrows
-            // `spreadsheet.edit_buffer`, so it cannot be wrapped in `lazy` (which
-            // requires `Element<'static, ...>`). At most one row is ever in this
-            // state, so the cost is negligible.
+            // Editing row: requires build_data_cell for cell editing (non-lazy due to text_input borrow)
             let row_style = style::spreadsheet_row(
                 is_selected,
                 filtered_idx,
                 is_highlighted,
                 is_current_highlight,
             );
-            let id_cell: Element<Message> = container(
-                text(format!("{}", orig_idx + 1))
+            let row_number_str = spreadsheet.row_numbers.get(orig_idx).cloned().unwrap_or_default();
+            let id_cell = container(
+                text(row_number_str)
                     .size(10)
                     .font(Font::MONOSPACE),
             )
@@ -1198,42 +1329,20 @@ fn build_table_content<'a, R: EditableRecord>(
                     .style(row_style)
                     .into(),
             );
-        } else {
-            // Lazy path: pre-compute all owned data the closure needs.
-            // The closure is only executed when its key changes; during scroll
-            // the key is stable so iced reuses the cached widget tree, giving
-            // near-zero CPU cost per scroll event.
-            let field_values: Vec<String> = descriptors
-                .iter()
-                .map(|d| record.get_field(d.name))
-                .collect();
-            let validation_errors: Vec<bool> = descriptors
-                .iter()
-                .zip(field_values.iter())
-                .map(|(d, v)| record.validate_field(d.name, v).is_some())
-                .collect();
-            let col_widths: Vec<f32> = (0..descriptors.len())
-                .map(|c| spreadsheet.column_width(c))
-                .collect();
+        } else if !spreadsheet.display_cache.is_empty() {
+            let row_number = row_numbers_static.get(orig_idx).cloned().unwrap_or_default();
 
-            // Hash the field values into a single u64 so the key tuple stays
-            // cheap to compare (no Vec comparison on every render).
-            let field_hash: u64 = {
-                use std::hash::{Hash, Hasher};
-                let mut h = std::collections::hash_map::DefaultHasher::new();
-                field_values.hash(&mut h);
-                h.finish()
-            };
-
+            // Key: orig_idx (stable identity), is_selected/is_highlighted/current (change on user action),
+            // row_hash (changes on data edit), col_widths_gen (changes on resize)
             let row_key = (
-                filtered_idx,
                 orig_idx,
                 is_selected as u8,
                 is_highlighted as u8,
                 is_current_highlight as u8,
-                field_hash,
+                spreadsheet.row_hash(orig_idx),
                 spreadsheet.col_widths_gen,
             );
+            let col_widths_row = col_widths_static.clone();
 
             data_rows.push(
                 iced::widget::lazy(row_key, move |_| -> Element<'static, Message> {
@@ -1243,8 +1352,8 @@ fn build_table_content<'a, R: EditableRecord>(
                         is_highlighted,
                         is_current_highlight,
                     );
-                    let id_cell: Element<'static, Message> = container(
-                        text(format!("{}", orig_idx + 1))
+                    let id_cell = container(
+                        text(row_number.clone())
                             .size(10)
                             .font(Font::MONOSPACE),
                     )
@@ -1259,18 +1368,11 @@ fn build_table_content<'a, R: EditableRecord>(
                     })
                     .into();
 
-                    let mut cells: Vec<Element<'static, Message>> = vec![id_cell];
+                    let mut cells: Vec<_> = vec![id_cell];
+                    cells.reserve(descriptors.len());
                     for (col, _desc) in descriptors.iter().enumerate() {
-                        let value = &field_values[col];
-                        let col_width = col_widths[col];
-                        let is_invalid = validation_errors[col];
-
-                        let char_budget = ((col_width / 7.0) as usize).max(4);
-                        let display: String = if value.chars().count() > char_budget {
-                            format!("{}…", value.chars().take(char_budget).collect::<String>())
-                        } else {
-                            value.clone()
-                        };
+                        let display = spreadsheet.get_display_ref(orig_idx, col).cloned().unwrap_or_default();
+                        let col_width = col_widths_row[col];
 
                         let press_msg = if is_selected {
                             SpreadsheetMessage::StartEdit(filtered_idx, col)
@@ -1278,26 +1380,7 @@ fn build_table_content<'a, R: EditableRecord>(
                             SpreadsheetMessage::SelectRow(filtered_idx)
                         };
 
-                        let container_style = if is_invalid {
-                            style::spreadsheet_cell_invalid
-                        } else {
-                            style::spreadsheet_cell
-                        };
-
-                        cells.push(
-                            container(
-                                button(text(display).size(10).font(Font::MONOSPACE))
-                                    .on_press(spreadsheet_msg(press_msg))
-                                    .style(style::spreadsheet_cell_btn)
-                                    .padding([3, 8])
-                                    .width(Length::Fill),
-                            )
-                            .width(Length::Fixed(col_width))
-                            .height(ROW_HEIGHT)
-                            .align_y(iced::Alignment::Center)
-                            .style(container_style)
-                            .into(),
-                        );
+                        cells.push(flattened_cell(display, col_width, spreadsheet_msg(press_msg)));
                     }
 
                     button(row(cells).spacing(0))
@@ -1470,6 +1553,39 @@ fn build_header_row<'a>(
         .into()
 }
 
+fn flattened_cell(
+    display: String,
+    col_width: f32,
+    on_press: Message,
+) -> Element<'static, Message> {
+    button(text(display).size(10).font(Font::MONOSPACE))
+        .on_press(on_press)
+        .style(style::spreadsheet_cell_btn)
+        .padding([3, 8])
+        .width(Length::Fixed(col_width))
+        .height(ROW_HEIGHT)
+        .into()
+}
+
+fn build_cell(
+    display: String,
+    col_width: f32,
+    on_press: Message,
+    _is_invalid: bool,
+) -> Element<'static, Message> {
+    container(
+        button(text(display).size(10).font(Font::MONOSPACE))
+            .on_press(on_press)
+            .style(style::spreadsheet_cell_btn)
+            .padding([3, 8])
+            .width(Length::Fill),
+    )
+    .width(Length::Fixed(col_width))
+    .height(ROW_HEIGHT)
+    .align_y(iced::Alignment::Center)
+    .into()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn build_data_cell<'a, R: EditableRecord>(
     desc: &'a FieldDescriptor,
@@ -1508,9 +1624,19 @@ fn build_data_cell<'a, R: EditableRecord>(
     }
 
     // Longer columns show more text; the ellipsis budget scales with width.
-    let char_budget = ((col_width / 7.0) as usize).max(4);
-    let display = if value.chars().count() > char_budget {
-        format!("{}…", value.chars().take(char_budget).collect::<String>())
+    let char_budget = ((col_width / 7.0) as usize).max(8);
+    let display: String = if value.len() <= char_budget && value.is_ascii() {
+        value.to_string()
+    } else if value.chars().count() > char_budget {
+        let mut truncated = String::with_capacity(char_budget + 3);
+        for (i, c) in value.chars().enumerate() {
+            if i >= char_budget {
+                truncated.push('…');
+                break;
+            }
+            truncated.push(c);
+        }
+        truncated
     } else {
         value.to_string()
     };
@@ -1525,24 +1651,7 @@ fn build_data_cell<'a, R: EditableRecord>(
     };
 
     let invalid = record.validate_field(desc.name, value).is_some();
-    let container_style = if invalid {
-        style::spreadsheet_cell_invalid
-    } else {
-        style::spreadsheet_cell
-    };
-
-    container(
-        button(text(display).size(10).font(Font::MONOSPACE))
-            .on_press(spreadsheet_msg(press_msg))
-            .style(style::spreadsheet_cell_btn)
-            .padding([3, 8])
-            .width(Length::Fill),
-    )
-    .width(Length::Fixed(col_width))
-    .height(ROW_HEIGHT)
-    .align_y(iced::Alignment::Center)
-    .style(container_style)
-    .into()
+    build_cell(display, col_width, spreadsheet_msg(press_msg), invalid)
 }
 
 // ───────────────────────────────────────────────────────────────────────────

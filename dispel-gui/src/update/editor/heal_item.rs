@@ -56,6 +56,7 @@ pub fn handle(message: HealItemEditorMessage, app: &mut App) -> Task<crate::mess
                     app.state.heal_item_editor.refresh();
                     app.state.heal_item_editor.init_pane_state();
                     app.state.heal_item_spreadsheet.apply_filter(&catalog);
+                    app.state.heal_item_spreadsheet.compute_all_caches(&catalog);
                     app.state.heal_item_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

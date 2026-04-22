@@ -46,6 +46,7 @@ pub fn handle(message: MagicEditorMessage, app: &mut App) -> Task<crate::message
                     app.state.magic_editor.refresh();
                     app.state.magic_editor.init_pane_state();
                     app.state.magic_spreadsheet.apply_filter(&catalog);
+                    app.state.magic_spreadsheet.compute_all_caches(&catalog);
                     app.state.magic_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

@@ -39,6 +39,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                     app.state.wave_ini_editor.refresh_waves();
                     app.state.wave_ini_editor.init_pane_state();
                     app.state.wave_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.wave_ini_spreadsheet.compute_all_caches(&catalog);
                     app.state.wave_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

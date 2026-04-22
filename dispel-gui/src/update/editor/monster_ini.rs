@@ -42,6 +42,7 @@ pub fn handle(message: MonsterIniEditorMessage, app: &mut App) -> Task<crate::me
                     app.state.monster_ini_editor.refresh_monsters();
                     app.state.monster_ini_editor.init_pane_state();
                     app.state.monster_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.monster_ini_spreadsheet.compute_all_caches(&catalog);
                     app.state.monster_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

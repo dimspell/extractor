@@ -48,6 +48,7 @@ pub fn handle(message: EditItemEditorMessage, app: &mut App) -> Task<crate::mess
                     app.state.edit_item_editor.refresh();
                     app.state.edit_item_editor.init_pane_state();
                     app.state.edit_item_spreadsheet.apply_filter(&catalog);
+                    app.state.edit_item_spreadsheet.compute_all_caches(&catalog);
                     app.state.edit_item_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

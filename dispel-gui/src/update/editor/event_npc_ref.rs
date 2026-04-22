@@ -42,6 +42,7 @@ pub fn handle(message: EventNpcRefEditorMessage, app: &mut App) -> Task<crate::m
                     app.state.event_npc_ref_editor.refresh_npcs();
                     app.state.event_npc_ref_editor.init_pane_state();
                     app.state.event_npc_ref_spreadsheet.apply_filter(&catalog);
+                    app.state.event_npc_ref_spreadsheet.compute_all_caches(&catalog);
                     app.state.event_npc_ref_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

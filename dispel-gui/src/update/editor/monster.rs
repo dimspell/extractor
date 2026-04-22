@@ -42,8 +42,9 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
                         format!("Monster catalog loaded: {} monsters", catalog.len());
                     app.state.monster_editor.refresh();
                     app.state.monster_editor.init_pane_state();
-                    // Initialize spreadsheet with all records
+                    // Initialize spreadsheet with all records and caches
                     app.state.monster_spreadsheet.apply_filter(&catalog);
+                    app.state.monster_spreadsheet.compute_all_caches(&catalog);
                     app.state.monster_spreadsheet.is_loading = false;
                     let tab_id = app
                         .state

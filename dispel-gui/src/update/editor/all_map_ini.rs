@@ -44,6 +44,7 @@ pub fn handle(message: AllMapIniEditorMessage, app: &mut App) -> Task<crate::mes
                     app.state.all_map_ini_editor.refresh();
                     app.state.all_map_ini_editor.init_pane_state();
                     app.state.all_map_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.all_map_ini_spreadsheet.compute_all_caches(&catalog);
                 }
                 Err(e) => {
                     app.state.all_map_ini_editor.status_msg =

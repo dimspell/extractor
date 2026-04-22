@@ -39,6 +39,7 @@ pub fn handle(message: EventIniEditorMessage, app: &mut App) -> Task<crate::mess
                     app.state.event_ini_editor.refresh_events();
                     app.state.event_ini_editor.init_pane_state();
                     app.state.event_ini_spreadsheet.apply_filter(&catalog);
+                    app.state.event_ini_spreadsheet.compute_all_caches(&catalog);
                     app.state.event_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {
