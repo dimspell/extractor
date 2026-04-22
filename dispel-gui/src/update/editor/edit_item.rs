@@ -4,6 +4,7 @@ use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
 use crate::message::editor::edititem::EditItemEditorMessage;
+use crate::message::MessageExt as _;
 use dispel_core::{EditItem, Extractor};
 use iced::Task;
 use std::path::PathBuf;
@@ -58,8 +59,9 @@ pub fn handle(message: EditItemEditorMessage, app: &mut App) -> Task<crate::mess
             Task::none()
         }
         EditItemEditorMessage::ScanItems => {
-            // Scan edit items from game files
-            Task::none()
+            Task::done(crate::message::Message::edit_item(
+                EditItemEditorMessage::LoadCatalog,
+            ))
         }
         EditItemEditorMessage::SelectItem(index) => {
             // Select edit item at index
