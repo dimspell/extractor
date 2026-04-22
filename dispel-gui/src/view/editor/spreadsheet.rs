@@ -29,8 +29,12 @@ use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
 /// How many extra rows to render above and below the visible viewport.
-/// Large enough to hide pop-in during fast scrolling.
-const OVERSCAN_ROWS: usize = 20;
+/// Large enough to hide pop-in between window steps during fast scrolling.
+const OVERSCAN_ROWS: usize = 30;
+/// The virtual window boundary only shifts when `first_row` crosses a multiple
+/// of this value.  Snapping prevents a widget-tree rebuild (and costly
+/// cosmic-text Korean glyph layout) on every single scroll pixel.
+const WINDOW_STEP: usize = 8;
 const ID_COL_WIDTH_PX: f32 = 42.0;
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
@@ -111,6 +115,12 @@ pub struct SpreadsheetState {
     pub column_widths: HashMap<usize, f32>,
     /// Active drag state for the column the user is currently resizing.
     pub resizing_column: Option<ColumnDragState>,
+    /// Tracks the last `StartResizeColumn` press `(col, time)` so that a
+    /// second rapid press on the same column is promoted to an auto-size
+    /// instead of starting a drag.  Required because the outer drag-tracking
+    /// `mouse_area` intercepts the second click before it can reach the inner
+    /// handle's `on_double_click`.
+    pub last_resize_press: Option<(usize, std::time::Instant)>,
 
     // ── Scroll / viewport ─────────────────────────────────────────────────
     /// Absolute horizontal scroll offset, preserved when issuing scroll-to-row
@@ -190,6 +200,7 @@ impl Default for SpreadsheetState {
             header_scroll_id: iced::advanced::widget::Id::unique(),
             column_widths: HashMap::new(),
             resizing_column: None,
+            last_resize_press: None,
             horizontal_scroll_offset: 0.0,
             vertical_scroll_offset: 0.0,
             viewport_height: 400.0,
@@ -470,17 +481,35 @@ impl SpreadsheetState {
         w
     }
 
-    /// Called on mouse-down on a column's resize handle. Captures the
-    /// baseline width; the anchor cursor position is captured lazily on the
-    /// first subsequent `on_move` so the drag doesn't jump when the mouse
-    /// first settles.
-    pub fn begin_column_resize(&mut self, col: usize) {
+    /// Called on mouse-down on a column's resize handle.
+    ///
+    /// Returns `true` when the press is recognised as a double-press (second
+    /// press on the same column within 400 ms): the caller should auto-size the
+    /// column and skip starting a drag.  Returns `false` for a normal single
+    /// press, in which case the drag is started and the caller does nothing
+    /// extra.
+    ///
+    /// We detect double-press here rather than relying on `on_double_click`
+    /// because the first press makes `resizing_column = Some(…)` which causes
+    /// iced to wrap the table in an outer `mouse_area`; that outer layer
+    /// intercepts the second click before it can reach the inner handle's
+    /// `on_double_click`.
+    pub fn try_begin_column_resize(&mut self, col: usize) -> bool {
+        let double_press_threshold = std::time::Duration::from_millis(400);
+        if let Some((last_col, last_time)) = self.last_resize_press {
+            if last_col == col && last_time.elapsed() < double_press_threshold {
+                self.last_resize_press = None;
+                return true; // caller should auto-size
+            }
+        }
+        self.last_resize_press = Some((col, std::time::Instant::now()));
         let anchor_width = self.column_width(col);
         self.resizing_column = Some(ColumnDragState {
             col,
             anchor_width,
             anchor_cursor_x: None,
         });
+        false
     }
 
     /// Called on every mouse move while a resize handle is pressed. Uses the
@@ -507,10 +536,33 @@ impl SpreadsheetState {
         self.resizing_column = None;
     }
 
-    /// Double-click reset: drop any override for `col` so it returns to the
-    /// default `COL_WIDTH`.
-    pub fn reset_column_width(&mut self, col: usize) {
-        self.column_widths.remove(&col);
+    /// Double-click auto-size: measure the longest cell value in the visible
+    /// rows plus the header label and set the column width accordingly, clamped
+    /// to `[COL_WIDTH_MIN, COL_WIDTH_MAX]`.
+    ///
+    /// Uses the same 7 px/char heuristic already applied for truncation so the
+    /// result is consistent with what the user sees in the cells.  A small pad
+    /// (16 px) is added for cell padding on both sides.
+    pub fn auto_size_column<R: EditableRecord>(&mut self, col: usize, catalog: &[R]) {
+        let descriptors = R::field_descriptors();
+        let Some(desc) = descriptors.get(col) else {
+            return;
+        };
+
+        // Seed with the header label length.
+        let mut max_chars = desc.label.chars().count();
+
+        for &orig_idx in &self.filtered_indices {
+            if let Some(record) = catalog.get(orig_idx) {
+                let chars = record.get_field(desc.name).chars().count();
+                if chars > max_chars {
+                    max_chars = chars;
+                }
+            }
+        }
+
+        let width = ((max_chars as f32) * 7.0 + 16.0).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+        self.column_widths.insert(col, width);
         self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
@@ -712,7 +764,7 @@ pub enum SpreadsheetMessage {
     ResizeColumnCursor(f32),
     /// Mouse-up — commit the current width and exit drag mode.
     EndResizeColumn,
-    /// Double-click on a resize handle: drop the width override for `col`.
+    /// Double-click on a resize handle: auto-size `col` to its longest cell value.
     ResetColumnWidth(usize),
 
     // ── Inspector textarea editing ─────────────────────────────────────────

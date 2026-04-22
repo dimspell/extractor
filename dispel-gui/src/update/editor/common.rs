@@ -271,7 +271,11 @@ macro_rules! handle_spreadsheet_messages {
                 );
             }
             SM::StartResizeColumn(col) => {
-                $app.state.$spreadsheet.begin_column_resize(col);
+                if $app.state.$spreadsheet.try_begin_column_resize(col) {
+                    if let Some(catalog) = &$app.state.$editor.catalog {
+                        $app.state.$spreadsheet.auto_size_column(col, catalog);
+                    }
+                }
             }
             SM::ResizeColumnCursor(x) => {
                 $app.state.$spreadsheet.update_column_resize(x);
@@ -280,7 +284,9 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state.$spreadsheet.end_column_resize();
             }
             SM::ResetColumnWidth(col) => {
-                $app.state.$spreadsheet.reset_column_width(col);
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.auto_size_column(col, catalog);
+                }
             }
             SM::OpenColumnFilter(col) => {
                 // Toggle: second click on the same column closes the dropdown.
@@ -531,10 +537,20 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 },
                             );
                         }
-                        SM::StartResizeColumn(col) => ss.begin_column_resize(col),
+                        SM::StartResizeColumn(col) => {
+                            if ss.try_begin_column_resize(col) {
+                                if let Some(catalog) = &ed.editor.catalog {
+                                    ss.auto_size_column(col, catalog);
+                                }
+                            }
+                        }
                         SM::ResizeColumnCursor(x) => ss.update_column_resize(x),
                         SM::EndResizeColumn => ss.end_column_resize(),
-                        SM::ResetColumnWidth(col) => ss.reset_column_width(col),
+                        SM::ResetColumnWidth(col) => {
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.auto_size_column(col, catalog);
+                            }
+                        }
                         SM::OpenColumnFilter(col) => {
                             if ss.active_column_filter == Some(col) {
                                 ss.active_column_filter = None;
