@@ -260,6 +260,7 @@ macro_rules! handle_spreadsheet_messages {
             },
             SM::BodyScrolled(offset, viewport_height) => {
                 $app.state.$spreadsheet.horizontal_scroll_offset = offset.x;
+                $app.state.$spreadsheet.vertical_scroll_offset = offset.y;
                 $app.state.$spreadsheet.viewport_height = viewport_height;
                 return iced::widget::operation::scroll_to(
                     $app.state.$spreadsheet.header_scroll_id.clone(),

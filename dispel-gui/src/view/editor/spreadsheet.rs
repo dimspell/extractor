@@ -28,17 +28,9 @@ use iced::{Element, Fill, Font, Length};
 use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
-/// Hard cap on simultaneously-rendered rows. Prevents two classes of problems:
-///
-/// 1. Filter-typing lag: when the query matches many rows, rebuilding all of
-///    them on every keystroke makes the UI feel unresponsive.
-/// 2. cosmic-text glyph-cache overflow: the atlas is a fixed-size buffer; with
-///    thousands of text widgets in flight simultaneously it can panic (u16/u32
-///    arithmetic overflow in `glyph_cache.rs`).
-///
-/// Users can narrow the view with the filter bar, so a cap of 500 rows is a
-/// reasonable trade-off — it comfortably covers one full dataset in practice.
-const MAX_VISIBLE_ROWS: usize = 500;
+/// How many extra rows to render above and below the visible viewport.
+/// Large enough to hide pop-in during fast scrolling.
+const OVERSCAN_ROWS: usize = 20;
 const ID_COL_WIDTH_PX: f32 = 42.0;
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
@@ -124,6 +116,9 @@ pub struct SpreadsheetState {
     /// Absolute horizontal scroll offset, preserved when issuing scroll-to-row
     /// commands so the horizontal position isn't accidentally reset.
     pub horizontal_scroll_offset: f32,
+    /// Absolute vertical scroll offset. Updated from `BodyScrolled` and used
+    /// by the virtual-row renderer to determine which rows are in the viewport.
+    pub vertical_scroll_offset: f32,
     /// Height of the body scrollable's visible area. Updated from `BodyScrolled`.
     pub viewport_height: f32,
 
@@ -196,6 +191,7 @@ impl Default for SpreadsheetState {
             column_widths: HashMap::new(),
             resizing_column: None,
             horizontal_scroll_offset: 0.0,
+            vertical_scroll_offset: 0.0,
             viewport_height: 400.0,
             col_widths_gen: 0,
             column_filters: HashMap::new(),
@@ -1056,15 +1052,38 @@ fn build_table_content<'a, R: EditableRecord>(
         spreadsheet.highlighted_indices.iter().copied().collect();
 
     let total_visible = spreadsheet.filtered_indices.len();
-    let capped = total_visible > MAX_VISIBLE_ROWS;
-    let render_count = total_visible.min(MAX_VISIBLE_ROWS);
 
-    let mut data_rows: Vec<Element<Message>> = Vec::with_capacity(render_count + 1);
+    // Virtual-scroll window: only render rows that are in (or near) the viewport.
+    let first_row = ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize)
+        .saturating_sub(OVERSCAN_ROWS);
+    let last_row = (((spreadsheet.vertical_scroll_offset + spreadsheet.viewport_height)
+        / ROW_HEIGHT) as usize
+        + OVERSCAN_ROWS)
+        .min(total_visible);
+
+    // Top spacer fills the height of all rows above the render window so the
+    // scrollbar thumb and total content height stay correct.
+    let top_spacer_height = first_row as f32 * ROW_HEIGHT;
+    // Bottom spacer fills the rows below the render window.
+    let bottom_spacer_height = (total_visible.saturating_sub(last_row)) as f32 * ROW_HEIGHT;
+
+    let render_count = last_row.saturating_sub(first_row);
+    let mut data_rows: Vec<Element<Message>> = Vec::with_capacity(render_count + 2);
+
+    if top_spacer_height > 0.0 {
+        data_rows.push(
+            iced::widget::Space::new()
+                .width(Length::Fill)
+                .height(Length::Fixed(top_spacer_height))
+                .into(),
+        );
+    }
 
     for (filtered_idx, &orig_idx) in spreadsheet
         .filtered_indices
         .iter()
         .enumerate()
+        .skip(first_row)
         .take(render_count)
     {
         let Some(record) = catalog.get(orig_idx) else {
@@ -1240,21 +1259,12 @@ fn build_table_content<'a, R: EditableRecord>(
         }
     }
 
-    // Overflow notice — shown when the row cap is active so the user knows
-    // the table is intentionally truncated and that filtering helps.
-    if capped {
+    if bottom_spacer_height > 0.0 {
         data_rows.push(
-            container(
-                text(format!(
-                    "Showing {} of {} rows — use the filter to narrow down.",
-                    MAX_VISIBLE_ROWS, total_visible
-                ))
-                .size(11)
-                .style(style::subtle_text),
-            )
-            .width(Length::Fill)
-            .padding([4, 12])
-            .into(),
+            iced::widget::Space::new()
+                .width(Length::Fill)
+                .height(Length::Fixed(bottom_spacer_height))
+                .into(),
         );
     }
 
