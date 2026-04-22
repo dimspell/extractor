@@ -52,6 +52,7 @@ macro_rules! handle_spreadsheet_messages {
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
+                        $app.state.$spreadsheet.selected_row = Some(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         return iced::widget::operation::scroll_to(
@@ -71,6 +72,7 @@ macro_rules! handle_spreadsheet_messages {
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
+                        $app.state.$spreadsheet.selected_row = Some(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         return iced::widget::operation::scroll_to(
@@ -393,6 +395,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 if let Some(fidx) =
                                     ss.filtered_indices.iter().position(|&i| i == orig_idx)
                                 {
+                                    ss.selected_row = Some(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     return iced::widget::operation::scroll_to(
@@ -408,6 +411,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 if let Some(fidx) =
                                     ss.filtered_indices.iter().position(|&i| i == orig_idx)
                                 {
+                                    ss.selected_row = Some(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     return iced::widget::operation::scroll_to(
