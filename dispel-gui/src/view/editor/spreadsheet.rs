@@ -913,30 +913,29 @@ fn build_filter_bar<'a, R: EditableRecord>(
     };
 
     // Column quick-filter pick_list (visible only when a column filter menu is open).
-    let col_filter_area: Element<Message> =
-        if let Some(col) = spreadsheet.active_column_filter {
-            let options = spreadsheet.column_filter_options.clone();
-            let current = spreadsheet.column_filters.get(&col).cloned();
-            let col_filter_pick = pick_list(options, current, move |val| {
-                spreadsheet_msg(SpreadsheetMessage::ApplyColumnFilter(col, val))
-            })
-            .placeholder("Pick value…")
-            .width(Length::Fixed(160.0));
-            let close_btn = button(text("✕").size(11))
-                .padding([2, 6])
-                .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
-                .style(style::browse_button);
-            row![
-                text("Col filter:").size(11).style(style::subtle_text),
-                col_filter_pick,
-                close_btn,
-            ]
-            .spacing(4)
-            .align_y(iced::Alignment::Center)
-            .into()
-        } else {
-            horizontal_space().width(Length::Fixed(0.0)).into()
-        };
+    let col_filter_area: Element<Message> = if let Some(col) = spreadsheet.active_column_filter {
+        let options = spreadsheet.column_filter_options.clone();
+        let current = spreadsheet.column_filters.get(&col).cloned();
+        let col_filter_pick = pick_list(options, current, move |val| {
+            spreadsheet_msg(SpreadsheetMessage::ApplyColumnFilter(col, val))
+        })
+        .placeholder("Pick value…")
+        .width(Length::Fixed(160.0));
+        let close_btn = button(text("✕").size(11))
+            .padding([2, 6])
+            .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
+            .style(style::browse_button);
+        row![
+            text("Col filter:").size(11).style(style::subtle_text),
+            col_filter_pick,
+            close_btn,
+        ]
+        .spacing(4)
+        .align_y(iced::Alignment::Center)
+        .into()
+    } else {
+        horizontal_space().width(Length::Fixed(0.0)).into()
+    };
 
     row![
         text("Filter:").size(12).style(style::subtle_text),
@@ -1089,7 +1088,9 @@ fn build_table_content<'a, R: EditableRecord>(
                 is_current_highlight,
             );
             let id_cell: Element<Message> = container(
-                text(format!("{}", orig_idx + 1)).size(10).font(Font::MONOSPACE),
+                text(format!("{}", orig_idx + 1))
+                    .size(10)
+                    .font(Font::MONOSPACE),
             )
             .width(ID_COL_WIDTH)
             .padding([0, 6])
@@ -1172,7 +1173,9 @@ fn build_table_content<'a, R: EditableRecord>(
                         is_current_highlight,
                     );
                     let id_cell: Element<'static, Message> = container(
-                        text(format!("{}", orig_idx + 1)).size(10).font(Font::MONOSPACE),
+                        text(format!("{}", orig_idx + 1))
+                            .size(10)
+                            .font(Font::MONOSPACE),
                     )
                     .width(ID_COL_WIDTH)
                     .padding([0, 6])
@@ -1193,10 +1196,7 @@ fn build_table_content<'a, R: EditableRecord>(
 
                         let char_budget = ((col_width / 7.0) as usize).max(4);
                         let display: String = if value.chars().count() > char_budget {
-                            format!(
-                                "{}…",
-                                value.chars().take(char_budget).collect::<String>()
-                            )
+                            format!("{}…", value.chars().take(char_budget).collect::<String>())
                         } else {
                             value.clone()
                         };

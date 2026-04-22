@@ -354,29 +354,19 @@ impl App {
                 Message::monster_ref(monsterref::MonsterRefEditorMessage::Spreadsheet(sm))
             }
             PartyRefEditor => Message::party_ref(partyref::PartyRefEditorMessage::Spreadsheet(sm)),
-            PartyIniEditor => {
-                Message::party_ini(partyini::PartyIniEditorMessage::Spreadsheet(sm))
-            }
+            PartyIniEditor => Message::party_ini(partyini::PartyIniEditorMessage::Spreadsheet(sm)),
             AllMapIniEditor => {
                 Message::all_map_ini(allmapini::AllMapIniEditorMessage::Spreadsheet(sm))
             }
             MapIniEditor => Message::map_ini(mapini::MapIniEditorMessage::Spreadsheet(sm)),
-            ExtraIniEditor => {
-                Message::extra_ini(extraini::ExtraIniEditorMessage::Spreadsheet(sm))
-            }
-            ExtraRefEditor => {
-                Message::extra_ref(extraref::ExtraRefEditorMessage::Spreadsheet(sm))
-            }
-            EventIniEditor => {
-                Message::event_ini(eventini::EventIniEditorMessage::Spreadsheet(sm))
-            }
+            ExtraIniEditor => Message::extra_ini(extraini::ExtraIniEditorMessage::Spreadsheet(sm)),
+            ExtraRefEditor => Message::extra_ref(extraref::ExtraRefEditorMessage::Spreadsheet(sm)),
+            EventIniEditor => Message::event_ini(eventini::EventIniEditorMessage::Spreadsheet(sm)),
             EventNpcRefEditor => {
                 Message::event_npc_ref(eventnpcref::EventNpcRefEditorMessage::Spreadsheet(sm))
             }
             WaveIniEditor => Message::wave_ini(waveini::WaveIniEditorMessage::Spreadsheet(sm)),
-            DrawItemEditor => {
-                Message::draw_item(drawitem::DrawItemEditorMessage::Spreadsheet(sm))
-            }
+            DrawItemEditor => Message::draw_item(drawitem::DrawItemEditorMessage::Spreadsheet(sm)),
             MessageScrEditor => {
                 Message::message_scr(messagescr::MessageScrEditorMessage::Spreadsheet(sm))
             }
@@ -509,31 +499,26 @@ impl App {
                 if build_spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
                     // Pass `et` via `.with()` so the closure itself is zero-sized
                     // (iced 0.14 requires filter_map closures to be non-capturing).
-                    let ss_sub = keyboard::listen()
-                        .with(et)
-                        .filter_map(|(et, event)| {
-                            if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
-                                if modifiers.control()
-                                    || modifiers.command()
-                                    || modifiers.shift()
-                                {
-                                    return None;
-                                }
-                                if let Key::Named(named) = key.as_ref() {
-                                    use crate::view::editor::SpreadsheetMessage as SM;
-                                    let sm = match named {
-                                        Named::ArrowUp => SM::NavigateUp,
-                                        Named::ArrowDown => SM::NavigateDown,
-                                        Named::Home => SM::NavigateTop,
-                                        Named::End => SM::NavigateBottom,
-                                        Named::Escape => SM::CancelEdit,
-                                        _ => return None,
-                                    };
-                                    return build_spreadsheet_nav_msg(et, sm);
-                                }
+                    let ss_sub = keyboard::listen().with(et).filter_map(|(et, event)| {
+                        if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                            if modifiers.control() || modifiers.command() || modifiers.shift() {
+                                return None;
                             }
-                            None
-                        });
+                            if let Key::Named(named) = key.as_ref() {
+                                use crate::view::editor::SpreadsheetMessage as SM;
+                                let sm = match named {
+                                    Named::ArrowUp => SM::NavigateUp,
+                                    Named::ArrowDown => SM::NavigateDown,
+                                    Named::Home => SM::NavigateTop,
+                                    Named::End => SM::NavigateBottom,
+                                    Named::Escape => SM::CancelEdit,
+                                    _ => return None,
+                                };
+                                return build_spreadsheet_nav_msg(et, sm);
+                            }
+                        }
+                        None
+                    });
                     subscriptions.push(ss_sub);
                 }
             }
@@ -1194,9 +1179,7 @@ fn build_spreadsheet_nav_msg(
         HealItemEditor => Message::heal_item(healitem::HealItemEditorMessage::Spreadsheet(sm)),
         MiscItemEditor => Message::misc_item(miscitem::MiscItemEditorMessage::Spreadsheet(sm)),
         EditItemEditor => Message::edit_item(edititem::EditItemEditorMessage::Spreadsheet(sm)),
-        EventItemEditor => {
-            Message::event_item(eventitem::EventItemEditorMessage::Spreadsheet(sm))
-        }
+        EventItemEditor => Message::event_item(eventitem::EventItemEditorMessage::Spreadsheet(sm)),
         MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
         StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
         NpcIniEditor => Message::npc_ini(npcini::NpcIniEditorMessage::Spreadsheet(sm)),
@@ -1206,9 +1189,7 @@ fn build_spreadsheet_nav_msg(
         }
         PartyRefEditor => Message::party_ref(partyref::PartyRefEditorMessage::Spreadsheet(sm)),
         PartyIniEditor => Message::party_ini(partyini::PartyIniEditorMessage::Spreadsheet(sm)),
-        AllMapIniEditor => {
-            Message::all_map_ini(allmapini::AllMapIniEditorMessage::Spreadsheet(sm))
-        }
+        AllMapIniEditor => Message::all_map_ini(allmapini::AllMapIniEditorMessage::Spreadsheet(sm)),
         MapIniEditor => Message::map_ini(mapini::MapIniEditorMessage::Spreadsheet(sm)),
         ExtraIniEditor => Message::extra_ini(extraini::ExtraIniEditorMessage::Spreadsheet(sm)),
         ExtraRefEditor => Message::extra_ref(extraref::ExtraRefEditorMessage::Spreadsheet(sm)),

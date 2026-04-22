@@ -208,7 +208,8 @@ macro_rules! handle_spreadsheet_messages {
                 // Populate textarea contents now that the inspector is becoming visible.
                 if $app.state.$spreadsheet.show_inspector {
                     if let Some(fidx) = $app.state.$spreadsheet.selected_row {
-                        if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                        if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx)
+                        {
                             $app.state.$spreadsheet.inspector_textarea_contents = $app
                                 .state
                                 .$editor
@@ -537,8 +538,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             if ss.active_column_filter == Some(col) {
                                 ss.active_column_filter = None;
                             } else {
-                                ss.column_filter_options =
-                                    ed.editor.unique_values_for_column(col);
+                                ss.column_filter_options = ed.editor.unique_values_for_column(col);
                                 ss.active_column_filter = Some(col);
                             }
                         }

@@ -58,11 +58,9 @@ pub fn handle(message: EditItemEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        EditItemEditorMessage::ScanItems => {
-            Task::done(crate::message::Message::edit_item(
-                EditItemEditorMessage::LoadCatalog,
-            ))
-        }
+        EditItemEditorMessage::ScanItems => Task::done(crate::message::Message::edit_item(
+            EditItemEditorMessage::LoadCatalog,
+        )),
         EditItemEditorMessage::SelectItem(index) => {
             // Select edit item at index
             app.state.edit_item_editor.select(index);
