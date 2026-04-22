@@ -28,6 +28,17 @@ use iced::{Element, Fill, Font, Length};
 use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
+/// Hard cap on simultaneously-rendered rows. Prevents two classes of problems:
+///
+/// 1. Filter-typing lag: when the query matches many rows, rebuilding all of
+///    them on every keystroke makes the UI feel unresponsive.
+/// 2. cosmic-text glyph-cache overflow: the atlas is a fixed-size buffer; with
+///    thousands of text widgets in flight simultaneously it can panic (u16/u32
+///    arithmetic overflow in `glyph_cache.rs`).
+///
+/// Users can narrow the view with the filter bar, so a cap of 500 rows is a
+/// reasonable trade-off — it comfortably covers one full dataset in practice.
+const MAX_VISIBLE_ROWS: usize = 500;
 const ID_COL_WIDTH_PX: f32 = 42.0;
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
@@ -268,21 +279,19 @@ impl SpreadsheetState {
         }
     }
 
-    /// Returns `true` if any rendered field (label, value, or lookup-resolved
-    /// display value) contains the lower-cased `query`.
-    ///
-    /// Note: lookups aren't resolved here because applying the filter should
-    /// stay synchronous and not require the `lookups` map. We match against
-    /// the stored ID — individual editors that want label-matching can
-    /// override by providing a richer `list_label_with_lookups`.
+    /// Returns `true` if any field or list label contains `query_lower`
+    /// (case-insensitive ASCII comparison, zero allocations for ASCII data).
     fn record_matches<R: EditableRecord>(record: &R, query_lower: &str) -> bool {
+        if query_lower.is_empty() {
+            return true;
+        }
         for desc in R::field_descriptors() {
             let value = record.get_field(desc.name);
-            if value.to_lowercase().contains(query_lower) {
+            if contains_ignore_ascii_case(&value, query_lower) {
                 return true;
             }
         }
-        record.list_label().to_lowercase().contains(query_lower)
+        contains_ignore_ascii_case(&record.list_label(), query_lower)
     }
 
     /// Clear the text query but keep any active column filters.
@@ -718,6 +727,27 @@ pub enum SpreadsheetMessage {
     TextAreaChanged(usize, String, text_editor::Action),
 }
 
+/// Allocation-free case-insensitive substring search for pure-ASCII content.
+/// Falls back to a `to_lowercase` allocation for non-ASCII haystacks.
+fn contains_ignore_ascii_case(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    let hb = haystack.as_bytes();
+    let nb = needle_lower.as_bytes();
+    if hb.len() < nb.len() {
+        return false;
+    }
+    // Fast path: all characters are ASCII — no allocation.
+    if haystack.is_ascii() {
+        return hb
+            .windows(nb.len())
+            .any(|w| w.iter().zip(nb).all(|(&h, &n)| h.to_ascii_lowercase() == n));
+    }
+    // Slow path: Unicode — fall back to allocating a lowercase copy.
+    haystack.to_lowercase().contains(needle_lower)
+}
+
 // ===========================================================================
 // View
 // ===========================================================================
@@ -1026,10 +1056,18 @@ fn build_table_content<'a, R: EditableRecord>(
     let highlight_set: std::collections::HashSet<usize> =
         spreadsheet.highlighted_indices.iter().copied().collect();
 
-    let mut data_rows: Vec<Element<Message>> =
-        Vec::with_capacity(spreadsheet.filtered_indices.len());
+    let total_visible = spreadsheet.filtered_indices.len();
+    let capped = total_visible > MAX_VISIBLE_ROWS;
+    let render_count = total_visible.min(MAX_VISIBLE_ROWS);
 
-    for (filtered_idx, &orig_idx) in spreadsheet.filtered_indices.iter().enumerate() {
+    let mut data_rows: Vec<Element<Message>> = Vec::with_capacity(render_count + 1);
+
+    for (filtered_idx, &orig_idx) in spreadsheet
+        .filtered_indices
+        .iter()
+        .enumerate()
+        .take(render_count)
+    {
         let Some(record) = catalog.get(orig_idx) else {
             continue;
         };
@@ -1200,6 +1238,24 @@ fn build_table_content<'a, R: EditableRecord>(
                 .into(),
             );
         }
+    }
+
+    // Overflow notice — shown when the row cap is active so the user knows
+    // the table is intentionally truncated and that filtering helps.
+    if capped {
+        data_rows.push(
+            container(
+                text(format!(
+                    "Showing {} of {} rows — use the filter to narrow down.",
+                    MAX_VISIBLE_ROWS, total_visible
+                ))
+                .size(11)
+                .style(style::subtle_text),
+            )
+            .width(Length::Fill)
+            .padding([4, 12])
+            .into(),
+        );
     }
 
     // ── Sticky header ─────────────────────────────────────────────────────
