@@ -197,7 +197,8 @@ impl Extractor for Monster {
             let mut buffer = [0u8; 24];
             reader.read_exact(&mut buffer)?;
             let dst = EUC_KR.decode(&buffer);
-            let name = dst.0.trim_end_matches("\0").trim();
+            let stripped: String = dst.0.chars().filter(|&c| c != '\0').collect();
+            let name = stripped.trim();
 
             let health_points_max = reader.read_i32::<LittleEndian>()?;
             let health_points_min = reader.read_i32::<LittleEndian>()?;

@@ -98,7 +98,8 @@ impl Extractor for MiscItem {
             let mut buffer = [0u8; 202];
             reader.read_exact(&mut buffer)?;
             let dst = EUC_KR.decode(&buffer);
-            let description = dst.0.trim_end_matches("\0").trim();
+            let stripped: String = dst.0.chars().filter(|&c| c != '\0').collect();
+            let description = stripped.trim();
 
             let base_price = reader.read_i32::<LittleEndian>()?;
 
