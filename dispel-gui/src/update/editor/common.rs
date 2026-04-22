@@ -86,10 +86,6 @@ macro_rules! handle_spreadsheet_messages {
                             .state
                             .$editor
                             .make_inspector_textarea_contents(orig_idx);
-                        if !$app.state.$spreadsheet.show_inspector {
-                            $app.state.$spreadsheet.show_inspector = true;
-                            $app.state.$spreadsheet.ensure_inspector_pane();
-                        }
                     }
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
@@ -106,10 +102,6 @@ macro_rules! handle_spreadsheet_messages {
                             .state
                             .$editor
                             .make_inspector_textarea_contents(orig_idx);
-                        if !$app.state.$spreadsheet.show_inspector {
-                            $app.state.$spreadsheet.show_inspector = true;
-                            $app.state.$spreadsheet.ensure_inspector_pane();
-                        }
                     }
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
@@ -152,20 +144,19 @@ macro_rules! handle_spreadsheet_messages {
             }
             SM::SelectRow(filtered_idx) => {
                 $app.state.$spreadsheet.select_row(filtered_idx);
-                // Initialise textarea contents for the newly-selected record.
+                // Update inspector textarea contents for the selected record if the
+                // inspector is already visible; don't auto-open it (user uses the
+                // Inspector button) to avoid pane-restructuring lag on first click.
                 if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(filtered_idx)
                 {
-                    $app.state.$spreadsheet.inspector_textarea_contents = $app
-                        .state
-                        .$editor
-                        .make_inspector_textarea_contents(orig_idx);
+                    if $app.state.$spreadsheet.show_inspector {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
+                    }
                 } else {
                     $app.state.$spreadsheet.inspector_textarea_contents.clear();
-                }
-                // Show inspector on first row click
-                if !$app.state.$spreadsheet.show_inspector {
-                    $app.state.$spreadsheet.show_inspector = true;
-                    $app.state.$spreadsheet.ensure_inspector_pane();
                 }
             }
             SM::TextAreaChanged(orig_idx, field, action) => {
@@ -204,11 +195,27 @@ macro_rules! handle_spreadsheet_messages {
                 }
             }
             SM::CancelEdit => {
-                $app.state.$spreadsheet.cancel_editing();
+                // ESC doubles as a resize-cancel when a column drag is in progress.
+                if $app.state.$spreadsheet.resizing_column.is_some() {
+                    $app.state.$spreadsheet.end_column_resize();
+                } else {
+                    $app.state.$spreadsheet.cancel_editing();
+                }
             }
             SM::ToggleInspector => {
                 $app.state.$spreadsheet.toggle_inspector();
                 $app.state.$spreadsheet.ensure_inspector_pane();
+                // Populate textarea contents now that the inspector is becoming visible.
+                if $app.state.$spreadsheet.show_inspector {
+                    if let Some(fidx) = $app.state.$spreadsheet.selected_row {
+                        if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
+                            $app.state.$spreadsheet.inspector_textarea_contents = $app
+                                .state
+                                .$editor
+                                .make_inspector_textarea_contents(orig_idx);
+                        }
+                    }
+                }
             }
             SM::CloseInspector => {
                 $app.state.$spreadsheet.show_inspector = false;
@@ -441,14 +448,12 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::SelectRow(filtered_idx) => {
                             ss.select_row(filtered_idx);
                             if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
-                                ss.inspector_textarea_contents =
-                                    ed.editor.make_inspector_textarea_contents(orig_idx);
+                                if ss.show_inspector {
+                                    ss.inspector_textarea_contents =
+                                        ed.editor.make_inspector_textarea_contents(orig_idx);
+                                }
                             } else {
                                 ss.inspector_textarea_contents.clear();
-                            }
-                            if !ss.show_inspector {
-                                ss.show_inspector = true;
-                                ss.ensure_inspector_pane();
                             }
                         }
                         SM::TextAreaChanged(orig_idx, field, action) => {
@@ -466,7 +471,13 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         }
                         SM::EditCellInput(v) => ss.edit_buffer = v,
-                        SM::CancelEdit => ss.cancel_editing(),
+                        SM::CancelEdit => {
+                            if ss.resizing_column.is_some() {
+                                ss.end_column_resize();
+                            } else {
+                                ss.cancel_editing();
+                            }
+                        }
                         SM::ToggleInspector => {
                             ss.toggle_inspector();
                             ss.ensure_inspector_pane();
