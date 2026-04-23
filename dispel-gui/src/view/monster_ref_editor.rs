@@ -32,7 +32,9 @@ impl App {
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
-            Message::monster_ref(MonsterRefEditorMessage::LoadMonsterNames),
+            Message::monster_ref(MonsterRefEditorMessage::LoadCatalog(
+                editor.current_file.clone().unwrap_or_default(),
+            )),
             Message::monster_ref(MonsterRefEditorMessage::Save),
             |idx| Message::monster_ref(MonsterRefEditorMessage::SelectEntry(idx)),
             |idx, field, val| {

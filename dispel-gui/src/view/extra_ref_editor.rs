@@ -32,7 +32,9 @@ impl App {
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
-            Message::extra_ref(ExtraRefEditorMessage::Save),
+            Message::extra_ref(ExtraRefEditorMessage::LoadCatalog(
+                editor.current_file.clone().unwrap_or_default(),
+            )),
             Message::extra_ref(ExtraRefEditorMessage::Save),
             |idx| Message::extra_ref(ExtraRefEditorMessage::Select(idx)),
             |idx, field, val| {

@@ -32,7 +32,9 @@ impl App {
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
-            Message::npc_ref(NpcRefEditorMessage::LoadCatalog),
+            Message::npc_ref(NpcRefEditorMessage::LoadCatalog(
+                editor.current_file.clone().unwrap_or_default(),
+            )),
             Message::npc_ref(NpcRefEditorMessage::Save),
             |idx| Message::npc_ref(NpcRefEditorMessage::Select(idx)),
             |idx, field, val| Message::npc_ref(NpcRefEditorMessage::FieldChanged(idx, field, val)),

@@ -8,6 +8,7 @@ pub enum MonsterRefEditorMessage {
     PaneResized(iced::widget::pane_grid::ResizeEvent),
     PaneClicked(iced::widget::pane_grid::Pane),
     Save,
+    LoadCatalog(std::path::PathBuf),
     LoadMonsterNames,
     MonsterNamesLoaded(Result<Vec<(String, String)>, String>),
 }

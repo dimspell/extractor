@@ -1,6 +1,6 @@
 #[derive(Debug, Clone)]
 pub enum NpcRefEditorMessage {
-    LoadCatalog,
+    LoadCatalog(std::path::PathBuf),
     NpcNamesLoaded(Result<Vec<(String, String)>, String>),
     Select(usize),
     AddEntry,

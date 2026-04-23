@@ -53,6 +53,41 @@ pub fn handle(message: MonsterRefEditorMessage, app: &mut App) -> Task<crate::me
             }
             Task::none()
         }
+        MonsterRefEditorMessage::LoadCatalog(path) => {
+            let tab_id = app
+                .state
+                .workspace
+                .active()
+                .map(|t| t.id)
+                .unwrap_or(usize::MAX);
+
+            let mut editor_state =
+                crate::state::monster_ref_editor::MonsterRefEditorState::default();
+            editor_state.current_file = Some(path.clone());
+
+            // Load catalog first
+            editor_state.select_file(path.clone());
+
+            // Initialize spreadsheet state with the loaded catalog
+            let mut ss = crate::view::editor::SpreadsheetState::new();
+            if let Some(catalog) = editor_state.editor.catalog.as_ref() {
+                ss.apply_filter(catalog);
+                ss.compute_all_caches(catalog);
+                ss.init_pane_state();
+            }
+
+            app.state.monster_ref_editors.insert(tab_id, editor_state);
+            app.state.monster_ref_spreadsheets.insert(tab_id, ss);
+
+            // Load monster names
+            if !app.state.lookups.contains_key("monster_names") {
+                return Task::done(crate::message::Message::monster_ref(
+                    MonsterRefEditorMessage::LoadMonsterNames,
+                ));
+            }
+
+            Task::none()
+        }
         MonsterRefEditorMessage::LoadMonsterNames => {
             if app.state.shared_game_path.is_empty() {
                 return Task::none();

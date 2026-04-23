@@ -5,6 +5,7 @@ use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
 use crate::message::editor::npc_ref::NpcRefEditorMessage;
 use crate::message::MessageExt;
+use dispel_core::Extractor;
 use iced::Task;
 
 pub fn handle(message: NpcRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {
@@ -84,7 +85,55 @@ pub fn handle(message: NpcRefEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        NpcRefEditorMessage::LoadCatalog => Task::none(),
+        NpcRefEditorMessage::LoadCatalog(path) => {
+            let tab_id = app
+                .state
+                .workspace
+                .active()
+                .map(|t| t.id)
+                .unwrap_or(usize::MAX);
+
+            let mut editor_state = crate::state::npc_ref_editor::NpcRefEditorState::default();
+            editor_state.current_file = Some(path.clone());
+
+            // Load catalog first
+            editor_state.select_file(path.clone());
+
+            // Initialize spreadsheet state with the loaded catalog
+            let mut ss = crate::view::editor::SpreadsheetState::new();
+            if let Some(catalog) = editor_state.editor.catalog.as_ref() {
+                ss.apply_filter(catalog);
+                ss.compute_all_caches(catalog);
+                ss.init_pane_state();
+            }
+
+            app.state.npc_ref_editors.insert(tab_id, editor_state);
+            app.state.npc_ref_spreadsheets.insert(tab_id, ss);
+
+            // Load NPC names
+            if !app.state.lookups.contains_key("NPC") {
+                let game_path = app.state.shared_game_path.clone();
+                return Task::perform(
+                    async move {
+                        let path = std::path::PathBuf::from(&game_path).join("Npc.ini");
+                        dispel_core::NpcIni::read_file(&path)
+                            .map(|npcs| {
+                                npcs.iter()
+                                    .map(|n| (n.id.to_string(), n.description.clone()))
+                                    .collect()
+                            })
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    move |result| {
+                        crate::message::Message::npc_ref(NpcRefEditorMessage::NpcNamesLoaded(
+                            result,
+                        ))
+                    },
+                );
+            }
+
+            Task::none()
+        }
         NpcRefEditorMessage::NpcNamesLoaded(result) => {
             if let Ok(names) = result {
                 if let Some(_editor) = app.state.npc_ref_editors.get_mut(&tab_id) {

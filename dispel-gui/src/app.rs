@@ -591,90 +591,28 @@ impl App {
                     "wave" => return self.load_editor_auto("wave_ini"),
                     _ => {}
                 },
-                "ref" => match stem.as_str() {
-                    "partyref" => return self.load_editor_auto("party_ref"),
-                    "drawitem" => return self.load_editor_auto("draw_items"),
-                    "eventnpc" => return self.load_editor_auto("event_npc_ref"),
-                    _ => {
-                        if stem.starts_with("npc") {
-                            if let Some(tab_idx) = self.state.workspace.active_tab {
-                                if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                                    let tab_id = tab.id;
-                                    let mut editor_state =
-                                        crate::state::npc_ref_editor::NpcRefEditorState::default();
-                                    editor_state.select_file(path.to_path_buf());
-
-                                    // Initialize spreadsheet state
-                                    let mut ss = crate::view::editor::SpreadsheetState::new();
-                                    if let Some(catalog) = editor_state.editor.catalog.as_ref() {
-                                        ss.apply_filter(catalog);
-                                        ss.init_pane_state();
-                                    }
-
-                                    self.state.npc_ref_editors.insert(tab_id, editor_state);
-                                    self.state.npc_ref_spreadsheets.insert(tab_id, ss);
-                                }
-                            }
-                        } else if stem.starts_with("mon") {
-                            if let Some(tab_idx) = self.state.workspace.active_tab {
-                                if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                                    let tab_id = tab.id;
-                                    let mut editor_state =
-                                        crate::state::monster_ref_editor::MonsterRefEditorState::default();
-                                    editor_state.select_file(path.to_path_buf());
-
-                                    // Initialize spreadsheet state
-                                    let mut ss = crate::view::editor::SpreadsheetState::new();
-                                    if let Some(catalog) = editor_state.editor.catalog.as_ref() {
-                                        ss.apply_filter(catalog);
-                                        ss.init_pane_state();
-                                    }
-
-                                    self.state.monster_ref_editors.insert(tab_id, editor_state);
-                                    self.state.monster_ref_spreadsheets.insert(tab_id, ss);
-                                    if !self.state.lookups.contains_key("monster_names") {
-                                        return Task::done(crate::message::Message::monster_ref(
-                                            crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadMonsterNames,
-                                        ));
-                                    }
-                                }
-                            }
-                        } else if stem.starts_with("ext") {
-                            if let Some(tab_idx) = self.state.workspace.active_tab {
-                                if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                                    let tab_id = tab.id;
-                                    let mut editor_state =
-                                        crate::state::extra_ref_editor::ExtraRefEditorState::default();
-                                    editor_state.select_file(path.to_path_buf());
-
-                                    // Initialize spreadsheet state
-                                    let mut ss = crate::view::editor::SpreadsheetState::new();
-                                    if let Some(catalog) = editor_state.editor.catalog.as_ref() {
-                                        ss.apply_filter(catalog);
-                                        ss.init_pane_state();
-                                    }
-
-                                    self.state.extra_ref_editors.insert(tab_id, editor_state);
-                                    self.state.extra_ref_spreadsheets.insert(tab_id, ss);
-                                    let path_buf = path.to_path_buf();
-                                    return Task::perform(
-                                        async move {
-                                            dispel_core::ExtraRef::read_file(&path_buf)
-                                                .map_err(|e: std::io::Error| e.to_string())
-                                        },
-                                        move |result| {
-                                            crate::message::Message::Editor(
-                                                crate::message::editor::EditorMessage::ExtraRef(
-                                                    crate::message::editor::extra_ref::ExtraRefEditorMessage::CatalogLoaded(tab_id, result),
-                                                ),
-                                            )
-                                        },
-                                    );
-                                }
+                "ref" => {
+                    match stem.as_str() {
+                        "partyref" => return self.load_editor_auto("party_ref"),
+                        "drawitem" => return self.load_editor_auto("draw_items"),
+                        "eventnpc" => return self.load_editor_auto("event_npc_ref"),
+                        _ => {
+                            if stem.starts_with("npc") {
+                                return Task::done(crate::message::Message::npc_ref(
+                                crate::message::editor::npc_ref::NpcRefEditorMessage::LoadCatalog(path.to_path_buf()),
+                            ));
+                            } else if stem.starts_with("mon") {
+                                return Task::done(crate::message::Message::monster_ref(
+                                crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadCatalog(path.to_path_buf()),
+                            ));
+                            } else if stem.starts_with("ext") {
+                                return Task::done(crate::message::Message::extra_ref(
+                                crate::message::editor::extra_ref::ExtraRefEditorMessage::LoadCatalog(path.to_path_buf()),
+                            ));
                             }
                         }
                     }
-                },
+                }
                 "scr" => match stem.as_str() {
                     "quest" => return self.load_editor_auto("quests"),
                     "message" => return self.load_editor_auto("messages"),
