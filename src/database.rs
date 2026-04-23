@@ -17,8 +17,12 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "dialogs",
         "draw_items",
         "edit_items",
+        "event_actions",
         "event_items",
         "event_npc_refs",
+        "event_scripts",
+        "event_sprites",
+        "event_variables",
         "events",
         "extra_refs",
         "extras",
@@ -84,6 +88,10 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_magic_spells.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_quests.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_event_scripts.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_event_variables.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_event_sprites.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_event_actions.sql"))?;
 
     Ok(())
 }

@@ -50,7 +50,7 @@ use crate::references::extractor::Extractor;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DrawItem {
-    /// Target map for placement.
+    /// Target map for placement (a reference to the AllMap.ini).
     pub map_id: i32,
     /// Tile X coordinate.
     pub x_coord: i32,

@@ -81,11 +81,12 @@ fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
     let mut conn = Connection::open(db_path)?;
     initialize_database(&conn)?;
 
-    import_maps(game_path, &mut conn)?;
     import_refs(game_path, &mut conn)?;
     import_rest(game_path, &mut conn)?;
     import_dialog_texts(game_path, &mut conn)?;
     import_databases(game_path, &mut conn)?;
+    import_event_scripts(game_path, &mut conn)?;
+    import_maps(game_path, &mut conn)?;
 
     let _ = conn.close();
     Ok(())
@@ -427,6 +428,32 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
         let extra_refs =
             dispel_core::references::extra_ref::read_extra_ref(&main_path.join(extra_ref_file))?;
         save_extra_refs(conn, extra_ref_file, &extra_refs)?;
+    }
+    Ok(())
+}
+
+fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+    println!("Saving event_scripts...");
+    // Find all event script files in Ref directory
+    let ref_dir = main_path.join("Ref");
+    if ref_dir.exists() {
+        let mut event_files = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(&ref_dir) {
+            for entry in entries.flatten() {
+                if let Some(path) = entry.path().to_str() {
+                    if (path.contains("Event") || path.contains("event"))
+                        && (path.ends_with(".scr") || path.ends_with(".SCR"))
+                    {
+                        event_files.push(entry.path());
+                    }
+                }
+            }
+        }
+
+        for event_file in event_files {
+            let scripts = dispel_core::references::event_scr::read_event_scripts(&event_file)?;
+            dispel_core::save_event_scripts(conn, &scripts)?;
+        }
     }
     Ok(())
 }

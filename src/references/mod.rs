@@ -73,6 +73,7 @@ pub mod enums;
 pub mod event_ini;
 pub mod event_item_db;
 pub mod event_npc_ref;
+pub mod event_scr;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod extractor;

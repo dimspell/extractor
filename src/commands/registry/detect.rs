@@ -40,6 +40,7 @@ pub static FILE_TYPES: LazyLock<Vec<FileType>> = LazyLock::new(|| {
         // SCR types
         entries::make_quest(),
         entries::make_message(),
+        entries::make_event_scr(),
         // Map types (extract only, no patch)
         entries::make_map_file(),
         entries::make_gtl(),

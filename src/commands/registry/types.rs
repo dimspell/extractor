@@ -13,6 +13,8 @@ pub(crate) enum DetectKind {
     RefPrefix(&'static str),
     /// Match by known SCR filename (case-insensitive).
     Scr(&'static str),
+    /// Match by known SCR filename prefix (case-insensitive).
+    ScrPrefix(&'static str),
     /// Match by known DLG filename prefix (case-insensitive).
     DlgPrefix(&'static str),
     /// Match by known PGP filename prefix (case-insensitive).
@@ -59,6 +61,7 @@ impl FileType {
             DetectKind::Db(names) => detect_db_filename(path, names),
             DetectKind::RefPrefix(prefix) => detect_filename_prefix(path, prefix),
             DetectKind::Scr(name) => detect_filename(path, name),
+            DetectKind::ScrPrefix(prefix) => detect_filename_prefix(path, prefix),
             DetectKind::DlgPrefix(prefix) => detect_filename_prefix(path, prefix),
             DetectKind::PgpPrefix(prefix) => detect_filename_prefix(path, prefix),
         }

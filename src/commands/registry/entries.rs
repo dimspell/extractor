@@ -367,6 +367,19 @@ pub(crate) fn make_message() -> FileType {
     }
 }
 
+pub(crate) fn make_event_scr() -> FileType {
+    FileType {
+        key: "event_scr",
+        name: "Event*.scr",
+        description: "Event script files",
+        extensions: &[".scr"],
+        detect_kind: DetectKind::ScrPrefix("Event"),
+        extract_fn: extract_as::<dispel_core::references::event_scr::EventScript>,
+        patch_fn: patch_as::<dispel_core::references::event_scr::EventScript>,
+        validate_fn: None,
+    }
+}
+
 pub(crate) fn make_map_file() -> FileType {
     FileType {
         key: "map_file",

@@ -109,6 +109,9 @@ impl Extractor for MiscItem {
                 buffer
             };
 
+            // let string: String = padding.;
+            // println!("{:?}, {}", padding);
+
             items.push(MiscItem {
                 id: i,
                 base_price,

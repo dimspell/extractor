@@ -21,6 +21,8 @@ pub use references::{
     event_ini::Event,
     event_item_db::EventItem,
     event_npc_ref::EventNpcRef,
+    event_scr::save_event_scripts,
+    event_scr::EventScript,
     extra_ini::Extra,
     extra_ref::ExtraRef,
     extractor::Extractor,
