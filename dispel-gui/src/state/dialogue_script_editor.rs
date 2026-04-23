@@ -1,15 +1,15 @@
 use crate::edit_history::EditHistory;
 use crate::generic_editor::{GenericEditorState, UndoRedo};
-use dispel_core::Dialog;
+use dispel_core::DialogueScript;
 use dispel_core::Extractor;
 
 #[derive(Debug, Clone, Default)]
-pub struct DialogEditorState {
-    pub editor: GenericEditorState<Dialog>,
+pub struct DialogueScriptEditorState {
+    pub editor: GenericEditorState<DialogueScript>,
     pub current_file: String,
 }
 
-impl UndoRedo for DialogEditorState {
+impl UndoRedo for DialogueScriptEditorState {
     fn undo(&mut self) -> Option<String> {
         self.editor.undo()
     }
@@ -31,7 +31,7 @@ impl UndoRedo for DialogEditorState {
     }
 }
 
-impl DialogEditorState {
+impl DialogueScriptEditorState {
     pub fn refresh_dialogs(&mut self) {
         self.editor.refresh();
     }
@@ -50,7 +50,8 @@ impl DialogEditorState {
         }
         if let Some(catalog) = &self.editor.catalog {
             let path = std::path::PathBuf::from(&self.current_file);
-            Dialog::save_file(catalog, &path).map_err(|e| format!("Failed to save dialogs: {}", e))
+            DialogueScript::save_file(catalog, &path)
+                .map_err(|e| format!("Failed to save dialogue scripts: {}", e))
         } else {
             Err("No catalog loaded".to_string())
         }

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::monster::MonsterEditorMessage;
+use crate::message::editor::monster_db::MonsterEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, Monster};
 use iced::Task;
@@ -29,7 +29,7 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
                         .map_err(|e: std::io::Error| e.to_string())
                 },
                 |result: Result<Vec<dispel_core::Monster>, String>| {
-                    crate::message::Message::monster(MonsterEditorMessage::CatalogLoaded(result))
+                    crate::message::Message::monster_db(MonsterEditorMessage::CatalogLoaded(result))
                 },
             )
         }
@@ -99,7 +99,7 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
 
             // Simulate async save operation
             Task::perform(async { result }, |result: Result<(), String>| {
-                crate::message::Message::monster(MonsterEditorMessage::Saved(result))
+                crate::message::Message::monster_db(MonsterEditorMessage::Saved(result))
             })
             // }
             // app.state.monster_editor.status_msg = "No catalog to save".into();
@@ -128,7 +128,7 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
                 monster_spreadsheet,
                 monster_editor,
                 |index, field, value| {
-                    crate::message::Message::monster(MonsterEditorMessage::FieldChanged(
+                    crate::message::Message::monster_db(MonsterEditorMessage::FieldChanged(
                         index, field, value,
                     ))
                 },

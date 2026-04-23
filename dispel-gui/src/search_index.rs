@@ -123,7 +123,7 @@ fn index_all_files_recursive(game_path: &Path, dir: &Path, file_mappings: &mut V
                         "ref" => "RefEditor",
                         "scr" => "ScriptEditor",
                         "map" => "MapEditor",
-                        "dlg" | "pgp" => "DialogEditor",
+                        "dlg" | "pgp" => "DialogueScriptEditor",
                         "gtl" | "btl" => "TilesetEditor",
                         "spr" => "SpriteViewer",
                         _ => "UnknownEditor",

@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::eventitem::EventItemEditorMessage;
+use crate::message::editor::event_item::EventItemEditorMessage;
 use dispel_core::{EventItem, Extractor};
 use iced::Task;
 use std::path::PathBuf;
@@ -46,7 +46,9 @@ pub fn handle(message: EventItemEditorMessage, app: &mut App) -> Task<crate::mes
                     app.state.event_item_editor.refresh();
                     app.state.event_item_editor.init_pane_state();
                     app.state.event_item_spreadsheet.apply_filter(&catalog);
-                    app.state.event_item_spreadsheet.compute_all_caches(&catalog);
+                    app.state
+                        .event_item_spreadsheet
+                        .compute_all_caches(&catalog);
                     app.state.event_item_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

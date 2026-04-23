@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::npcref::NpcRefEditorMessage, Message, MessageExt};
+use crate::message::{editor::npc_ref::NpcRefEditorMessage, Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
 use iced::widget::{container, text};

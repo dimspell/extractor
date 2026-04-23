@@ -1,7 +1,7 @@
 mod all_map_ini_editor;
 mod chdata_editor;
-mod dialog_editor;
-mod dialogue_text_editor;
+mod dialogue_paragraphs;
+mod dialogue_script_editor;
 mod draw_item_editor;
 mod edit_item_editor;
 pub mod editable;

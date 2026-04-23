@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::mapini::MapIniEditorMessage;
+use crate::message::editor::map_ini::MapIniEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, MapIni};
 use iced::Task;

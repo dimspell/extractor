@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::editor::partyref::PartyRefEditorMessage;
+use crate::message::editor::party_ref::PartyRefEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;

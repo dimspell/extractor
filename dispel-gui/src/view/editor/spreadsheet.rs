@@ -139,13 +139,13 @@ pub struct SpreadsheetState {
     /// Pre-computed hash for each row's field values. Updated when catalog loads
     /// so the lazy key doesn't recompute on every render.
     pub row_hashes: Vec<u64>,
-    /// Pre-computed display strings for all rows. Each entry is a Vec<String> of
+    /// Pre-computed display strings for all rows. Each entry is a `Vec<String>` of
     /// truncated field values for display (one per column). Computed once on catalog load.
     pub display_cache: Vec<Vec<String>>,
     /// Pre-computed truncated display strings (with column widths factored in).
     /// Invalidated when column widths change.
     pub truncated_cache: Vec<Vec<String>>,
-    /// Pre-computed validation status for all rows. Each entry is a Vec<bool> where
+    /// Pre-computed validation status for all rows. Each entry is a `Vec<bool>` where
     /// true = validation error. Computed once on catalog load.
     pub validation_cache: Vec<Vec<bool>>,
     /// Pre-computed row number strings ("1", "2", etc.) for the ID column.
@@ -672,7 +672,7 @@ impl SpreadsheetState {
     }
 
     /// Compute and cache row hashes, raw field values, and validation status.
-/// Call when catalog loads to avoid recomputing on every render.
+    /// Call when catalog loads to avoid recomputing on every render.
     pub fn compute_all_caches<R: EditableRecord>(&mut self, catalog: &[R]) {
         use std::hash::{Hash, Hasher};
         let descriptors = R::field_descriptors();
@@ -694,7 +694,11 @@ impl SpreadsheetState {
             values.hash(&mut h);
             self.row_hashes.push(h.finish());
             let validation: Vec<bool> = (0..num_cols)
-                .map(|j| record.validate_field(descriptors[j].name, &values[j]).is_some())
+                .map(|j| {
+                    record
+                        .validate_field(descriptors[j].name, &values[j])
+                        .is_some()
+                })
                 .collect();
             self.display_cache.push(values);
             self.validation_cache.push(validation);
@@ -724,7 +728,11 @@ impl SpreadsheetState {
         self.truncated_cache
             .get(orig_idx)
             .and_then(|row| row.get(col))
-            .or_else(|| self.display_cache.get(orig_idx).and_then(|row| row.get(col)))
+            .or_else(|| {
+                self.display_cache
+                    .get(orig_idx)
+                    .and_then(|row| row.get(col))
+            })
     }
 
     /// Update truncated cache when column widths change.
@@ -1275,8 +1283,8 @@ fn build_table_content<'a, R: EditableRecord>(
             continue;
         };
         let is_selected = spreadsheet.selected_row == Some(filtered_idx);
-        let is_highlighted = is_highlight_mode
-            && spreadsheet.highlighted_indices.contains(&orig_idx);
+        let is_highlighted =
+            is_highlight_mode && spreadsheet.highlighted_indices.contains(&orig_idx);
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
         let is_editing_row = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
 
@@ -1288,22 +1296,22 @@ fn build_table_content<'a, R: EditableRecord>(
                 is_highlighted,
                 is_current_highlight,
             );
-            let row_number_str = spreadsheet.row_numbers.get(orig_idx).cloned().unwrap_or_default();
-            let id_cell = container(
-                text(row_number_str)
-                    .size(10)
-                    .font(Font::MONOSPACE),
-            )
-            .width(ID_COL_WIDTH)
-            .padding([0, 6])
-            .height(ROW_HEIGHT)
-            .align_y(iced::Alignment::Center)
-            .style(if is_selected || is_current_highlight {
-                style::spreadsheet_id_cell_selected
-            } else {
-                style::spreadsheet_id_cell
-            })
-            .into();
+            let row_number_str = spreadsheet
+                .row_numbers
+                .get(orig_idx)
+                .cloned()
+                .unwrap_or_default();
+            let id_cell = container(text(row_number_str).size(10).font(Font::MONOSPACE))
+                .width(ID_COL_WIDTH)
+                .padding([0, 6])
+                .height(ROW_HEIGHT)
+                .align_y(iced::Alignment::Center)
+                .style(if is_selected || is_current_highlight {
+                    style::spreadsheet_id_cell_selected
+                } else {
+                    style::spreadsheet_id_cell
+                })
+                .into();
             let mut cells: Vec<Element<Message>> = vec![id_cell];
             for (col, desc) in descriptors.iter().enumerate() {
                 let value = record.get_field(desc.name);
@@ -1330,7 +1338,10 @@ fn build_table_content<'a, R: EditableRecord>(
                     .into(),
             );
         } else if !spreadsheet.display_cache.is_empty() {
-            let row_number = row_numbers_static.get(orig_idx).cloned().unwrap_or_default();
+            let row_number = row_numbers_static
+                .get(orig_idx)
+                .cloned()
+                .unwrap_or_default();
 
             // Key: orig_idx (stable identity), is_selected/is_highlighted/current (change on user action),
             // row_hash (changes on data edit), col_widths_gen (changes on resize)
@@ -1352,26 +1363,26 @@ fn build_table_content<'a, R: EditableRecord>(
                         is_highlighted,
                         is_current_highlight,
                     );
-                    let id_cell = container(
-                        text(row_number.clone())
-                            .size(10)
-                            .font(Font::MONOSPACE),
-                    )
-                    .width(ID_COL_WIDTH)
-                    .padding([0, 6])
-                    .height(ROW_HEIGHT)
-                    .align_y(iced::Alignment::Center)
-                    .style(if is_selected || is_current_highlight {
-                        style::spreadsheet_id_cell_selected
-                    } else {
-                        style::spreadsheet_id_cell
-                    })
-                    .into();
+                    let id_cell =
+                        container(text(row_number.clone()).size(10).font(Font::MONOSPACE))
+                            .width(ID_COL_WIDTH)
+                            .padding([0, 6])
+                            .height(ROW_HEIGHT)
+                            .align_y(iced::Alignment::Center)
+                            .style(if is_selected || is_current_highlight {
+                                style::spreadsheet_id_cell_selected
+                            } else {
+                                style::spreadsheet_id_cell
+                            })
+                            .into();
 
                     let mut cells: Vec<_> = vec![id_cell];
                     cells.reserve(descriptors.len());
                     for (col, _desc) in descriptors.iter().enumerate() {
-                        let display = spreadsheet.get_display_ref(orig_idx, col).cloned().unwrap_or_default();
+                        let display = spreadsheet
+                            .get_display_ref(orig_idx, col)
+                            .cloned()
+                            .unwrap_or_default();
                         let col_width = col_widths_row[col];
 
                         let press_msg = if is_selected {
@@ -1380,7 +1391,11 @@ fn build_table_content<'a, R: EditableRecord>(
                             SpreadsheetMessage::SelectRow(filtered_idx)
                         };
 
-                        cells.push(flattened_cell(display, col_width, spreadsheet_msg(press_msg)));
+                        cells.push(flattened_cell(
+                            display,
+                            col_width,
+                            spreadsheet_msg(press_msg),
+                        ));
                     }
 
                     button(row(cells).spacing(0))
@@ -1553,11 +1568,7 @@ fn build_header_row<'a>(
         .into()
 }
 
-fn flattened_cell(
-    display: String,
-    col_width: f32,
-    on_press: Message,
-) -> Element<'static, Message> {
+fn flattened_cell(display: String, col_width: f32, on_press: Message) -> Element<'static, Message> {
     button(text(display).size(10).font(Font::MONOSPACE))
         .on_press(on_press)
         .style(style::spreadsheet_cell_btn)

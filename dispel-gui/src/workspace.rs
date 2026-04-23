@@ -18,7 +18,7 @@ pub enum EditorType {
     StoreEditor,
     ChDataEditor,
     PartyLevelDbEditor,
-    DialogEditor,
+    DialogueScriptEditor,
     DialogueTextEditor,
     DrawItemEditor,
     EventIniEditor,
@@ -104,7 +104,7 @@ impl EditorType {
                 _ => EditorType::Unknown,
             },
             "btl" | "gtl" => EditorType::TilesetEditor,
-            "dlg" => EditorType::DialogEditor,
+            "dlg" => EditorType::DialogueScriptEditor,
             "pgp" => EditorType::DialogueTextEditor,
             "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
@@ -495,7 +495,10 @@ mod tests {
     #[test]
     fn test_editor_type_from_path_dlg_pgp() {
         let path = PathBuf::from("/path/file.dlg");
-        assert_eq!(EditorType::from_path(&path), EditorType::DialogEditor);
+        assert_eq!(
+            EditorType::from_path(&path),
+            EditorType::DialogueScriptEditor
+        );
 
         let path = PathBuf::from("/path/file.pgp");
         assert_eq!(EditorType::from_path(&path), EditorType::DialogueTextEditor);

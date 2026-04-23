@@ -13,8 +13,8 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     )?;
 
     let tables = vec![
-        "dialogue_texts",
-        "dialogs",
+        "dialogue_paragraphs",
+        "dialogue_scripts",
         "draw_items",
         "edit_items",
         "event_actions",
@@ -77,12 +77,12 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_draw_items.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_dialogs.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_dialogue_scripts.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_dialogue_texts.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_dialogue_paragraphs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_magic_spells.sql"))?;

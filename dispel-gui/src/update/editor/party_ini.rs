@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::partyini::PartyIniEditorMessage;
+use crate::message::editor::party_ini::PartyIniEditorMessage;
 use dispel_core::{Extractor, PartyIniNpc};
 use iced::Task;
 use std::path::PathBuf;

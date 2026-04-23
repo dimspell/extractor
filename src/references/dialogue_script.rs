@@ -58,7 +58,7 @@ use serde::{Deserialize, Serialize};
 // ===========================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Dialog {
+pub struct DialogueScript {
     /// Unique dialog script line ID.
     pub id: i32,
     /// Required event to trigger this dialog.
@@ -94,7 +94,7 @@ pub struct Dialog {
 /// - `dialog_type`: 0 = normal, 1 = choose dialog.
 /// - `dialog_owner`: 0 = main character talking, 1 = NPC talking.
 /// - Optional fields use literal `null` when absent.
-impl Extractor for Dialog {
+impl Extractor for DialogueScript {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;
         let reader = BufReader::new(
@@ -102,7 +102,7 @@ impl Extractor for Dialog {
                 .encoding(Some(EUC_KR))
                 .build(f),
         );
-        let mut dlgs: Vec<Dialog> = Vec::new();
+        let mut dlgs: Vec<DialogueScript> = Vec::new();
         for line in reader.lines().map_while(Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(';') || trimmed.is_empty() {
@@ -127,7 +127,7 @@ impl Extractor for Dialog {
             let dialog_type = dialog_type_id.and_then(DialogType::from_i32);
             let dialog_owner = dialog_owner_id.and_then(DialogOwner::from_i32);
 
-            dlgs.push(Dialog {
+            dlgs.push(DialogueScript {
                 id,
                 required_event_id,
                 next_dialog_to_check,
@@ -185,14 +185,18 @@ impl Extractor for Dialog {
     }
 }
 
-pub fn read_dialogs(source_path: &Path) -> std::io::Result<Vec<Dialog>> {
-    Dialog::read_file(source_path)
+pub fn read_dialogs(source_path: &Path) -> std::io::Result<Vec<DialogueScript>> {
+    DialogueScript::read_file(source_path)
 }
 
-pub fn save_dialogs(conn: &mut Connection, dialog_file: &str, dialogs: &[Dialog]) -> Result<()> {
+pub fn save_dialogs(
+    conn: &mut Connection,
+    dialog_file: &str,
+    dialogs: &[DialogueScript],
+) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_dialog.sql"))?;
+        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_scripts.sql"))?;
         for dialog in dialogs {
             stmt.execute(params![
                 dialog_file,

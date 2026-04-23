@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO dialogs(
+INSERT OR REPLACE INTO dialogue_scripts(
     dialog_file,
     id,
     required_event_id,

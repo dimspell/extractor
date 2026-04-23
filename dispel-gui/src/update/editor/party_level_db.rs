@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::partyleveldb::PartyLevelDbEditorMessage;
+use crate::message::editor::party_level_db::PartyLevelDbEditorMessage;
 use dispel_core::{Extractor, PartyLevelNpc};
 use iced::Task;
 use std::path::PathBuf;

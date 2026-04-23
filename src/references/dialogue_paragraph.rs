@@ -65,7 +65,7 @@ use crate::references::extractor::Extractor;
 // ===========================================================================
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct DialogueText {
+pub struct DialogueParagraph {
     /// Translation line identity reference.
     pub id: i32,
     /// Actual text string projected into dialogue window UI.
@@ -92,7 +92,7 @@ pub struct DialogueText {
 /// - `text` uses literal `null` for empty strings.
 /// - `param1` / `param2` are integer logic parameters.
 /// - Comment lines (`;`) preceding a record are stored in `comment` using ` | ` as separator.
-impl Extractor for DialogueText {
+impl Extractor for DialogueParagraph {
     fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
         let f = File::open(source_path)?;
         let reader = BufReader::new(
@@ -101,7 +101,7 @@ impl Extractor for DialogueText {
                 .build(f),
         );
 
-        let mut texts: Vec<DialogueText> = Vec::new();
+        let mut texts: Vec<DialogueParagraph> = Vec::new();
         let mut current_comment = String::new();
         let mut last_was_comment = false;
 
@@ -149,7 +149,7 @@ impl Extractor for DialogueText {
             let param1 = parts[2].trim().parse::<i32>().unwrap_or(0);
             let wave_ini_entry_id = parts[3].trim().parse::<i32>().unwrap_or(0);
 
-            texts.push(DialogueText {
+            texts.push(DialogueParagraph {
                 id,
                 text,
                 comment: current_comment.clone().trim_matches('|').to_string(),
@@ -188,18 +188,18 @@ impl Extractor for DialogueText {
     }
 }
 
-pub fn read_dialogue_texts(source_path: &Path) -> std::io::Result<Vec<DialogueText>> {
-    DialogueText::read_file(source_path)
+pub fn read_dialogue_paragraphs(source_path: &Path) -> std::io::Result<Vec<DialogueParagraph>> {
+    DialogueParagraph::read_file(source_path)
 }
 
-pub fn save_dialogue_texts(
+pub fn save_dialogue_paragraphs(
     conn: &mut Connection,
     file_name: &str,
-    texts: &[DialogueText],
+    texts: &[DialogueParagraph],
 ) -> Result<()> {
     let tx = conn.transaction()?;
     {
-        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_text.sql"))?;
+        let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
         for text in texts {
             stmt.execute(params![
                 file_name,

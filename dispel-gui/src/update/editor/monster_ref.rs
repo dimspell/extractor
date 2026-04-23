@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
-use crate::message::editor::monsterref::MonsterRefEditorMessage;
+use crate::message::editor::monster_ref::MonsterRefEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, MonsterIni};
 use iced::Task;

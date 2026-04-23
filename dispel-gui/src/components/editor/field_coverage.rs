@@ -115,8 +115,8 @@ macro_rules! check_record {
 // ── Per-type tests ────────────────────────────────────────────────────────────
 
 use dispel_core::{
-    ChData, Dialog, DialogueText, DrawItem, EditItem, Event, EventItem, EventNpcRef, Extra,
-    ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterRef, NpcIni,
+    ChData, DialogueParagraph, DialogueScript, DrawItem, EditItem, Event, EventItem, EventNpcRef,
+    Extra, ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterRef, NpcIni,
     PartyIniNpc, PartyLevelNpc, PartyRef, Quest, Store, WaveIni, WeaponItem, NPC,
 };
 // `Message` is the ScrMessage type in dispel_core.
@@ -142,9 +142,9 @@ check_record!(
 
 check_record!(
     fn dialog_fields_covered,
-    type Dialog,
-    src "src/references/dialog.rs",
-    struct "Dialog",
+    type DialogueScript,
+    src "src/references/dialogue_script.rs",
+    struct "DialogueScript",
     virtual_desc [],
     skip_fields [
         "next_dialog_id1",  // choice dialog option 1
@@ -154,10 +154,10 @@ check_record!(
 );
 
 check_record!(
-    fn dialogue_text_fields_covered,
-    type DialogueText,
-    src "src/references/dialogue_text.rs",
-    struct "DialogueText",
+    fn dialogue_paragraph_fields_covered,
+    type DialogueParagraph,
+    src "src/references/dialogue_paragraph.rs",
+    struct "DialogueParagraph",
     virtual_desc [],
     skip_fields []
 );

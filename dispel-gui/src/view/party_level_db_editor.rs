@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::editor::partyleveldb::PartyLevelDbEditorMessage;
+use crate::message::editor::party_level_db::PartyLevelDbEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;

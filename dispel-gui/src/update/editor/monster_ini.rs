@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::monsterini::MonsterIniEditorMessage;
+use crate::message::editor::monster_ini::MonsterIniEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, MonsterIni};
 use iced::Task;
@@ -42,7 +42,9 @@ pub fn handle(message: MonsterIniEditorMessage, app: &mut App) -> Task<crate::me
                     app.state.monster_ini_editor.refresh_monsters();
                     app.state.monster_ini_editor.init_pane_state();
                     app.state.monster_ini_spreadsheet.apply_filter(&catalog);
-                    app.state.monster_ini_spreadsheet.compute_all_caches(&catalog);
+                    app.state
+                        .monster_ini_spreadsheet
+                        .compute_all_caches(&catalog);
                     app.state.monster_ini_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

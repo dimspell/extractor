@@ -20,8 +20,8 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::SpriteViewer(msg) => sprite_browser::handle(msg, app),
         EditorMessage::MonsterRef(msg) => monster_ref::handle(msg, app),
         EditorMessage::AllMapIni(msg) => all_map_ini::handle(msg, app),
-        EditorMessage::Dialog(msg) => dialog::handle(msg, app),
-        EditorMessage::DialogueText(msg) => dialogue_text::handle(msg, app),
+        EditorMessage::DialogueScript(msg) => dialogue_script::handle(msg, app),
+        EditorMessage::DialogueParagraph(msg) => dialogue_paragraph::handle(msg, app),
         EditorMessage::DrawItem(msg) => draw_item::handle(msg, app),
         EditorMessage::EventIni(msg) => event_ini::handle(msg, app),
         EditorMessage::EventNpcRef(msg) => event_npc_ref::handle(msg, app),
@@ -48,8 +48,8 @@ mod common;
 mod all_map_ini;
 mod chdata;
 pub mod chest;
-mod dialog;
-mod dialogue_text;
+mod dialogue_paragraph;
+mod dialogue_script;
 mod draw_item;
 mod edit_item;
 mod event_ini;

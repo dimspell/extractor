@@ -21,8 +21,8 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                 app.state.extra_ref_editors.remove(&tab_id);
                 app.state.npc_ref_editors.remove(&tab_id);
                 app.state.monster_ref_editors.remove(&tab_id);
-                app.state.dialog_editors.remove(&tab_id);
-                app.state.dialogue_text_editors.remove(&tab_id);
+                app.state.dialogue_script_editors.remove(&tab_id);
+                app.state.dialogue_paragraphs_editors.remove(&tab_id);
                 app.state.snf_editors.remove(&tab_id);
                 app.state.workspace.tabs.remove(tab_index);
                 if let Some(active) = app.state.workspace.active_tab {
@@ -49,8 +49,8 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                     app.state.extra_ref_editors.remove(&tab_id);
                     app.state.npc_ref_editors.remove(&tab_id);
                     app.state.monster_ref_editors.remove(&tab_id);
-                    app.state.dialog_editors.remove(&tab_id);
-                    app.state.dialogue_text_editors.remove(&tab_id);
+                    app.state.dialogue_script_editors.remove(&tab_id);
+                    app.state.dialogue_paragraphs_editors.remove(&tab_id);
                     app.state.snf_editors.remove(&tab_id);
                     app.state.workspace.tabs.remove(active_tab);
                     if app.state.workspace.tabs.is_empty() {
@@ -79,8 +79,8 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                     app.state.extra_ref_editors.remove(&id);
                     app.state.npc_ref_editors.remove(&id);
                     app.state.monster_ref_editors.remove(&id);
-                    app.state.dialog_editors.remove(&id);
-                    app.state.dialogue_text_editors.remove(&id);
+                    app.state.dialogue_script_editors.remove(&id);
+                    app.state.dialogue_paragraphs_editors.remove(&id);
                     app.state.snf_editors.remove(&id);
                 }
                 app.state.workspace.tabs.retain(|tab| tab.id == tab_id);
@@ -95,8 +95,8 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.extra_ref_editors.clear();
             app.state.npc_ref_editors.clear();
             app.state.monster_ref_editors.clear();
-            app.state.dialog_editors.clear();
-            app.state.dialogue_text_editors.clear();
+            app.state.dialogue_script_editors.clear();
+            app.state.dialogue_paragraphs_editors.clear();
             app.state.snf_editors.clear();
             Task::none()
         }

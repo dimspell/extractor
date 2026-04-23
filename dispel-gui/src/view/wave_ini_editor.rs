@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::waveini::WaveIniEditorMessage, Message, MessageExt};
+use crate::message::{editor::wave_ini::WaveIniEditorMessage, Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

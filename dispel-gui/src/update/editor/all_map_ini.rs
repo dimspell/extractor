@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::allmapini::AllMapIniEditorMessage;
+use crate::message::editor::all_map_ini::AllMapIniEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, Map};
 use iced::Task;
@@ -44,7 +44,9 @@ pub fn handle(message: AllMapIniEditorMessage, app: &mut App) -> Task<crate::mes
                     app.state.all_map_ini_editor.refresh();
                     app.state.all_map_ini_editor.init_pane_state();
                     app.state.all_map_ini_spreadsheet.apply_filter(&catalog);
-                    app.state.all_map_ini_spreadsheet.compute_all_caches(&catalog);
+                    app.state
+                        .all_map_ini_spreadsheet
+                        .compute_all_caches(&catalog);
                 }
                 Err(e) => {
                     app.state.all_map_ini_editor.status_msg =

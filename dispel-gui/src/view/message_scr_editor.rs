@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::messagescr::MessageScrEditorMessage, Message, MessageExt};
+use crate::message::{editor::message_scr::MessageScrEditorMessage, Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

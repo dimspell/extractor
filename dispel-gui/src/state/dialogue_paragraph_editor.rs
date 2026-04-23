@@ -1,16 +1,16 @@
 use crate::edit_history::EditHistory;
 use crate::generic_editor::{GenericEditorState, UndoRedo};
-use dispel_core::DialogueText;
+use dispel_core::DialogueParagraph;
 use dispel_core::Extractor;
 use std::path::PathBuf;
 
 #[derive(Debug, Default)]
-pub struct DialogueTextEditorState {
-    pub editor: GenericEditorState<DialogueText>,
+pub struct DialogueParagraphEditorState {
+    pub editor: GenericEditorState<DialogueParagraph>,
     pub current_file: String,
 }
 
-impl UndoRedo for DialogueTextEditorState {
+impl UndoRedo for DialogueParagraphEditorState {
     fn undo(&mut self) -> Option<String> {
         self.editor.undo()
     }
@@ -32,7 +32,7 @@ impl UndoRedo for DialogueTextEditorState {
     }
 }
 
-impl DialogueTextEditorState {
+impl DialogueParagraphEditorState {
     pub fn refresh(&mut self) {
         self.editor.refresh();
     }
@@ -51,7 +51,7 @@ impl DialogueTextEditorState {
         }
         if let Some(catalog) = &self.editor.catalog {
             let path = PathBuf::from(&self.current_file);
-            DialogueText::save_file(catalog, &path)
+            DialogueParagraph::save_file(catalog, &path)
                 .map_err(|e| format!("Failed to save texts: {}", e))
         } else {
             Err("No catalog loaded".to_string())

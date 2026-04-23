@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::npcini::NpcIniEditorMessage;
+use crate::message::editor::npc_ini::NpcIniEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, NpcIni};
 use iced::Task;

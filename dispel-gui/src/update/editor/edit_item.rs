@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::edititem::EditItemEditorMessage;
+use crate::message::editor::edit_item::EditItemEditorMessage;
 use dispel_core::{EditItem, Extractor};
 use iced::Task;
 use std::path::PathBuf;

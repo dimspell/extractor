@@ -1,6 +1,6 @@
 use super::Command;
-use dispel_core::references::dialog::{read_dialogs, Dialog};
-use dispel_core::references::dialogue_text::read_dialogue_texts;
+use dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs;
+use dispel_core::references::dialogue_script::{read_dialogs, DialogueScript};
 use dispel_core::references::npc_ref::read_npc_ref;
 use dispel_core::DialogType;
 use std::collections::HashMap;
@@ -27,9 +27,12 @@ impl Command for DialogCommand {
 
         let texts: HashMap<i32, String> = if let Some(pgp_path) = &self.pgp_path {
             let pgp_path = Path::new(pgp_path);
-            let dialogue_texts = read_dialogue_texts(pgp_path)
+            let dialogue_paragraphs = read_dialogue_paragraphs(pgp_path)
                 .map_err(|e| format!("ERROR: could not read PGP file: {e}"))?;
-            dialogue_texts.into_iter().map(|t| (t.id, t.text)).collect()
+            dialogue_paragraphs
+                .into_iter()
+                .map(|t| (t.id, t.text))
+                .collect()
         } else {
             HashMap::new()
         };
@@ -61,7 +64,7 @@ impl Command for DialogCommand {
 }
 
 fn print_dialog_flow(
-    dialogs: &[Dialog],
+    dialogs: &[DialogueScript],
     texts: &HashMap<i32, String>,
     npcs: &HashMap<i32, NpcInfo>,
 ) {
@@ -70,7 +73,7 @@ fn print_dialog_flow(
     println!("╚══════════════════════════════════════════════════════════════════════════════╝");
     println!();
 
-    let dialog_map: HashMap<i32, &Dialog> = dialogs.iter().map(|d| (d.id, d)).collect();
+    let dialog_map: HashMap<i32, &DialogueScript> = dialogs.iter().map(|d| (d.id, d)).collect();
 
     let mut printed = HashMap::new();
     let mut entry_points = Vec::new();
@@ -145,7 +148,7 @@ fn print_dialog_flow(
     }
 }
 
-fn is_entry_point(dialog_map: &HashMap<i32, &Dialog>, id: i32) -> bool {
+fn is_entry_point(dialog_map: &HashMap<i32, &DialogueScript>, id: i32) -> bool {
     for dialog in dialog_map.values() {
         if dialog.next_dialog_id1 == Some(id)
             || dialog.next_dialog_id2 == Some(id)
@@ -158,7 +161,7 @@ fn is_entry_point(dialog_map: &HashMap<i32, &Dialog>, id: i32) -> bool {
 }
 
 fn print_node_recursive(
-    dialog_map: &HashMap<i32, &Dialog>,
+    dialog_map: &HashMap<i32, &DialogueScript>,
     texts: &HashMap<i32, String>,
     id: i32,
     depth: usize,

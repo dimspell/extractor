@@ -13,8 +13,8 @@ pub mod sprite;
 pub use references::{
     all_map_ini::Map,
     chdata_db::ChData,
-    dialog::Dialog,
-    dialogue_text::DialogueText,
+    dialogue_paragraph::DialogueParagraph,
+    dialogue_script::DialogueScript,
     draw_item::DrawItem,
     edit_item_db::EditItem,
     enums::*,

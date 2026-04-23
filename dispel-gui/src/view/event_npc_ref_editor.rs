@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::eventnpcref::EventNpcRefEditorMessage, Message, MessageExt};
+use crate::message::{editor::event_npc_ref::EventNpcRefEditorMessage, Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::eventnpcref::EventNpcRefEditorMessage;
+use crate::message::editor::event_npc_ref::EventNpcRefEditorMessage;
 use dispel_core::{EventNpcRef, Extractor};
 use iced::Task;
 use std::path::PathBuf;
@@ -42,7 +42,9 @@ pub fn handle(message: EventNpcRefEditorMessage, app: &mut App) -> Task<crate::m
                     app.state.event_npc_ref_editor.refresh_npcs();
                     app.state.event_npc_ref_editor.init_pane_state();
                     app.state.event_npc_ref_spreadsheet.apply_filter(&catalog);
-                    app.state.event_npc_ref_spreadsheet.compute_all_caches(&catalog);
+                    app.state
+                        .event_npc_ref_spreadsheet
+                        .compute_all_caches(&catalog);
                     app.state.event_npc_ref_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

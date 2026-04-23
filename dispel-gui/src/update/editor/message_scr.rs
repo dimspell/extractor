@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::messagescr::MessageScrEditorMessage;
+use crate::message::editor::message_scr::MessageScrEditorMessage;
 use dispel_core::{Extractor, Message};
 use iced::Task;
 use std::path::PathBuf;
@@ -43,7 +43,9 @@ pub fn handle(message: MessageScrEditorMessage, app: &mut App) -> Task<crate::me
                     app.state.message_scr_editor.refresh_messages();
                     app.state.message_scr_editor.init_pane_state();
                     app.state.message_scr_spreadsheet.apply_filter(&catalog);
-                    app.state.message_scr_spreadsheet.compute_all_caches(&catalog);
+                    app.state
+                        .message_scr_spreadsheet
+                        .compute_all_caches(&catalog);
                     app.state.message_scr_spreadsheet.is_loading = false;
                 }
                 Err(e) => {

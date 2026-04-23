@@ -1,7 +1,7 @@
 //! Fixture-based tests for Dialog
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::dialog::Dialog;
+use dispel_core::references::dialogue_script::DialogueScript;
 use dispel_core::Extractor;
 use std::path::Path;
 
@@ -14,8 +14,8 @@ fn fixture_dialog_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Dialog::read_file(p),
-        |records, p| Dialog::save_file(records, p),
+        |p| DialogueScript::read_file(p),
+        |records, p| DialogueScript::save_file(records, p),
         fixture,
         "Dialog",
     )

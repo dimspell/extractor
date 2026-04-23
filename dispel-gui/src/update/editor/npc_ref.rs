@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
-use crate::message::editor::npcref::NpcRefEditorMessage;
+use crate::message::editor::npc_ref::NpcRefEditorMessage;
 use crate::message::MessageExt;
 use iced::Task;
 

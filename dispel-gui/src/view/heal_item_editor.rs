@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::healitem::HealItemEditorMessage, Message, MessageExt};
+use crate::message::{editor::heal_item::HealItemEditorMessage, Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
-use crate::message::editor::eventini::EventIniEditorMessage;
+use crate::message::editor::event_ini::EventIniEditorMessage;
 use dispel_core::{Event, Extractor};
 use iced::Task;
 use std::path::PathBuf;

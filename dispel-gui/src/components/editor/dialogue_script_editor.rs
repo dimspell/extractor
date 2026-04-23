@@ -2,9 +2,9 @@ use super::editable::{
     get_opt_int, get_opt_val, set_int, set_opt_i32_enum, set_opt_int, EditableRecord,
     FieldDescriptor, FieldKind,
 };
-use dispel_core::{Dialog, DialogOwner, DialogType};
+use dispel_core::{DialogOwner, DialogType, DialogueScript};
 
-impl EditableRecord for Dialog {
+impl EditableRecord for DialogueScript {
     fn field_descriptors() -> &'static [FieldDescriptor] {
         &[
             FieldDescriptor {

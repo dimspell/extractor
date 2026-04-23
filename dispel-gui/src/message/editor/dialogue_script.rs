@@ -1,13 +1,14 @@
-use dispel_core::EditItem;
+use dispel_core::DialogueScript;
 
 #[derive(Debug, Clone)]
-pub enum EditItemEditorMessage {
+pub enum DialogueScriptEditorMessage {
     LoadCatalog,
-    CatalogLoaded(Result<Vec<EditItem>, String>),
+    CatalogLoaded(Result<Vec<DialogueScript>, String>),
     Select(usize),
     FieldChanged(usize, String, String),
     Spreadsheet(crate::view::editor::SpreadsheetMessage),
     PaneResized(iced::widget::pane_grid::ResizeEvent),
     PaneClicked(iced::widget::pane_grid::Pane),
-    Save,    
+    Save,
+    Saved(Result<(), String>),
 }

@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::drawitem::DrawItemEditorMessage;
+use crate::message::editor::draw_item::DrawItemEditorMessage;
 use dispel_core::{DrawItem, Extractor};
 use iced::Task;
 use std::path::PathBuf;

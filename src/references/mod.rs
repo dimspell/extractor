@@ -65,8 +65,8 @@
 
 pub mod all_map_ini;
 pub mod chdata_db;
-pub mod dialog;
-pub mod dialogue_text;
+pub mod dialogue_paragraph;
+pub mod dialogue_script;
 pub mod draw_item;
 pub mod edit_item_db;
 pub mod enums;

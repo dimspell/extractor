@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS dialogue_texts
+CREATE TABLE IF NOT EXISTS dialogue_paragraphs
 (
     file_name         TEXT,
     id                INTEGER,

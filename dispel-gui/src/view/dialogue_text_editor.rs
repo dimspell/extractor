@@ -1,12 +1,14 @@
 use crate::app::App;
-use crate::message::{editor::dialoguetext::DialogueTextEditorMessage, Message, MessageExt};
+use crate::message::{
+    editor::dialogue_paragraph::DialogueParagraphEditorMessage, Message, MessageExt,
+};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
 use iced::widget::{container, text};
 use iced::{Element, Fill};
 
 impl App {
-    pub fn view_dialogue_text_editor_tab(&self) -> Element<'_, Message> {
+    pub fn view_dialogue_paragraph_editor_tab(&self) -> Element<'_, Message> {
         let tab_id = self
             .state
             .workspace
@@ -15,11 +17,11 @@ impl App {
             .unwrap_or(usize::MAX);
 
         let (Some(editor), Some(spreadsheet)) = (
-            self.state.dialogue_text_editors.get(&tab_id),
-            self.state.dialogue_text_spreadsheets.get(&tab_id),
+            self.state.dialogue_paragraphs_editors.get(&tab_id),
+            self.state.dialogue_paragraph_spreadsheets.get(&tab_id),
         ) else {
             return container(
-                text("Dialogue text file not loaded")
+                text("Dialogue Paragraph file not loaded")
                     .size(14)
                     .style(style::subtle_text),
             )
@@ -29,21 +31,23 @@ impl App {
             .into();
         };
 
-        let scan_msg = Message::dialogue_text(DialogueTextEditorMessage::ScanCatalog);
+        let scan_msg = Message::dialogue_paragraph(DialogueParagraphEditorMessage::ScanCatalog);
 
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
             scan_msg,
-            Message::dialogue_text(DialogueTextEditorMessage::Save),
-            |idx| Message::dialogue_text(DialogueTextEditorMessage::Select(idx)),
+            Message::dialogue_paragraph(DialogueParagraphEditorMessage::Save),
+            |idx| Message::dialogue_paragraph(DialogueParagraphEditorMessage::Select(idx)),
             |idx, field, value| {
-                Message::dialogue_text(DialogueTextEditorMessage::FieldChanged(idx, field, value))
+                Message::dialogue_paragraph(DialogueParagraphEditorMessage::FieldChanged(
+                    idx, field, value,
+                ))
             },
-            |msg| Message::dialogue_text(DialogueTextEditorMessage::Spreadsheet(msg)),
+            |msg| Message::dialogue_paragraph(DialogueParagraphEditorMessage::Spreadsheet(msg)),
             &self.state.lookups,
-            |event| Message::dialogue_text(DialogueTextEditorMessage::PaneResized(event)),
-            |pane| Message::dialogue_text(DialogueTextEditorMessage::PaneClicked(pane)),
+            |event| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneResized(event)),
+            |pane| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneClicked(pane)),
         )
     }
 }

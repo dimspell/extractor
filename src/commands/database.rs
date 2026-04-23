@@ -2,8 +2,8 @@ use super::Command;
 use crate::cli::DatabaseCommands;
 use dispel_core::database::initialize_database;
 use dispel_core::references::all_map_ini::save_maps;
-use dispel_core::references::dialog::save_dialogs;
-use dispel_core::references::dialogue_text::save_dialogue_texts;
+use dispel_core::references::dialogue_paragraph::save_dialogue_paragraphs;
+use dispel_core::references::dialogue_script::save_dialogs;
 use dispel_core::references::draw_item::save_draw_items;
 use dispel_core::references::edit_item_db::save_edit_items;
 use dispel_core::references::event_ini::save_events;
@@ -45,7 +45,7 @@ impl Command for DatabaseCommand {
             }
             DatabaseCommands::DialogTexts { game_path, db_path } => {
                 with_connection(db_path, |conn| {
-                    import_dialog_texts(Path::new(game_path), conn)
+                    import_dialogues_paragraphs(Path::new(game_path), conn)
                 })?;
             }
             DatabaseCommands::Maps { game_path, db_path } => {
@@ -83,7 +83,7 @@ fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
 
     import_refs(game_path, &mut conn)?;
     import_rest(game_path, &mut conn)?;
-    import_dialog_texts(game_path, &mut conn)?;
+    import_dialogues_paragraphs(game_path, &mut conn)?;
     import_databases(game_path, &mut conn)?;
     import_event_scripts(game_path, &mut conn)?;
     import_maps(game_path, &mut conn)?;
@@ -200,7 +200,10 @@ fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
     Ok(())
 }
 
-fn import_dialog_texts(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+fn import_dialogues_paragraphs(
+    main_path: &Path,
+    conn: &mut Connection,
+) -> Result<(), Box<dyn Error>> {
     let dialog_files = [
         "NpcInGame/Dlgcat1.dlg",
         "NpcInGame/Dlgcat2.dlg",
@@ -219,7 +222,8 @@ fn import_dialog_texts(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
     ];
     println!("Saving dialogs...");
     for dialog_file in dialog_files {
-        let dialogs = dispel_core::references::dialog::read_dialogs(&main_path.join(dialog_file))?;
+        let dialogs =
+            dispel_core::references::dialogue_script::read_dialogs(&main_path.join(dialog_file))?;
         save_dialogs(conn, dialog_file, &dialogs)?;
     }
 
@@ -242,9 +246,10 @@ fn import_dialog_texts(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
     ];
     println!("Saving dialogue texts...");
     for pgp_file in pgp_files {
-        let texts =
-            dispel_core::references::dialogue_text::read_dialogue_texts(&main_path.join(pgp_file))?;
-        save_dialogue_texts(conn, pgp_file, &texts)?;
+        let texts = dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs(
+            &main_path.join(pgp_file),
+        )?;
+        save_dialogue_paragraphs(conn, pgp_file, &texts)?;
     }
     Ok(())
 }

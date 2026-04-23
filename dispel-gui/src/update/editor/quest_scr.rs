@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::questscr::QuestScrEditorMessage;
+use crate::message::editor::quest_scr::QuestScrEditorMessage;
 use dispel_core::{Extractor, Quest};
 use iced::Task;
 use std::path::PathBuf;

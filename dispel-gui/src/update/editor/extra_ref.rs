@@ -2,7 +2,7 @@
 
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
-use crate::message::editor::extraref::ExtraRefEditorMessage;
+use crate::message::editor::extra_ref::ExtraRefEditorMessage;
 use crate::message::MessageExt;
 use iced::Task;
 

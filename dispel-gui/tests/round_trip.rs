@@ -8,10 +8,10 @@ mod round_trip_utils;
 mod all_map_ini;
 #[path = "round_trip/chdata_db.rs"]
 mod chdata_db;
+#[path = "round_trip/dialogue_paragraph.rs"]
+mod dialogue_paragraph;
 #[path = "round_trip/dialog.rs"]
-mod dialog;
-#[path = "round_trip/dialogue_text.rs"]
-mod dialogue_text;
+mod dialogue_script;
 #[path = "round_trip/draw_item.rs"]
 mod draw_item;
 #[path = "round_trip/edit_item_db.rs"]

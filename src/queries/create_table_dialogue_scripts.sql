@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS dialogs(
+CREATE TABLE IF NOT EXISTS dialogue_scripts(
     dialog_file TEXT,
     id INTEGER,
     required_event_id INTEGER,

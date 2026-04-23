@@ -102,25 +102,25 @@ impl App {
                     crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
                 ))),
                 EditorType::HealItemEditor => Some(Task::done(Message::heal_item(
-                    crate::message::editor::healitem::HealItemEditorMessage::LoadCatalog,
+                    crate::message::editor::heal_item::HealItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MiscItemEditor => Some(Task::done(Message::misc_item(
-                    crate::message::editor::miscitem::MiscItemEditorMessage::LoadCatalog,
+                    crate::message::editor::misc_item::MiscItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EditItemEditor => Some(Task::done(Message::edit_item(
-                    crate::message::editor::edititem::EditItemEditorMessage::LoadCatalog,
+                    crate::message::editor::edit_item::EditItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EventItemEditor => Some(Task::done(Message::event_item(
-                    crate::message::editor::eventitem::EventItemEditorMessage::LoadCatalog,
+                    crate::message::editor::event_item::EventItemEditorMessage::LoadCatalog,
                 ))),
-                EditorType::MonsterEditor => Some(Task::done(Message::monster(
-                    crate::message::editor::monster::MonsterEditorMessage::LoadCatalog,
+                EditorType::MonsterEditor => Some(Task::done(Message::monster_db(
+                    crate::message::editor::monster_db::MonsterEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MonsterIniEditor => Some(Task::done(Message::monster_ini(
-                    crate::message::editor::monsterini::MonsterIniEditorMessage::LoadCatalog,
+                    crate::message::editor::monster_ini::MonsterIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::NpcIniEditor => Some(Task::done(Message::npc_ini(
-                    crate::message::editor::npcini::NpcIniEditorMessage::LoadCatalog,
+                    crate::message::editor::npc_ini::NpcIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MagicEditor => Some(Task::done(Message::magic(
                     crate::message::editor::magic::MagicEditorMessage::LoadCatalog,
@@ -129,40 +129,40 @@ impl App {
                     crate::message::editor::store::StoreEditorMessage::LoadCatalog,
                 ))),
                 EditorType::PartyRefEditor => Some(Task::done(Message::party_ref(
-                    crate::message::editor::partyref::PartyRefEditorMessage::LoadCatalog,
+                    crate::message::editor::party_ref::PartyRefEditorMessage::LoadCatalog,
                 ))),
                 EditorType::PartyIniEditor => Some(Task::done(Message::party_ini(
-                    crate::message::editor::partyini::PartyIniEditorMessage::LoadCatalog,
+                    crate::message::editor::party_ini::PartyIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::AllMapIniEditor => Some(Task::done(Message::all_map_ini(
-                    crate::message::editor::allmapini::AllMapIniEditorMessage::LoadCatalog,
+                    crate::message::editor::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MapIniEditor => Some(Task::done(Message::map_ini(
-                    crate::message::editor::mapini::MapIniEditorMessage::LoadCatalog,
+                    crate::message::editor::map_ini::MapIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::ExtraIniEditor => Some(Task::done(Message::extra_ini(
-                    crate::message::editor::extraini::ExtraIniEditorMessage::LoadCatalog,
+                    crate::message::editor::extra_ini::ExtraIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EventIniEditor => Some(Task::done(Message::event_ini(
-                    crate::message::editor::eventini::EventIniEditorMessage::LoadCatalog,
+                    crate::message::editor::event_ini::EventIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::WaveIniEditor => Some(Task::done(Message::wave_ini(
-                    crate::message::editor::waveini::WaveIniEditorMessage::LoadCatalog,
+                    crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
                 ))),
                 EditorType::DrawItemEditor => Some(Task::done(Message::draw_item(
-                    crate::message::editor::drawitem::DrawItemEditorMessage::LoadCatalog,
+                    crate::message::editor::draw_item::DrawItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EventNpcRefEditor => Some(Task::done(Message::event_npc_ref(
-                    crate::message::editor::eventnpcref::EventNpcRefEditorMessage::LoadCatalog,
+                    crate::message::editor::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog,
                 ))),
                 EditorType::QuestScrEditor => Some(Task::done(Message::quest_scr(
-                    crate::message::editor::questscr::QuestScrEditorMessage::LoadCatalog,
+                    crate::message::editor::quest_scr::QuestScrEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MessageScrEditor => Some(Task::done(Message::message_scr(
-                    crate::message::editor::messagescr::MessageScrEditorMessage::LoadCatalog,
+                    crate::message::editor::message_scr::MessageScrEditorMessage::LoadCatalog,
                 ))),
                 EditorType::PartyLevelDbEditor => Some(Task::done(Message::party_level_db(
-                    crate::message::editor::partyleveldb::PartyLevelDbEditorMessage::LoadCatalog,
+                    crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
                 ))),
                 EditorType::ChDataEditor => Some(Task::done(Message::ch_data(
                     crate::message::editor::chdata::ChDataEditorMessage::LoadCatalog,
@@ -288,10 +288,10 @@ impl App {
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
                 }
-                EditorType::DialogEditor => {
+                EditorType::DialogueScriptEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialog_editors
+                        .dialogue_script_editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -299,7 +299,7 @@ impl App {
                 EditorType::DialogueTextEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialogue_text_editors
+                        .dialogue_paragraphs_editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -336,48 +336,50 @@ impl App {
         let et = self.state.workspace.active()?.editor_type;
         Some(match et {
             WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-            MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
+            MonsterEditor => Message::monster_db(monster_db::MonsterEditorMessage::Spreadsheet(sm)),
             MonsterIniEditor => {
-                Message::monster_ini(monsterini::MonsterIniEditorMessage::Spreadsheet(sm))
+                Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
             }
-            HealItemEditor => Message::heal_item(healitem::HealItemEditorMessage::Spreadsheet(sm)),
-            MiscItemEditor => Message::misc_item(miscitem::MiscItemEditorMessage::Spreadsheet(sm)),
-            EditItemEditor => Message::edit_item(edititem::EditItemEditorMessage::Spreadsheet(sm)),
+            HealItemEditor => Message::heal_item(heal_item::HealItemEditorMessage::Spreadsheet(sm)),
+            MiscItemEditor => Message::misc_item(misc_item::MiscItemEditorMessage::Spreadsheet(sm)),
+            EditItemEditor => Message::edit_item(edit_item::EditItemEditorMessage::Spreadsheet(sm)),
             EventItemEditor => {
-                Message::event_item(eventitem::EventItemEditorMessage::Spreadsheet(sm))
+                Message::event_item(event_item::EventItemEditorMessage::Spreadsheet(sm))
             }
             MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
             StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
-            NpcIniEditor => Message::npc_ini(npcini::NpcIniEditorMessage::Spreadsheet(sm)),
-            NpcRefEditor => Message::npc_ref(npcref::NpcRefEditorMessage::Spreadsheet(sm)),
+            NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
+            NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
             MonsterRefEditor => {
-                Message::monster_ref(monsterref::MonsterRefEditorMessage::Spreadsheet(sm))
+                Message::monster_ref(monster_ref::MonsterRefEditorMessage::Spreadsheet(sm))
             }
-            PartyRefEditor => Message::party_ref(partyref::PartyRefEditorMessage::Spreadsheet(sm)),
-            PartyIniEditor => Message::party_ini(partyini::PartyIniEditorMessage::Spreadsheet(sm)),
+            PartyRefEditor => Message::party_ref(party_ref::PartyRefEditorMessage::Spreadsheet(sm)),
+            PartyIniEditor => Message::party_ini(party_ini::PartyIniEditorMessage::Spreadsheet(sm)),
             AllMapIniEditor => {
-                Message::all_map_ini(allmapini::AllMapIniEditorMessage::Spreadsheet(sm))
+                Message::all_map_ini(all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm))
             }
-            MapIniEditor => Message::map_ini(mapini::MapIniEditorMessage::Spreadsheet(sm)),
-            ExtraIniEditor => Message::extra_ini(extraini::ExtraIniEditorMessage::Spreadsheet(sm)),
-            ExtraRefEditor => Message::extra_ref(extraref::ExtraRefEditorMessage::Spreadsheet(sm)),
-            EventIniEditor => Message::event_ini(eventini::EventIniEditorMessage::Spreadsheet(sm)),
+            MapIniEditor => Message::map_ini(map_ini::MapIniEditorMessage::Spreadsheet(sm)),
+            ExtraIniEditor => Message::extra_ini(extra_ini::ExtraIniEditorMessage::Spreadsheet(sm)),
+            ExtraRefEditor => Message::extra_ref(extra_ref::ExtraRefEditorMessage::Spreadsheet(sm)),
+            EventIniEditor => Message::event_ini(event_ini::EventIniEditorMessage::Spreadsheet(sm)),
             EventNpcRefEditor => {
-                Message::event_npc_ref(eventnpcref::EventNpcRefEditorMessage::Spreadsheet(sm))
+                Message::event_npc_ref(event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm))
             }
-            WaveIniEditor => Message::wave_ini(waveini::WaveIniEditorMessage::Spreadsheet(sm)),
-            DrawItemEditor => Message::draw_item(drawitem::DrawItemEditorMessage::Spreadsheet(sm)),
+            WaveIniEditor => Message::wave_ini(wave_ini::WaveIniEditorMessage::Spreadsheet(sm)),
+            DrawItemEditor => Message::draw_item(draw_item::DrawItemEditorMessage::Spreadsheet(sm)),
             MessageScrEditor => {
-                Message::message_scr(messagescr::MessageScrEditorMessage::Spreadsheet(sm))
+                Message::message_scr(message_scr::MessageScrEditorMessage::Spreadsheet(sm))
             }
-            QuestScrEditor => Message::quest_scr(questscr::QuestScrEditorMessage::Spreadsheet(sm)),
-            DialogEditor => Message::dialog(dialog::DialogEditorMessage::Spreadsheet(sm)),
-            DialogueTextEditor => {
-                Message::dialogue_text(dialoguetext::DialogueTextEditorMessage::Spreadsheet(sm))
-            }
+            QuestScrEditor => Message::quest_scr(quest_scr::QuestScrEditorMessage::Spreadsheet(sm)),
+            DialogueScriptEditor => Message::dialogue_script(
+                dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
+            ),
+            DialogueTextEditor => Message::dialogue_paragraph(
+                dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
+            ),
             ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
             PartyLevelDbEditor => {
-                Message::party_level_db(partyleveldb::PartyLevelDbEditorMessage::Spreadsheet(sm))
+                Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
             }
             _ => return None,
         })
@@ -632,7 +634,7 @@ impl App {
                                     self.state.monster_ref_spreadsheets.insert(tab_id, ss);
                                     if !self.state.lookups.contains_key("monster_names") {
                                         return Task::done(crate::message::Message::monster_ref(
-                                            crate::message::editor::monsterref::MonsterRefEditorMessage::LoadMonsterNames,
+                                            crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadMonsterNames,
                                         ));
                                     }
                                 }
@@ -663,7 +665,7 @@ impl App {
                                         move |result| {
                                             crate::message::Message::Editor(
                                                 crate::message::editor::EditorMessage::ExtraRef(
-                                                    crate::message::editor::extraref::ExtraRefEditorMessage::CatalogLoaded(tab_id, result),
+                                                    crate::message::editor::extra_ref::ExtraRefEditorMessage::CatalogLoaded(tab_id, result),
                                                 ),
                                             )
                                         },
@@ -683,24 +685,24 @@ impl App {
                         if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
                             let tab_id = tab.id;
                             let path_str = path.to_string_lossy().to_string();
-                            let editor_state = crate::state::dialog_editor::DialogEditorState {
-                                current_file: path_str,
-                                editor: Default::default(),
-                            };
-                            self.state.dialog_editors.insert(tab_id, editor_state);
+                            let mut editor_state = crate::state::dialogue_script_editor::DialogueScriptEditorState::default();
+                            editor_state.current_file = path_str;
                             self.state
-                                .dialog_spreadsheets
+                                .dialogue_script_editors
+                                .insert(tab_id, editor_state);
+                            self.state
+                                .dialogue_script_spreadsheets
                                 .insert(tab_id, Default::default());
                             let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
-                                    dispel_core::Dialog::read_file(&path_buf)
+                                    dispel_core::DialogueScript::read_file(&path_buf)
                                         .map_err(|e: std::io::Error| e.to_string())
                                 },
                                 move |result| {
                                     crate::message::Message::Editor(
-                                        crate::message::editor::EditorMessage::Dialog(
-                                            crate::message::editor::dialog::DialogEditorMessage::CatalogLoaded(result),
+                                        crate::message::editor::EditorMessage::DialogueScript(
+                                            crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
                                         ),
                                     )
                                 },
@@ -714,26 +716,26 @@ impl App {
                             let tab_id = tab.id;
                             let path_str = path.to_string_lossy().to_string();
                             let editor_state =
-                                crate::state::dialogue_text_editor::DialogueTextEditorState {
+                                crate::state::dialogue_paragraph_editor::DialogueParagraphEditorState {
                                     editor: crate::generic_editor::GenericEditorState::default(),
                                     current_file: path_str,
                                 };
                             self.state
-                                .dialogue_text_editors
+                                .dialogue_paragraphs_editors
                                 .insert(tab_id, editor_state);
                             self.state
-                                .dialogue_text_spreadsheets
+                                .dialogue_paragraph_spreadsheets
                                 .insert(tab_id, Default::default());
                             let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
-                                    dispel_core::DialogueText::read_file(&path_buf)
+                                    dispel_core::DialogueParagraph::read_file(&path_buf)
                                         .map_err(|e: std::io::Error| e.to_string())
                                 },
                                 move |result| {
                                     crate::message::Message::Editor(
-                                        crate::message::editor::EditorMessage::DialogueText(
-                                            crate::message::editor::dialoguetext::DialogueTextEditorMessage::CatalogLoaded(tab_id, result),
+                                        crate::message::editor::EditorMessage::DialogueParagraph(
+                                            crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
                                         ),
                                     )
                                 },
@@ -798,20 +800,20 @@ impl App {
             "weapons" => Task::done(Message::weapon(
                 crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
             )),
-            "monster_db" => Task::done(Message::monster(
-                crate::message::editor::monster::MonsterEditorMessage::LoadCatalog,
+            "monster_db" => Task::done(Message::monster_db(
+                crate::message::editor::monster_db::MonsterEditorMessage::LoadCatalog,
             )),
             "heal_items" => Task::done(Message::heal_item(
-                crate::message::editor::healitem::HealItemEditorMessage::LoadCatalog,
+                crate::message::editor::heal_item::HealItemEditorMessage::LoadCatalog,
             )),
             "misc_items" => Task::done(Message::misc_item(
-                crate::message::editor::miscitem::MiscItemEditorMessage::LoadCatalog,
+                crate::message::editor::misc_item::MiscItemEditorMessage::LoadCatalog,
             )),
             "edit_items" => Task::done(Message::edit_item(
-                crate::message::editor::edititem::EditItemEditorMessage::LoadCatalog,
+                crate::message::editor::edit_item::EditItemEditorMessage::LoadCatalog,
             )),
             "event_items" => Task::done(Message::event_item(
-                crate::message::editor::eventitem::EventItemEditorMessage::LoadCatalog,
+                crate::message::editor::event_item::EventItemEditorMessage::LoadCatalog,
             )),
             "stores" => Task::done(Message::store(
                 crate::message::editor::store::StoreEditorMessage::LoadCatalog,
@@ -823,46 +825,46 @@ impl App {
                 crate::message::editor::chdata::ChDataEditorMessage::LoadCatalog,
             )),
             "party_levels" => Task::done(Message::party_level_db(
-                crate::message::editor::partyleveldb::PartyLevelDbEditorMessage::LoadCatalog,
+                crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
             )),
             "party_ini" => Task::done(Message::party_ini(
-                crate::message::editor::partyini::PartyIniEditorMessage::LoadCatalog,
+                crate::message::editor::party_ini::PartyIniEditorMessage::LoadCatalog,
             )),
             "all_maps" => Task::done(Message::all_map_ini(
-                crate::message::editor::allmapini::AllMapIniEditorMessage::LoadCatalog,
+                crate::message::editor::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
             )),
             "map_ini" => Task::done(Message::map_ini(
-                crate::message::editor::mapini::MapIniEditorMessage::LoadCatalog,
+                crate::message::editor::map_ini::MapIniEditorMessage::LoadCatalog,
             )),
             "extra_ini" => Task::done(Message::extra_ini(
-                crate::message::editor::extraini::ExtraIniEditorMessage::LoadCatalog,
+                crate::message::editor::extra_ini::ExtraIniEditorMessage::LoadCatalog,
             )),
             "event_ini" => Task::done(Message::event_ini(
-                crate::message::editor::eventini::EventIniEditorMessage::LoadCatalog,
+                crate::message::editor::event_ini::EventIniEditorMessage::LoadCatalog,
             )),
             "monster_ini" => Task::done(Message::monster_ini(
-                crate::message::editor::monsterini::MonsterIniEditorMessage::LoadCatalog,
+                crate::message::editor::monster_ini::MonsterIniEditorMessage::LoadCatalog,
             )),
             "npc_ini" => Task::done(Message::npc_ini(
-                crate::message::editor::npcini::NpcIniEditorMessage::LoadCatalog,
+                crate::message::editor::npc_ini::NpcIniEditorMessage::LoadCatalog,
             )),
             "wave_ini" => Task::done(Message::wave_ini(
-                crate::message::editor::waveini::WaveIniEditorMessage::LoadCatalog,
+                crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
             )),
             "quests" => Task::done(Message::quest_scr(
-                crate::message::editor::questscr::QuestScrEditorMessage::LoadCatalog,
+                crate::message::editor::quest_scr::QuestScrEditorMessage::LoadCatalog,
             )),
             "messages" => Task::done(Message::message_scr(
-                crate::message::editor::messagescr::MessageScrEditorMessage::LoadCatalog,
+                crate::message::editor::message_scr::MessageScrEditorMessage::LoadCatalog,
             )),
             "party_ref" => Task::done(Message::party_ref(
-                crate::message::editor::partyref::PartyRefEditorMessage::LoadCatalog,
+                crate::message::editor::party_ref::PartyRefEditorMessage::LoadCatalog,
             )),
             "draw_items" => Task::done(Message::draw_item(
-                crate::message::editor::drawitem::DrawItemEditorMessage::LoadCatalog,
+                crate::message::editor::draw_item::DrawItemEditorMessage::LoadCatalog,
             )),
             "event_npc_ref" => Task::done(Message::event_npc_ref(
-                crate::message::editor::eventnpcref::EventNpcRefEditorMessage::LoadCatalog,
+                crate::message::editor::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog,
             )),
             _ => Task::none(),
         }
@@ -1172,44 +1174,48 @@ fn build_spreadsheet_nav_msg(
     use crate::workspace::EditorType::*;
     Some(match et {
         WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-        MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
+        MonsterEditor => Message::monster_db(monster_db::MonsterEditorMessage::Spreadsheet(sm)),
         MonsterIniEditor => {
-            Message::monster_ini(monsterini::MonsterIniEditorMessage::Spreadsheet(sm))
+            Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
         }
-        HealItemEditor => Message::heal_item(healitem::HealItemEditorMessage::Spreadsheet(sm)),
-        MiscItemEditor => Message::misc_item(miscitem::MiscItemEditorMessage::Spreadsheet(sm)),
-        EditItemEditor => Message::edit_item(edititem::EditItemEditorMessage::Spreadsheet(sm)),
-        EventItemEditor => Message::event_item(eventitem::EventItemEditorMessage::Spreadsheet(sm)),
+        HealItemEditor => Message::heal_item(heal_item::HealItemEditorMessage::Spreadsheet(sm)),
+        MiscItemEditor => Message::misc_item(misc_item::MiscItemEditorMessage::Spreadsheet(sm)),
+        EditItemEditor => Message::edit_item(edit_item::EditItemEditorMessage::Spreadsheet(sm)),
+        EventItemEditor => Message::event_item(event_item::EventItemEditorMessage::Spreadsheet(sm)),
         MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
         StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
-        NpcIniEditor => Message::npc_ini(npcini::NpcIniEditorMessage::Spreadsheet(sm)),
-        NpcRefEditor => Message::npc_ref(npcref::NpcRefEditorMessage::Spreadsheet(sm)),
+        NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
+        NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
         MonsterRefEditor => {
-            Message::monster_ref(monsterref::MonsterRefEditorMessage::Spreadsheet(sm))
+            Message::monster_ref(monster_ref::MonsterRefEditorMessage::Spreadsheet(sm))
         }
-        PartyRefEditor => Message::party_ref(partyref::PartyRefEditorMessage::Spreadsheet(sm)),
-        PartyIniEditor => Message::party_ini(partyini::PartyIniEditorMessage::Spreadsheet(sm)),
-        AllMapIniEditor => Message::all_map_ini(allmapini::AllMapIniEditorMessage::Spreadsheet(sm)),
-        MapIniEditor => Message::map_ini(mapini::MapIniEditorMessage::Spreadsheet(sm)),
-        ExtraIniEditor => Message::extra_ini(extraini::ExtraIniEditorMessage::Spreadsheet(sm)),
-        ExtraRefEditor => Message::extra_ref(extraref::ExtraRefEditorMessage::Spreadsheet(sm)),
-        EventIniEditor => Message::event_ini(eventini::EventIniEditorMessage::Spreadsheet(sm)),
+        PartyRefEditor => Message::party_ref(party_ref::PartyRefEditorMessage::Spreadsheet(sm)),
+        PartyIniEditor => Message::party_ini(party_ini::PartyIniEditorMessage::Spreadsheet(sm)),
+        AllMapIniEditor => {
+            Message::all_map_ini(all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm))
+        }
+        MapIniEditor => Message::map_ini(map_ini::MapIniEditorMessage::Spreadsheet(sm)),
+        ExtraIniEditor => Message::extra_ini(extra_ini::ExtraIniEditorMessage::Spreadsheet(sm)),
+        ExtraRefEditor => Message::extra_ref(extra_ref::ExtraRefEditorMessage::Spreadsheet(sm)),
+        EventIniEditor => Message::event_ini(event_ini::EventIniEditorMessage::Spreadsheet(sm)),
         EventNpcRefEditor => {
-            Message::event_npc_ref(eventnpcref::EventNpcRefEditorMessage::Spreadsheet(sm))
+            Message::event_npc_ref(event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm))
         }
-        WaveIniEditor => Message::wave_ini(waveini::WaveIniEditorMessage::Spreadsheet(sm)),
-        DrawItemEditor => Message::draw_item(drawitem::DrawItemEditorMessage::Spreadsheet(sm)),
+        WaveIniEditor => Message::wave_ini(wave_ini::WaveIniEditorMessage::Spreadsheet(sm)),
+        DrawItemEditor => Message::draw_item(draw_item::DrawItemEditorMessage::Spreadsheet(sm)),
         MessageScrEditor => {
-            Message::message_scr(messagescr::MessageScrEditorMessage::Spreadsheet(sm))
+            Message::message_scr(message_scr::MessageScrEditorMessage::Spreadsheet(sm))
         }
-        QuestScrEditor => Message::quest_scr(questscr::QuestScrEditorMessage::Spreadsheet(sm)),
-        DialogEditor => Message::dialog(dialog::DialogEditorMessage::Spreadsheet(sm)),
-        DialogueTextEditor => {
-            Message::dialogue_text(dialoguetext::DialogueTextEditorMessage::Spreadsheet(sm))
-        }
+        QuestScrEditor => Message::quest_scr(quest_scr::QuestScrEditorMessage::Spreadsheet(sm)),
+        DialogueScriptEditor => Message::dialogue_script(
+            dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
+        ),
+        DialogueTextEditor => Message::dialogue_paragraph(
+            dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
+        ),
         ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
         PartyLevelDbEditor => {
-            Message::party_level_db(partyleveldb::PartyLevelDbEditorMessage::Spreadsheet(sm))
+            Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
         }
         _ => return None,
     })

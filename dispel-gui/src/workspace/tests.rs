@@ -61,7 +61,7 @@ mod tests {
         
         // Verify cleared state
         assert_eq!(state.map_editors.len(), 0);
-        assert_eq!(state.dialog_editors.len(), 0);
+        assert_eq!(state.dialogue_script_editors.len(), 0);
         assert_eq!(state.sprite_viewers.len(), 0);
         assert_eq!(state.lookups.len(), 0);
         

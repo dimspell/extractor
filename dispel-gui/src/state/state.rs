@@ -7,8 +7,8 @@ use crate::state::all_map_ini_editor;
 use crate::state::chdata_editor;
 use crate::state::chest_editor;
 use crate::state::db_viewer_state::DbViewerState;
-use crate::state::dialog_editor;
-use crate::state::dialogue_text_editor;
+use crate::state::dialogue_paragraph_editor;
+use crate::state::dialogue_script_editor;
 use crate::state::draw_item_editor;
 use crate::state::event_ini_editor;
 use crate::state::event_npc_ref_editor;
@@ -67,10 +67,11 @@ pub struct AppState {
     pub sprite_viewers: HashMap<usize, sprite_viewer::SpriteViewerState>,
     pub all_map_ini_editor: Box<all_map_ini_editor::AllMapIniEditorState>,
     pub all_map_ini_spreadsheet: SpreadsheetState,
-    pub dialog_editors: HashMap<usize, dialog_editor::DialogEditorState>,
-    pub dialog_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub dialogue_text_editors: HashMap<usize, dialogue_text_editor::DialogueTextEditorState>,
-    pub dialogue_text_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub dialogue_script_editors: HashMap<usize, dialogue_script_editor::DialogueScriptEditorState>,
+    pub dialogue_script_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub dialogue_paragraphs_editors:
+        HashMap<usize, dialogue_paragraph_editor::DialogueParagraphEditorState>,
+    pub dialogue_paragraph_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub draw_item_editor: Box<draw_item_editor::DrawItemEditorState>,
     pub event_ini_editor: Box<event_ini_editor::EventIniEditorState>,
     pub event_npc_ref_editor: Box<event_npc_ref_editor::EventNpcRefEditorState>,
@@ -274,10 +275,10 @@ impl AppState {
         // Clear all HashMap-based editor states
         self.sprite_viewers.clear();
         self.tileset_editors.clear();
-        self.dialog_editors.clear();
-        self.dialog_spreadsheets.clear();
-        self.dialogue_text_editors.clear();
-        self.dialogue_text_spreadsheets.clear();
+        self.dialogue_script_editors.clear();
+        self.dialogue_script_spreadsheets.clear();
+        self.dialogue_paragraphs_editors.clear();
+        self.dialogue_paragraph_spreadsheets.clear();
         self.monster_ref_editors.clear();
         self.monster_ref_spreadsheets.clear();
         self.extra_ref_editors.clear();
@@ -341,10 +342,10 @@ impl Default for AppState {
             sprite_viewers: HashMap::new(),
             all_map_ini_editor: Box::default(),
             all_map_ini_spreadsheet: SpreadsheetState::new(),
-            dialog_editors: HashMap::new(),
-            dialog_spreadsheets: HashMap::new(),
-            dialogue_text_editors: HashMap::new(),
-            dialogue_text_spreadsheets: HashMap::new(),
+            dialogue_script_editors: HashMap::new(),
+            dialogue_script_spreadsheets: HashMap::new(),
+            dialogue_paragraphs_editors: HashMap::new(),
+            dialogue_paragraph_spreadsheets: HashMap::new(),
             draw_item_editor: Box::default(),
             event_ini_editor: Box::default(),
             event_npc_ref_editor: Box::default(),

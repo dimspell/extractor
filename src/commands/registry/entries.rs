@@ -322,9 +322,9 @@ pub(crate) fn make_dialog() -> FileType {
         description: "Dialogue script CSV",
         extensions: &[".dlg"],
         detect_kind: DetectKind::DlgPrefix("Dlg"),
-        extract_fn: extract_as::<dispel_core::references::dialog::Dialog>,
-        patch_fn: patch_as::<dispel_core::references::dialog::Dialog>,
-        validate_fn: Some(validate_as::<dispel_core::references::dialog::Dialog>),
+        extract_fn: extract_as::<dispel_core::references::dialogue_script::DialogueScript>,
+        patch_fn: patch_as::<dispel_core::references::dialogue_script::DialogueScript>,
+        validate_fn: Some(validate_as::<dispel_core::references::dialogue_script::DialogueScript>),
     }
 }
 
@@ -335,9 +335,11 @@ pub(crate) fn make_dialog_text() -> FileType {
         description: "Dialogue text package",
         extensions: &[".pgp"],
         detect_kind: DetectKind::PgpPrefix("Pgp"),
-        extract_fn: extract_as::<dispel_core::references::dialogue_text::DialogueText>,
-        patch_fn: patch_as::<dispel_core::references::dialogue_text::DialogueText>,
-        validate_fn: Some(validate_as::<dispel_core::references::dialogue_text::DialogueText>),
+        extract_fn: extract_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+        patch_fn: patch_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+        validate_fn: Some(
+            validate_as::<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+        ),
     }
 }
 

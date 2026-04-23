@@ -18,7 +18,7 @@ pub mod all_map_ini_editor;
 pub mod chdata_editor;
 pub mod chest_editor;
 pub mod db_viewer;
-pub mod dialog_editor;
+pub mod dialogue_script_editor;
 pub mod dialogue_text_editor;
 pub mod draw_item_editor;
 pub mod edit_item_editor;
@@ -96,9 +96,11 @@ impl App {
                                 self.view_monster_ref_editor_tab()
                             }
                             Some(EditorType::AllMapIniEditor) => self.view_all_map_ini_editor_tab(),
-                            Some(EditorType::DialogEditor) => self.view_dialog_editor_tab(),
+                            Some(EditorType::DialogueScriptEditor) => {
+                                self.view_dialogue_script_editor_tab()
+                            }
                             Some(EditorType::DialogueTextEditor) => {
-                                self.view_dialogue_text_editor_tab()
+                                self.view_dialogue_paragraph_editor_tab()
                             }
                             Some(EditorType::DrawItemEditor) => self.view_draw_item_tab(),
                             Some(EditorType::EventIniEditor) => self.view_event_ini_tab(),

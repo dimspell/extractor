@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{editor::mapini::MapIniEditorMessage, Message, MessageExt};
+use crate::message::{editor::map_ini::MapIniEditorMessage, Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

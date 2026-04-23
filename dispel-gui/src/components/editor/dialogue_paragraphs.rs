@@ -1,7 +1,7 @@
 use super::editable::{set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
-use dispel_core::DialogueText;
+use dispel_core::DialogueParagraph;
 
-impl EditableRecord for DialogueText {
+impl EditableRecord for DialogueParagraph {
     fn field_descriptors() -> &'static [FieldDescriptor] {
         &[
             FieldDescriptor {
