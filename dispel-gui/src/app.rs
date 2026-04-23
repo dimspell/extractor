@@ -99,22 +99,22 @@ impl App {
             // Generate load task based on editor type
             match active_tab.editor_type {
                 EditorType::WeaponEditor => Some(Task::done(Message::weapon(
-                    crate::message::editor::weapon::WeaponEditorMessage::ScanWeapons,
+                    crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
                 ))),
                 EditorType::HealItemEditor => Some(Task::done(Message::heal_item(
-                    crate::message::editor::healitem::HealItemEditorMessage::ScanItems,
+                    crate::message::editor::healitem::HealItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MiscItemEditor => Some(Task::done(Message::misc_item(
-                    crate::message::editor::miscitem::MiscItemEditorMessage::ScanItems,
+                    crate::message::editor::miscitem::MiscItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EditItemEditor => Some(Task::done(Message::edit_item(
-                    crate::message::editor::edititem::EditItemEditorMessage::ScanItems,
+                    crate::message::editor::edititem::EditItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::EventItemEditor => Some(Task::done(Message::event_item(
-                    crate::message::editor::eventitem::EventItemEditorMessage::ScanItems,
+                    crate::message::editor::eventitem::EventItemEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MonsterEditor => Some(Task::done(Message::monster(
-                    crate::message::editor::monster::MonsterEditorMessage::ScanMonsters,
+                    crate::message::editor::monster::MonsterEditorMessage::LoadCatalog,
                 ))),
                 EditorType::MonsterIniEditor => Some(Task::done(Message::monster_ini(
                     crate::message::editor::monsterini::MonsterIniEditorMessage::LoadCatalog,
@@ -126,7 +126,7 @@ impl App {
                     crate::message::editor::magic::MagicEditorMessage::LoadCatalog,
                 ))),
                 EditorType::StoreEditor => Some(Task::done(Message::store(
-                    crate::message::editor::store::StoreEditorMessage::ScanStores,
+                    crate::message::editor::store::StoreEditorMessage::LoadCatalog,
                 ))),
                 EditorType::PartyRefEditor => Some(Task::done(Message::party_ref(
                     crate::message::editor::partyref::PartyRefEditorMessage::LoadCatalog,
@@ -700,7 +700,7 @@ impl App {
                                 move |result| {
                                     crate::message::Message::Editor(
                                         crate::message::editor::EditorMessage::Dialog(
-                                            crate::message::editor::dialog::DialogEditorMessage::Scanned(result),
+                                            crate::message::editor::dialog::DialogEditorMessage::CatalogLoaded(result),
                                         ),
                                     )
                                 },
@@ -796,25 +796,25 @@ impl App {
         use crate::message::MessageExt;
         match type_name {
             "weapons" => Task::done(Message::weapon(
-                crate::message::editor::weapon::WeaponEditorMessage::ScanWeapons,
+                crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
             )),
             "monster_db" => Task::done(Message::monster(
-                crate::message::editor::monster::MonsterEditorMessage::ScanMonsters,
+                crate::message::editor::monster::MonsterEditorMessage::LoadCatalog,
             )),
             "heal_items" => Task::done(Message::heal_item(
-                crate::message::editor::healitem::HealItemEditorMessage::ScanItems,
+                crate::message::editor::healitem::HealItemEditorMessage::LoadCatalog,
             )),
             "misc_items" => Task::done(Message::misc_item(
-                crate::message::editor::miscitem::MiscItemEditorMessage::ScanItems,
+                crate::message::editor::miscitem::MiscItemEditorMessage::LoadCatalog,
             )),
             "edit_items" => Task::done(Message::edit_item(
-                crate::message::editor::edititem::EditItemEditorMessage::ScanItems,
+                crate::message::editor::edititem::EditItemEditorMessage::LoadCatalog,
             )),
             "event_items" => Task::done(Message::event_item(
-                crate::message::editor::eventitem::EventItemEditorMessage::ScanItems,
+                crate::message::editor::eventitem::EventItemEditorMessage::LoadCatalog,
             )),
             "stores" => Task::done(Message::store(
-                crate::message::editor::store::StoreEditorMessage::ScanStores,
+                crate::message::editor::store::StoreEditorMessage::LoadCatalog,
             )),
             "magic" => Task::done(Message::magic(
                 crate::message::editor::magic::MagicEditorMessage::LoadCatalog,

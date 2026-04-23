@@ -20,7 +20,7 @@ type StoreScanResult = Result<
 
 pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        StoreEditorMessage::LoadCatalog | StoreEditorMessage::ScanStores => {
+        StoreEditorMessage::LoadCatalog => {
             if app.state.shared_game_path.is_empty() {
                 app.state.store_editor.status_msg = "Please select game path first.".into();
                 return Task::none();

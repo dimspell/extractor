@@ -4,19 +4,13 @@ use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::loading_state::LoadingState;
 use crate::message::editor::healitem::HealItemEditorMessage;
-use crate::utils::browse_folder;
 use dispel_core::{Extractor, HealItem};
 use iced::Task;
 use std::path::PathBuf;
 
 pub fn handle(message: HealItemEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        HealItemEditorMessage::BrowseSpritePath => {
-            // TODO: Remove this type after removing all references to the logic
-            // Handle browse sprite path - open file dialog
-            browse_folder("heal_item_sprite_path")
-        }
-        HealItemEditorMessage::ScanItems => {
+        HealItemEditorMessage::LoadCatalog => {
             // Scan heal items from game files
             if app.state.shared_game_path.is_empty() {
                 app.state.heal_item_editor.status_msg = "Please select game path first.".into();
@@ -39,13 +33,13 @@ pub fn handle(message: HealItemEditorMessage, app: &mut App) -> Task<crate::mess
                 |result: Result<Vec<dispel_core::HealItem>, String>| {
                     crate::message::Message::Editor(
                         crate::message::editor::EditorMessage::HealItem(
-                            HealItemEditorMessage::Scanned(result), // former: HealItemCatalogLoaded
+                            HealItemEditorMessage::CatalogLoaded(result), // former: HealItemCatalogLoaded
                         ),
                     )
                 },
             )
         }
-        HealItemEditorMessage::Scanned(result) => {
+        HealItemEditorMessage::CatalogLoaded(result) => {
             app.state.heal_item_editor.loading_state =
                 crate::loading_state::LoadingState::Loaded(());
             match result {

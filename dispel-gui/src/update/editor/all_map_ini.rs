@@ -53,7 +53,7 @@ pub fn handle(message: AllMapIniEditorMessage, app: &mut App) -> Task<crate::mes
             }
             Task::none()
         }
-        AllMapIniEditorMessage::SelectMap(index) => {
+        AllMapIniEditorMessage::Select(index) => {
             // Select map
             app.state.all_map_ini_editor.selected_idx = Some(index);
             Task::none()

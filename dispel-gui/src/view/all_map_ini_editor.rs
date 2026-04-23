@@ -13,7 +13,7 @@ impl App {
             spreadsheet,
             Message::all_map_ini(AllMapIniEditorMessage::LoadCatalog),
             Message::all_map_ini(AllMapIniEditorMessage::Save),
-            |idx| Message::all_map_ini(AllMapIniEditorMessage::SelectMap(idx)),
+            |idx| Message::all_map_ini(AllMapIniEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::all_map_ini(AllMapIniEditorMessage::FieldChanged(idx, field, val))
             },

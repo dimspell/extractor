@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: MonsterIniEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        MonsterIniEditorMessage::LoadCatalog | MonsterIniEditorMessage::ScanMonsters => {
+        MonsterIniEditorMessage::LoadCatalog => {
             // Load Monster INI catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.monster_ini_editor.status_msg = "Please select game path first.".into();
@@ -53,7 +53,7 @@ pub fn handle(message: MonsterIniEditorMessage, app: &mut App) -> Task<crate::me
             }
             Task::none()
         }
-        MonsterIniEditorMessage::SelectMonster(index) => {
+        MonsterIniEditorMessage::Select(index) => {
             // Select Monster at index
             app.state.monster_ini_editor.select_monster(index);
             Task::none()

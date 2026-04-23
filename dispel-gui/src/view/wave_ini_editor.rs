@@ -10,7 +10,7 @@ impl App {
             &self.state.wave_ini_spreadsheet,
             Message::wave_ini(WaveIniEditorMessage::LoadCatalog),
             Message::wave_ini(WaveIniEditorMessage::Save),
-            |idx| Message::wave_ini(WaveIniEditorMessage::SelectWave(idx)),
+            |idx| Message::wave_ini(WaveIniEditorMessage::Select(idx)),
             |idx, field, value| {
                 Message::wave_ini(WaveIniEditorMessage::FieldChanged(idx, field, value))
             },

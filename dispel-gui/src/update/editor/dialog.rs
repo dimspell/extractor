@@ -16,7 +16,7 @@ pub fn handle(message: DialogEditorMessage, app: &mut App) -> Task<crate::messag
         .unwrap_or(usize::MAX);
 
     match message {
-        DialogEditorMessage::ScanDialogs => {
+        DialogEditorMessage::LoadCatalog => {
             if let Some(editor) = app.state.dialog_editors.get_mut(&tab_id) {
                 editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
                 let path = editor.current_file.clone();
@@ -32,14 +32,14 @@ pub fn handle(message: DialogEditorMessage, app: &mut App) -> Task<crate::messag
                     },
                     |res: Result<Vec<Dialog>, String>| {
                         <crate::message::Message as crate::message::MessageExt>::dialog(
-                            DialogEditorMessage::Scanned(res),
+                            DialogEditorMessage::CatalogLoaded(res),
                         )
                     },
                 );
             }
             Task::none()
         }
-        DialogEditorMessage::Scanned(result) => {
+        DialogEditorMessage::CatalogLoaded(result) => {
             if let Some(editor) = app.state.dialog_editors.get_mut(&tab_id) {
                 editor.editor.loading_state = crate::loading_state::LoadingState::Loaded(());
                 match result {
@@ -63,7 +63,7 @@ pub fn handle(message: DialogEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        DialogEditorMessage::SelectDialog(index) => {
+        DialogEditorMessage::Select(index) => {
             if let Some(editor) = app.state.dialog_editors.get_mut(&tab_id) {
                 editor.select_dialog(index);
             }

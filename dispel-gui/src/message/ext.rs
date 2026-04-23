@@ -76,9 +76,9 @@ mod tests {
 
     #[test]
     fn test_weapon_message_constructor() {
-        let msg = Message::weapon(WeaponEditorMessage::ScanWeapons);
+        let msg = Message::weapon(WeaponEditorMessage::LoadCatalog);
         match msg {
-            Message::Editor(EditorMessage::Weapon(WeaponEditorMessage::ScanWeapons)) => (),
+            Message::Editor(EditorMessage::Weapon(WeaponEditorMessage::LoadCatalog)) => (),
             _ => panic!("Unexpected message variant"),
         }
     }
@@ -97,10 +97,10 @@ mod tests {
 
     #[test]
     fn test_store_message_constructor() {
-        let msg = Message::store(crate::message::editor::store::StoreEditorMessage::ScanStores);
+        let msg = Message::store(crate::message::editor::store::StoreEditorMessage::LoadCatalog);
         match msg {
             Message::Editor(EditorMessage::Store(
-                crate::message::editor::store::StoreEditorMessage::ScanStores,
+                                crate::message::editor::store::StoreEditorMessage::LoadCatalog,
             )) => (),
             _ => panic!("Unexpected message variant"),
         }

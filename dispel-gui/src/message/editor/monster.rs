@@ -1,9 +1,8 @@
 #[derive(Debug, Clone)]
 pub enum MonsterEditorMessage {
     LoadCatalog,
-    ScanMonsters,
-    Scanned(Result<Vec<dispel_core::Monster>, String>),
-    SelectMonster(usize),
+    CatalogLoaded(Result<Vec<dispel_core::Monster>, String>),
+    Select(usize),
     FieldChanged(usize, String, String),
     Spreadsheet(crate::view::editor::SpreadsheetMessage),
     PaneResized(iced::widget::pane_grid::ResizeEvent),

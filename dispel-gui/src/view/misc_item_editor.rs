@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.misc_item_editor,
             &self.state.misc_item_spreadsheet,
-            Message::misc_item(MiscItemEditorMessage::ScanItems),
+            Message::misc_item(MiscItemEditorMessage::LoadCatalog),
             Message::misc_item(MiscItemEditorMessage::Save),
-            |idx| Message::misc_item(MiscItemEditorMessage::SelectItem(idx)),
+            |idx| Message::misc_item(MiscItemEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::misc_item(MiscItemEditorMessage::FieldChanged(idx, field, val))
             },

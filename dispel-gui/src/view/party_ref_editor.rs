@@ -11,7 +11,7 @@ impl App {
             &self.state.party_ref_spreadsheet,
             Message::party_ref(PartyRefEditorMessage::LoadCatalog),
             Message::party_ref(PartyRefEditorMessage::Save),
-            |idx| Message::party_ref(PartyRefEditorMessage::SelectMember(idx)),
+            |idx| Message::party_ref(PartyRefEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::party_ref(PartyRefEditorMessage::FieldChanged(idx, field, val))
             },

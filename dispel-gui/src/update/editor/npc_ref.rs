@@ -16,7 +16,7 @@ pub fn handle(message: NpcRefEditorMessage, app: &mut App) -> Task<crate::messag
         .unwrap_or(usize::MAX);
 
     match message {
-        NpcRefEditorMessage::SelectNpc(index) => {
+        NpcRefEditorMessage::Select(index) => {
             if let Some(editor) = app.state.npc_ref_editors.get_mut(&tab_id) {
                 editor.select_npc(index);
             }
@@ -84,7 +84,7 @@ pub fn handle(message: NpcRefEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        NpcRefEditorMessage::LoadNpcNames => Task::none(),
+        NpcRefEditorMessage::LoadCatalog => Task::none(),
         NpcRefEditorMessage::NpcNamesLoaded(result) => {
             if let Ok(names) = result {
                 if let Some(_editor) = app.state.npc_ref_editors.get_mut(&tab_id) {

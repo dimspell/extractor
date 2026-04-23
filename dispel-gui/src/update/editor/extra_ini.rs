@@ -50,7 +50,7 @@ pub fn handle(message: ExtraIniEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        ExtraIniEditorMessage::SelectExtra(index) => {
+        ExtraIniEditorMessage::Select(index) => {
             app.state.extra_ini_editor.select(index);
             Task::none()
         }

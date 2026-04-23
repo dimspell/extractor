@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: MiscItemEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        MiscItemEditorMessage::LoadCatalog | MiscItemEditorMessage::ScanItems => {
+        MiscItemEditorMessage::LoadCatalog => {
             // Load misc item catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.misc_item_editor.status_msg = "Please select game path first.".into();
@@ -54,7 +54,7 @@ pub fn handle(message: MiscItemEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        MiscItemEditorMessage::SelectItem(index) => {
+        MiscItemEditorMessage::Select(index) => {
             // Select misc item at index
             app.state.misc_item_editor.select(index);
             Task::none()

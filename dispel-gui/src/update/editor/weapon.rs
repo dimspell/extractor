@@ -11,7 +11,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: WeaponEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        WeaponEditorMessage::ScanWeapons => {
+        WeaponEditorMessage::LoadCatalog => {
             // Scan weapons from game files
             if app.state.shared_game_path.is_empty() {
                 app.state.weapon_editor.status_msg = "Please select game path first.".into();
@@ -31,11 +31,11 @@ pub fn handle(message: WeaponEditorMessage, app: &mut App) -> Task<crate::messag
                         .map_err(|e: std::io::Error| e.to_string())
                 },
                 move |result: Result<Vec<dispel_core::WeaponItem>, String>| {
-                    crate::message::Message::weapon(WeaponEditorMessage::Scanned(result))
+                    crate::message::Message::weapon(WeaponEditorMessage::CatalogLoaded(result))
                 },
             )
         }
-        WeaponEditorMessage::Scanned(res) => {
+        WeaponEditorMessage::CatalogLoaded(res) => {
             // Handle catalog loaded
             app.state.weapon_editor.loading_state = LoadingState::Loaded(());
             match res {
@@ -57,7 +57,7 @@ pub fn handle(message: WeaponEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        WeaponEditorMessage::SelectWeapon(index) => {
+        WeaponEditorMessage::Select(index) => {
             // Select a weapon at the index
             app.state.weapon_editor.selected_idx = Some(index);
             eprintln!("[DEBUG]: Selected weapon {}", index);

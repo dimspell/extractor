@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.event_item_editor,
             &self.state.event_item_spreadsheet,
-            Message::event_item(EventItemEditorMessage::ScanItems),
+            Message::event_item(EventItemEditorMessage::LoadCatalog),
             Message::event_item(EventItemEditorMessage::Save),
-            |idx| Message::event_item(EventItemEditorMessage::SelectItem(idx)),
+            |idx| Message::event_item(EventItemEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::event_item(EventItemEditorMessage::FieldChanged(idx, field, val))
             },

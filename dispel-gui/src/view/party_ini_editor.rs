@@ -10,7 +10,7 @@ impl App {
             &self.state.party_ini_spreadsheet,
             Message::party_ini(PartyIniEditorMessage::LoadCatalog),
             Message::party_ini(PartyIniEditorMessage::Save),
-            |idx| Message::party_ini(PartyIniEditorMessage::SelectNpc(idx)),
+            |idx| Message::party_ini(PartyIniEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::party_ini(PartyIniEditorMessage::FieldChanged(idx, field, val))
             },

@@ -54,7 +54,7 @@ pub fn handle(message: MessageScrEditorMessage, app: &mut App) -> Task<crate::me
             }
             Task::none()
         }
-        MessageScrEditorMessage::SelectMessage(index) => {
+        MessageScrEditorMessage::Select(index) => {
             app.state.message_scr_editor.selected_idx = Some(index);
             app.state.message_scr_editor.select(index);
             Task::none()

@@ -1,8 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum HealItemEditorMessage {
-    BrowseSpritePath,
-    ScanItems,
-    Scanned(Result<Vec<dispel_core::HealItem>, String>),
+    LoadCatalog,
+    CatalogLoaded(Result<Vec<dispel_core::HealItem>, String>),
     SelectItem(usize),
     FieldChanged(usize, String, String),
     Spreadsheet(crate::view::editor::SpreadsheetMessage),

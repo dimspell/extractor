@@ -16,7 +16,7 @@ pub fn handle(message: DialogueTextEditorMessage, app: &mut App) -> Task<crate::
         .unwrap_or(usize::MAX);
 
     match message {
-        DialogueTextEditorMessage::ScanDialogueTexts => {
+        DialogueTextEditorMessage::ScanCatalog => {
             if let Some(editor) = app.state.dialogue_text_editors.get_mut(&tab_id) {
                 editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
                 let path = editor.current_file.clone();
@@ -65,7 +65,7 @@ pub fn handle(message: DialogueTextEditorMessage, app: &mut App) -> Task<crate::
             }
             Task::none()
         }
-        DialogueTextEditorMessage::SelectText(index) => {
+        DialogueTextEditorMessage::Select(index) => {
             if let Some(editor) = app.state.dialogue_text_editors.get_mut(&tab_id) {
                 editor.select(index);
             }
@@ -77,8 +77,6 @@ pub fn handle(message: DialogueTextEditorMessage, app: &mut App) -> Task<crate::
             }
             Task::none()
         }
-        DialogueTextEditorMessage::TextAction(_, _) => Task::none(),
-        DialogueTextEditorMessage::CommentAction(_, _) => Task::none(),
         DialogueTextEditorMessage::Save => {
             if let Some(editor) = app.state.dialogue_text_editors.get_mut(&tab_id) {
                 editor.editor.loading_state = crate::loading_state::LoadingState::Loading;

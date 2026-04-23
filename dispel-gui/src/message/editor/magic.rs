@@ -1,9 +1,8 @@
 #[derive(Debug, Clone)]
 pub enum MagicEditorMessage {
     LoadCatalog,
-    ScanSpells,
-    Scanned(Result<Vec<dispel_core::MagicSpell>, String>),
-    SelectSpell(usize),
+    CatalogLoaded(Result<Vec<dispel_core::MagicSpell>, String>),
+    Select(usize),
     FieldChanged(usize, String, String),
     Spreadsheet(crate::view::editor::SpreadsheetMessage),
     PaneResized(iced::widget::pane_grid::ResizeEvent),

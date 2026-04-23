@@ -50,7 +50,7 @@ pub fn handle(message: EventIniEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        EventIniEditorMessage::SelectEvent(index) => {
+        EventIniEditorMessage::Select(index) => {
             app.state.event_ini_editor.select(index);
             Task::none()
         }

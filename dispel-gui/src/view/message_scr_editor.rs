@@ -10,7 +10,7 @@ impl App {
             &self.state.message_scr_spreadsheet,
             Message::message_scr(MessageScrEditorMessage::LoadCatalog),
             Message::message_scr(MessageScrEditorMessage::Save),
-            |idx| Message::message_scr(MessageScrEditorMessage::SelectMessage(idx)),
+            |idx| Message::message_scr(MessageScrEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::message_scr(MessageScrEditorMessage::FieldChanged(idx, field, val))
             },

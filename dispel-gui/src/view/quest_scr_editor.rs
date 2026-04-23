@@ -10,7 +10,7 @@ impl App {
             &self.state.quest_scr_spreadsheet,
             Message::quest_scr(QuestScrEditorMessage::LoadCatalog),
             Message::quest_scr(QuestScrEditorMessage::Save),
-            |idx| Message::quest_scr(QuestScrEditorMessage::SelectQuest(idx)),
+            |idx| Message::quest_scr(QuestScrEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::quest_scr(QuestScrEditorMessage::FieldChanged(idx, field, val))
             },

@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: MagicEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        MagicEditorMessage::LoadCatalog | MagicEditorMessage::ScanSpells => {
+        MagicEditorMessage::LoadCatalog => {
             // Load or scan magic catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.magic_editor.status_msg = "Please select game path first.".into();
@@ -32,11 +32,11 @@ pub fn handle(message: MagicEditorMessage, app: &mut App) -> Task<crate::message
                         .map_err(|e: std::io::Error| e.to_string())
                 },
                 |result: Result<Vec<dispel_core::MagicSpell>, String>| {
-                    crate::message::Message::magic(MagicEditorMessage::Scanned(result))
+                    crate::message::Message::magic(MagicEditorMessage::CatalogLoaded(result))
                 },
             )
         }
-        MagicEditorMessage::Scanned(result) => {
+        MagicEditorMessage::CatalogLoaded(result) => {
             app.state.magic_editor.loading_state = LoadingState::Loaded(());
             match result {
                 Ok(catalog) => {
@@ -57,7 +57,7 @@ pub fn handle(message: MagicEditorMessage, app: &mut App) -> Task<crate::message
             }
             Task::none()
         }
-        MagicEditorMessage::SelectSpell(index) => {
+        MagicEditorMessage::Select(index) => {
             // Select spell at index
             app.state.magic_editor.selected_idx = Some(index);
             if let Some(catalog) = &app.state.magic_editor.catalog {

@@ -10,7 +10,7 @@ impl App {
             &self.state.map_ini_spreadsheet,
             Message::map_ini(MapIniEditorMessage::LoadCatalog),
             Message::map_ini(MapIniEditorMessage::Save),
-            |idx| Message::map_ini(MapIniEditorMessage::SelectMap(idx)),
+            |idx| Message::map_ini(MapIniEditorMessage::Select(idx)),
             |idx, field, val| Message::map_ini(MapIniEditorMessage::FieldChanged(idx, field, val)),
             |msg| Message::map_ini(MapIniEditorMessage::Spreadsheet(msg)),
             &self.state.lookups,

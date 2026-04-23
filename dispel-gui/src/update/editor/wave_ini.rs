@@ -24,11 +24,11 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             Task::perform(
                 async move { WaveIni::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
                 move |result: Result<Vec<WaveIni>, String>| {
-                    crate::message::Message::wave_ini(WaveIniEditorMessage::Scanned(result))
+                    crate::message::Message::wave_ini(WaveIniEditorMessage::CatalogLoaded(result))
                 },
             )
         }
-        WaveIniEditorMessage::Scanned(result) => {
+        WaveIniEditorMessage::CatalogLoaded(result) => {
             app.state.wave_ini_editor.loading_state = LoadingState::Loaded(());
             match result {
                 Ok(catalog) => {
@@ -50,7 +50,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             }
             Task::none()
         }
-        WaveIniEditorMessage::SelectWave(index) => {
+        WaveIniEditorMessage::Select(index) => {
             app.state.wave_ini_editor.selected_idx = Some(index);
             Task::none()
         }

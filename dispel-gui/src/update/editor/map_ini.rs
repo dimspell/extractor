@@ -48,7 +48,7 @@ pub fn handle(message: MapIniEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        MapIniEditorMessage::SelectMap(index) => {
+        MapIniEditorMessage::Select(index) => {
             app.state.map_ini_editor.select(index);
             Task::none()
         }

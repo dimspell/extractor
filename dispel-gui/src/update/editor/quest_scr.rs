@@ -52,7 +52,7 @@ pub fn handle(message: QuestScrEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        QuestScrEditorMessage::SelectQuest(index) => {
+        QuestScrEditorMessage::Select(index) => {
             app.state.quest_scr_editor.select(index);
             Task::none()
         }

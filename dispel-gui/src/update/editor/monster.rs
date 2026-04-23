@@ -10,7 +10,7 @@ use iced::Task;
 
 pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        MonsterEditorMessage::LoadCatalog | MonsterEditorMessage::ScanMonsters => {
+        MonsterEditorMessage::LoadCatalog => {
             // Load or scan monster catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.monster_editor.status_msg = "Please select game path first.".into();
@@ -29,11 +29,11 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
                         .map_err(|e: std::io::Error| e.to_string())
                 },
                 |result: Result<Vec<dispel_core::Monster>, String>| {
-                    crate::message::Message::monster(MonsterEditorMessage::Scanned(result))
+                    crate::message::Message::monster(MonsterEditorMessage::CatalogLoaded(result))
                 },
             )
         }
-        MonsterEditorMessage::Scanned(result) => {
+        MonsterEditorMessage::CatalogLoaded(result) => {
             app.state.monster_editor.loading_state = LoadingState::Loaded(());
             match result {
                 Ok(catalog) => {
@@ -64,7 +64,7 @@ pub fn handle(message: MonsterEditorMessage, app: &mut App) -> Task<crate::messa
             }
             Task::none()
         }
-        MonsterEditorMessage::SelectMonster(index) => {
+        MonsterEditorMessage::Select(index) => {
             // Select monster at index
             app.state.monster_editor.selected_idx = Some(index);
             if let Some(catalog) = &app.state.monster_editor.catalog {

@@ -29,14 +29,14 @@ impl App {
             .into();
         };
 
-        let scan_msg = Message::dialogue_text(DialogueTextEditorMessage::ScanDialogueTexts);
+        let scan_msg = Message::dialogue_text(DialogueTextEditorMessage::ScanCatalog);
 
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
             scan_msg,
             Message::dialogue_text(DialogueTextEditorMessage::Save),
-            |idx| Message::dialogue_text(DialogueTextEditorMessage::SelectText(idx)),
+            |idx| Message::dialogue_text(DialogueTextEditorMessage::Select(idx)),
             |idx, field, value| {
                 Message::dialogue_text(DialogueTextEditorMessage::FieldChanged(idx, field, value))
             },

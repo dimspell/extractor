@@ -117,7 +117,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::weapon(
-                        crate::message::editor::weapon::WeaponEditorMessage::ScanWeapons,
+                        crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -136,7 +136,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::heal_item(
-                        crate::message::editor::healitem::HealItemEditorMessage::ScanItems,
+                        crate::message::editor::healitem::HealItemEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -157,7 +157,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::misc_item(
-                        crate::message::editor::miscitem::MiscItemEditorMessage::ScanItems,
+                        crate::message::editor::miscitem::MiscItemEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -177,7 +177,7 @@ impl Command {
                 label: "Scan: Load Magic catalog",
                 shortcut: None,
                 action: || {
-                    Message::magic(crate::message::editor::magic::MagicEditorMessage::ScanSpells)
+                    Message::magic(crate::message::editor::magic::MagicEditorMessage::LoadCatalog)
                 },
             },
             Command {
@@ -193,7 +193,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::monster(
-                        crate::message::editor::monster::MonsterEditorMessage::ScanMonsters,
+                        crate::message::editor::monster::MonsterEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -212,7 +212,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::party_ref(
-                        crate::message::editor::partyref::PartyRefEditorMessage::ScanParty,
+                        crate::message::editor::partyref::PartyRefEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -233,7 +233,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::party_ini(
-                        crate::message::editor::partyini::PartyIniEditorMessage::ScanNpcs,
+                        crate::message::editor::partyini::PartyIniEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -331,7 +331,7 @@ impl Command {
                 label: "Scan: Load NPC Ini catalog",
                 shortcut: None,
                 action: || {
-                    Message::npc_ini(crate::message::editor::npcini::NpcIniEditorMessage::ScanNpcs)
+                    Message::npc_ini(crate::message::editor::npcini::NpcIniEditorMessage::LoadCatalog)
                 },
             },
             Command {
@@ -496,7 +496,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::edit_item(
-                        crate::message::editor::edititem::EditItemEditorMessage::ScanItems,
+                        crate::message::editor::edititem::EditItemEditorMessage::LoadCatalog,
                     )
                 },
             },
@@ -517,7 +517,7 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::event_item(
-                        crate::message::editor::eventitem::EventItemEditorMessage::ScanItems,
+                        crate::message::editor::eventitem::EventItemEditorMessage::LoadCatalog,
                     )
                 },
             },

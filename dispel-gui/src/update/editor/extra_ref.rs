@@ -33,7 +33,7 @@ pub fn handle(message: ExtraRefEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        ExtraRefEditorMessage::SelectItem(index) => {
+        ExtraRefEditorMessage::Select(index) => {
             if let Some(editor) = app.state.extra_ref_editors.get_mut(&tab_id) {
                 editor.select(index);
             }

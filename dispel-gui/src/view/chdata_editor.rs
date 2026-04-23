@@ -10,7 +10,7 @@ impl App {
             &self.state.chdata_spreadsheet,
             Message::ch_data(ChDataEditorMessage::LoadCatalog),
             Message::ch_data(ChDataEditorMessage::Save),
-            |idx| Message::ch_data(ChDataEditorMessage::SelectData(idx)),
+            |idx| Message::ch_data(ChDataEditorMessage::Select(idx)),
             |idx, field, value| {
                 Message::ch_data(ChDataEditorMessage::FieldChanged(idx, field, value))
             },

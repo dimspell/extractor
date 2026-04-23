@@ -32,9 +32,9 @@ impl App {
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
-            Message::npc_ref(NpcRefEditorMessage::LoadNpcNames),
+            Message::npc_ref(NpcRefEditorMessage::LoadCatalog),
             Message::npc_ref(NpcRefEditorMessage::Save),
-            |idx| Message::npc_ref(NpcRefEditorMessage::SelectNpc(idx)),
+            |idx| Message::npc_ref(NpcRefEditorMessage::Select(idx)),
             |idx, field, val| Message::npc_ref(NpcRefEditorMessage::FieldChanged(idx, field, val)),
             |msg| Message::npc_ref(NpcRefEditorMessage::Spreadsheet(msg)),
             &self.state.lookups,

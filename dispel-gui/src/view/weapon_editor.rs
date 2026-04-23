@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.weapon_editor,
             &self.state.weapon_spreadsheet,
-            Message::weapon(WeaponEditorMessage::ScanWeapons),
+            Message::weapon(WeaponEditorMessage::LoadCatalog),
             Message::weapon(WeaponEditorMessage::Save),
-            |idx| Message::weapon(WeaponEditorMessage::SelectWeapon(idx)),
+            |idx| Message::weapon(WeaponEditorMessage::Select(idx)),
             |idx, field, value| {
                 Message::weapon(WeaponEditorMessage::FieldChanged(idx, field, value))
             },

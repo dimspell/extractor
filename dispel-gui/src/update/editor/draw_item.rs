@@ -53,7 +53,7 @@ pub fn handle(message: DrawItemEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        DrawItemEditorMessage::SelectItem(index) => {
+        DrawItemEditorMessage::Select(index) => {
             // Select item
             app.state.draw_item_editor.select(index);
             Task::none()

@@ -10,7 +10,7 @@ impl App {
             &self.state.event_npc_ref_spreadsheet,
             Message::event_npc_ref(EventNpcRefEditorMessage::LoadCatalog),
             Message::event_npc_ref(EventNpcRefEditorMessage::Save),
-            |idx| Message::event_npc_ref(EventNpcRefEditorMessage::SelectNpc(idx)),
+            |idx| Message::event_npc_ref(EventNpcRefEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::event_npc_ref(EventNpcRefEditorMessage::FieldChanged(idx, field, val))
             },

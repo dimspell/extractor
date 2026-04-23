@@ -5,7 +5,6 @@ use iced::widget::{pane_grid, text_editor};
 #[derive(Debug, Clone)]
 pub enum StoreEditorMessage {
     LoadCatalog,
-    ScanStores,
     Scanned(
         Result<
             (

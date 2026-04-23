@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: PartyRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        PartyRefEditorMessage::LoadCatalog | PartyRefEditorMessage::ScanParty => {
+        PartyRefEditorMessage::LoadCatalog => {
             // Load party ref catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.party_ref_editor.status_msg = "Please select game path first.".into();
@@ -54,7 +54,7 @@ pub fn handle(message: PartyRefEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        PartyRefEditorMessage::SelectMember(index) => {
+        PartyRefEditorMessage::Select(index) => {
             // Select member at index
             app.state.party_ref_editor.select(index);
             Task::none()

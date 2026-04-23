@@ -10,7 +10,7 @@ impl App {
             &self.state.extra_ini_spreadsheet,
             Message::extra_ini(ExtraIniEditorMessage::LoadCatalog),
             Message::extra_ini(ExtraIniEditorMessage::Save),
-            |idx| Message::extra_ini(ExtraIniEditorMessage::SelectExtra(idx)),
+            |idx| Message::extra_ini(ExtraIniEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::extra_ini(ExtraIniEditorMessage::FieldChanged(idx, field, val))
             },

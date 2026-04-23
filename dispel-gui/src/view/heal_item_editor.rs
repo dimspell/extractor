@@ -8,7 +8,7 @@ impl App {
         view_spreadsheet(
             &self.state.heal_item_editor,
             &self.state.heal_item_spreadsheet,
-            Message::heal_item(HealItemEditorMessage::ScanItems),
+            Message::heal_item(HealItemEditorMessage::LoadCatalog),
             Message::heal_item(HealItemEditorMessage::Save),
             |idx| Message::heal_item(HealItemEditorMessage::SelectItem(idx)),
             |idx, field, val| {

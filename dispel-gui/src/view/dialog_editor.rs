@@ -32,9 +32,9 @@ impl App {
         view_spreadsheet(
             &editor.editor,
             spreadsheet,
-            Message::dialog(DialogEditorMessage::ScanDialogs),
+            Message::dialog(DialogEditorMessage::LoadCatalog),
             Message::dialog(DialogEditorMessage::Save),
-            |idx| Message::dialog(DialogEditorMessage::SelectDialog(idx)),
+            |idx| Message::dialog(DialogEditorMessage::Select(idx)),
             |idx, field, value| {
                 Message::dialog(DialogEditorMessage::FieldChanged(idx, field, value))
             },

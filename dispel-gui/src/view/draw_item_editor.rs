@@ -10,7 +10,7 @@ impl App {
             &self.state.draw_item_spreadsheet,
             Message::draw_item(DrawItemEditorMessage::LoadCatalog),
             Message::draw_item(DrawItemEditorMessage::Save),
-            |idx| Message::draw_item(DrawItemEditorMessage::SelectItem(idx)),
+            |idx| Message::draw_item(DrawItemEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::draw_item(DrawItemEditorMessage::FieldChanged(idx, field, val))
             },

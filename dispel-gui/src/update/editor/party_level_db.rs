@@ -54,7 +54,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<crate::
             }
             Task::none()
         }
-        PartyLevelDbEditorMessage::SelectRecord(index) => {
+        PartyLevelDbEditorMessage::Select(index) => {
             app.state.party_level_db_editor.select(index);
             Task::none()
         }

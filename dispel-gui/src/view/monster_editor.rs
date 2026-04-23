@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.monster_editor,
             &self.state.monster_spreadsheet,
-            Message::monster(MonsterEditorMessage::ScanMonsters),
+            Message::monster(MonsterEditorMessage::LoadCatalog),
             Message::monster(MonsterEditorMessage::Save),
-            |idx| Message::monster(MonsterEditorMessage::SelectMonster(idx)),
+            |idx| Message::monster(MonsterEditorMessage::Select(idx)),
             |idx, field, val| Message::monster(MonsterEditorMessage::FieldChanged(idx, field, val)),
             |msg| Message::monster(MonsterEditorMessage::Spreadsheet(msg)),
             &self.state.lookups,

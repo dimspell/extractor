@@ -10,7 +10,7 @@ impl App {
             &self.state.event_ini_spreadsheet,
             Message::event_ini(EventIniEditorMessage::LoadCatalog),
             Message::event_ini(EventIniEditorMessage::Save),
-            |idx| Message::event_ini(EventIniEditorMessage::SelectEvent(idx)),
+            |idx| Message::event_ini(EventIniEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::event_ini(EventIniEditorMessage::FieldChanged(idx, field, val))
             },

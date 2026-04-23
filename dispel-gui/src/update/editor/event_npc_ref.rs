@@ -53,7 +53,7 @@ pub fn handle(message: EventNpcRefEditorMessage, app: &mut App) -> Task<crate::m
             }
             Task::none()
         }
-        EventNpcRefEditorMessage::SelectNpc(index) => {
+        EventNpcRefEditorMessage::Select(index) => {
             app.state.event_npc_ref_editor.select(index);
             Task::none()
         }

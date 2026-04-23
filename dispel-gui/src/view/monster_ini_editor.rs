@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.monster_ini_editor,
             &self.state.monster_ini_spreadsheet,
-            Message::monster_ini(MonsterIniEditorMessage::ScanMonsters),
+            Message::monster_ini(MonsterIniEditorMessage::LoadCatalog),
             Message::monster_ini(MonsterIniEditorMessage::Save),
-            |idx| Message::monster_ini(MonsterIniEditorMessage::SelectMonster(idx)),
+            |idx| Message::monster_ini(MonsterIniEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::monster_ini(MonsterIniEditorMessage::FieldChanged(idx, field, val))
             },

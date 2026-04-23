@@ -34,7 +34,7 @@ impl App {
             spreadsheet,
             Message::extra_ref(ExtraRefEditorMessage::Save),
             Message::extra_ref(ExtraRefEditorMessage::Save),
-            |idx| Message::extra_ref(ExtraRefEditorMessage::SelectItem(idx)),
+            |idx| Message::extra_ref(ExtraRefEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::extra_ref(ExtraRefEditorMessage::FieldChanged(idx, field, val))
             },

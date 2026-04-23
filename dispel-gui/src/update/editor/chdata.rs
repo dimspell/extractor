@@ -49,7 +49,7 @@ pub fn handle(message: ChDataEditorMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        ChDataEditorMessage::SelectData(index) => {
+        ChDataEditorMessage::Select(index) => {
             app.state.chdata_editor.select(index);
             Task::none()
         }

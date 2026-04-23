@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: EventItemEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        EventItemEditorMessage::LoadCatalog | EventItemEditorMessage::ScanItems => {
+        EventItemEditorMessage::LoadCatalog => {
             // Load event item catalog
             // Scan event items from game files
             if app.state.shared_game_path.is_empty() {
@@ -57,7 +57,7 @@ pub fn handle(message: EventItemEditorMessage, app: &mut App) -> Task<crate::mes
             }
             Task::none()
         }
-        EventItemEditorMessage::SelectItem(index) => {
+        EventItemEditorMessage::Select(index) => {
             // Select event item at index
             app.state.event_item_editor.select(index);
             Task::none()

@@ -11,7 +11,7 @@ impl App {
             &self.state.party_level_db_spreadsheet,
             Message::party_level_db(PartyLevelDbEditorMessage::LoadCatalog),
             Message::party_level_db(PartyLevelDbEditorMessage::Save),
-            |idx| Message::party_level_db(PartyLevelDbEditorMessage::SelectRecord(idx)),
+            |idx| Message::party_level_db(PartyLevelDbEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::party_level_db(PartyLevelDbEditorMessage::FieldChanged(idx, field, val))
             },

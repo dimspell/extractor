@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 pub fn handle(message: PartyIniEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        PartyIniEditorMessage::LoadCatalog | PartyIniEditorMessage::ScanNpcs => {
+        PartyIniEditorMessage::LoadCatalog => {
             // Load party ini catalog
             if app.state.shared_game_path.is_empty() {
                 app.state.party_ini_editor.status_msg = "Please select game path first.".into();
@@ -54,7 +54,7 @@ pub fn handle(message: PartyIniEditorMessage, app: &mut App) -> Task<crate::mess
             }
             Task::none()
         }
-        PartyIniEditorMessage::SelectNpc(index) => {
+        PartyIniEditorMessage::Select(index) => {
             // Select NPC at index
             app.state.party_ini_editor.select(index);
             Task::none()

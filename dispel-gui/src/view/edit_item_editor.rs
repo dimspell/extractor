@@ -8,9 +8,9 @@ impl App {
         view_spreadsheet(
             &self.state.edit_item_editor,
             &self.state.edit_item_spreadsheet,
-            Message::edit_item(EditItemEditorMessage::ScanItems),
+            Message::edit_item(EditItemEditorMessage::LoadCatalog),
             Message::edit_item(EditItemEditorMessage::Save),
-            |idx| Message::edit_item(EditItemEditorMessage::SelectItem(idx)),
+            |idx| Message::edit_item(EditItemEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::edit_item(EditItemEditorMessage::FieldChanged(idx, field, val))
             },
