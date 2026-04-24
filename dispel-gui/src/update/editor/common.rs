@@ -147,17 +147,13 @@ macro_rules! handle_spreadsheet_messages {
             }
             SM::SelectRow(filtered_idx) => {
                 $app.state.$spreadsheet.select_row(filtered_idx);
-                // Update inspector textarea contents for the selected record if the
-                // inspector is already visible; don't auto-open it (user uses the
-                // Inspector button) to avoid pane-restructuring lag on first click.
+                $app.state.$spreadsheet.ensure_inspector_pane();
                 if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(filtered_idx)
                 {
-                    if $app.state.$spreadsheet.show_inspector {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
-                    }
+                    $app.state.$spreadsheet.inspector_textarea_contents = $app
+                        .state
+                        .$editor
+                        .make_inspector_textarea_contents(orig_idx);
                 } else {
                     $app.state.$spreadsheet.inspector_textarea_contents.clear();
                 }
@@ -176,33 +172,9 @@ macro_rules! handle_spreadsheet_messages {
                     return $app.update(msg);
                 }
             }
-            SM::StartEdit(filtered_idx, col) => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state
-                        .$spreadsheet
-                        .start_editing(filtered_idx, col, catalog);
-                }
-            }
-            SM::EditCellInput(v) => {
-                $app.state.$spreadsheet.edit_buffer = v;
-            }
-            SM::CommitEdit(orig_idx) => {
-                if let Some(catalog) = &mut $app.state.$editor.catalog {
-                    if let Some(msg) =
-                        $app.state
-                            .$spreadsheet
-                            .commit_edit(catalog, $field_changed_msg, orig_idx)
-                    {
-                        return $app.update(msg);
-                    }
-                }
-            }
             SM::CancelEdit => {
-                // ESC doubles as a resize-cancel when a column drag is in progress.
                 if $app.state.$spreadsheet.resizing_column.is_some() {
                     $app.state.$spreadsheet.end_column_resize();
-                } else {
-                    $app.state.$spreadsheet.cancel_editing();
                 }
             }
             SM::ToggleInspector => {
@@ -334,24 +306,6 @@ macro_rules! handle_spreadsheet_messages_tab {
     ($app:ident, $spreadsheets:ident, $editors:ident, $tab_id:expr, $field_changed_msg:expr, $msg:ident) => {
         use $crate::view::editor::SpreadsheetMessage as SM;
         match $msg {
-            SM::CommitEdit(orig_idx) => {
-                let result_msg = {
-                    let ss = $app.state.$spreadsheets.get_mut($tab_id);
-                    let ed = $app.state.$editors.get_mut($tab_id);
-                    if let (Some(ss), Some(ed)) = (ss, ed) {
-                        if let Some(catalog) = &mut ed.editor.catalog {
-                            ss.commit_edit(catalog, $field_changed_msg, orig_idx)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                };
-                if let Some(msg) = result_msg {
-                    return $app.update(msg);
-                }
-            }
             other => {
                 let ss = $app.state.$spreadsheets.get_mut($tab_id);
                 let ed = $app.state.$editors.get_mut($tab_id);
@@ -470,11 +424,10 @@ macro_rules! handle_spreadsheet_messages_tab {
                         }
                         SM::SelectRow(filtered_idx) => {
                             ss.select_row(filtered_idx);
+                            ss.ensure_inspector_pane();
                             if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
-                                if ss.show_inspector {
-                                    ss.inspector_textarea_contents =
-                                        ed.editor.make_inspector_textarea_contents(orig_idx);
-                                }
+                                ss.inspector_textarea_contents =
+                                    ed.editor.make_inspector_textarea_contents(orig_idx);
                             } else {
                                 ss.inspector_textarea_contents.clear();
                             }
@@ -488,17 +441,9 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 return $app.update(msg);
                             }
                         }
-                        SM::StartEdit(filtered_idx, col) => {
-                            if let Some(c) = &ed.editor.catalog {
-                                ss.start_editing(filtered_idx, col, c);
-                            }
-                        }
-                        SM::EditCellInput(v) => ss.edit_buffer = v,
                         SM::CancelEdit => {
                             if ss.resizing_column.is_some() {
                                 ss.end_column_resize();
-                            } else {
-                                ss.cancel_editing();
                             }
                         }
                         SM::ToggleInspector => {
@@ -552,6 +497,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                             ss.last_scroll_update = Some(now);
                             ss.horizontal_scroll_offset = offset.x;
+                            ss.vertical_scroll_offset = offset.y;
                             ss.viewport_height = viewport_height;
                             return iced::widget::operation::scroll_to(
                                 ss.header_scroll_id.clone(),
@@ -597,7 +543,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 ss.apply_sort(catalog);
                             }
                         }
-                        SM::CommitEdit(_) => unreachable!(),
                     }
                 }
             }

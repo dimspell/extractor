@@ -30,7 +30,7 @@ use std::collections::HashMap;
 const ROW_HEIGHT: f32 = 24.0;
 /// How many extra rows to render above and below the visible viewport.
 /// Large enough to hide pop-in between window steps during fast scrolling.
-const OVERSCAN_ROWS: usize = 128;
+const OVERSCAN_ROWS: usize = 64;
 /// The virtual window boundary only shifts when `first_row` crosses a multiple
 /// of this value.  Snapping prevents a widget-tree rebuild (and costly
 /// cosmic-text Korean glyph layout) on every single scroll pixel.
@@ -57,14 +57,6 @@ pub enum GlobalFilterMode {
     Highlight,
 }
 
-/// High-level editing mode for the VIM-like status indicator.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum EditingMode {
-    #[default]
-    Normal,
-    Edit,
-}
-
 #[derive(Debug, Clone)]
 pub struct SpreadsheetState {
     pub active: bool,
@@ -85,15 +77,8 @@ pub struct SpreadsheetState {
     /// mode this always contains every row.
     pub filtered_indices: Vec<usize>,
 
-    // ── Selection / editing ────────────────────────────────────────────────
+    // ── Selection ─────────────────────────────────────────────────────────
     pub selected_row: Option<usize>,
-    /// `Some((filtered_idx, col))` when a cell is being edited.
-    pub editing_cell: Option<(usize, usize)>,
-    pub edit_buffer: String,
-    /// Set when the last `set_field` or `validate_field` call rejected the
-    /// value being edited; renders a red border on that cell.
-    pub edit_invalid: bool,
-    pub mode: EditingMode,
 
     // ── Panes / chrome ─────────────────────────────────────────────────────
     pub show_inspector: bool,
@@ -207,10 +192,6 @@ impl Default for SpreadsheetState {
             current_highlight_pos: None,
             filtered_indices: Vec::new(),
             selected_row: None,
-            editing_cell: None,
-            edit_buffer: String::new(),
-            edit_invalid: false,
-            mode: EditingMode::Normal,
             show_inspector: false,
             pane_state: None,
             is_loading: false,
@@ -411,86 +392,7 @@ impl SpreadsheetState {
 
     pub fn select_row(&mut self, filtered_idx: usize) {
         self.selected_row = Some(filtered_idx);
-    }
-
-    pub fn start_editing<R: EditableRecord>(
-        &mut self,
-        filtered_idx: usize,
-        col: usize,
-        catalog: &[R],
-    ) {
-        let Some(&orig_idx) = self.filtered_indices.get(filtered_idx) else {
-            return;
-        };
-        let Some(record) = catalog.get(orig_idx) else {
-            return;
-        };
-        let descriptors = R::field_descriptors();
-        let Some(desc) = descriptors.get(col) else {
-            return;
-        };
-        self.editing_cell = Some((filtered_idx, col));
-        self.edit_buffer = record.get_field(desc.name);
-        self.edit_invalid = false;
-        self.mode = EditingMode::Edit;
-        // Keep selection consistent with the row being edited.
-        if self.selected_row != Some(filtered_idx) {
-            self.selected_row = Some(filtered_idx);
-        }
-    }
-
-    pub fn commit_edit<R: EditableRecord>(
-        &mut self,
-        catalog: &mut [R],
-        field_changed_msg: fn(usize, String, String) -> Message,
-        orig_idx: usize,
-    ) -> Option<Message> {
-        let (_, col) = self.editing_cell?;
-        let descriptors = R::field_descriptors();
-        let Some(desc) = descriptors.get(col) else {
-            self.cancel_editing();
-            return None;
-        };
-
-        // Validate before we commit so the user keeps the invalid buffer and
-        // can correct it in place rather than losing it silently.
-        if let Some(_err) = catalog[orig_idx].validate_field(desc.name, &self.edit_buffer) {
-            self.edit_invalid = true;
-            return None;
-        }
-
-        let old_value = catalog[orig_idx].get_field(desc.name);
-        let new_value = std::mem::take(&mut self.edit_buffer);
-        self.editing_cell = None;
-        self.edit_invalid = false;
-        self.mode = EditingMode::Normal;
-
-        if old_value == new_value {
-            return None;
-        }
-
-        let applied = catalog[orig_idx].set_field(desc.name, new_value.clone());
-        if !applied {
-            // set_field rejected the parse; resurrect the edit so the user
-            // can see what went wrong.
-            self.edit_buffer = new_value;
-            self.edit_invalid = true;
-            self.editing_cell = Some((
-                self.filtered_indices
-                    .iter()
-                    .position(|&i| i == orig_idx)
-                    .unwrap_or(0),
-                col,
-            ));
-            self.mode = EditingMode::Edit;
-            return None;
-        }
-
-        Some(field_changed_msg(
-            orig_idx,
-            desc.name.to_string(),
-            new_value,
-        ))
+        self.show_inspector = true;
     }
 
     /// Current display width (in px) of a data column, honouring any
@@ -593,13 +495,6 @@ impl SpreadsheetState {
         let width = ((max_chars as f32) * 7.0 + 16.0).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
         self.column_widths.insert(col, width);
         self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
-    }
-
-    pub fn cancel_editing(&mut self) {
-        self.editing_cell = None;
-        self.edit_buffer.clear();
-        self.edit_invalid = false;
-        self.mode = EditingMode::Normal;
     }
 
     /// Move selection one row up; returns the new `filtered_idx` or `None`
@@ -864,9 +759,6 @@ pub enum SpreadsheetMessage {
     NavigateTop,
     NavigateBottom,
     SelectRow(usize),
-    StartEdit(usize, usize),
-    EditCellInput(String),
-    CommitEdit(usize),
     CancelEdit,
     ToggleInspector,
     CloseInspector,
@@ -1150,17 +1042,6 @@ fn build_status_bar<'a, R: EditableRecord>(
     save_msg: Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
-    let mode_chip: Element<Message> = match spreadsheet.mode {
-        EditingMode::Normal => container(text("NORMAL").size(10).style(style::normal_mode_text))
-            .padding([2, 8])
-            .style(style::normal_mode_chip)
-            .into(),
-        EditingMode::Edit => container(text("EDIT").size(10).style(style::edit_mode_text))
-            .padding([2, 8])
-            .style(style::edit_mode_chip)
-            .into(),
-    };
-
     let loading: Element<Message> = if spreadsheet.is_loading {
         container(
             column![
@@ -1181,8 +1062,6 @@ fn build_status_bar<'a, R: EditableRecord>(
 
     container(
         row![
-            mode_chip,
-            horizontal_space().width(12),
             text(&editor.status_msg).size(13).style(style::subtle_text),
             horizontal_space(),
             loading,
@@ -1279,65 +1158,15 @@ fn build_table_content<'a, R: EditableRecord>(
         .skip(first_row)
         .take(render_count)
     {
-        let Some(record) = catalog.get(orig_idx) else {
+        if catalog.get(orig_idx).is_none() {
             continue;
-        };
+        }
         let is_selected = spreadsheet.selected_row == Some(filtered_idx);
         let is_highlighted =
             is_highlight_mode && spreadsheet.highlighted_indices.contains(&orig_idx);
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
-        let is_editing_row = spreadsheet.editing_cell.map(|(f, _)| f) == Some(filtered_idx);
 
-        if is_editing_row {
-            // Editing row: requires build_data_cell for cell editing (non-lazy due to text_input borrow)
-            let row_style = style::spreadsheet_row(
-                is_selected,
-                filtered_idx,
-                is_highlighted,
-                is_current_highlight,
-            );
-            let row_number_str = spreadsheet
-                .row_numbers
-                .get(orig_idx)
-                .cloned()
-                .unwrap_or_default();
-            let id_cell = container(text(row_number_str).size(10).font(Font::MONOSPACE))
-                .width(ID_COL_WIDTH)
-                .padding([0, 6])
-                .height(ROW_HEIGHT)
-                .align_y(iced::Alignment::Center)
-                .style(if is_selected || is_current_highlight {
-                    style::spreadsheet_id_cell_selected
-                } else {
-                    style::spreadsheet_id_cell
-                })
-                .into();
-            let mut cells: Vec<Element<Message>> = vec![id_cell];
-            for (col, desc) in descriptors.iter().enumerate() {
-                let value = record.get_field(desc.name);
-                let is_cell_editing = spreadsheet.editing_cell.map(|(_, c)| c) == Some(col);
-                cells.push(build_data_cell(
-                    desc,
-                    &value,
-                    filtered_idx,
-                    col,
-                    orig_idx,
-                    is_cell_editing,
-                    is_selected,
-                    spreadsheet.column_width(col),
-                    spreadsheet,
-                    record,
-                    spreadsheet_msg,
-                ));
-            }
-            data_rows.push(
-                button(row(cells).spacing(0))
-                    .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
-                    .padding(0)
-                    .style(row_style)
-                    .into(),
-            );
-        } else if !spreadsheet.display_cache.is_empty() {
+        if !spreadsheet.display_cache.is_empty() {
             let row_number = row_numbers_static
                 .get(orig_idx)
                 .cloned()
@@ -1385,16 +1214,10 @@ fn build_table_content<'a, R: EditableRecord>(
                             .unwrap_or_default();
                         let col_width = col_widths_row[col];
 
-                        let press_msg = if is_selected {
-                            SpreadsheetMessage::StartEdit(filtered_idx, col)
-                        } else {
-                            SpreadsheetMessage::SelectRow(filtered_idx)
-                        };
-
                         cells.push(flattened_cell(
                             display,
                             col_width,
-                            spreadsheet_msg(press_msg),
+                            spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)),
                         ));
                     }
 
@@ -1576,93 +1399,6 @@ fn flattened_cell(display: String, col_width: f32, on_press: Message) -> Element
         .width(Length::Fixed(col_width))
         .height(ROW_HEIGHT)
         .into()
-}
-
-fn build_cell(
-    display: String,
-    col_width: f32,
-    on_press: Message,
-    _is_invalid: bool,
-) -> Element<'static, Message> {
-    container(
-        button(text(display).size(10).font(Font::MONOSPACE))
-            .on_press(on_press)
-            .style(style::spreadsheet_cell_btn)
-            .padding([3, 8])
-            .width(Length::Fill),
-    )
-    .width(Length::Fixed(col_width))
-    .height(ROW_HEIGHT)
-    .align_y(iced::Alignment::Center)
-    .into()
-}
-
-#[allow(clippy::too_many_arguments)]
-fn build_data_cell<'a, R: EditableRecord>(
-    desc: &'a FieldDescriptor,
-    value: &str,
-    filtered_idx: usize,
-    col: usize,
-    orig_idx: usize,
-    is_cell_editing: bool,
-    is_row_selected: bool,
-    col_width: f32,
-    spreadsheet: &'a SpreadsheetState,
-    record: &R,
-    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
-) -> Element<'a, Message> {
-    if is_cell_editing {
-        let container_style = if spreadsheet.edit_invalid {
-            style::spreadsheet_cell_invalid
-        } else {
-            style::spreadsheet_cell
-        };
-        return container(
-            text_input("", &spreadsheet.edit_buffer)
-                .on_input(move |v| spreadsheet_msg(SpreadsheetMessage::EditCellInput(v)))
-                .on_submit(spreadsheet_msg(SpreadsheetMessage::CommitEdit(orig_idx)))
-                .padding([3, 6])
-                .size(10)
-                .font(Font::MONOSPACE)
-                .width(Length::Fill)
-                .style(style::spreadsheet_cell_editor),
-        )
-        .width(Length::Fixed(col_width))
-        .height(ROW_HEIGHT)
-        .align_y(iced::Alignment::Center)
-        .style(container_style)
-        .into();
-    }
-
-    // Longer columns show more text; the ellipsis budget scales with width.
-    let char_budget = ((col_width / 7.0) as usize).max(8);
-    let display: String = if value.len() <= char_budget && value.is_ascii() {
-        value.to_string()
-    } else if value.chars().count() > char_budget {
-        let mut truncated = String::with_capacity(char_budget + 3);
-        for (i, c) in value.chars().enumerate() {
-            if i >= char_budget {
-                truncated.push('…');
-                break;
-            }
-            truncated.push(c);
-        }
-        truncated
-    } else {
-        value.to_string()
-    };
-
-    // "Click to select, click again to edit": when the row is already selected,
-    // a further click on the cell begins an edit. Otherwise the click just
-    // selects the row.
-    let press_msg = if is_row_selected {
-        SpreadsheetMessage::StartEdit(filtered_idx, col)
-    } else {
-        SpreadsheetMessage::SelectRow(filtered_idx)
-    };
-
-    let invalid = record.validate_field(desc.name, value).is_some();
-    build_cell(display, col_width, spreadsheet_msg(press_msg), invalid)
 }
 
 // ───────────────────────────────────────────────────────────────────────────
