@@ -1,6 +1,5 @@
-use std::io::{prelude::*, Cursor};
-use std::io::{BufWriter, Read, Seek, SeekFrom};
-use std::{fs::File, path::Path};
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
@@ -173,9 +172,7 @@ impl Extractor for Store {
         Ok(store)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
 
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
@@ -202,7 +199,7 @@ impl Extractor for Store {
             }
 
             let write_str =
-                |w: &mut BufWriter<File>, text: &str, max_len: usize| -> std::io::Result<()> {
+                |w: &mut dyn Write, text: &str, max_len: usize| -> std::io::Result<()> {
                     let mut buf = vec![0u8; max_len];
                     let (cow, _, _) = WINDOWS_1250.encode(text);
                     let len = std::cmp::min(cow.len(), max_len);
@@ -210,9 +207,9 @@ impl Extractor for Store {
                     w.write_all(&buf)
                 };
 
-            write_str(&mut writer, &record.invitation, 512)?;
-            write_str(&mut writer, &record.haggle_success, 128)?;
-            write_str(&mut writer, &record.haggle_fail, 128)?;
+            write_str(writer, &record.invitation, 512)?;
+            write_str(writer, &record.haggle_success, 128)?;
+            write_str(writer, &record.haggle_fail, 128)?;
         }
 
         Ok(())

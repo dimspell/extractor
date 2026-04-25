@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
@@ -127,8 +127,7 @@ impl Extractor for MapIni {
         Ok(map_inis)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let mon = record.monsters_filename.as_deref().unwrap_or("null");
             let npc = record.npc_filename.as_deref().unwrap_or("null");
@@ -147,7 +146,7 @@ impl Extractor for MapIni {
                 record.cd_music_track_number
             );
             let (cow, _, _) = EUC_KR.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

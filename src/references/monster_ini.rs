@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::WINDOWS_1250;
@@ -131,8 +131,7 @@ impl Extractor for MonsterIni {
         Ok(monsters)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let n = record.name.as_deref().unwrap_or("null");
             let s = record.sprite_filename.as_deref().unwrap_or("null");
@@ -148,7 +147,7 @@ impl Extractor for MonsterIni {
                 record.casting_magic
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

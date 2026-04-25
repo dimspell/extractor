@@ -2,8 +2,7 @@ use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufWriter, Read, Result, Seek, Write};
+use std::io::{Read, Result, Seek, Write};
 use std::path::Path;
 
 // ===========================================================================
@@ -113,10 +112,7 @@ impl Extractor for PartyIniNpc {
         Ok(npcs)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let mut name_bytes = [0u8; 20];
             let name_bytes_val = record.name.as_bytes();

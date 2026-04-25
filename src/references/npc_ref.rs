@@ -1,6 +1,5 @@
-use std::io::prelude::*;
-use std::io::{BufWriter, Read, Seek};
-use std::{fs::File, path::Path};
+use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 use crate::references::enums::{
     BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
@@ -329,10 +328,7 @@ impl Extractor for NPC {
         Ok(npcs)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 

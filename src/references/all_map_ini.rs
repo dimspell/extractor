@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -119,8 +119,7 @@ impl Extractor for Map {
         Ok(maps)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let pgp = record
                 .pgp_filename
@@ -140,7 +139,7 @@ impl Extractor for Map {
                 record.id, record.map_filename, record.map_name, pgp, dlg, light_str
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

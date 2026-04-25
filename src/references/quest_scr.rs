@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
@@ -123,15 +122,14 @@ impl Extractor for Quest {
         Ok(quests)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let title = record.title.as_deref().unwrap_or("null");
             let desc = record.description.as_deref().unwrap_or("null");
 
             let line = format!("{}|{}|{}|{}\r\n", record.id, record.type_id, title, desc);
             let (cow, _, _) = WINDOWS_1250.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

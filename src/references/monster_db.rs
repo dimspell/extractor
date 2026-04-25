@@ -1,6 +1,5 @@
-use std::io::prelude::*;
-use std::io::{BufWriter, Read, Seek};
-use std::{fs::File, path::Path};
+use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 use crate::references::enums::{MonsterAiType, PropertyFlag};
 use crate::references::extractor::{read_mapper, Extractor};
@@ -291,10 +290,7 @@ impl Extractor for Monster {
         Ok(monsters)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         // Since COUNTER_SIZE is 0, we don't write the number of elements
 
         for record in records {

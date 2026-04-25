@@ -1,6 +1,5 @@
-use std::io::prelude::*;
-use std::io::{BufWriter, Read, Seek};
-use std::{fs::File, path::Path};
+use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -187,10 +186,7 @@ impl Extractor for WeaponItem {
         Ok(weapons)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 

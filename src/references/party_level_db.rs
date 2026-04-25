@@ -2,8 +2,7 @@ use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufWriter, Read, Result, Seek};
+use std::io::{Read, Result, Seek, Write};
 use std::path::Path;
 
 // ===========================================================================
@@ -154,10 +153,7 @@ impl Extractor for PartyLevelNpc {
         Ok(npcs)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for npc in records {
             for record in &npc.records {
                 writer.write_u32::<LittleEndian>(0)?; // sentinel

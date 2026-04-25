@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
@@ -118,8 +118,7 @@ impl Extractor for DrawItem {
         Ok(draw_items)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             // Reconstruct the encoded item_id from item_type and item_id
             let item_type_byte: u8 = record.item_type.into();
@@ -130,7 +129,7 @@ impl Extractor for DrawItem {
                 record.map_id, record.x_coord, record.y_coord, encoded_item_id
             );
             let (cow, _, _) = EUC_KR.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

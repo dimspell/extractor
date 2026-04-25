@@ -395,77 +395,75 @@ impl Extractor for EventScript {
         Ok(scripts)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for script in records {
             // Write header comments
             for comment in &script.header_comments {
                 let line = format!("{}\r\n", comment);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
             if !script.header_comments.is_empty() {
-                file.write_all(b"\r\n")?;
+                writer.write_all(b"\r\n")?;
             }
 
             // Write the VAR section (always write, even if empty)
-            file.write_all(b"[VAR]\r\n\r\n")?;
+            writer.write_all(b"[VAR]\r\n\r\n")?;
             for var in &script.variables {
                 let line = format!("{}={}\r\n", var.name, var.value);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
             if !script.variables.is_empty() {
-                file.write_all(b"\r\n")?;
+                writer.write_all(b"\r\n")?;
             }
 
             // Write MAP section (always write, even if empty)
-            file.write_all(b"[MAP]\r\n\r\n")?;
+            writer.write_all(b"[MAP]\r\n\r\n")?;
             for content in &script.map_content {
                 let line = format!("{}\r\n", content);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
 
             // Write CHR section (always write, even if empty)
-            file.write_all(b"[CHR]\r\n\r\n")?;
+            writer.write_all(b"[CHR]\r\n\r\n")?;
             for content in &script.chr_content {
                 let line = format!("{}\r\n", content);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
 
             // Write NPC section (always write, even if empty)
-            file.write_all(b"[NPC]\r\n\r\n")?;
+            writer.write_all(b"[NPC]\r\n\r\n")?;
             for content in &script.npc_content {
                 let line = format!("{}\r\n", content);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
 
             // Write the SPR section (always write, even if empty)
-            file.write_all(b"[SPR]\r\n\r\n")?;
+            writer.write_all(b"[SPR]\r\n\r\n")?;
             for sprite in &script.spr_content {
                 let line = format!("{}\r\n", sprite.to_string());
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
 
             // Write WAV section (always write, even if empty)
-            file.write_all(b"[WAV]\r\n\r\n")?;
+            writer.write_all(b"[WAV]\r\n\r\n")?;
             for content in &script.wav_content {
                 let line = format!("{}\r\n", content);
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
 
             // Write the ACT section
-            file.write_all(b"[ACT]\r\n")?;
+            writer.write_all(b"[ACT]\r\n")?;
             for action in &script.actions {
                 let line = format!("{}\r\n", action.to_string());
                 let (cow, _, _) = EUC_KR.encode(&line);
-                file.write_all(&cow)?;
+                writer.write_all(&cow)?;
             }
         }
 

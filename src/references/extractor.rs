@@ -1,5 +1,4 @@
-use std::io::prelude::*;
-use std::io::{BufReader, Result, Seek};
+use std::io::{BufReader, BufWriter, Read, Result, Seek, Write};
 use std::num::IntErrorKind;
 use std::{fs::File, path::Path};
 
@@ -9,6 +8,8 @@ use encoding_rs::WINDOWS_1250;
 pub trait Extractor: Sized {
     fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>>;
 
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()>;
+
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;
         let len = file.metadata()?.len();
@@ -16,7 +17,11 @@ pub trait Extractor: Sized {
         Self::parse(&mut reader, len)
     }
 
-    fn save_file(records: &[Self], path: &Path) -> std::io::Result<()>;
+    fn save_file(records: &[Self], path: &Path) -> std::io::Result<()> {
+        let file = File::create(path)?;
+        let mut writer = BufWriter::new(file);
+        Self::serialize(records, &mut writer)
+    }
 }
 
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {

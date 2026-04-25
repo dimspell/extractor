@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::extractor::{parse_null, Extractor};
 use encoding_rs::EUC_KR;
@@ -110,15 +110,14 @@ impl Extractor for WaveIni {
         Ok(waves_inis)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let snf = record.snf_filename.as_deref().unwrap_or("null");
             let unk = record.unknown_flag.as_deref().unwrap_or("null");
 
             let line = format!("{},{},{}\r\n", record.id, snf, unk);
             let (cow, _, _) = EUC_KR.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

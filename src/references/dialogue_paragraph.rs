@@ -3,7 +3,6 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::{
-    fs::File,
     io::{BufRead, BufReader, Read, Seek, Write},
     path::Path,
 };
@@ -160,14 +159,13 @@ impl Extractor for DialogueParagraph {
         Ok(texts)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             if !record.comment.is_empty() {
                 for c in record.comment.split(" | ") {
                     let line = format!("; {}\r\n", c);
                     let (cow, _, _) = WINDOWS_1250.encode(&line);
-                    file.write_all(&cow)?;
+                    writer.write_all(&cow)?;
                 }
             }
             let text_val = if record.text.is_empty() {
@@ -180,7 +178,7 @@ impl Extractor for DialogueParagraph {
                 record.id, text_val, record.param1, record.wave_ini_entry_id
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

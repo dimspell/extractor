@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::enums::GhostFaceId;
 use crate::references::extractor::{parse_null, Extractor};
@@ -125,8 +125,7 @@ impl Extractor for PartyRef {
         Ok(party_refs)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let full_name = record.full_name.as_deref().unwrap_or("null");
             let job_name = record.job_name.as_deref().unwrap_or("null");
@@ -143,7 +142,7 @@ impl Extractor for PartyRef {
                 i32::from(record.ghost_face_id)
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

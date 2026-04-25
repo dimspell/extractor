@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::enums::EventType;
 use crate::references::extractor::{parse_null, Extractor};
@@ -119,8 +119,7 @@ impl Extractor for Event {
         Ok(events)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let filename = record.event_filename.as_deref().unwrap_or("null");
             let event_type_id: i32 = record.event_type.into();
@@ -129,7 +128,7 @@ impl Extractor for Event {
                 record.event_id, record.required_event_id, event_type_id, filename, record.counter
             );
             let (cow, _, _) = EUC_KR.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }

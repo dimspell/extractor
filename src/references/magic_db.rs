@@ -1,5 +1,5 @@
-use std::io::{BufWriter, Read, Seek};
-use std::{fs::File, path::Path};
+use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
 use crate::references::extractor::Extractor;
@@ -260,10 +260,7 @@ impl Extractor for MagicSpell {
         Ok(spells)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
-
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for spell in records {
             writer.write_u32::<LittleEndian>(u32::from(spell.enabled))?;
             writer.write_u32::<LittleEndian>(u32::from(spell.flag1))?;

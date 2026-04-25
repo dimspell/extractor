@@ -1,5 +1,4 @@
-use std::fs::File;
-use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -90,14 +89,11 @@ impl Extractor for ChData {
         }])
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         if records.is_empty() {
             return Ok(());
         }
         let record = &records[0];
-
-        let file = File::create(dest_path)?;
-        let mut writer = BufWriter::new(file);
 
         let mut magic_buf = [0u8; 4];
         let bytes = record.magic.as_bytes();

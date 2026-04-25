@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader, Read, Seek, Write};
-use std::{fs::File, path::Path};
+use std::path::Path;
 
 use crate::references::enums::{DialogOwner, DialogType};
 use crate::references::extractor::{parse_int, Extractor};
@@ -141,8 +141,7 @@ impl Extractor for DialogueScript {
         Ok(dlgs)
     }
 
-    fn save_file(records: &[Self], dest_path: &Path) -> std::io::Result<()> {
-        let mut file = File::create(dest_path)?;
+    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let prev = record
                 .required_event_id
@@ -177,7 +176,7 @@ impl Extractor for DialogueScript {
                 record.id, prev, next, dtype, owner, did, nd0, nd1, nd2, triggered_event_id
             );
             let (cow, _, _) = EUC_KR.encode(&line);
-            file.write_all(&cow)?;
+            writer.write_all(&cow)?;
         }
         Ok(())
     }
