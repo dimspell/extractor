@@ -209,3 +209,46 @@ pub fn save_party_levels(conn: &mut Connection, npcs: &[PartyLevelNpc]) -> DbRes
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn level_block(strength: u32, hp: u16) -> [u8; 36] {
+        let mut buf = [0u8; 36];
+        // sentinel (u32 at 0): 0
+        buf[4..8].copy_from_slice(&strength.to_le_bytes());  // strength at offset 4
+        // constitution, wisdom = 0
+        buf[16..18].copy_from_slice(&hp.to_le_bytes());      // health_points at offset 16
+        // rest stays zero
+        buf
+    }
+
+    fn full_file(strength: u32, hp: u16) -> Vec<u8> {
+        // 8 NPCs × 20 levels × 36 bytes = 5760 bytes
+        let block = level_block(strength, hp);
+        let mut data = Vec::with_capacity(5760);
+        for _ in 0..160 {
+            data.extend_from_slice(&block);
+        }
+        data
+    }
+
+    #[test]
+    fn parse_all_npcs_and_levels() {
+        let data = full_file(100, 50);
+        assert_eq!(data.len(), 5760);
+
+        let mut c = Cursor::new(&data[..]);
+        let npcs = PartyLevelNpc::parse(&mut c, 5760).unwrap();
+        assert_eq!(npcs.len(), 8);
+        for npc in &npcs {
+            assert_eq!(npc.records.len(), 20);
+            assert_eq!(npc.records[0].strength, 100);
+            assert_eq!(npc.records[0].health_points, 50);
+            assert_eq!(npc.records[0].level, 1);
+            assert_eq!(npc.records[19].level, 20);
+        }
+    }
+}

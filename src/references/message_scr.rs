@@ -158,3 +158,33 @@ pub fn save_messages(conn: &mut Connection, messages: &[Message]) -> Result<()> 
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_messages() {
+        let data = b"1|Hello|World|Bye\n2|null|null|null\n";
+        let mut c = Cursor::new(data.as_ref());
+        let msgs = Message::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].id, 1);
+        assert_eq!(msgs[0].line1.as_deref(), Some("Hello"));
+        assert_eq!(msgs[0].line2.as_deref(), Some("World"));
+        assert_eq!(msgs[0].line3.as_deref(), Some("Bye"));
+        assert!(msgs[1].line1.is_none());
+        assert!(msgs[1].line2.is_none());
+        assert!(msgs[1].line3.is_none());
+    }
+
+    #[test]
+    fn parse_skips_short_lines() {
+        let data = b"1|only two\n2|a|b|c\n";
+        let mut c = Cursor::new(data.as_ref());
+        let msgs = Message::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].id, 2);
+    }
+}

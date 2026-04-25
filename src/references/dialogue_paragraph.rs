@@ -212,3 +212,33 @@ pub fn save_dialogue_paragraphs(
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_paragraphs() {
+        let data = b"; dev note\n1|Hello there|0|0\n2|null|5|3\n";
+        let mut c = Cursor::new(data.as_ref());
+        let paras = DialogueParagraph::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(paras.len(), 2);
+        assert_eq!(paras[0].id, 1);
+        assert_eq!(paras[0].text, "Hello there");
+        assert_eq!(paras[0].comment, "dev note");
+        assert_eq!(paras[0].param1, 0);
+        assert_eq!(paras[0].wave_ini_entry_id, 0);
+        assert_eq!(paras[1].id, 2);
+        assert_eq!(paras[1].text, "");  // "null" replaced with ""
+        assert_eq!(paras[1].param1, 5);
+        assert_eq!(paras[1].wave_ini_entry_id, 3);
+    }
+
+    #[test]
+    fn parse_empty_input() {
+        let mut c = Cursor::new(b"" as &[u8]);
+        let paras = DialogueParagraph::parse(&mut c, 0).unwrap();
+        assert!(paras.is_empty());
+    }
+}

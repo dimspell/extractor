@@ -123,3 +123,29 @@ pub fn save_event_npc_refs(conn: &mut Connection, npc_refs: &[EventNpcRef]) -> R
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entries() {
+        let data = b"1,100,Guard Bob\n2,200,Merchant\n";
+        let mut c = Cursor::new(data.as_ref());
+        let refs = EventNpcRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 2);
+        assert_eq!(refs[0].id, 1);
+        assert_eq!(refs[0].event_id, 100);
+        assert_eq!(refs[0].name, "Guard Bob");
+        assert_eq!(refs[1].name, "Merchant");
+    }
+
+    #[test]
+    fn parse_skips_comments_and_empty() {
+        let data = b"; comment\n\n1,0,NPC\n";
+        let mut c = Cursor::new(data.as_ref());
+        let refs = EventNpcRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 1);
+    }
+}

@@ -274,3 +274,38 @@ pub fn save_weapons(conn: &mut Connection, weapons: &[WeaponItem]) -> Result<()>
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn weapon_bytes(name: &str, base_price: i16, attack: i16) -> Vec<u8> {
+        let mut rec = Vec::with_capacity(284);
+        let mut name_buf = [0u8; 30];
+        name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
+        rec.extend_from_slice(&name_buf);
+        rec.extend(vec![0u8; 202]); // description
+        rec.extend_from_slice(&base_price.to_le_bytes());
+        rec.extend(vec![0u8; 6]);   // 3 padding i16s
+        rec.extend(vec![0u8; 8]);   // hp, mp, str, agi
+        rec.extend(vec![0u8; 8]);   // wis, con, dodge, to_hit
+        rec.extend_from_slice(&attack.to_le_bytes());
+        rec.extend(vec![0u8; 26]); // defense, magical_str, durability, pads, reqs
+        rec
+    }
+
+    #[test]
+    fn parse_single_weapon() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(weapon_bytes("Sword", 300, 25));
+        assert_eq!(data.len(), 288);
+
+        let mut c = Cursor::new(&data[..]);
+        let weapons = WeaponItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(weapons.len(), 1);
+        assert_eq!(weapons[0].name, "Sword");
+        assert_eq!(weapons[0].base_price, 300);
+        assert_eq!(weapons[0].attack, 25);
+    }
+}

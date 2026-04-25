@@ -136,3 +136,32 @@ pub fn save_extras(conn: &mut Connection, extras: &[Extra]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_two_entries() {
+        let data = b"1,chest.spr,0,Wooden Chest\n2,null,1,null\n";
+        let mut c = Cursor::new(data.as_ref());
+        let extras = Extra::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(extras.len(), 2);
+        assert_eq!(extras[0].id, 1);
+        assert_eq!(extras[0].sprite_filename.as_deref(), Some("chest.spr"));
+        assert_eq!(extras[0].unknown, 0);
+        assert_eq!(extras[0].description.as_deref(), Some("Wooden Chest"));
+        assert_eq!(extras[1].sprite_filename, None);
+        assert_eq!(extras[1].unknown, 1);
+        assert_eq!(extras[1].description, None);
+    }
+
+    #[test]
+    fn parse_skips_comments() {
+        let data = b"; comment\n1,spr.spr,0,Desc\n";
+        let mut c = Cursor::new(data.as_ref());
+        let extras = Extra::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(extras.len(), 1);
+    }
+}

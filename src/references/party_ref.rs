@@ -173,3 +173,35 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::GhostFaceId;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entry() {
+        let data = b"1,Hero,Fighter,2,5,100,101,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let refs = PartyRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].id, 1);
+        assert_eq!(refs[0].full_name.as_deref(), Some("Hero"));
+        assert_eq!(refs[0].job_name.as_deref(), Some("Fighter"));
+        assert_eq!(refs[0].root_map_id, 2);
+        assert_eq!(refs[0].npc_id, 5);
+        assert_eq!(refs[0].dlg_when_not_in_party, 100);
+        assert_eq!(refs[0].dlg_when_in_party, 101);
+        assert_eq!(refs[0].ghost_face_id, GhostFaceId::None);
+    }
+
+    #[test]
+    fn parse_null_names() {
+        let data = b"2,null,null,1,1,0,0,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let refs = PartyRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs[0].full_name, None);
+        assert_eq!(refs[0].job_name, None);
+    }
+}

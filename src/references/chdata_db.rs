@@ -128,3 +128,43 @@ impl Extractor for ChData {
 pub fn read_chdata(path: &Path) -> std::io::Result<Vec<ChData>> {
     ChData::read_file(path)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn chdata_bytes(values: &[u16; 16], counts: &[u32; 4], total: u32) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(84);
+        buf.extend_from_slice(b"Item"); // magic (4 bytes)
+        buf.extend(vec![0u8; 26]);      // padding to offset 30
+        for &v in values {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        buf.extend(vec![0u8; 2]); // padding to offset 64
+        for &c in counts {
+            buf.extend_from_slice(&c.to_le_bytes());
+        }
+        buf.extend_from_slice(&total.to_le_bytes());
+        assert_eq!(buf.len(), 84);
+        buf
+    }
+
+    #[test]
+    fn parse_record() {
+        let values = [10u16, 20, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let counts = [5u32, 3, 1, 2];
+        let data = chdata_bytes(&values, &counts, 100);
+
+        let mut c = Cursor::new(data);
+        let records = ChData::parse(&mut c, 84).unwrap();
+
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].magic, "Item");
+        assert_eq!(records[0].values[0], 10);
+        assert_eq!(records[0].values[1], 20);
+        assert_eq!(records[0].values[2], 30);
+        assert_eq!(records[0].counts, vec![5, 3, 1, 2]);
+        assert_eq!(records[0].total, 100);
+    }
+}

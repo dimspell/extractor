@@ -401,3 +401,90 @@ impl std::fmt::Display for Monster {
         write!(f, "Monster({} - {} HP)", self.id, self.health_points_max)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::{MonsterAiType, PropertyFlag};
+    use std::io::Cursor;
+
+    fn monster_bytes(name: &str, stats: &[i32; 34]) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(160);
+        let mut name_buf = [0u8; 24];
+        let (encoded, _, _) = encoding_rs::EUC_KR.encode(name);
+        let len = encoded.len().min(24);
+        name_buf[..len].copy_from_slice(&encoded[..len]);
+        buf.extend_from_slice(&name_buf);
+        for &v in stats {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        buf
+    }
+
+    #[test]
+    fn parse_single_record() {
+        #[rustfmt::skip]
+        let stats: [i32; 34] = [
+            100, 80,  // hp max/min
+            50,  30,  // mp max/min
+            5,        // walk_speed
+            70,  60,  // to_hit max/min
+            10,  10,  // to_dodge max/min
+            20,  15,  // offense max/min
+            12,  8,   // defense max/min
+            5,   3,   // magic_attack max/min
+            0,        // is_undead (Absent)
+            1,        // has_blood (Present)
+            1,        // ai_type (Melee)
+            30,  20,  // exp max/min
+            10,  5,   // gold max/min
+            9,   1,   // detection_sight, distance_range
+            0,   0,   0, // spell slots
+            0,        // is_oversize
+            1,        // magic_level
+            0,   0,   0, // special_attack / chance / duration
+            10,       // boldness
+            4,        // attack_speed
+        ];
+        let data = monster_bytes("Goblin", &stats);
+        assert_eq!(data.len(), 160);
+
+        let mut cursor = Cursor::new(data);
+        let monsters = Monster::parse(&mut cursor, 160).unwrap();
+
+        assert_eq!(monsters.len(), 1);
+        let m = &monsters[0];
+        assert_eq!(m.id, 0);
+        assert_eq!(m.name, "Goblin");
+        assert_eq!(m.health_points_max, 100);
+        assert_eq!(m.health_points_min, 80);
+        assert_eq!(m.is_undead, PropertyFlag::Absent);
+        assert_eq!(m.has_blood, PropertyFlag::Present);
+        assert_eq!(m.ai_type, MonsterAiType::Aggressive);
+        assert_eq!(m.attack_speed, 4);
+    }
+
+    #[test]
+    fn parse_two_records() {
+        let stats = [0i32; 34];
+        let mut data = monster_bytes("Rat", &stats);
+        data.extend(monster_bytes("Dragon", &stats));
+        assert_eq!(data.len(), 320);
+
+        let mut cursor = Cursor::new(data);
+        let monsters = Monster::parse(&mut cursor, 320).unwrap();
+
+        assert_eq!(monsters.len(), 2);
+        assert_eq!(monsters[0].name, "Rat");
+        assert_eq!(monsters[1].name, "Dragon");
+        assert_eq!(monsters[0].id, 0);
+        assert_eq!(monsters[1].id, 1);
+    }
+
+    #[test]
+    fn parse_empty() {
+        let mut cursor = Cursor::new(b"" as &[u8]);
+        let monsters = Monster::parse(&mut cursor, 0).unwrap();
+        assert!(monsters.is_empty());
+    }
+}

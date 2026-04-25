@@ -263,3 +263,36 @@ impl std::fmt::Display for HealItem {
         write!(f, "HealItem({} - {})", self.id, self.name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn item_bytes(name: &str, base_price: i16, health_points: i16) -> Vec<u8> {
+        let mut rec = Vec::with_capacity(252);
+        let mut name_buf = [0u8; 30];
+        name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
+        rec.extend_from_slice(&name_buf);
+        rec.extend(vec![0u8; 202]); // description
+        rec.extend_from_slice(&base_price.to_le_bytes());
+        rec.extend(vec![0u8; 6]); // 3 padding i16s
+        rec.extend_from_slice(&health_points.to_le_bytes());
+        rec.extend(vec![0u8; 10]); // mana_points + 5 u8 flags + 1 pad u8 + pad i16
+        rec
+    }
+
+    #[test]
+    fn parse_single_item() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(item_bytes("Potion", 50, 100));
+        assert_eq!(data.len(), 256);
+
+        let mut c = Cursor::new(&data[..]);
+        let items = HealItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "Potion");
+        assert_eq!(items[0].base_price, 50);
+        assert_eq!(items[0].health_points, 100);
+    }
+}

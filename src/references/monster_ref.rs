@@ -292,3 +292,46 @@ pub fn save_monster_refs(
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn ref_bytes(file_id: i32, mon_id: i32, pos_x: i32, pos_y: i32) -> Vec<u8> {
+        // 14 × i32 = 56 bytes; remaining 10 fields are zero
+        let mut buf: Vec<u8> = Vec::with_capacity(56);
+        for &v in &[file_id, mon_id, pos_x, pos_y, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] {
+            buf.extend_from_slice(&v.to_le_bytes());
+        }
+        buf
+    }
+
+    #[test]
+    fn parse_one_ref() {
+        let rec = ref_bytes(1, 5, 10, 20);
+        let mut data = 1i32.to_le_bytes().to_vec(); // header
+        data.extend(&rec);
+        assert_eq!(data.len(), 60);
+
+        let mut c = Cursor::new(&data[..]);
+        let refs = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].file_id, 1);
+        assert_eq!(refs[0].mon_id, 5);
+        assert_eq!(refs[0].pos_x, 10);
+        assert_eq!(refs[0].pos_y, 20);
+    }
+
+    #[test]
+    fn parse_two_refs() {
+        let mut data = 2i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes(1, 2, 3, 4));
+        data.extend(ref_bytes(5, 6, 7, 8));
+
+        let mut c = Cursor::new(&data[..]);
+        let refs = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 2);
+        assert_eq!(refs[1].mon_id, 6);
+    }
+}

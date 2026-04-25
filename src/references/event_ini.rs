@@ -156,3 +156,34 @@ pub fn save_events(conn: &mut Connection, events: &[Event]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::EventType;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_events() {
+        let data = b"100,0,2,script.scr,5\n200,100,0,null,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let events = Event::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_id, 100);
+        assert_eq!(events[0].required_event_id, 0);
+        assert_eq!(events[0].event_type, EventType::Conditional);
+        assert_eq!(events[0].event_filename.as_deref(), Some("script.scr"));
+        assert_eq!(events[0].counter, 5);
+        assert_eq!(events[1].event_id, 200);
+        assert_eq!(events[1].event_filename, None);
+        assert_eq!(events[1].event_type, EventType::Unknown);
+    }
+
+    #[test]
+    fn parse_skips_comments_and_short_lines() {
+        let data = b"; header\n1,0,0,null,1\n";
+        let mut c = Cursor::new(data.as_ref());
+        let events = Event::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(events.len(), 1);
+    }
+}

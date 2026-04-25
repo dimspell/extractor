@@ -168,3 +168,47 @@ pub fn save_maps(conn: &mut Connection, maps: &[Map]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::MapLighting;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_two_entries() {
+        let data = b"; comment\n1,cat1,Forest,null,null,0\r\n2,cat2,Dungeon,pgp2,dlg2,1\r\n";
+        let mut cursor = Cursor::new(data.as_ref());
+        let maps = Map::parse(&mut cursor, data.len() as u64).unwrap();
+
+        assert_eq!(maps.len(), 2);
+
+        assert_eq!(maps[0].id, 1);
+        assert_eq!(maps[0].map_filename, "cat1");
+        assert_eq!(maps[0].map_name, "Forest");
+        assert!(maps[0].pgp_filename.is_none());
+        assert!(maps[0].dlg_filename.is_none());
+        assert_eq!(maps[0].lighting, MapLighting::Dark);
+
+        assert_eq!(maps[1].id, 2);
+        assert_eq!(maps[1].pgp_filename.as_deref(), Some("pgp2"));
+        assert_eq!(maps[1].dlg_filename.as_deref(), Some("dlg2"));
+        assert_eq!(maps[1].lighting, MapLighting::Light);
+    }
+
+    #[test]
+    fn parse_skips_comments_and_empty_lines() {
+        let data = b"; header\n; another comment\n\n1,m1,Map One,null,null,0\n";
+        let mut cursor = Cursor::new(data.as_ref());
+        let maps = Map::parse(&mut cursor, data.len() as u64).unwrap();
+        assert_eq!(maps.len(), 1);
+        assert_eq!(maps[0].map_name, "Map One");
+    }
+
+    #[test]
+    fn parse_empty() {
+        let mut cursor = Cursor::new(b"" as &[u8]);
+        let maps = Map::parse(&mut cursor, 0).unwrap();
+        assert!(maps.is_empty());
+    }
+}

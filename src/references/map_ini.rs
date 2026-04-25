@@ -178,3 +178,42 @@ pub fn save_map_inis(conn: &mut Connection, map_inis: &[MapIni]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entry_with_nulls() {
+        let data = b"1,0,5,10,2,null,null,null,3\n";
+        let mut c = Cursor::new(data.as_ref());
+        let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(maps.len(), 1);
+        assert_eq!(maps[0].id, 1);
+        assert_eq!(maps[0].start_pos_x, 5);
+        assert_eq!(maps[0].start_pos_y, 10);
+        assert_eq!(maps[0].map_id, 2);
+        assert_eq!(maps[0].cd_music_track_number, 3);
+        assert!(maps[0].monsters_filename.is_none());
+        assert!(maps[0].npc_filename.is_none());
+    }
+
+    #[test]
+    fn parse_entry_with_filenames() {
+        let data = b"2,100,3,8,5,mon.ref,npc.ref,ext.ref,7\n";
+        let mut c = Cursor::new(data.as_ref());
+        let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(maps[0].monsters_filename.as_deref(), Some("mon.ref"));
+        assert_eq!(maps[0].npc_filename.as_deref(), Some("npc.ref"));
+        assert_eq!(maps[0].extra_filename.as_deref(), Some("ext.ref"));
+    }
+
+    #[test]
+    fn parse_skips_comments_and_empty() {
+        let data = b"; header\n\n1,0,0,0,1,null,null,null,1\n";
+        let mut c = Cursor::new(data.as_ref());
+        let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(maps.len(), 1);
+    }
+}

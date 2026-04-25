@@ -465,3 +465,57 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn npc_bytes(npc_id: i32, name: &str, dialog_id: i32) -> Vec<u8> {
+        let mut rec = vec![0u8; 672];
+        // id at 0, npc_id at 4
+        rec[0..4].copy_from_slice(&0i32.to_le_bytes());
+        rec[4..8].copy_from_slice(&npc_id.to_le_bytes());
+        // name at 8, 260 bytes
+        let nb = name.as_bytes();
+        let n = nb.len().min(259);
+        rec[8..8 + n].copy_from_slice(&nb[..n]);
+        // description at 268 (8+260), 260 bytes – stays zero
+        // dialog_id at offset 664 (672 - 8 = 664? let me compute)
+        // Total: id(4)+npc_id(4)+name(260)+desc(260)+rest until dialog_id
+        // party_script_id at 528, show_on_event at 532, unknown_1 at 536,
+        // 4 goto_filled at 540-555, 4 goto_x at 556-571, 4 goto_y at 572-587
+        // unknown_2..5 at 588-603, looking_direction at 604
+        // unknown_6..8 at 608-619, unknown_9..12 at 620-635, unknown_13..16 at 636-651
+        // unknown_17 at 652, unknown_18 at 656, unknown_19 at 660, dialog_id at 664
+        rec[664..668].copy_from_slice(&dialog_id.to_le_bytes());
+        rec
+    }
+
+    #[test]
+    fn parse_single_npc() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(npc_bytes(42, "Innkeeper", 500));
+        assert_eq!(data.len(), 676);
+
+        let mut c = Cursor::new(&data[..]);
+        let npcs = NPC::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(npcs.len(), 1);
+        assert_eq!(npcs[0].npc_id, 42);
+        assert_eq!(npcs[0].name, "Innkeeper");
+        assert_eq!(npcs[0].dialog_id, 500);
+    }
+
+    #[test]
+    fn parse_two_npcs() {
+        let mut data = 2i32.to_le_bytes().to_vec();
+        data.extend(npc_bytes(1, "Guard", 10));
+        data.extend(npc_bytes(2, "Mage", 20));
+
+        let mut c = Cursor::new(&data[..]);
+        let npcs = NPC::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(npcs.len(), 2);
+        assert_eq!(npcs[0].name, "Guard");
+        assert_eq!(npcs[1].name, "Mage");
+    }
+}

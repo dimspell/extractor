@@ -178,3 +178,34 @@ pub fn save_monster_inis(conn: &mut Connection, monster_inis: &[MonsterIni]) -> 
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entry() {
+        let data = b"1,Goblin,goblin.spr,1,2,3,4,5\n";
+        let mut c = Cursor::new(data.as_ref());
+        let mons = MonsterIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(mons.len(), 1);
+        assert_eq!(mons[0].id, 1);
+        assert_eq!(mons[0].name.as_deref(), Some("Goblin"));
+        assert_eq!(mons[0].sprite_filename.as_deref(), Some("goblin.spr"));
+        assert_eq!(mons[0].attack, 1);
+        assert_eq!(mons[0].hit, 2);
+        assert_eq!(mons[0].death, 3);
+        assert_eq!(mons[0].walking, 4);
+        assert_eq!(mons[0].casting_magic, 5);
+    }
+
+    #[test]
+    fn parse_null_fields() {
+        let data = b"2,null,null,0,0,0,0,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let mons = MonsterIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(mons[0].name, None);
+        assert_eq!(mons[0].sprite_filename, None);
+    }
+}

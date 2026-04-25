@@ -259,3 +259,62 @@ impl std::fmt::Display for Store {
         write!(f, "Store({} - {})", self.index, self.store_name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn encode_str_w1250(s: &str, len: usize) -> Vec<u8> {
+        let mut buf = vec![0u8; len];
+        let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(s);
+        let n = cow.len().min(len);
+        buf[..n].copy_from_slice(&cow[..n]);
+        buf
+    }
+
+    fn inn_record(name: &str, night_cost: i32) -> Vec<u8> {
+        let mut rec = Vec::with_capacity(948);
+        rec.extend(encode_str_w1250(name, 32));
+        rec.extend_from_slice(&night_cost.to_le_bytes());
+        rec.extend(vec![0u8; 144]);                         // inn padding
+        rec.extend(encode_str_w1250("Welcome!", 512));
+        rec.extend(encode_str_w1250("Sure!", 128));
+        rec.extend(encode_str_w1250("No.", 128));
+        assert_eq!(rec.len(), 948);
+        rec
+    }
+
+    #[test]
+    fn parse_single_inn() {
+        let mut data = 1i32.to_le_bytes().to_vec(); // header: 1 record
+        data.extend(inn_record("Tavern", 50));
+        assert_eq!(data.len(), 952);
+
+        let mut cursor = Cursor::new(data);
+        let stores = Store::parse(&mut cursor, 952).unwrap();
+
+        assert_eq!(stores.len(), 1);
+        let s = &stores[0];
+        assert_eq!(s.store_name, "Tavern");
+        assert_eq!(s.inn_night_cost, 50);
+        assert!(s.products.is_empty());
+        assert_eq!(s.invitation, "Welcome!");
+        assert_eq!(s.haggle_success, "Sure!");
+        assert_eq!(s.haggle_fail, "No.");
+    }
+
+    #[test]
+    fn parse_two_inns() {
+        let mut data = 2i32.to_le_bytes().to_vec();
+        data.extend(inn_record("Inn A", 20));
+        data.extend(inn_record("Inn B", 40));
+
+        let mut cursor = Cursor::new(&data[..]);
+        let stores = Store::parse(&mut cursor, data.len() as u64).unwrap();
+
+        assert_eq!(stores.len(), 2);
+        assert_eq!(stores[0].store_name, "Inn A");
+        assert_eq!(stores[1].inn_night_cost, 40);
+    }
+}

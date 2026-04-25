@@ -160,3 +160,36 @@ pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::ItemTypeId;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entry() {
+        // encoded_item_id bytes: [item_id=5, item_type=2(Healing), 0, 0]
+        // as little-endian i32: 5 + 2*256 = 517
+        let data = b"(1,10,20,517)\n";
+        let mut c = Cursor::new(data.as_ref());
+        let items = DrawItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].map_id, 1);
+        assert_eq!(items[0].x_coord, 10);
+        assert_eq!(items[0].y_coord, 20);
+        assert_eq!(items[0].item_id, 5);
+        assert_eq!(items[0].item_type, ItemTypeId::Healing);
+    }
+
+    #[test]
+    fn parse_skips_comments_and_short_lines() {
+        let data = b"; comment\n(2,3,4,1)\n";
+        let mut c = Cursor::new(data.as_ref());
+        let items = DrawItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].map_id, 2);
+        assert_eq!(items[0].item_id, 1);
+        assert_eq!(items[0].item_type, ItemTypeId::Other); // byte[1]=0 → no match → Other
+    }
+}

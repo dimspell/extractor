@@ -527,3 +527,45 @@ pub fn save_extra_refs(
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::ExtraObjectType;
+    use std::io::Cursor;
+
+    fn ref_bytes(name: &str, x_pos: i32, y_pos: i32, gold: i32) -> Vec<u8> {
+        let mut rec = vec![0u8; 184];
+        rec[0] = 1;                  // number_in_file
+        rec[2] = 3;                  // extra_ini_entry_id
+        // name at offset 3, 32 bytes
+        let nb = name.as_bytes();
+        let n = nb.len().min(31);
+        rec[3..3 + n].copy_from_slice(&nb[..n]);
+        // object_type at offset 35: 0 = Chest
+        // x_pos at offset 36
+        rec[36..40].copy_from_slice(&x_pos.to_le_bytes());
+        // y_pos at offset 40
+        rec[40..44].copy_from_slice(&y_pos.to_le_bytes());
+        // gold_amount at offset 80
+        rec[80..84].copy_from_slice(&gold.to_le_bytes());
+        rec
+    }
+
+    #[test]
+    fn parse_single_ref() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes("Chest1", 10, 20, 50));
+        assert_eq!(data.len(), 188);
+
+        let mut c = Cursor::new(&data[..]);
+        let refs = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name, "Chest1");
+        assert_eq!(refs[0].ext_id, 3);
+        assert_eq!(refs[0].x_pos, 10);
+        assert_eq!(refs[0].y_pos, 20);
+        assert_eq!(refs[0].gold_amount, 50);
+        assert_eq!(refs[0].object_type, ExtraObjectType::Chest);
+    }
+}

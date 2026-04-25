@@ -214,3 +214,39 @@ pub fn save_dialogs(
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::{DialogOwner, DialogType};
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_dialogue_lines() {
+        let data = b"1,0,2,0,1,100,200,0,0,1000\n2,0,0,1,0,101,201,202,203,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let dlgs = DialogueScript::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(dlgs.len(), 2);
+
+        assert_eq!(dlgs[0].id, 1);
+        assert_eq!(dlgs[0].dialog_type, Some(DialogType::Normal));
+        assert_eq!(dlgs[0].dialog_owner, Some(DialogOwner::Npc));
+        assert_eq!(dlgs[0].dialog_id, Some(100));
+        assert_eq!(dlgs[0].next_dialog_id1, Some(200));
+        assert_eq!(dlgs[0].triggered_event_id, Some(1000));
+
+        assert_eq!(dlgs[1].dialog_type, Some(DialogType::Choice));
+        assert_eq!(dlgs[1].dialog_owner, Some(DialogOwner::Player));
+        assert_eq!(dlgs[1].next_dialog_id1, Some(201));
+        assert_eq!(dlgs[1].next_dialog_id2, Some(202));
+        assert_eq!(dlgs[1].next_dialog_id3, Some(203));
+    }
+
+    #[test]
+    fn parse_skips_comments_and_short_lines() {
+        let data = b"; comment\n1,0,0,0,0,0,0,0,0,0\n";
+        let mut c = Cursor::new(data.as_ref());
+        let dlgs = DialogueScript::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(dlgs.len(), 1);
+    }
+}

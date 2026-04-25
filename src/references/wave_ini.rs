@@ -143,3 +143,22 @@ pub fn save_wave_inis(conn: &mut Connection, wave_inis: &[WaveIni]) -> Result<()
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entries() {
+        let data = b"1,music.snf,loop\n2,null,null\n";
+        let mut c = Cursor::new(data.as_ref());
+        let waves = WaveIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(waves.len(), 2);
+        assert_eq!(waves[0].id, 1);
+        assert_eq!(waves[0].snf_filename.as_deref(), Some("music.snf"));
+        assert_eq!(waves[0].unknown_flag.as_deref(), Some("loop"));
+        assert_eq!(waves[1].snf_filename, None);
+        assert_eq!(waves[1].unknown_flag, None);
+    }
+}

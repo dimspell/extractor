@@ -160,3 +160,49 @@ pub fn save_party_inis(conn: &mut Connection, npcs: &[PartyIniNpc]) -> DbResult<
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn npc_record(name: &str) -> [u8; 28] {
+        let mut buf = [0u8; 28];
+        let b = name.as_bytes();
+        let n = b.len().min(19);
+        buf[..n].copy_from_slice(&b[..n]);
+        // bytes 20-27 stay zero (unknown1-6)
+        buf
+    }
+
+    fn eight_records(names: &[&str; 8]) -> Vec<u8> {
+        let mut data = Vec::with_capacity(224);
+        for &name in names {
+            data.extend_from_slice(&npc_record(name));
+        }
+        data
+    }
+
+    #[test]
+    fn parse_all_eight_npcs() {
+        let names = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hank"];
+        let data = eight_records(&names);
+        assert_eq!(data.len(), 224);
+
+        let mut c = Cursor::new(&data[..]);
+        let npcs = PartyIniNpc::parse(&mut c, 224).unwrap();
+        assert_eq!(npcs.len(), 8);
+        assert_eq!(npcs[0].name, "Alice");
+        assert_eq!(npcs[7].name, "Hank");
+    }
+
+    #[test]
+    fn parse_empty_slots() {
+        let names = ["", "", "", "", "", "", "", ""];
+        let data = eight_records(&names);
+        let mut c = Cursor::new(&data[..]);
+        let npcs = PartyIniNpc::parse(&mut c, 224).unwrap();
+        assert_eq!(npcs.len(), 8);
+        assert!(npcs[0].name.is_empty());
+    }
+}

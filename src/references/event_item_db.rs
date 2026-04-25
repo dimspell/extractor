@@ -145,3 +145,35 @@ pub fn save_event_items(conn: &mut Connection, event_items: &[EventItem]) -> Res
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn item_bytes(name: &str, desc: &str) -> Vec<u8> {
+        let mut rec = Vec::with_capacity(240);
+        let mut name_buf = [0u8; 30];
+        name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
+        rec.extend_from_slice(&name_buf);
+        let mut desc_buf = [0u8; 202];
+        desc_buf[..desc.len().min(201)].copy_from_slice(&desc.as_bytes()[..desc.len().min(201)]);
+        rec.extend_from_slice(&desc_buf);
+        rec.extend(vec![0u8; 8]); // padding
+        rec
+    }
+
+    #[test]
+    fn parse_single_item() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(item_bytes("Scroll", "A magic scroll"));
+        assert_eq!(data.len(), 244);
+
+        let mut c = Cursor::new(&data[..]);
+        let items = EventItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].id, 0);
+        assert_eq!(items[0].name, "Scroll");
+        assert_eq!(items[0].description, "A magic scroll");
+    }
+}

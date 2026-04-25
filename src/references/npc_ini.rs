@@ -127,3 +127,30 @@ pub fn save_npc_inis(conn: &mut Connection, npc_inis: &[NpcIni]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_entries() {
+        let data = b"1,guard.spr,City Guard\n2,null,Merchant\n";
+        let mut c = Cursor::new(data.as_ref());
+        let npcs = NpcIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(npcs.len(), 2);
+        assert_eq!(npcs[0].id, 1);
+        assert_eq!(npcs[0].sprite_filename.as_deref(), Some("guard.spr"));
+        assert_eq!(npcs[0].description, "City Guard");
+        assert_eq!(npcs[1].sprite_filename, None);
+        assert_eq!(npcs[1].description, "Merchant");
+    }
+
+    #[test]
+    fn parse_skips_comments_and_empty() {
+        let data = b"; comment\n\n1,spr.spr,Guard\n";
+        let mut c = Cursor::new(data.as_ref());
+        let npcs = NpcIni::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(npcs.len(), 1);
+    }
+}

@@ -157,3 +157,32 @@ pub fn save_quests(conn: &mut Connection, quests: &[Quest]) -> Result<()> {
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_quests() {
+        let data = b"1|0|Main Quest|Kill the dragon\n2|1|null|null\n";
+        let mut c = Cursor::new(data.as_ref());
+        let quests = Quest::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(quests.len(), 2);
+        assert_eq!(quests[0].id, 1);
+        assert_eq!(quests[0].type_id, 0);
+        assert_eq!(quests[0].title.as_deref(), Some("Main Quest"));
+        assert_eq!(quests[0].description.as_deref(), Some("Kill the dragon"));
+        assert_eq!(quests[1].type_id, 1);
+        assert!(quests[1].title.is_none());
+        assert!(quests[1].description.is_none());
+    }
+
+    #[test]
+    fn parse_skips_comments_and_short_lines() {
+        let data = b"; intro\n1|0|Title|Desc\n";
+        let mut c = Cursor::new(data.as_ref());
+        let quests = Quest::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(quests.len(), 1);
+    }
+}

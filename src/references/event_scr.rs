@@ -545,3 +545,37 @@ pub fn save_event_scripts(
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn parse_sections() {
+        let data = b"; header comment\n[VAR]\nspawn=5\n[MAP]\nmap_cmd1\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\ndo_action(1)\n";
+        let mut c = Cursor::new(data.as_ref());
+        let scripts = EventScript::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(scripts.len(), 1);
+        let s = &scripts[0];
+        assert_eq!(s.id, 0); // ID=0 when parsed without a path
+        assert_eq!(s.header_comments, vec!["; header comment"]);
+        assert_eq!(s.variables.len(), 1);
+        assert_eq!(s.variables[0].name, "spawn");
+        assert_eq!(s.variables[0].value, "5");
+        assert_eq!(s.map_content, vec!["map_cmd1"]);
+        assert_eq!(s.actions.len(), 1);
+    }
+
+    #[test]
+    fn parse_empty_sections() {
+        let data = b"[VAR]\n[MAP]\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\n";
+        let mut c = Cursor::new(data.as_ref());
+        let scripts = EventScript::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(scripts.len(), 1);
+        let s = &scripts[0];
+        assert!(s.variables.is_empty());
+        assert!(s.map_content.is_empty());
+        assert!(s.actions.is_empty());
+    }
+}

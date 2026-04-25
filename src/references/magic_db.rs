@@ -341,3 +341,76 @@ impl std::fmt::Display for MagicSpell {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::references::enums::{MagicSchool, MagicSpellFlag, SpellTargetType};
+    use std::io::Cursor;
+
+    fn spell_bytes(mana_cost: u32, base_damage: u32, target_type: u32) -> Vec<u8> {
+        let fields: [u32; 22] = [
+            1,           // enabled
+            1,           // flag1
+            mana_cost,
+            100,         // success_rate
+            base_damage,
+            0, 0,        // reserved1, reserved2
+            0,           // flag2
+            10,          // range
+            0,           // reserved3
+            1,           // level_required
+            1,           // constant1
+            0,           // effect_value
+            1,           // effect_type
+            0,           // effect_modifier
+            0,           // reserved4
+            0,           // magic_school (Unknown)
+            0,           // flag3
+            1,           // animation_id
+            2,           // visual_id
+            3,           // icon_id
+            target_type,
+        ];
+        fields.iter().flat_map(|&v| v.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn parse_single_spell() {
+        let data = spell_bytes(20, 50, 1);
+        assert_eq!(data.len(), 88);
+
+        let mut c = Cursor::new(&data[..]);
+        let spells = MagicSpell::parse(&mut c, 88).unwrap();
+
+        assert_eq!(spells.len(), 1);
+        assert_eq!(spells[0].id, 0);
+        assert_eq!(spells[0].enabled, MagicSpellFlag::Enabled);
+        assert_eq!(spells[0].mana_cost, 20);
+        assert_eq!(spells[0].base_damage, 50);
+        assert_eq!(spells[0].magic_school, MagicSchool::Unknown);
+        assert_eq!(spells[0].target_type, SpellTargetType::Single);
+    }
+
+    #[test]
+    fn parse_two_spells() {
+        let mut data = spell_bytes(10, 30, 2);
+        data.extend(spell_bytes(40, 80, 3));
+        assert_eq!(data.len(), 176);
+
+        let mut c = Cursor::new(&data[..]);
+        let spells = MagicSpell::parse(&mut c, 176).unwrap();
+
+        assert_eq!(spells.len(), 2);
+        assert_eq!(spells[0].mana_cost, 10);
+        assert_eq!(spells[1].mana_cost, 40);
+        assert_eq!(spells[1].target_type, SpellTargetType::AreaOfEffect);
+    }
+
+    #[test]
+    fn parse_rejects_invalid_size() {
+        let data = vec![0u8; 90]; // not a multiple of 88
+        let mut c = Cursor::new(&data[..]);
+        assert!(MagicSpell::parse(&mut c, 90).is_err());
+    }
+}

@@ -302,3 +302,39 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result
     tx.commit()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn item_bytes(name: &str, base_price: i16, defense: i16) -> Vec<u8> {
+        let mut rec = Vec::with_capacity(268);
+        let mut name_buf = [0u8; 30];
+        name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
+        rec.extend_from_slice(&name_buf);
+        rec.extend(vec![0u8; 202]); // description
+        rec.extend_from_slice(&base_price.to_le_bytes());
+        rec.extend(vec![0u8; 6]);   // 3 padding i16s
+        rec.extend(vec![0u8; 14]);  // hp, mp, str, agi, wis, con, dodge i16s
+        rec.extend_from_slice(&(0i16).to_le_bytes()); // to_hit
+        rec.extend_from_slice(&(0i16).to_le_bytes()); // offense
+        rec.extend_from_slice(&defense.to_le_bytes());
+        rec.extend(vec![0u8; 8]);   // magical_power, item_destroy, pad4+modifies, additional_effect
+        rec
+    }
+
+    #[test]
+    fn parse_single_item() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(item_bytes("Shield", 200, 15));
+        assert_eq!(data.len(), 272);
+
+        let mut c = Cursor::new(&data[..]);
+        let items = EditItem::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].name, "Shield");
+        assert_eq!(items[0].base_price, 200);
+        assert_eq!(items[0].defense, 15);
+    }
+}
