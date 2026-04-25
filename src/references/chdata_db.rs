@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -54,10 +54,7 @@ pub struct ChData {
 /// - Bytes 64–79 : 4 × u32 counts
 /// - Bytes 80–83 : u32 total
 impl Extractor for ChData {
-    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(path)?;
-        let mut reader = BufReader::new(file);
-
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         // Read magic "Item"
         let mut magic_buf = [0u8; 4];
         reader.read_exact(&mut magic_buf)?;

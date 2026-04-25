@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Seek, Write},
     path::Path,
 };
 
@@ -93,19 +93,17 @@ pub struct DialogueParagraph {
 /// - `param1` / `param2` are integer logic parameters.
 /// - Comment lines (`;`) preceding a record are stored in `comment` using ` | ` as separator.
 impl Extractor for DialogueParagraph {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(WINDOWS_1250))
-                .build(f),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(WINDOWS_1250))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
 
         let mut texts: Vec<DialogueParagraph> = Vec::new();
         let mut current_comment = String::new();
         let mut last_was_comment = false;
 
-        for line in reader.lines() {
+        for line in buf_reader.lines() {
             let line = match line {
                 Ok(l) => l,
                 Err(_) => continue,

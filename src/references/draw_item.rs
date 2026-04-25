@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::{fs::File, path::Path};
 
 use encoding_rs::EUC_KR;
@@ -78,15 +78,13 @@ pub struct DrawItem {
 /// - In memory: stored as separate `item_id: u8` and `item_type: ItemTypeId` fields
 /// - In database: stored as separate `item_id: INTEGER` and `item_type: INTEGER` columns
 impl Extractor for DrawItem {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(EUC_KR))
-                .build(f),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(EUC_KR))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
         let mut draw_items: Vec<DrawItem> = Vec::new();
-        for line in reader.lines().map_while(Result::ok) {
+        for line in buf_reader.lines().map_while(std::io::Result::ok) {
             if line.starts_with(";") {
                 continue;
             }

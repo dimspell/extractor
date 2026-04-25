@@ -1,5 +1,5 @@
 use std::io::{prelude::*, Cursor};
-use std::io::{BufReader, BufWriter, Seek, SeekFrom};
+use std::io::{BufWriter, Read, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -102,17 +102,10 @@ pub type StoreProduct = (i16, ProductType, i16); // order, product_type, product
 /// - `haggle_success` : 128 bytes, null-padded, WINDOWS-1250
 /// - `haggle_fail`    : 128 bytes, null-padded, WINDOWS-1250
 impl Extractor for Store {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(source_path)?;
-
-        let metadata = file.metadata()?;
-        let file_len = metadata.len();
-
-        let mut reader = BufReader::new(file);
-
+    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
         const COUNTER_SIZE: u8 = 4;
         const PROPERTY_ITEM_SIZE: i32 = 237 * 4;
-        let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
+        let elements = read_mapper(reader, len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
 
         let mut store: Vec<Store> = vec![];
         for i in 0..elements as usize {

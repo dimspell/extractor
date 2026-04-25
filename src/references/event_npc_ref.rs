@@ -3,7 +3,7 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
@@ -72,12 +72,11 @@ pub struct EventNpcRef {
 /// - `event_id` : i32
 /// - `name`     : fixed-size null-padded string
 impl Extractor for EventNpcRef {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let reader = BufReader::new(
             DecodeReaderBytesBuilder::new()
                 .encoding(Some(WINDOWS_1250))
-                .build(f),
+                .build(reader.by_ref()),
         );
         let mut npc_refs: Vec<EventNpcRef> = Vec::new();
         for line in reader.lines().map_while(Result::ok) {

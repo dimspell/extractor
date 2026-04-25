@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::EventType;
@@ -82,12 +82,11 @@ pub struct Event {
 /// - `event_type_id` controls execution condition (see `EventType` variants).
 /// - `counter` is the N-execution limit for repeating event types.
 impl Extractor for Event {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let reader = BufReader::new(
             DecodeReaderBytesBuilder::new()
                 .encoding(Some(EUC_KR))
-                .build(f),
+                .build(reader.by_ref()),
         );
 
         let mut events: Vec<Event> = Vec::new();

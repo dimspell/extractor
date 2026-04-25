@@ -1,5 +1,5 @@
 use std::io::prelude::*;
-use std::io::{BufReader, BufWriter};
+use std::io::{BufWriter, Read, Seek};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{
@@ -203,18 +203,11 @@ pub struct ExtraRef {
 /// - `visibility`           : u8
 /// - 3 bytes + 8 bytes padding
 impl Extractor for ExtraRef {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(source_path)?;
-
-        let metadata = file.metadata()?;
-        let file_len = metadata.len();
-
-        let mut reader = BufReader::new(file);
-
+    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
         const COUNTER_SIZE: u8 = 4;
         const PROPERTY_ITEM_SIZE: i32 = 46 * 4;
 
-        let elements = read_mapper(&mut reader, file_len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
+        let elements = read_mapper(reader, len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
         let mut refs: Vec<ExtraRef> = Vec::with_capacity(elements as usize);
 
         for i in 0..elements {

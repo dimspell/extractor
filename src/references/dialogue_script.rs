@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{DialogOwner, DialogType};
@@ -95,15 +95,13 @@ pub struct DialogueScript {
 /// - `dialog_owner`: 0 = main character talking, 1 = NPC talking.
 /// - Optional fields use literal `null` when absent.
 impl Extractor for DialogueScript {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(EUC_KR))
-                .build(f),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(EUC_KR))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
         let mut dlgs: Vec<DialogueScript> = Vec::new();
-        for line in reader.lines().map_while(Result::ok) {
+        for line in buf_reader.lines().map_while(std::io::Result::ok) {
             let trimmed = line.trim();
             if trimmed.starts_with(';') || trimmed.is_empty() {
                 continue;

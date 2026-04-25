@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::{fs::File, path::Path};
 
 use encoding_rs::WINDOWS_1250;
@@ -79,12 +79,11 @@ pub struct Map {
 /// - `pgp_filename` / `npc_dlg_filename` use literal `null` when absent.
 /// - `is_dark`: `0` = lit map, `1` = dark/dungeon map.
 impl Extractor for Map {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let reader = BufReader::new(
             DecodeReaderBytesBuilder::new()
                 .encoding(Some(WINDOWS_1250))
-                .build(f),
+                .build(reader.by_ref()),
         );
 
         let mut maps: Vec<Map> = Vec::new();

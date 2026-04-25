@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
@@ -285,30 +285,18 @@ impl ActionFunction {
 /// }
 /// ```
 impl Extractor for EventScript {
-    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(EUC_KR))
-                .build(file),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(EUC_KR))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
 
         let mut scripts = Vec::new();
         let mut current_script = EventScript::default();
         let mut current_section = String::new();
         let mut in_header = true;
 
-        // Extract ID from a filename (Event0001.scr or event2137.scr -> 1 or 2137)
-        if let Some(file_name) = path.file_stem() {
-            if let Some(name_str) = file_name.to_str() {
-                let name_lower = name_str.to_lowercase();
-                if name_lower.starts_with("event") {
-                    current_script.id = name_str[5..].to_string().parse::<i32>().unwrap_or(0);
-                }
-            }
-        }
-
-        for line in reader.lines() {
+        for line in buf_reader.lines() {
             let line = line?;
             let trimmed = line.trim();
 
@@ -388,6 +376,22 @@ impl Extractor for EventScript {
         }
 
         scripts.push(current_script);
+        Ok(scripts)
+    }
+
+    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(path)?;
+        let len = file.metadata()?.len();
+        let mut reader = std::io::BufReader::new(file);
+        let mut scripts = Self::parse(&mut reader, len)?;
+        if let Some(script) = scripts.first_mut() {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                let lower = stem.to_lowercase();
+                if lower.starts_with("event") {
+                    script.id = stem[5..].parse::<i32>().unwrap_or(0);
+                }
+            }
+        }
         Ok(scripts)
     }
 

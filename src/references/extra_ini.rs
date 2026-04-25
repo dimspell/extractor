@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::{fs::File, path::Path};
 
 use crate::references::extractor::{parse_null, Extractor};
@@ -73,15 +73,13 @@ pub struct Extra {
 /// - `sprite_filename` and `description` use literal `null` when absent.
 /// - `unknown_flag` is always `0` or `1`.
 impl Extractor for Extra {
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let f = File::open(source_path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(EUC_KR))
-                .build(f),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(EUC_KR))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
         let mut extras: Vec<Extra> = Vec::new();
-        for line in reader.lines().map_while(Result::ok) {
+        for line in buf_reader.lines().map_while(std::io::Result::ok) {
             if line.starts_with(";") {
                 continue;
             }

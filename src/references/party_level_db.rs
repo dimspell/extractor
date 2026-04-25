@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Result};
+use std::io::{BufWriter, Read, Result, Seek};
 use std::path::Path;
 
 // ===========================================================================
@@ -110,9 +110,7 @@ pub struct PartyLevelNpc {
 /// - `agility`, `attack`, `mana_recharge` : u32 each
 /// - `defense`                            : u16
 impl Extractor for PartyLevelNpc {
-    fn read_file(source_path: &Path) -> Result<Vec<Self>> {
-        let file = File::open(source_path)?;
-        let mut reader = BufReader::new(file);
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> Result<Vec<Self>> {
         let mut npcs = Vec::new();
 
         // 8 NPCs * 720 bytes = 5760 bytes.

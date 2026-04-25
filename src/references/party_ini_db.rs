@@ -3,7 +3,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Read, Result, Write};
+use std::io::{BufWriter, Read, Result, Seek, Write};
 use std::path::Path;
 
 // ===========================================================================
@@ -72,9 +72,7 @@ pub struct PartyIniNpc {
 /// - `name`  : null-terminated string (variable length up to buffer)
 /// - `data`: 8 bytes
 impl Extractor for PartyIniNpc {
-    fn read_file(source_path: &Path) -> Result<Vec<Self>> {
-        let file = File::open(source_path)?;
-        let mut reader = BufReader::new(file);
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> Result<Vec<Self>> {
         let mut npcs = Vec::new();
 
         // The file is 224 bytes, which is 8 NPCs * 28 bytes each.

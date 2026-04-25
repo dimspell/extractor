@@ -1,4 +1,4 @@
-use std::io::{BufReader, BufWriter};
+use std::io::{BufWriter, Read, Seek};
 use std::{fs::File, path::Path};
 
 use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
@@ -179,10 +179,8 @@ impl Extractor for MagicSpell {
     /// # Returns
     ///
     /// A vector of `MagicSpell` structs representing all spells in the database.
-    fn read_file(source_path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(source_path)?;
-        let metadata = file.metadata()?;
-        let file_len = metadata.len() as usize;
+    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
+        let file_len = len as usize;
 
         if !file_len.is_multiple_of(MAGIC_RECORD_SIZE) {
             return Err(std::io::Error::new(
@@ -195,7 +193,6 @@ impl Extractor for MagicSpell {
         }
 
         let num_records = file_len / MAGIC_RECORD_SIZE;
-        let mut reader = BufReader::new(file);
         let mut spells: Vec<MagicSpell> = Vec::with_capacity(num_records);
 
         for i in 0..num_records {

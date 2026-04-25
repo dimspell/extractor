@@ -7,8 +7,16 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use encoding_rs::WINDOWS_1250;
 
 pub trait Extractor: Sized {
-    fn read_file(path: &Path) -> Result<Vec<Self>>;
-    fn save_file(records: &[Self], path: &Path) -> Result<()>;
+    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>>;
+
+    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
+        let file = File::open(path)?;
+        let len = file.metadata()?.len();
+        let mut reader = BufReader::new(file);
+        Self::parse(&mut reader, len)
+    }
+
+    fn save_file(records: &[Self], path: &Path) -> std::io::Result<()>;
 }
 
 pub fn read_null_terminated_windows_1250(bytes: &[u8]) -> core::result::Result<String, String> {
@@ -77,8 +85,8 @@ pub fn read_mutli_magic_db(source_path: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn read_mapper(
-    reader: &mut BufReader<File>,
+pub fn read_mapper<R: Read>(
+    reader: &mut R,
     file_len: u64,
     counter_size: u8,
     property_item_size: i32,

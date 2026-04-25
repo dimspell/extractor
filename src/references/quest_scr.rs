@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
@@ -76,16 +76,14 @@ pub struct Quest {
 /// - `type_id`: 0 = main quest, 1 = side quest, 2 = traders journal.
 /// - `title` and `description` use literal `null` when absent.
 impl Extractor for Quest {
-    fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(WINDOWS_1250))
-                .build(file),
-        );
+    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        let decoded = DecodeReaderBytesBuilder::new()
+            .encoding(Some(WINDOWS_1250))
+            .build(reader.by_ref());
+        let buf_reader = BufReader::new(decoded);
 
         let mut quests = Vec::new();
-        for line in reader.lines() {
+        for line in buf_reader.lines() {
             let line = line?;
             let trimmed = line.trim();
             if trimmed.is_empty() || trimmed.starts_with(';') {
