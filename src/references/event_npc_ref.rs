@@ -96,7 +96,7 @@ impl Extractor for EventNpcRef {
         Ok(npc_refs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let line = format!("{},{},{}\r\n", record.id, record.event_id, record.name);
             let (cow, _, _) = WINDOWS_1250.encode(&line);
@@ -145,5 +145,20 @@ mod tests {
         let mut c = Cursor::new(data.as_ref());
         let refs = EventNpcRef::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(refs.len(), 1);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,100,Guard Bob\r\n2,200,Merchant\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = EventNpcRef::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        EventNpcRef::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = EventNpcRef::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].name, records2[0].name);
+        assert_eq!(records[1].event_id, records2[1].event_id);
     }
 }

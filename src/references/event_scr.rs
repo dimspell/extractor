@@ -395,7 +395,7 @@ impl Extractor for EventScript {
         Ok(scripts)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for script in records {
             // Write header comments
             for comment in &script.header_comments {
@@ -575,5 +575,20 @@ mod tests {
         assert!(s.variables.is_empty());
         assert!(s.map_content.is_empty());
         assert!(s.actions.is_empty());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"[VAR]\nspawn=5\n[MAP]\nmap_cmd1\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\ndo_action(1)\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = EventScript::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        EventScript::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = EventScript::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].variables.len(), records2[0].variables.len());
+        assert_eq!(records[0].variables[0].name, records2[0].variables[0].name);
+        assert_eq!(records[0].actions, records2[0].actions);
     }
 }

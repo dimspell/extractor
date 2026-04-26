@@ -328,7 +328,7 @@ impl Extractor for NPC {
         Ok(npcs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 
@@ -513,5 +513,21 @@ mod tests {
         assert_eq!(npcs.len(), 2);
         assert_eq!(npcs[0].name, "Guard");
         assert_eq!(npcs[1].name, "Mage");
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(npc_bytes(42, "Innkeeper", 500));
+        let mut c = Cursor::new(&data[..]);
+        let records = NPC::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        NPC::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = NPC::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].npc_id, records2[0].npc_id);
+        assert_eq!(records[0].name, records2[0].name);
+        assert_eq!(records[0].dialog_id, records2[0].dialog_id);
     }
 }

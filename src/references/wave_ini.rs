@@ -110,7 +110,7 @@ impl Extractor for WaveIni {
         Ok(waves_inis)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let snf = record.snf_filename.as_deref().unwrap_or("null");
             let unk = record.unknown_flag.as_deref().unwrap_or("null");
@@ -159,5 +159,20 @@ mod tests {
         assert_eq!(waves[0].unknown_flag.as_deref(), Some("loop"));
         assert_eq!(waves[1].snf_filename, None);
         assert_eq!(waves[1].unknown_flag, None);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,music.snf,loop\r\n2,null,null\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = WaveIni::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        WaveIni::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = WaveIni::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].snf_filename, records2[0].snf_filename);
+        assert_eq!(records[1].snf_filename, records2[1].snf_filename);
     }
 }

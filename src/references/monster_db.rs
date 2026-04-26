@@ -290,7 +290,7 @@ impl Extractor for Monster {
         Ok(monsters)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         // Since COUNTER_SIZE is 0, we don't write the number of elements
 
         for record in records {
@@ -482,5 +482,16 @@ mod tests {
         let mut cursor = Cursor::new(b"" as &[u8]);
         let monsters = Monster::parse(&mut cursor, 0).unwrap();
         assert!(monsters.is_empty());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let stats = [0i32; 34];
+        let data = monster_bytes("Goblin", &stats);
+        let mut c = Cursor::new(&data[..]);
+        let records = Monster::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Monster::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

@@ -102,7 +102,7 @@ impl Extractor for EventItem {
         Ok(items)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 
@@ -171,5 +171,16 @@ mod tests {
         assert_eq!(items[0].id, 0);
         assert_eq!(items[0].name, "Scroll");
         assert_eq!(items[0].description, "A magic scroll");
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(item_bytes("Scroll", "A magic scroll"));
+        let mut c = Cursor::new(&data[..]);
+        let records = EventItem::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        EventItem::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

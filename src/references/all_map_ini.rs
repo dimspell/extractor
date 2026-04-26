@@ -119,7 +119,7 @@ impl Extractor for Map {
         Ok(maps)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let pgp = record
                 .pgp_filename
@@ -209,5 +209,20 @@ mod tests {
         let mut cursor = Cursor::new(b"" as &[u8]);
         let maps = Map::parse(&mut cursor, 0).unwrap();
         assert!(maps.is_empty());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,cat1,Forest,null,null,0\r\n2,cat2,Dungeon,pgp2,dlg2,1\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = Map::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Map::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = Map::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].map_name, records2[0].map_name);
+        assert_eq!(records[1].pgp_filename, records2[1].pgp_filename);
     }
 }

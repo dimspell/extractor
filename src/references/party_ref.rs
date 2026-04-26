@@ -125,7 +125,7 @@ impl Extractor for PartyRef {
         Ok(party_refs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let full_name = record.full_name.as_deref().unwrap_or("null");
             let job_name = record.job_name.as_deref().unwrap_or("null");
@@ -202,5 +202,20 @@ mod tests {
         let refs = PartyRef::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(refs[0].full_name, None);
         assert_eq!(refs[0].job_name, None);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,Hero,Fighter,2,5,100,101,0\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = PartyRef::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        PartyRef::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = PartyRef::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].full_name, records2[0].full_name);
+        assert_eq!(records[0].root_map_id, records2[0].root_map_id);
     }
 }

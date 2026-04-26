@@ -172,7 +172,7 @@ impl Extractor for Store {
         Ok(store)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
 
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
@@ -313,5 +313,16 @@ mod tests {
         assert_eq!(stores.len(), 2);
         assert_eq!(stores[0].store_name, "Inn A");
         assert_eq!(stores[1].inn_night_cost, 40);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(inn_record("Tavern", 50));
+        let mut c = Cursor::new(&data[..]);
+        let records = Store::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Store::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

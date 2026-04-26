@@ -186,7 +186,7 @@ impl Extractor for WeaponItem {
         Ok(weapons)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 
@@ -303,5 +303,16 @@ mod tests {
         assert_eq!(weapons[0].name, "Sword");
         assert_eq!(weapons[0].base_price, 300);
         assert_eq!(weapons[0].attack, 25);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(weapon_bytes("Sword", 300, 25));
+        let mut c = Cursor::new(&data[..]);
+        let records = WeaponItem::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        WeaponItem::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

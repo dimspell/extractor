@@ -153,7 +153,7 @@ impl Extractor for PartyLevelNpc {
         Ok(npcs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for npc in records {
             for record in &npc.records {
                 writer.write_u32::<LittleEndian>(0)?; // sentinel
@@ -246,5 +246,15 @@ mod tests {
             assert_eq!(npc.records[0].level, 1);
             assert_eq!(npc.records[19].level, 20);
         }
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = full_file(100, 50);
+        let mut c = Cursor::new(&data[..]);
+        let records = PartyLevelNpc::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        PartyLevelNpc::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

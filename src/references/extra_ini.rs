@@ -103,7 +103,7 @@ impl Extractor for Extra {
         Ok(extras)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let sprite = record.sprite_filename.as_deref().unwrap_or("null");
             let desc = record.description.as_deref().unwrap_or("null");
@@ -162,5 +162,20 @@ mod tests {
         let mut c = Cursor::new(data.as_ref());
         let extras = Extra::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(extras.len(), 1);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,chest.spr,0,Wooden Chest\r\n2,null,1,null\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = Extra::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Extra::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = Extra::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].sprite_filename, records2[0].sprite_filename);
+        assert_eq!(records[1].sprite_filename, records2[1].sprite_filename);
     }
 }

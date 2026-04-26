@@ -159,7 +159,7 @@ impl Extractor for DialogueParagraph {
         Ok(texts)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             if !record.comment.is_empty() {
                 for c in record.comment.split(" | ") {
@@ -174,7 +174,7 @@ impl Extractor for DialogueParagraph {
                 &record.text
             };
             let line = format!(
-                "{} | {} | {} | {}\r\n",
+                "{}|{}|{}|{}\r\n",
                 record.id, text_val, record.param1, record.wave_ini_entry_id
             );
             let (cow, _, _) = WINDOWS_1250.encode(&line);
@@ -238,5 +238,20 @@ mod tests {
         let mut c = Cursor::new(b"" as &[u8]);
         let paras = DialogueParagraph::parse(&mut c, 0).unwrap();
         assert!(paras.is_empty());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1|Hello there|0|0\r\n2|null|5|3\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = DialogueParagraph::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        DialogueParagraph::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = DialogueParagraph::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].text, records2[0].text);
+        assert_eq!(records[1].wave_ini_entry_id, records2[1].wave_ini_entry_id);
     }
 }

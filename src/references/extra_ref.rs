@@ -374,7 +374,7 @@ impl Extractor for ExtraRef {
         Ok(refs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 
@@ -563,5 +563,22 @@ mod tests {
         assert_eq!(refs[0].y_pos, 20);
         assert_eq!(refs[0].gold_amount, 50);
         assert_eq!(refs[0].object_type, ExtraObjectType::Chest);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(ref_bytes("Chest1", 10, 20, 50));
+        let mut c = Cursor::new(&data[..]);
+        let records = ExtraRef::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        ExtraRef::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = ExtraRef::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].name, records2[0].name);
+        assert_eq!(records[0].x_pos, records2[0].x_pos);
+        assert_eq!(records[0].y_pos, records2[0].y_pos);
+        assert_eq!(records[0].gold_amount, records2[0].gold_amount);
     }
 }

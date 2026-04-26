@@ -122,7 +122,7 @@ impl Extractor for Quest {
         Ok(quests)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let title = record.title.as_deref().unwrap_or("null");
             let desc = record.description.as_deref().unwrap_or("null");
@@ -182,5 +182,20 @@ mod tests {
         let mut c = Cursor::new(data.as_ref());
         let quests = Quest::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(quests.len(), 1);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1|0|Main Quest|Kill the dragon\r\n2|1|null|null\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = Quest::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Quest::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = Quest::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].title, records2[0].title);
+        assert_eq!(records[1].title, records2[1].title);
     }
 }

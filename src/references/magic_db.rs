@@ -260,7 +260,7 @@ impl Extractor for MagicSpell {
         Ok(spells)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for spell in records {
             writer.write_u32::<LittleEndian>(u32::from(spell.enabled))?;
             writer.write_u32::<LittleEndian>(u32::from(spell.flag1))?;
@@ -409,5 +409,15 @@ mod tests {
         let data = vec![0u8; 90]; // not a multiple of 88
         let mut c = Cursor::new(&data[..]);
         assert!(MagicSpell::parse(&mut c, 90).is_err());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = spell_bytes(20, 50, 1);
+        let mut c = Cursor::new(&data[..]);
+        let records = MagicSpell::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        MagicSpell::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

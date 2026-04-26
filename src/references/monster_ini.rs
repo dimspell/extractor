@@ -131,7 +131,7 @@ impl Extractor for MonsterIni {
         Ok(monsters)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let n = record.name.as_deref().unwrap_or("null");
             let s = record.sprite_filename.as_deref().unwrap_or("null");
@@ -206,5 +206,20 @@ mod tests {
         let mons = MonsterIni::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(mons[0].name, None);
         assert_eq!(mons[0].sprite_filename, None);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,Goblin,goblin.spr,1,2,3,4,5\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = MonsterIni::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        MonsterIni::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = MonsterIni::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].name, records2[0].name);
+        assert_eq!(records[0].sprite_filename, records2[0].sprite_filename);
     }
 }

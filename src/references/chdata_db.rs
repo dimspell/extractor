@@ -89,7 +89,7 @@ impl Extractor for ChData {
         }])
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         if records.is_empty() {
             return Ok(());
         }
@@ -162,5 +162,17 @@ mod tests {
         assert_eq!(records[0].values[2], 30);
         assert_eq!(records[0].counts, vec![5, 3, 1, 2]);
         assert_eq!(records[0].total, 100);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let values = [10u16, 20, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let counts = [5u32, 3, 1, 2];
+        let data = chdata_bytes(&values, &counts, 100);
+        let mut c = Cursor::new(&data[..]);
+        let records = ChData::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        ChData::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }

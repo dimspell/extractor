@@ -127,7 +127,7 @@ impl Extractor for MapIni {
         Ok(map_inis)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let mon = record.monsters_filename.as_deref().unwrap_or("null");
             let npc = record.npc_filename.as_deref().unwrap_or("null");
@@ -214,5 +214,20 @@ mod tests {
         let mut c = Cursor::new(data.as_ref());
         let maps = MapIni::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(maps.len(), 1);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,0,5,10,2,null,null,null,3\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = MapIni::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        MapIni::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = MapIni::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].map_id, records2[0].map_id);
+        assert_eq!(records[0].cd_music_track_number, records2[0].cd_music_track_number);
     }
 }

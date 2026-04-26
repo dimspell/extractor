@@ -118,7 +118,7 @@ impl Extractor for DrawItem {
         Ok(draw_items)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             // Reconstruct the encoded item_id from item_type and item_id
             let item_type_byte: u8 = record.item_type.into();
@@ -190,5 +190,20 @@ mod tests {
         assert_eq!(items[0].map_id, 2);
         assert_eq!(items[0].item_id, 1);
         assert_eq!(items[0].item_type, ItemTypeId::Other); // byte[1]=0 → no match → Other
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"(1,10,20,517)\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = DrawItem::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        DrawItem::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = DrawItem::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].map_id, records2[0].map_id);
+        assert_eq!(records[0].x_coord, records2[0].x_coord);
+        assert_eq!(records[0].item_id, records2[0].item_id);
     }
 }

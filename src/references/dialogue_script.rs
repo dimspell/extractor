@@ -141,7 +141,7 @@ impl Extractor for DialogueScript {
         Ok(dlgs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let prev = record
                 .required_event_id
@@ -247,5 +247,20 @@ mod tests {
         let mut c = Cursor::new(data.as_ref());
         let dlgs = DialogueScript::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(dlgs.len(), 1);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1,0,2,0,1,100,200,0,0,1000\r\n2,0,0,1,0,101,201,202,203,0\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = DialogueScript::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        DialogueScript::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = DialogueScript::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[0].dialog_id, records2[0].dialog_id);
+        assert_eq!(records[1].next_dialog_id3, records2[1].next_dialog_id3);
     }
 }

@@ -123,7 +123,7 @@ impl Extractor for Message {
         Ok(messages)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let l1 = record.line1.as_deref().unwrap_or("null");
             let l2 = record.line2.as_deref().unwrap_or("null");
@@ -184,5 +184,19 @@ mod tests {
         let msgs = Message::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(msgs.len(), 1);
         assert_eq!(msgs[0].id, 2);
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let data = b"1|Hello|World|Bye\r\n2|null|null|null\r\n";
+        let mut c = Cursor::new(data.as_ref());
+        let records = Message::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        Message::to_writer(&records, &mut out).unwrap();
+        let mut c2 = Cursor::new(out.as_slice());
+        let records2 = Message::parse(&mut c2, out.len() as u64).unwrap();
+        assert_eq!(records.len(), records2.len());
+        assert_eq!(records[0].id, records2[0].id);
+        assert_eq!(records[1].id, records2[1].id);
     }
 }

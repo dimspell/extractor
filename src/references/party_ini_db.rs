@@ -112,7 +112,7 @@ impl Extractor for PartyIniNpc {
         Ok(npcs)
     }
 
-    fn serialize<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
             let mut name_bytes = [0u8; 20];
             let name_bytes_val = record.name.as_bytes();
@@ -200,5 +200,16 @@ mod tests {
         let npcs = PartyIniNpc::parse(&mut c, 224).unwrap();
         assert_eq!(npcs.len(), 8);
         assert!(npcs[0].name.is_empty());
+    }
+
+    #[test]
+    fn serialize_round_trip() {
+        let names = ["Hero", "Mage", "Warrior", "Rogue", "", "", "", ""];
+        let data = eight_records(&names);
+        let mut c = Cursor::new(&data[..]);
+        let records = PartyIniNpc::parse(&mut c, data.len() as u64).unwrap();
+        let mut out = Vec::new();
+        PartyIniNpc::to_writer(&records, &mut out).unwrap();
+        assert_eq!(out, data);
     }
 }
