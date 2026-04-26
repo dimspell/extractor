@@ -66,6 +66,18 @@ use std::path::Path;
 //
 // ===========================================================================
 
+/// Stub Extractor so `GenericEditorState<PartyLevelRecord>` can be used in the GUI.
+/// The actual binary format is embedded inside `PartyLevelNpc::parse`; these methods
+/// are never called directly on `PartyLevelRecord`.
+impl Extractor for PartyLevelRecord {
+    fn parse<R: Read + Seek>(_reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
+        Ok(Vec::new())
+    }
+    fn to_writer<W: Write>(_records: &[Self], _writer: &mut W) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PartyLevelRecord {
     /// Derived multiplier level tracking.
