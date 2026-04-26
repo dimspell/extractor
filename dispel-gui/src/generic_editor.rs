@@ -167,26 +167,27 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                 crate::edit_history::EditAction::FieldChange {
                     record_idx,
                     field,
-                    old_value: _,
-                    new_value,
+                    // The redo action is the inverted undo action: old/new are swapped.
+                    // old_value here is the value we want to re-apply (the original new_value).
+                    old_value,
+                    new_value: _,
                 } => {
-                    // Apply the new value
                     if let Some((_, record)) =
                         self.filtered.iter_mut().find(|(i, _)| *i == record_idx)
                     {
-                        let _ = record.set_field(&field, new_value.clone());
+                        let _ = record.set_field(&field, old_value.clone());
                         // Update buffer
                         if let Some(pos) =
                             R::field_descriptors().iter().position(|d| d.name == field)
                         {
                             if let Some(buf) = self.edit_buffers.get_mut(pos) {
-                                *buf = new_value.clone();
+                                *buf = old_value.clone();
                             }
                         }
                         // Update catalog
                         if let Some(catalog) = &mut self.catalog {
                             if let Some(cat_record) = catalog.get_mut(record_idx) {
-                                let _ = cat_record.set_field(&field, new_value);
+                                let _ = cat_record.set_field(&field, old_value);
                             }
                         }
                         return Some(format!("Redo: {} changed", field));

@@ -3,6 +3,7 @@
 use crate::app::App;
 use crate::components::FileTree;
 use crate::file_index_cache::FileIndexCacheManager;
+use crate::generic_editor::UndoRedo;
 use crate::message::editor::map_editor::MapEditorMessage;
 use crate::message::{system::SystemMessage, Message, MessageExt};
 use crate::utils::browse_folder;
@@ -39,23 +40,131 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             iced::window::close(app.window_id)
         }
         SystemMessage::Undo => {
-            if let Some(tab) = app.state.workspace.active() {
-                if tab.editor_type == EditorType::MapEditor {
-                    let tab_id = tab.id;
-                    return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
-                }
+            let Some((editor_type, tab_id)) =
+                app.state.workspace.active().map(|t| (t.editor_type, t.id))
+            else {
+                app.state.status_msg = "Nothing to undo".to_string();
+                return Task::none();
+            };
+            if editor_type == EditorType::MapEditor {
+                return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
-            app.state.status_msg = "Nothing to undo".to_string();
+            let result = match editor_type {
+                EditorType::WeaponEditor => app.state.weapon_editor.undo(),
+                EditorType::HealItemEditor => app.state.heal_item_editor.undo(),
+                EditorType::MiscItemEditor => app.state.misc_item_editor.undo(),
+                EditorType::EditItemEditor => app.state.edit_item_editor.undo(),
+                EditorType::EventItemEditor => app.state.event_item_editor.undo(),
+                EditorType::MonsterEditor => app.state.monster_editor.undo(),
+                EditorType::MonsterIniEditor => app.state.monster_ini_editor.undo(),
+                EditorType::NpcIniEditor => app.state.npc_ini_editor.undo(),
+                EditorType::MagicEditor => app.state.magic_editor.undo(),
+                EditorType::PartyRefEditor => app.state.party_ref_editor.undo(),
+                EditorType::PartyIniEditor => app.state.party_ini_editor.undo(),
+                EditorType::AllMapIniEditor => app.state.all_map_ini_editor.undo(),
+                EditorType::DrawItemEditor => app.state.draw_item_editor.undo(),
+                EditorType::EventIniEditor => app.state.event_ini_editor.undo(),
+                EditorType::EventNpcRefEditor => app.state.event_npc_ref_editor.undo(),
+                EditorType::ExtraIniEditor => app.state.extra_ini_editor.undo(),
+                EditorType::MapIniEditor => app.state.map_ini_editor.undo(),
+                EditorType::MessageScrEditor => app.state.message_scr_editor.undo(),
+                EditorType::QuestScrEditor => app.state.quest_scr_editor.undo(),
+                EditorType::WaveIniEditor => app.state.wave_ini_editor.undo(),
+                EditorType::ChDataEditor => app.state.chdata_editor.undo(),
+                EditorType::PartyLevelDbEditor => app.state.party_level_db_level_editor.undo(),
+                EditorType::StoreEditor => app.state.store_editor.undo(),
+                EditorType::MonsterRefEditor => app
+                    .state
+                    .monster_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.undo()),
+                EditorType::NpcRefEditor => app
+                    .state
+                    .npc_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.undo()),
+                EditorType::ExtraRefEditor => app
+                    .state
+                    .extra_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.undo()),
+                EditorType::DialogueScriptEditor => app
+                    .state
+                    .dialogue_script_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.undo()),
+                EditorType::DialogueTextEditor => app
+                    .state
+                    .dialogue_paragraphs_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.undo()),
+                _ => None,
+            };
+            app.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
             Task::none()
         }
         SystemMessage::Redo => {
-            if let Some(tab) = app.state.workspace.active() {
-                if tab.editor_type == EditorType::MapEditor {
-                    let tab_id = tab.id;
-                    return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
-                }
+            let Some((editor_type, tab_id)) =
+                app.state.workspace.active().map(|t| (t.editor_type, t.id))
+            else {
+                app.state.status_msg = "Nothing to redo".to_string();
+                return Task::none();
+            };
+            if editor_type == EditorType::MapEditor {
+                return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
-            app.state.status_msg = "Nothing to redo".to_string();
+            let result = match editor_type {
+                EditorType::WeaponEditor => app.state.weapon_editor.redo(),
+                EditorType::HealItemEditor => app.state.heal_item_editor.redo(),
+                EditorType::MiscItemEditor => app.state.misc_item_editor.redo(),
+                EditorType::EditItemEditor => app.state.edit_item_editor.redo(),
+                EditorType::EventItemEditor => app.state.event_item_editor.redo(),
+                EditorType::MonsterEditor => app.state.monster_editor.redo(),
+                EditorType::MonsterIniEditor => app.state.monster_ini_editor.redo(),
+                EditorType::NpcIniEditor => app.state.npc_ini_editor.redo(),
+                EditorType::MagicEditor => app.state.magic_editor.redo(),
+                EditorType::PartyRefEditor => app.state.party_ref_editor.redo(),
+                EditorType::PartyIniEditor => app.state.party_ini_editor.redo(),
+                EditorType::AllMapIniEditor => app.state.all_map_ini_editor.redo(),
+                EditorType::DrawItemEditor => app.state.draw_item_editor.redo(),
+                EditorType::EventIniEditor => app.state.event_ini_editor.redo(),
+                EditorType::EventNpcRefEditor => app.state.event_npc_ref_editor.redo(),
+                EditorType::ExtraIniEditor => app.state.extra_ini_editor.redo(),
+                EditorType::MapIniEditor => app.state.map_ini_editor.redo(),
+                EditorType::MessageScrEditor => app.state.message_scr_editor.redo(),
+                EditorType::QuestScrEditor => app.state.quest_scr_editor.redo(),
+                EditorType::WaveIniEditor => app.state.wave_ini_editor.redo(),
+                EditorType::ChDataEditor => app.state.chdata_editor.redo(),
+                EditorType::PartyLevelDbEditor => app.state.party_level_db_level_editor.redo(),
+                EditorType::StoreEditor => app.state.store_editor.redo(),
+                EditorType::MonsterRefEditor => app
+                    .state
+                    .monster_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.redo()),
+                EditorType::NpcRefEditor => app
+                    .state
+                    .npc_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.redo()),
+                EditorType::ExtraRefEditor => app
+                    .state
+                    .extra_ref_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.redo()),
+                EditorType::DialogueScriptEditor => app
+                    .state
+                    .dialogue_script_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.redo()),
+                EditorType::DialogueTextEditor => app
+                    .state
+                    .dialogue_paragraphs_editors
+                    .get_mut(&tab_id)
+                    .and_then(|e| e.redo()),
+                _ => None,
+            };
+            app.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
             Task::none()
         }
         SystemMessage::Save => {
@@ -451,5 +560,130 @@ mod tests {
         // State should still be valid
         assert_eq!(app.state.workspace.tabs.len(), 0);
         assert_eq!(app.state.map_editors.len(), 0);
+    }
+
+    fn push_weapon_tab(app: &mut App) {
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: 1,
+                label: "WeaponItem".to_string(),
+                path: None,
+                editor_type: crate::workspace::EditorType::WeaponEditor,
+                modified: false,
+                pinned: false,
+            });
+        app.state.workspace.active_tab = Some(0);
+    }
+
+    #[test]
+    fn test_undo_nothing_no_tab() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state.workspace.active_tab = None;
+        let _ = handle(SystemMessage::Undo, &mut app);
+        assert_eq!(app.state.status_msg, "Nothing to undo");
+    }
+
+    #[test]
+    fn test_redo_nothing_no_tab() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state.workspace.active_tab = None;
+        let _ = handle(SystemMessage::Redo, &mut app);
+        assert_eq!(app.state.status_msg, "Nothing to redo");
+    }
+
+    #[test]
+    fn test_undo_viewer_tab_returns_nothing() {
+        let mut app = App::new().0;
+        app.state.workspace.tabs.clear();
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: 1,
+                label: "Sprite".to_string(),
+                path: None,
+                editor_type: crate::workspace::EditorType::SpriteViewer,
+                modified: false,
+                pinned: false,
+            });
+        app.state.workspace.active_tab = Some(0);
+        let _ = handle(SystemMessage::Undo, &mut app);
+        assert_eq!(app.state.status_msg, "Nothing to undo");
+    }
+
+    #[test]
+    fn test_undo_weapon_editor() {
+        use dispel_core::WeaponItem;
+
+        let mut app = App::new().0;
+        push_weapon_tab(&mut app);
+
+        // Load a weapon into the editor
+        let mut weapon = WeaponItem::default();
+        weapon.name = "Iron Sword".to_string();
+        app.state.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.weapon_editor.refresh();
+        app.state.weapon_editor.select(0);
+
+        // Make a change
+        app.state
+            .weapon_editor
+            .update_field(0, "name", "Steel Sword".to_string());
+        assert!(app.state.weapon_editor.edit_history.can_undo());
+
+        // Undo via system message
+        let _ = handle(SystemMessage::Undo, &mut app);
+
+        assert_eq!(
+            app.state.weapon_editor.filtered[0].1.name,
+            "Iron Sword",
+            "Field should revert after undo"
+        );
+        assert!(
+            app.state.status_msg.starts_with("Undo:"),
+            "Status should confirm undo"
+        );
+    }
+
+    #[test]
+    fn test_redo_weapon_editor() {
+        use dispel_core::WeaponItem;
+
+        let mut app = App::new().0;
+        push_weapon_tab(&mut app);
+
+        let mut weapon = WeaponItem::default();
+        weapon.name = "Iron Sword".to_string();
+        app.state.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.weapon_editor.refresh();
+        app.state.weapon_editor.select(0);
+
+        app.state
+            .weapon_editor
+            .update_field(0, "name", "Steel Sword".to_string());
+
+        let _ = handle(SystemMessage::Undo, &mut app);
+        assert_eq!(app.state.weapon_editor.filtered[0].1.name, "Iron Sword");
+
+        let _ = handle(SystemMessage::Redo, &mut app);
+        assert_eq!(
+            app.state.weapon_editor.filtered[0].1.name,
+            "Steel Sword",
+            "Field should re-apply after redo"
+        );
+        assert!(app.state.status_msg.starts_with("Redo:"));
+    }
+
+    #[test]
+    fn test_undo_weapon_editor_empty_history() {
+        let mut app = App::new().0;
+        push_weapon_tab(&mut app);
+        let _ = handle(SystemMessage::Undo, &mut app);
+        assert_eq!(app.state.status_msg, "Nothing to undo");
     }
 }
