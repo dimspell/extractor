@@ -1,7 +1,7 @@
 #[derive(Debug, Clone)]
 pub enum PartyLevelDbEditorMessage {
     LoadCatalog,
-    CatalogLoaded(Result<Vec<dispel_core::PartyLevelNpc>, String>),
+    CatalogLoaded(Result<(Vec<dispel_core::PartyLevelNpc>, Vec<dispel_core::PartyRef>), String>),
     SelectNpc(usize),
     FieldChanged(usize, String, String),
     Spreadsheet(crate::view::editor::SpreadsheetMessage),

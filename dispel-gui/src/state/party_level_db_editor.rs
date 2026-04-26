@@ -1,11 +1,12 @@
 use crate::edit_history::EditHistory;
 use crate::loading_state::LoadingState;
-use dispel_core::{Extractor, PartyLevelNpc};
+use dispel_core::{Extractor, PartyLevelNpc, PartyRef};
 use std::path::PathBuf;
 
 #[derive(Clone, Debug, Default)]
 pub struct PartyLevelDbEditorState {
     pub catalog: Option<Vec<PartyLevelNpc>>,
+    pub party_refs: Vec<PartyRef>,
     pub selected_npc_idx: Option<usize>,
     pub status_msg: String,
     pub loading_state: LoadingState<()>,
@@ -13,6 +14,18 @@ pub struct PartyLevelDbEditorState {
 }
 
 impl PartyLevelDbEditorState {
+    pub fn npc_label(&self, npc_index: usize) -> String {
+        let name = self
+            .party_refs
+            .iter()
+            .find(|r| r.id == npc_index as i32)
+            .and_then(|r| r.full_name.as_deref());
+        match name {
+            Some(n) => format!("NPC {} ({})", npc_index, n),
+            None => format!("NPC {}", npc_index),
+        }
+    }
+
     pub fn selected_npc(&self) -> Option<&PartyLevelNpc> {
         self.selected_npc_idx
             .and_then(|idx| self.catalog.as_ref()?.get(idx))

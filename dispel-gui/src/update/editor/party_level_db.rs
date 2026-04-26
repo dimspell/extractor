@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::handle_spreadsheet_messages;
 use crate::message::editor::party_level_db::PartyLevelDbEditorMessage;
 use crate::message::Message;
-use dispel_core::{Extractor, PartyLevelNpc};
+use dispel_core::{Extractor, PartyLevelNpc, PartyRef};
 use iced::Task;
 use std::path::PathBuf;
 
@@ -19,9 +19,16 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             let level_path = PathBuf::from(&app.state.shared_game_path)
                 .join("NpcInGame")
                 .join("PrtLevel.db");
+            let party_ref_path = PathBuf::from(&app.state.shared_game_path)
+                .join("Ref")
+                .join("PartyRef.ref");
             Task::perform(
                 async move {
-                    PartyLevelNpc::read_file(&level_path).map_err(|e: std::io::Error| e.to_string())
+                    let npcs = PartyLevelNpc::read_file(&level_path)
+                        .map_err(|e: std::io::Error| e.to_string())?;
+                    let refs = PartyRef::read_file(&party_ref_path)
+                        .unwrap_or_default();
+                    Ok((npcs, refs))
                 },
                 |result| {
                     Message::Editor(crate::message::editor::EditorMessage::PartyLevelDb(
@@ -35,7 +42,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             app.state.party_level_db_editor.loading_state =
                 crate::loading_state::LoadingState::Loaded(());
             match result {
-                Ok(npcs) => {
+                Ok((npcs, refs)) => {
+                    app.state.party_level_db_editor.party_refs = refs;
                     app.state.party_level_db_editor.catalog = Some(npcs.clone());
                     app.state.party_level_db_editor.selected_npc_idx = None;
                     app.state.party_level_db_level_editor.catalog = None;
