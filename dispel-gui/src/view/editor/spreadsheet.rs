@@ -798,6 +798,9 @@ pub enum SpreadsheetMessage {
     /// the stored `TextAreaContent` and syncs the string value back to the
     /// record via `FieldChanged`.
     TextAreaChanged(usize, String, text_editor::Action),
+    /// Fired by `text_input` / `pick_list` widgets in the inspector panel.
+    /// Routes through the macro so that `compute_all_caches` is called after.
+    InspectorFieldChanged(usize, String, String),
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -1522,7 +1525,11 @@ fn build_inspector_field<'a>(
                         .find(|(_, name)| name == &selected_name)
                         .map(|(id, _)| id.clone())
                         .unwrap_or_default();
-                    field_changed_msg(orig_idx, field_name.clone(), selected_id)
+                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        selected_id,
+                    ))
                 })
                 .width(Length::Fill)
                 .into()
@@ -1537,7 +1544,13 @@ fn build_inspector_field<'a>(
         _ => {
             let field_name = descriptor.name.to_string();
             text_input("", &value)
-                .on_input(move |v| field_changed_msg(orig_idx, field_name.clone(), v))
+                .on_input(move |v| {
+                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        v,
+                    ))
+                })
                 .padding(4)
                 .size(11)
                 .width(Length::Fill)

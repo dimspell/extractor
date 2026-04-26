@@ -169,8 +169,22 @@ macro_rules! handle_spreadsheet_messages {
                     let raw = tc.0.text();
                     let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
                     let msg = $field_changed_msg(orig_idx, field, new_text);
-                    return $app.update(msg);
+                    let task = $app.update(msg);
+                    if let Some(catalog) = &$app.state.$editor.catalog {
+                        let catalog = catalog.clone();
+                        $app.state.$spreadsheet.compute_all_caches(&catalog);
+                    }
+                    return task;
                 }
+            }
+            SM::InspectorFieldChanged(orig_idx, field, value) => {
+                let msg = $field_changed_msg(orig_idx, field, value);
+                let task = $app.update(msg);
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    let catalog = catalog.clone();
+                    $app.state.$spreadsheet.compute_all_caches(&catalog);
+                }
+                return task;
             }
             SM::CancelEdit => {
                 if $app.state.$spreadsheet.resizing_column.is_some() {
@@ -438,8 +452,30 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 let raw = tc.0.text();
                                 let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
                                 let msg = $field_changed_msg(orig_idx, field, new_text);
-                                return $app.update(msg);
+                                let task = $app.update(msg);
+                                let ss2 = $app.state.$spreadsheets.get_mut($tab_id);
+                                let ed2 = $app.state.$editors.get_mut($tab_id);
+                                if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
+                                    if let Some(catalog) = &ed2.editor.catalog {
+                                        let catalog = catalog.clone();
+                                        ss2.compute_all_caches(&catalog);
+                                    }
+                                }
+                                return task;
                             }
+                        }
+                        SM::InspectorFieldChanged(orig_idx, field, value) => {
+                            let msg = $field_changed_msg(orig_idx, field, value);
+                            let task = $app.update(msg);
+                            let ss2 = $app.state.$spreadsheets.get_mut($tab_id);
+                            let ed2 = $app.state.$editors.get_mut($tab_id);
+                            if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
+                                if let Some(catalog) = &ed2.editor.catalog {
+                                    let catalog = catalog.clone();
+                                    ss2.compute_all_caches(&catalog);
+                                }
+                            }
+                            return task;
                         }
                         SM::CancelEdit => {
                             if ss.resizing_column.is_some() {
