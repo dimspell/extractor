@@ -43,6 +43,7 @@ pub enum EditorType {
     TilesetEditor,
     /// Visual map editor (file-based, opens .map files)
     MapEditor,
+    ModPackager,
     #[serde(other)]
     Unknown,
 }

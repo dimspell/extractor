@@ -35,6 +35,7 @@ pub mod map_editor;
 pub mod map_ini_editor;
 pub mod message_scr_editor;
 pub mod misc_item_editor;
+pub mod mod_packager;
 pub mod monster_editor;
 pub mod monster_ini_editor;
 pub mod monster_ref_editor;
@@ -117,6 +118,7 @@ impl App {
                             Some(EditorType::TilesetEditor) => self.view_tileset_editor_tab(),
                             Some(EditorType::MapEditor) => self.view_map_editor_tab(),
                             Some(EditorType::SnfEditor) => self.view_snf_editor_tab(),
+                            Some(EditorType::ModPackager) => self.view_mod_packager_tab(),
                             Some(EditorType::Unknown) | None => {
                                 let placeholder_text = text("Select a file to edit")
                                     .size(16)
@@ -324,6 +326,7 @@ impl App {
             tool_btn("DB Viewer", EditorType::DbViewer),
             tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
+            tool_btn("Mod Packager", EditorType::ModPackager),
         ]
         .spacing(1);
 

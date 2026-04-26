@@ -35,6 +35,7 @@ define_message_ext! {
     map_editor:     MapEditor(crate::message::editor::map_editor::MapEditorMessage),
     tileset_editor: Tileset(crate::message::editor::tileset::TilesetEditorMessage),
     snf_editor:     Snf(crate::message::editor::snf::SnfEditorMessage),
+    mod_packager:   ModPackager(crate::message::editor::mod_packager::ModPackagerMessage),
 }
 
 /// Extension trait for building nested editor messages.

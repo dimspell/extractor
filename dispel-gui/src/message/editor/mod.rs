@@ -1,4 +1,5 @@
 pub mod all_map_ini;
+pub mod mod_packager;
 pub mod chdata;
 pub mod chest;
 pub mod dialogue_paragraph;
@@ -33,6 +34,7 @@ pub mod wave_ini;
 pub mod weapon;
 
 use all_map_ini::AllMapIniEditorMessage;
+use mod_packager::ModPackagerMessage;
 use chdata::ChDataEditorMessage;
 use chest::ChestEditorMessage;
 use dialogue_paragraph::DialogueParagraphEditorMessage;
@@ -101,4 +103,5 @@ pub enum EditorMessage {
     MapEditor(MapEditorMessage),
     Tileset(TilesetEditorMessage),
     Snf(SnfEditorMessage),
+    ModPackager(ModPackagerMessage),
 }
