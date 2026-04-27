@@ -29,6 +29,7 @@ pub mod party_ref;
 pub mod quest_scr;
 pub mod snf;
 pub mod spritebrowser;
+pub mod standard;
 pub mod store;
 pub mod tileset;
 pub mod wave_ini;

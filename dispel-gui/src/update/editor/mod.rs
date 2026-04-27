@@ -45,6 +45,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
 
 // Common editor framework
 mod common;
+mod standard;
 
 // Editor-specific handler modules
 mod all_map_ini;

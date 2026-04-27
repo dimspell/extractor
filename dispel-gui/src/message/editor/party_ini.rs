@@ -1,11 +1,1 @@
-#[derive(Debug, Clone)]
-pub enum PartyIniEditorMessage {
-    LoadCatalog,
-    CatalogLoaded(Result<Vec<dispel_core::PartyIniNpc>, String>),
-    Select(usize),
-    FieldChanged(usize, String, String),
-    Spreadsheet(crate::view::editor::SpreadsheetMessage),
-    PaneResized(iced::widget::pane_grid::ResizeEvent),
-    PaneClicked(iced::widget::pane_grid::Pane),
-    Save,
-}
+pub type PartyIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::PartyIniNpc>;

@@ -10,7 +10,7 @@ impl App {
             &self.state.heal_item_spreadsheet,
             Message::heal_item(HealItemEditorMessage::LoadCatalog),
             Message::heal_item(HealItemEditorMessage::Save),
-            |idx| Message::heal_item(HealItemEditorMessage::SelectItem(idx)),
+            |idx| Message::heal_item(HealItemEditorMessage::Select(idx)),
             |idx, field, val| {
                 Message::heal_item(HealItemEditorMessage::FieldChanged(idx, field, val))
             },

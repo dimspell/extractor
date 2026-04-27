@@ -1,13 +1,1 @@
-use dispel_core::ChData;
-
-#[derive(Debug, Clone)]
-pub enum ChDataEditorMessage {
-    LoadCatalog,
-    CatalogLoaded(Result<Vec<ChData>, String>),
-    Select(usize),
-    FieldChanged(usize, String, String),
-    Spreadsheet(crate::view::editor::SpreadsheetMessage),
-    PaneResized(iced::widget::pane_grid::ResizeEvent),
-    PaneClicked(iced::widget::pane_grid::Pane),
-    Save,
-}
+pub type ChDataEditorMessage = super::standard::StandardEditorMessage<dispel_core::ChData>;
