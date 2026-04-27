@@ -41,6 +41,14 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     app.state.localization_manager.status_msg =
                         format!("{count} strings loaded ({translated} already translated).");
                     app.state.localization_manager.loading_state = LoadingState::Loaded(());
+                    // Auto-select first entry if nothing selected yet
+                    if app.state.localization_manager.selected_idx.is_none()
+                        && !app.state.localization_manager.entries.is_empty()
+                    {
+                        return app.update(crate::message::Message::localization(
+                            LocalizationMessage::SelectEntry(0),
+                        ));
+                    }
                 }
                 Err(e) => {
                     app.state.localization_manager.status_msg = format!("Scan failed: {e}");
@@ -49,33 +57,106 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
-        LocalizationMessage::TranslationChanged { idx, translation } => {
-            if let Some(entry) = app.state.localization_manager.entries.get_mut(idx) {
-                entry.translation = translation;
+        LocalizationMessage::SelectEntry(idx) => {
+            let text = app
+                .state
+                .localization_manager
+                .entries
+                .get(idx)
+                .map(|e| e.translation.as_str())
+                .unwrap_or("");
+            app.state.localization_manager.selected_idx = Some(idx);
+            app.state.localization_manager.translation_content =
+                crate::components::textarea::TextAreaContent::with_text(text);
+            Task::none()
+        }
+        LocalizationMessage::TranslationAction(action) => {
+            use iced::widget::text_editor::Action;
+            let is_edit = matches!(action, Action::Edit(_));
+            app.state
+                .localization_manager
+                .translation_content
+                .0
+                .perform(action);
+            if is_edit {
+                let text = app.state.localization_manager.translation_content.0.text();
+                // trim trailing newline that text_editor appends
+                let text = text.trim_end_matches('\n').to_owned();
+                if let Some(idx) = app.state.localization_manager.selected_idx {
+                    if let Some(entry) = app.state.localization_manager.entries.get_mut(idx) {
+                        entry.translation = text;
+                    }
+                }
+                // Debounced session save
+                let game_path = app.state.shared_game_path.clone();
+                let session_path = app.state.localization_manager.session_path(&game_path);
+                if let Some(path) = session_path {
+                    let entries = app.state.localization_manager.entries.clone();
+                    return Task::perform(async move { save_session(&path, &entries) }, |_| {
+                        crate::message::Message::localization(LocalizationMessage::ExportDone(Ok(
+                            (),
+                        )))
+                    });
+                }
             }
-            // Debounced session save: fire async to avoid blocking UI
-            let game_path = app.state.shared_game_path.clone();
-            let session_path = app.state.localization_manager.session_path(&game_path);
-            if let Some(path) = session_path {
-                let entries = app.state.localization_manager.entries.clone();
-                return Task::perform(async move { save_session(&path, &entries) }, |_| {
-                    crate::message::Message::localization(LocalizationMessage::ExportDone(Ok(())))
-                });
+            Task::none()
+        }
+        LocalizationMessage::SearchChanged(q) => {
+            app.state.localization_manager.search_query = q;
+            app.state.localization_manager.page = 0;
+            Task::none()
+        }
+        LocalizationMessage::NavigatePrev => {
+            let state = &app.state.localization_manager;
+            let from = state.selected_idx.unwrap_or(0);
+            if let Some(idx) = state.prev_untranslated(from) {
+                return app.update(crate::message::Message::localization(
+                    LocalizationMessage::SelectEntry(idx),
+                ));
+            }
+            Task::none()
+        }
+        LocalizationMessage::NavigateNext => {
+            let state = &app.state.localization_manager;
+            let from = state
+                .selected_idx
+                .unwrap_or(state.entries.len().saturating_sub(1));
+            if let Some(idx) = state.next_untranslated(from) {
+                return app.update(crate::message::Message::localization(
+                    LocalizationMessage::SelectEntry(idx),
+                ));
             }
             Task::none()
         }
         LocalizationMessage::FilterFile(f) => {
             app.state.localization_manager.filter_file = f;
+            app.state.localization_manager.page = 0;
             Task::none()
         }
         LocalizationMessage::ToggleUntranslatedOnly => {
             let v = app.state.localization_manager.show_untranslated_only;
             app.state.localization_manager.show_untranslated_only = !v;
+            app.state.localization_manager.page = 0;
             Task::none()
         }
         LocalizationMessage::ToggleOverlongOnly => {
             let v = app.state.localization_manager.show_overlong_only;
             app.state.localization_manager.show_overlong_only = !v;
+            app.state.localization_manager.page = 0;
+            Task::none()
+        }
+        LocalizationMessage::PagePrev => {
+            if app.state.localization_manager.page > 0 {
+                app.state.localization_manager.page -= 1;
+            }
+            Task::none()
+        }
+        LocalizationMessage::PageNext => {
+            let visible_len = app.state.localization_manager.visible_entries().len();
+            let max_page = visible_len.saturating_sub(1) / 250;
+            if app.state.localization_manager.page < max_page {
+                app.state.localization_manager.page += 1;
+            }
             Task::none()
         }
         LocalizationMessage::TargetLangChanged(v) => {
@@ -168,6 +249,14 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                         format!("Imported. {count} strings translated.")
                     };
                     app.state.localization_manager.status_msg = msg;
+                    // Refresh editor panel if selected entry changed
+                    if let Some(idx) = app.state.localization_manager.selected_idx {
+                        if let Some(entry) = app.state.localization_manager.entries.get(idx) {
+                            let text = entry.translation.clone();
+                            app.state.localization_manager.translation_content =
+                                crate::components::textarea::TextAreaContent::with_text(&text);
+                        }
+                    }
                     // Persist session
                     let game_path = app.state.shared_game_path.clone();
                     if let Some(path) = app.state.localization_manager.session_path(&game_path) {

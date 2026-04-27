@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::components::textarea::textarea;
 use crate::loading_state::LoadingState;
 use crate::message::editor::localization::LocalizationMessage;
 use crate::message::{Message, MessageExt};
@@ -6,7 +7,7 @@ use crate::style;
 use iced::widget::{
     button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,
 };
-use iced::{Alignment, Border, Color, Element, Fill, Length};
+use iced::{Alignment, Background, Border, Color, Element, Fill, Length};
 
 // ─── File filter display wrapper ─────────────────────────────────────────────
 
@@ -62,7 +63,6 @@ impl App {
                 Some(Message::localization(LocalizationMessage::ImportFile))
             });
 
-        // Target language input for PO export
         let target_lang_input = text_input("Lang (e.g. pl)", &state.target_lang)
             .on_input(|v| Message::localization(LocalizationMessage::TargetLangChanged(v)))
             .width(Length::Fixed(90.0))
@@ -89,7 +89,12 @@ impl App {
             };
             Message::localization(LocalizationMessage::FilterFile(opt))
         })
-        .width(Length::Fixed(200.0));
+        .width(Length::Fixed(160.0));
+
+        let search_input = text_input("Search…", &state.search_query)
+            .on_input(|v| Message::localization(LocalizationMessage::SearchChanged(v)))
+            .width(Length::Fixed(160.0))
+            .size(12);
 
         let untranslated_toggle = row![
             checkbox(state.show_untranslated_only)
@@ -116,118 +121,253 @@ impl App {
             done as f32 / total as f32
         };
 
-        let progress = progress_bar(0.0..=1.0, progress_val);
-        let progress_label = text(format!("{done} / {total} translated"))
+        let progress = container(progress_bar(0.0..=1.0, progress_val)).width(Length::Fixed(80.0));
+        let progress_label = text(format!("{done} / {total}"))
             .size(12)
             .style(style::subtle_text);
 
         let filter_row = row![
             file_filter,
+            search_input,
             untranslated_toggle,
             overlong_toggle,
             progress,
             progress_label
         ]
-        .spacing(12)
+        .spacing(10)
         .align_y(Alignment::Center);
 
-        // ── Entries table ────────────────────────────────────────────────────
+        // ── Master-detail split ──────────────────────────────────────────────
+        const PAGE_SIZE: usize = 250;
         let visible = state.visible_entries();
+        let visible_total = visible.len();
+        let page = state.page;
+        let total_pages = visible_total.div_ceil(PAGE_SIZE).max(1);
+        let page_start = page * PAGE_SIZE;
+        let page_end = (page_start + PAGE_SIZE).min(visible_total);
+        let page_visible = &visible[page_start..page_end];
 
-        let header = row![
-            text("File").size(11).width(Length::Fixed(140.0)),
-            text("Rec").size(11).width(Length::Fixed(36.0)),
-            text("Field").size(11).width(Length::Fixed(100.0)),
-            text("Original").size(11).width(Fill),
-            text("Translation").size(11).width(Fill),
-            text("Bytes").size(11).width(Length::Fixed(72.0)),
-        ]
-        .spacing(4)
-        .padding([2, 0]);
-
-        let rows: Vec<Element<'_, Message>> = visible
-            .into_iter()
+        let entry_rows: Vec<Element<'_, Message>> = page_visible
+            .iter()
             .map(|(idx, entry)| {
+                let idx = *idx;
+                let is_selected = state.selected_idx == Some(idx);
                 let is_overlong = entry.would_truncate();
+                let is_translated = entry.is_translated();
+
+                // Status indicator
+                let indicator = if is_overlong {
+                    text("✗").size(11).style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
+                    })
+                } else if is_translated {
+                    text("✓").size(11).style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
+                    })
+                } else {
+                    text("●").size(11).style(style::subtle_text)
+                };
+
                 let short_file = entry
                     .file_path
                     .split('/')
                     .last()
-                    .unwrap_or(&entry.file_path)
-                    .to_owned();
+                    .unwrap_or(&entry.file_path);
 
-                let translation_input = text_input("", &entry.translation)
-                    .on_input(move |v| {
-                        Message::localization(LocalizationMessage::TranslationChanged {
-                            idx,
-                            translation: v,
-                        })
-                    })
-                    .width(Fill);
-
-                let translation_cell: Element<'_, Message> = if is_overlong {
-                    container(translation_input)
-                        .style(|_theme| container::Style {
-                            border: Border {
-                                color: Color::from_rgb(0.9, 0.2, 0.2),
-                                width: 1.5,
-                                radius: 3.0.into(),
-                            },
-                            ..Default::default()
-                        })
-                        .into()
+                // Truncate original for list display
+                let original_preview: String = entry.original.chars().take(60).collect();
+                let original_preview = if entry.original.len() > 60 {
+                    format!("{original_preview}…")
                 } else {
-                    translation_input.into()
+                    original_preview
                 };
 
-                // C1: byte counter — show encoded bytes / max_bytes
+                let row_content = row![
+                    indicator,
+                    text(entry.field_name)
+                        .size(11)
+                        .width(Length::Fixed(90.0))
+                        .style(style::subtle_text),
+                    text(format!("#{}", entry.record_id))
+                        .size(10)
+                        .width(Length::Fixed(32.0))
+                        .style(style::subtle_text),
+                    column![
+                        text(short_file).size(10).style(style::subtle_text),
+                        text(original_preview).size(11),
+                    ]
+                    .spacing(1)
+                ]
+                .spacing(6)
+                .align_y(Alignment::Center);
+
+                button(row_content)
+                    .on_press(Message::localization(LocalizationMessage::SelectEntry(idx)))
+                    .width(Fill)
+                    .style(if is_selected {
+                        style::selected_row_button
+                    } else {
+                        style::normal_row_button
+                    })
+                    .into()
+            })
+            .collect();
+
+        let entry_list =
+            scrollable(column(entry_rows).spacing(1).padding([4, 4]).width(Fill)).height(Fill);
+
+        let prev_page_btn = button(text("‹").size(12)).on_press_maybe(if page > 0 {
+            Some(Message::localization(LocalizationMessage::PagePrev))
+        } else {
+            None
+        });
+        let next_page_btn = button(text("›").size(12)).on_press_maybe(if page + 1 < total_pages {
+            Some(Message::localization(LocalizationMessage::PageNext))
+        } else {
+            None
+        });
+        let page_label = text(format!(
+            "{} – {} of {visible_total}",
+            page_start + 1,
+            page_end
+        ))
+        .size(11)
+        .style(style::subtle_text);
+
+        let pagination = row![prev_page_btn, page_label, next_page_btn]
+            .spacing(6)
+            .align_y(Alignment::Center);
+
+        let list_with_pager = column![entry_list, pagination]
+            .spacing(4)
+            .padding([0, 4])
+            .width(Fill)
+            .height(Fill);
+
+        let list_pane = container(list_with_pager)
+            .width(Length::FillPortion(4))
+            .height(Fill)
+            .style(|_theme| container::Style {
+                border: Border {
+                    color: Color::from_rgb(0.25, 0.18, 0.1),
+                    width: 1.0,
+                    radius: 4.0.into(),
+                },
+                ..Default::default()
+            });
+
+        // ── Editor panel (right) ─────────────────────────────────────────────
+        let editor_pane: Element<'_, Message> = if let Some(idx) = state.selected_idx {
+            if let Some(entry) = state.entries.get(idx) {
+                let short_file = entry
+                    .file_path
+                    .split('/')
+                    .last()
+                    .unwrap_or(&entry.file_path);
+
+                let context_line = text(format!(
+                    "{short_file}  ›  #{id}  ›  {field}",
+                    id = entry.record_id,
+                    field = entry.field_name,
+                ))
+                .size(11)
+                .style(style::subtle_text);
+
+                let encoding_line = if entry.max_bytes > 0 {
+                    text(format!(
+                        "Encoding: {:?}   Max: {} bytes",
+                        entry.encoding, entry.max_bytes
+                    ))
+                    .size(10)
+                    .style(style::subtle_text)
+                } else {
+                    text(format!("Encoding: {:?}", entry.encoding))
+                        .size(10)
+                        .style(style::subtle_text)
+                };
+
+                let original_label = text("Original").size(11).style(style::subtle_text);
+                let original_text = container(text(entry.original.as_str()).size(12))
+                    .padding([8, 10])
+                    .width(Fill)
+                    .style(|_theme| container::Style {
+                        background: Some(Background::Color(Color::from_rgba(0.0, 0.0, 0.0, 0.2))),
+                        border: Border {
+                            color: Color::from_rgb(0.25, 0.18, 0.1),
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    });
+
+                let translation_label = text("Translation").size(11).style(style::subtle_text);
+                let translation_editor = textarea(&state.translation_content.0, |action| {
+                    Message::localization(LocalizationMessage::TranslationAction(action))
+                });
+
+                // Byte counter
                 let encoded_len = entry.encoded_translation_len();
-                let byte_label: Element<'_, Message> = if entry.max_bytes > 0 {
-                    let label = format!("{}/{}", encoded_len, entry.max_bytes);
+                let is_overlong = entry.would_truncate();
+                let byte_counter: Element<'_, Message> = if entry.max_bytes > 0 {
+                    let label = format!("{encoded_len} / {} bytes", entry.max_bytes);
                     if is_overlong {
                         text(label)
-                            .size(10)
-                            .width(Length::Fixed(72.0))
-                            .style(|_theme| iced::widget::text::Style {
+                            .size(11)
+                            .style(|_t| iced::widget::text::Style {
                                 color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
                             })
                             .into()
                     } else {
-                        text(label)
-                            .size(10)
-                            .width(Length::Fixed(72.0))
-                            .style(style::subtle_text)
-                            .into()
+                        text(label).size(11).style(style::subtle_text).into()
                     }
                 } else {
-                    text("").size(10).width(Length::Fixed(72.0)).into()
+                    text("").size(11).into()
                 };
 
-                let original = entry.original.clone();
-                row![
-                    text(short_file).size(11).width(Length::Fixed(140.0)),
-                    text(entry.record_id.to_string())
-                        .size(11)
-                        .width(Length::Fixed(36.0)),
-                    text(entry.field_name).size(11).width(Length::Fixed(100.0)),
-                    text(original).size(11).width(Fill),
-                    translation_cell,
-                    byte_label,
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center)
-                .into()
-            })
-            .collect();
+                // Navigation buttons
+                let prev_btn = button(text("← Prev untranslated").size(11))
+                    .on_press(Message::localization(LocalizationMessage::NavigatePrev));
+                let next_btn = button(text("Next untranslated →").size(11))
+                    .on_press(Message::localization(LocalizationMessage::NavigateNext));
 
-        let table = scrollable(
-            column![header]
-                .push(column(rows).spacing(2))
-                .spacing(4)
-                .padding([4, 0])
-                .width(Fill),
-        )
-        .height(Fill);
+                let nav_row = row![prev_btn, next_btn, byte_counter]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+
+                column![
+                    context_line,
+                    encoding_line,
+                    original_label,
+                    original_text,
+                    translation_label,
+                    translation_editor,
+                    nav_row,
+                ]
+                .spacing(6)
+                .padding([8, 12])
+                .width(Fill)
+                .height(Fill)
+                .into()
+            } else {
+                placeholder_panel()
+            }
+        } else {
+            placeholder_panel()
+        };
+
+        let editor_container = container(editor_pane)
+            .width(Length::FillPortion(6))
+            .height(Fill)
+            .style(|_theme| container::Style {
+                border: Border {
+                    color: Color::from_rgb(0.25, 0.18, 0.1),
+                    width: 1.0,
+                    radius: 4.0.into(),
+                },
+                ..Default::default()
+            });
+
+        let main_area = row![list_pane, editor_container].spacing(8).height(Fill);
 
         // ── Mod metadata + action bar ─────────────────────────────────────────
         let name_input = text_input("Mod name (required)", &state.mod_metadata.name)
@@ -265,7 +405,7 @@ impl App {
         .align_y(Alignment::Center);
 
         // ── Compose ──────────────────────────────────────────────────────────
-        let content = column![toolbar, filter_row, table, action_bar]
+        let content = column![toolbar, filter_row, main_area, action_bar]
             .spacing(8)
             .padding(12)
             .width(Fill)
@@ -273,4 +413,17 @@ impl App {
 
         container(content).width(Fill).height(Fill).into()
     }
+}
+
+fn placeholder_panel<'a>() -> Element<'a, Message> {
+    container(
+        text("Select an entry to start translating")
+            .size(13)
+            .style(style::subtle_text),
+    )
+    .width(Fill)
+    .height(Fill)
+    .align_x(iced::alignment::Horizontal::Center)
+    .align_y(iced::alignment::Vertical::Center)
+    .into()
 }

@@ -72,7 +72,6 @@ pub struct DialogueParagraph {
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 2048)]
     pub text: String,
     /// Developer trailing strings (`\;`) restored and preserved internally.
-    #[translatable(encoding = "WINDOWS-1250", max_bytes = 2048)]
     pub comment: String,
     /// Internal tracking modifier block associated to dialog output.
     pub param1: i32,
