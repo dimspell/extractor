@@ -347,26 +347,27 @@ mod tests {
 
     fn spell_bytes(mana_cost: u32, base_damage: u32, target_type: u32) -> Vec<u8> {
         let fields: [u32; 22] = [
-            1,           // enabled
-            1,           // flag1
+            1, // enabled
+            1, // flag1
             mana_cost,
-            100,         // success_rate
+            100, // success_rate
             base_damage,
-            0, 0,        // reserved1, reserved2
-            0,           // flag2
-            10,          // range
-            0,           // reserved3
-            1,           // level_required
-            1,           // constant1
-            0,           // effect_value
-            1,           // effect_type
-            0,           // effect_modifier
-            0,           // reserved4
-            0,           // magic_school (Unknown)
-            0,           // flag3
-            1,           // animation_id
-            2,           // visual_id
-            3,           // icon_id
+            0,
+            0,  // reserved1, reserved2
+            0,  // flag2
+            10, // range
+            0,  // reserved3
+            1,  // level_required
+            1,  // constant1
+            0,  // effect_value
+            1,  // effect_type
+            0,  // effect_modifier
+            0,  // reserved4
+            0,  // magic_school (Unknown)
+            0,  // flag3
+            1,  // animation_id
+            2,  // visual_id
+            3,  // icon_id
             target_type,
         ];
         fields.iter().flat_map(|&v| v.to_le_bytes()).collect()

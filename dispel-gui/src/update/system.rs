@@ -640,8 +640,7 @@ mod tests {
         let _ = handle(SystemMessage::Undo, &mut app);
 
         assert_eq!(
-            app.state.weapon_editor.filtered[0].1.name,
-            "Iron Sword",
+            app.state.weapon_editor.filtered[0].1.name, "Iron Sword",
             "Field should revert after undo"
         );
         assert!(
@@ -672,8 +671,7 @@ mod tests {
 
         let _ = handle(SystemMessage::Redo, &mut app);
         assert_eq!(
-            app.state.weapon_editor.filtered[0].1.name,
-            "Steel Sword",
+            app.state.weapon_editor.filtered[0].1.name, "Steel Sword",
             "Field should re-apply after redo"
         );
         assert!(app.state.status_msg.starts_with("Redo:"));

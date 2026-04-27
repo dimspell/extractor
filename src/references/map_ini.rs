@@ -228,6 +228,9 @@ mod tests {
         assert_eq!(records.len(), records2.len());
         assert_eq!(records[0].id, records2[0].id);
         assert_eq!(records[0].map_id, records2[0].map_id);
-        assert_eq!(records[0].cd_music_track_number, records2[0].cd_music_track_number);
+        assert_eq!(
+            records[0].cd_music_track_number,
+            records2[0].cd_music_track_number
+        );
     }
 }

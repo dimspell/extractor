@@ -208,7 +208,11 @@ impl StoreEditorState {
 
     fn apply_field_to_store(&mut self, orig_idx: usize, field: &str, value: String) {
         // Update filtered_stores entry
-        if let Some((_, record)) = self.filtered_stores.iter_mut().find(|(i, _)| *i == orig_idx) {
+        if let Some((_, record)) = self
+            .filtered_stores
+            .iter_mut()
+            .find(|(i, _)| *i == orig_idx)
+        {
             match field {
                 "store_name" => record.store_name = value.clone(),
                 "inn_night_cost" => {

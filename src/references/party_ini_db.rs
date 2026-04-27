@@ -181,7 +181,9 @@ mod tests {
 
     #[test]
     fn parse_all_eight_npcs() {
-        let names = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hank"];
+        let names = [
+            "Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hank",
+        ];
         let data = eight_records(&names);
         assert_eq!(data.len(), 224);
 

@@ -579,7 +579,8 @@ mod tests {
 
     #[test]
     fn serialize_round_trip() {
-        let data = b"[VAR]\nspawn=5\n[MAP]\nmap_cmd1\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\ndo_action(1)\n";
+        let data =
+            b"[VAR]\nspawn=5\n[MAP]\nmap_cmd1\n[CHR]\n[NPC]\n[SPR]\n[WAV]\n[ACT]\ndo_action(1)\n";
         let mut c = Cursor::new(data.as_ref());
         let records = EventScript::parse(&mut c, data.len() as u64).unwrap();
         let mut out = Vec::new();

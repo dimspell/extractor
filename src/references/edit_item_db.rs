@@ -311,12 +311,12 @@ mod tests {
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 6]);   // 3 padding i16s
-        rec.extend(vec![0u8; 14]);  // hp, mp, str, agi, wis, con, dodge i16s
+        rec.extend(vec![0u8; 6]); // 3 padding i16s
+        rec.extend(vec![0u8; 14]); // hp, mp, str, agi, wis, con, dodge i16s
         rec.extend_from_slice(&(0i16).to_le_bytes()); // to_hit
         rec.extend_from_slice(&(0i16).to_le_bytes()); // offense
         rec.extend_from_slice(&defense.to_le_bytes());
-        rec.extend(vec![0u8; 8]);   // magical_power, item_destroy, pad4+modifies, additional_effect
+        rec.extend(vec![0u8; 8]); // magical_power, item_destroy, pad4+modifies, additional_effect
         rec
     }
 

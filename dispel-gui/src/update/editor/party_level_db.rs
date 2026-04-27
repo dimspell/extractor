@@ -26,8 +26,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 async move {
                     let npcs = PartyLevelNpc::read_file(&level_path)
                         .map_err(|e: std::io::Error| e.to_string())?;
-                    let refs = PartyRef::read_file(&party_ref_path)
-                        .unwrap_or_default();
+                    let refs = PartyRef::read_file(&party_ref_path).unwrap_or_default();
                     Ok((npcs, refs))
                 },
                 |result| {
@@ -51,7 +50,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                         format!("Party levels loaded: {} NPCs", npcs.len());
                     app.state.party_level_db_editor.status_msg =
                         format!("Loaded {} NPCs — select one to edit levels", npcs.len());
-                    app.state.party_level_db_spreadsheet = crate::view::editor::SpreadsheetState::new();
+                    app.state.party_level_db_spreadsheet =
+                        crate::view::editor::SpreadsheetState::new();
                 }
                 Err(e) => {
                     let msg = format!("Error loading party levels: {}", e);
@@ -82,10 +82,15 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 format!("NPC {} — {} levels", npc_idx, records.len());
 
             app.state.party_level_db_spreadsheet.apply_filter(&records);
-            app.state.party_level_db_spreadsheet.compute_all_caches(&records);
+            app.state
+                .party_level_db_spreadsheet
+                .compute_all_caches(&records);
             app.state.party_level_db_spreadsheet.init_pane_state();
             app.state.party_level_db_spreadsheet.selected_row = None;
-            app.state.party_level_db_spreadsheet.inspector_textarea_contents.clear();
+            app.state
+                .party_level_db_spreadsheet
+                .inspector_textarea_contents
+                .clear();
 
             Task::none()
         }
@@ -110,7 +115,9 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             // Refresh spreadsheet display caches
             if let Some(catalog) = &app.state.party_level_db_level_editor.catalog {
                 let catalog = catalog.clone();
-                app.state.party_level_db_spreadsheet.compute_all_caches(&catalog);
+                app.state
+                    .party_level_db_spreadsheet
+                    .compute_all_caches(&catalog);
             }
 
             Task::none()
@@ -122,7 +129,11 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                     "Please select game path first.".into();
                 return Task::none();
             }
-            match app.state.party_level_db_editor.save_levels(&app.state.shared_game_path) {
+            match app
+                .state
+                .party_level_db_editor
+                .save_levels(&app.state.shared_game_path)
+            {
                 Ok(_) => {
                     app.state.party_level_db_editor.status_msg =
                         "Party levels saved successfully.".into();
@@ -160,8 +171,6 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             Task::none()
         }
 
-        PartyLevelDbEditorMessage::PaneClicked(_pane) => {
-            Task::none()
-        }
+        PartyLevelDbEditorMessage::PaneClicked(_pane) => Task::none(),
     }
 }

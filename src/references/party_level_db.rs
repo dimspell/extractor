@@ -226,10 +226,10 @@ mod tests {
     fn level_block(strength: u32, hp: u16) -> [u8; 36] {
         let mut buf = [0u8; 36];
         // sentinel (u32 at 0): 0
-        buf[4..8].copy_from_slice(&strength.to_le_bytes());  // strength at offset 4
-        // constitution, wisdom = 0
-        buf[16..18].copy_from_slice(&hp.to_le_bytes());      // health_points at offset 16
-        // rest stays zero
+        buf[4..8].copy_from_slice(&strength.to_le_bytes()); // strength at offset 4
+                                                            // constitution, wisdom = 0
+        buf[16..18].copy_from_slice(&hp.to_le_bytes()); // health_points at offset 16
+                                                        // rest stays zero
         buf
     }
 

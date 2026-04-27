@@ -21,15 +21,11 @@ impl App {
                 .map(|(idx, npc)| {
                     let label = editor.npc_label(npc.npc_index);
                     let is_selected = editor.selected_npc_idx == Some(idx);
-                    let btn = button(
-                        text(label)
-                            .size(12)
-                            .font(Font::MONOSPACE),
-                    )
-                    .width(Fill)
-                    .on_press(Message::party_level_db(PartyLevelDbEditorMessage::SelectNpc(
-                        idx,
-                    )));
+                    let btn = button(text(label).size(12).font(Font::MONOSPACE))
+                        .width(Fill)
+                        .on_press(Message::party_level_db(
+                            PartyLevelDbEditorMessage::SelectNpc(idx),
+                        ));
                     if is_selected {
                         btn.style(style::active_chip).into()
                     } else {
@@ -40,14 +36,10 @@ impl App {
         };
 
         let npc_nav = column![
-            container(
-                text("Party Members")
-                    .size(13)
-                    .font(Font::MONOSPACE)
-            )
-            .padding([8, 10])
-            .width(Fill)
-            .style(style::grid_header_cell),
+            container(text("Party Members").size(13).font(Font::MONOSPACE))
+                .padding([8, 10])
+                .width(Fill)
+                .style(style::grid_header_cell),
             scrollable(column(npc_buttons).spacing(2).padding([4, 6])).height(Fill),
         ]
         .width(170);

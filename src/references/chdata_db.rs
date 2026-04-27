@@ -133,7 +133,7 @@ mod tests {
     fn chdata_bytes(values: &[u16; 16], counts: &[u32; 4], total: u32) -> Vec<u8> {
         let mut buf = Vec::with_capacity(84);
         buf.extend_from_slice(b"Item"); // magic (4 bytes)
-        buf.extend(vec![0u8; 26]);      // padding to offset 30
+        buf.extend(vec![0u8; 26]); // padding to offset 30
         for &v in values {
             buf.extend_from_slice(&v.to_le_bytes());
         }

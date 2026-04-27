@@ -532,9 +532,9 @@ mod tests {
 
     fn ref_bytes(name: &str, x_pos: i32, y_pos: i32, gold: i32) -> Vec<u8> {
         let mut rec = vec![0u8; 184];
-        rec[0] = 1;                  // number_in_file
-        rec[2] = 3;                  // extra_ini_entry_id
-        // name at offset 3, 32 bytes
+        rec[0] = 1; // number_in_file
+        rec[2] = 3; // extra_ini_entry_id
+                    // name at offset 3, 32 bytes
         let nb = name.as_bytes();
         let n = nb.len().min(31);
         rec[3..3 + n].copy_from_slice(&nb[..n]);
