@@ -81,12 +81,9 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<crate::message
             let meta = app.state.mod_packager_editor.metadata.clone();
             let game_path = app.state.shared_game_path.clone();
 
-            Task::perform(
-                async move { build_zip(files, meta, game_path) },
-                |result| {
-                    crate::message::Message::mod_packager(ModPackagerMessage::Exported(result))
-                },
-            )
+            Task::perform(async move { build_zip(files, meta, game_path) }, |result| {
+                crate::message::Message::mod_packager(ModPackagerMessage::Exported(result))
+            })
         }
         ModPackagerMessage::Exported(result) => {
             let state = &mut app.state.mod_packager_editor;

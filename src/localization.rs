@@ -108,7 +108,15 @@ pub fn truncate_to_fit(s: &str, enc: &TextEncoding, max_bytes: usize) -> (String
 /// Columns: file_path, record_id, field_name, original, translation, encoding, max_bytes
 pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
     let mut wtr = csv::Writer::from_writer(Vec::new());
-    wtr.write_record(["file_path", "record_id", "field_name", "original", "translation", "encoding", "max_bytes"])?;
+    wtr.write_record([
+        "file_path",
+        "record_id",
+        "field_name",
+        "original",
+        "translation",
+        "encoding",
+        "max_bytes",
+    ])?;
     for e in entries {
         wtr.write_record(&[
             e.file_path.as_str(),
@@ -121,7 +129,9 @@ pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
         ])?;
     }
     wtr.flush()?;
-    let bytes = wtr.into_inner().map_err(|e| csv::Error::from(e.into_error()))?;
+    let bytes = wtr
+        .into_inner()
+        .map_err(|e| csv::Error::from(e.into_error()))?;
     Ok(String::from_utf8_lossy(&bytes).into_owned())
 }
 
@@ -132,7 +142,10 @@ pub fn import_csv(csv: &str, entries: &mut Vec<TextEntry>) -> Result<usize, csv:
     // Build a lookup: (file_path, record_id, field_name) → index in entries
     let mut index: HashMap<(String, usize, String), usize> = HashMap::new();
     for (i, e) in entries.iter().enumerate() {
-        index.insert((e.file_path.clone(), e.record_id, e.field_name.to_owned()), i);
+        index.insert(
+            (e.file_path.clone(), e.record_id, e.field_name.to_owned()),
+            i,
+        );
     }
     let mut updated = 0;
     for record in rdr.records() {

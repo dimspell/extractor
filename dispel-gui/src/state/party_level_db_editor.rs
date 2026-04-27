@@ -48,8 +48,7 @@ impl PartyLevelDbEditorState {
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
             let backup = path.with_extension(format!("db.{}.bak", ts));
-            std::fs::copy(&path, &backup)
-                .map_err(|e| format!("Failed to create backup: {}", e))?;
+            std::fs::copy(&path, &backup).map_err(|e| format!("Failed to create backup: {}", e))?;
         }
         PartyLevelNpc::save_file(catalog, &path).map_err(|e| format!("Failed to save: {}", e))
     }

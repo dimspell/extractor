@@ -138,7 +138,10 @@ fn parse_translatable_args(attr: &syn::Attribute) -> (TokenStream2, usize) {
         } else if meta.path.is_ident("max_bytes") {
             let value = meta.value()?;
             let lit: LitInt = value.parse()?;
-            max_bytes = Some(lit.base10_parse::<usize>().expect("max_bytes must be usize"));
+            max_bytes = Some(
+                lit.base10_parse::<usize>()
+                    .expect("max_bytes must be usize"),
+            );
         }
         Ok(())
     })
@@ -151,7 +154,10 @@ fn parse_translatable_args(attr: &syn::Attribute) -> (TokenStream2, usize) {
         "WINDOWS-1250" => quote! { crate::localization::TextEncoding::Windows1250 },
         "EUC-KR" => quote! { crate::localization::TextEncoding::EucKr },
         "UTF-8" => quote! { crate::localization::TextEncoding::Utf8 },
-        other => panic!("Unknown encoding '{}' in #[translatable]; expected WINDOWS-1250, EUC-KR, or UTF-8", other),
+        other => panic!(
+            "Unknown encoding '{}' in #[translatable]; expected WINDOWS-1250, EUC-KR, or UTF-8",
+            other
+        ),
     };
 
     (encoding_tokens, max_bytes)

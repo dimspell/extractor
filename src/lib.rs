@@ -11,6 +11,10 @@ pub mod snf;
 pub mod sprite;
 
 // Re-export key types for easy access
+pub use localization::{
+    export_csv, export_po, import_csv, import_po, truncate_to_fit, Localizable, TextEncoding,
+    TextEntry, TruncationStatus,
+};
 pub use references::{
     all_map_ini::Map,
     chdata_db::ChData,
@@ -44,8 +48,4 @@ pub use references::{
     store_db::Store,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,
-};
-pub use localization::{
-    export_csv, export_po, import_csv, import_po, truncate_to_fit, Localizable, TextEncoding,
-    TextEntry, TruncationStatus,
 };

@@ -15,31 +15,36 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
     match message {
         LocalizationMessage::Scan => {
             if app.state.shared_game_path.is_empty() {
-                app.state.localization_manager.status_msg =
-                    "Please select game path first.".into();
+                app.state.localization_manager.status_msg = "Please select game path first.".into();
                 return Task::none();
             }
             app.state.localization_manager.loading_state = LoadingState::Loading;
             app.state.localization_manager.status_msg = "Scanning…".into();
             let game_path = PathBuf::from(&app.state.shared_game_path);
+            let session_path = app
+                .state
+                .localization_manager
+                .session_path(&app.state.shared_game_path);
             Task::perform(
-                async move { scan_all_entries(&game_path) },
-                |result| crate::message::Message::localization(LocalizationMessage::Scanned(result)),
+                async move { scan_all_entries(&game_path, session_path.as_deref()) },
+                |result| {
+                    crate::message::Message::localization(LocalizationMessage::Scanned(result))
+                },
             )
         }
         LocalizationMessage::Scanned(result) => {
             match result {
                 Ok(entries) => {
                     let count = entries.len();
+                    let translated = entries.iter().filter(|e| e.is_translated()).count();
                     app.state.localization_manager.entries = entries;
                     app.state.localization_manager.status_msg =
-                        format!("{count} strings loaded.");
+                        format!("{count} strings loaded ({translated} already translated).");
                     app.state.localization_manager.loading_state = LoadingState::Loaded(());
                 }
                 Err(e) => {
                     app.state.localization_manager.status_msg = format!("Scan failed: {e}");
-                    app.state.localization_manager.loading_state =
-                        LoadingState::Failed(e);
+                    app.state.localization_manager.loading_state = LoadingState::Failed(e);
                 }
             }
             Task::none()
@@ -47,7 +52,15 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         LocalizationMessage::TranslationChanged { idx, translation } => {
             if let Some(entry) = app.state.localization_manager.entries.get_mut(idx) {
                 entry.translation = translation;
-                app.state.localization_manager.recompute_truncation();
+            }
+            // Debounced session save: fire async to avoid blocking UI
+            let game_path = app.state.shared_game_path.clone();
+            let session_path = app.state.localization_manager.session_path(&game_path);
+            if let Some(path) = session_path {
+                let entries = app.state.localization_manager.entries.clone();
+                return Task::perform(async move { save_session(&path, &entries) }, |_| {
+                    crate::message::Message::localization(LocalizationMessage::ExportDone(Ok(())))
+                });
             }
             Task::none()
         }
@@ -58,6 +71,15 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         LocalizationMessage::ToggleUntranslatedOnly => {
             let v = app.state.localization_manager.show_untranslated_only;
             app.state.localization_manager.show_untranslated_only = !v;
+            Task::none()
+        }
+        LocalizationMessage::ToggleOverlongOnly => {
+            let v = app.state.localization_manager.show_overlong_only;
+            app.state.localization_manager.show_overlong_only = !v;
+            Task::none()
+        }
+        LocalizationMessage::TargetLangChanged(v) => {
+            app.state.localization_manager.target_lang = v;
             Task::none()
         }
         LocalizationMessage::ExportCsv => {
@@ -73,26 +95,20 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                         .map(|h| h.path().to_path_buf());
                     if let Some(p) = path {
                         std::fs::write(&p, csv.as_bytes()).map_err(|e| e.to_string())?;
-                        Ok::<(), String>(())
-                    } else {
-                        Ok(())
                     }
+                    Ok::<(), String>(())
                 },
-                |result: Result<(), String>| match result {
-                    Ok(()) => crate::message::Message::localization(
-                        LocalizationMessage::Scanned(Ok(vec![])),
-                    ),
-                    Err(e) => crate::message::Message::localization(
-                        LocalizationMessage::Scanned(Err(e)),
-                    ),
+                |result| {
+                    crate::message::Message::localization(LocalizationMessage::ExportDone(result))
                 },
             )
         }
         LocalizationMessage::ExportPo => {
             let entries = app.state.localization_manager.entries.clone();
+            let target_lang = app.state.localization_manager.target_lang.clone();
             Task::perform(
                 async move {
-                    let po = export_po(&entries, "ko", "");
+                    let po = export_po(&entries, "ko", &target_lang);
                     let path = rfd::AsyncFileDialog::new()
                         .set_file_name("localization.po")
                         .add_filter("PO file", &["po"])
@@ -104,15 +120,16 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     }
                     Ok::<(), String>(())
                 },
-                |result: Result<(), String>| match result {
-                    Ok(()) => crate::message::Message::localization(
-                        LocalizationMessage::Scanned(Ok(vec![])),
-                    ),
-                    Err(e) => crate::message::Message::localization(
-                        LocalizationMessage::Scanned(Err(e)),
-                    ),
+                |result| {
+                    crate::message::Message::localization(LocalizationMessage::ExportDone(result))
                 },
             )
+        }
+        LocalizationMessage::ExportDone(result) => {
+            if let Err(e) = result {
+                app.state.localization_manager.status_msg = format!("Export failed: {e}");
+            }
+            Task::none()
         }
         LocalizationMessage::ImportFile => {
             let mut current_entries = app.state.localization_manager.entries.clone();
@@ -134,17 +151,33 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     }
                     Ok(current_entries)
                 },
-                |result| crate::message::Message::localization(LocalizationMessage::Imported(result)),
+                |result| {
+                    crate::message::Message::localization(LocalizationMessage::Imported(result))
+                },
             )
         }
         LocalizationMessage::Imported(result) => {
             match result {
                 Ok(entries) => {
                     let count = entries.iter().filter(|e| e.is_translated()).count();
+                    let overlong = entries.iter().filter(|e| e.would_truncate()).count();
                     app.state.localization_manager.entries = entries;
-                    app.state.localization_manager.recompute_truncation();
-                    app.state.localization_manager.status_msg =
-                        format!("Imported. {count} strings translated.");
+                    let msg = if overlong > 0 {
+                        format!("Imported. {count} strings translated, {overlong} overlong.")
+                    } else {
+                        format!("Imported. {count} strings translated.")
+                    };
+                    app.state.localization_manager.status_msg = msg;
+                    // Persist session
+                    let game_path = app.state.shared_game_path.clone();
+                    if let Some(path) = app.state.localization_manager.session_path(&game_path) {
+                        let entries = app.state.localization_manager.entries.clone();
+                        return Task::perform(async move { save_session(&path, &entries) }, |_| {
+                            crate::message::Message::localization(LocalizationMessage::ExportDone(
+                                Ok(()),
+                            ))
+                        });
+                    }
                 }
                 Err(e) => {
                     app.state.localization_manager.status_msg = format!("Import failed: {e}");
@@ -200,12 +233,107 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             }
             Task::none()
         }
+        LocalizationMessage::Revert => {
+            let state = &app.state.localization_manager;
+            let game_path = app.state.shared_game_path.clone();
+            let backup_dir = state.backup_dir(&game_path);
+            let Some(backup_dir) = backup_dir else {
+                app.state.localization_manager.status_msg = "No mod name set.".into();
+                return Task::none();
+            };
+            if !backup_dir.exists() {
+                app.state.localization_manager.status_msg = "No backup found to revert.".into();
+                return Task::none();
+            }
+            let game_path = PathBuf::from(&game_path);
+            Task::perform(
+                async move { revert_from_backup(&game_path, &backup_dir) },
+                |result| {
+                    crate::message::Message::localization(LocalizationMessage::Reverted(result))
+                },
+            )
+        }
+        LocalizationMessage::Reverted(result) => {
+            let state = &mut app.state.localization_manager;
+            match result {
+                Ok(()) => {
+                    state.status_msg = "Reverted: original files restored from backup.".into();
+                    state.loading_state = LoadingState::Idle;
+                }
+                Err(e) => {
+                    state.status_msg = format!("Revert failed: {e}");
+                }
+            }
+            Task::none()
+        }
     }
 }
 
-// ─── Scan ────────────────────────────────────────────────────────────────────
+// ─── Session persistence ──────────────────────────────────────────────────────
 
-fn scan_all_entries(game_path: &Path) -> Result<Vec<TextEntry>, String> {
+/// Lightweight session record — fully owned so it serializes/deserializes without lifetime issues.
+/// `TextEntry.field_name` is `&'static str` and cannot be deserialized from JSON directly.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct SavedTranslation {
+    file_path: String,
+    record_id: usize,
+    field_name: String,
+    translation: String,
+}
+
+fn save_session(path: &Path, entries: &[TextEntry]) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let saved: Vec<SavedTranslation> = entries
+        .iter()
+        .filter(|e| e.is_translated())
+        .map(|e| SavedTranslation {
+            file_path: e.file_path.clone(),
+            record_id: e.record_id,
+            field_name: e.field_name.to_owned(),
+            translation: e.translation.clone(),
+        })
+        .collect();
+    let json = serde_json::to_string(&saved).map_err(|e| e.to_string())?;
+    std::fs::write(path, json.as_bytes()).map_err(|e| e.to_string())
+}
+
+fn load_session(path: &Path) -> Option<Vec<SavedTranslation>> {
+    let s = std::fs::read_to_string(path).ok()?;
+    serde_json::from_str(&s).ok()
+}
+
+/// Merge saved translations into freshly-scanned entries.
+/// Matches by (file_path, record_id, field_name).
+fn merge_session(entries: &mut Vec<TextEntry>, saved: &[SavedTranslation]) {
+    use std::collections::HashMap;
+    let saved_map: HashMap<(&str, usize, &str), &str> = saved
+        .iter()
+        .map(|e| {
+            (
+                (e.file_path.as_str(), e.record_id, e.field_name.as_str()),
+                e.translation.as_str(),
+            )
+        })
+        .collect();
+    for entry in entries.iter_mut() {
+        if let Some(&t) =
+            saved_map.get(&(entry.file_path.as_str(), entry.record_id, entry.field_name))
+        {
+            if !t.is_empty() {
+                entry.translation = t.to_owned();
+            }
+        }
+    }
+}
+
+// ─── Scan ─────────────────────────────────────────────────────────────────────
+
+fn scan_all_entries(
+    game_path: &Path,
+    session_path: Option<&Path>,
+) -> Result<Vec<TextEntry>, String> {
     let mut entries = Vec::new();
 
     // Store.db
@@ -238,6 +366,13 @@ fn scan_all_entries(game_path: &Path) -> Result<Vec<TextEntry>, String> {
     // Dialogue paragraphs — scan all *.pgp files
     scan_pgp_files(game_path, &mut entries)?;
 
+    // Merge saved session translations on top of fresh scan
+    if let Some(path) = session_path {
+        if let Some(saved) = load_session(path) {
+            merge_session(&mut entries, &saved);
+        }
+    }
+
     Ok(entries)
 }
 
@@ -250,8 +385,7 @@ fn scan_pgp_files(game_path: &Path, entries: &mut Vec<TextEntry>) -> Result<(), 
                 .unwrap_or(&path)
                 .to_string_lossy()
                 .replace('\\', "/");
-            let records =
-                DialogueParagraph::read_file(&path).map_err(|e| e.to_string())?;
+            let records = DialogueParagraph::read_file(&path).map_err(|e| e.to_string())?;
             for (i, record) in records.iter().enumerate() {
                 entries.extend(record.extract_texts(i, &rel));
             }
@@ -279,7 +413,7 @@ fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>>
     results.into_iter()
 }
 
-// ─── Apply & Package ─────────────────────────────────────────────────────────
+// ─── Apply & Package ──────────────────────────────────────────────────────────
 
 fn apply_and_package(
     game_path: &Path,
@@ -290,7 +424,7 @@ fn apply_and_package(
     let backup_dir = game_path.join("mods").join(&mod_name).join("backup");
     std::fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
 
-    // Group entries by file_path
+    // Group translated entries by file_path
     let mut by_file: std::collections::HashMap<&str, Vec<&TextEntry>> =
         std::collections::HashMap::new();
     for e in entries {
@@ -308,20 +442,22 @@ fn apply_and_package(
         if !abs_path.exists() {
             continue;
         }
-        // Backup original
-        let backup_path = backup_dir.join(
-            PathBuf::from(rel_path)
-                .file_name()
-                .unwrap_or_default(),
-        );
+        // Backup original (preserve relative path structure inside backup dir)
+        let rel_pb = PathBuf::from(rel_path);
+        let backup_path = if let Some(parent) = rel_pb.parent() {
+            let d = backup_dir.join(parent);
+            std::fs::create_dir_all(&d).map_err(|e| e.to_string())?;
+            d.join(rel_pb.file_name().unwrap_or_default())
+        } else {
+            backup_dir.join(rel_pb.file_name().unwrap_or_default())
+        };
         if !backup_path.exists() {
             std::fs::copy(&abs_path, &backup_path).map_err(|e| e.to_string())?;
         }
-        // Apply translations
         apply_entries_to_file(&abs_path, rel_path, file_entries)?;
     }
 
-    // Package as zip
+    // Package as zip — use rel_path as entry name to preserve directory structure (A4)
     let output_dir = game_path.join("mod_output");
     std::fs::create_dir_all(&output_dir).map_err(|e| e.to_string())?;
     let zip_path = output_dir.join(format!("{}.zip", mod_name));
@@ -333,11 +469,9 @@ fn apply_and_package(
     for rel_path in by_file.keys() {
         let abs_path = game_path.join(rel_path.replace('/', std::path::MAIN_SEPARATOR_STR));
         if abs_path.exists() {
-            let entry_name = PathBuf::from(rel_path)
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_else(|| rel_path.to_string());
-            zip.start_file(&entry_name, options).map_err(|e| e.to_string())?;
+            // Use rel_path as zip entry name — preserves directory structure
+            zip.start_file(*rel_path, options)
+                .map_err(|e| e.to_string())?;
             let data = std::fs::read(&abs_path).map_err(|e| e.to_string())?;
             zip.write_all(&data).map_err(|e| e.to_string())?;
         }
@@ -351,7 +485,8 @@ fn apply_and_package(
         "files": by_file.keys().collect::<Vec<_>>(),
         "backup_dir": backup_dir.to_string_lossy(),
     });
-    zip.start_file("manifest.json", options).map_err(|e| e.to_string())?;
+    zip.start_file("manifest.json", options)
+        .map_err(|e| e.to_string())?;
     zip.write_all(&serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     zip.finish().map_err(|e| e.to_string())?;
@@ -359,63 +494,73 @@ fn apply_and_package(
     Ok(zip_path)
 }
 
+// A2: generic helper eliminates repeated read→apply→save pattern
+fn apply_one<T: Extractor + Localizable>(
+    abs_path: &Path,
+    by_record: &std::collections::HashMap<usize, Vec<&TextEntry>>,
+) -> Result<(), String> {
+    let mut records = T::read_file(abs_path).map_err(|e| e.to_string())?;
+    for (i, record) in records.iter_mut().enumerate() {
+        if let Some(entries) = by_record.get(&i) {
+            let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
+            record.apply_texts(&owned);
+        }
+    }
+    T::save_file(&records, abs_path).map_err(|e| e.to_string())
+}
+
 fn apply_entries_to_file(
     abs_path: &Path,
     rel_path: &str,
     file_entries: &[&TextEntry],
 ) -> Result<(), String> {
-    // Group by record_id
     let mut by_record: std::collections::HashMap<usize, Vec<&TextEntry>> =
         std::collections::HashMap::new();
     for e in file_entries {
         by_record.entry(e.record_id).or_default().push(e);
     }
 
-    let _sep = std::path::MAIN_SEPARATOR_STR;
     let lower = rel_path.to_lowercase();
 
     if lower.ends_with("store.db") {
+        // Store uses record.index as the logical ID, not position
         let mut records = Store::read_file(abs_path).map_err(|e| e.to_string())?;
         for record in &mut records {
             let idx = record.index as usize;
             if let Some(entries) = by_record.get(&idx) {
-                let owned: Vec<dispel_core::TextEntry> =
-                    entries.iter().map(|e| (*e).clone()).collect();
+                let owned: Vec<TextEntry> = entries.iter().map(|e| (*e).clone()).collect();
                 record.apply_texts(&owned);
             }
         }
-        Store::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+        Store::save_file(&records, abs_path).map_err(|e| e.to_string())
     } else if lower.ends_with("weaponitem.db") {
-        let mut records = WeaponItem::read_file(abs_path).map_err(|e| e.to_string())?;
-        for (i, record) in records.iter_mut().enumerate() {
-            if let Some(entries) = by_record.get(&i) {
-                let owned: Vec<dispel_core::TextEntry> =
-                    entries.iter().map(|e| (*e).clone()).collect();
-                record.apply_texts(&owned);
-            }
-        }
-        WeaponItem::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+        apply_one::<WeaponItem>(abs_path, &by_record)
     } else if lower.ends_with("message.scr") {
-        let mut records = Message::read_file(abs_path).map_err(|e| e.to_string())?;
-        for (i, record) in records.iter_mut().enumerate() {
-            if let Some(entries) = by_record.get(&i) {
-                let owned: Vec<dispel_core::TextEntry> =
-                    entries.iter().map(|e| (*e).clone()).collect();
-                record.apply_texts(&owned);
-            }
-        }
-        Message::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+        apply_one::<Message>(abs_path, &by_record)
     } else if lower.ends_with(".pgp") {
-        let mut records = DialogueParagraph::read_file(abs_path).map_err(|e| e.to_string())?;
-        for (i, record) in records.iter_mut().enumerate() {
-            if let Some(entries) = by_record.get(&i) {
-                let owned: Vec<dispel_core::TextEntry> =
-                    entries.iter().map(|e| (*e).clone()).collect();
-                record.apply_texts(&owned);
-            }
-        }
-        DialogueParagraph::save_file(&records, abs_path).map_err(|e| e.to_string())?;
+        apply_one::<DialogueParagraph>(abs_path, &by_record)
+    } else {
+        Ok(())
     }
+}
 
+// ─── Revert ───────────────────────────────────────────────────────────────────
+
+fn revert_from_backup(game_path: &Path, backup_dir: &Path) -> Result<(), String> {
+    // Walk backup dir; for each file, restore to game_path keeping relative structure
+    for entry in walkdir(backup_dir) {
+        let src = entry.map_err(|e| e.to_string())?;
+        let rel = src
+            .strip_prefix(backup_dir)
+            .unwrap_or(&src)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let dest = game_path.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        std::fs::copy(&src, &dest)
+            .map_err(|e| format!("Failed to restore {}: {e}", dest.display()))?;
+    }
     Ok(())
 }

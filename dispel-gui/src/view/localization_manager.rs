@@ -4,8 +4,7 @@ use crate::message::editor::localization::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use iced::widget::{
-    button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text,
-    text_input,
+    button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,
 };
 use iced::{Alignment, Border, Color, Element, Fill, Length};
 
@@ -22,7 +21,6 @@ impl std::fmt::Display for FileFilter {
         match self {
             FileFilter::All => write!(f, "All files"),
             FileFilter::File(name) => {
-                // Show only the last path component
                 let short = name.split('/').last().unwrap_or(name);
                 write!(f, "{short}")
             }
@@ -37,38 +35,40 @@ impl App {
         let state = &self.state.localization_manager;
         let is_loading = matches!(state.loading_state, LoadingState::Loading);
         let has_entries = !state.entries.is_empty();
+        let backup_exists = state.backup_exists(&self.state.shared_game_path);
 
         // ── Toolbar ──────────────────────────────────────────────────────────
-        let scan_btn = button(text("Scan").size(12)).on_press_maybe(
-            if is_loading {
-                None
-            } else {
-                Some(Message::localization(LocalizationMessage::Scan))
-            },
-        );
-        let csv_btn = button(text("Export CSV").size(12)).on_press_maybe(
-            if is_loading || !has_entries {
+        let scan_btn = button(text("Scan").size(12)).on_press_maybe(if is_loading {
+            None
+        } else {
+            Some(Message::localization(LocalizationMessage::Scan))
+        });
+        let csv_btn =
+            button(text("Export CSV").size(12)).on_press_maybe(if is_loading || !has_entries {
                 None
             } else {
                 Some(Message::localization(LocalizationMessage::ExportCsv))
-            },
-        );
-        let po_btn = button(text("Export PO").size(12)).on_press_maybe(
-            if is_loading || !has_entries {
+            });
+        let po_btn =
+            button(text("Export PO").size(12)).on_press_maybe(if is_loading || !has_entries {
                 None
             } else {
                 Some(Message::localization(LocalizationMessage::ExportPo))
-            },
-        );
-        let import_btn = button(text("Import…").size(12)).on_press_maybe(
-            if is_loading || !has_entries {
+            });
+        let import_btn =
+            button(text("Import…").size(12)).on_press_maybe(if is_loading || !has_entries {
                 None
             } else {
                 Some(Message::localization(LocalizationMessage::ImportFile))
-            },
-        );
+            });
 
-        let toolbar = row![scan_btn, csv_btn, po_btn, import_btn]
+        // Target language input for PO export
+        let target_lang_input = text_input("Lang (e.g. pl)", &state.target_lang)
+            .on_input(|v| Message::localization(LocalizationMessage::TargetLangChanged(v)))
+            .width(Length::Fixed(90.0))
+            .size(12);
+
+        let toolbar = row![scan_btn, csv_btn, po_btn, target_lang_input, import_btn]
             .spacing(6)
             .align_y(Alignment::Center);
 
@@ -99,18 +99,37 @@ impl App {
         .spacing(4)
         .align_y(Alignment::Center);
 
+        let overlong_count = state.overlong_count();
+        let overlong_toggle = row![
+            checkbox(state.show_overlong_only)
+                .on_toggle(|_| Message::localization(LocalizationMessage::ToggleOverlongOnly)),
+            text(format!("Overlong ({overlong_count})")).size(12),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center);
+
         let total = state.total_count();
         let done = state.translated_count();
-        let progress_val = if total == 0 { 0.0 } else { done as f32 / total as f32 };
+        let progress_val = if total == 0 {
+            0.0
+        } else {
+            done as f32 / total as f32
+        };
 
         let progress = progress_bar(0.0..=1.0, progress_val);
         let progress_label = text(format!("{done} / {total} translated"))
             .size(12)
             .style(style::subtle_text);
 
-        let filter_row = row![file_filter, untranslated_toggle, progress, progress_label]
-            .spacing(12)
-            .align_y(Alignment::Center);
+        let filter_row = row![
+            file_filter,
+            untranslated_toggle,
+            overlong_toggle,
+            progress,
+            progress_label
+        ]
+        .spacing(12)
+        .align_y(Alignment::Center);
 
         // ── Entries table ────────────────────────────────────────────────────
         let visible = state.visible_entries();
@@ -121,6 +140,7 @@ impl App {
             text("Field").size(11).width(Length::Fixed(100.0)),
             text("Original").size(11).width(Fill),
             text("Translation").size(11).width(Fill),
+            text("Bytes").size(11).width(Length::Fixed(72.0)),
         ]
         .spacing(4)
         .padding([2, 0]);
@@ -128,8 +148,7 @@ impl App {
         let rows: Vec<Element<'_, Message>> = visible
             .into_iter()
             .map(|(idx, entry)| {
-                let is_truncated =
-                    state.is_truncated(&entry.file_path, entry.record_id, entry.field_name);
+                let is_overlong = entry.would_truncate();
                 let short_file = entry
                     .file_path
                     .split('/')
@@ -146,7 +165,7 @@ impl App {
                     })
                     .width(Fill);
 
-                let translation_cell: Element<'_, Message> = if is_truncated {
+                let translation_cell: Element<'_, Message> = if is_overlong {
                     container(translation_input)
                         .style(|_theme| container::Style {
                             border: Border {
@@ -161,6 +180,29 @@ impl App {
                     translation_input.into()
                 };
 
+                // C1: byte counter — show encoded bytes / max_bytes
+                let encoded_len = entry.encoded_translation_len();
+                let byte_label: Element<'_, Message> = if entry.max_bytes > 0 {
+                    let label = format!("{}/{}", encoded_len, entry.max_bytes);
+                    if is_overlong {
+                        text(label)
+                            .size(10)
+                            .width(Length::Fixed(72.0))
+                            .style(|_theme| iced::widget::text::Style {
+                                color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
+                            })
+                            .into()
+                    } else {
+                        text(label)
+                            .size(10)
+                            .width(Length::Fixed(72.0))
+                            .style(style::subtle_text)
+                            .into()
+                    }
+                } else {
+                    text("").size(10).width(Length::Fixed(72.0)).into()
+                };
+
                 let original = entry.original.clone();
                 row![
                     text(short_file).size(11).width(Length::Fixed(140.0)),
@@ -170,6 +212,7 @@ impl App {
                     text(entry.field_name).size(11).width(Length::Fixed(100.0)),
                     text(original).size(11).width(Fill),
                     translation_cell,
+                    byte_label,
                 ]
                 .spacing(4)
                 .align_y(Alignment::Center)
@@ -186,7 +229,7 @@ impl App {
         )
         .height(Fill);
 
-        // ── Mod metadata + apply bar ─────────────────────────────────────────
+        // ── Mod metadata + action bar ─────────────────────────────────────────
         let name_input = text_input("Mod name (required)", &state.mod_metadata.name)
             .on_input(|v| Message::localization(LocalizationMessage::ModNameChanged(v)))
             .width(Length::Fixed(180.0));
@@ -201,11 +244,25 @@ impl App {
         } else {
             Some(Message::localization(LocalizationMessage::ApplyAndPackage))
         });
+        let revert_btn = button(text("Revert").size(12))
+            .style(style::browse_button)
+            .on_press_maybe(if is_loading || !backup_exists {
+                None
+            } else {
+                Some(Message::localization(LocalizationMessage::Revert))
+            });
         let status = text(&state.status_msg).size(11).style(style::subtle_text);
 
-        let action_bar = row![name_input, version_input, author_input, apply_btn, status]
-            .spacing(8)
-            .align_y(Alignment::Center);
+        let action_bar = row![
+            name_input,
+            version_input,
+            author_input,
+            apply_btn,
+            revert_btn,
+            status
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center);
 
         // ── Compose ──────────────────────────────────────────────────────────
         let content = column![toolbar, filter_row, table, action_bar]

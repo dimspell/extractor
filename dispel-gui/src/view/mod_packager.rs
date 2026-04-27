@@ -54,12 +54,11 @@ impl App {
             text(format!("Files ({})", state.selected_files.len()))
                 .size(14)
                 .width(Fill),
-            button(text("Add Files…").size(12))
-                .on_press_maybe(if is_loading {
-                    None
-                } else {
-                    Some(Message::mod_packager(ModPackagerMessage::BrowseFiles))
-                }),
+            button(text("Add Files…").size(12)).on_press_maybe(if is_loading {
+                None
+            } else {
+                Some(Message::mod_packager(ModPackagerMessage::BrowseFiles))
+            }),
         ]
         .spacing(8)
         .align_y(Alignment::Center);
@@ -89,13 +88,8 @@ impl App {
             })
             .collect();
 
-        let file_list = scrollable(
-            column(file_rows)
-                .spacing(4)
-                .padding([4, 0])
-                .width(Fill),
-        )
-        .height(Length::Fixed(200.0));
+        let file_list = scrollable(column(file_rows).spacing(4).padding([4, 0]).width(Fill))
+            .height(Length::Fixed(200.0));
 
         // Export button + status
         let export_btn = button(text("Export .zip").size(13)).on_press_maybe(if is_loading {
@@ -110,7 +104,9 @@ impl App {
             metadata,
             file_list_header,
             file_list,
-            row![export_btn, status].spacing(12).align_y(Alignment::Center),
+            row![export_btn, status]
+                .spacing(12)
+                .align_y(Alignment::Center),
         ]
         .spacing(12)
         .padding(16)

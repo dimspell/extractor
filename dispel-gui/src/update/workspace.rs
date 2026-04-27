@@ -242,15 +242,27 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
 
         // Tools
         WorkspaceMessage::OpenToolTab(editor_type) => {
+            use crate::message::editor::localization::LocalizationMessage;
+            use crate::message::MessageExt;
             use crate::workspace::EditorType;
             let label = match editor_type {
                 EditorType::DbViewer => "DB Viewer",
                 EditorType::ChestEditor => "Chest Editor",
+                EditorType::LocalizationManager => "Localization Packager",
                 _ => "Tool",
             };
             app.state
                 .workspace
                 .open_tool(label.to_string(), editor_type);
+            // B3: auto-scan when opening Localization Manager with game path set and no entries loaded
+            if editor_type == EditorType::LocalizationManager
+                && app.state.localization_manager.entries.is_empty()
+                && !app.state.shared_game_path.is_empty()
+            {
+                return Task::done(crate::message::Message::localization(
+                    LocalizationMessage::Scan,
+                ));
+            }
             Task::none()
         }
     }
