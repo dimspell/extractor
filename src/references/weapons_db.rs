@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use dispel_macros::Localizable;
 use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
@@ -60,13 +61,15 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable)]
 pub struct WeaponItem {
     /// Internal record index (0-based) for the weapon/armor.
     pub id: i32,
     /// Fixed-size string (30 bytes) for item name.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
     pub name: String,
     /// Fixed-size string (202 bytes) for item description.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Shop value in gold.
     pub base_price: i16,
@@ -283,9 +286,9 @@ mod tests {
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 6]);   // 3 padding i16s
-        rec.extend(vec![0u8; 8]);   // hp, mp, str, agi
-        rec.extend(vec![0u8; 8]);   // wis, con, dodge, to_hit
+        rec.extend(vec![0u8; 6]); // 3 padding i16s
+        rec.extend(vec![0u8; 8]); // hp, mp, str, agi
+        rec.extend(vec![0u8; 8]); // wis, con, dodge, to_hit
         rec.extend_from_slice(&attack.to_le_bytes());
         rec.extend(vec![0u8; 26]); // defense, magical_str, durability, pads, reqs
         rec

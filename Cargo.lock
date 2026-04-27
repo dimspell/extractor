@@ -905,6 +905,8 @@ version = "0.1.0"
 dependencies = [
  "byteorder",
  "clap",
+ "csv",
+ "dispel-macros",
  "encoding_rs",
  "encoding_rs_io",
  "image 0.24.7",
@@ -941,6 +943,15 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "zip",
+]
+
+[[package]]
+name = "dispel-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

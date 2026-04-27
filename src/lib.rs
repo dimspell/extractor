@@ -4,6 +4,7 @@
 //! It's used by both the CLI extractor and the GUI editor.
 
 pub mod database;
+pub mod localization;
 pub mod map;
 pub mod references;
 pub mod snf;
@@ -43,4 +44,8 @@ pub use references::{
     store_db::Store,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,
+};
+pub use localization::{
+    export_csv, export_po, import_csv, import_po, truncate_to_fit, Localizable, TextEncoding,
+    TextEntry, TruncationStatus,
 };

@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::references::enums::ProductType;
 use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use dispel_macros::Localizable;
 
 // ===========================================================================
 // STORE.DB FILE FORMAT
@@ -64,11 +65,12 @@ use crate::references::extractor::{read_mapper, read_null_terminated_windows_125
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Localizable)]
 pub struct Store {
     /// Logical ordering of the store script.
     pub index: i32,
     /// 32-byte shopkeeper title.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 32)]
     pub store_name: String,
     /// Price to rest; dictates physical structure padding in save format.
     pub inn_night_cost: i32,
@@ -77,10 +79,13 @@ pub struct Store {
     /// Ordered list of distinct item parameters available for purchase.
     pub products: Vec<StoreProduct>,
     /// 512-byte text shown on interacting with the merchant.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 512)]
     pub invitation: String,
     /// 128-byte text shown on successful barter.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 128)]
     pub haggle_success: String,
     /// 128-byte text shown on rejected transaction.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 128)]
     pub haggle_fail: String,
 }
 
@@ -173,7 +178,6 @@ impl Extractor for Store {
     }
 
     fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-
         let elements = records.len() as i32;
         writer.write_i32::<LittleEndian>(elements)?;
 
@@ -274,7 +278,7 @@ mod tests {
         let mut rec = Vec::with_capacity(948);
         rec.extend(encode_str_w1250(name, 32));
         rec.extend_from_slice(&night_cost.to_le_bytes());
-        rec.extend(vec![0u8; 144]);                         // inn padding
+        rec.extend(vec![0u8; 144]); // inn padding
         rec.extend(encode_str_w1250("Welcome!", 512));
         rec.extend(encode_str_w1250("Sure!", 128));
         rec.extend(encode_str_w1250("No.", 128));

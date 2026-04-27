@@ -39,6 +39,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::Tileset(msg) => tileset::handle(msg, app),
         EditorMessage::Snf(msg) => snf_editor::handle(msg, app),
         EditorMessage::ModPackager(msg) => mod_packager::handle(msg, app),
+        EditorMessage::Localization(msg) => localization::handle(msg, app),
     }
 }
 
@@ -73,6 +74,7 @@ mod party_ini;
 mod party_level_db;
 mod party_ref;
 mod quest_scr;
+mod localization;
 mod mod_packager;
 mod snf_editor;
 mod sprite_browser;

@@ -44,6 +44,7 @@ pub enum EditorType {
     /// Visual map editor (file-based, opens .map files)
     MapEditor,
     ModPackager,
+    LocalizationManager,
     #[serde(other)]
     Unknown,
 }

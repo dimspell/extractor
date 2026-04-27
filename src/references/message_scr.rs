@@ -2,6 +2,7 @@ use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
+use dispel_macros::Localizable;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
@@ -46,15 +47,18 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Localizable)]
 pub struct Message {
     /// Mapping bound tracking referenced externally by `message_id` structs.
     pub id: i32,
     /// Initial rendered string row.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub line1: Option<String>,
     /// Second rendered string row.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub line2: Option<String>,
     /// Third rendered string row.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub line3: Option<String>,
 }
 

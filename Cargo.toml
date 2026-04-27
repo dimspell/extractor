@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "dispel-gui"]
+members = [".", "dispel-gui", "dispel-macros"]
 resolver = "2"
 
 [workspace.dependencies]
@@ -27,6 +27,8 @@ encoding_rs_io = "0.1.7"
 clap = { version = "4.4.10", features = ["derive"] }
 serde_json = { version = "1.0", features = [] }
 serde = { version = "1.0", features = ["derive"] }
+dispel-macros = { path = "dispel-macros" }
+csv = "1.3"
 
 [dependencies.rusqlite]
 version = "0.39.0"

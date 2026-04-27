@@ -30,6 +30,7 @@ pub mod extra_ini_editor;
 pub mod extra_ref_editor;
 pub mod heal_item_editor;
 pub mod history_panel;
+pub mod localization_manager;
 pub mod magic_editor;
 pub mod map_editor;
 pub mod map_ini_editor;
@@ -119,6 +120,9 @@ impl App {
                             Some(EditorType::MapEditor) => self.view_map_editor_tab(),
                             Some(EditorType::SnfEditor) => self.view_snf_editor_tab(),
                             Some(EditorType::ModPackager) => self.view_mod_packager_tab(),
+                            Some(EditorType::LocalizationManager) => {
+                                self.view_localization_manager_tab()
+                            }
                             Some(EditorType::Unknown) | None => {
                                 let placeholder_text = text("Select a file to edit")
                                     .size(16)
@@ -327,6 +331,7 @@ impl App {
             tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
             tool_btn("Mod Packager", EditorType::ModPackager),
+            tool_btn("Localization Packager", EditorType::LocalizationManager),
         ]
         .spacing(1);
 

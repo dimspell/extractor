@@ -29,6 +29,7 @@ use crate::state::snf_editor;
 use crate::state::sprite_viewer;
 use crate::state::store_editor;
 use crate::state::tileset_editor;
+use crate::state::localization_manager;
 use crate::state::mod_packager;
 use crate::state::wave_ini_editor;
 use crate::view::editor::SpreadsheetState;
@@ -92,6 +93,7 @@ pub struct AppState {
     pub tileset_editors: HashMap<usize, tileset_editor::TilesetEditorState>,
     pub snf_editors: HashMap<usize, snf_editor::SnfEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
+    pub localization_manager: localization_manager::LocalizationManagerState,
     pub lookups: HashMap<String, Vec<(String, String)>>,
     pub workspace: Workspace,
     pub global_search: GlobalSearch,
@@ -368,6 +370,7 @@ impl Default for AppState {
             tileset_editors: HashMap::new(),
             snf_editors: HashMap::new(),
             mod_packager_editor: mod_packager::ModPackagerState::default(),
+            localization_manager: localization_manager::LocalizationManagerState::default(),
             lookups: HashMap::new(),
             workspace: Workspace::new(),
             global_search: GlobalSearch::new(),

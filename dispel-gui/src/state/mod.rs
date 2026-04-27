@@ -1,4 +1,5 @@
 pub mod all_map_ini_editor;
+pub mod localization_manager;
 pub mod mod_packager;
 pub mod chdata_editor;
 pub mod chest_editor;

@@ -8,6 +8,7 @@ use std::{
 };
 
 use crate::references::extractor::Extractor;
+use dispel_macros::Localizable;
 
 // ===========================================================================
 // DIALOGUE TEXT FILE FORMAT
@@ -63,13 +64,15 @@ use crate::references::extractor::Extractor;
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Localizable)]
 pub struct DialogueParagraph {
     /// Translation line identity reference.
     pub id: i32,
     /// Actual text string projected into dialogue window UI.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 2048)]
     pub text: String,
     /// Developer trailing strings (`\;`) restored and preserved internally.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 2048)]
     pub comment: String,
     /// Internal tracking modifier block associated to dialog output.
     pub param1: i32,
@@ -228,7 +231,7 @@ mod tests {
         assert_eq!(paras[0].param1, 0);
         assert_eq!(paras[0].wave_ini_entry_id, 0);
         assert_eq!(paras[1].id, 2);
-        assert_eq!(paras[1].text, "");  // "null" replaced with ""
+        assert_eq!(paras[1].text, ""); // "null" replaced with ""
         assert_eq!(paras[1].param1, 5);
         assert_eq!(paras[1].wave_ini_entry_id, 3);
     }
