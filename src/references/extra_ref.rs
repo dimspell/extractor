@@ -5,14 +5,14 @@ use crate::references::enums::{
     VisibilityType,
 };
 use crate::references::extractor::Extractor;
-use dispel_macros::Extractor;
+use dispel_macros::{Extractor, Localizable};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
 ///
 /// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor, Localizable)]
 #[extractor(property_item_size = 184)]
 pub struct ExtraRef {
     /// Specific object generation ID for map tracking.
@@ -29,6 +29,7 @@ pub struct ExtraRef {
     pub ext_id: u8,
     /// 32-byte label identifier.
     #[extractor(string(encoding = "WINDOWS-1250", size = 32))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 32)]
     pub name: String,
     /// Object type (chest, door, sign, etc.).
     #[extractor(enum_from_u8(type = "ExtraObjectType"))]

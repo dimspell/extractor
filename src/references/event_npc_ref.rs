@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{Localizable, TextExtractor};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -45,7 +45,7 @@ use serde::{Deserialize, Serialize};
 /// Defines NPCs that appear only during specific scripted
 /// events. Used for quest-related characters, temporary
 /// merchants, and story-critical encounters.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, Localizable)]
 #[extractor(encoding = "WINDOWS_1250")]
 pub struct EventNpcRef {
     /// Linear structural tracker.
@@ -56,6 +56,7 @@ pub struct EventNpcRef {
     pub event_id: i32,
     /// Descriptive string of placeholder entity.
     #[extractor(field = 2)]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub name: String,
 }
 

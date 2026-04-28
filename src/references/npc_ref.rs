@@ -101,11 +101,11 @@ pub struct NPC {
     #[extractor(primitive(type = "i32"))]
     pub npc_id: i32,
     /// Fixed 30-byte display descriptor.
-    #[translatable(encoding = "WINDOWS_1250", max_bytes = 1024)]
+    #[translatable(encoding = "WINDOWS_1250", max_bytes = 260)]
     #[extractor(string(encoding = "WINDOWS-1250", size = 260))]
     pub name: String,
     /// Description of the NPC, usually a role of the NPC (e.g. "guard", "king").
-    #[translatable(encoding = "WINDOWS_1250", max_bytes = 1024)]
+    #[translatable(encoding = "WINDOWS_1250", max_bytes = 260)]
     #[extractor(string(encoding = "WINDOWS-1250", size = 260))]
     pub description: String,
     /// Reference script matching PartyRefs logic.

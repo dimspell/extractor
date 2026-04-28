@@ -4,8 +4,9 @@ use crate::message::editor::localization::LocalizationMessage;
 use crate::message::MessageExt;
 use dispel_core::localization::Localizable;
 use dispel_core::{
-    export_csv, export_po, import_csv, import_po, DialogueParagraph, Extractor, Message, Store,
-    TextEntry, WeaponItem,
+    export_csv, export_po, import_csv, import_po, DialogueParagraph, EditItem, EventItem,
+    EventNpcRef, ExtraRef, Extractor, HealItem, Message, MiscItem, PartyIniNpc, Store, TextEntry,
+    WeaponItem, NPC,
 };
 use iced::Task;
 use std::io::Write;
@@ -419,13 +420,74 @@ fn merge_session(entries: &mut Vec<TextEntry>, saved: &[SavedTranslation]) {
 
 // ─── Scan ─────────────────────────────────────────────────────────────────────
 
+fn scan_one<T: Extractor + Localizable>(
+    game_path: &Path,
+    rel: &str,
+    entries: &mut Vec<TextEntry>,
+) -> Result<(), String> {
+    let abs = game_path.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+    if !abs.exists() {
+        return Ok(());
+    }
+    let records = T::read_file(&abs).map_err(|e| e.to_string())?;
+    for (i, record) in records.iter().enumerate() {
+        entries.extend(record.extract_texts(i, rel));
+    }
+    Ok(())
+}
+
+const NPC_REF_FILES: &[&str] = &[
+    "NpcInGame/Npccat1.ref",
+    "NpcInGame/Npccat2.ref",
+    "NpcInGame/Npccat3.ref",
+    "NpcInGame/Npccatp.ref",
+    "NpcInGame/npcdun08.ref",
+    "NpcInGame/npcdun19.ref",
+    "NpcInGame/Npcmap1.ref",
+    "NpcInGame/Npcmap2.ref",
+    "NpcInGame/Npcmap3.ref",
+];
+
+const EXTRA_REF_FILES: &[&str] = &[
+    "ExtraInGame/Extcat3.ref",
+    "ExtraInGame/Extdun01.ref",
+    "ExtraInGame/Extdun02.ref",
+    "ExtraInGame/Extdun03.ref",
+    "ExtraInGame/Extdun04.ref",
+    "ExtraInGame/Extdun05.ref",
+    "ExtraInGame/Extdun06.ref",
+    "ExtraInGame/Extdun07.ref",
+    "ExtraInGame/Extdun08.ref",
+    "ExtraInGame/Extdun09.ref",
+    "ExtraInGame/Extdun10.ref",
+    "ExtraInGame/Extdun11.ref",
+    "ExtraInGame/Extdun12.ref",
+    "ExtraInGame/Extdun13.ref",
+    "ExtraInGame/Extdun14.ref",
+    "ExtraInGame/Extdun15.ref",
+    "ExtraInGame/Extdun16.ref",
+    "ExtraInGame/Extdun17.ref",
+    "ExtraInGame/Extdun18.ref",
+    "ExtraInGame/Extdun19.ref",
+    "ExtraInGame/Extdun20.ref",
+    "ExtraInGame/Extdun21.ref",
+    "ExtraInGame/Extdun22.ref",
+    "ExtraInGame/Extdun23.ref",
+    "ExtraInGame/Extdun24.ref",
+    "ExtraInGame/Extdun25.ref",
+    "ExtraInGame/Extfinal.ref",
+    "ExtraInGame/Extmap1.ref",
+    "ExtraInGame/Extmap2.ref",
+    "ExtraInGame/Extmap3.ref",
+];
+
 fn scan_all_entries(
     game_path: &Path,
     session_path: Option<&Path>,
 ) -> Result<Vec<TextEntry>, String> {
     let mut entries = Vec::new();
 
-    // Store.db
+    // Store.db — uses record.index as logical ID, not position
     let store_path = game_path.join("CharacterInGame").join("STORE.DB");
     if store_path.exists() {
         let records = Store::read_file(&store_path).map_err(|e| e.to_string())?;
@@ -434,22 +496,20 @@ fn scan_all_entries(
         }
     }
 
-    // weaponItem.db
-    let weapon_path = game_path.join("CharacterInGame").join("weaponItem.db");
-    if weapon_path.exists() {
-        let records = WeaponItem::read_file(&weapon_path).map_err(|e| e.to_string())?;
-        for (i, record) in records.iter().enumerate() {
-            entries.extend(record.extract_texts(i, "CharacterInGame/weaponItem.db"));
-        }
-    }
+    scan_one::<WeaponItem>(game_path, "CharacterInGame/weaponItem.db", &mut entries)?;
+    scan_one::<HealItem>(game_path, "CharacterInGame/HealItem.db", &mut entries)?;
+    scan_one::<EditItem>(game_path, "CharacterInGame/EditItem.db", &mut entries)?;
+    scan_one::<EventItem>(game_path, "CharacterInGame/EventItem.db", &mut entries)?;
+    scan_one::<MiscItem>(game_path, "CharacterInGame/MiscItem.db", &mut entries)?;
+    scan_one::<Message>(game_path, "ExtraInGame/Message.scr", &mut entries)?;
+    scan_one::<PartyIniNpc>(game_path, "NpcInGame/PrtIni.db", &mut entries)?;
+    scan_one::<EventNpcRef>(game_path, "NpcInGame/Eventnpc.ref", &mut entries)?;
 
-    // Message.scr
-    let msg_path = game_path.join("ExtraInGame").join("Message.scr");
-    if msg_path.exists() {
-        let records = Message::read_file(&msg_path).map_err(|e| e.to_string())?;
-        for (i, record) in records.iter().enumerate() {
-            entries.extend(record.extract_texts(i, "ExtraInGame/Message.scr"));
-        }
+    for rel in NPC_REF_FILES {
+        scan_one::<NPC>(game_path, rel, &mut entries)?;
+    }
+    for rel in EXTRA_REF_FILES {
+        scan_one::<ExtraRef>(game_path, rel, &mut entries)?;
     }
 
     // Dialogue paragraphs — scan all *.pgp files
@@ -624,8 +684,24 @@ fn apply_entries_to_file(
         Store::save_file(&records, abs_path).map_err(|e| e.to_string())
     } else if lower.ends_with("weaponitem.db") {
         apply_one::<WeaponItem>(abs_path, &by_record)
+    } else if lower.ends_with("healitem.db") {
+        apply_one::<HealItem>(abs_path, &by_record)
+    } else if lower.ends_with("edititem.db") {
+        apply_one::<EditItem>(abs_path, &by_record)
+    } else if lower.ends_with("eventitem.db") {
+        apply_one::<EventItem>(abs_path, &by_record)
+    } else if lower.ends_with("miscitem.db") {
+        apply_one::<MiscItem>(abs_path, &by_record)
     } else if lower.ends_with("message.scr") {
         apply_one::<Message>(abs_path, &by_record)
+    } else if lower.ends_with("prtini.db") {
+        apply_one::<PartyIniNpc>(abs_path, &by_record)
+    } else if lower.ends_with("eventnpc.ref") {
+        apply_one::<EventNpcRef>(abs_path, &by_record)
+    } else if lower.contains("npcingame/") && lower.ends_with(".ref") {
+        apply_one::<NPC>(abs_path, &by_record)
+    } else if lower.contains("extraingame/") && lower.ends_with(".ref") {
+        apply_one::<ExtraRef>(abs_path, &by_record)
     } else if lower.ends_with(".pgp") {
         apply_one::<DialogueParagraph>(abs_path, &by_record)
     } else {

@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::Extractor;
+use dispel_macros::{Extractor, Localizable};
 
 /// MiscItem.db - Miscellaneous Items
 ///
@@ -62,7 +62,7 @@ use dispel_macros::Extractor;
 /// Defines miscellaneous items with names, descriptions,
 /// and prices. Used for consumables, quest items,
 /// and generic inventory objects.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
 #[extractor(property_item_size = 256)]
 pub struct MiscItem {
     /// Numeric tracking index.
@@ -70,9 +70,11 @@ pub struct MiscItem {
     pub id: i32,
     /// Translated string asset ID for naming the object.
     #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
     pub name: String,
     /// Tooltip string explaining use.
     #[extractor(string(encoding = "EUC-KR", size = 202))]
+    #[translatable(encoding = "EUC-KR", max_bytes = 202)]
     pub description: String,
     /// Value retrieved when standard bartering.
     #[extractor(primitive(type = "i32"))]

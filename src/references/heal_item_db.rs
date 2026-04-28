@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::references::enums::HealItemFlag;
 use crate::references::extractor::Extractor;
-use dispel_macros::Extractor;
+use dispel_macros::{Extractor, Localizable};
 
 /// HealItem.db - Consumable Healing Items
 ///
@@ -75,7 +75,7 @@ use dispel_macros::Extractor;
 /// Defines consumable healing items with restoration
 /// amounts and cure capabilities. Used for potions,
 /// scrolls, and other consumable healing items.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
 #[extractor(property_item_size = 252)]
 pub struct HealItem {
     /// Record index mapping internally.
@@ -86,6 +86,7 @@ pub struct HealItem {
     pub name: String,
     /// Descriptive utility tooltip.
     #[extractor(string(encoding = "EUC-KR", size = 202))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Standardized merchant valuation.
     #[extractor(primitive(type = "i16"))]

@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::references::enums::{EditItemEffect, EditItemModification};
 use crate::references::extractor::Extractor;
 use dispel_macros::Extractor;
+use dispel_macros::Localizable;
 
 /// EditItem.db - Modifiable Base Items
 ///
@@ -78,7 +79,7 @@ use dispel_macros::Extractor;
 /// Defines modifiable base items with stat modifications for
 /// character equipment. Used for item crafting and stat
 /// enhancement systems.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
 #[extractor(property_item_size = 268)]
 pub struct EditItem {
     /// Iteration tracking for editor modifications.
@@ -86,9 +87,11 @@ pub struct EditItem {
     pub index: i32,
     /// Asset identifier string.
     #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
     pub name: String,
     /// Standard inventory tool-tip.
     #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Economic valuation offset.
     #[extractor(primitive(type = "i16"))]
