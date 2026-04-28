@@ -1,51 +1,41 @@
-// DialogueText editor handlers
-
-use crate::app::App;
-use crate::handle_spreadsheet_messages_tab;
-use crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage;
-use crate::message::MessageExt;
-use dispel_core::DialogueParagraph;
+use dispel_core::{DialogueParagraph, Extractor};
 use iced::Task;
 
+use super::tab;
+use crate::app::App;
+use crate::handle_spreadsheet_messages_tab;
+use crate::loading_state::LoadingState;
+use crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage;
+use crate::message::MessageExt;
+
 pub fn handle(
-    message: DialogueParagraphEditorMessage,
+    msg: DialogueParagraphEditorMessage,
     app: &mut App,
 ) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = tab::get_tab_id(&app.state.workspace);
 
-    match message {
+    match msg {
         DialogueParagraphEditorMessage::ScanCatalog => {
             if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
-                let path = editor.current_file.clone();
-                let tab_for_response = tab_id;
-                return Task::perform(
-                    async move {
-                        let path = std::path::PathBuf::from(path);
-                        let texts: std::io::Result<Vec<DialogueParagraph>> =
-                            <DialogueParagraph as dispel_core::references::extractor::Extractor>::read_file(
-                                &path,
-                            );
-                        texts.map_err(|e| e.to_string())
-                    },
-                    move |res: Result<Vec<DialogueParagraph>, String>| {
-                        <crate::message::Message as crate::message::MessageExt>::dialogue_paragraph(
-                            DialogueParagraphEditorMessage::CatalogLoaded(tab_for_response, res),
-                        )
-                    },
-                );
+                if let Some(path) = editor.current_file.clone() {
+                    editor.editor.loading_state = LoadingState::Loading;
+                    return Task::perform(
+                        async move {
+                            DialogueParagraph::read_file(&path).map_err(|e| e.to_string())
+                        },
+                        move |result| {
+                            crate::message::Message::dialogue_paragraph(
+                                DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
+                            )
+                        },
+                    );
+                }
             }
             Task::none()
         }
-        DialogueParagraphEditorMessage::CatalogLoaded(_id, result) => {
-            if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                let _ = _id;
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loaded(());
+        DialogueParagraphEditorMessage::CatalogLoaded(id, result) => {
+            if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&id) {
+                editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
                         editor.editor.status_msg =
@@ -53,11 +43,13 @@ pub fn handle(
                         editor.editor.catalog = Some(catalog);
                         editor.editor.refresh();
                         if let Some(spreadsheet) =
-                            app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id)
+                            app.state.dialogue_paragraph_spreadsheets.get_mut(&id)
                         {
                             spreadsheet.active = true;
-                            spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
-                            spreadsheet.compute_all_caches(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet
+                                .init_filter(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet
+                                .compute_all_caches(editor.editor.catalog.as_ref().unwrap());
                             spreadsheet.init_pane_state();
                         }
                     }
@@ -69,29 +61,21 @@ pub fn handle(
             Task::none()
         }
         DialogueParagraphEditorMessage::Select(index) => {
-            if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                editor.select(index);
-            }
-            Task::none()
+            tab::select(&mut app.state.dialogue_paragraphs_editors, tab_id, index)
         }
-        DialogueParagraphEditorMessage::FieldChanged(index, field, value) => {
-            if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                editor.update_field(index, &field, value);
-            }
-            Task::none()
-        }
-        DialogueParagraphEditorMessage::Save => {
-            if let Some(editor) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
-                let result = editor.save();
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loaded(());
-                match result {
-                    Ok(_) => editor.editor.status_msg = "Texts saved successfully.".into(),
-                    Err(e) => editor.editor.status_msg = format!("Error saving texts: {}", e),
-                }
-            }
-            Task::none()
-        }
+        DialogueParagraphEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
+            &mut app.state.dialogue_paragraphs_editors,
+            tab_id,
+            index,
+            field,
+            value,
+        ),
+        DialogueParagraphEditorMessage::Save => tab::save(
+            &mut app.state.dialogue_paragraphs_editors,
+            tab_id,
+            "Texts saved successfully.",
+            "Error saving texts",
+        ),
         DialogueParagraphEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages_tab!(
                 app,
@@ -105,24 +89,14 @@ pub fn handle(
             );
             Task::none()
         }
-        DialogueParagraphEditorMessage::PaneResized(event) => {
-            if let Some(ed) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                if let Some(ref mut ps) = ed.editor.pane_state {
-                    ps.resize(event.split, event.ratio);
-                }
-            }
-            if let Some(ss) = app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id) {
-                if let Some(ref mut ps) = ss.pane_state {
-                    ps.resize(event.split, event.ratio);
-                }
-            }
-            Task::none()
-        }
+        DialogueParagraphEditorMessage::PaneResized(event) => tab::pane_resized(
+            &mut app.state.dialogue_paragraphs_editors,
+            &mut app.state.dialogue_paragraph_spreadsheets,
+            tab_id,
+            event,
+        ),
         DialogueParagraphEditorMessage::PaneClicked(pane) => {
-            if let Some(ed) = app.state.dialogue_paragraphs_editors.get_mut(&tab_id) {
-                ed.editor.pane_focus = Some(pane);
-            }
-            Task::none()
+            tab::pane_clicked(&mut app.state.dialogue_paragraphs_editors, tab_id, pane)
         }
     }
 }

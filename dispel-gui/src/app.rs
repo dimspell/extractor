@@ -622,26 +622,25 @@ impl App {
                     if let Some(tab_idx) = self.state.workspace.active_tab {
                         if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
                             let tab_id = tab.id;
-                            let path_str = path.to_string_lossy().to_string();
-                            let mut editor_state = crate::state::dialogue_script_editor::DialogueScriptEditorState::default();
-                            editor_state.current_file = path_str;
+                            let path_buf = path.to_path_buf();
+                            let editor_state = crate::generic_editor::MultiFileEditorState {
+                                current_file: Some(path_buf.clone()),
+                                ..Default::default()
+                            };
                             self.state
                                 .dialogue_script_editors
                                 .insert(tab_id, editor_state);
                             self.state
                                 .dialogue_script_spreadsheets
                                 .insert(tab_id, Default::default());
-                            let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
                                     dispel_core::DialogueScript::read_file(&path_buf)
                                         .map_err(|e: std::io::Error| e.to_string())
                                 },
                                 move |result| {
-                                    crate::message::Message::Editor(
-                                        crate::message::editor::EditorMessage::DialogueScript(
-                                            crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
-                                        ),
+                                    crate::message::Message::dialogue_script(
+                                        crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
                                     )
                                 },
                             );
@@ -652,29 +651,25 @@ impl App {
                     if let Some(tab_idx) = self.state.workspace.active_tab {
                         if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
                             let tab_id = tab.id;
-                            let path_str = path.to_string_lossy().to_string();
-                            let editor_state =
-                                crate::state::dialogue_paragraph_editor::DialogueParagraphEditorState {
-                                    editor: crate::generic_editor::GenericEditorState::default(),
-                                    current_file: path_str,
-                                };
+                            let path_buf = path.to_path_buf();
+                            let editor_state = crate::generic_editor::MultiFileEditorState {
+                                current_file: Some(path_buf.clone()),
+                                ..Default::default()
+                            };
                             self.state
                                 .dialogue_paragraphs_editors
                                 .insert(tab_id, editor_state);
                             self.state
                                 .dialogue_paragraph_spreadsheets
                                 .insert(tab_id, Default::default());
-                            let path_buf = path.to_path_buf();
                             return Task::perform(
                                 async move {
                                     dispel_core::DialogueParagraph::read_file(&path_buf)
                                         .map_err(|e: std::io::Error| e.to_string())
                                 },
                                 move |result| {
-                                    crate::message::Message::Editor(
-                                        crate::message::editor::EditorMessage::DialogueParagraph(
-                                            crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
-                                        ),
+                                    crate::message::Message::dialogue_paragraph(
+                                        crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
                                     )
                                 },
                             );

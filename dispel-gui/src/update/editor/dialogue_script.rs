@@ -1,49 +1,41 @@
-// DialogueScript editor handlers
-
-use crate::app::App;
-use crate::handle_spreadsheet_messages_tab;
-use crate::message::editor::dialogue_script::DialogueScriptEditorMessage;
-use crate::message::MessageExt;
-use dispel_core::DialogueScript;
+use dispel_core::{DialogueScript, Extractor};
 use iced::Task;
 
+use super::tab;
+use crate::app::App;
+use crate::handle_spreadsheet_messages_tab;
+use crate::loading_state::LoadingState;
+use crate::message::editor::dialogue_script::DialogueScriptEditorMessage;
+use crate::message::MessageExt;
+
 pub fn handle(
-    message: DialogueScriptEditorMessage,
+    msg: DialogueScriptEditorMessage,
     app: &mut App,
 ) -> Task<crate::message::Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
+    let tab_id = tab::get_tab_id(&app.state.workspace);
 
-    match message {
+    match msg {
         DialogueScriptEditorMessage::LoadCatalog => {
             if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
-                let path = editor.current_file.clone();
-                return Task::perform(
-                    async move {
-                        let path = std::path::PathBuf::from(path);
-                        let scripts: std::io::Result<Vec<DialogueScript>> =
-                            <DialogueScript as dispel_core::references::extractor::Extractor>::read_file(
-                                &path,
-                            );
-                        scripts.map_err(|e| e.to_string())
-                    },
-                    |res: Result<Vec<DialogueScript>, String>| {
-                        <crate::message::Message as crate::message::MessageExt>::dialogue_script(
-                            DialogueScriptEditorMessage::CatalogLoaded(res),
-                        )
-                    },
-                );
+                if let Some(path) = editor.current_file.clone() {
+                    editor.editor.loading_state = LoadingState::Loading;
+                    return Task::perform(
+                        async move {
+                            DialogueScript::read_file(&path).map_err(|e| e.to_string())
+                        },
+                        |result| {
+                            crate::message::Message::dialogue_script(
+                                DialogueScriptEditorMessage::CatalogLoaded(result),
+                            )
+                        },
+                    );
+                }
             }
             Task::none()
         }
         DialogueScriptEditorMessage::CatalogLoaded(result) => {
             if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loaded(());
+                editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
                         editor.editor.status_msg =
@@ -54,8 +46,10 @@ pub fn handle(
                             app.state.dialogue_script_spreadsheets.get_mut(&tab_id)
                         {
                             spreadsheet.active = true;
-                            spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
-                            spreadsheet.compute_all_caches(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet
+                                .init_filter(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet
+                                .compute_all_caches(editor.editor.catalog.as_ref().unwrap());
                             spreadsheet.init_pane_state();
                         }
                     }
@@ -68,33 +62,21 @@ pub fn handle(
             Task::none()
         }
         DialogueScriptEditorMessage::Select(index) => {
-            if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                editor.select_dialog(index);
-            }
-            Task::none()
+            tab::select(&mut app.state.dialogue_script_editors, tab_id, index)
         }
-        DialogueScriptEditorMessage::FieldChanged(index, field, value) => {
-            if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                editor.update_field(index, &field, value);
-            }
-            Task::none()
-        }
-        DialogueScriptEditorMessage::Save => {
-            if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loading;
-                let result = editor.save();
-                editor.editor.loading_state = crate::loading_state::LoadingState::Loaded(());
-                match result {
-                    Ok(_) => {
-                        editor.editor.status_msg = "DialogueScripts saved successfully.".into()
-                    }
-                    Err(e) => {
-                        editor.editor.status_msg = format!("Error saving dialogue scripts: {}", e)
-                    }
-                }
-            }
-            Task::none()
-        }
+        DialogueScriptEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
+            &mut app.state.dialogue_script_editors,
+            tab_id,
+            index,
+            field,
+            value,
+        ),
+        DialogueScriptEditorMessage::Save => tab::save(
+            &mut app.state.dialogue_script_editors,
+            tab_id,
+            "DialogueScripts saved successfully.",
+            "Error saving dialogue scripts",
+        ),
         DialogueScriptEditorMessage::Saved(_) => Task::none(),
         DialogueScriptEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages_tab!(
@@ -109,24 +91,14 @@ pub fn handle(
             );
             Task::none()
         }
-        DialogueScriptEditorMessage::PaneResized(event) => {
-            if let Some(ed) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                if let Some(ref mut ps) = ed.editor.pane_state {
-                    ps.resize(event.split, event.ratio);
-                }
-            }
-            if let Some(ss) = app.state.dialogue_script_spreadsheets.get_mut(&tab_id) {
-                if let Some(ref mut ps) = ss.pane_state {
-                    ps.resize(event.split, event.ratio);
-                }
-            }
-            Task::none()
-        }
+        DialogueScriptEditorMessage::PaneResized(event) => tab::pane_resized(
+            &mut app.state.dialogue_script_editors,
+            &mut app.state.dialogue_script_spreadsheets,
+            tab_id,
+            event,
+        ),
         DialogueScriptEditorMessage::PaneClicked(pane) => {
-            if let Some(ed) = app.state.dialogue_script_editors.get_mut(&tab_id) {
-                ed.editor.pane_focus = Some(pane);
-            }
-            Task::none()
+            tab::pane_clicked(&mut app.state.dialogue_script_editors, tab_id, pane)
         }
     }
 }

@@ -81,7 +81,8 @@ pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<crate::message::M
         }
         NpcRefEditorMessage::NpcNamesLoaded(result) => {
             if let Ok(names) = result {
-                if let Some(_editor) = app.state.npc_ref_editors.get_mut(&tab_id) {
+                // Only store the lookup if the tab is still open; discard stale async results.
+                if app.state.npc_ref_editors.contains_key(&tab_id) {
                     app.state.lookups.insert("NPC".to_string(), names);
                 }
             }
