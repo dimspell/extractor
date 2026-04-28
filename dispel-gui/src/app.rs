@@ -94,84 +94,8 @@ impl App {
         // Also start file indexation for cache
         let indexation_task = state.start_file_indexation_if_needed();
 
-        // Trigger initial load for restored active tab if it exists
-        let restore_tab_load_task = if let Some(active_tab) = state.workspace.active() {
-            // Generate load task based on editor type
-            match active_tab.editor_type {
-                EditorType::WeaponEditor => Some(Task::done(Message::weapon(
-                    crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
-                ))),
-                EditorType::HealItemEditor => Some(Task::done(Message::heal_item(
-                    crate::message::editor::heal_item::HealItemEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MiscItemEditor => Some(Task::done(Message::misc_item(
-                    crate::message::editor::misc_item::MiscItemEditorMessage::LoadCatalog,
-                ))),
-                EditorType::EditItemEditor => Some(Task::done(Message::edit_item(
-                    crate::message::editor::edit_item::EditItemEditorMessage::LoadCatalog,
-                ))),
-                EditorType::EventItemEditor => Some(Task::done(Message::event_item(
-                    crate::message::editor::event_item::EventItemEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MonsterEditor => Some(Task::done(Message::monster_db(
-                    crate::message::editor::monster_db::MonsterEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MonsterIniEditor => Some(Task::done(Message::monster_ini(
-                    crate::message::editor::monster_ini::MonsterIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::NpcIniEditor => Some(Task::done(Message::npc_ini(
-                    crate::message::editor::npc_ini::NpcIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MagicEditor => Some(Task::done(Message::magic(
-                    crate::message::editor::magic::MagicEditorMessage::LoadCatalog,
-                ))),
-                EditorType::StoreEditor => Some(Task::done(Message::store(
-                    crate::message::editor::store::StoreEditorMessage::LoadCatalog,
-                ))),
-                EditorType::PartyRefEditor => Some(Task::done(Message::party_ref(
-                    crate::message::editor::party_ref::PartyRefEditorMessage::LoadCatalog,
-                ))),
-                EditorType::PartyIniEditor => Some(Task::done(Message::party_ini(
-                    crate::message::editor::party_ini::PartyIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::AllMapIniEditor => Some(Task::done(Message::all_map_ini(
-                    crate::message::editor::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MapIniEditor => Some(Task::done(Message::map_ini(
-                    crate::message::editor::map_ini::MapIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::ExtraIniEditor => Some(Task::done(Message::extra_ini(
-                    crate::message::editor::extra_ini::ExtraIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::EventIniEditor => Some(Task::done(Message::event_ini(
-                    crate::message::editor::event_ini::EventIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::WaveIniEditor => Some(Task::done(Message::wave_ini(
-                    crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
-                ))),
-                EditorType::DrawItemEditor => Some(Task::done(Message::draw_item(
-                    crate::message::editor::draw_item::DrawItemEditorMessage::LoadCatalog,
-                ))),
-                EditorType::EventNpcRefEditor => Some(Task::done(Message::event_npc_ref(
-                    crate::message::editor::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog,
-                ))),
-                EditorType::QuestScrEditor => Some(Task::done(Message::quest_scr(
-                    crate::message::editor::quest_scr::QuestScrEditorMessage::LoadCatalog,
-                ))),
-                EditorType::MessageScrEditor => Some(Task::done(Message::message_scr(
-                    crate::message::editor::message_scr::MessageScrEditorMessage::LoadCatalog,
-                ))),
-                EditorType::PartyLevelDbEditor => Some(Task::done(Message::party_level_db(
-                    crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
-                ))),
-                EditorType::ChDataEditor => Some(Task::done(Message::ch_data(
-                    crate::message::editor::chdata::ChDataEditorMessage::LoadCatalog,
-                ))),
-                _ => None,
-            }
-        } else {
-            None
-        };
+        let restore_tab_load_task = state.workspace.active()
+            .and_then(|tab| load_catalog_task(tab.editor_type));
 
         // Combine tasks if they exist
         let final_init_task = match (init_task, indexation_task, restore_tab_load_task) {
@@ -554,267 +478,122 @@ impl App {
             .unwrap_or_default();
 
         self.state.workspace.open(label, Some(path.to_path_buf()));
-
-        // Track recent file (add to beginning of list)
         self.track_recent_file(path);
-
         self.save_workspace();
 
-        // Auto-load the file based on extension
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            let stem = path
-                .file_stem()
-                .map(|s| s.to_string_lossy().to_lowercase())
-                .unwrap_or_default();
-            match ext {
-                "db" => match stem.as_str() {
-                    "weaponitem" => return self.load_editor_auto("weapons"),
-                    "monster" => return self.load_editor_auto("monster_db"),
-                    "healitem" => return self.load_editor_auto("heal_items"),
-                    "miscitem" => return self.load_editor_auto("misc_items"),
-                    "edititem" => return self.load_editor_auto("edit_items"),
-                    "eventitem" => return self.load_editor_auto("event_items"),
-                    "store" => return self.load_editor_auto("stores"),
-                    "magic" => return self.load_editor_auto("magic"),
-                    "chdata" => return self.load_editor_auto("chdata"),
-                    "prtlevel" => return self.load_editor_auto("party_levels"),
-                    "prtini" => return self.load_editor_auto("party_ini"),
-                    _ => {}
-                },
-                "ini" => match stem.as_str() {
-                    "allmap" => return self.load_editor_auto("all_maps"),
-                    "map" => return self.load_editor_auto("map_ini"),
-                    "extra" => return self.load_editor_auto("extra_ini"),
-                    "event" => return self.load_editor_auto("event_ini"),
-                    "monster" => return self.load_editor_auto("monster_ini"),
-                    "npc" => return self.load_editor_auto("npc_ini"),
-                    "wave" => return self.load_editor_auto("wave_ini"),
-                    _ => {}
-                },
-                "ref" => {
-                    match stem.as_str() {
-                        "partyref" => return self.load_editor_auto("party_ref"),
-                        "drawitem" => return self.load_editor_auto("draw_items"),
-                        "eventnpc" => return self.load_editor_auto("event_npc_ref"),
-                        _ => {
-                            if stem.starts_with("npc") {
-                                return Task::done(crate::message::Message::npc_ref(
-                                crate::message::editor::npc_ref::NpcRefEditorMessage::LoadCatalog(path.to_path_buf()),
-                            ));
-                            } else if stem.starts_with("mon") {
-                                return Task::done(crate::message::Message::monster_ref(
-                                crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadCatalog(path.to_path_buf()),
-                            ));
-                            } else if stem.starts_with("ext") {
-                                return Task::done(crate::message::Message::extra_ref(
-                                crate::message::editor::extra_ref::ExtraRefEditorMessage::LoadCatalog(path.to_path_buf()),
-                            ));
-                            }
-                        }
-                    }
-                }
-                "scr" => match stem.as_str() {
-                    "quest" => return self.load_editor_auto("quests"),
-                    "message" => return self.load_editor_auto("messages"),
-                    _ => {}
-                },
-                "dlg" => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            let path_buf = path.to_path_buf();
-                            let editor_state = crate::generic_editor::MultiFileEditorState {
-                                current_file: Some(path_buf.clone()),
-                                ..Default::default()
-                            };
-                            self.state
-                                .dialogue_script_editors
-                                .insert(tab_id, editor_state);
-                            self.state
-                                .dialogue_script_spreadsheets
-                                .insert(tab_id, Default::default());
-                            return Task::perform(
-                                async move {
-                                    dispel_core::DialogueScript::read_file(&path_buf)
-                                        .map_err(|e: std::io::Error| e.to_string())
-                                },
-                                move |result| {
-                                    crate::message::Message::dialogue_script(
-                                        crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
-                                    )
-                                },
-                            );
-                        }
-                    }
-                }
-                "pgp" => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            let path_buf = path.to_path_buf();
-                            let editor_state = crate::generic_editor::MultiFileEditorState {
-                                current_file: Some(path_buf.clone()),
-                                ..Default::default()
-                            };
-                            self.state
-                                .dialogue_paragraphs_editors
-                                .insert(tab_id, editor_state);
-                            self.state
-                                .dialogue_paragraph_spreadsheets
-                                .insert(tab_id, Default::default());
-                            return Task::perform(
-                                async move {
-                                    dispel_core::DialogueParagraph::read_file(&path_buf)
-                                        .map_err(|e: std::io::Error| e.to_string())
-                                },
-                                move |result| {
-                                    crate::message::Message::dialogue_paragraph(
-                                        crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
-                                    )
-                                },
-                            );
-                        }
-                    }
-                }
-                ext if ext.eq_ignore_ascii_case("btl") || ext.eq_ignore_ascii_case("gtl") => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            self.state.tileset_editors.entry(tab_id).or_insert_with(|| {
-                                crate::state::tileset_editor::TilesetEditorState::load(path)
-                            });
-                        }
-                    }
-                }
-                ext if ext.eq_ignore_ascii_case("spr") => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            self.state.sprite_viewers.entry(tab_id).or_insert_with(|| {
-                                crate::state::sprite_viewer::SpriteViewerState::load_from_path(path)
-                            });
-                        }
-                    }
-                }
-                ext if ext.eq_ignore_ascii_case("snf") => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            self.state.snf_editors.entry(tab_id).or_insert_with(|| {
-                                crate::state::snf_editor::SnfEditorState::load_from_path(path)
-                            });
-                        }
-                    }
-                }
-                ext if ext.eq_ignore_ascii_case("map") => {
-                    if let Some(tab_idx) = self.state.workspace.active_tab {
-                        if let Some(tab) = self.state.workspace.tabs.get(tab_idx) {
-                            let tab_id = tab.id;
-                            let path_buf = path.to_path_buf();
-                            return Task::done(Message::map_editor(
-                                crate::message::editor::map_editor::MapEditorMessage::Open(
-                                    tab_id, path_buf,
-                                ),
-                            ));
-                        }
-                    }
-                }
-                _ => {}
+        match EditorType::from_path(path) {
+            EditorType::DialogueScriptEditor => {
+                let Some(tab_id) = self.active_tab_id() else {
+                    return Task::none();
+                };
+                let path_buf = path.to_path_buf();
+                self.state.dialogue_script_editors.insert(
+                    tab_id,
+                    crate::generic_editor::MultiFileEditorState {
+                        current_file: Some(path_buf.clone()),
+                        ..Default::default()
+                    },
+                );
+                self.state
+                    .dialogue_script_spreadsheets
+                    .insert(tab_id, Default::default());
+                Task::perform(
+                    async move {
+                        dispel_core::DialogueScript::read_file(&path_buf)
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    move |result| {
+                        crate::message::Message::dialogue_script(
+                            crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
+                        )
+                    },
+                )
             }
+            EditorType::DialogueTextEditor => {
+                let Some(tab_id) = self.active_tab_id() else {
+                    return Task::none();
+                };
+                let path_buf = path.to_path_buf();
+                self.state.dialogue_paragraphs_editors.insert(
+                    tab_id,
+                    crate::generic_editor::MultiFileEditorState {
+                        current_file: Some(path_buf.clone()),
+                        ..Default::default()
+                    },
+                );
+                self.state
+                    .dialogue_paragraph_spreadsheets
+                    .insert(tab_id, Default::default());
+                Task::perform(
+                    async move {
+                        dispel_core::DialogueParagraph::read_file(&path_buf)
+                            .map_err(|e: std::io::Error| e.to_string())
+                    },
+                    move |result| {
+                        crate::message::Message::dialogue_paragraph(
+                            crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
+                        )
+                    },
+                )
+            }
+            EditorType::NpcRefEditor => Task::done(Message::npc_ref(
+                crate::message::editor::npc_ref::NpcRefEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
+            EditorType::MonsterRefEditor => Task::done(Message::monster_ref(
+                crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
+            EditorType::ExtraRefEditor => Task::done(Message::extra_ref(
+                crate::message::editor::extra_ref::ExtraRefEditorMessage::LoadCatalog(
+                    path.to_path_buf(),
+                ),
+            )),
+            EditorType::TilesetEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state.tileset_editors.entry(tab_id).or_insert_with(|| {
+                        crate::state::tileset_editor::TilesetEditorState::load(path)
+                    });
+                }
+                Task::none()
+            }
+            EditorType::SpriteViewer => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state.sprite_viewers.entry(tab_id).or_insert_with(|| {
+                        crate::state::sprite_viewer::SpriteViewerState::load_from_path(path)
+                    });
+                }
+                Task::none()
+            }
+            EditorType::SnfEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state.snf_editors.entry(tab_id).or_insert_with(|| {
+                        crate::state::snf_editor::SnfEditorState::load_from_path(path)
+                    });
+                }
+                Task::none()
+            }
+            EditorType::MapEditor => {
+                let Some(tab_id) = self.active_tab_id() else {
+                    return Task::none();
+                };
+                Task::done(Message::map_editor(
+                    crate::message::editor::map_editor::MapEditorMessage::Open(
+                        tab_id,
+                        path.to_path_buf(),
+                    ),
+                ))
+            }
+            et => load_catalog_task(et).unwrap_or(Task::none()),
         }
-
-        Task::none()
     }
 
-    /// Dispatch the appropriate scan/load message for a file opened from the file tree.
-    pub fn load_editor_auto(&self, type_name: &str) -> Task<Message> {
-        use crate::message::MessageExt;
-        match type_name {
-            "weapons" => Task::done(Message::weapon(
-                crate::message::editor::weapon::WeaponEditorMessage::LoadCatalog,
-            )),
-            "monster_db" => Task::done(Message::monster_db(
-                crate::message::editor::monster_db::MonsterEditorMessage::LoadCatalog,
-            )),
-            "heal_items" => Task::done(Message::heal_item(
-                crate::message::editor::heal_item::HealItemEditorMessage::LoadCatalog,
-            )),
-            "misc_items" => Task::done(Message::misc_item(
-                crate::message::editor::misc_item::MiscItemEditorMessage::LoadCatalog,
-            )),
-            "edit_items" => Task::done(Message::edit_item(
-                crate::message::editor::edit_item::EditItemEditorMessage::LoadCatalog,
-            )),
-            "event_items" => Task::done(Message::event_item(
-                crate::message::editor::event_item::EventItemEditorMessage::LoadCatalog,
-            )),
-            "stores" => Task::done(Message::store(
-                crate::message::editor::store::StoreEditorMessage::LoadCatalog,
-            )),
-            "magic" => Task::done(Message::magic(
-                crate::message::editor::magic::MagicEditorMessage::LoadCatalog,
-            )),
-            "chdata" => Task::done(Message::ch_data(
-                crate::message::editor::chdata::ChDataEditorMessage::LoadCatalog,
-            )),
-            "party_levels" => Task::done(Message::party_level_db(
-                crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
-            )),
-            "party_ini" => Task::done(Message::party_ini(
-                crate::message::editor::party_ini::PartyIniEditorMessage::LoadCatalog,
-            )),
-            "all_maps" => Task::done(Message::all_map_ini(
-                crate::message::editor::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
-            )),
-            "map_ini" => Task::done(Message::map_ini(
-                crate::message::editor::map_ini::MapIniEditorMessage::LoadCatalog,
-            )),
-            "extra_ini" => Task::done(Message::extra_ini(
-                crate::message::editor::extra_ini::ExtraIniEditorMessage::LoadCatalog,
-            )),
-            "event_ini" => Task::done(Message::event_ini(
-                crate::message::editor::event_ini::EventIniEditorMessage::LoadCatalog,
-            )),
-            "monster_ini" => Task::done(Message::monster_ini(
-                crate::message::editor::monster_ini::MonsterIniEditorMessage::LoadCatalog,
-            )),
-            "npc_ini" => Task::done(Message::npc_ini(
-                crate::message::editor::npc_ini::NpcIniEditorMessage::LoadCatalog,
-            )),
-            "wave_ini" => Task::done(Message::wave_ini(
-                crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
-            )),
-            "quests" => Task::done(Message::quest_scr(
-                crate::message::editor::quest_scr::QuestScrEditorMessage::LoadCatalog,
-            )),
-            "messages" => Task::done(Message::message_scr(
-                crate::message::editor::message_scr::MessageScrEditorMessage::LoadCatalog,
-            )),
-            "party_ref" => Task::done(Message::party_ref(
-                crate::message::editor::party_ref::PartyRefEditorMessage::LoadCatalog,
-            )),
-            "draw_items" => Task::done(Message::draw_item(
-                crate::message::editor::draw_item::DrawItemEditorMessage::LoadCatalog,
-            )),
-            "event_npc_ref" => Task::done(Message::event_npc_ref(
-                crate::message::editor::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog,
-            )),
-            _ => Task::none(),
-        }
+    fn active_tab_id(&self) -> Option<usize> {
+        let idx = self.state.workspace.active_tab?;
+        self.state.workspace.tabs.get(idx).map(|t| t.id)
     }
-
-    // fn load_single_file<R: Extractor + 'static>(&mut self, editor: &mut GenericEditorState<R>, path: &Path) {
-    //     use dispel_core::Extractor;
-    //     match R::read_file(path) {
-    //         Ok(catalog) => {
-    //             editor.catalog = Some(catalog);
-    //             editor.refresh();
-    //         }
-    //         Err(e) => {
-    //             editor.status_msg = format!("Error loading {}: {}", path.display(), e);
-    //         }
-    //     }
-    // }
 
     pub fn refresh_chests(&mut self) {
         let editor = &mut self.state.chest_editor;
@@ -907,190 +686,50 @@ impl App {
     }
 }
 
-/// Determine which editor key should be used for a given file path.
-/// This function extracts the extension and stem (lowercase filename without extension)
-/// and returns the editor key that should be opened.
-///
-/// Returns Some(editor_key) if a known editor should open the file,
-/// or None if the file type is not recognized.
-pub fn get_editor_key_for_file(path: &Path) -> Option<&'static str> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase());
-    let ext_str = ext.as_deref()?;
-    let stem = path
-        .file_stem()
-        .map(|s| s.to_string_lossy().to_lowercase())
-        .unwrap_or_default();
+/// Return a `LoadCatalog` task for editors that load from the configured game
+/// path.  Returns `None` for editors that are opened by explicit file path
+/// (dialogue, tileset, map, ref files) or that have no load-on-start behaviour.
+fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
+    use crate::message::editor::standard::StandardEditorMessage;
+    use crate::message::MessageExt;
 
-    match ext_str {
-        "db" => match stem.as_str() {
-            "weaponitem" => Some("weapons"),
-            "monster" => Some("monster_db"),
-            "healitem" => Some("heal_items"),
-            "miscitem" => Some("misc_items"),
-            "edititem" => Some("edit_items"),
-            "eventitem" => Some("event_items"),
-            "store" => Some("stores"),
-            "magic" => Some("magic"),
-            "chdata" => Some("chdata"),
-            "prtlevel" => Some("party_levels"),
-            "prtini" => Some("party_ini"),
-            _ => None,
-        },
-        "ini" => match stem.as_str() {
-            "allmap" => Some("all_maps"),
-            "map" => Some("map_ini"),
-            "extra" => Some("extra_ini"),
-            "event" => Some("event_ini"),
-            "monster" => Some("monster_ini"),
-            "npc" => Some("npc_ini"),
-            "wave" => Some("wave_ini"),
-            _ => None,
-        },
-        "scr" => match stem.as_str() {
-            "quest" => Some("quests"),
-            "message" => Some("messages"),
-            _ => None,
-        },
+    macro_rules! load {
+        ($wrap:expr) => {
+            Some(Task::done($wrap(StandardEditorMessage::LoadCatalog)))
+        };
+    }
+
+    match et {
+        EditorType::WeaponEditor => load!(Message::weapon),
+        EditorType::HealItemEditor => load!(Message::heal_item),
+        EditorType::MiscItemEditor => load!(Message::misc_item),
+        EditorType::EditItemEditor => load!(Message::edit_item),
+        EditorType::EventItemEditor => load!(Message::event_item),
+        EditorType::MonsterEditor => load!(Message::monster_db),
+        EditorType::MonsterIniEditor => load!(Message::monster_ini),
+        EditorType::NpcIniEditor => load!(Message::npc_ini),
+        EditorType::MagicEditor => load!(Message::magic),
+        EditorType::PartyRefEditor => load!(Message::party_ref),
+        EditorType::PartyIniEditor => load!(Message::party_ini),
+        EditorType::AllMapIniEditor => load!(Message::all_map_ini),
+        EditorType::MapIniEditor => load!(Message::map_ini),
+        EditorType::ExtraIniEditor => load!(Message::extra_ini),
+        EditorType::EventIniEditor => load!(Message::event_ini),
+        EditorType::WaveIniEditor => Some(Task::done(Message::wave_ini(
+            crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
+        ))),
+        EditorType::DrawItemEditor => load!(Message::draw_item),
+        EditorType::EventNpcRefEditor => load!(Message::event_npc_ref),
+        EditorType::QuestScrEditor => load!(Message::quest_scr),
+        EditorType::MessageScrEditor => load!(Message::message_scr),
+        EditorType::ChDataEditor => load!(Message::ch_data),
+        EditorType::StoreEditor => Some(Task::done(Message::store(
+            crate::message::editor::store::StoreEditorMessage::LoadCatalog,
+        ))),
+        EditorType::PartyLevelDbEditor => Some(Task::done(Message::party_level_db(
+            crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
+        ))),
         _ => None,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_monster_db_opens_monster_db_editor() {
-        let path = Path::new("MonsterInGame/Monster.db");
-        assert_eq!(get_editor_key_for_file(path), Some("monster_db"));
-    }
-
-    #[test]
-    fn test_monster_ini_opens_monster_ini_editor() {
-        let path = Path::new("Monster.ini");
-        assert_eq!(get_editor_key_for_file(path), Some("monster_ini"));
-    }
-
-    #[test]
-    fn test_monster_ini_case_insensitive() {
-        // Test with different case variations
-        let path1 = Path::new("MONSTER.INI");
-        let path2 = Path::new("Monster.ini");
-        let path3 = Path::new("monster.INI");
-
-        assert_eq!(get_editor_key_for_file(path1), Some("monster_ini"));
-        assert_eq!(get_editor_key_for_file(path2), Some("monster_ini"));
-        assert_eq!(get_editor_key_for_file(path3), Some("monster_ini"));
-    }
-
-    #[test]
-    fn test_monster_db_case_insensitive() {
-        // Test with different case variations
-        let path1 = Path::new("MONSTER.DB");
-        let path2 = Path::new("Monster.db");
-        let path3 = Path::new("monster.DB");
-
-        assert_eq!(get_editor_key_for_file(path1), Some("monster_db"));
-        assert_eq!(get_editor_key_for_file(path2), Some("monster_db"));
-        assert_eq!(get_editor_key_for_file(path3), Some("monster_db"));
-    }
-
-    #[test]
-    fn test_other_db_files_open_correct_editors() {
-        assert_eq!(
-            get_editor_key_for_file(Path::new("weaponItem.db")),
-            Some("weapons")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("HealItem.db")),
-            Some("heal_items")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("MiscItem.db")),
-            Some("misc_items")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Magic.db")),
-            Some("magic")
-        );
-    }
-
-    #[test]
-    fn test_other_ini_files_open_correct_editors() {
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Npc.ini")),
-            Some("npc_ini")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Wave.ini")),
-            Some("wave_ini")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Map.ini")),
-            Some("map_ini")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Extra.ini")),
-            Some("extra_ini")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Event.ini")),
-            Some("event_ini")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("AllMap.ini")),
-            Some("all_maps")
-        );
-    }
-
-    #[test]
-    fn test_script_files_open_correct_editors() {
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Quest.scr")),
-            Some("quests")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Message.scr")),
-            Some("messages")
-        );
-    }
-
-    #[test]
-    fn test_unknown_file_types_return_none() {
-        assert_eq!(get_editor_key_for_file(Path::new("Unknown.xyz")), None);
-        assert_eq!(get_editor_key_for_file(Path::new("RandomFile.txt")), None);
-        assert_eq!(get_editor_key_for_file(Path::new("NoExtension")), None);
-    }
-
-    #[test]
-    fn test_unknown_db_files_return_none() {
-        assert_eq!(get_editor_key_for_file(Path::new("Unknown.db")), None);
-        assert_eq!(get_editor_key_for_file(Path::new("RandomFile.db")), None);
-    }
-
-    #[test]
-    fn test_unknown_ini_files_return_none() {
-        assert_eq!(get_editor_key_for_file(Path::new("Unknown.ini")), None);
-        assert_eq!(get_editor_key_for_file(Path::new("RandomConfig.ini")), None);
-    }
-
-    #[test]
-    fn test_paths_with_directories() {
-        assert_eq!(
-            get_editor_key_for_file(Path::new("CharacterInGame/weaponItem.db")),
-            Some("weapons")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("MonsterInGame/Monster.db")),
-            Some("monster_db")
-        );
-        assert_eq!(
-            get_editor_key_for_file(Path::new("Dispel/Monster.ini")),
-            Some("monster_ini")
-        );
     }
 }
 

@@ -945,3 +945,111 @@ impl Workspace {
         // Don't reset next_id to preserve ID uniqueness across workspace sessions
     }
 }
+
+#[cfg(test)]
+mod editor_type_tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn db_stems_map_to_correct_editor_types() {
+        let cases = [
+            ("weaponItem.db", EditorType::WeaponEditor),
+            ("Monster.db", EditorType::MonsterEditor),
+            ("HealItem.db", EditorType::HealItemEditor),
+            ("MiscItem.db", EditorType::MiscItemEditor),
+            ("EditItem.db", EditorType::EditItemEditor),
+            ("EventItem.db", EditorType::EventItemEditor),
+            ("Store.db", EditorType::StoreEditor),
+            ("Magic.db", EditorType::MagicEditor),
+            ("ChData.db", EditorType::ChDataEditor),
+            ("PrtLevel.db", EditorType::PartyLevelDbEditor),
+            ("PrtIni.db", EditorType::PartyIniEditor),
+        ];
+        for (filename, expected) in cases {
+            assert_eq!(
+                EditorType::from_path(Path::new(filename)),
+                expected,
+                "failed for {filename}"
+            );
+        }
+    }
+
+    #[test]
+    fn ini_stems_map_to_correct_editor_types() {
+        let cases = [
+            ("AllMap.ini", EditorType::AllMapIniEditor),
+            ("Map.ini", EditorType::MapIniEditor),
+            ("Extra.ini", EditorType::ExtraIniEditor),
+            ("Event.ini", EditorType::EventIniEditor),
+            ("Monster.ini", EditorType::MonsterIniEditor),
+            ("Npc.ini", EditorType::NpcIniEditor),
+            ("Wave.ini", EditorType::WaveIniEditor),
+        ];
+        for (filename, expected) in cases {
+            assert_eq!(
+                EditorType::from_path(Path::new(filename)),
+                expected,
+                "failed for {filename}"
+            );
+        }
+    }
+
+    #[test]
+    fn ref_stems_map_to_correct_editor_types() {
+        let cases = [
+            ("PartyRef.ref", EditorType::PartyRefEditor),
+            ("DrawItem.ref", EditorType::DrawItemEditor),
+            ("EventNpc.ref", EditorType::EventNpcRefEditor),
+            ("Npc01.ref", EditorType::NpcRefEditor),
+            ("Mon01.ref", EditorType::MonsterRefEditor),
+            ("Ext01.ref", EditorType::ExtraRefEditor),
+        ];
+        for (filename, expected) in cases {
+            assert_eq!(
+                EditorType::from_path(Path::new(filename)),
+                expected,
+                "failed for {filename}"
+            );
+        }
+    }
+
+    #[test]
+    fn script_and_special_extensions_map_correctly() {
+        assert_eq!(EditorType::from_path(Path::new("Quest.scr")), EditorType::QuestScrEditor);
+        assert_eq!(EditorType::from_path(Path::new("Message.scr")), EditorType::MessageScrEditor);
+        assert_eq!(EditorType::from_path(Path::new("scene.dlg")), EditorType::DialogueScriptEditor);
+        assert_eq!(EditorType::from_path(Path::new("text.pgp")), EditorType::DialogueTextEditor);
+        assert_eq!(EditorType::from_path(Path::new("sprite.spr")), EditorType::SpriteViewer);
+        assert_eq!(EditorType::from_path(Path::new("sound.snf")), EditorType::SnfEditor);
+        assert_eq!(EditorType::from_path(Path::new("level.map")), EditorType::MapEditor);
+        assert_eq!(EditorType::from_path(Path::new("tiles.btl")), EditorType::TilesetEditor);
+    }
+
+    #[test]
+    fn extension_matching_is_case_insensitive() {
+        assert_eq!(EditorType::from_path(Path::new("MONSTER.DB")), EditorType::MonsterEditor);
+        assert_eq!(EditorType::from_path(Path::new("Monster.INI")), EditorType::MonsterIniEditor);
+        assert_eq!(EditorType::from_path(Path::new("SPRITE.SPR")), EditorType::SpriteViewer);
+    }
+
+    #[test]
+    fn paths_with_directories_are_handled() {
+        assert_eq!(
+            EditorType::from_path(Path::new("CharacterInGame/weaponItem.db")),
+            EditorType::WeaponEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("MonsterInGame/Monster.db")),
+            EditorType::MonsterEditor
+        );
+    }
+
+    #[test]
+    fn unknown_files_return_unknown() {
+        assert_eq!(EditorType::from_path(Path::new("Unknown.xyz")), EditorType::Unknown);
+        assert_eq!(EditorType::from_path(Path::new("Random.txt")), EditorType::Unknown);
+        assert_eq!(EditorType::from_path(Path::new("Unknown.db")), EditorType::Unknown);
+        assert_eq!(EditorType::from_path(Path::new("Unknown.ini")), EditorType::Unknown);
+    }
+}
