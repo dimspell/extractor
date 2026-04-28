@@ -1,263 +1,152 @@
-use std::io::{Read, Seek, Write};
 use std::path::Path;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::{EditItemEffect, EditItemModification};
-use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::Extractor;
+use dispel_macros::Extractor;
 
-// ===========================================================================
-// EDITITEM.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | EditItem.db - Modifiable Items       |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Text Encodings: Mixed                |
-// | Header: 4-byte record count          |
-// | Record Size: 268 bytes (67 × i32)    |
-// +--------------------------------------+
-// | [Header]                             |
-// | - record_count: i32                  |
-// +--------------------------------------+
-// | [Record 1]                           |
-// | - name: 30 bytes (WINDOWS-1250)      |
-// | - description: 202 bytes (EUC-KR)    |
-// | - base_price: i16                    |
-// | - padding: 6 bytes                   |
-// | - health_points: i16 (PZ)            |
-// | - mana_points: i16 (PM)             |
-// | - strength: i16 (SIŁ)                |
-// | - agility: i16 (ZW)                  |
-// | - wisdom: i16 (MM)                   |
-// | - constitution: i16 (TF)             |
-// | - to_dodge: i16 (UNK)                |
-// | - to_hit: i16 (TRF)                  |
-// | - offense: i16 (ATK)                 |
-// | - defense: i16 (OBR)                 |
-// | - magical_power: i16                |
-// | - item_destroying_power: i16         |
-// | - padding: u8                        |
-// | - modifies_item: u8                  |
-// | - additional_effect: i16             |
-// +--------------------------------------+
-// | [Record 2]                           |
-// | ... (same structure) ...             |
-// +--------------------------------------+
-//
-// FIELD ABBREVIATIONS:
-// - PZ: Health Points (Polish: Punkty Zdrowia)
-// - PM: Mana Points (Polish: Punkty Magii)
-// - SIŁ: Strength (Polish: Siła)
-// - ZW: Agility (Polish: Zwinność)
-// - MM: Wisdom (Polish: Mądrość)
-// - TF: Constitution (Polish: Tężyzna Fizyczna)
-// - UNK: Unknown modifier
-// - TRF: Hit Rate (Polish: Trafienie)
-// - ATK: Attack power
-// - OBR: Defense (Polish: Obrona)
-//
-// MODIFICATION TYPES:
-// - 0: Does not modify base item
-// - 1: Temporary modification
-// - 2: Permanent enhancement
-//
-// SPECIAL VALUES:
-// - base_price = 0: Non-tradable items
-// - item_destroying_power: Durability impact
-// - Fixed-size string fields
-// - Mixed text encodings
-//
-// FILE PURPOSE:
-// Defines modifiable items with upgradeable statistics
-// and special effects. Used for item enhancement,
-// crafting, and equipment customization systems.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct EditItem {
-    /// Iteration tracking for editor modifications.
-    pub index: i32,
-    /// Asset identifier string.
-    pub name: String,
-    /// Standard inventory tool-tip.
-    pub description: String,
-    /// Economic valuation offset.
-    pub base_price: i16,
-    /// Unknown field.
-    pub padding1: i16,
-    /// Unknown field.
-    pub padding2: i16,
-    /// Unknown field.
-    pub padding3: i16,
-    /// Base additive metric for derived vitality.
-    pub health_points: i16,
-    /// Spell scaling base factor.
-    pub mana_points: i16,
-    /// Stat adjustment logic constant.
-    pub strength: i16,
-    /// Physical tracking parameter limit.
-    pub agility: i16,
-    /// Mind attribute modifier block.
-    pub wisdom: i16,
-    /// Core status alignment tracking.
-    pub constitution: i16,
-    /// Raw deflection parameter.
-    pub to_dodge: i16,
-    /// Base hit resolution constant.
-    pub to_hit: i16,
-    /// Flat output augmentation rating.
-    pub offense: i16,
-    /// Armor calculation pool scaling rating.
-    pub defense: i16,
-    /// Magical power bonus.
-    pub magical_power: i16,
-    /// Durability erosion factor.
-    pub item_destroying_power: i16,
-    /// Unknown field.
-    pub padding4: u8,
-    /// Flag specifying if behavior mutates.
-    pub modifies_item: EditItemModification,
-    /// Procedural elemental modifier appended (mana drain, fire).
-    pub additional_effect: EditItemEffect,
-}
-
-/// Stores definitions for modifiable base items.
+/// EditItem.db - Modifiable Base Items
+///
+/// Stores definitions for modifiable base items with stat modifications.
 ///
 /// Reads file: `CharacterInGame/EditItem.db`
-/// # File Format: `CharacterInGame/EditItem.db`
 ///
-/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
-/// Each record is exactly `67 × 4 = 268` bytes:
-/// - `name`                 : 30 bytes, null-padded, WINDOWS-1250
-/// - `description`          : 202 bytes, null-padded, WINDOWS-1250
-/// - `base_price`           : i16
-/// - 6 bytes padding
-/// - Stats (all i16)        : PZ, PM, SIŁ, ZW, MM, TF, UNK, TRF, ATK, OBR
-/// - 2 bytes padding
-/// - `item_destroying_power`: i16
-/// - 1 byte padding
-/// - `modifies_item`        : u8
-/// - `additional_effect`    : i16
-impl Extractor for EditItem {
-    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
-        const COUNTER_SIZE: u8 = 4;
-        const PROPERTY_ITEM_SIZE: i32 = 67 * 4;
-
-        let elements = read_mapper(reader, len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-        let mut items: Vec<EditItem> = Vec::with_capacity(elements as usize);
-
-        for i in 0..elements {
-            let mut buffer = [0u8; 30];
-            reader.read_exact(&mut buffer)?;
-            let name = read_null_terminated_windows_1250(&buffer).unwrap();
-            let name = name.trim();
-
-            let mut buffer = [0u8; 202];
-            reader.read_exact(&mut buffer)?;
-            let description = read_null_terminated_windows_1250(&buffer).unwrap();
-
-            let base_price = reader.read_i16::<LittleEndian>()?;
-            let padding1 = reader.read_i16::<LittleEndian>()?;
-            let padding2 = reader.read_i16::<LittleEndian>()?;
-            let padding3 = reader.read_i16::<LittleEndian>()?;
-            let health_points = reader.read_i16::<LittleEndian>()?;
-            let mana_points = reader.read_i16::<LittleEndian>()?;
-            let strength = reader.read_i16::<LittleEndian>()?;
-            let agility = reader.read_i16::<LittleEndian>()?;
-            let wisdom = reader.read_i16::<LittleEndian>()?;
-            let constitution = reader.read_i16::<LittleEndian>()?;
-            let to_dodge = reader.read_i16::<LittleEndian>()?;
-            let to_hit = reader.read_i16::<LittleEndian>()?;
-            let offense = reader.read_i16::<LittleEndian>()?;
-            let defense = reader.read_i16::<LittleEndian>()?;
-            let magical_power = reader.read_i16::<LittleEndian>()?;
-            let item_destroying_power = reader.read_i16::<LittleEndian>()?;
-            let padding4 = reader.read_u8()?;
-            let modifies_item_raw = reader.read_u8()?;
-            let additional_effect_raw = reader.read_i16::<LittleEndian>()?;
-
-            let modifies_item = EditItemModification::from_u8(modifies_item_raw)
-                .unwrap_or(EditItemModification::DoesNotModify);
-            let additional_effect =
-                EditItemEffect::from_i16(additional_effect_raw).unwrap_or(EditItemEffect::None);
-
-            items.push(EditItem {
-                index: i,
-                name: name.to_string(),
-                description: description.to_string(),
-                base_price,
-                padding1,
-                padding2,
-                padding3,
-                health_points,
-                mana_points,
-                strength,
-                agility,
-                wisdom,
-                constitution,
-                to_dodge,
-                to_hit,
-                offense,
-                defense,
-                magical_power,
-                item_destroying_power,
-                padding4,
-                modifies_item,
-                additional_effect,
-            })
-        }
-        Ok(items)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        let elements = records.len() as i32;
-        writer.write_i32::<LittleEndian>(elements)?;
-
-        for record in records {
-            let mut name_buf = [0u8; 30];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.name);
-            let len = std::cmp::min(cow.len(), 30);
-            name_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&name_buf)?;
-
-            let mut desc_buf = [0u8; 202];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.description);
-            let len = std::cmp::min(cow.len(), 202);
-            desc_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&desc_buf)?;
-
-            writer.write_i16::<LittleEndian>(record.base_price)?;
-            writer.write_i16::<LittleEndian>(record.padding1)?;
-            writer.write_i16::<LittleEndian>(record.padding2)?;
-            writer.write_i16::<LittleEndian>(record.padding3)?;
-            writer.write_i16::<LittleEndian>(record.health_points)?;
-            writer.write_i16::<LittleEndian>(record.mana_points)?;
-            writer.write_i16::<LittleEndian>(record.strength)?;
-            writer.write_i16::<LittleEndian>(record.agility)?;
-            writer.write_i16::<LittleEndian>(record.wisdom)?;
-            writer.write_i16::<LittleEndian>(record.constitution)?;
-            writer.write_i16::<LittleEndian>(record.to_dodge)?;
-            writer.write_i16::<LittleEndian>(record.to_hit)?;
-            writer.write_i16::<LittleEndian>(record.offense)?;
-            writer.write_i16::<LittleEndian>(record.defense)?;
-
-            writer.write_i16::<LittleEndian>(record.magical_power)?;
-            writer.write_i16::<LittleEndian>(record.item_destroying_power)?;
-            writer.write_u8(record.padding4)?;
-
-            writer.write_u8(u8::from(record.modifies_item))?;
-            writer.write_i16::<LittleEndian>(i16::from(record.additional_effect))?;
-        }
-        Ok(())
-    }
+/// # Binary Format
+///
+/// - **Encoding**: Little-endian for all numeric values
+/// - **Text Encoding**: WINDOWS-1250 for `name` (30 bytes) and `description` (202 bytes)
+/// - **Record Size**: 268 bytes (4 + 30 + 202 + 16 × i16 + 2 × u8 + 2 padding)
+/// - **Header**: 4-byte i32 record count, followed by records
+///
+/// ```text
+/// +--------------------------------------+
+/// | EditItem.db - Modifiable Items       |
+/// +--------------------------------------+
+/// | Encoding: Binary (Little-Endian)     |
+/// | Text Encoding: WINDOWS-1250           |
+/// | Record Size: 268 bytes               |
+/// | Header: 4-byte record count          |
+/// +--------------------------------------+
+/// | [Record 1] - 268 bytes               |
+/// | - index: i32 (auto-generated)        |
+/// | - name: 30 bytes (WINDOWS-1250)     |
+/// | - description: 202 bytes (WINDOWS...) |
+/// | - base_price: i16                     |
+/// | - padding1-3: i16 (unknown)         |
+/// | - health_points: i16 (vitality)      |
+/// | - mana_points: i16 (spell scaling)    |
+/// | - strength: i16                       |
+/// | - agility: i16                        |
+/// | - wisdom: i16                        |
+/// | - constitution: i16                   |
+/// | - to_dodge: i16                      |
+/// | - to_hit: i16                        |
+/// | - offense: i16                       |
+/// | - defense: i16                       |
+/// | - magical_power: i16                  |
+/// | - item_destroying_power: i16          |
+/// | - padding4: u8 (unknown)            |
+/// | - modifies_item: u8 (EditItemModification)|
+/// | - additional_effect: i16 (EditItemEffect)|
+/// +--------------------------------------+
+/// | [Record 2]                           |
+/// | ... (same structure) ...             |
+/// +--------------------------------------+
+/// ```
+///
+/// # Field Categories
+///
+/// - **Identification**: `index` (auto-generated), `name` (30 bytes), `description` (202 bytes)
+/// - **Economy**: `base_price` (i16, economic valuation)
+/// - **Stats**: `health_points`, `mana_points`, `strength`, `agility`, `wisdom`, `constitution`
+/// - **Combat**: `to_dodge`, `to_hit`, `offense`, `defense`, `magical_power`
+/// - **Durability**: `item_destroying_power` (erosion factor)
+/// - **Behavior**: `modifies_item` (EditItemModification flag), `additional_effect` (EditItemEffect)
+/// - **Unknown**: `padding1-4` (need investigation)
+///
+/// # Special Values
+///
+/// - `modifies_item`: Enum controlling if item mutates behavior
+/// - `additional_effect`: Enum for procedural elemental modifiers (mana drain, fire, etc.)
+/// - `padding1-3`: Unknown fields, observed as 0
+/// - `padding4`: Unknown byte, observed as 0 or 255
+///
+/// # File Purpose
+///
+/// Defines modifiable base items with stat modifications for
+/// character equipment. Used for item crafting and stat
+/// enhancement systems.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor)]
+#[extractor(property_item_size = 268)]
+pub struct EditItem {
+    /// Iteration tracking for editor modifications.
+    #[extractor(index)]
+    pub index: i32,
+    /// Asset identifier string.
+    #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String,
+    /// Standard inventory tool-tip.
+    #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String,
+    /// Economic valuation offset.
+    #[extractor(primitive(type = "i16"))]
+    pub base_price: i16,
+    /// Unknown field.
+    #[extractor(primitive(type = "i16"))]
+    pub padding1: i16,
+    /// Unknown field.
+    #[extractor(primitive(type = "i16"))]
+    pub padding2: i16,
+    /// Unknown field.
+    #[extractor(primitive(type = "i16"))]
+    pub padding3: i16,
+    /// Base additive metric for derived vitality.
+    #[extractor(primitive(type = "i16"))]
+    pub health_points: i16,
+    /// Spell scaling base factor.
+    #[extractor(primitive(type = "i16"))]
+    pub mana_points: i16,
+    /// Stat adjustment logic constant.
+    #[extractor(primitive(type = "i16"))]
+    pub strength: i16,
+    /// Physical tracking parameter limit.
+    #[extractor(primitive(type = "i16"))]
+    pub agility: i16,
+    /// Mind attribute modifier block.
+    #[extractor(primitive(type = "i16"))]
+    pub wisdom: i16,
+    /// Core status alignment tracking.
+    #[extractor(primitive(type = "i16"))]
+    pub constitution: i16,
+    /// Raw deflection parameter.
+    #[extractor(primitive(type = "i16"))]
+    pub to_dodge: i16,
+    /// Base hit resolution constant.
+    #[extractor(primitive(type = "i16"))]
+    pub to_hit: i16,
+    /// Flat output augmentation rating.
+    #[extractor(primitive(type = "i16"))]
+    pub offense: i16,
+    /// Armor calculation pool scaling rating.
+    #[extractor(primitive(type = "i16"))]
+    pub defense: i16,
+    /// Magical power bonus.
+    #[extractor(primitive(type = "i16"))]
+    pub magical_power: i16,
+    /// Durability erosion factor.
+    #[extractor(primitive(type = "i16"))]
+    pub item_destroying_power: i16,
+    /// Unknown field.
+    #[extractor(primitive(type = "u8"))]
+    pub padding4: u8,
+    /// Flag specifying if behavior mutates.
+    #[extractor(enum_from_u8(type = "EditItemModification"))]
+    pub modifies_item: EditItemModification,
+    /// Procedural elemental modifier appended (mana drain, fire).
+    #[extractor(enum_from_i16(type = "EditItemEffect"))]
+    pub additional_effect: EditItemEffect,
 }
 
 pub fn read_edit_item_db(source_path: &Path) -> std::io::Result<Vec<EditItem>> {

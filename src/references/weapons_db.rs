@@ -1,241 +1,163 @@
-use std::io::{Read, Seek, Write};
 use std::path::Path;
 
-use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use dispel_macros::Localizable;
-use encoding_rs::WINDOWS_1250;
+use crate::references::extractor::Extractor;
+use dispel_macros::{Extractor, Localizable};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// WEAPONITEM.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | weaponItem.db - Weapons & Armor      |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Text Encoding: WINDOWS-1250          |
-// | Header: 4-byte record count          |
-// | Record Size: 284 bytes (71 × i16)     |
-// +--------------------------------------+
-// | [Header]                            |
-// | - record_count: i32                  |
-// +--------------------------------------+
-// | [Record 1]                           |
-// | - name: 30 bytes (WINDOWS-1250)      |
-// | - description: 202 bytes (WINDOWS-1250)|
-// | - base_price: i16                    |
-// | - padding: i16 × 3                   |
-// | - health_points: i16                 |
-// | - mana_points: i16                  |
-// | - strength: i16                      |
-// | - agility: i16                       |
-// | - wisdom: i16                        |
-// | - constitution: i16                  |
-// | - unk: i16                           |
-// | - trf: i16                           |
-// | - attack: i16                        |
-// | - defense: i16                       |
-// | - magical_power: i16                 |
-// | - durability: i16                    |
-// | - padding: i16 × 2                   |
-// | - req_strength: i16                  |
-// | - padding: i16                       |
-// | - req_zw: i16                        |
-// | - padding: i16                       |
-// | - req_wisdom: i16                    |
-// | - padding: i16 × 3                   |
-// +--------------------------------------+
-// | [Record 2]                           |
-// | ... (same structure) ...             |
-// +--------------------------------------+
-//
-// FILE PURPOSE:
-// Complete database of all weapons, armor, and equipment with statistics,
-// requirements, and game properties. Used for character equipment,
-// inventory management, and shop systems.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable)]
-pub struct WeaponItem {
-    /// Internal record index (0-based) for the weapon/armor.
-    pub id: i32,
-    /// Fixed-size string (30 bytes) for item name.
-    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
-    pub name: String,
-    /// Fixed-size string (202 bytes) for item description.
-    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
-    pub description: String,
-    /// Shop value in gold.
-    pub base_price: i16,
-    /// HP modifier the equipment grants.
-    pub health_points: i16,
-    /// MP modifier the equipment grants.
-    pub mana_points: i16,
-    /// Strength buff granted.
-    pub strength: i16,
-    /// Agility modifier.
-    pub agility: i16,
-    /// Wisdom/Magic multiplier.
-    pub wisdom: i16,
-    /// Constitution / TF modifier.
-    pub constitution: i16,
-    /// Unknown modifier parameter.
-    pub to_dodge: i16,
-    /// Hit rate or TRF stat bonus.
-    pub to_hit: i16,
-    /// Base offensive stat.
-    pub attack: i16,
-    /// Base defensive armor class.
-    pub defense: i16,
-    /// Enhanced magical defense/offense.
-    pub magical_strength: i16,
-    /// Item health points or wear limit.
-    pub durability: i16,
-    /// Player base strength needed to equip.
-    pub req_strength: i16,
-    /// Player base agility needed to equip.
-    pub req_agility: i16,
-    /// Player base wisdom/magic needed to equip.
-    pub req_wisdom: i16,
-}
-
+/// WeaponItem.db - Weapons & Armor
+///
 /// Stores stats, prices, and requirements for weapons and armor.
 ///
 /// Reads file: `CharacterInGame/weaponItem.db`
-/// # File Format: `CharacterInGame/weaponItem.db`
 ///
-/// Binary file, little-endian. Starts with a 4-byte i32 record count.
-/// Each record is a fixed-size block containing:
-/// - `name`        : 30 bytes, null-padded, WINDOWS-1250
-/// - `description` : 202 bytes, null-padded, WINDOWS-1250
-/// - Stats         : sequence of i16 fields
-impl Extractor for WeaponItem {
-    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
-        const COUNTER_SIZE: u8 = 4;
-        const PROPERTY_ITEM_SIZE: i32 = 71 * 4;
-        let elements = read_mapper(reader, len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-
-        let mut weapons: Vec<WeaponItem> = vec![];
-        for i in 0..elements as usize {
-            // name
-            let mut buffer = [0u8; 30];
-            reader.read_exact(&mut buffer)?;
-            let name = read_null_terminated_windows_1250(&buffer).unwrap();
-            let name = name.trim();
-
-            // description
-            let mut buffer = [0u8; 202];
-            reader.read_exact(&mut buffer)?;
-            let description = read_null_terminated_windows_1250(&buffer).unwrap();
-
-            // "Base price"
-            let base_price = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?;
-            let health_points = reader.read_i16::<LittleEndian>()?;
-            let mana_points = reader.read_i16::<LittleEndian>()?;
-            let strength = reader.read_i16::<LittleEndian>()?;
-            let agility = reader.read_i16::<LittleEndian>()?;
-            let wisdom = reader.read_i16::<LittleEndian>()?;
-            let constitution = reader.read_i16::<LittleEndian>()?;
-            let to_dodge = reader.read_i16::<LittleEndian>()?;
-            let to_hit = reader.read_i16::<LittleEndian>()?;
-            let attack = reader.read_i16::<LittleEndian>()?;
-            let defense = reader.read_i16::<LittleEndian>()?;
-            let magical_strength = reader.read_i16::<LittleEndian>()?;
-            let durability = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            let req_strength = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            let req_agility = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            let req_wisdom = reader.read_i16::<LittleEndian>()?;
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            reader.read_i16::<LittleEndian>()?; // Always zero
-            reader.read_i16::<LittleEndian>()?; // Always zero
-
-            let item = WeaponItem {
-                id: i as i32,
-                attack,
-                base_price,
-                description: description.to_string(),
-                magical_strength,
-                wisdom,
-                name: name.to_string(),
-                defense,
-                mana_points,
-                health_points,
-                req_wisdom,
-                req_strength,
-                req_agility,
-                strength,
-                constitution,
-                to_hit,
-                to_dodge,
-                durability,
-                agility,
-            };
-            weapons.push(item);
-        }
-
-        Ok(weapons)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        let elements = records.len() as i32;
-        writer.write_i32::<LittleEndian>(elements)?;
-
-        for record in records {
-            let mut name_buf = [0u8; 30];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.name);
-            let len = std::cmp::min(cow.len(), 30);
-            name_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&name_buf)?;
-
-            let mut desc_buf = [0u8; 202];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.description);
-            let len = std::cmp::min(cow.len(), 202);
-            desc_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&desc_buf)?;
-
-            writer.write_i16::<LittleEndian>(record.base_price)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(record.health_points)?;
-            writer.write_i16::<LittleEndian>(record.mana_points)?;
-            writer.write_i16::<LittleEndian>(record.strength)?;
-            writer.write_i16::<LittleEndian>(record.agility)?;
-            writer.write_i16::<LittleEndian>(record.wisdom)?;
-            writer.write_i16::<LittleEndian>(record.constitution)?;
-            writer.write_i16::<LittleEndian>(record.to_dodge)?;
-            writer.write_i16::<LittleEndian>(record.to_hit)?;
-            writer.write_i16::<LittleEndian>(record.attack)?;
-            writer.write_i16::<LittleEndian>(record.defense)?;
-            writer.write_i16::<LittleEndian>(record.magical_strength)?;
-            writer.write_i16::<LittleEndian>(record.durability)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(record.req_strength)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(record.req_agility)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(record.req_wisdom)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-            writer.write_i16::<LittleEndian>(0)?;
-        }
-
-        Ok(())
-    }
+/// # Binary Format
+///
+/// - **Encoding**: Little-endian for all numeric values
+/// - **Text Encoding**: WINDOWS-1250 for `name` (30 bytes) and `description` (202 bytes)
+/// - **Record Size**: 284 bytes (4 + 30 + 202 + 48)
+/// - **Header**: None; parse until EOF
+///
+/// ```text
+/// +--------------------------------------+
+/// | WeaponItem.db - Weapons & Armor   |
+/// +--------------------------------------+
+/// | Encoding: Binary (Little-Endian)     |
+/// | Text Encoding: WINDOWS-1250           |
+/// | Record Size: 284 bytes               |
+/// | Header: None (parse until EOF)       |
+/// +--------------------------------------+
+/// | [Record 1] - 284 bytes               |
+/// | - id: i32 (auto-generated)           |
+/// | - name: 30 bytes (WINDOWS-1250)     |
+/// | - description: 202 bytes (WINDOWS...) |
+/// | - base_price: i16                    |
+/// | - padding1-3: i16 (unknown)         |
+/// | - health_points: i16 (HP mod)        |
+/// | - mana_points: i16 (MP mod)          |
+/// | - strength: i16                      |
+/// | - agility: i16                       |
+/// | - wisdom: i16                        |
+/// | - constitution: i16                   |
+/// | - to_dodge: i16 (evasion)           |
+/// | - to_hit: i16 (accuracy)            |
+/// | - attack: i16 (offense)              |
+/// | - defense: i16 (armor class)         |
+/// | - magical_strength: i16 (magical)    |
+/// | - durability: i16 (item HP)          |
+/// | - padding2: i16 (unknown)           |
+/// | - req_strength: i16 (requirement)    |
+/// | - padding3: i16 (unknown)           |
+/// | - req_agility: i16 (requirement)     |
+/// | - padding4: i16 (unknown)           |
+/// | - req_wisdom: i16 (requirement)      |
+/// | - padding5: i16 (unknown)           |
+/// +--------------------------------------+
+/// | [Record 2]                           |
+/// | ... (same structure) ...             |
+/// +--------------------------------------+
+/// ```
+///
+/// # Field Categories
+///
+/// - **Identification**: `id` (auto-generated), `name` (30 bytes), `description` (202 bytes)
+/// - **Economy**: `base_price` (i16, merchant valuation)
+/// - **Stat Modifiers**: `health_points`, `mana_points`, `strength`, `agility`, `wisdom`, `constitution`
+/// - **Combat Stats**: `to_dodge` (evasion), `to_hit` (accuracy), `attack` (offense), `defense` (armor)
+/// - **Magical**: `magical_strength` (magical power)
+/// - **Durability**: `durability` (item HP/wear limit)
+/// - **Requirements**: `req_strength`, `req_agility`, `req_wisdom` (minimum stats to equip)
+/// - **Unknown**: `padding1-5` (need investigation)
+///
+/// # Special Values
+///
+/// - `base_price`: i16 economic value
+/// - `durability`: Item health points before destruction
+/// - `padding1-5`: Unknown i16 fields, observed as 0
+/// - Requirements: 0 = no requirement
+///
+/// # File Purpose
+///
+/// Defines weapons and armor with stat modifications,
+/// requirements, and durability. Used for equipment
+/// system, character progression, and combat mechanics.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor)]
+#[extractor(property_item_size = 284)]
+pub struct WeaponItem {
+    /// Internal record index (0-based) for the weapon/armor.
+    #[extractor(id)]
+    pub id: i32,
+    /// Fixed-size string (30 bytes) for item name.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
+    #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String,
+    /// Fixed-size string (202 bytes) for item description.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
+    #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String,
+    /// Shop value in gold.
+    #[extractor(primitive(type = "i16"))]
+    pub base_price: i16,
+    /// Padding field.
+    #[extractor(padding(count = 3, type = "i16"))]
+    pub padding1: i16,
+    /// HP modifier the equipment grants.
+    #[extractor(primitive(type = "i16"))]
+    pub health_points: i16,
+    /// MP modifier the equipment grants.
+    #[extractor(primitive(type = "i16"))]
+    pub mana_points: i16,
+    /// Strength buff granted.
+    #[extractor(primitive(type = "i16"))]
+    pub strength: i16,
+    /// Agility modifier.
+    #[extractor(primitive(type = "i16"))]
+    pub agility: i16,
+    /// Wisdom/Magic multiplier.
+    #[extractor(primitive(type = "i16"))]
+    pub wisdom: i16,
+    /// Constitution / TF modifier.
+    #[extractor(primitive(type = "i16"))]
+    pub constitution: i16,
+    /// Unknown modifier parameter.
+    #[extractor(primitive(type = "i16"))]
+    pub to_dodge: i16,
+    /// Hit rate or TRF stat bonus.
+    #[extractor(primitive(type = "i16"))]
+    pub to_hit: i16,
+    /// Base offensive stat.
+    #[extractor(primitive(type = "i16"))]
+    pub attack: i16,
+    /// Base defensive armor class.
+    #[extractor(primitive(type = "i16"))]
+    pub defense: i16,
+    /// Enhanced magical defense/offense.
+    #[extractor(primitive(type = "i16"))]
+    pub magical_strength: i16,
+    /// Item health points or wear limit.
+    #[extractor(primitive(type = "i16"))]
+    pub durability: i16,
+    /// Padding field.
+    #[extractor(padding(count = 2, type = "i16"))]
+    pub padding2: i16,
+    /// Player base strength needed to equip.
+    #[extractor(primitive(type = "i16"))]
+    pub req_strength: i16,
+    /// Padding field.
+    #[extractor(padding(count = 1, type = "i16"))]
+    pub padding3: i16,
+    /// Player base agility needed to equip.
+    #[extractor(primitive(type = "i16"))]
+    pub req_agility: i16,
+    /// Padding field.
+    #[extractor(padding(count = 1, type = "i16"))]
+    pub padding4: i16,
+    /// Player base wisdom/magic needed to equip.
+    #[extractor(primitive(type = "i16"))]
+    pub req_wisdom: i16,
+    /// Padding field.
+    #[extractor(padding(count = 3, type = "i16"))]
+    pub padding5: i16,
 }
 
 pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {

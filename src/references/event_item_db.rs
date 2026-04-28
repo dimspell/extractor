@@ -1,129 +1,80 @@
-use std::io::{Read, Seek, Write};
 use std::path::Path;
 
-use byteorder::{LittleEndian, WriteBytesExt};
-use encoding_rs::WINDOWS_1250;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::Extractor;
+use dispel_macros::Extractor;
 
-// ===========================================================================
-// EVENTITEM.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | EventItem.db - Quest Items           |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Text Encoding: WINDOWS-1250          |
-// | Header: 4-byte record count          |
-// | Record Size: 240 bytes (60 × i32)    |
-// +--------------------------------------+
-// | [Header]                            |
-// | - record_count: i32                  |
-// +--------------------------------------+
-// | [Record 1]                           |
-// | - name: 30 bytes (WINDOWS-1250)     |
-// | - description: 202 bytes (WINDOWS-1250)|
-// | - padding: 8 bytes                   |
-// +--------------------------------------+
-// | [Record 2]                           |
-// | ... (same structure) ...             |
-// +--------------------------------------+
-//
-// SPECIAL VALUES:
-// - Fixed-size string fields
-// - Null-padded text fields
-// - 8-byte padding per record
-//
-// FILE PURPOSE:
-// Defines special quest and event items with names
-// and descriptions. Used for quest progression,
-// event triggering, and unique item management.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct EventItem {
-    /// Internal record ID representing the quest item.
-    pub id: i32,
-    /// Canonical lore name, translated locally.
-    pub name: String,
-    /// Item tooltip giving clues on application.
-    pub description: String,
-    /// Padding field to preserve binary compatibility.
-    pub padding: [u8; 8],
-}
-
+/// EventItem.db - Quest/Event Specific Items
+///
 /// Stores definitions and parameters for quest/event specific items.
 ///
 /// Reads file: `CharacterInGame/EventItem.db`
-/// # File Format: `CharacterInGame/EventItem.db`
 ///
-/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
-/// Each record is exactly `60 × 4 = 240` bytes:
-/// - `name`        : 30 bytes, null-padded, WINDOWS-1250
-/// - `description` : 202 bytes, null-padded, WINDOWS-1250
-/// - 8 bytes padding
-impl Extractor for EventItem {
-    fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
-        const COUNTER_SIZE: u8 = 4;
-        const PROPERTY_ITEM_SIZE: i32 = 60 * 4;
-
-        let elements = read_mapper(reader, len, COUNTER_SIZE, PROPERTY_ITEM_SIZE)?;
-        let mut items: Vec<EventItem> = Vec::with_capacity(elements as usize);
-
-        for i in 0..elements {
-            let mut buffer = [0u8; 30];
-            reader.read_exact(&mut buffer)?;
-            let name = read_null_terminated_windows_1250(&buffer).unwrap();
-
-            let mut buffer = [0u8; 202];
-            reader.read_exact(&mut buffer)?;
-            let description = read_null_terminated_windows_1250(&buffer).unwrap();
-
-            let padding = {
-                let mut buffer = [0u8; 8];
-                reader.read_exact(&mut buffer)?;
-                buffer
-            };
-
-            items.push(EventItem {
-                id: i,
-                name: name.to_string(),
-                description: description.to_string(),
-                padding,
-            })
-        }
-
-        Ok(items)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        let elements = records.len() as i32;
-        writer.write_i32::<LittleEndian>(elements)?;
-
-        for record in records {
-            let mut name_buf = [0u8; 30];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.name);
-            let len = std::cmp::min(cow.len(), 30);
-            name_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&name_buf)?;
-
-            let mut desc_buf = [0u8; 202];
-            let (cow, _, _) = WINDOWS_1250.encode(&record.description);
-            let len = std::cmp::min(cow.len(), 202);
-            desc_buf[..len].copy_from_slice(&cow[..len]);
-            writer.write_all(&desc_buf)?;
-
-            writer.write_all(&record.padding)?;
-        }
-
-        Ok(())
-    }
+/// # Binary Format
+///
+/// - **Encoding**: Little-endian for all numeric values
+/// - **Text Encoding**: WINDOWS-1250 for `name` and `description` fields
+/// - **Record Size**: 240 bytes (4 + 30 + 202 + 8)
+/// - **Header**: 4-byte i32 record count, followed by records
+///
+/// ```text
+/// +--------------------------------------+
+/// | EventItem.db - Event Items         |
+/// +--------------------------------------+
+/// | Encoding: Binary (Little-Endian)     |
+/// | Text Encoding: WINDOWS-1250           |
+/// | Record Size: 240 bytes               |
+/// | Header: 4-byte record count          |
+/// +--------------------------------------+
+/// | [Header]                             |
+/// | - record_count: i32                  |
+/// +--------------------------------------+
+/// | [Record 1] - 240 bytes               |
+/// | - id: i32 (auto-generated)           |
+/// | - name: 30 bytes (WINDOWS-1250)     |
+/// | - description: 202 bytes (WINDOWS...) |
+/// | - padding: 8 bytes                   |
+/// +--------------------------------------+
+/// | [Record 2]                           |
+/// | ... (same structure) ...             |
+/// +--------------------------------------+
+/// ```
+///
+/// # Field Categories
+///
+/// - **Identification**: `id` (auto-generated from position)
+/// - **Localization**: `name` (30 bytes, WINDOWS-1250, null-padded)
+/// - **Description**: `description` (202 bytes, WINDOWS-1250, null-padded)
+/// - **Padding**: `padding` (8 bytes for binary compatibility)
+///
+/// # Special Values
+///
+/// - `name`: 30 bytes max, null-padded (WINDOWS-1250)
+/// - `description`: 202 bytes max, null-padded (WINDOWS-1250)
+/// - `padding`: Always observed as 8 zero bytes
+///
+/// # File Purpose
+///
+/// Defines quest and event-specific items with names and
+/// descriptions. Used for unique items that trigger
+/// events or are required for quest progression.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor)]
+#[extractor(property_item_size = 240)]
+pub struct EventItem {
+    /// Internal record ID representing the quest item.
+    #[extractor(id)]
+    pub id: i32,
+    /// Canonical lore name, translated locally.
+    #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String,
+    /// Item tooltip giving clues on application.
+    #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String,
+    /// Padding field to preserve binary compatibility.
+    #[extractor(array(size = 8, type = "u8"))]
+    pub padding: [u8; 8],
 }
 
 pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>> {

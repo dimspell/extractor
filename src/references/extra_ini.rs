@@ -1,15 +1,13 @@
-use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
-use crate::references::extractor::{parse_null, Extractor};
-use encoding_rs::EUC_KR;
-use encoding_rs_io::DecodeReaderBytesBuilder;
+use crate::references::extractor::Extractor;
+use dispel_macros::TextExtractor;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// EXTRA.INI FILE FORMAT
-// ===========================================================================
+// Stores definitions and types for interactive objects (extras).
+//
+// Reads file: `Extra.ini`
 //
 // ASCII Structure:
 //
@@ -49,70 +47,21 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[extractor(encoding = "EUC_KR")]
 pub struct Extra {
     /// Tool or object identifier.
+    #[extractor(field = 0)]
     pub id: i32,
     /// Base SPR filename for the object.
+    #[extractor(field = 1, parse_null)]
     pub sprite_filename: Option<String>,
     /// Internal unknown flag.
+    #[extractor(field = 2)]
     pub unknown: i32,
     /// Optional description for the interactive object.
+    #[extractor(field = 3, parse_null)]
     pub description: Option<String>,
-}
-
-/// Stores definitions and types for interactive objects (extras).
-///
-/// Reads file: `Extra.ini`
-/// # File Format: `Extra.ini`
-///
-/// Text file, EUC-KR encoded. One record per line, CSV format:
-/// ```text
-/// id,sprite_filename,unknown_flag,description
-/// ```
-/// - `sprite_filename` and `description` use literal `null` when absent.
-/// - `unknown_flag` is always `0` or `1`.
-impl Extractor for Extra {
-    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        let decoded = DecodeReaderBytesBuilder::new()
-            .encoding(Some(EUC_KR))
-            .build(reader.by_ref());
-        let buf_reader = BufReader::new(decoded);
-        let mut extras: Vec<Extra> = Vec::new();
-        for line in buf_reader.lines().map_while(std::io::Result::ok) {
-            if line.starts_with(";") {
-                continue;
-            }
-
-            let parts: Vec<&str> = line.split(",").collect();
-            if parts.len() < 4 {
-                continue;
-            }
-            let id: i32 = parts[0].parse::<i32>().unwrap();
-            let sprite_filename = parse_null(parts[1]);
-            let unknown = parts[2].parse::<i32>().unwrap();
-            let description = parse_null(parts[3]);
-
-            extras.push(Extra {
-                id,
-                sprite_filename,
-                unknown,
-                description,
-            });
-        }
-        Ok(extras)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        for record in records {
-            let sprite = record.sprite_filename.as_deref().unwrap_or("null");
-            let desc = record.description.as_deref().unwrap_or("null");
-            let line = format!("{},{},{},{}\r\n", record.id, sprite, record.unknown, desc);
-            let (cow, _, _) = EUC_KR.encode(&line);
-            writer.write_all(&cow)?;
-        }
-        Ok(())
-    }
 }
 
 pub fn read_extra_ini(source_path: &Path) -> std::io::Result<Vec<Extra>> {

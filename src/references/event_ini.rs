@@ -1,137 +1,68 @@
-use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::enums::EventType;
-use crate::references::extractor::{parse_null, Extractor};
-use encoding_rs::EUC_KR;
-use encoding_rs_io::DecodeReaderBytesBuilder;
+use crate::references::extractor::Extractor;
+use dispel_macros::TextExtractor;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-
-// ===========================================================================
-// EVENT.INI FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | Event.ini - Event Script Mappings    |
-// +--------------------------------------+
-// | Encoding: EUC-KR                     |
-// | Format: CSV with comments             |
-// | Record Size: Variable (text)         |
-// +--------------------------------------+
-// | ; Comment line                       |
-// | event_id,prev_id,type,filename,counter|
-// | 1,0,1,script1.scr,0                  |
-// | 2,1,2,script2.scr,5                  |
-// | ...                                  |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - event_id: Unique event identifier
-// - prev_id: Prerequisite event ID
-// - type: Execution condition type
-// - filename: Script file or "null"
-// - counter: Execution limit (N times)
-//
-// EVENT TYPES:
-// - 1: Execute once unconditionally
-// - 2: Execute N times (uses counter)
-// - 3: Execute if previous succeeded
-// - 4: Execute on map load
-// - 5: Execute on dialog trigger
-//
-// SPECIAL VALUES:
-// - "null" literal for missing filenames
-// - Lines starting with ";" are comments
-// - CSV format with comma delimiter
-// - counter = 0: No limit (infinite)
-//
-// FILE PURPOSE:
-// Defines event scripts with execution conditions, prerequisites,
-// and repetition limits. Used for quest progression, interactive
-// objects, and game state management.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct Event {
-    /// Unique event identifier.
-    pub event_id: i32,
-    /// Prerequisite event ID that must have occurred.
-    pub required_event_id: i32,
-    /// Determines execution condition (e.g. unconditionally, N times, if previous succeeded).
-    pub event_type: EventType,
-    /// Filename of the event script.
-    pub event_filename: Option<String>,
-    /// Execution counter (N limit) for types that execute multiple times.
-    pub counter: i32,
-}
 
 /// Stores script and event mappings.
 ///
 /// Reads file: `Event.ini`
-/// # File Format: `Event.ini`
 ///
 /// Text file, EUC-KR encoded. One record per line, CSV format:
 /// ```text
 /// event_id,required_event_id,event_type_id,event_filename,counter
+/// 1,0,1,script1.scr,0
+/// 2,1,2,script2.scr,5
 /// ```
-/// - `event_filename` uses literal `null` when absent.
-/// - `event_type_id` controls execution condition (see `EventType` variants).
-/// - `counter` is the N-execution limit for repeating event types.
-impl Extractor for Event {
-    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        let reader = BufReader::new(
-            DecodeReaderBytesBuilder::new()
-                .encoding(Some(EUC_KR))
-                .build(reader.by_ref()),
-        );
-
-        let mut events: Vec<Event> = Vec::new();
-        for line in reader.lines().map_while(Result::ok) {
-            let trimmed = line.trim();
-            if trimmed.starts_with(";") || trimmed.is_empty() {
-                continue;
-            }
-
-            let parts: Vec<&str> = trimmed.split(",").collect();
-            if parts.len() < 5 {
-                continue;
-            }
-            let event_id = parts[0].parse::<i32>().unwrap();
-            let required_event_id: i32 = parts[1].parse::<i32>().unwrap();
-            let event_type_id = parts[2].parse::<i32>().unwrap();
-            let event_filename = parse_null(parts[3]);
-            let counter = parts[4].parse::<i32>().unwrap();
-
-            let event_type = EventType::from_i32(event_type_id).unwrap_or(EventType::Unknown);
-
-            events.push(Event {
-                event_id,
-                required_event_id,
-                event_type,
-                event_filename,
-                counter,
-            });
-        }
-        Ok(events)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        for record in records {
-            let filename = record.event_filename.as_deref().unwrap_or("null");
-            let event_type_id: i32 = record.event_type.into();
-            let line = format!(
-                "{},{},{},{},{}\r\n",
-                record.event_id, record.required_event_id, event_type_id, filename, record.counter
-            );
-            let (cow, _, _) = EUC_KR.encode(&line);
-            writer.write_all(&cow)?;
-        }
-        Ok(())
-    }
+///
+/// # Field Definitions
+///
+/// - `event_id`: Unique event identifier
+/// - `prev_id`: Prerequisite event ID
+/// - `type`: Execution condition type
+/// - `filename`: Script file or "null"
+/// - `counter`: Execution limit (N times)
+///
+/// # Event Types
+///
+/// - `1`: Execute once unconditionally
+/// - `2`: Execute N times (uses counter)
+/// - `3`: Execute if previous succeeded
+/// - `4`: Execute on map load
+/// - `5`: Execute on dialog trigger
+///
+/// # Special Values
+///
+/// - `"null"` literal for missing filenames
+/// - Lines starting with `;` are comments
+/// - CSV format with comma delimiter
+/// - `counter = 0`: No limit (infinite)
+///
+/// # File Purpose
+///
+/// Defines event scripts with execution conditions, prerequisites,
+/// and repetition limits. Used for quest progression, interactive
+/// objects, and game state management.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[extractor(encoding = "EUC_KR")]
+pub struct Event {
+    /// Unique event identifier.
+    #[extractor(field = 0)]
+    pub event_id: i32,
+    /// Prerequisite event ID that must have occurred.
+    #[extractor(field = 1)]
+    pub required_event_id: i32,
+    /// Determines execution condition (e.g. unconditionally, N times, if previous succeeded).
+    #[extractor(field = 2, enum_from_i32(type = "EventType"))]
+    pub event_type: EventType,
+    /// Filename of the event script.
+    #[extractor(field = 3, parse_null)]
+    pub event_filename: Option<String>,
+    /// Execution counter (N limit) for types that execute multiple times.
+    #[extractor(field = 4)]
+    pub counter: i32,
 }
 
 pub fn read_event_ini(source_path: &Path) -> std::io::Result<Vec<Event>> {

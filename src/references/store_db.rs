@@ -10,61 +10,86 @@ use crate::references::enums::ProductType;
 use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
 use dispel_macros::Localizable;
 
-// ===========================================================================
-// STORE.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | STORE.DB - Shop & Inn Database      |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Text Encoding: WINDOWS-1250          |
-// | Header: 4-byte record count          |
-// | Record Size: 948 bytes (237 × i32)   |
-// +--------------------------------------+
-// | [Header]                            |
-// | - record_count: i32                  |
-// +--------------------------------------+
-// | [Record 1]                           |
-// | - name: 32 bytes (WINDOWS-1250)     |
-// | - inn_night_cost: i32                |
-// | - IF inn_night_cost > 0:            |
-// |   - 144 bytes padding (inn only)     |
-// | - ELSE:                              |
-// |   - some_unknown_number: i16         |
-// |   - products: 71 × (i16, i16)         |
-// | - invitation: 512 bytes (WINDOWS-1250)|
-// | - haggle_success: 128 bytes (WINDOWS-1250)|
-// | - haggle_fail: 128 bytes (WINDOWS-1250)|
-// +--------------------------------------+
-// | [Record 2]                           |
-// | ... (same structure) ...             |
-// +--------------------------------------+
-//
-// STORE TYPES:
-// - inn_night_cost > 0: Inn (no products)
-// - inn_night_cost = 0: Shop (with products)
-//
-// PRODUCT TYPES:
-// - 1: Bronze/Weapons
-// - 2: Equipment
-// - 3: Edibles/Consumables
-// - 4: Magical Items
-//
-// PRODUCT STRUCTURE:
-// - (order: i16, type: i16, item_id: i16)
-// - Terminated by type = 0
-// - Max 71 products per shop
-//
-// FILE PURPOSE:
-// Defines all shops and inns with inventories, prices, dialogue,
-// and restocking behavior. Used for economy system, shopping
-// interface, and NPC merchant interactions.
-//
-// ===========================================================================
-
+/// Store.db - Shop & Inn Database
+///
+/// Defines all shops and inns with inventories, prices, dialogue,
+/// and restocking behavior. Used for economy system, shopping
+/// interface, and NPC merchant interactions.
+///
+/// Reads file: `CharacterInGame/STORE.DB`
+///
+/// # Binary Format
+///
+/// - **Encoding**: Little-endian for all numeric values
+/// - **Text Encoding**: WINDOWS-1250 for `store_name` (32 bytes), `invitation` (512 bytes),
+///   `haggle_success` (128 bytes), `haggle_fail` (128 bytes)
+/// - **Record Size**: 948 bytes (237 × i32)
+/// - **Header**: 4-byte i32 record count, followed by records
+///
+/// ```text
+/// +--------------------------------------+
+/// | STORE.DB - Shop & Inn Database      |
+/// +--------------------------------------+
+/// | Encoding: Binary (Little-Endian)     |
+/// | Text Encoding: WINDOWS-1250          |
+/// | Record Size: 948 bytes (237 × i32)   |
+/// +--------------------------------------+
+/// | [Header]                            |
+/// | - record_count: i32                  |
+/// +--------------------------------------+
+/// | [Record 1] - 948 bytes               |
+/// | - store_name: 32 bytes (WINDOWS-1250)|
+/// | - inn_night_cost: i32                |
+/// | - IF inn_night_cost >0:              |
+/// |     - 144 bytes padding (inn only)    |
+/// | - ELSE:                              |
+/// |     - some_unknown_number: i16         |
+/// |     - products: up to 71 × (type, id) |
+/// | - invitation: 512 bytes (WINDOWS-1250)|
+/// | - haggle_success: 128 bytes           |
+/// | - haggle_fail: 128 bytes              |
+/// +--------------------------------------+
+/// | [Record 2]                           |
+/// | ... (same structure) ...             |
+/// +--------------------------------------+
+/// ```
+///
+/// # Store Types
+///
+/// - `inn_night_cost > 0`: Inn (no products, 144 bytes padding)
+/// - `inn_night_cost = 0`: Shop (with products)
+///
+/// # Product Types
+///
+/// - `1`: Bronze/Weapons
+/// - `2`: Equipment
+/// - `3`: Edibles/Consumables
+/// - `4`: Magical Items
+///
+/// # Product Structure
+///
+/// - Format: `(order: i16, type: ProductType, item_id: i16)`
+/// - Terminated by `type == 0`
+/// - Max 71 products per shop
+///
+/// # Field Categories
+///
+/// - **Identification**: `index`, `store_name` (32 bytes, WINDOWS-1250)
+/// - **Economy**: `inn_night_cost` (0 = shop, >0 = inn), `some_unknown_number` (i16)
+/// - **Inventory**: `products` (up to 71 items as `(order, type, id)`)
+/// - **Dialogue**: `invitation` (512 bytes), `haggle_success` (128 bytes), `haggle_fail` (128 bytes)
+///
+/// # Special Values
+///
+/// - `inn_night_cost > 0`: Inn mode (padding instead of products)
+/// - `inn_night_cost = 0`: Shop mode (with product list)
+/// - Product list terminated by `type == 0`
+///
+/// # File Purpose
+///
+/// Defines all shops and inns with inventories, prices, dialogue,
+/// and restocking behavior. Used for economy system, shopping
+/// interface, and NPC merchant interactions.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Localizable)]
 pub struct Store {
     /// Logical ordering of the store script.
@@ -91,20 +116,6 @@ pub struct Store {
 
 pub type StoreProduct = (i16, ProductType, i16); // order, product_type, product_id
 
-/// Stores store inventories, inn prices, and merchant dialogue references.
-///
-/// Reads file: `CharacterInGame/STORE.DB`
-/// # File Format: `CharacterInGame/STORE.DB`
-///
-/// Binary file, little-endian.  Starts with a 4-byte i32 record count.
-/// Each record layout (union on `inn_night_cost`):
-/// - `name`           : 32 bytes, null-padded, WINDOWS-1250
-/// - `inn_night_cost` : i32 — if > 0 this is an inn; the next 144 bytes are padding.
-///   Otherwise `some_unknown_number` (i16) + 142 bytes of product list (up to 71
-///   pairs of `(item_type: i16, item_id: i16)`, terminated by `item_type == 0`).
-/// - `invitation`     : 512 bytes, null-padded, WINDOWS-1250
-/// - `haggle_success` : 128 bytes, null-padded, WINDOWS-1250
-/// - `haggle_fail`    : 128 bytes, null-padded, WINDOWS-1250
 impl Extractor for Store {
     fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>> {
         const COUNTER_SIZE: u8 = 4;

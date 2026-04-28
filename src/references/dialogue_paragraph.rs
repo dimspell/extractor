@@ -10,60 +10,60 @@ use std::{
 use crate::references::extractor::Extractor;
 use dispel_macros::Localizable;
 
-// ===========================================================================
-// DIALOGUE TEXT FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | *.pgp - Dialogue Text         |
-// +--------------------------------------+
-// | Encoding: WINDOWS-1250               |
-// | Format: Commented pipe-delimited     |
-// | Record Size: Variable (text)         |
-// +--------------------------------------+
-// | ; Comment line 1                     |
-// | ; Comment line 2                     |
-// | id|text|param1|param2                |
-// | 1|Hello|0|0                          |
-// | ; Quest dialogue                     |
-// | 2|Find the artifact|100|5            |
-// | ...                                  |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - id: Unique dialogue text identifier
-// - text: Display text content
-// - param1: Logic parameter 1
-// - param2: Logic parameter 2
-// - comment: Developer notes (multi-line)
-//
-// PARAMETER USAGE:
-// - param1: Dialogue branch conditions
-// - param2: Event triggers or requirements
-// - Special values: 0 = no condition
-//
-// TEXT FORMATTING:
-// - "null" literal for empty text
-// - "$" literal interpretet as a line-break in game
-// - Pipe (|) delimiter between fields
-// - Semicolon (;) for comment lines
-// - Multi-line comments supported
-//
-// SPECIAL VALUES:
-// - param1 = 0: Unconditional dialogue
-// - param2 = 0: No event trigger
-// - Empty text: "null" literal
-// - Comment lines preserved with ";" prefix
-//
-// FILE PURPOSE:
-// Stores dialogue text content with developer comments
-// and logical parameters. Used for displaying conversation
-// text, branching dialogue, and triggering game events.
-//
-// ===========================================================================
-
+/// Dialogue Paragraph (*.pgp) - Dialogue Text
+///
+/// Stores translations, text strings, and associated comments used within dialogues.
+///
+/// Reads file: `NpcInGame/*.pgp`
+///
+/// # ASCII Structure
+///
+/// ```text
+/// +--------------------------------------+
+/// | *.pgp - Dialogue Text         |
+/// +--------------------------------------+
+/// | Encoding: WINDOWS-1250               |
+/// | Format: Commented pipe-delimited     |
+/// | Record Size: Variable (text)         |
+/// +--------------------------------------+
+/// | ; Comment line 1                     |
+/// | ; Comment line 2                     |
+/// | id|text|param1|wave_ini_entry_id   |
+/// | 1|Hello|0|0                          |
+/// | ; Quest dialogue                     |
+/// | 2|Find the artifact|100|5            |
+/// | ...                                  |
+/// +--------------------------------------+
+/// ```
+///
+/// # Field Definitions
+///
+/// - `id`: Unique dialogue text identifier
+/// - `text`: Display text content (uses `"null"` for empty strings)
+/// - `comment`: Developer notes (multi-line, separated by ` | `)
+/// - `param1`: Logic parameter (dialogue branch conditions)
+/// - `wave_ini_entry_id`: ID of sound from `wave.ini` file, played at start of dialogue
+///
+/// # Text Formatting
+///
+/// - `"null"` literal for empty text
+/// - `$` literal interpreted as a line-break in game
+/// - Pipe (`|`) delimiter between fields
+/// - Semicolon (`;`) for comment lines
+/// - Multi-line comments supported (concatenated with ` | `)
+///
+/// # Special Values
+///
+/// - `param1` = 0: Unconditional dialogue
+/// - `wave_ini_entry_id` = 0: No sound trigger
+/// - Empty text: `"null"` literal
+/// - Comment lines preserved with `;` prefix
+///
+/// # File Purpose
+///
+/// Stores dialogue text content with developer comments
+/// and logical parameters. Used for displaying conversation
+/// text, branching dialogue, and triggering game events.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Localizable)]
 pub struct DialogueParagraph {
     /// Translation line identity reference.
@@ -79,20 +79,6 @@ pub struct DialogueParagraph {
     pub wave_ini_entry_id: i32,
 }
 
-/// Stores translations, text strings, and associated comments used within dialogues.
-///
-/// Reads file: `NpcInGame/*.pgp`
-/// # File Format: `NpcInGame/*.pgp`
-///
-/// Text file, WINDOWS-1250 encoded. Lines starting with `;` are comments
-/// and are associated with the next data record.
-/// Data lines are pipe-delimited:
-/// ```text
-/// id|text|param1|param2
-/// ```
-/// - `text` uses literal `null` for empty strings.
-/// - `param1` / `param2` are integer logic parameters.
-/// - Comment lines (`;`) preceding a record are stored in `comment` using ` | ` as separator.
 impl Extractor for DialogueParagraph {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let decoded = DecodeReaderBytesBuilder::new()

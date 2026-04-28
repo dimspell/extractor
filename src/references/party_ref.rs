@@ -1,151 +1,84 @@
-use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::enums::GhostFaceId;
-use crate::references::extractor::{parse_null, Extractor};
-use encoding_rs::WINDOWS_1250;
-use encoding_rs_io::DecodeReaderBytesBuilder;
+use crate::references::extractor::Extractor;
+use dispel_macros::TextExtractor;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// PARTYREF.REF FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | PartyRef.ref - Party Characters     |
-// +--------------------------------------+
-// | Encoding: WINDOWS-1250              |
-// | Format: CSV with comments            |
-// | Record Size: Variable (text)        |
-// +--------------------------------------+
-// | ; Comment line                      |
-// | id,name,job,map_id,npc_id,dlg_out,dlg_in,ghost|
-// | 1,Hero,null,1,1,100,101,1           |
-// | 2,Warrior,Fighter,1,2,102,103,2     |
-// | ...                                 |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - id: Unique character identifier
-// - name: Character display name or "null"
-// - job: Character class/job or "null"
-// - map_id: Origin map ID where character is found
-// - npc_id: Linked NPC record ID
-// - dlg_out: Dialog ID when not in party
-// - dlg_in: Dialog ID when in party
-// - ghost: Ghost face/sprite ID for UI
-//
-// SPECIAL VALUES:
-// - "null" literal for missing name/job fields
-// - Lines starting with ";" are comments
-// - CSV format with comma delimiter
-//
-//
-// FILE PURPOSE:
-// Defines all party characters with their names, classes, origin locations,
-// dialog references, and visual representations. Used for party management,
-// recruitment, and character interaction systems.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PartyRef {
-    /// Party member identifier.
-    pub id: i32,
-    /// Display name of the party character.
-    pub full_name: Option<String>,
-    /// Character class or job title.
-    pub job_name: Option<String>,
-    /// Origin map identifier where the character is found.
-    pub root_map_id: i32,
-    /// NPC record ID this character is linked to.
-    pub npc_id: i32,
-    /// Dialog topic when the character is roaming/not recruited.
-    pub dlg_when_not_in_party: i32,
-    /// Dialog topic when the character is actively grouped.
-    pub dlg_when_in_party: i32,
-    /// Sprite ID for their UI portrait or ghost form.
-    pub ghost_face_id: GhostFaceId,
-}
-
+/// PartyRef.ref - Party Characters
+///
 /// Stores character definitions and references for the party.
 ///
 /// Reads file: `Ref/PartyRef.ref`
-/// # File Format: `Ref/PartyRef.ref`
 ///
-/// Text file, WINDOWS-1250 encoded. One record per line, CSV format:
+/// # ASCII Structure
+///
 /// ```text
-/// id,full_name,job_name,root_map_id,npc_id,dlg_not_in_party,dlg_in_party,ghost_face_id
+/// +--------------------------------------+
+/// | PartyRef.ref - Party Characters     |
+/// +--------------------------------------+
+/// | Encoding: WINDOWS-1250              |
+/// | Format: CSV with comments            |
+/// | Record Size: Variable (text)        |
+/// +--------------------------------------+
+/// | ; Comment line                      |
+/// | id,name,job,map_id,npc_id,dlg_out,dlg_in,ghost|
+/// | 1,Hero,null,1,1,100,101,1           |
+/// | 2,Warrior,Fighter,1,2,102,103,2     |
+/// | ...                                 |
+/// +--------------------------------------+
 /// ```
-/// - `full_name` and `job_name` use literal `null` when absent.
-impl Extractor for PartyRef {
-    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        let decoded = DecodeReaderBytesBuilder::new()
-            .encoding(Some(WINDOWS_1250))
-            .build(reader.by_ref());
-        let buf_reader = BufReader::new(decoded);
-        let mut party_refs: Vec<PartyRef> = Vec::new();
-        for line in buf_reader.lines().map_while(std::io::Result::ok) {
-            let trimmed = line.trim();
-            if trimmed.starts_with(";") || trimmed.is_empty() {
-                continue;
-            }
-
-            let parts: Vec<&str> = trimmed.split(",").collect();
-            if parts.len() < 8 {
-                continue;
-            }
-
-            let id = parts[0].trim().parse::<i32>().unwrap();
-            let full_name = parse_null(parts[1].trim());
-            let job_name = parse_null(parts[2].trim());
-            let root_map_id = parts[3].trim().parse::<i32>().unwrap();
-            let npc_id = parts[4].trim().parse::<i32>().unwrap();
-            let dlg_when_not_in_party = parts[5].trim().parse::<i32>().unwrap();
-            let dlg_when_in_party = parts[6].trim().parse::<i32>().unwrap();
-            let ghost_face_id_raw = parts[7].trim().parse::<i32>().unwrap();
-
-            let ghost_face_id =
-                GhostFaceId::from_i32(ghost_face_id_raw).unwrap_or(GhostFaceId::None);
-
-            party_refs.push(PartyRef {
-                id,
-                full_name,
-                job_name,
-                root_map_id,
-                npc_id,
-                dlg_when_not_in_party,
-                dlg_when_in_party,
-                ghost_face_id,
-            });
-        }
-        Ok(party_refs)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        for record in records {
-            let full_name = record.full_name.as_deref().unwrap_or("null");
-            let job_name = record.job_name.as_deref().unwrap_or("null");
-
-            let line = format!(
-                "{},{},{},{},{},{},{},{}\r\n",
-                record.id,
-                full_name,
-                job_name,
-                record.root_map_id,
-                record.npc_id,
-                record.dlg_when_not_in_party,
-                record.dlg_when_in_party,
-                i32::from(record.ghost_face_id)
-            );
-            let (cow, _, _) = WINDOWS_1250.encode(&line);
-            writer.write_all(&cow)?;
-        }
-        Ok(())
-    }
+///
+/// # Field Definitions
+///
+/// - `id`: Unique character identifier
+/// - `full_name`: Character display name or "null" (shown as `name` in file)
+/// - `job_name`: Character class/job or "null" (shown as `job` in file)
+/// - `root_map_id`: Origin map ID where character is found (shown as `map_id` in file)
+/// - `npc_id`: Linked NPC record ID
+/// - `dlg_when_not_in_party`: Dialog ID when not in party (shown as `dlg_out` in file)
+/// - `dlg_when_in_party`: Dialog ID when in party (shown as `dlg_in` in file)
+/// - `ghost_face_id`: Ghost face/sprite ID for UI (shown as `ghost` in file)
+///
+/// # Special Values
+///
+/// - `"null"` literal for missing `full_name`/`job_name` fields
+/// - Lines starting with `;` are comments
+/// - CSV format with comma delimiter
+///
+/// # File Purpose
+///
+/// Defines all party characters with their names, classes, origin locations,
+/// dialog references, and visual representations. Used for party management,
+/// recruitment, and character interaction systems.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[extractor(encoding = "WINDOWS_1250")]
+pub struct PartyRef {
+    /// Party member identifier.
+    #[extractor(field = 0)]
+    pub id: i32,
+    /// Display name of the party character.
+    #[extractor(field = 1, parse_null)]
+    pub full_name: Option<String>,
+    /// Character class or job title.
+    #[extractor(field = 2, parse_null)]
+    pub job_name: Option<String>,
+    /// Origin map identifier where the character is found.
+    #[extractor(field = 3)]
+    pub root_map_id: i32,
+    /// NPC record ID this character is linked to.
+    #[extractor(field = 4)]
+    pub npc_id: i32,
+    /// Dialog topic when the character is roaming/not recruited.
+    #[extractor(field = 5)]
+    pub dlg_when_not_in_party: i32,
+    /// Dialog topic when the character is actively grouped.
+    #[extractor(field = 6)]
+    pub dlg_when_in_party: i32,
+    /// Sprite ID for their UI portrait or ghost form.
+    #[extractor(field = 7, enum_from_i32(type = "GhostFaceId"))]
+    pub ghost_face_id: GhostFaceId,
 }
 
 pub fn read_part_refs(source_path: &Path) -> std::io::Result<Vec<PartyRef>> {

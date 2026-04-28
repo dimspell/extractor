@@ -9,45 +9,41 @@ use serde::{Deserialize, Serialize};
 use crate::references::enums::ItemTypeId;
 use crate::references::extractor::Extractor;
 
-// ===========================================================================
-// DRAWITEM.REF FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | DRAWITEM.ref - Map Object Placements |
-// +--------------------------------------+
-// | Encoding: EUC-KR                     |
-// | Format: Parenthesized CSV            |
-// | Record Size: Variable (text)         |
-// +--------------------------------------+
-// | ; Comment line                       |
-// | (map_id,x_coord,y_coord,item_id)     |
-// | (1,5,10,1001)                        |
-// | (1,6,11,1002)                        |
-// | ...                                  |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - map_id: Target map identifier
-// - x_coord: Tile X coordinate (isometric)
-// - y_coord: Tile Y coordinate (isometric)
-// - item_id: Encoded item/object identifier
-//
-// SPECIAL VALUES:
-// - Lines starting with ";" are comments
-// - Parenthesized CSV format
-// - Coordinates use isometric tile system
-//
-//
-// STORAGE FORMATS:
-// - File format: Encoded i32 (for compatibility with game files)
-// - Memory (DrawItem struct): Separate fields (item_id: u8, item_type: ItemTypeId)
-// - Database: Separate columns (item_id: INTEGER, item_type: INTEGER)
-//
-// ===========================================================================
-
+/// Stores map placement data for drawn items/objects.
+///
+/// The struct uses decoded form with separate item_type and item_id fields,
+/// while file I/O maintains compatibility with the encoded i32 format.
+///
+/// Reads file: `Ref/DRAWITEM.ref`
+///
+/// # Contents
+///
+/// ```text
+/// ; Comment line
+/// (map_id,x_coord,y_coord,item_id)
+/// (1,5,10,1001)
+/// (1,6,11,1002)
+/// ...
+/// ```
+///
+/// # Field Definitions
+///
+/// - `map_id`: Target map identifier
+/// - `x_coord`: Tile X coordinate (isometric)
+/// - `y_coord`: Tile Y coordinate (isometric)
+/// - `item_id`: Encoded item/object identifier
+///
+/// # Special Values
+///
+/// - Lines starting with `;` are comments
+/// - Parenthesized CSV format
+/// - Coordinates use isometric tile system
+///
+/// # Storage Formats
+///
+/// - File format: Encoded i32 (for compatibility with game files)
+/// - Memory (`DrawItem` struct): Separate fields (`item_id: u8`, `item_type: ItemTypeId`)
+/// - Database: Separate columns (`item_id: INTEGER`, `item_type: INTEGER`)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DrawItem {
     /// Target map for placement (a reference to the AllMap.ini).
@@ -62,21 +58,6 @@ pub struct DrawItem {
     pub item_id: u8,
 }
 
-/// Stores map placement data for drawn items/objects.
-///
-/// The struct uses decoded form with separate item_type and item_id fields,
-/// while file I/O maintains compatibility with the encoded i32 format.
-///
-/// Reads file: `Ref/DRAWITEM.ref`
-/// # File Format: `Ref/DRAWITEM.ref`
-///
-/// Text file, EUC-KR encoded. One record per line, parenthesised CSV format:
-/// ```text
-/// (map_id,x_coord,y_coord,item_id)
-/// ```
-/// - `item_id` is an encoded i32 combining `[item_id, item_type, 0, 0]` bytes.
-/// - In memory: stored as separate `item_id: u8` and `item_type: ItemTypeId` fields
-/// - In database: stored as separate `item_id: INTEGER` and `item_type: INTEGER` columns
 impl Extractor for DrawItem {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let decoded = DecodeReaderBytesBuilder::new()

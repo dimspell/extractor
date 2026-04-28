@@ -8,74 +8,74 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite;
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// EVENT*.SCR FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | Event Script Files                  |
-// +--------------------------------------+
-// | Encoding: EUC-KR                     |
-// | Format: INI-style with sections      |
-// | Record Size: Variable (text)        |
-// +--------------------------------------+
-// | ; Comment line                       |
-// | [VAR]                                |
-// | varname=value                        |
-// |                                     |
-// | [MAP]                                |
-// | map_id                               |
-// |                                     |
-// | [CHR]                                |
-// | char_id                              |
-// |                                     |
-// | [NPC]                                |
-// | npc_id                               |
-// |                                     |
-// | [SPR]                                |
-// | Pope(PopeBlessing.spr)              |
-// |                                     |
-// | [WAV]                                |
-// | sound_id                             |
-// |                                     |
-// | [ACT]                                |
-// | function_call(param1, param2)        |
-// | if(condition)                        |
-// | {                                    |
-// |   action1()                          |
-// | }                                    |
-// | else                                 |
-// | {                                    |
-// |   action2()                          |
-// | }                                    |
-// +--------------------------------------+
-//
-// SECTION DEFINITIONS:
-// - [VAR]: Variables used in the script
-// - [MAP]: Map ID to load/unload
-// - [CHR]: Character reference
-// - [NPC]: NPC reference
-// - [SPR]: Sprites to load, providing further alias in the script
-// - [WAV]: Sounds
-// - [ACT]: Actions/script logic
-//
-// SPECIAL VALUES:
-// - Lines starting with ";" are comments
-// - Empty lines ignored
-// - Variables in format: name=value
-// - Actions are function calls with parameters
-// - Control flow: if(), else, repeat, etc.
-//
-// FILE PURPOSE:
-// Defines game events, scripts, and interactive sequences.
-// Used for quests, cutscenes, NPC interactions, and game
-// state changes. Events are triggered by map interactions
-// or quest progression.
-//
-// ===========================================================================
-
+/// Event Script Files (Event*.scr)
+///
+/// # ASCII Structure
+///
+/// ```text
+/// +--------------------------------------+
+/// | Event Script Files                  |
+/// +--------------------------------------+
+/// | Encoding: EUC-KR                     |
+/// | Format: INI-style with sections      |
+/// | Record Size: Variable (text)        |
+/// +--------------------------------------+
+/// | ; Comment line                       |
+/// | [VAR]                                |
+/// | varname=value                        |
+/// |                                     |
+/// | [MAP]                                |
+/// | map_id                               |
+/// |                                     |
+/// | [CHR]                                |
+/// | char_id                              |
+/// |                                     |
+/// | [NPC]                                |
+/// | npc_id                               |
+/// |                                     |
+/// | [SPR]                                |
+/// | Pope(PopeBlessing.spr)              |
+/// |                                     |
+/// | [WAV]                                |
+/// | sound_id                             |
+/// |                                     |
+/// | [ACT]                                |
+/// | function_call(param1, param2)        |
+/// | if(condition)                        |
+/// | {                                    |
+/// |   action1()                          |
+/// | }                                    |
+/// | else                                 |
+/// | {                                    |
+/// |   action2()                          |
+/// | }                                    |
+/// +--------------------------------------+
+/// ```
+///
+/// # Section Definitions
+///
+/// - `[VAR]`: Variables used in the script
+/// - `[MAP]`: Map ID to load/unload
+/// - `[CHR]`: Character reference
+/// - `[NPC]`: NPC reference
+/// - `[SPR]`: Sprites to load, providing further alias in the script
+/// - `[WAV]`: Sounds
+/// - `[ACT]`: Actions/script logic
+///
+/// # Special Values
+///
+/// - Lines starting with `;` are comments
+/// - Empty lines ignored
+/// - Variables in format: `name=value`
+/// - Actions are function calls with parameters
+/// - Control flow: `if()`, `else`, `repeat`, etc.
+///
+/// # File Purpose
+///
+/// Defines game events, scripts, and interactive sequences.
+/// Used for quests, cutscenes, NPC interactions, and game
+/// state changes. Events are triggered by map interactions
+/// or quest progression.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EventScript {
     /// Event script identifier (from filename).
@@ -256,34 +256,6 @@ impl ActionFunction {
     }
 }
 
-/// Event script parser for Dispel game events.
-///
-/// Reads files: `Ref/Event*.scr`
-/// # File Format: `Event*.scr`
-///
-/// Text file, EUC-KR encoded. INI-style format with sections:
-/// ```text
-/// [VAR]
-/// varname=value
-///
-/// [MAP]
-/// map(map_id)
-///
-/// [CHR]
-///
-/// [NPC]
-///
-/// [SPR]
-///
-/// [WAV]
-///
-/// [ACT]
-/// function_call(param)
-/// if(condition)
-/// {
-///   action()
-/// }
-/// ```
 impl Extractor for EventScript {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let decoded = DecodeReaderBytesBuilder::new()

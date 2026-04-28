@@ -11,6 +11,18 @@ use serde::{Deserialize, Serialize};
 // QUEST.SCR FILE FORMAT
 // ===========================================================================
 //
+// Stores quest diary entries, including main quests, side quests, and trader journals.
+//
+// Reads file: `ExtraInGame/Quest.scr`
+// # File Format: `ExtraInGame/Quest.scr`
+//
+// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
+// ```text
+// id|type_id|title|description
+// ```
+// - `type_id`: 0 = main quest, 1 = side quest, 2 = traders journal.
+// - `title` and `description` use literal `null` when absent.
+//
 // ASCII Structure:
 //
 // +--------------------------------------+
@@ -63,17 +75,6 @@ pub struct Quest {
     pub description: Option<String>,
 }
 
-/// Stores quest diary entries, including main quests, side quests, and trader journals.
-///
-/// Reads file: `ExtraInGame/Quest.scr`
-/// # File Format: `ExtraInGame/Quest.scr`
-///
-/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
-/// ```text
-/// id|type_id|title|description
-/// ```
-/// - `type_id`: 0 = main quest, 1 = side quest, 2 = traders journal.
-/// - `title` and `description` use literal `null` when absent.
 impl Extractor for Quest {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let decoded = DecodeReaderBytesBuilder::new()

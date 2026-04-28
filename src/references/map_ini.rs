@@ -1,155 +1,96 @@
-use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
-use crate::references::extractor::{parse_null, Extractor};
-use encoding_rs::EUC_KR;
-use encoding_rs_io::DecodeReaderBytesBuilder;
+use crate::references::extractor::Extractor;
+use dispel_macros::TextExtractor;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// MAP.INI FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | Map.ini - Map Initialization Data    |
-// +--------------------------------------+
-// | Encoding: EUC-KR                    |
-// | Format: CSV with comments            |
-// | Record Size: Variable (text)        |
-// +--------------------------------------+
-// | ; Comment line                       |
-// | id,camera_event,start_x,start_y,map_id,monsters,npcs,extras,cd_track|
-// | 1,1001,5,10,1,mon1.ref,npc1.ref,ext1.ref,1|
-// | 2,1002,3,8,2,mon2.ref,npc2.ref,ext2.ref,2|
-// | ...                                   |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - id: Unique map identifier
-// - camera_event: Event triggered on camera movement
-// - start_x: Initial player X coordinate
-// - start_y: Initial player Y coordinate
-// - map_id: Target map ID for linking
-// - monsters: Monster placement REF file
-// - npcs: NPC placement REF file
-// - extras: Extra object placement REF file
-// - cd_track: Background music track number
-//
-// SPECIAL VALUES:
-// - "null" literal for missing REF files
-// - Lines starting with ";" are comments
-// - CSV format with comma delimiter
-// - Coordinates use isometric tile system
-//
-// FILE PURPOSE:
-// Defines map initialization parameters including
-// starting positions, linked files, and music tracks.
-// Used for map loading and setup.
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct MapIni {
-    /// Map ini identifier.
-    pub id: i32,
-    /// Event ID triggered when camera moves.
-    pub event_id_on_camera_move: i32,
-    /// Initial spawn X coordinate.
-    pub start_pos_x: i32,
-    /// Initial spawn Y coordinate.
-    pub start_pos_y: i32,
-    /// Target map ID to link to.
-    pub map_id: i32,
-    /// Monster placement .ref filename.
-    pub monsters_filename: Option<String>,
-    /// NPC placement .ref filename.
-    pub npc_filename: Option<String>,
-    /// Extra interactive objects .ref filename.
-    pub extra_filename: Option<String>,
-    /// Audio track index for map background music.
-    pub cd_music_track_number: i32, // CD music track number
-}
-
+/// Map.ini - Map Initialization Data
+///
 /// Stores specific properties and configuration for a single map.
 ///
 /// Reads file: `Ref/Map.ini`
-/// # File Format: `Ref/Map.ini`
 ///
-/// Text file, EUC-KR encoded. One record per line, CSV format:
+/// # ASCII Structure
+///
 /// ```text
-/// id,event_id_on_camera_move,start_x,start_y,map_id,monsters_file,npc_file,extra_file,cd_track
+/// +--------------------------------------+
+/// | Map.ini - Map Initialization Data    |
+/// +--------------------------------------+
+/// | Encoding: EUC-KR                    |
+/// | Format: CSV with comments            |
+/// | Record Size: Variable (text)        |
+/// +--------------------------------------+
+/// | ; Comment line                       |
+/// | id,camera_event,start_x,start_y,map_id,monsters,npcs,extras,cd_track|
+/// | 1,1001,5,10,1,mon1.ref,npc1.ref,ext1.ref,1|
+/// | 2,1002,3,8,2,mon2.ref,npc2.ref,ext2.ref,2|
+/// | ...                                   |
+/// +--------------------------------------+
 /// ```
-/// - Optional filenames use literal `null`.
-/// - `cd_track` is the background music CD track index.
-impl Extractor for MapIni {
-    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        let decoded = DecodeReaderBytesBuilder::new()
-            .encoding(Some(EUC_KR))
-            .build(reader.by_ref());
-        let buf_reader = BufReader::new(decoded);
-        let mut map_inis: Vec<MapIni> = Vec::new();
-        for line in buf_reader.lines().map_while(std::io::Result::ok) {
-            let trimmed = line.trim();
-            if trimmed.starts_with(";") || trimmed.is_empty() {
-                continue;
-            }
-
-            let parts: Vec<&str> = trimmed.split(",").collect();
-            if parts.len() < 9 {
-                continue;
-            }
-
-            let id: i32 = parts[0].trim().parse::<i32>().unwrap();
-            let event_id_on_camera_move = parts[1].trim().parse::<i32>().unwrap();
-            let start_pos_x = parts[2].trim().parse::<i32>().unwrap();
-            let start_pos_y = parts[3].trim().parse::<i32>().unwrap();
-            let map_id = parts[4].trim().parse::<i32>().unwrap();
-            let monsters_filename = parse_null(parts[5].trim());
-            let npc_filename = parse_null(parts[6].trim());
-            let extra_filename = parse_null(parts[7].trim());
-            let cd_music_track_number = parts[8].trim().parse::<i32>().unwrap();
-
-            map_inis.push(MapIni {
-                id,
-                event_id_on_camera_move,
-                start_pos_x,
-                start_pos_y,
-                map_id,
-                monsters_filename,
-                npc_filename,
-                extra_filename,
-                cd_music_track_number,
-            });
-        }
-        Ok(map_inis)
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        for record in records {
-            let mon = record.monsters_filename.as_deref().unwrap_or("null");
-            let npc = record.npc_filename.as_deref().unwrap_or("null");
-            let ext = record.extra_filename.as_deref().unwrap_or("null");
-
-            let line = format!(
-                "{},{},{},{},{},{},{},{},{}\r\n",
-                record.id,
-                record.event_id_on_camera_move,
-                record.start_pos_x,
-                record.start_pos_y,
-                record.map_id,
-                mon,
-                npc,
-                ext,
-                record.cd_music_track_number
-            );
-            let (cow, _, _) = EUC_KR.encode(&line);
-            writer.write_all(&cow)?;
-        }
-        Ok(())
-    }
+///
+/// # Field Definitions
+///
+/// - `id`: Unique map identifier
+/// - `event_id_on_camera_move`: Event triggered on camera movement
+/// - `start_pos_x`: Initial player X coordinate (isometric tile)
+/// - `start_pos_y`: Initial player Y coordinate (isometric tile)
+/// - `map_id`: Target map ID for linking
+/// - `monsters_filename`: Monster placement REF file (or "null")
+/// - `npc_filename`: NPC placement REF file (or "null")
+/// - `extra_filename`: Extra object placement REF file (or "null")
+/// - `cd_music_track_number`: Background music track number
+///
+/// # Field Categories
+///
+/// - **Identification**: `id` (map instance ID)
+/// - **Initial Position**: `start_pos_x`, `start_pos_y` (isometric tile coordinates)
+/// - **Event Link**: `event_id_on_camera_move` (triggered on camera movement)
+/// - **Map Linking**: `map_id` (target map for transitions)
+/// - **Placements**: `monsters_filename`, `npc_filename`, `extra_filename` (REF files)
+/// - **Audio**: `cd_music_track_number` (background music)
+///
+/// # Special Values
+///
+/// - `"null"` literal for missing REF files (`monsters_filename`, `npc_filename`, `extra_filename`)
+/// - Lines starting with `;` are comments
+/// - CSV format with comma delimiter
+/// - Coordinates use isometric tile system
+///
+/// # File Purpose
+///
+/// Defines map initialization parameters including
+/// starting positions, linked files, and music tracks.
+/// Used for map loading and setup.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+pub struct MapIni {
+    /// Map ini identifier.
+    #[extractor(field = 0)]
+    pub id: i32,
+    /// Event ID triggered when camera moves.
+    #[extractor(field = 1)]
+    pub event_id_on_camera_move: i32,
+    /// Initial spawn X coordinate.
+    #[extractor(field = 2)]
+    pub start_pos_x: i32,
+    /// Initial spawn Y coordinate.
+    #[extractor(field = 3)]
+    pub start_pos_y: i32,
+    /// Target map ID to link to.
+    #[extractor(field = 4)]
+    pub map_id: i32,
+    /// Monster placement .ref filename.
+    #[extractor(field = 5, parse_null)]
+    pub monsters_filename: Option<String>,
+    /// NPC placement .ref filename.
+    #[extractor(field = 6, parse_null)]
+    pub npc_filename: Option<String>,
+    /// Extra interactive objects .ref filename.
+    #[extractor(field = 7, parse_null)]
+    pub extra_filename: Option<String>,
+    /// Audio track index for map background music.
+    #[extractor(field = 8)]
+    pub cd_music_track_number: i32,
 }
 
 pub fn read_map_ini(source_path: &Path) -> std::io::Result<Vec<MapIni>> {

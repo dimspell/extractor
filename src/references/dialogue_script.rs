@@ -8,55 +8,64 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
-// ===========================================================================
-// DLG FILE FORMAT (Dialogue)
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | *.dlg - Dialogue/Conversation Scripts|
-// +--------------------------------------+
-// | Encoding: EUC-KR                     |
-// | Format: CSV with comments            |
-// | Record Size: Variable (text)         |
-// +--------------------------------------+
-// | ; Comment line                       |
-// | id,prev_event,next_dlg,type,owner,dlg_id,event_id|
-// | 1,100,2,0,1,1001,1000                |
-// | 2,101,3,1,0,1002,1001                |
-// | ...                                  |
-// +--------------------------------------+
-//
-// FIELD DEFINITIONS:
-// - id: Unique dialogue line identifier
-// - prev_event: Required event ID to trigger
-// - next_dlg: Next dialogue ID in chain
-// - type: 0=normal, 1=choice dialog
-// - owner: 0=player, 1=NPC
-// - dlg_id: Reference to PGP text content
-// - event_id: Event triggered by dialogue
-//
-// DIALOGUE TYPES:
-// - 0: Normal dialogue (linear conversation)
-// - 1: Choice dialogue (branching options)
-//
-// DIALOGUE OWNERS:
-// - 0: Main character/player speaking
-// - 1: NPC character speaking
-//
-// SPECIAL VALUES:
-// - "null" literal for optional fields
-// - Lines starting with ";" are comments
-// - CSV format with comma delimiter
-//
-// FILE PURPOSE:
-// Defines dialogue scripts with branching conversations, event triggers,
-// and text references. Used for NPC interactions, quest dialogues,
-// and story progression systems.
-//
-// ===========================================================================
-
+/// Dialogue Script (*.dlg) - Conversation Scripts
+///
+/// Stores dialogues and conversational branches for characters.
+///
+/// Reads file: `NpcInGame/Dlgcat1.dlg` (and other `.dlg` files)
+///
+/// # ASCII Structure
+///
+/// ```text
+/// +--------------------------------------+
+/// | *.dlg - Dialogue/Conversation Scripts|
+/// +--------------------------------------+
+/// | Encoding: EUC-KR                     |
+/// | Format: Pipe-delimited with comments  |
+/// | Record Size: Variable (text)         |
+/// +--------------------------------------+
+/// | ; Comment line                       |
+/// | id|prev_event|next_dlg|type|owner|dlg_id|opt0|opt1|opt2|event_id|
+/// | 1|100|2|0|1|1001|0|0|0|1000       |
+/// | 2|101|3|1|0|1002|0|0|0|1001       |
+/// | ...                                  |
+/// +--------------------------------------+
+/// ```
+///
+/// # Field Definitions
+///
+/// - `id`: Unique dialogue line identifier
+/// - `required_event_id`: Required event ID to trigger (shown as `prev_event` in file)
+/// - `next_dialog_to_check`: Next dialogue ID in chain (shown as `next_dlg` in file)
+/// - `dialog_type`: 0 = normal, 1 = choice dialog (shown as `type` in file)
+/// - `dialog_owner`: 0 = player, 1 = NPC (shown as `owner` in file)
+/// - `dialog_id`: Reference to PGP text content (shown as `dlg_id` in file)
+/// - `next_dialog_id1`: Next dialog option [1] for choice dialogs (shown as `opt0` in file)
+/// - `next_dialog_id2`: Next dialog option [2] for choice dialogs (shown as `opt1` in file)
+/// - `next_dialog_id3`: Next dialog option [3] for choice dialogs (shown as `opt2` in file)
+/// - `triggered_event_id`: Event triggered by dialogue (shown as `event_id` in file)
+///
+/// # Dialogue Types
+///
+/// - `0`: Normal dialogue (linear conversation)
+/// - `1`: Choice dialogue (branching options)
+///
+/// # Dialogue Owners
+///
+/// - `0`: Main character/player speaking
+/// - `1`: NPC character speaking
+///
+/// # Special Values
+///
+/// - Optional fields are `0` when absent (not `"null"`)
+/// - Lines starting with `;` are comments
+/// - Pipe (`|`) delimiter between fields
+///
+/// # File Purpose
+///
+/// Defines dialogue scripts with branching conversations, event triggers,
+/// and text references. Used for NPC interactions, quest dialogues,
+/// and story progression systems.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct DialogueScript {
     /// Unique dialog script line ID.
@@ -82,18 +91,6 @@ pub struct DialogueScript {
     pub triggered_event_id: Option<i32>,
 }
 
-/// Stores dialogues and conversational branches for characters.
-///
-/// Reads file: `NpcInGame/Dlgcat1.dlg (and other .dlg files)`
-/// # File Format: `NpcInGame/Dlgcat1.dlg` (and other map `.dlg` files)
-///
-/// Text file, WINDOWS-1250 encoded. One record per line, pipe-delimited:
-/// ```text
-/// id|required_event_id|next_dialog_to_check|dialog_type|dialog_owner|dialog_id|opt0|opt1|opt2|event_id
-/// ```
-/// - `dialog_type`: 0 = normal, 1 = choose dialog.
-/// - `dialog_owner`: 0 = main character talking, 1 = NPC talking.
-/// - Optional fields use literal `null` when absent.
 impl Extractor for DialogueScript {
     fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
         let decoded = DecodeReaderBytesBuilder::new()
