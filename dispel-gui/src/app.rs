@@ -94,7 +94,9 @@ impl App {
         // Also start file indexation for cache
         let indexation_task = state.start_file_indexation_if_needed();
 
-        let restore_tab_load_task = state.workspace.active()
+        let restore_tab_load_task = state
+            .workspace
+            .active()
             .and_then(|tab| load_catalog_task(tab.editor_type));
 
         // Combine tasks if they exist

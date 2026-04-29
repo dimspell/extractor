@@ -1,9 +1,5 @@
-use super::editable::{set_i32_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use super::editable::{set_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::{references::enums::ItemTypeId, NpcLookingDirection, NPC};
-
-fn from_i32_to_item_type_id(value: i32) -> Option<ItemTypeId> {
-    ItemTypeId::from_u8(value as u8)
-}
 
 impl EditableRecord for NPC {
     fn field_descriptors() -> &'static [FieldDescriptor] {
@@ -36,7 +32,18 @@ impl EditableRecord for NPC {
             FieldDescriptor {
                 name: "looking_direction",
                 label: "Direction:",
-                kind: FieldKind::Integer,
+                kind: FieldKind::Enum {
+                    variants: &[
+                        "Up",
+                        "UpRight",
+                        "Right",
+                        "DownRight",
+                        "Down",
+                        "DownLeft",
+                        "Left",
+                        "UpLeft",
+                    ],
+                },
             },
             FieldDescriptor {
                 name: "dialog_id",
@@ -134,10 +141,10 @@ impl EditableRecord for NPC {
             "name" => set_str(&mut self.name, value),
             "party_script_id" => set_int(&mut self.party_script_id, value),
             "show_on_event" => set_int(&mut self.show_on_event, value),
-            "looking_direction" => set_i32_enum(
+            "looking_direction" => set_enum(
                 &mut self.looking_direction,
                 value,
-                NpcLookingDirection::from_i32,
+                NpcLookingDirection::from_name,
             ),
             "dialog_id" => set_int(&mut self.dialog_id, value),
             "goto1_x" => set_int(&mut self.goto1_x, value),
@@ -150,7 +157,7 @@ impl EditableRecord for NPC {
             "goto4_y" => set_int(&mut self.goto4_y, value),
             "dialogue_face_sprite_id" => set_int(&mut self.dialogue_face_sprite_id, value),
             "unknown_item_type" => {
-                set_i32_enum(&mut self.unknown_item_type, value, from_i32_to_item_type_id)
+                set_enum(&mut self.unknown_item_type, value, ItemTypeId::from_name)
             }
             "unknown_item_id" => set_int(&mut self.unknown_item_id, value),
             _ => false,

@@ -548,6 +548,20 @@ pub enum ExtraObjectType {
 }
 
 impl ExtraObjectType {
+    /// Convert from a variant name string
+    pub fn from_name(s: &str) -> Option<Self> {
+        match s {
+            "Chest" => Some(ExtraObjectType::Chest),
+            "Door" => Some(ExtraObjectType::Door),
+            "Sign" => Some(ExtraObjectType::Sign),
+            "Altar" => Some(ExtraObjectType::Altar),
+            "Interactive" => Some(ExtraObjectType::Interactive),
+            "Magic" => Some(ExtraObjectType::Magic),
+            "Unknown" => Some(ExtraObjectType::Unknown),
+            _ => None,
+        }
+    }
+
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
@@ -608,6 +622,16 @@ pub enum VisibilityType {
 }
 
 impl VisibilityType {
+    /// Convert from a variant name string
+    pub fn from_name(s: &str) -> Option<Self> {
+        match s {
+            "Visible0" => Some(VisibilityType::Visible0),
+            "Visible10" => Some(VisibilityType::Visible10),
+            "Unknown" => Some(VisibilityType::Unknown),
+            _ => None,
+        }
+    }
+
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
@@ -1485,6 +1509,21 @@ pub enum NpcLookingDirection {
 }
 
 impl NpcLookingDirection {
+    /// Convert from a variant name string
+    pub fn from_name(s: &str) -> Option<Self> {
+        match s {
+            "Up" => Some(NpcLookingDirection::Up),
+            "UpRight" => Some(NpcLookingDirection::UpRight),
+            "Right" => Some(NpcLookingDirection::Right),
+            "DownRight" => Some(NpcLookingDirection::DownRight),
+            "Down" => Some(NpcLookingDirection::Down),
+            "DownLeft" => Some(NpcLookingDirection::DownLeft),
+            "Left" => Some(NpcLookingDirection::Left),
+            "UpLeft" => Some(NpcLookingDirection::UpLeft),
+            _ => None,
+        }
+    }
+
     /// Convert from i32 with validation
     pub fn from_i32(value: i32) -> Option<Self> {
         match value {

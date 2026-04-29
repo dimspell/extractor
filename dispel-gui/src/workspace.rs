@@ -1016,21 +1016,54 @@ mod editor_type_tests {
 
     #[test]
     fn script_and_special_extensions_map_correctly() {
-        assert_eq!(EditorType::from_path(Path::new("Quest.scr")), EditorType::QuestScrEditor);
-        assert_eq!(EditorType::from_path(Path::new("Message.scr")), EditorType::MessageScrEditor);
-        assert_eq!(EditorType::from_path(Path::new("scene.dlg")), EditorType::DialogueScriptEditor);
-        assert_eq!(EditorType::from_path(Path::new("text.pgp")), EditorType::DialogueTextEditor);
-        assert_eq!(EditorType::from_path(Path::new("sprite.spr")), EditorType::SpriteViewer);
-        assert_eq!(EditorType::from_path(Path::new("sound.snf")), EditorType::SnfEditor);
-        assert_eq!(EditorType::from_path(Path::new("level.map")), EditorType::MapEditor);
-        assert_eq!(EditorType::from_path(Path::new("tiles.btl")), EditorType::TilesetEditor);
+        assert_eq!(
+            EditorType::from_path(Path::new("Quest.scr")),
+            EditorType::QuestScrEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("Message.scr")),
+            EditorType::MessageScrEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("scene.dlg")),
+            EditorType::DialogueScriptEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("text.pgp")),
+            EditorType::DialogueTextEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("sprite.spr")),
+            EditorType::SpriteViewer
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("sound.snf")),
+            EditorType::SnfEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("level.map")),
+            EditorType::MapEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("tiles.btl")),
+            EditorType::TilesetEditor
+        );
     }
 
     #[test]
     fn extension_matching_is_case_insensitive() {
-        assert_eq!(EditorType::from_path(Path::new("MONSTER.DB")), EditorType::MonsterEditor);
-        assert_eq!(EditorType::from_path(Path::new("Monster.INI")), EditorType::MonsterIniEditor);
-        assert_eq!(EditorType::from_path(Path::new("SPRITE.SPR")), EditorType::SpriteViewer);
+        assert_eq!(
+            EditorType::from_path(Path::new("MONSTER.DB")),
+            EditorType::MonsterEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("Monster.INI")),
+            EditorType::MonsterIniEditor
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("SPRITE.SPR")),
+            EditorType::SpriteViewer
+        );
     }
 
     #[test]
@@ -1047,9 +1080,21 @@ mod editor_type_tests {
 
     #[test]
     fn unknown_files_return_unknown() {
-        assert_eq!(EditorType::from_path(Path::new("Unknown.xyz")), EditorType::Unknown);
-        assert_eq!(EditorType::from_path(Path::new("Random.txt")), EditorType::Unknown);
-        assert_eq!(EditorType::from_path(Path::new("Unknown.db")), EditorType::Unknown);
-        assert_eq!(EditorType::from_path(Path::new("Unknown.ini")), EditorType::Unknown);
+        assert_eq!(
+            EditorType::from_path(Path::new("Unknown.xyz")),
+            EditorType::Unknown
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("Random.txt")),
+            EditorType::Unknown
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("Unknown.db")),
+            EditorType::Unknown
+        );
+        assert_eq!(
+            EditorType::from_path(Path::new("Unknown.ini")),
+            EditorType::Unknown
+        );
     }
 }

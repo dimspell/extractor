@@ -8,10 +8,7 @@ use crate::loading_state::LoadingState;
 use crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::message::MessageExt;
 
-pub fn handle(
-    msg: DialogueParagraphEditorMessage,
-    app: &mut App,
-) -> Task<crate::message::Message> {
+pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = tab::get_tab_id(&app.state.workspace);
 
     match msg {
@@ -20,9 +17,7 @@ pub fn handle(
                 if let Some(path) = editor.current_file.clone() {
                     editor.editor.loading_state = LoadingState::Loading;
                     return Task::perform(
-                        async move {
-                            DialogueParagraph::read_file(&path).map_err(|e| e.to_string())
-                        },
+                        async move { DialogueParagraph::read_file(&path).map_err(|e| e.to_string()) },
                         move |result| {
                             crate::message::Message::dialogue_paragraph(
                                 DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
@@ -46,10 +41,8 @@ pub fn handle(
                             app.state.dialogue_paragraph_spreadsheets.get_mut(&id)
                         {
                             spreadsheet.active = true;
-                            spreadsheet
-                                .init_filter(editor.editor.catalog.as_ref().unwrap());
-                            spreadsheet
-                                .compute_all_caches(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet.compute_all_caches(editor.editor.catalog.as_ref().unwrap());
                             spreadsheet.init_pane_state();
                         }
                     }

@@ -478,6 +478,11 @@ check_record!(
     struct "WeaponItem",
     virtual_desc [],
     skip_fields [
-        "id" // positional index
+        "id",       // positional index
+        "padding1", // binary padding, no semantic meaning
+        "padding2",
+        "padding3",
+        "padding4",
+        "padding5"
     ]
 );

@@ -2,7 +2,7 @@ use super::editable::{fmt_enum, set_enum, set_int, EditableRecord, FieldDescript
 use dispel_core::{ItemTypeId, MonsterRef};
 
 const LOOT_TYPES: FieldKind = FieldKind::Enum {
-    variants: &["Weapon", "Armor", "Heal", "Misc", "Edit", "Event", "Other"],
+    variants: &["Weapon", "Healing", "Edit", "Event", "Misc", "Other"],
 };
 
 impl EditableRecord for MonsterRef {
@@ -30,13 +30,17 @@ impl EditableRecord for MonsterRef {
             },
             FieldDescriptor {
                 name: "padding1",
-                label: "Flag 1 (0/1):",
-                kind: FieldKind::Integer,
+                label: "Flag 1:",
+                kind: FieldKind::Enum {
+                    variants: &["False", "True"],
+                },
             },
             FieldDescriptor {
                 name: "padding2",
-                label: "Flag 2 (0/1):",
-                kind: FieldKind::Integer,
+                label: "Flag 2:",
+                kind: FieldKind::Enum {
+                    variants: &["False", "True"],
+                },
             },
             FieldDescriptor {
                 name: "padding3",
@@ -45,8 +49,10 @@ impl EditableRecord for MonsterRef {
             },
             FieldDescriptor {
                 name: "padding4",
-                label: "Flag 4 (-1/0/1):",
-                kind: FieldKind::Integer,
+                label: "Flag 4:",
+                kind: FieldKind::Enum {
+                    variants: &["-1", "0", "1"],
+                },
             },
             FieldDescriptor {
                 name: "event_id",
@@ -65,13 +71,17 @@ impl EditableRecord for MonsterRef {
             },
             FieldDescriptor {
                 name: "padding6",
-                label: "Padding 6 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 6:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "padding7",
-                label: "Padding 7 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 7:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "loot2_item_id",
@@ -85,13 +95,17 @@ impl EditableRecord for MonsterRef {
             },
             FieldDescriptor {
                 name: "padding8",
-                label: "Padding 8 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 8:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "padding9",
-                label: "Padding 9 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 9:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "loot3_item_id",
@@ -105,23 +119,31 @@ impl EditableRecord for MonsterRef {
             },
             FieldDescriptor {
                 name: "padding10",
-                label: "Padding 10 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 10:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "padding11",
-                label: "Padding 11 (0/255):",
-                kind: FieldKind::Integer,
+                label: "Padding 11:",
+                kind: FieldKind::Enum {
+                    variants: &["0", "255"],
+                },
             },
             FieldDescriptor {
                 name: "padding12",
-                label: "Padding 12 (-1/0/1):",
-                kind: FieldKind::Integer,
+                label: "Padding 12:",
+                kind: FieldKind::Enum {
+                    variants: &["-1", "0", "1"],
+                },
             },
             FieldDescriptor {
                 name: "padding13",
-                label: "Padding 13 (0/1):",
-                kind: FieldKind::Integer,
+                label: "Padding 13:",
+                kind: FieldKind::Enum {
+                    variants: &["False", "True"],
+                },
             },
         ]
     }

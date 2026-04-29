@@ -1,4 +1,6 @@
-use super::editable::{set_int, set_str, set_u8_enum, EditableRecord, FieldDescriptor, FieldKind};
+use super::editable::{
+    fmt_enum, set_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind,
+};
 use dispel_core::{ExtraObjectType, ExtraRef, ItemTypeId, VisibilityType};
 
 const ITEM_TYPES: FieldKind = FieldKind::Enum {
@@ -27,7 +29,15 @@ impl EditableRecord for ExtraRef {
                 name: "object_type",
                 label: "Type:",
                 kind: FieldKind::Enum {
-                    variants: &["Chest", "Door", "Sign", "Altar", "Interactive", "Magic"],
+                    variants: &[
+                        "Chest",
+                        "Door",
+                        "Sign",
+                        "Altar",
+                        "Interactive",
+                        "Magic",
+                        "Unknown",
+                    ],
                 },
             },
             FieldDescriptor {
@@ -48,7 +58,9 @@ impl EditableRecord for ExtraRef {
             FieldDescriptor {
                 name: "closed",
                 label: "Closed:",
-                kind: FieldKind::Integer,
+                kind: FieldKind::Enum {
+                    variants: &["False", "True"],
+                },
             },
             FieldDescriptor {
                 name: "required_item_id",
@@ -93,12 +105,16 @@ impl EditableRecord for ExtraRef {
             FieldDescriptor {
                 name: "is_quest_element",
                 label: "Quest Element:",
-                kind: FieldKind::Integer,
+                kind: FieldKind::Enum {
+                    variants: &["False", "True"],
+                },
             },
             FieldDescriptor {
                 name: "interactive_element_type",
                 label: "Interactive Type:",
-                kind: FieldKind::Integer,
+                kind: FieldKind::Enum {
+                    variants: &["0", "1", "2", "3"],
+                },
             },
             FieldDescriptor {
                 name: "visibility",
@@ -115,22 +131,22 @@ impl EditableRecord for ExtraRef {
             "id" => self.id.to_string(),
             "ext_id" => self.ext_id.to_string(),
             "name" => self.name.clone(),
-            "object_type" => u8::from(self.object_type).to_string(),
+            "object_type" => fmt_enum(&self.object_type),
             "x_pos" => self.x_pos.to_string(),
             "y_pos" => self.y_pos.to_string(),
             "rotation" => self.rotation.to_string(),
             "closed" => self.closed.to_string(),
             "required_item_id" => self.required_item_id.to_string(),
-            "required_item_type_id" => u8::from(self.required_item_type_id).to_string(),
+            "required_item_type_id" => fmt_enum(&self.required_item_type_id),
             "gold_amount" => self.gold_amount.to_string(),
             "item_id" => self.item_id.to_string(),
-            "item_type_id" => u8::from(self.item_type_id).to_string(),
+            "item_type_id" => fmt_enum(&self.item_type_id),
             "item_count" => self.item_count.to_string(),
             "event_id" => self.event_id.to_string(),
             "message_id" => self.message_id.to_string(),
             "is_quest_element" => self.is_quest_element.to_string(),
             "interactive_element_type" => self.interactive_element_type.to_string(),
-            "visibility" => u8::from(self.visibility).to_string(),
+            "visibility" => fmt_enum(&self.visibility),
             _ => String::new(),
         }
     }
@@ -140,24 +156,26 @@ impl EditableRecord for ExtraRef {
             "id" => set_int(&mut self.id, value),
             "ext_id" => set_int(&mut self.ext_id, value),
             "name" => set_str(&mut self.name, value),
-            "object_type" => set_u8_enum(&mut self.object_type, value, ExtraObjectType::from_u8),
+            "object_type" => set_enum(&mut self.object_type, value, ExtraObjectType::from_name),
             "x_pos" => set_int(&mut self.x_pos, value),
             "y_pos" => set_int(&mut self.y_pos, value),
             "rotation" => set_int(&mut self.rotation, value),
             "closed" => set_int(&mut self.closed, value),
             "required_item_id" => set_int(&mut self.required_item_id, value),
-            "required_item_type_id" => {
-                set_u8_enum(&mut self.required_item_type_id, value, ItemTypeId::from_u8)
-            }
+            "required_item_type_id" => set_enum(
+                &mut self.required_item_type_id,
+                value,
+                ItemTypeId::from_name,
+            ),
             "gold_amount" => set_int(&mut self.gold_amount, value),
             "item_id" => set_int(&mut self.item_id, value),
-            "item_type_id" => set_u8_enum(&mut self.item_type_id, value, ItemTypeId::from_u8),
+            "item_type_id" => set_enum(&mut self.item_type_id, value, ItemTypeId::from_name),
             "item_count" => set_int(&mut self.item_count, value),
             "event_id" => set_int(&mut self.event_id, value),
             "message_id" => set_int(&mut self.message_id, value),
             "is_quest_element" => set_int(&mut self.is_quest_element, value),
             "interactive_element_type" => set_int(&mut self.interactive_element_type, value),
-            "visibility" => set_u8_enum(&mut self.visibility, value, VisibilityType::from_u8),
+            "visibility" => set_enum(&mut self.visibility, value, VisibilityType::from_name),
             _ => false,
         }
     }
