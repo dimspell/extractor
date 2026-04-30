@@ -9,8 +9,8 @@ pub fn handle(msg: QuestScrEditorMessage, app: &mut App) -> Task<crate::message:
         QuestScrEditorMessage::Spreadsheet(sm) => {
             handle_spreadsheet_messages!(
                 app,
-                party_ref_spreadsheet,
-                party_ref_editor,
+                quest_scr_spreadsheet,
+                quest_scr_editor,
                 |index, field, value| crate::message::Message::quest_scr(
                     QuestScrEditorMessage::FieldChanged(index, field, value)
                 ),
@@ -21,7 +21,7 @@ pub fn handle(msg: QuestScrEditorMessage, app: &mut App) -> Task<crate::message:
         msg => super::standard::handle(
             msg,
             &mut app.state.quest_scr_editor,
-            &mut app.state.party_ref_spreadsheet,
+            &mut app.state.quest_scr_spreadsheet,
             &app.state.shared_game_path.clone(),
             "ExtraInGame/Quest.scr",
             crate::message::Message::quest_scr,
