@@ -16,7 +16,9 @@ use crate::components::editor::editable::{EditableRecord, FieldDescriptor, Field
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
-use crate::view::editor::cached_text::{cached_text, ParagraphCache};
+#[cfg(not(feature = "table_widget"))]
+use crate::view::editor::cached_text::cached_text;
+use crate::view::editor::cached_text::ParagraphCache;
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self, Pane};
@@ -44,6 +46,7 @@ const OVERSCAN_VELOCITY_DIVISOR: f32 = 2.0;
 /// The virtual window boundary only shifts when `first_row` crosses a multiple
 /// of this value.  Snapping prevents a widget-tree rebuild (and costly
 /// cosmic-text Korean glyph layout) on every single scroll pixel.
+#[cfg(not(feature = "table_widget"))]
 const WINDOW_STEP: usize = 64;
 const ID_COL_WIDTH_PX: f32 = 42.0;
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
@@ -1213,6 +1216,46 @@ fn build_table_content<'a, R: EditableRecord>(
     let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
     let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
 
+    // Approach B: custom virtualised table widget. Behind a feature flag for
+    // A/B comparison until we delete the lazy/column path.
+    #[cfg(feature = "table_widget")]
+    {
+        let _ = (current_highlight_orig, is_highlight_mode, catalog);
+        return build_table_content_widget(
+            descriptors,
+            header_row,
+            total_width,
+            spreadsheet,
+            spreadsheet_msg,
+        );
+    }
+
+    #[cfg(not(feature = "table_widget"))]
+    {
+        build_table_content_lazy(
+            descriptors,
+            catalog,
+            header_row,
+            total_width,
+            spreadsheet,
+            current_highlight_orig,
+            is_highlight_mode,
+            spreadsheet_msg,
+        )
+    }
+}
+
+#[cfg(not(feature = "table_widget"))]
+fn build_table_content_lazy<'a, R: EditableRecord>(
+    descriptors: &'a [FieldDescriptor],
+    catalog: &'a Vec<R>,
+    header_row: Element<'a, Message>,
+    total_width: f32,
+    spreadsheet: &'a SpreadsheetState,
+    current_highlight_orig: Option<usize>,
+    is_highlight_mode: bool,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
     let total_visible = spreadsheet.filtered_indices.len();
 
     // Virtual-scroll window: only render rows that are in (or near) the viewport.
@@ -1387,6 +1430,86 @@ fn build_table_content<'a, R: EditableRecord>(
     }
 }
 
+#[cfg(feature = "table_widget")]
+fn build_table_content_widget<'a>(
+    descriptors: &'a [FieldDescriptor],
+    header_row: Element<'a, Message>,
+    total_width: f32,
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
+
+    let header_scroll = scrollable(container(header_row).width(Length::Fixed(total_width)))
+        .id(spreadsheet.header_scroll_id.clone())
+        .direction(ScrollDir::Horizontal(
+            iced::widget::scrollable::Scrollbar::new()
+                .width(0)
+                .scroller_width(0),
+        ))
+        .width(Length::Fill);
+
+    let columns: Vec<TableColumn> = (0..descriptors.len())
+        .map(|c| TableColumn {
+            width_px: spreadsheet.column_width(c),
+        })
+        .collect();
+
+    let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
+    let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
+    let selected_orig = spreadsheet.selected_orig;
+    let highlighted = &spreadsheet.highlighted_indices;
+
+    let row_flags = move |visible_idx: usize| -> RowFlags {
+        let Some(&orig_idx) = spreadsheet.filtered_indices.get(visible_idx) else {
+            return RowFlags::default();
+        };
+        RowFlags {
+            selected: selected_orig == Some(orig_idx),
+            highlighted: is_highlight_mode && highlighted.contains(&orig_idx),
+            current_highlight: Some(orig_idx) == current_highlight_orig,
+        }
+    };
+
+    let viewport_height = spreadsheet.viewport_height.max(1.0);
+
+    let body: Element<Message> = TableWidget::new(
+        &spreadsheet.display_cache,
+        &spreadsheet.filtered_indices,
+        columns,
+        ID_COL_WIDTH_PX,
+        row_flags,
+        ROW_HEIGHT,
+        spreadsheet.paragraph_cache.clone(),
+    )
+    .external_offset(
+        spreadsheet.horizontal_scroll_offset,
+        spreadsheet.vertical_scroll_offset,
+    )
+    .on_select(move |visible_idx| {
+        spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx))
+    })
+    .on_scroll(move |x, y| {
+        spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
+            iced::widget::scrollable::AbsoluteOffset { x, y },
+            viewport_height,
+        ))
+    })
+    .into();
+
+    let table: Element<Message> = column![header_scroll, body].spacing(0).into();
+
+    if spreadsheet.resizing_column.is_some() {
+        iced::widget::mouse_area(table)
+            .on_move(move |p| spreadsheet_msg(SpreadsheetMessage::ResizeColumnCursor(p.x)))
+            .on_release(spreadsheet_msg(SpreadsheetMessage::EndResizeColumn))
+            .interaction(iced::mouse::Interaction::ResizingHorizontally)
+            .into()
+    } else {
+        table
+    }
+}
+
 fn build_header_row<'a>(
     descriptors: &'a [FieldDescriptor],
     spreadsheet: &'a SpreadsheetState,
@@ -1497,6 +1620,7 @@ fn build_header_row<'a>(
 /// rows that meant ~1150 button widgets per frame, each with its own state,
 /// hover handling, and text-shaping wrapper — the dominant per-frame cost
 /// during steady scrolling.
+#[cfg(not(feature = "table_widget"))]
 fn flattened_cell(
     display: String,
     col_width: f32,
