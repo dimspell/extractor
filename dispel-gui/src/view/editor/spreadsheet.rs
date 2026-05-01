@@ -603,6 +603,18 @@ impl SpreadsheetState {
         ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
     }
 
+    /// Record a programmatic scroll target. Under the lazy/scrollable path
+    /// this is redundant — the scrollable will emit `BodyScrolled` once it
+    /// applies the operation, which calls `record_scroll` with the same
+    /// values. Under the `table_widget` path, however, the custom widget
+    /// reads these fields on its next layout to snap its internal offset,
+    /// so this mutation is the *only* way programmatic navigation moves the
+    /// viewport.
+    pub fn record_target_offset(&mut self, x: f32, y: f32) {
+        self.horizontal_scroll_offset = x;
+        self.vertical_scroll_offset = y;
+    }
+
     /// Record a scroll event from the body scrollable. Updates the cached
     /// offset and viewport plus a smoothed scroll velocity used to size the
     /// virtual-row overscan adaptively.

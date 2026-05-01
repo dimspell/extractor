@@ -89,6 +89,25 @@ struct State {
     /// frame.
     last_external: Option<Vector>,
     hovered_row: Option<usize>,
+    /// Active scrollbar drag, if any. Contains the cursor position recorded
+    /// when the drag started and the scroll offset at that moment, so the
+    /// drag math can map cursor delta → offset delta linearly.
+    dragging: Option<ScrollbarDrag>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Axis {
+    Vertical,
+    Horizontal,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ScrollbarDrag {
+    axis: Axis,
+    /// Cursor position (parent coords) at drag start.
+    start_cursor: Point,
+    /// Scroll offset at drag start.
+    start_offset: Vector,
 }
 
 impl<'a, Message> TableWidget<'a, Message> {
@@ -185,6 +204,159 @@ impl<'a, Message> TableWidget<'a, Message> {
                 .and_then(|row| row.get(col_idx - 1))
                 .cloned()
         }
+    }
+
+    /// Width of the data area (excludes the frozen id column).
+    fn data_area(&self, bounds: Rectangle) -> Rectangle {
+        let inset = self.id_col_width.min(bounds.width);
+        Rectangle {
+            x: bounds.x + inset,
+            y: bounds.y,
+            width: bounds.width - inset,
+            height: bounds.height,
+        }
+    }
+
+    /// True when the cursor is over either scrollbar's track.
+    fn over_scrollbar(&self, bounds: Rectangle, off: Vector, p: Point) -> bool {
+        if let Some((track, _)) = self.vertical_scrollbar(bounds, off.y) {
+            if track.contains(p) {
+                return true;
+            }
+        }
+        if let Some((track, _)) = self.horizontal_scrollbar(bounds, off.x) {
+            if track.contains(p) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Apply a clamped scroll-offset change. Returns `true` if either axis
+    /// actually moved. Updates `last_external` so the next layout's
+    /// external-sync diff treats the new value as "in sync".
+    fn apply_scroll(
+        &self,
+        state: &mut State,
+        bounds: Rectangle,
+        new_x: f32,
+        new_y: f32,
+        shell: &mut Shell<'_, Message>,
+    ) -> bool {
+        let total_w = self.total_width();
+        let total_h = self.total_height();
+        let clamped_x = new_x.clamp(0.0, (total_w - bounds.width).max(0.0));
+        let clamped_y = new_y.clamp(0.0, (total_h - bounds.height).max(0.0));
+        let moved = (clamped_x - state.scroll_offset.x).abs() > f32::EPSILON
+            || (clamped_y - state.scroll_offset.y).abs() > f32::EPSILON;
+        if moved {
+            state.scroll_offset.x = clamped_x;
+            state.scroll_offset.y = clamped_y;
+            state.last_external = Some(state.scroll_offset);
+            shell.request_redraw();
+            if let Some(cb) = &self.on_scroll {
+                shell.publish(cb(clamped_x, clamped_y));
+            }
+        }
+        moved
+    }
+
+    fn continue_drag(
+        &self,
+        state: &mut State,
+        bounds: Rectangle,
+        drag: ScrollbarDrag,
+        cursor: Point,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        match drag.axis {
+            Axis::Vertical => {
+                let total_h = self.total_height();
+                if total_h <= bounds.height {
+                    return;
+                }
+                let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
+                let travel_px = (bounds.height - thumb_h).max(1.0);
+                let max_off = (total_h - bounds.height).max(1.0);
+                let scale = max_off / travel_px;
+                let dy = cursor.y - drag.start_cursor.y;
+                self.apply_scroll(
+                    state,
+                    bounds,
+                    state.scroll_offset.x,
+                    drag.start_offset.y + dy * scale,
+                    shell,
+                );
+            }
+            Axis::Horizontal => {
+                let total_w = self.total_width();
+                if total_w <= bounds.width {
+                    return;
+                }
+                let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
+                let travel_px = (bounds.width - thumb_w).max(1.0);
+                let max_off = (total_w - bounds.width).max(1.0);
+                let scale = max_off / travel_px;
+                let dx = cursor.x - drag.start_cursor.x;
+                self.apply_scroll(
+                    state,
+                    bounds,
+                    drag.start_offset.x + dx * scale,
+                    state.scroll_offset.y,
+                    shell,
+                );
+            }
+        }
+    }
+
+    /// Geometry of the vertical scrollbar (track + thumb), or `None` if the
+    /// content fits vertically.
+    fn vertical_scrollbar(&self, bounds: Rectangle, off_y: f32) -> Option<(Rectangle, Rectangle)> {
+        let total_h = self.total_height();
+        if total_h <= bounds.height {
+            return None;
+        }
+        let track = Rectangle {
+            x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
+            y: bounds.y,
+            width: SCROLLBAR_THICKNESS,
+            height: bounds.height,
+        };
+        let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
+        let max_off = (total_h - bounds.height).max(1.0);
+        let thumb_y = bounds.y + (off_y / max_off) * (bounds.height - thumb_h);
+        let thumb = Rectangle {
+            x: track.x + 1.0,
+            y: thumb_y,
+            width: SCROLLBAR_THICKNESS - 2.0,
+            height: thumb_h,
+        };
+        Some((track, thumb))
+    }
+
+    /// Geometry of the horizontal scrollbar (track + thumb), or `None` if the
+    /// content fits horizontally.
+    fn horizontal_scrollbar(&self, bounds: Rectangle, off_x: f32) -> Option<(Rectangle, Rectangle)> {
+        let total_w = self.total_width();
+        if total_w <= bounds.width {
+            return None;
+        }
+        let track = Rectangle {
+            x: bounds.x,
+            y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
+            width: bounds.width,
+            height: SCROLLBAR_THICKNESS,
+        };
+        let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
+        let max_off = (total_w - bounds.width).max(1.0);
+        let thumb_x = bounds.x + (off_x / max_off) * (bounds.width - thumb_w);
+        let thumb = Rectangle {
+            x: thumb_x,
+            y: track.y + 1.0,
+            width: thumb_w,
+            height: SCROLLBAR_THICKNESS - 2.0,
+        };
+        Some((track, thumb))
     }
 
     /// Sync `state.scroll_offset` to `external_offset` when the parent state
@@ -312,30 +484,23 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     mouse::ScrollDelta::Pixels { x, y } => (-x, -y),
                 };
-                let total_w = self.total_width();
-                let total_h = self.total_height();
-                let new_x = (state.scroll_offset.x + dx)
-                    .clamp(0.0, (total_w - bounds.width).max(0.0));
-                let new_y = (state.scroll_offset.y + dy)
-                    .clamp(0.0, (total_h - bounds.height).max(0.0));
-                if (new_x - state.scroll_offset.x).abs() > f32::EPSILON
-                    || (new_y - state.scroll_offset.y).abs() > f32::EPSILON
-                {
-                    state.scroll_offset.x = new_x;
-                    state.scroll_offset.y = new_y;
-                    // Reflect the wheel-driven offset back as the new
-                    // "external" baseline so the next view rebuild doesn't
-                    // think the parent has moved us.
-                    state.last_external = Some(state.scroll_offset);
-                    shell.request_redraw();
-                    if let Some(cb) = &self.on_scroll {
-                        shell.publish(cb(new_x, new_y));
-                    }
+                let new_x = state.scroll_offset.x + dx;
+                let new_y = state.scroll_offset.y + dy;
+                if self.apply_scroll(state, bounds, new_x, new_y, shell) {
                     shell.capture_event();
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let Some(drag) = state.dragging {
+                    let Some(cur) = cursor.position() else { return };
+                    self.continue_drag(state, bounds, drag, cur, shell);
+                    shell.capture_event();
+                    return;
+                }
                 let new_hover = cursor.position_over(bounds).and_then(|p| {
+                    if self.over_scrollbar(bounds, state.scroll_offset, p) {
+                        return None;
+                    }
                     let local_y = (p.y - bounds.y) + state.scroll_offset.y;
                     if local_y < 0.0 {
                         return None;
@@ -356,6 +521,71 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
+                // ── Vertical scrollbar ────────────────────────────────────
+                if let Some((track, thumb)) =
+                    self.vertical_scrollbar(bounds, state.scroll_offset.y)
+                {
+                    if track.contains(p) {
+                        if thumb.contains(p) {
+                            state.dragging = Some(ScrollbarDrag {
+                                axis: Axis::Vertical,
+                                start_cursor: p,
+                                start_offset: state.scroll_offset,
+                            });
+                        } else {
+                            // Click outside thumb on the track — snap thumb
+                            // centre to cursor.
+                            let total_h = self.total_height();
+                            let max_off = (total_h - bounds.height).max(1.0);
+                            let travel = (bounds.height - thumb.height).max(1.0);
+                            let target_thumb_y = (p.y - thumb.height / 2.0)
+                                .clamp(bounds.y, bounds.y + travel);
+                            let frac = (target_thumb_y - bounds.y) / travel;
+                            let new_y = frac * max_off;
+                            self.apply_scroll(
+                                state,
+                                bounds,
+                                state.scroll_offset.x,
+                                new_y,
+                                shell,
+                            );
+                        }
+                        shell.capture_event();
+                        return;
+                    }
+                }
+                // ── Horizontal scrollbar ──────────────────────────────────
+                if let Some((track, thumb)) =
+                    self.horizontal_scrollbar(bounds, state.scroll_offset.x)
+                {
+                    if track.contains(p) {
+                        if thumb.contains(p) {
+                            state.dragging = Some(ScrollbarDrag {
+                                axis: Axis::Horizontal,
+                                start_cursor: p,
+                                start_offset: state.scroll_offset,
+                            });
+                        } else {
+                            let total_w = self.total_width();
+                            let max_off = (total_w - bounds.width).max(1.0);
+                            let travel = (bounds.width - thumb.width).max(1.0);
+                            let target_thumb_x = (p.x - thumb.width / 2.0)
+                                .clamp(bounds.x, bounds.x + travel);
+                            let frac = (target_thumb_x - bounds.x) / travel;
+                            let new_x = frac * max_off;
+                            self.apply_scroll(
+                                state,
+                                bounds,
+                                new_x,
+                                state.scroll_offset.y,
+                                shell,
+                            );
+                        }
+                        shell.capture_event();
+                        return;
+                    }
+                }
+                // ── Row select ────────────────────────────────────────────
                 let local_y = (p.y - bounds.y) + state.scroll_offset.y;
                 if local_y < 0.0 {
                     return;
@@ -367,6 +597,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 if let Some(cb) = &self.on_select {
                     shell.publish(cb(row));
                     shell.capture_event();
+                }
+            }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
+                if state.dragging.is_some() {
+                    state.dragging = None;
+                    shell.capture_event();
+                    shell.request_redraw();
                 }
             }
             _ => {}
@@ -442,12 +679,18 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             .partition_point(|&x| x < off.x + bounds.width)
             .min(n_cols);
 
+        // Clip data cells to everything right of the frozen id column so
+        // horizontally-scrolled cells don't paint over it.
+        let data_clip = clip
+            .intersection(&self.data_area(bounds))
+            .unwrap_or(self.data_area(bounds));
+
         for row_idx in first_row..last_row {
             let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
             let flags = (self.row_flags)(row_idx);
             let is_hovered = state.hovered_row == Some(row_idx);
 
-            // Row background (full-width band).
+            // Row background (full-width band — id column draws over it later).
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
@@ -463,34 +706,10 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 Background::Color(row_bg(row_idx, flags, is_hovered)),
             );
 
-            // ── Cells ──────────────────────────────────────────────────────
-            for col_idx in first_col..last_col {
+            // ── Data cells (col_idx >= 1) ─────────────────────────────────
+            for col_idx in first_col.max(1)..last_col {
                 let cell_x = bounds.x + col_x[col_idx] - off.x;
                 let cell_w = self.col_width(col_idx);
-                let is_id_col = col_idx == 0;
-
-                // The id column gets its own darker frozen-style background
-                // painted on top of the row band.
-                if is_id_col {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: Rectangle {
-                                x: cell_x.max(clip.x),
-                                y,
-                                width: cell_w.min(clip.x + clip.width - cell_x).max(0.0),
-                                height: self.row_height,
-                            },
-                            border: Border {
-                                color: color!(0x3d2b1f),
-                                width: 0.5,
-                                radius: 0.into(),
-                            },
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(id_cell_bg(flags)),
-                    );
-                }
 
                 let value = match self.cell_value(row_idx, col_idx) {
                     Some(v) if !v.is_empty() => v,
@@ -506,32 +725,34 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         line_height: text::LineHeight::default(),
                         font: self.font,
                         align_x: text::Alignment::Default,
-                        align_y: alignment::Vertical::Center,
+                        align_y: alignment::Vertical::Top,
                         shaping: text::Shaping::Advanced,
                         wrapping: text::Wrapping::None,
                     })
                 });
 
-                let position = Point::new(
-                    cell_x + self.cell_padding_x,
-                    y + self.row_height / 2.0,
-                );
-                let text_color = if is_id_col {
-                    id_text_color(flags)
-                } else {
-                    cell_text_color(flags)
+                let cell_inner = Rectangle {
+                    x: cell_x + self.cell_padding_x,
+                    y,
+                    width: (cell_w - self.cell_padding_x * 2.0).max(0.0),
+                    height: self.row_height,
                 };
+                let position = cell_inner.anchor(
+                    paragraph.min_bounds(),
+                    alignment::Horizontal::Left,
+                    alignment::Vertical::Center,
+                );
                 <iced::Renderer as text::Renderer>::fill_paragraph(
                     renderer,
                     &paragraph,
                     position,
-                    text_color,
-                    clip,
+                    cell_text_color(flags),
+                    data_clip,
                 );
             }
 
-            // Row border (selection / highlight outline). Drawn last so it
-            // overlays the cell backgrounds.
+            // Row border (selection / highlight outline). Drawn over data
+            // cells but under the frozen id column.
             if let Some((color, width)) = row_border(flags) {
                 renderer.fill_quad(
                     renderer::Quad {
@@ -552,6 +773,84 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     Background::Color(Color::TRANSPARENT),
                 );
             }
+        }
+
+        // ── Frozen id column ──────────────────────────────────────────────
+        // Painted last so data cells can scroll behind it without bleeding
+        // their zebra-stripe backgrounds through.
+        let id_x = bounds.x;
+        let id_w = self.id_col_width.min(bounds.width);
+        for row_idx in first_row..last_row {
+            let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
+            let flags = (self.row_flags)(row_idx);
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        x: id_x,
+                        y,
+                        width: id_w,
+                        height: self.row_height,
+                    },
+                    border: Border {
+                        color: color!(0x3d2b1f),
+                        width: 0.5,
+                        radius: 0.into(),
+                    },
+                    shadow: Shadow::default(),
+                    snap: true,
+                },
+                Background::Color(id_cell_bg(flags)),
+            );
+
+            let value = match self.cell_value(row_idx, 0) {
+                Some(v) if !v.is_empty() => v,
+                _ => continue,
+            };
+            let key = ParagraphKey::new(&value, self.text_size, id_w, self.font);
+            let paragraph = self.cache.get_or_insert(key, || {
+                Paragraph::with_text(text::Text {
+                    content: value.as_str(),
+                    bounds: Size::new(id_w, self.row_height),
+                    size: Pixels(self.text_size),
+                    line_height: text::LineHeight::default(),
+                    font: self.font,
+                    align_x: text::Alignment::Default,
+                    align_y: alignment::Vertical::Top,
+                    shaping: text::Shaping::Advanced,
+                    wrapping: text::Wrapping::None,
+                })
+            });
+            let id_inner = Rectangle {
+                x: id_x + self.cell_padding_x,
+                y,
+                width: (id_w - self.cell_padding_x * 2.0).max(0.0),
+                height: self.row_height,
+            };
+            let position = id_inner.anchor(
+                paragraph.min_bounds(),
+                alignment::Horizontal::Left,
+                alignment::Vertical::Center,
+            );
+            let id_clip = clip
+                .intersection(&Rectangle {
+                    x: id_x,
+                    y: bounds.y,
+                    width: id_w,
+                    height: bounds.height,
+                })
+                .unwrap_or(Rectangle {
+                    x: id_x,
+                    y: bounds.y,
+                    width: id_w,
+                    height: bounds.height,
+                });
+            <iced::Renderer as text::Renderer>::fill_paragraph(
+                renderer,
+                &paragraph,
+                position,
+                id_text_color(flags),
+                id_clip,
+            );
         }
 
         // ── Scrollbars ─────────────────────────────────────────────────────

@@ -55,6 +55,7 @@ macro_rules! handle_spreadsheet_messages {
                         $app.state.$spreadsheet.set_selection(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                        $app.state.$spreadsheet.record_target_offset(x, y);
                         return iced::widget::operation::scroll_to(
                             $app.state.$spreadsheet.body_scroll_id.clone(),
                             iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -75,6 +76,7 @@ macro_rules! handle_spreadsheet_messages {
                         $app.state.$spreadsheet.set_selection(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                        $app.state.$spreadsheet.record_target_offset(x, y);
                         return iced::widget::operation::scroll_to(
                             $app.state.$spreadsheet.body_scroll_id.clone(),
                             iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -92,6 +94,7 @@ macro_rules! handle_spreadsheet_messages {
                     }
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    $app.state.$spreadsheet.record_target_offset(x, y);
                     return iced::widget::operation::scroll_to(
                         $app.state.$spreadsheet.body_scroll_id.clone(),
                         iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -108,6 +111,7 @@ macro_rules! handle_spreadsheet_messages {
                     }
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    $app.state.$spreadsheet.record_target_offset(x, y);
                     return iced::widget::operation::scroll_to(
                         $app.state.$spreadsheet.body_scroll_id.clone(),
                         iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -123,6 +127,7 @@ macro_rules! handle_spreadsheet_messages {
                             .make_inspector_textarea_contents(orig_idx);
                     }
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    $app.state.$spreadsheet.record_target_offset(x, 0.0);
                     return iced::widget::operation::scroll_to(
                         $app.state.$spreadsheet.body_scroll_id.clone(),
                         iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
@@ -139,6 +144,7 @@ macro_rules! handle_spreadsheet_messages {
                     }
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
+                    $app.state.$spreadsheet.record_target_offset(x, y);
                     return iced::widget::operation::scroll_to(
                         $app.state.$spreadsheet.body_scroll_id.clone(),
                         iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -366,6 +372,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     ss.set_selection(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
+                                    ss.record_target_offset(x, y);
                                     return iced::widget::operation::scroll_to(
                                         ss.body_scroll_id.clone(),
                                         iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -382,6 +389,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     ss.set_selection(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
+                                    ss.record_target_offset(x, y);
                                     return iced::widget::operation::scroll_to(
                                         ss.body_scroll_id.clone(),
                                         iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -397,6 +405,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 }
                                 let y = ss.scroll_y_for_row(fidx);
                                 let x = ss.horizontal_scroll_offset;
+                                ss.record_target_offset(x, y);
                                 return iced::widget::operation::scroll_to(
                                     ss.body_scroll_id.clone(),
                                     iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -411,6 +420,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 }
                                 let y = ss.scroll_y_for_row(fidx);
                                 let x = ss.horizontal_scroll_offset;
+                                ss.record_target_offset(x, y);
                                 return iced::widget::operation::scroll_to(
                                     ss.body_scroll_id.clone(),
                                     iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -420,6 +430,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::NavigateTop => {
                             if let Some(_fidx) = ss.navigate_top() {
                                 let x = ss.horizontal_scroll_offset;
+                                ss.record_target_offset(x, 0.0);
                                 return iced::widget::operation::scroll_to(
                                     ss.body_scroll_id.clone(),
                                     iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
@@ -430,6 +441,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             if let Some(fidx) = ss.navigate_bottom() {
                                 let y = ss.scroll_y_for_row(fidx);
                                 let x = ss.horizontal_scroll_offset;
+                                ss.record_target_offset(x, y);
                                 return iced::widget::operation::scroll_to(
                                     ss.body_scroll_id.clone(),
                                     iced::widget::scrollable::AbsoluteOffset { x, y },
