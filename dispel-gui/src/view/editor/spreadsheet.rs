@@ -140,16 +140,14 @@ pub struct SpreadsheetState {
     /// so the lazy key doesn't recompute on every render.
     pub row_hashes: Vec<u64>,
     /// Pre-computed display strings for all rows. Each entry is a `Vec<String>` of
-    /// truncated field values for display (one per column). Computed once on catalog load.
+    /// raw field values for display (one per column). Computed once on catalog load.
+    /// Per-cell width-aware truncation is applied lazily inside the row renderer
+    /// — the lazy widget caches the result by row key, so a string is shaped at
+    /// most once per (row, col_widths_gen).
     pub display_cache: Vec<Vec<String>>,
-    /// Pre-computed truncated display strings (with column widths factored in).
-    /// Invalidated when column widths change.
-    pub truncated_cache: Vec<Vec<String>>,
     /// Pre-computed validation status for all rows. Each entry is a `Vec<bool>` where
     /// true = validation error. Computed once on catalog load.
     pub validation_cache: Vec<Vec<bool>>,
-    /// Pre-computed row number strings ("1", "2", etc.) for the ID column.
-    pub row_numbers: Vec<String>,
 
     // ── Scroll throttling ─────────────────────────────────────────────────
     /// Timestamp of the last scroll update we processed. Used to throttle
@@ -227,9 +225,7 @@ impl Default for SpreadsheetState {
             col_widths_gen: 0,
             row_hashes: Vec::new(),
             display_cache: Vec::new(),
-            truncated_cache: Vec::new(),
             validation_cache: Vec::new(),
-            row_numbers: Vec::new(),
             column_filters: HashMap::new(),
             active_column_filter: None,
             column_filter_options: Vec::new(),
@@ -506,7 +502,6 @@ impl SpreadsheetState {
 
     pub fn end_column_resize(&mut self) {
         self.resizing_column = None;
-        self.rebuild_truncated_cache();
         self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
@@ -661,71 +656,24 @@ impl SpreadsheetState {
         self.row_hashes = data.row_hashes;
         self.display_cache = data.display_cache;
         self.validation_cache = data.validation_cache;
-        self.row_numbers = data.row_numbers;
-        self.rebuild_truncated_cache();
         self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
-    /// Get pre-truncated display string for a cell (cloned).
+    /// Get raw display string for a cell (cloned). Width-aware truncation
+    /// happens at render time via [`truncate_for_width`].
     pub fn get_display(&self, orig_idx: usize, col: usize) -> String {
-        if let Some(truncated) = self.truncated_cache.get(orig_idx) {
-            if let Some(s) = truncated.get(col) {
-                return s.clone();
-            }
-        }
-        if let Some(raw) = self.display_cache.get(orig_idx) {
-            if let Some(s) = raw.get(col) {
-                return s.clone();
-            }
-        }
-        String::new()
+        self.display_cache
+            .get(orig_idx)
+            .and_then(|row| row.get(col))
+            .cloned()
+            .unwrap_or_default()
     }
 
     /// Get reference to cached display string (avoids clone if caller only needs to borrow).
     pub fn get_display_ref(&self, orig_idx: usize, col: usize) -> Option<&String> {
-        self.truncated_cache
+        self.display_cache
             .get(orig_idx)
             .and_then(|row| row.get(col))
-            .or_else(|| {
-                self.display_cache
-                    .get(orig_idx)
-                    .and_then(|row| row.get(col))
-            })
-    }
-
-    /// Update truncated cache when column widths change.
-    pub fn rebuild_truncated_cache(&mut self) {
-        if self.display_cache.is_empty() {
-            return;
-        }
-        self.truncated_cache = self
-            .display_cache
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .enumerate()
-                    .map(|(col, value)| {
-                        let col_width = self.column_width(col);
-                        let char_budget = ((col_width / 7.0) as usize).max(8);
-                        if value.len() <= char_budget && value.is_ascii() {
-                            value.clone()
-                        } else if value.chars().count() > char_budget {
-                            let mut truncated = String::with_capacity(char_budget + 3);
-                            for (i, c) in value.chars().enumerate() {
-                                if i >= char_budget {
-                                    truncated.push('…');
-                                    break;
-                                }
-                                truncated.push(c);
-                            }
-                            truncated
-                        } else {
-                            value.clone()
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
     }
 
     /// Get the cached hash for a row by original index.
@@ -811,15 +759,14 @@ impl SpreadsheetState {
 /// `compute_caches` (a pure function safe to run from a worker thread) and
 /// consumed by `SpreadsheetState::install_caches` on the UI thread.
 ///
-/// The four parallel `Vec`s are all `catalog.len()` long and indexed by
-/// `orig_idx`. Splitting compute from install lets a slow ~hundred-millisecond
-/// build run inside `tokio::task::spawn_blocking` without freezing the UI.
+/// All `Vec`s are `catalog.len()` long and indexed by `orig_idx`. Splitting
+/// compute from install lets a slow ~hundred-millisecond build run inside
+/// `tokio::task::spawn_blocking` without freezing the UI.
 #[derive(Debug, Clone, Default)]
 pub struct ComputedCaches {
     pub row_hashes: Vec<u64>,
     pub display_cache: Vec<Vec<String>>,
     pub validation_cache: Vec<Vec<bool>>,
-    pub row_numbers: Vec<String>,
 }
 
 /// Pure cache-build function: walks every record, materialises display
@@ -833,9 +780,7 @@ pub fn compute_caches<R: EditableRecord>(catalog: &[R]) -> ComputedCaches {
     let mut row_hashes = Vec::with_capacity(catalog.len());
     let mut display_cache = Vec::with_capacity(catalog.len());
     let mut validation_cache = Vec::with_capacity(catalog.len());
-    let mut row_numbers = Vec::with_capacity(catalog.len());
-    for (i, record) in catalog.iter().enumerate() {
-        row_numbers.push(format!("{}", i + 1));
+    for record in catalog.iter() {
         let values: Vec<String> = (0..num_cols)
             .map(|j| record.get_field(descriptors[j].name))
             .collect();
@@ -856,8 +801,30 @@ pub fn compute_caches<R: EditableRecord>(catalog: &[R]) -> ComputedCaches {
         row_hashes,
         display_cache,
         validation_cache,
-        row_numbers,
     }
+}
+
+/// Width-aware truncation used by the row renderer. Approximates an 7 px/char
+/// budget — same heuristic that drives `auto_size_column` — and appends `…`
+/// when the value overflows. Cheap enough to invoke per visible cell on each
+/// lazy rebuild (i.e. when the row's `col_widths_gen` changes).
+pub fn truncate_for_width(value: &str, col_width: f32) -> String {
+    let char_budget = ((col_width / 7.0) as usize).max(8);
+    if value.len() <= char_budget && value.is_ascii() {
+        return value.to_string();
+    }
+    if value.chars().count() <= char_budget {
+        return value.to_string();
+    }
+    let mut truncated = String::with_capacity(char_budget + 3);
+    for (i, c) in value.chars().enumerate() {
+        if i >= char_budget {
+            truncated.push('…');
+            break;
+        }
+        truncated.push(c);
+    }
+    truncated
 }
 
 #[derive(Debug, Clone)]
@@ -1276,7 +1243,6 @@ fn build_table_content<'a, R: EditableRecord>(
         .map(|c| spreadsheet.column_width(c))
         .collect();
     let col_widths_static = col_widths.clone();
-    let row_numbers_static = spreadsheet.row_numbers.clone();
 
     for (filtered_idx, &orig_idx) in spreadsheet
         .filtered_indices
@@ -1294,11 +1260,6 @@ fn build_table_content<'a, R: EditableRecord>(
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
 
         if !spreadsheet.display_cache.is_empty() {
-            let row_number = row_numbers_static
-                .get(orig_idx)
-                .cloned()
-                .unwrap_or_default();
-
             // Key: orig_idx (stable identity), is_selected/is_highlighted/current (change on user action),
             // row_hash (changes on data edit), col_widths_gen (changes on resize)
             let row_key = (
@@ -1310,6 +1271,11 @@ fn build_table_content<'a, R: EditableRecord>(
                 spreadsheet.col_widths_gen,
             );
             let col_widths_row = col_widths_static.clone();
+            let row_values: Vec<String> = spreadsheet
+                .display_cache
+                .get(orig_idx)
+                .cloned()
+                .unwrap_or_default();
 
             data_rows.push(
                 iced::widget::lazy(row_key, move |_| -> Element<'static, Message> {
@@ -1319,28 +1285,28 @@ fn build_table_content<'a, R: EditableRecord>(
                         is_highlighted,
                         is_current_highlight,
                     );
-                    let id_cell =
-                        container(text(row_number.clone()).size(10).font(Font::MONOSPACE))
-                            .width(ID_COL_WIDTH)
-                            .padding([0, 6])
-                            .height(ROW_HEIGHT)
-                            .align_y(iced::Alignment::Center)
-                            .style(if is_selected || is_current_highlight {
-                                style::spreadsheet_id_cell_selected
-                            } else {
-                                style::spreadsheet_id_cell
-                            })
-                            .into();
+                    let id_cell = container(
+                        text(format!("{}", orig_idx + 1))
+                            .size(10)
+                            .font(Font::MONOSPACE),
+                    )
+                    .width(ID_COL_WIDTH)
+                    .padding([0, 6])
+                    .height(ROW_HEIGHT)
+                    .align_y(iced::Alignment::Center)
+                    .style(if is_selected || is_current_highlight {
+                        style::spreadsheet_id_cell_selected
+                    } else {
+                        style::spreadsheet_id_cell
+                    })
+                    .into();
 
                     let mut cells: Vec<_> = vec![id_cell];
-                    cells.reserve(descriptors.len());
-                    for (col, _desc) in descriptors.iter().enumerate() {
-                        let display = spreadsheet
-                            .get_display_ref(orig_idx, col)
-                            .cloned()
-                            .unwrap_or_default();
-                        let col_width = col_widths_row[col];
-                        cells.push(flattened_cell(display, col_width));
+                    cells.reserve(col_widths_row.len());
+                    for (col, col_width) in col_widths_row.iter().enumerate() {
+                        let raw = row_values.get(col).map(String::as_str).unwrap_or("");
+                        let display = truncate_for_width(raw, *col_width);
+                        cells.push(flattened_cell(display, *col_width));
                     }
 
                     button(row(cells).spacing(0))
