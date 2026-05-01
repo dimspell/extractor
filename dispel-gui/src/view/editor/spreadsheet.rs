@@ -28,9 +28,18 @@ use iced::{Element, Fill, Font, Length};
 use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
-/// How many extra rows to render above and below the visible viewport.
-/// Large enough to hide pop-in between window steps during fast scrolling.
-const OVERSCAN_ROWS: usize = 64;
+/// Baseline overscan applied even when the user is idle. Small enough to keep
+/// the rendered widget tree shallow during slow exploration.
+const OVERSCAN_ROWS_BASE: usize = 32;
+/// Hard ceiling for adaptive overscan during the fastest fling-scrolls.
+/// Past this point the per-frame rebuild starts to dominate any benefit from
+/// pre-warming additional rows.
+const OVERSCAN_ROWS_MAX: usize = 512;
+/// Translates absolute scroll velocity (in px/s) into extra overscan rows:
+/// `extra = |velocity_px_per_s| / ROW_HEIGHT / OVERSCAN_VELOCITY_DIVISOR`.
+/// `1` means "1 second of look-ahead at the current velocity"; lower numbers
+/// scale up faster.
+const OVERSCAN_VELOCITY_DIVISOR: f32 = 2.0;
 /// The virtual window boundary only shifts when `first_row` crosses a multiple
 /// of this value.  Snapping prevents a widget-tree rebuild (and costly
 /// cosmic-text Korean glyph layout) on every single scroll pixel.
@@ -78,7 +87,13 @@ pub struct SpreadsheetState {
     pub filtered_indices: Vec<usize>,
 
     // ── Selection ─────────────────────────────────────────────────────────
-    pub selected_row: Option<usize>,
+    /// Index into the *catalog* (not into `filtered_indices`) of the row the
+    /// user has selected. Storing the original index keeps the selection
+    /// stable across filter and sort changes — the same record stays selected
+    /// even if its position in the visible list moves, or it is filtered out
+    /// and later filtered back in. Use `selected_filtered_idx()` to translate
+    /// to a visible-row index for scrolling and styling.
+    pub selected_orig: Option<usize>,
 
     // ── Panes / chrome ─────────────────────────────────────────────────────
     pub show_inspector: bool,
@@ -140,6 +155,11 @@ pub struct SpreadsheetState {
     /// Timestamp of the last scroll update we processed. Used to throttle
     /// frequent BodyScrolled messages during fast scrolling.
     pub last_scroll_update: Option<std::time::Instant>,
+    /// Smoothed vertical scroll velocity in pixels per second (signed —
+    /// positive when scrolling down). Updated from `record_scroll`. Used by
+    /// the virtual-row renderer to widen the rendered range during fling
+    /// scrolls so chunk boundaries are crossed with more rows pre-warmed.
+    pub scroll_velocity_y: f32,
 
     // ── Column quick-filter ────────────────────────────────────────────────
     /// Per-column exact-match filters.  Key = column index, value = required cell value.
@@ -191,7 +211,7 @@ impl Default for SpreadsheetState {
             highlighted_indices: Vec::new(),
             current_highlight_pos: None,
             filtered_indices: Vec::new(),
-            selected_row: None,
+            selected_orig: None,
             show_inspector: false,
             pane_state: None,
             is_loading: false,
@@ -215,6 +235,7 @@ impl Default for SpreadsheetState {
             column_filter_options: Vec::new(),
             inspector_textarea_contents: HashMap::new(),
             last_scroll_update: None,
+            scroll_velocity_y: 0.0,
         }
     }
 }
@@ -390,8 +411,25 @@ impl SpreadsheetState {
         });
     }
 
+    /// Translate the stored `selected_orig` to a position in the current
+    /// `filtered_indices`. Returns `None` when nothing is selected, or when
+    /// the selected row is currently filtered out.
+    pub fn selected_filtered_idx(&self) -> Option<usize> {
+        let orig = self.selected_orig?;
+        self.filtered_indices.iter().position(|&i| i == orig)
+    }
+
+    /// Set the selection from a *filtered* index without changing inspector
+    /// visibility. Used by keyboard navigation and highlight-step messages
+    /// where the inspector should stay in whatever state the user left it.
+    pub fn set_selection(&mut self, filtered_idx: usize) {
+        self.selected_orig = self.filtered_indices.get(filtered_idx).copied();
+    }
+
+    /// Set the selection from a *filtered* index AND open the inspector. Used
+    /// by explicit row clicks where the user is asking to inspect the row.
     pub fn select_row(&mut self, filtered_idx: usize) {
-        self.selected_row = Some(filtered_idx);
+        self.set_selection(filtered_idx);
         self.show_inspector = true;
     }
 
@@ -444,6 +482,12 @@ impl SpreadsheetState {
     /// Called on every mouse move while a resize handle is pressed. Uses the
     /// cursor delta since drag start to compute a new width, clamped to
     /// `[COL_WIDTH_MIN, COL_WIDTH_MAX]`.
+    ///
+    /// `col_widths_gen` is intentionally not bumped here — doing so would
+    /// invalidate the lazy cache for every visible row on every mousemove,
+    /// which is the dominant cost of a column drag. The header reads
+    /// `column_widths` directly so it still resizes live; data rows stay
+    /// frozen to their cached widths until `end_column_resize` bumps the gen.
     pub fn update_column_resize(&mut self, cursor_x: f32) {
         let Some(ref mut drag) = self.resizing_column else {
             return;
@@ -458,13 +502,12 @@ impl SpreadsheetState {
         let delta = cursor_x - anchor_x;
         let new_width = (drag.anchor_width + delta).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
         self.column_widths.insert(drag.col, new_width);
-        self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
     pub fn end_column_resize(&mut self) {
         self.resizing_column = None;
         self.rebuild_truncated_cache();
-        self.col_widths_gen += 1;
+        self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
     /// Double-click auto-size: measure the longest cell value in the visible
@@ -504,7 +547,7 @@ impl SpreadsheetState {
         if total == 0 {
             return None;
         }
-        let new_idx = match self.selected_row {
+        let new_idx = match self.selected_filtered_idx() {
             Some(idx) if idx > 0 => idx - 1,
             Some(idx) => idx,
             None => total.saturating_sub(1),
@@ -519,7 +562,7 @@ impl SpreadsheetState {
         if total == 0 {
             return None;
         }
-        let new_idx = match self.selected_row {
+        let new_idx = match self.selected_filtered_idx() {
             Some(idx) if idx + 1 < total => idx + 1,
             Some(idx) => idx,
             None => 0,
@@ -554,6 +597,43 @@ impl SpreadsheetState {
         ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
     }
 
+    /// Record a scroll event from the body scrollable. Updates the cached
+    /// offset and viewport plus a smoothed scroll velocity used to size the
+    /// virtual-row overscan adaptively.
+    ///
+    /// Returns the EWMA-smoothed signed velocity in px/s (positive = downward).
+    pub fn record_scroll(&mut self, offset_x: f32, offset_y: f32, viewport_height: f32) -> f32 {
+        use std::time::Instant;
+        let now = Instant::now();
+        if let Some(last_t) = self.last_scroll_update {
+            let dt = now.duration_since(last_t).as_secs_f32();
+            // Ignore stale gaps — if the user paused for more than 250 ms,
+            // velocity is no longer meaningful, so reset rather than carry
+            // stale momentum into the next fling.
+            if dt > 0.0 && dt < 0.25 {
+                let inst_v = (offset_y - self.vertical_scroll_offset) / dt;
+                self.scroll_velocity_y = 0.4 * inst_v + 0.6 * self.scroll_velocity_y;
+            } else {
+                self.scroll_velocity_y = 0.0;
+            }
+        }
+        self.last_scroll_update = Some(now);
+        self.horizontal_scroll_offset = offset_x;
+        self.vertical_scroll_offset = offset_y;
+        self.viewport_height = viewport_height;
+        self.scroll_velocity_y
+    }
+
+    /// Compute the current overscan-row count from `scroll_velocity_y`.
+    /// During fast scrolling the rendered range is widened so that chunk
+    /// boundaries coincide with rows that have already been laid out, hiding
+    /// the cosmic-text shaping cost.
+    pub fn overscan_rows(&self) -> usize {
+        let velocity_rows = (self.scroll_velocity_y.abs() / ROW_HEIGHT) as usize;
+        let extra = (velocity_rows as f32 / OVERSCAN_VELOCITY_DIVISOR) as usize;
+        (OVERSCAN_ROWS_BASE + extra).min(OVERSCAN_ROWS_MAX)
+    }
+
     pub fn toggle_inspector(&mut self) {
         self.show_inspector = !self.show_inspector;
     }
@@ -567,40 +647,23 @@ impl SpreadsheetState {
     }
 
     /// Compute and cache row hashes, raw field values, and validation status.
-    /// Call when catalog loads to avoid recomputing on every render.
+    /// Synchronous — blocks the UI thread while running. Prefer
+    /// `compute_caches` + `install_caches` from a `spawn_blocking` task for
+    /// large catalogs (see `standard::handle::CatalogLoaded`).
     pub fn compute_all_caches<R: EditableRecord>(&mut self, catalog: &[R]) {
-        use std::hash::{Hash, Hasher};
-        let descriptors = R::field_descriptors();
-        let num_cols = descriptors.len();
-        self.row_hashes.clear();
-        self.display_cache.clear();
-        self.validation_cache.clear();
-        self.row_numbers.clear();
-        self.row_hashes.reserve(catalog.len());
-        self.display_cache.reserve(catalog.len());
-        self.validation_cache.reserve(catalog.len());
-        self.row_numbers.reserve(catalog.len());
-        for (i, record) in catalog.iter().enumerate() {
-            self.row_numbers.push(format!("{}", i + 1));
-            let values: Vec<String> = (0..num_cols)
-                .map(|j| record.get_field(descriptors[j].name))
-                .collect();
-            let mut h = std::collections::hash_map::DefaultHasher::new();
-            values.hash(&mut h);
-            self.row_hashes.push(h.finish());
-            let validation: Vec<bool> = (0..num_cols)
-                .map(|j| {
-                    record
-                        .validate_field(descriptors[j].name, &values[j])
-                        .is_some()
-                })
-                .collect();
-            self.display_cache.push(values);
-            self.validation_cache.push(validation);
-        }
-        // Compute truncated strings for initial column widths
+        self.install_caches(compute_caches(catalog));
+    }
+
+    /// Install pre-computed caches. The expensive work happens in
+    /// `compute_caches` — this method is the cheap mutation that integrates
+    /// the result back into spreadsheet state on the UI thread.
+    pub fn install_caches(&mut self, data: ComputedCaches) {
+        self.row_hashes = data.row_hashes;
+        self.display_cache = data.display_cache;
+        self.validation_cache = data.validation_cache;
+        self.row_numbers = data.row_numbers;
         self.rebuild_truncated_cache();
-        self.col_widths_gen += 1;
+        self.col_widths_gen = self.col_widths_gen.wrapping_add(1);
     }
 
     /// Get pre-truncated display string for a cell (cloned).
@@ -744,6 +807,59 @@ impl SpreadsheetState {
     }
 }
 
+/// Pre-computed display data for an entire catalog. Produced by
+/// `compute_caches` (a pure function safe to run from a worker thread) and
+/// consumed by `SpreadsheetState::install_caches` on the UI thread.
+///
+/// The four parallel `Vec`s are all `catalog.len()` long and indexed by
+/// `orig_idx`. Splitting compute from install lets a slow ~hundred-millisecond
+/// build run inside `tokio::task::spawn_blocking` without freezing the UI.
+#[derive(Debug, Clone, Default)]
+pub struct ComputedCaches {
+    pub row_hashes: Vec<u64>,
+    pub display_cache: Vec<Vec<String>>,
+    pub validation_cache: Vec<Vec<bool>>,
+    pub row_numbers: Vec<String>,
+}
+
+/// Pure cache-build function: walks every record, materialises display
+/// strings, hashes them, and runs per-field validation. Allocations only —
+/// no UI state touched, no global state read — so it is safe to run from a
+/// background thread.
+pub fn compute_caches<R: EditableRecord>(catalog: &[R]) -> ComputedCaches {
+    use std::hash::{Hash, Hasher};
+    let descriptors = R::field_descriptors();
+    let num_cols = descriptors.len();
+    let mut row_hashes = Vec::with_capacity(catalog.len());
+    let mut display_cache = Vec::with_capacity(catalog.len());
+    let mut validation_cache = Vec::with_capacity(catalog.len());
+    let mut row_numbers = Vec::with_capacity(catalog.len());
+    for (i, record) in catalog.iter().enumerate() {
+        row_numbers.push(format!("{}", i + 1));
+        let values: Vec<String> = (0..num_cols)
+            .map(|j| record.get_field(descriptors[j].name))
+            .collect();
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        values.hash(&mut h);
+        row_hashes.push(h.finish());
+        let validation: Vec<bool> = (0..num_cols)
+            .map(|j| {
+                record
+                    .validate_field(descriptors[j].name, &values[j])
+                    .is_some()
+            })
+            .collect();
+        display_cache.push(values);
+        validation_cache.push(validation);
+    }
+    ComputedCaches {
+        row_hashes,
+        display_cache,
+        validation_cache,
+        row_numbers,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SpreadsheetMessage {
     ToggleActive,
@@ -801,6 +917,13 @@ pub enum SpreadsheetMessage {
     /// Fired by `text_input` / `pick_list` widgets in the inspector panel.
     /// Routes through the macro so that `compute_all_caches` is called after.
     InspectorFieldChanged(usize, String, String),
+
+    // ── Async cache loading ────────────────────────────────────────────────
+    /// Result of an off-thread `compute_caches` job. The handler installs the
+    /// caches on the UI thread and clears `is_loading`. Dispatched only by
+    /// flows that schedule the compute through `spawn_blocking`; synchronous
+    /// `compute_all_caches` callers do not emit this.
+    CachesComputed(ComputedCaches),
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -1121,12 +1244,13 @@ fn build_table_content<'a, R: EditableRecord>(
     // Snap first_row to WINDOW_STEP multiples so the widget tree only rebuilds
     // every WINDOW_STEP rows of scroll rather than on every scroll pixel —
     // this keeps cosmic-text Korean layout from blocking the scroll thread.
+    let overscan_rows = spreadsheet.overscan_rows();
     let raw_first =
-        ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize).saturating_sub(OVERSCAN_ROWS);
+        ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize).saturating_sub(overscan_rows);
     let first_row = (raw_first / WINDOW_STEP) * WINDOW_STEP;
     let last_row = (((spreadsheet.vertical_scroll_offset + spreadsheet.viewport_height)
         / ROW_HEIGHT) as usize
-        + OVERSCAN_ROWS
+        + overscan_rows
         + WINDOW_STEP)
         .min(total_visible);
 
@@ -1164,7 +1288,7 @@ fn build_table_content<'a, R: EditableRecord>(
         if catalog.get(orig_idx).is_none() {
             continue;
         }
-        let is_selected = spreadsheet.selected_row == Some(filtered_idx);
+        let is_selected = spreadsheet.selected_orig == Some(orig_idx);
         let is_highlighted =
             is_highlight_mode && spreadsheet.highlighted_indices.contains(&orig_idx);
         let is_current_highlight = Some(orig_idx) == current_highlight_orig;
@@ -1216,12 +1340,7 @@ fn build_table_content<'a, R: EditableRecord>(
                             .cloned()
                             .unwrap_or_default();
                         let col_width = col_widths_row[col];
-
-                        cells.push(flattened_cell(
-                            display,
-                            col_width,
-                            spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)),
-                        ));
+                        cells.push(flattened_cell(display, col_width));
                     }
 
                     button(row(cells).spacing(0))
@@ -1394,13 +1513,21 @@ fn build_header_row<'a>(
         .into()
 }
 
-fn flattened_cell(display: String, col_width: f32, on_press: Message) -> Element<'static, Message> {
-    button(text(display).size(10).font(Font::MONOSPACE))
-        .on_press(on_press)
-        .style(style::spreadsheet_cell_btn)
+/// A single cell inside a data row. Rendered as a plain `container` so that
+/// clicks bubble up to the surrounding row-level `button`, the row's
+/// background paints through, and the row's `text_color` cascades into the
+/// cell text (so selected rows show the gold accent without per-cell styling).
+///
+/// Previously each cell was its own `button`. With ~18 columns × 64 rendered
+/// rows that meant ~1150 button widgets per frame, each with its own state,
+/// hover handling, and text-shaping wrapper — the dominant per-frame cost
+/// during steady scrolling.
+fn flattened_cell(display: String, col_width: f32) -> Element<'static, Message> {
+    container(text(display).size(10).font(Font::MONOSPACE))
         .padding([3, 8])
         .width(Length::Fixed(col_width))
         .height(ROW_HEIGHT)
+        .align_y(iced::Alignment::Center)
         .into()
 }
 
@@ -1434,27 +1561,25 @@ fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
-    if let Some(filtered_idx) = spreadsheet.selected_row {
-        if let Some(&orig_idx) = spreadsheet.filtered_indices.get(filtered_idx) {
-            if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
-                for desc in descriptors.iter() {
-                    let value = record.get_field(desc.name);
-                    let lookup_data = match &desc.kind {
-                        FieldKind::Lookup(key) => lookups.get(*key).cloned(),
-                        _ => None,
-                    };
-                    let validation_error = record.validate_field(desc.name, &value);
-                    fields = fields.push(build_inspector_field(
-                        desc,
-                        value,
-                        orig_idx,
-                        lookup_data,
-                        validation_error,
-                        field_changed_msg,
-                        &spreadsheet.inspector_textarea_contents,
-                        spreadsheet_msg,
-                    ));
-                }
+    if let Some(orig_idx) = spreadsheet.selected_orig {
+        if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
+            for desc in descriptors.iter() {
+                let value = record.get_field(desc.name);
+                let lookup_data = match &desc.kind {
+                    FieldKind::Lookup(key) => lookups.get(*key).cloned(),
+                    _ => None,
+                };
+                let validation_error = record.validate_field(desc.name, &value);
+                fields = fields.push(build_inspector_field(
+                    desc,
+                    value,
+                    orig_idx,
+                    lookup_data,
+                    validation_error,
+                    field_changed_msg,
+                    &spreadsheet.inspector_textarea_contents,
+                    spreadsheet_msg,
+                ));
             }
         }
     } else {

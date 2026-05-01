@@ -1,5 +1,6 @@
 pub mod spreadsheet;
 
 pub use spreadsheet::{
-    export_csv_task, view_spreadsheet, GlobalFilterMode, SpreadsheetMessage, SpreadsheetState,
+    compute_caches, export_csv_task, view_spreadsheet, ComputedCaches, GlobalFilterMode,
+    SpreadsheetMessage, SpreadsheetState,
 };

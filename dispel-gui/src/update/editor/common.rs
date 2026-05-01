@@ -52,7 +52,7 @@ macro_rules! handle_spreadsheet_messages {
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
-                        $app.state.$spreadsheet.selected_row = Some(fidx);
+                        $app.state.$spreadsheet.set_selection(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         return iced::widget::operation::scroll_to(
@@ -72,7 +72,7 @@ macro_rules! handle_spreadsheet_messages {
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
-                        $app.state.$spreadsheet.selected_row = Some(fidx);
+                        $app.state.$spreadsheet.set_selection(fidx);
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         return iced::widget::operation::scroll_to(
@@ -186,6 +186,10 @@ macro_rules! handle_spreadsheet_messages {
                 }
                 return task;
             }
+            SM::CachesComputed(data) => {
+                $app.state.$spreadsheet.install_caches(data);
+                $app.state.$spreadsheet.is_loading = false;
+            }
             SM::CancelEdit => {
                 if $app.state.$spreadsheet.resizing_column.is_some() {
                     $app.state.$spreadsheet.end_column_resize();
@@ -196,14 +200,11 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state.$spreadsheet.ensure_inspector_pane();
                 // Populate textarea contents now that the inspector is becoming visible.
                 if $app.state.$spreadsheet.show_inspector {
-                    if let Some(fidx) = $app.state.$spreadsheet.selected_row {
-                        if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx)
-                        {
-                            $app.state.$spreadsheet.inspector_textarea_contents = $app
-                                .state
-                                .$editor
-                                .make_inspector_textarea_contents(orig_idx);
-                        }
+                    if let Some(orig_idx) = $app.state.$spreadsheet.selected_orig {
+                        $app.state.$spreadsheet.inspector_textarea_contents = $app
+                            .state
+                            .$editor
+                            .make_inspector_textarea_contents(orig_idx);
                     }
                 }
             }
@@ -256,10 +257,9 @@ macro_rules! handle_spreadsheet_messages {
                         return iced::Task::none();
                     }
                 }
-                $app.state.$spreadsheet.last_scroll_update = Some(now);
-                $app.state.$spreadsheet.horizontal_scroll_offset = offset.x;
-                $app.state.$spreadsheet.vertical_scroll_offset = offset.y;
-                $app.state.$spreadsheet.viewport_height = viewport_height;
+                $app.state
+                    .$spreadsheet
+                    .record_scroll(offset.x, offset.y, viewport_height);
                 return iced::widget::operation::scroll_to(
                     $app.state.$spreadsheet.header_scroll_id.clone(),
                     iced::widget::scrollable::AbsoluteOffset {
@@ -363,7 +363,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 if let Some(fidx) =
                                     ss.filtered_indices.iter().position(|&i| i == orig_idx)
                                 {
-                                    ss.selected_row = Some(fidx);
+                                    ss.set_selection(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     return iced::widget::operation::scroll_to(
@@ -379,7 +379,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 if let Some(fidx) =
                                     ss.filtered_indices.iter().position(|&i| i == orig_idx)
                                 {
-                                    ss.selected_row = Some(fidx);
+                                    ss.set_selection(fidx);
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     return iced::widget::operation::scroll_to(
@@ -477,6 +477,10 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                             return task;
                         }
+                        SM::CachesComputed(data) => {
+                            ss.install_caches(data);
+                            ss.is_loading = false;
+                        }
                         SM::CancelEdit => {
                             if ss.resizing_column.is_some() {
                                 ss.end_column_resize();
@@ -531,10 +535,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     return iced::Task::none();
                                 }
                             }
-                            ss.last_scroll_update = Some(now);
-                            ss.horizontal_scroll_offset = offset.x;
-                            ss.vertical_scroll_offset = offset.y;
-                            ss.viewport_height = viewport_height;
+                            ss.record_scroll(offset.x, offset.y, viewport_height);
                             return iced::widget::operation::scroll_to(
                                 ss.header_scroll_id.clone(),
                                 iced::widget::scrollable::AbsoluteOffset {

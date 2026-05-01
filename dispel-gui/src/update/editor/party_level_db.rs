@@ -86,7 +86,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 .party_level_db_spreadsheet
                 .compute_all_caches(&records);
             app.state.party_level_db_spreadsheet.init_pane_state();
-            app.state.party_level_db_spreadsheet.selected_row = None;
+            app.state.party_level_db_spreadsheet.selected_orig = None;
             app.state
                 .party_level_db_spreadsheet
                 .inspector_textarea_contents

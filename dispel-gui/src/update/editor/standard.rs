@@ -50,15 +50,34 @@ where
                     editor.refresh();
                     editor.init_pane_state();
                     spreadsheet.apply_filter(&catalog);
-                    spreadsheet.compute_all_caches(&catalog);
-                    spreadsheet.is_loading = false;
+                    // Cache build can take 100s of ms on a 10k-row catalog —
+                    // run it in a blocking-pool worker and route the result
+                    // back through `SpreadsheetMessage::CachesComputed`. The
+                    // spreadsheet keeps `is_loading = true` until the result
+                    // arrives so the UI shows the progress indicator.
+                    let cat_for_caches = catalog;
+                    let wrap_caches = wrap.clone();
+                    Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || {
+                                crate::view::editor::compute_caches(&cat_for_caches)
+                            })
+                            .await
+                            .unwrap_or_default()
+                        },
+                        move |data| {
+                            wrap_caches(StandardEditorMessage::Spreadsheet(
+                                crate::view::editor::SpreadsheetMessage::CachesComputed(data),
+                            ))
+                        },
+                    )
                 }
                 Err(e) => {
                     editor.status_msg = format!("Error loading: {}", e);
                     spreadsheet.is_loading = false;
+                    Task::none()
                 }
             }
-            Task::none()
         }
 
         StandardEditorMessage::Select(idx) => {
