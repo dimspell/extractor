@@ -946,6 +946,29 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 id_text_color(flags),
                 id_clip,
             );
+
+            // Re-paint the row's selection/highlight border over the id cell
+            // so the gold outline isn't broken at the frozen-column boundary.
+            if let Some((border_color, border_width)) = row_border(flags) {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: id_x,
+                            y,
+                            width: id_w,
+                            height: self.row_height,
+                        },
+                        border: Border {
+                            color: border_color,
+                            width: border_width,
+                            radius: 0.into(),
+                        },
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    Background::Color(Color::TRANSPARENT),
+                );
+            }
         }
 
         // ── Scrollbars ─────────────────────────────────────────────────────
