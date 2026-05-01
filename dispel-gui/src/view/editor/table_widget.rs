@@ -767,20 +767,25 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             // Row background — clipped to the actual content width so the
             // zebra never extends past the column header bar's right edge.
             let row_w = content_visible_w.min(clip.width);
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: Rectangle {
-                        x: clip.x,
-                        y,
-                        width: row_w,
-                        height: self.row_height,
+            let row_y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
+            let bg_y = row_y.max(bounds.y);
+            let bg_height = (row_y + self.row_height).min(bounds.y + bounds.height) - bg_y;
+            if bg_height > 0.0 {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: Rectangle {
+                            x: clip.x,
+                            y: bg_y, // y,
+                            width: row_w,
+                            height: bg_height, // height: self.row_height,
+                        },
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
                     },
-                    border: Border::default(),
-                    shadow: Shadow::default(),
-                    snap: true,
-                },
-                Background::Color(row_bg(row_idx, flags, is_hovered)),
-            );
+                    Background::Color(row_bg(row_idx, flags, is_hovered)),
+                );
+            }
 
             // ── Data cells (col_idx >= 1) ─────────────────────────────────
             for col_idx in first_col.max(1)..last_col {
@@ -849,24 +854,28 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             // content width as the row background so it doesn't trail past
             // the header bar.
             if let Some((color, width)) = row_border(flags) {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: clip.x,
-                            y,
-                            width: content_visible_w.min(clip.width),
-                            height: self.row_height,
+                let border_y = row_y.max(bounds.y);
+                let border_h = (row_y + self.row_height).min(bounds.y + bounds.height) - border_y;
+                if border_h > 0.0 {
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: Rectangle {
+                                x: clip.x,
+                                y: border_y,
+                                width: content_visible_w.min(clip.width),
+                                height: border_h,
+                            },
+                            border: Border {
+                                color,
+                                width,
+                                radius: 0.into(),
+                            },
+                            shadow: Shadow::default(),
+                            snap: true,
                         },
-                        border: Border {
-                            color,
-                            width,
-                            radius: 0.into(),
-                        },
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    Background::Color(Color::TRANSPARENT),
-                );
+                        Background::Color(Color::TRANSPARENT),
+                    );
+                }
             }
         }
 
@@ -877,14 +886,17 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let id_w = self.id_col_width.min(bounds.width);
         for row_idx in first_row..last_row {
             let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
+            let id_y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
+            let id_bg_y = id_y.max(bounds.y);
+            let id_bg_h = (id_y + self.row_height).min(bounds.y + bounds.height) - id_bg_y;
             let flags = (self.row_flags)(row_idx);
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
                         x: id_x,
-                        y,
+                        y: id_bg_y,
                         width: id_w,
-                        height: self.row_height,
+                        height: id_bg_h,
                     },
                     border: Border {
                         color: color!(0x3d2b1f),
@@ -950,24 +962,28 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             // Re-paint the row's selection/highlight border over the id cell
             // so the gold outline isn't broken at the frozen-column boundary.
             if let Some((border_color, border_width)) = row_border(flags) {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: id_x,
-                            y,
-                            width: id_w,
-                            height: self.row_height,
+                let border_y = y.max(bounds.y);
+                let border_h = (y + self.row_height).min(bounds.y + bounds.height) - border_y;
+                if border_h > 0.0 {
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: Rectangle {
+                                x: id_x,
+                                y: border_y,
+                                width: id_w,
+                                height: border_h,
+                            },
+                            border: Border {
+                                color: border_color,
+                                width: border_width,
+                                radius: 0.into(),
+                            },
+                            shadow: Shadow::default(),
+                            snap: true,
                         },
-                        border: Border {
-                            color: border_color,
-                            width: border_width,
-                            radius: 0.into(),
-                        },
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    Background::Color(Color::TRANSPARENT),
-                );
+                        Background::Color(Color::TRANSPARENT),
+                    );
+                }
             }
         }
 
