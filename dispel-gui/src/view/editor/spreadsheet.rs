@@ -1223,8 +1223,6 @@ fn build_table_content<'a, R: EditableRecord>(
     // this, which keeps column boundaries aligned between them.
     let total_width = spreadsheet.total_table_width(descriptors.len());
 
-    let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
-
     let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
     let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
 
@@ -1235,7 +1233,6 @@ fn build_table_content<'a, R: EditableRecord>(
         let _ = (current_highlight_orig, is_highlight_mode, catalog);
         return build_table_content_widget(
             descriptors,
-            header_row,
             total_width,
             spreadsheet,
             spreadsheet_msg,
@@ -1244,6 +1241,7 @@ fn build_table_content<'a, R: EditableRecord>(
 
     #[cfg(not(feature = "table_widget"))]
     {
+        let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
         build_table_content_lazy(
             descriptors,
             catalog,
@@ -1445,21 +1443,41 @@ fn build_table_content_lazy<'a, R: EditableRecord>(
 #[cfg(feature = "table_widget")]
 fn build_table_content_widget<'a>(
     descriptors: &'a [FieldDescriptor],
-    header_row: Element<'a, Message>,
     total_width: f32,
     spreadsheet: &'a SpreadsheetState,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
 
-    let header_scroll = scrollable(container(header_row).width(Length::Fixed(total_width)))
-        .id(spreadsheet.header_scroll_id.clone())
-        .direction(ScrollDir::Horizontal(
-            iced::widget::scrollable::Scrollbar::new()
-                .width(0)
-                .scroller_width(0),
-        ))
-        .width(Length::Fill);
+    // The `#` header cell is rendered outside the horizontal scrollable so it
+    // stays frozen, matching the body widget's frozen id column. The
+    // remaining column headers go inside the (zero-thickness) scrollable
+    // whose offset is mirrored from the body.
+    let id_header_cell: Element<Message> =
+        container(text("#").size(10).style(style::subtle_text))
+            .width(ID_COL_WIDTH)
+            .padding([0, 6])
+            .height(ROW_HEIGHT)
+            .align_y(iced::Alignment::Center)
+            .style(style::spreadsheet_id_cell)
+            .into();
+    let data_header_row = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
+    let data_header_width = (total_width - ID_COL_WIDTH_PX).max(0.0);
+    let header_scroll = scrollable(
+        container(data_header_row).width(Length::Fixed(data_header_width)),
+    )
+    .id(spreadsheet.header_scroll_id.clone())
+    .direction(ScrollDir::Horizontal(
+        iced::widget::scrollable::Scrollbar::new()
+            .width(0)
+            .scroller_width(0),
+    ))
+    .width(Length::Fill);
+    let frozen_header: Element<Message> = container(
+        row![id_header_cell, header_scroll].spacing(0),
+    )
+    .style(style::spreadsheet_header)
+    .into();
 
     let columns: Vec<TableColumn> = (0..descriptors.len())
         .map(|c| TableColumn {
@@ -1509,7 +1527,7 @@ fn build_table_content_widget<'a>(
     })
     .into();
 
-    let table: Element<Message> = column![header_scroll, body].spacing(0).into();
+    let table: Element<Message> = column![frozen_header, body].spacing(0).into();
 
     if spreadsheet.resizing_column.is_some() {
         iced::widget::mouse_area(table)
@@ -1522,21 +1540,38 @@ fn build_table_content_widget<'a>(
     }
 }
 
+#[cfg(not(feature = "table_widget"))]
 fn build_header_row<'a>(
+    descriptors: &'a [FieldDescriptor],
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    let id_cell: Element<Message> =
+        container(text("#").size(10).style(style::subtle_text))
+            .width(ID_COL_WIDTH)
+            .padding([0, 6])
+            .height(ROW_HEIGHT)
+            .align_y(iced::Alignment::Center)
+            .style(style::spreadsheet_id_cell)
+            .into();
+    let data_header = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
+    container(row![id_cell, data_header].spacing(0))
+        .style(style::spreadsheet_header)
+        .into()
+}
+
+/// Build the column-header row *without* the leading `#` cell. The widget
+/// path renders the `#` cell as a frozen header outside the horizontal
+/// scrollable so it stays put while the data column headers scroll with
+/// the body.
+fn build_data_header_row<'a>(
     descriptors: &'a [FieldDescriptor],
     spreadsheet: &'a SpreadsheetState,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     use iced::widget::mouse_area;
 
-    let mut header_cells: Vec<Element<Message>> =
-        vec![container(text("#").size(10).style(style::subtle_text))
-            .width(ID_COL_WIDTH)
-            .padding([0, 6])
-            .height(ROW_HEIGHT)
-            .align_y(iced::Alignment::Center)
-            .style(style::spreadsheet_id_cell)
-            .into()];
+    let mut header_cells: Vec<Element<Message>> = Vec::with_capacity(descriptors.len());
 
     let is_resizing = spreadsheet.resizing_column.is_some();
 
@@ -1618,9 +1653,7 @@ fn build_header_row<'a>(
         header_cells.push(row![label_cell, resize_handle].spacing(0).into());
     }
 
-    container(row(header_cells).spacing(0))
-        .style(style::spreadsheet_header)
-        .into()
+    row(header_cells).spacing(0).into()
 }
 
 /// A single cell inside a data row. Rendered as a plain `container` so that

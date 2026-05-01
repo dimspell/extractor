@@ -220,6 +220,25 @@ impl<'a, Message> TableWidget<'a, Message> {
         }
     }
 
+    /// Bounds of the scrollable body — `bounds` minus a `SCROLLBAR_THICKNESS`
+    /// strip on the right (vertical scrollbar) and bottom (horizontal
+    /// scrollbar) when those scrollbars are needed. Reserving the strip in
+    /// idle state means cells never sit underneath the scrollbar; the thumb's
+    /// hover/drag growth extends *into* the body which is fine because the
+    /// user is interacting with it at that moment.
+    fn body_bounds(&self, bounds: Rectangle) -> Rectangle {
+        let needs_v = self.total_height() > bounds.height;
+        let needs_h = self.total_width() > bounds.width;
+        let v_strip = if needs_v { SCROLLBAR_THICKNESS } else { 0.0 };
+        let h_strip = if needs_h { SCROLLBAR_THICKNESS } else { 0.0 };
+        Rectangle {
+            x: bounds.x,
+            y: bounds.y,
+            width: (bounds.width - v_strip).max(0.0),
+            height: (bounds.height - h_strip).max(0.0),
+        }
+    }
+
     /// True when the cursor is over either scrollbar's track.
     fn over_scrollbar(&self, bounds: Rectangle, off: Vector, p: Point) -> bool {
         self.scrollbar_under(bounds, off, p).is_some()
@@ -253,10 +272,11 @@ impl<'a, Message> TableWidget<'a, Message> {
         new_y: f32,
         shell: &mut Shell<'_, Message>,
     ) -> bool {
+        let body = self.body_bounds(bounds);
         let total_w = self.total_width();
         let total_h = self.total_height();
-        let clamped_x = new_x.clamp(0.0, (total_w - bounds.width).max(0.0));
-        let clamped_y = new_y.clamp(0.0, (total_h - bounds.height).max(0.0));
+        let clamped_x = new_x.clamp(0.0, (total_w - body.width).max(0.0));
+        let clamped_y = new_y.clamp(0.0, (total_h - body.height).max(0.0));
         let moved = (clamped_x - state.scroll_offset.x).abs() > f32::EPSILON
             || (clamped_y - state.scroll_offset.y).abs() > f32::EPSILON;
         if moved {
@@ -279,15 +299,16 @@ impl<'a, Message> TableWidget<'a, Message> {
         cursor: Point,
         shell: &mut Shell<'_, Message>,
     ) {
+        let body = self.body_bounds(bounds);
         match drag.axis {
             Axis::Vertical => {
                 let total_h = self.total_height();
-                if total_h <= bounds.height {
+                if total_h <= body.height {
                     return;
                 }
-                let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
-                let travel_px = (bounds.height - thumb_h).max(1.0);
-                let max_off = (total_h - bounds.height).max(1.0);
+                let thumb_h = (body.height / total_h * body.height).max(20.0);
+                let travel_px = (body.height - thumb_h).max(1.0);
+                let max_off = (total_h - body.height).max(1.0);
                 let scale = max_off / travel_px;
                 let dy = cursor.y - drag.start_cursor.y;
                 self.apply_scroll(
@@ -300,12 +321,12 @@ impl<'a, Message> TableWidget<'a, Message> {
             }
             Axis::Horizontal => {
                 let total_w = self.total_width();
-                if total_w <= bounds.width {
+                if total_w <= body.width {
                     return;
                 }
-                let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
-                let travel_px = (bounds.width - thumb_w).max(1.0);
-                let max_off = (total_w - bounds.width).max(1.0);
+                let thumb_w = (body.width / total_w * body.width).max(20.0);
+                let travel_px = (body.width - thumb_w).max(1.0);
+                let max_off = (total_w - body.width).max(1.0);
                 let scale = max_off / travel_px;
                 let dx = cursor.x - drag.start_cursor.x;
                 self.apply_scroll(
@@ -320,21 +341,24 @@ impl<'a, Message> TableWidget<'a, Message> {
     }
 
     /// Geometry of the vertical scrollbar (track + thumb), or `None` if the
-    /// content fits vertically.
+    /// content fits vertically. The track sits in the reserved strip on the
+    /// right edge of `bounds`; thumb travel uses `body.height` so it doesn't
+    /// extend past the horizontal scrollbar's corner reservation.
     fn vertical_scrollbar(&self, bounds: Rectangle, off_y: f32) -> Option<(Rectangle, Rectangle)> {
         let total_h = self.total_height();
         if total_h <= bounds.height {
             return None;
         }
+        let body = self.body_bounds(bounds);
         let track = Rectangle {
             x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
             y: bounds.y,
             width: SCROLLBAR_THICKNESS,
-            height: bounds.height,
+            height: body.height,
         };
-        let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
-        let max_off = (total_h - bounds.height).max(1.0);
-        let thumb_y = bounds.y + (off_y / max_off) * (bounds.height - thumb_h);
+        let thumb_h = (body.height / total_h * body.height).max(20.0);
+        let max_off = (total_h - body.height).max(1.0);
+        let thumb_y = bounds.y + (off_y / max_off) * (body.height - thumb_h);
         let thumb = Rectangle {
             x: track.x + 1.0,
             y: thumb_y,
@@ -351,15 +375,16 @@ impl<'a, Message> TableWidget<'a, Message> {
         if total_w <= bounds.width {
             return None;
         }
+        let body = self.body_bounds(bounds);
         let track = Rectangle {
             x: bounds.x,
             y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
-            width: bounds.width,
+            width: body.width,
             height: SCROLLBAR_THICKNESS,
         };
-        let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
-        let max_off = (total_w - bounds.width).max(1.0);
-        let thumb_x = bounds.x + (off_x / max_off) * (bounds.width - thumb_w);
+        let thumb_w = (body.width / total_w * body.width).max(20.0);
+        let max_off = (total_w - body.width).max(1.0);
+        let thumb_x = bounds.x + (off_x / max_off) * (body.width - thumb_w);
         let thumb = Rectangle {
             x: thumb_x,
             y: track.y + 1.0,
@@ -380,10 +405,16 @@ impl<'a, Message> TableWidget<'a, Message> {
         if !need_sync {
             return;
         }
+        let body = self.body_bounds(Rectangle {
+            x: 0.0,
+            y: 0.0,
+            width: bounds.width,
+            height: bounds.height,
+        });
         let total_w = self.total_width();
         let total_h = self.total_height();
-        let max_x = (total_w - bounds.width).max(0.0);
-        let max_y = (total_h - bounds.height).max(0.0);
+        let max_x = (total_w - body.width).max(0.0);
+        let max_y = (total_h - body.height).max(0.0);
         state.scroll_offset.x = self.external_offset.x.clamp(0.0, max_x);
         state.scroll_offset.y = self.external_offset.y.clamp(0.0, max_y);
         state.last_external = Some(self.external_offset);
@@ -516,8 +547,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     state.hovered_scrollbar = new_sb_hover;
                     shell.request_redraw();
                 }
+                let body = self.body_bounds(bounds);
                 let new_hover = cursor.position_over(bounds).and_then(|p| {
                     if self.over_scrollbar(bounds, state.scroll_offset, p) {
+                        return None;
+                    }
+                    if !body.contains(p) {
                         return None;
                     }
                     let local_y = (p.y - bounds.y) + state.scroll_offset.y;
@@ -605,6 +640,10 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                 }
                 // ── Row select ────────────────────────────────────────────
+                let body = self.body_bounds(bounds);
+                if !body.contains(p) {
+                    return;
+                }
                 let local_y = (p.y - bounds.y) + state.scroll_offset.y;
                 if local_y < 0.0 {
                     return;
@@ -656,19 +695,35 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) {
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
+        let body = self.body_bounds(bounds);
         let off = state.scroll_offset;
 
         if self.n_rows() == 0 || self.n_cols() == 0 {
             return;
         }
 
-        let clip = bounds.intersection(viewport).unwrap_or(bounds);
+        // Clip rendering to the body (excludes scrollbar reservation strips
+        // so cells never paint underneath the idle scrollbar) and intersect
+        // with the renderer viewport.
+        let clip = body.intersection(viewport).unwrap_or(body);
+
+        // Width of the actual content (sum of column widths) projected into
+        // the body — never wider than the body itself. Ensures the row
+        // backgrounds don't extend past where the column header bar ends.
+        let total_w = self.total_width();
+        let content_visible_w = (total_w - off.x).clamp(0.0, body.width);
 
         // Backdrop — paint the table body with the default zebra-base colour
         // so columns that don't fully fill the row leave a clean background.
+        let backdrop = Rectangle {
+            x: clip.x,
+            y: clip.y,
+            width: content_visible_w.min(clip.width),
+            height: clip.height,
+        };
         renderer.fill_quad(
             renderer::Quad {
-                bounds: clip,
+                bounds: backdrop,
                 border: Border::default(),
                 shadow: Shadow::default(),
                 snap: true,
@@ -678,7 +733,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
         // ── Visible row range ──────────────────────────────────────────────
         let first_row = ((off.y / self.row_height).floor() as usize).min(self.n_rows());
-        let last_row = (((off.y + bounds.height) / self.row_height).ceil() as usize)
+        let last_row = (((off.y + body.height) / self.row_height).ceil() as usize)
             .min(self.n_rows());
 
         // ── Visible column range (cumulative x prefix sum) ─────────────────
@@ -695,27 +750,29 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             .saturating_sub(1)
             .min(n_cols.saturating_sub(1));
         let last_col = col_x
-            .partition_point(|&x| x < off.x + bounds.width)
+            .partition_point(|&x| x < off.x + body.width)
             .min(n_cols);
 
         // Clip data cells to everything right of the frozen id column so
         // horizontally-scrolled cells don't paint over it.
         let data_clip = clip
-            .intersection(&self.data_area(bounds))
-            .unwrap_or(self.data_area(bounds));
+            .intersection(&self.data_area(body))
+            .unwrap_or(self.data_area(body));
 
         for row_idx in first_row..last_row {
             let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
             let flags = (self.row_flags)(row_idx);
             let is_hovered = state.hovered_row == Some(row_idx);
 
-            // Row background (full-width band — id column draws over it later).
+            // Row background — clipped to the actual content width so the
+            // zebra never extends past the column header bar's right edge.
+            let row_w = content_visible_w.min(clip.width);
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
                         x: clip.x,
                         y,
-                        width: clip.width,
+                        width: row_w,
                         height: self.row_height,
                     },
                     border: Border::default(),
@@ -788,14 +845,16 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             }
 
             // Row border (selection / highlight outline). Drawn over data
-            // cells but under the frozen id column.
+            // cells but under the frozen id column. Clipped to the same
+            // content width as the row background so it doesn't trail past
+            // the header bar.
             if let Some((color, width)) = row_border(flags) {
                 renderer.fill_quad(
                     renderer::Quad {
                         bounds: Rectangle {
                             x: clip.x,
                             y,
-                            width: clip.width,
+                            width: content_visible_w.min(clip.width),
                             height: self.row_height,
                         },
                         border: Border {
@@ -897,9 +956,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             .dragging
             .map(|d| d.axis)
             .or(state.hovered_scrollbar);
+        // Scrollbars live in the strips reserved on the right/bottom of the
+        // full bounds (outside `body`). Pass `bounds` and `body` separately
+        // so the scrollbar draw can position the track on the strip while
+        // sizing the thumb against the body's visible viewport.
         draw_scrollbars(
             renderer,
-            clip,
+            bounds,
+            body,
             off,
             self.total_width(),
             self.total_height(),
@@ -916,6 +980,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 fn draw_scrollbars(
     renderer: &mut iced::Renderer,
     bounds: Rectangle,
+    body: Rectangle,
     off: Vector,
     total_w: f32,
     total_h: f32,
@@ -932,11 +997,11 @@ fn draw_scrollbars(
             x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
             y: bounds.y,
             width: SCROLLBAR_THICKNESS,
-            height: bounds.height,
+            height: body.height,
         };
-        let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
-        let max_off = (total_h - bounds.height).max(1.0);
-        let thumb_y = bounds.y + (off.y / max_off) * (bounds.height - thumb_h);
+        let thumb_h = (body.height / total_h * body.height).max(20.0);
+        let max_off = (total_h - body.height).max(1.0);
+        let thumb_y = bounds.y + (off.y / max_off) * (body.height - thumb_h);
 
         let active = active_axis == Some(Axis::Vertical);
         let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
@@ -978,12 +1043,12 @@ fn draw_scrollbars(
         let track = Rectangle {
             x: bounds.x,
             y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
-            width: bounds.width,
+            width: body.width,
             height: SCROLLBAR_THICKNESS,
         };
-        let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
-        let max_off = (total_w - bounds.width).max(1.0);
-        let thumb_x = bounds.x + (off.x / max_off) * (bounds.width - thumb_w);
+        let thumb_w = (body.width / total_w * body.width).max(20.0);
+        let max_off = (total_w - body.width).max(1.0);
+        let thumb_x = bounds.x + (off.x / max_off) * (body.width - thumb_w);
 
         let active = active_axis == Some(Axis::Horizontal);
         let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
@@ -1086,7 +1151,9 @@ mod tests {
         let mut state = State::default();
         let bounds = Size::new(200.0, 240.0);
         w.sync_external(&mut state, bounds);
-        // total_h = 100 * 24 = 2400; max_y = 2400 - 240 = 2160.
+        // total_h = 100 * 24 = 2400; vertical scrollbar reserves 8 px on
+        // width but content fits horizontally so no horizontal-scrollbar
+        // strip is taken from height. body.height = 240; max_y = 2160.
         assert_eq!(state.scroll_offset.y, 2160.0);
         assert_eq!(state.last_external, Some(Vector::new(0.0, 100_000.0)));
     }
