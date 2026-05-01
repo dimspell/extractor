@@ -16,6 +16,7 @@ use crate::components::editor::editable::{EditableRecord, FieldDescriptor, Field
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
+use crate::view::editor::cached_text::{cached_text, ParagraphCache};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self, Pane};
@@ -172,6 +173,12 @@ pub struct SpreadsheetState {
     /// record, keyed by field name. Populated on `SelectRow`, cleared on
     /// row change. Allows the cursor / selection to survive re-renders.
     pub inspector_textarea_contents: HashMap<String, TextAreaContent>,
+
+    /// Process-wide cache of pre-shaped paragraphs, keyed by
+    /// `(text, size, max_width, font)`. Cloned into each visible cell's
+    /// renderer to skip cosmic-text shaping after the first hit. Cheap to
+    /// clone (Arc).
+    pub paragraph_cache: ParagraphCache,
 }
 
 /// Transient state for an in-progress column-resize drag.
@@ -232,6 +239,7 @@ impl Default for SpreadsheetState {
             inspector_textarea_contents: HashMap::new(),
             last_scroll_update: None,
             scroll_velocity_y: 0.0,
+            paragraph_cache: ParagraphCache::default(),
         }
     }
 }
@@ -1276,6 +1284,7 @@ fn build_table_content<'a, R: EditableRecord>(
                 .get(orig_idx)
                 .cloned()
                 .unwrap_or_default();
+            let para_cache = spreadsheet.paragraph_cache.clone();
 
             data_rows.push(
                 iced::widget::lazy(row_key, move |_| -> Element<'static, Message> {
@@ -1306,7 +1315,7 @@ fn build_table_content<'a, R: EditableRecord>(
                     for (col, col_width) in col_widths_row.iter().enumerate() {
                         let raw = row_values.get(col).map(String::as_str).unwrap_or("");
                         let display = truncate_for_width(raw, *col_width);
-                        cells.push(flattened_cell(display, *col_width));
+                        cells.push(flattened_cell(display, *col_width, para_cache.clone()));
                     }
 
                     button(row(cells).spacing(0))
@@ -1488,8 +1497,12 @@ fn build_header_row<'a>(
 /// rows that meant ~1150 button widgets per frame, each with its own state,
 /// hover handling, and text-shaping wrapper — the dominant per-frame cost
 /// during steady scrolling.
-fn flattened_cell(display: String, col_width: f32) -> Element<'static, Message> {
-    container(text(display).size(10).font(Font::MONOSPACE))
+fn flattened_cell(
+    display: String,
+    col_width: f32,
+    cache: ParagraphCache,
+) -> Element<'static, Message> {
+    container(cached_text(display, cache).size(10).font(Font::MONOSPACE))
         .padding([3, 8])
         .width(Length::Fixed(col_width))
         .height(ROW_HEIGHT)

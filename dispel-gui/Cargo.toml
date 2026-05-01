@@ -23,6 +23,7 @@ env_logger = "0.10.0"
 rodio = { version = "0.21", default-features = false, features = ["wav", "playback"] }
 log = "0.4"
 zip = "2"
+lru = "0.12"
 
 [features]
 default = []
