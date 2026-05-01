@@ -742,12 +742,29 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     alignment::Horizontal::Left,
                     alignment::Vertical::Center,
                 );
+                // Per-cell clip rect: restrict the rendered text to this
+                // cell's column width so long strings don't spill over the
+                // next cell. Intersected with the data area so the frozen
+                // id column never gets painted over either.
+                let cell_clip = data_clip
+                    .intersection(&Rectangle {
+                        x: cell_x,
+                        y,
+                        width: cell_w,
+                        height: self.row_height,
+                    })
+                    .unwrap_or(Rectangle {
+                        x: cell_x,
+                        y,
+                        width: 0.0,
+                        height: 0.0,
+                    });
                 <iced::Renderer as text::Renderer>::fill_paragraph(
                     renderer,
                     &paragraph,
                     position,
                     cell_text_color(flags),
-                    data_clip,
+                    cell_clip,
                 );
             }
 
