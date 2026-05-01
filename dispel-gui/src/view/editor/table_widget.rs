@@ -89,13 +89,16 @@ struct State {
     /// frame.
     last_external: Option<Vector>,
     hovered_row: Option<usize>,
+    /// Which scrollbar (if any) the cursor is currently over. Used to
+    /// fatten + brighten the thumb so it reads as draggable.
+    hovered_scrollbar: Option<Axis>,
     /// Active scrollbar drag, if any. Contains the cursor position recorded
     /// when the drag started and the scroll offset at that moment, so the
     /// drag math can map cursor delta → offset delta linearly.
     dragging: Option<ScrollbarDrag>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Axis {
     Vertical,
     Horizontal,
@@ -219,17 +222,24 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     /// True when the cursor is over either scrollbar's track.
     fn over_scrollbar(&self, bounds: Rectangle, off: Vector, p: Point) -> bool {
+        self.scrollbar_under(bounds, off, p).is_some()
+    }
+
+    /// Which scrollbar (if any) the cursor is currently over. The expanded
+    /// hit-area covers the whole track so the thumb still feels grabbable
+    /// when the cursor hits anywhere along the bar.
+    fn scrollbar_under(&self, bounds: Rectangle, off: Vector, p: Point) -> Option<Axis> {
         if let Some((track, _)) = self.vertical_scrollbar(bounds, off.y) {
             if track.contains(p) {
-                return true;
+                return Some(Axis::Vertical);
             }
         }
         if let Some((track, _)) = self.horizontal_scrollbar(bounds, off.x) {
             if track.contains(p) {
-                return true;
+                return Some(Axis::Horizontal);
             }
         }
-        false
+        None
     }
 
     /// Apply a clamped scroll-offset change. Returns `true` if either axis
@@ -496,6 +506,15 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     self.continue_drag(state, bounds, drag, cur, shell);
                     shell.capture_event();
                     return;
+                }
+                // Track which scrollbar (if any) the cursor is over so the
+                // thumb can fatten + brighten on hover.
+                let new_sb_hover = cursor
+                    .position_over(bounds)
+                    .and_then(|p| self.scrollbar_under(bounds, state.scroll_offset, p));
+                if new_sb_hover != state.hovered_scrollbar {
+                    state.hovered_scrollbar = new_sb_hover;
+                    shell.request_redraw();
                 }
                 let new_hover = cursor.position_over(bounds).and_then(|p| {
                     if self.over_scrollbar(bounds, state.scroll_offset, p) {
@@ -871,21 +890,42 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         }
 
         // ── Scrollbars ─────────────────────────────────────────────────────
-        draw_scrollbars(renderer, clip, off, self.total_width(), self.total_height());
+        // A scrollbar is "active" when the user is hovering its track or
+        // currently dragging it — in either case the thumb fattens and the
+        // colour brightens to telegraph that it's grabbable.
+        let active_axis = state
+            .dragging
+            .map(|d| d.axis)
+            .or(state.hovered_scrollbar);
+        draw_scrollbars(
+            renderer,
+            clip,
+            off,
+            self.total_width(),
+            self.total_height(),
+            active_axis,
+        );
     }
 }
 
 /// Paint vertical and horizontal scrollbar thumbs along the right and bottom
 /// edges of `bounds` to reflect `off` against the total content size.
+///
+/// When `active_axis` matches an axis, that scrollbar's thumb is drawn 1.5×
+/// thicker and a few shades lighter so the user sees it's grabbable.
 fn draw_scrollbars(
     renderer: &mut iced::Renderer,
     bounds: Rectangle,
     off: Vector,
     total_w: f32,
     total_h: f32,
+    active_axis: Option<Axis>,
 ) {
     let track_color = color!(0x141210);
-    let thumb_color = color!(0x5d4037);
+    let thumb_idle = color!(0x5d4037);
+    let thumb_active = color!(0x8b6a4a);
+    let border_idle = color!(0x8b5a2b);
+    let border_active = color!(0xc89770);
 
     if total_h > bounds.height {
         let track = Rectangle {
@@ -897,45 +937,14 @@ fn draw_scrollbars(
         let thumb_h = (bounds.height / total_h * bounds.height).max(20.0);
         let max_off = (total_h - bounds.height).max(1.0);
         let thumb_y = bounds.y + (off.y / max_off) * (bounds.height - thumb_h);
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: track,
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(track_color),
-        );
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: track.x + 1.0,
-                    y: thumb_y,
-                    width: SCROLLBAR_THICKNESS - 2.0,
-                    height: thumb_h,
-                },
-                border: Border {
-                    color: color!(0x8b5a2b),
-                    width: 0.5,
-                    radius: (SCROLLBAR_THICKNESS / 2.0).into(),
-                },
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(thumb_color),
-        );
-    }
 
-    if total_w > bounds.width {
-        let track = Rectangle {
-            x: bounds.x,
-            y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
-            width: bounds.width,
-            height: SCROLLBAR_THICKNESS,
-        };
-        let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
-        let max_off = (total_w - bounds.width).max(1.0);
-        let thumb_x = bounds.x + (off.x / max_off) * (bounds.width - thumb_w);
+        let active = active_axis == Some(Axis::Vertical);
+        let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
+        let thumb_w = SCROLLBAR_THICKNESS - 2.0 + extra;
+        // Anchor the fattened thumb to the right edge so it grows leftward
+        // into the table rather than off-screen.
+        let thumb_x = track.x + 1.0 - extra;
+
         renderer.fill_quad(
             renderer::Quad {
                 bounds: track,
@@ -949,19 +958,64 @@ fn draw_scrollbars(
             renderer::Quad {
                 bounds: Rectangle {
                     x: thumb_x,
-                    y: track.y + 1.0,
+                    y: thumb_y,
                     width: thumb_w,
-                    height: SCROLLBAR_THICKNESS - 2.0,
+                    height: thumb_h,
                 },
                 border: Border {
-                    color: color!(0x8b5a2b),
-                    width: 0.5,
-                    radius: (SCROLLBAR_THICKNESS / 2.0).into(),
+                    color: if active { border_active } else { border_idle },
+                    width: if active { 1.0 } else { 0.5 },
+                    radius: (thumb_w / 2.0).into(),
                 },
                 shadow: Shadow::default(),
                 snap: true,
             },
-            Background::Color(thumb_color),
+            Background::Color(if active { thumb_active } else { thumb_idle }),
+        );
+    }
+
+    if total_w > bounds.width {
+        let track = Rectangle {
+            x: bounds.x,
+            y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
+            width: bounds.width,
+            height: SCROLLBAR_THICKNESS,
+        };
+        let thumb_w = (bounds.width / total_w * bounds.width).max(20.0);
+        let max_off = (total_w - bounds.width).max(1.0);
+        let thumb_x = bounds.x + (off.x / max_off) * (bounds.width - thumb_w);
+
+        let active = active_axis == Some(Axis::Horizontal);
+        let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
+        let thumb_h = SCROLLBAR_THICKNESS - 2.0 + extra;
+        let thumb_y = track.y + 1.0 - extra;
+
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: track,
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(track_color),
+        );
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: thumb_x,
+                    y: thumb_y,
+                    width: thumb_w,
+                    height: thumb_h,
+                },
+                border: Border {
+                    color: if active { border_active } else { border_idle },
+                    width: if active { 1.0 } else { 0.5 },
+                    radius: (thumb_h / 2.0).into(),
+                },
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(if active { thumb_active } else { thumb_idle }),
         );
     }
 }
