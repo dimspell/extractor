@@ -1049,6 +1049,7 @@ fn build_filter_bar<'a, R: EditableRecord>(
     let filter_input = text_input("Search records...", &spreadsheet.filter_query)
         .id(spreadsheet.filter_input_id.clone())
         .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::FilterChanged(q)))
+        .on_submit(spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
         .padding(6)
         .width(Length::FillPortion(2))
         .style(style::spreadsheet_filter_input);
