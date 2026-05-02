@@ -22,12 +22,15 @@ use crate::view::editor::cached_text::ParagraphCache;
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self, Pane};
+#[cfg(not(feature = "table_widget"))]
 use iced::widget::scrollable::Direction as ScrollDir;
 use iced::widget::text_editor;
 use iced::widget::{
     button, column, container, pick_list, progress_bar, row, scrollable, text, text_input, Column,
 };
-use iced::{Element, Fill, Font, Length};
+#[cfg(not(feature = "table_widget"))]
+use iced::Font;
+use iced::{Element, Fill, Length};
 use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
@@ -49,6 +52,7 @@ const OVERSCAN_VELOCITY_DIVISOR: f32 = 2.0;
 #[cfg(not(feature = "table_widget"))]
 const WINDOW_STEP: usize = 64;
 const ID_COL_WIDTH_PX: f32 = 42.0;
+#[cfg(not(feature = "table_widget"))]
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
 /// `SpreadsheetState::column_widths`. Using a fixed width (rather than
@@ -57,6 +61,7 @@ const COL_WIDTH: f32 = 140.0;
 const COL_WIDTH_MIN: f32 = 40.0;
 const COL_WIDTH_MAX: f32 = 600.0;
 /// Pixel width of the draggable separator between column headers.
+#[cfg(not(feature = "table_widget"))]
 const RESIZE_HANDLE_WIDTH: f32 = 5.0;
 
 /// How a global (filter-bar) query affects the row listing.
@@ -1230,13 +1235,8 @@ fn build_table_content<'a, R: EditableRecord>(
     // A/B comparison until we delete the lazy/column path.
     #[cfg(feature = "table_widget")]
     {
-        let _ = (current_highlight_orig, is_highlight_mode, catalog);
-        return build_table_content_widget(
-            descriptors,
-            total_width,
-            spreadsheet,
-            spreadsheet_msg,
-        );
+        let _ = (current_highlight_orig, is_highlight_mode, catalog, total_width);
+        return build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg);
     }
 
     #[cfg(not(feature = "table_widget"))]
@@ -1443,45 +1443,26 @@ fn build_table_content_lazy<'a, R: EditableRecord>(
 #[cfg(feature = "table_widget")]
 fn build_table_content_widget<'a>(
     descriptors: &'a [FieldDescriptor],
-    total_width: f32,
     spreadsheet: &'a SpreadsheetState,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
 
-    // The `#` header cell is rendered outside the horizontal scrollable so it
-    // stays frozen, matching the body widget's frozen id column. The
-    // remaining column headers go inside the (zero-thickness) scrollable
-    // whose offset is mirrored from the body.
-    let id_header_cell: Element<Message> =
-        container(text("#").size(10).style(style::subtle_text))
-            .width(ID_COL_WIDTH)
-            .padding([0, 6])
-            .height(ROW_HEIGHT)
-            .align_y(iced::Alignment::Center)
-            .style(style::spreadsheet_id_cell)
-            .into();
-    let data_header_row = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
-    let data_header_width = (total_width - ID_COL_WIDTH_PX).max(0.0);
-    let header_scroll = scrollable(
-        container(data_header_row).width(Length::Fixed(data_header_width)),
-    )
-    .id(spreadsheet.header_scroll_id.clone())
-    .direction(ScrollDir::Horizontal(
-        iced::widget::scrollable::Scrollbar::new()
-            .width(0)
-            .scroller_width(0),
-    ))
-    .width(Length::Fill);
-    let frozen_header: Element<Message> = container(
-        row![id_header_cell, header_scroll].spacing(0),
-    )
-    .style(style::spreadsheet_header)
-    .into();
+    // Header is rendered inside the TableWidget itself — labels, sort
+    // indicators, filter icons, and resize handles are painted directly,
+    // so there is no separate header `scrollable` and no horizontal-scroll
+    // mirror to keep in sync.
 
     let columns: Vec<TableColumn> = (0..descriptors.len())
         .map(|c| TableColumn {
             width_px: spreadsheet.column_width(c),
+            label: descriptors[c].label.to_string(),
+            sort: if spreadsheet.sort_column == Some(c) {
+                Some(spreadsheet.sort_ascending)
+            } else {
+                None
+            },
+            has_filter: spreadsheet.column_filters.contains_key(&c),
         })
         .collect();
 
@@ -1525,9 +1506,14 @@ fn build_table_content_widget<'a>(
             viewport_height,
         ))
     })
+    .on_sort(move |c| spreadsheet_msg(SpreadsheetMessage::SortColumn(c)))
+    .on_open_filter(move |c| spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(c)))
+    .on_clear_filter(move |c| spreadsheet_msg(SpreadsheetMessage::ClearColumnFilter(c)))
+    .on_start_resize(move |c| spreadsheet_msg(SpreadsheetMessage::StartResizeColumn(c)))
+    .on_reset_column_width(move |c| spreadsheet_msg(SpreadsheetMessage::ResetColumnWidth(c)))
     .into();
 
-    let table: Element<Message> = column![frozen_header, body].spacing(0).into();
+    let table: Element<Message> = body;
 
     if spreadsheet.resizing_column.is_some() {
         iced::widget::mouse_area(table)
@@ -1564,6 +1550,7 @@ fn build_header_row<'a>(
 /// path renders the `#` cell as a frozen header outside the horizontal
 /// scrollable so it stays put while the data column headers scroll with
 /// the body.
+#[cfg(not(feature = "table_widget"))]
 fn build_data_header_row<'a>(
     descriptors: &'a [FieldDescriptor],
     spreadsheet: &'a SpreadsheetState,

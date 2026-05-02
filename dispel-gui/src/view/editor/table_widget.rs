@@ -44,9 +44,28 @@ type Paragraph = GraphicsParagraph;
 /// bottom edges of the table.
 const SCROLLBAR_THICKNESS: f32 = 8.0;
 
-#[derive(Debug, Clone, Copy)]
+/// Width of the right-edge resize-handle strip painted in each column header.
+/// Click-drag on this strip resizes the column; double-click resets it.
+const RESIZE_HANDLE_WIDTH: f32 = 5.0;
+
+/// Width of the filter-open `▾` icon in each column header.
+const FILTER_ICON_WIDTH: f32 = 14.0;
+
+/// Width of the filter-active `◼` badge in each column header.
+const FILTER_BADGE_WIDTH: f32 = 14.0;
+
+/// Threshold (ms) for treating two consecutive clicks on the same resize
+/// handle as a double-click — emits `on_reset_column_width` instead of
+/// `on_start_resize`.
+const DOUBLE_CLICK_MS: u128 = 400;
+
+#[derive(Debug, Clone)]
 pub struct TableColumn {
     pub width_px: f32,
+    pub label: String,
+    /// `None` = unsorted, `Some(true)` = ascending, `Some(false)` = descending.
+    pub sort: Option<bool>,
+    pub has_filter: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -80,6 +99,11 @@ pub struct TableWidget<'a, Message> {
     external_offset: Vector,
     on_select: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_scroll: Option<Box<dyn Fn(f32, f32) -> Message + 'a>>,
+    on_sort: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_open_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_clear_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_start_resize: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_reset_column_width: Option<Box<dyn Fn(usize) -> Message + 'a>>,
 }
 
 #[derive(Default)]
@@ -92,10 +116,36 @@ struct State {
     /// Which scrollbar (if any) the cursor is currently over. Used to
     /// fatten + brighten the thumb so it reads as draggable.
     hovered_scrollbar: Option<Axis>,
+    /// Header sub-region the cursor is over (column index + region kind).
+    /// Drives hover backgrounds on the label and resize handle.
+    hovered_header: Option<(usize, HeaderRegion)>,
     /// Active scrollbar drag, if any. Contains the cursor position recorded
     /// when the drag started and the scroll offset at that moment, so the
     /// drag math can map cursor delta → offset delta linearly.
     dragging: Option<ScrollbarDrag>,
+    /// Last resize-handle press, used for double-click detection. The widget
+    /// emits `on_start_resize` on first press; if the next press on the same
+    /// handle arrives within `DOUBLE_CLICK_MS` the second one is converted
+    /// into `on_reset_column_width`.
+    last_resize_click: Option<(usize, std::time::Instant)>,
+}
+
+/// Sub-region of a header cell. Used for hit-testing clicks and for hover
+/// styling. `col_idx` semantics match `TableColumn` indexing — i.e. data
+/// columns are 0-based; the leading id column has no header region (it is
+/// painted as a static `#`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HeaderRegion {
+    /// Label area on the left — left-click triggers `on_sort`.
+    Label,
+    /// Filter-open `▾` icon — left-click triggers `on_open_filter`.
+    FilterOpen,
+    /// Filter-active `◼` badge (only present when the column has an active
+    /// filter) — left-click triggers `on_clear_filter`.
+    FilterBadge,
+    /// Right-edge resize handle — press triggers `on_start_resize`,
+    /// double-click triggers `on_reset_column_width`.
+    Resize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -139,6 +189,11 @@ impl<'a, Message> TableWidget<'a, Message> {
             external_offset: Vector::new(0.0, 0.0),
             on_select: None,
             on_scroll: None,
+            on_sort: None,
+            on_open_filter: None,
+            on_clear_filter: None,
+            on_start_resize: None,
+            on_reset_column_width: None,
         }
     }
 
@@ -149,6 +204,31 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     pub fn on_scroll(mut self, f: impl Fn(f32, f32) -> Message + 'a) -> Self {
         self.on_scroll = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_sort(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+        self.on_sort = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_open_filter(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+        self.on_open_filter = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_clear_filter(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+        self.on_clear_filter = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_start_resize(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+        self.on_start_resize = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_reset_column_width(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
+        self.on_reset_column_width = Some(Box::new(f));
         self
     }
 
@@ -220,23 +300,99 @@ impl<'a, Message> TableWidget<'a, Message> {
         }
     }
 
-    /// Bounds of the scrollable body — `bounds` minus a `SCROLLBAR_THICKNESS`
-    /// strip on the right (vertical scrollbar) and bottom (horizontal
-    /// scrollbar) when those scrollbars are needed. Reserving the strip in
-    /// idle state means cells never sit underneath the scrollbar; the thumb's
-    /// hover/drag growth extends *into* the body which is fine because the
-    /// user is interacting with it at that moment.
+    /// Height reserved at the top of `bounds` for the frozen column-header
+    /// row. The widget paints the header itself (labels, sort indicators,
+    /// filter icons, resize handles) instead of stacking a separate `column`
+    /// outside.
+    fn header_height(&self) -> f32 {
+        self.row_height
+    }
+
+    /// Bounds of the column-header strip (always anchored to the top of
+    /// `bounds`, full-width).
+    fn header_bounds(&self, bounds: Rectangle) -> Rectangle {
+        let h = self.header_height().min(bounds.height);
+        Rectangle {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: h,
+        }
+    }
+
+    /// Bounds of the scrollable body — `bounds` minus the frozen header at
+    /// the top and a `SCROLLBAR_THICKNESS` strip on the right (vertical
+    /// scrollbar) and bottom (horizontal scrollbar) when those scrollbars
+    /// are needed. Reserving the strip in idle state means cells never sit
+    /// underneath the scrollbar; the thumb's hover/drag growth extends
+    /// *into* the body which is fine because the user is interacting with
+    /// it at that moment.
     fn body_bounds(&self, bounds: Rectangle) -> Rectangle {
-        let needs_v = self.total_height() > bounds.height;
+        let header_h = self.header_height().min(bounds.height);
+        let avail_h = (bounds.height - header_h).max(0.0);
+        let needs_v = self.total_height() > avail_h;
         let needs_h = self.total_width() > bounds.width;
         let v_strip = if needs_v { SCROLLBAR_THICKNESS } else { 0.0 };
         let h_strip = if needs_h { SCROLLBAR_THICKNESS } else { 0.0 };
         Rectangle {
             x: bounds.x,
-            y: bounds.y,
+            y: bounds.y + header_h,
             width: (bounds.width - v_strip).max(0.0),
-            height: (bounds.height - h_strip).max(0.0),
+            height: (avail_h - h_strip).max(0.0),
         }
+    }
+
+    /// Hit-test a cursor position against the column-header strip. Returns
+    /// the column index (in `self.columns`) plus the sub-region the cursor
+    /// is over. Returns `None` when the cursor is above the frozen `#` cell
+    /// or outside the header strip entirely — those areas have no
+    /// interaction.
+    fn header_hit(
+        &self,
+        bounds: Rectangle,
+        off_x: f32,
+        p: Point,
+    ) -> Option<(usize, HeaderRegion)> {
+        let header = self.header_bounds(bounds);
+        if !header.contains(p) {
+            return None;
+        }
+        let id_w = self.id_col_width.min(bounds.width);
+        let id_r = bounds.x + id_w;
+        if p.x < id_r {
+            return None;
+        }
+        let local_x = (p.x - id_r) + off_x;
+        if local_x < 0.0 {
+            return None;
+        }
+        let mut acc = 0.0_f32;
+        for (col, c) in self.columns.iter().enumerate() {
+            let col_l = acc;
+            let col_r = col_l + c.width_px;
+            if local_x < col_r {
+                let rel = local_x - col_l;
+                let resize_l = c.width_px - RESIZE_HANDLE_WIDTH;
+                let filter_btn_l = resize_l - FILTER_ICON_WIDTH;
+                let filter_badge_l = if c.has_filter {
+                    filter_btn_l - FILTER_BADGE_WIDTH
+                } else {
+                    filter_btn_l
+                };
+                let region = if rel >= resize_l {
+                    HeaderRegion::Resize
+                } else if rel >= filter_btn_l {
+                    HeaderRegion::FilterOpen
+                } else if c.has_filter && rel >= filter_badge_l {
+                    HeaderRegion::FilterBadge
+                } else {
+                    HeaderRegion::Label
+                };
+                return Some((col, region));
+            }
+            acc = col_r;
+        }
+        None
     }
 
     /// True when the cursor is over either scrollbar's track.
@@ -345,20 +501,20 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// right edge of `bounds`; thumb travel uses `body.height` so it doesn't
     /// extend past the horizontal scrollbar's corner reservation.
     fn vertical_scrollbar(&self, bounds: Rectangle, off_y: f32) -> Option<(Rectangle, Rectangle)> {
+        let body = self.body_bounds(bounds);
         let total_h = self.total_height();
-        if total_h <= bounds.height {
+        if total_h <= body.height {
             return None;
         }
-        let body = self.body_bounds(bounds);
         let track = Rectangle {
             x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
-            y: bounds.y,
+            y: body.y,
             width: SCROLLBAR_THICKNESS,
             height: body.height,
         };
         let thumb_h = (body.height / total_h * body.height).max(20.0);
         let max_off = (total_h - body.height).max(1.0);
-        let thumb_y = bounds.y + (off_y / max_off) * (body.height - thumb_h);
+        let thumb_y = body.y + (off_y / max_off) * (body.height - thumb_h);
         let thumb = Rectangle {
             x: track.x + 1.0,
             y: thumb_y,
@@ -371,11 +527,11 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// Geometry of the horizontal scrollbar (track + thumb), or `None` if the
     /// content fits horizontally.
     fn horizontal_scrollbar(&self, bounds: Rectangle, off_x: f32) -> Option<(Rectangle, Rectangle)> {
+        let body = self.body_bounds(bounds);
         let total_w = self.total_width();
-        if total_w <= bounds.width {
+        if total_w <= body.width {
             return None;
         }
-        let body = self.body_bounds(bounds);
         let track = Rectangle {
             x: bounds.x,
             y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
@@ -547,6 +703,15 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     state.hovered_scrollbar = new_sb_hover;
                     shell.request_redraw();
                 }
+                // Track which header sub-region (if any) the cursor is over,
+                // so the label cell / resize handle can paint a hover bg.
+                let new_hh = cursor
+                    .position_over(bounds)
+                    .and_then(|p| self.header_hit(bounds, state.scroll_offset.x, p));
+                if new_hh != state.hovered_header {
+                    state.hovered_header = new_hh;
+                    shell.request_redraw();
+                }
                 let body = self.body_bounds(bounds);
                 let new_hover = cursor.position_over(bounds).and_then(|p| {
                     if self.over_scrollbar(bounds, state.scroll_offset, p) {
@@ -555,7 +720,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     if !body.contains(p) {
                         return None;
                     }
-                    let local_y = (p.y - bounds.y) + state.scroll_offset.y;
+                    let local_y = (p.y - body.y) + state.scroll_offset.y;
                     if local_y < 0.0 {
                         return None;
                     }
@@ -575,6 +740,45 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
+                // ── Header ────────────────────────────────────────────────
+                if let Some((col, region)) = self.header_hit(bounds, state.scroll_offset.x, p) {
+                    match region {
+                        HeaderRegion::Label => {
+                            if let Some(cb) = &self.on_sort {
+                                shell.publish(cb(col));
+                            }
+                        }
+                        HeaderRegion::FilterOpen => {
+                            if let Some(cb) = &self.on_open_filter {
+                                shell.publish(cb(col));
+                            }
+                        }
+                        HeaderRegion::FilterBadge => {
+                            if let Some(cb) = &self.on_clear_filter {
+                                shell.publish(cb(col));
+                            }
+                        }
+                        HeaderRegion::Resize => {
+                            let now = std::time::Instant::now();
+                            let is_double = state.last_resize_click.is_some_and(|(c, t)| {
+                                c == col && now.duration_since(t).as_millis() < DOUBLE_CLICK_MS
+                            });
+                            if is_double {
+                                if let Some(cb) = &self.on_reset_column_width {
+                                    shell.publish(cb(col));
+                                }
+                                state.last_resize_click = None;
+                            } else {
+                                if let Some(cb) = &self.on_start_resize {
+                                    shell.publish(cb(col));
+                                }
+                                state.last_resize_click = Some((col, now));
+                            }
+                        }
+                    }
+                    shell.capture_event();
+                    return;
+                }
                 // ── Vertical scrollbar ────────────────────────────────────
                 if let Some((track, thumb)) =
                     self.vertical_scrollbar(bounds, state.scroll_offset.y)
@@ -589,12 +793,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         } else {
                             // Click outside thumb on the track — snap thumb
                             // centre to cursor.
+                            let body = self.body_bounds(bounds);
                             let total_h = self.total_height();
-                            let max_off = (total_h - bounds.height).max(1.0);
-                            let travel = (bounds.height - thumb.height).max(1.0);
+                            let max_off = (total_h - body.height).max(1.0);
+                            let travel = (body.height - thumb.height).max(1.0);
                             let target_thumb_y = (p.y - thumb.height / 2.0)
-                                .clamp(bounds.y, bounds.y + travel);
-                            let frac = (target_thumb_y - bounds.y) / travel;
+                                .clamp(body.y, body.y + travel);
+                            let frac = (target_thumb_y - body.y) / travel;
                             let new_y = frac * max_off;
                             self.apply_scroll(
                                 state,
@@ -620,12 +825,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                                 start_offset: state.scroll_offset,
                             });
                         } else {
+                            let body = self.body_bounds(bounds);
                             let total_w = self.total_width();
-                            let max_off = (total_w - bounds.width).max(1.0);
-                            let travel = (bounds.width - thumb.width).max(1.0);
+                            let max_off = (total_w - body.width).max(1.0);
+                            let travel = (body.width - thumb.width).max(1.0);
                             let target_thumb_x = (p.x - thumb.width / 2.0)
-                                .clamp(bounds.x, bounds.x + travel);
-                            let frac = (target_thumb_x - bounds.x) / travel;
+                                .clamp(body.x, body.x + travel);
+                            let frac = (target_thumb_x - body.x) / travel;
                             let new_x = frac * max_off;
                             self.apply_scroll(
                                 state,
@@ -644,7 +850,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 if !body.contains(p) {
                     return;
                 }
-                let local_y = (p.y - bounds.y) + state.scroll_offset.y;
+                let local_y = (p.y - body.y) + state.scroll_offset.y;
                 if local_y < 0.0 {
                     return;
                 }
@@ -760,16 +966,16 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             .unwrap_or(self.data_area(body));
 
         for row_idx in first_row..last_row {
-            let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
+            let y = body.y + (row_idx as f32 * self.row_height) - off.y;
             let flags = (self.row_flags)(row_idx);
             let is_hovered = state.hovered_row == Some(row_idx);
 
             // Row background — clipped to the actual content width so the
             // zebra never extends past the column header bar's right edge.
             let row_w = content_visible_w.min(clip.width);
-            let row_y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
-            let bg_y = row_y.max(bounds.y);
-            let bg_height = (row_y + self.row_height).min(bounds.y + bounds.height) - bg_y;
+            let row_y = body.y + (row_idx as f32 * self.row_height) - off.y;
+            let bg_y = row_y.max(body.y);
+            let bg_height = (row_y + self.row_height).min(body.y + body.height) - bg_y;
             if bg_height > 0.0 {
                 renderer.fill_quad(
                     renderer::Quad {
@@ -854,8 +1060,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             // content width as the row background so it doesn't trail past
             // the header bar.
             if let Some((color, width)) = row_border(flags) {
-                let border_y = row_y.max(bounds.y);
-                let border_h = (row_y + self.row_height).min(bounds.y + bounds.height) - border_y;
+                let border_y = row_y.max(body.y);
+                let border_h = (row_y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {
                     renderer.fill_quad(
                         renderer::Quad {
@@ -885,10 +1091,10 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let id_x = bounds.x;
         let id_w = self.id_col_width.min(bounds.width);
         for row_idx in first_row..last_row {
-            let y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
-            let id_y = bounds.y + (row_idx as f32 * self.row_height) - off.y;
-            let id_bg_y = id_y.max(bounds.y);
-            let id_bg_h = (id_y + self.row_height).min(bounds.y + bounds.height) - id_bg_y;
+            let y = body.y + (row_idx as f32 * self.row_height) - off.y;
+            let id_y = body.y + (row_idx as f32 * self.row_height) - off.y;
+            let id_bg_y = id_y.max(body.y);
+            let id_bg_h = (id_y + self.row_height).min(body.y + body.height) - id_bg_y;
             let flags = (self.row_flags)(row_idx);
             renderer.fill_quad(
                 renderer::Quad {
@@ -941,15 +1147,15 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             let id_clip = clip
                 .intersection(&Rectangle {
                     x: id_x,
-                    y: bounds.y,
+                    y: body.y,
                     width: id_w,
-                    height: bounds.height,
+                    height: body.height,
                 })
                 .unwrap_or(Rectangle {
                     x: id_x,
-                    y: bounds.y,
+                    y: body.y,
                     width: id_w,
-                    height: bounds.height,
+                    height: body.height,
                 });
             <iced::Renderer as text::Renderer>::fill_paragraph(
                 renderer,
@@ -962,8 +1168,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             // Re-paint the row's selection/highlight border over the id cell
             // so the gold outline isn't broken at the frozen-column boundary.
             if let Some((border_color, border_width)) = row_border(flags) {
-                let border_y = y.max(bounds.y);
-                let border_h = (y + self.row_height).min(bounds.y + bounds.height) - border_y;
+                let border_y = y.max(body.y);
+                let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {
                     renderer.fill_quad(
                         renderer::Quad {
@@ -986,6 +1192,254 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 }
             }
         }
+
+        // ── Header ─────────────────────────────────────────────────────────
+        // The header is painted after the body so it always appears on top
+        // of any partially-visible top row. It consists of a full-width
+        // backdrop, per-data-column cells (label + sort indicator + filter
+        // icons + resize handle) that share `off.x` with the body, and a
+        // frozen `#` cell on the left that doesn't horizontally scroll.
+        let header = self.header_bounds(bounds);
+        let header_clip = header.intersection(viewport).unwrap_or(header);
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: header,
+                border: Border {
+                    color: color!(0x4a3728),
+                    width: 1.0,
+                    radius: 0.into(),
+                },
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x1c1813)),
+        );
+        // Data-area clip (right of frozen id column) for scrolling header
+        // cells.
+        let header_data_rect = Rectangle {
+            x: bounds.x + id_w,
+            y: header.y,
+            width: (bounds.width - id_w).max(0.0),
+            height: header.height,
+        };
+        let header_data_clip = header_clip
+            .intersection(&header_data_rect)
+            .unwrap_or(header_data_rect);
+
+        for col_idx in first_col.max(1)..last_col {
+            let col_l_screen = bounds.x + col_x[col_idx] - off.x;
+            let col_w = self.col_width(col_idx);
+            let data_col = col_idx - 1;
+            let column = &self.columns[data_col];
+
+            let resize_l = col_l_screen + col_w - RESIZE_HANDLE_WIDTH;
+            let filter_btn_l = resize_l - FILTER_ICON_WIDTH;
+            let filter_badge_l = if column.has_filter {
+                filter_btn_l - FILTER_BADGE_WIDTH
+            } else {
+                filter_btn_l
+            };
+            let label_r = filter_badge_l;
+
+            // Hover bg on the label area.
+            let label_hovered = state
+                .hovered_header
+                .is_some_and(|(c, r)| c == data_col && r == HeaderRegion::Label);
+            if label_hovered {
+                if let Some(r) = header_data_clip.intersection(&Rectangle {
+                    x: col_l_screen,
+                    y: header.y,
+                    width: (label_r - col_l_screen).max(0.0),
+                    height: header.height,
+                }) {
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: r,
+                            border: Border::default(),
+                            shadow: Shadow::default(),
+                            snap: true,
+                        },
+                        Background::Color(color!(0x2d2218)),
+                    );
+                }
+            }
+
+            // Label + sort indicator.
+            let sort_suffix = match column.sort {
+                Some(true) => " ▲",
+                Some(false) => " ▼",
+                None => "",
+            };
+            let label = if sort_suffix.is_empty() {
+                column.label.clone()
+            } else {
+                format!("{}{}", column.label, sort_suffix)
+            };
+            let avail_label_w = (label_r - col_l_screen - self.cell_padding_x * 2.0).max(0.0);
+            if avail_label_w > 0.0 {
+                let key = ParagraphKey::new(&label, self.text_size, avail_label_w, self.font);
+                let para = self.cache.get_or_insert(key, || {
+                    Paragraph::with_text(text::Text {
+                        content: label.as_str(),
+                        bounds: Size::new(avail_label_w, header.height),
+                        size: Pixels(self.text_size),
+                        line_height: text::LineHeight::default(),
+                        font: self.font,
+                        align_x: text::Alignment::Default,
+                        align_y: alignment::Vertical::Top,
+                        shaping: text::Shaping::Advanced,
+                        wrapping: text::Wrapping::None,
+                    })
+                });
+                let inner = Rectangle {
+                    x: col_l_screen + self.cell_padding_x,
+                    y: header.y,
+                    width: avail_label_w,
+                    height: header.height,
+                };
+                let pos = inner.anchor(
+                    para.min_bounds(),
+                    alignment::Horizontal::Left,
+                    alignment::Vertical::Center,
+                );
+                let cell_clip = header_data_clip
+                    .intersection(&Rectangle {
+                        x: col_l_screen,
+                        y: header.y,
+                        width: (label_r - col_l_screen).max(0.0),
+                        height: header.height,
+                    })
+                    .unwrap_or(Rectangle {
+                        x: col_l_screen,
+                        y: header.y,
+                        width: 0.0,
+                        height: 0.0,
+                    });
+                <iced::Renderer as text::Renderer>::fill_paragraph(
+                    renderer,
+                    &para,
+                    pos,
+                    color!(0xb8a898),
+                    cell_clip,
+                );
+            }
+
+            // Filter badge ◼ — only when a column filter is active.
+            if column.has_filter {
+                draw_centered_glyph(
+                    renderer,
+                    &self.cache,
+                    "◼",
+                    8.0,
+                    self.font,
+                    Rectangle {
+                        x: filter_badge_l,
+                        y: header.y,
+                        width: FILTER_BADGE_WIDTH,
+                        height: header.height,
+                    },
+                    color!(0xffd700),
+                    header_data_clip,
+                );
+            }
+
+            // Filter-open ▾.
+            draw_centered_glyph(
+                renderer,
+                &self.cache,
+                "▾",
+                8.0,
+                self.font,
+                Rectangle {
+                    x: filter_btn_l,
+                    y: header.y,
+                    width: FILTER_ICON_WIDTH,
+                    height: header.height,
+                },
+                color!(0xb8a898),
+                header_data_clip,
+            );
+
+            // Resize handle strip — slightly brighter on hover.
+            let resize_hovered = state
+                .hovered_header
+                .is_some_and(|(c, r)| c == data_col && r == HeaderRegion::Resize);
+            let handle_color = if resize_hovered {
+                color!(0x6a5238)
+            } else {
+                color!(0x4a3728)
+            };
+            if let Some(r) = header_data_clip.intersection(&Rectangle {
+                x: resize_l,
+                y: header.y,
+                width: RESIZE_HANDLE_WIDTH,
+                height: header.height,
+            }) {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: r,
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    Background::Color(handle_color),
+                );
+            }
+        }
+
+        // Frozen `#` cell — painted last so scrolling header cells can't
+        // bleed into it horizontally.
+        let id_header = Rectangle {
+            x: bounds.x,
+            y: header.y,
+            width: id_w,
+            height: header.height,
+        };
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: id_header,
+                border: Border {
+                    color: color!(0x3d2b1f),
+                    width: 1.0,
+                    radius: 0.into(),
+                },
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x171411)),
+        );
+        let key = ParagraphKey::new("#", self.text_size, id_w, self.font);
+        let para = self.cache.get_or_insert(key, || {
+            Paragraph::with_text(text::Text {
+                content: "#",
+                bounds: Size::new(id_w, header.height),
+                size: Pixels(self.text_size),
+                line_height: text::LineHeight::default(),
+                font: self.font,
+                align_x: text::Alignment::Default,
+                align_y: alignment::Vertical::Top,
+                shaping: text::Shaping::Advanced,
+                wrapping: text::Wrapping::None,
+            })
+        });
+        let id_inner = Rectangle {
+            x: bounds.x + self.cell_padding_x,
+            y: header.y,
+            width: (id_w - self.cell_padding_x * 2.0).max(0.0),
+            height: header.height,
+        };
+        let pos = id_inner.anchor(
+            para.min_bounds(),
+            alignment::Horizontal::Left,
+            alignment::Vertical::Center,
+        );
+        <iced::Renderer as text::Renderer>::fill_paragraph(
+            renderer,
+            &para,
+            pos,
+            color!(0x6a5e54),
+            id_header.intersection(viewport).unwrap_or(id_header),
+        );
 
         // ── Scrollbars ─────────────────────────────────────────────────────
         // A scrollbar is "active" when the user is hovering its track or
@@ -1011,6 +1465,42 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     }
 }
 
+/// Draw a single glyph centered inside `bounds` using `cache` to avoid
+/// re-shaping. Used for the small filter icons (`◼`, `▾`) in column headers.
+#[allow(clippy::too_many_arguments)]
+fn draw_centered_glyph(
+    renderer: &mut iced::Renderer,
+    cache: &ParagraphCache,
+    glyph: &str,
+    size: f32,
+    font: Font,
+    bounds: Rectangle,
+    color: Color,
+    clip: Rectangle,
+) {
+    let key = ParagraphKey::new(glyph, size, bounds.width, font);
+    let para = cache.get_or_insert(key, || {
+        Paragraph::with_text(text::Text {
+            content: glyph,
+            bounds: Size::new(bounds.width, bounds.height),
+            size: Pixels(size),
+            line_height: text::LineHeight::default(),
+            font,
+            align_x: text::Alignment::Center,
+            align_y: alignment::Vertical::Top,
+            shaping: text::Shaping::Advanced,
+            wrapping: text::Wrapping::None,
+        })
+    });
+    let pos = bounds.anchor(
+        para.min_bounds(),
+        alignment::Horizontal::Center,
+        alignment::Vertical::Center,
+    );
+    let cell_clip = clip.intersection(&bounds).unwrap_or(bounds);
+    <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
+}
+
 /// Paint vertical and horizontal scrollbar thumbs along the right and bottom
 /// edges of `bounds` to reflect `off` against the total content size.
 ///
@@ -1031,16 +1521,16 @@ fn draw_scrollbars(
     let border_idle = color!(0x8b5a2b);
     let border_active = color!(0xc89770);
 
-    if total_h > bounds.height {
+    if total_h > body.height {
         let track = Rectangle {
             x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
-            y: bounds.y,
+            y: body.y,
             width: SCROLLBAR_THICKNESS,
             height: body.height,
         };
         let thumb_h = (body.height / total_h * body.height).max(20.0);
         let max_off = (total_h - body.height).max(1.0);
-        let thumb_y = bounds.y + (off.y / max_off) * (body.height - thumb_h);
+        let thumb_y = body.y + (off.y / max_off) * (body.height - thumb_h);
 
         let active = active_axis == Some(Axis::Vertical);
         let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
@@ -1078,7 +1568,7 @@ fn draw_scrollbars(
         );
     }
 
-    if total_w > bounds.width {
+    if total_w > body.width {
         let track = Rectangle {
             x: bounds.x,
             y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
@@ -1143,6 +1633,15 @@ mod tests {
         RowFlags::default()
     }
 
+    fn col(width_px: f32) -> TableColumn {
+        TableColumn {
+            width_px,
+            label: String::new(),
+            sort: None,
+            has_filter: false,
+        }
+    }
+
     #[test]
     fn empty_table_does_not_panic() {
         let cache = ParagraphCache::default();
@@ -1155,10 +1654,7 @@ mod tests {
         let cache = ParagraphCache::default();
         let display: Vec<Vec<String>> = vec![vec!["a".into(), "b".into()]; 5];
         let filtered: Vec<usize> = (0..5).collect();
-        let cols = vec![
-            TableColumn { width_px: 100.0 },
-            TableColumn { width_px: 200.0 },
-        ];
+        let cols = vec![col(100.0), col(200.0)];
         let w: TableWidget<'_, ()> =
             TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache);
         assert_eq!(w.total_width(), 42.0 + 100.0 + 200.0);
@@ -1169,7 +1665,7 @@ mod tests {
     fn cell_value_id_column_uses_orig_idx() {
         let display = vec![vec!["a".into()]; 3];
         let filtered = vec![2, 0, 1];
-        let cols = vec![TableColumn { width_px: 100.0 }];
+        let cols = vec![col(100.0)];
         let cache = ParagraphCache::default();
         let w: TableWidget<'_, ()> =
             TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache);
@@ -1183,17 +1679,18 @@ mod tests {
         let cache = ParagraphCache::default();
         let display: Vec<Vec<String>> = vec![vec!["a".into()]; 100];
         let filtered: Vec<usize> = (0..100).collect();
-        let cols = vec![TableColumn { width_px: 100.0 }];
+        let cols = vec![col(100.0)];
         let w: TableWidget<'_, ()> =
             TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache)
                 .external_offset(0.0, 100_000.0);
         let mut state = State::default();
         let bounds = Size::new(200.0, 240.0);
         w.sync_external(&mut state, bounds);
-        // total_h = 100 * 24 = 2400; vertical scrollbar reserves 8 px on
-        // width but content fits horizontally so no horizontal-scrollbar
-        // strip is taken from height. body.height = 240; max_y = 2160.
-        assert_eq!(state.scroll_offset.y, 2160.0);
+        // total_h = 100 * 24 = 2400. Header (= row_height = 24) reserves the
+        // top of the bounds; vertical scrollbar reserves 8 px on width but
+        // content fits horizontally so no horizontal-scrollbar strip is
+        // taken from height. body.height = 240 - 24 = 216; max_y = 2184.
+        assert_eq!(state.scroll_offset.y, 2184.0);
         assert_eq!(state.last_external, Some(Vector::new(0.0, 100_000.0)));
     }
 
@@ -1202,7 +1699,7 @@ mod tests {
         let cache = ParagraphCache::default();
         let display: Vec<Vec<String>> = vec![vec!["a".into()]; 50];
         let filtered: Vec<usize> = (0..50).collect();
-        let cols = vec![TableColumn { width_px: 100.0 }];
+        let cols = vec![col(100.0)];
         let w: TableWidget<'_, ()> =
             TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache)
                 .external_offset(10.0, 20.0);
