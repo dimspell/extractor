@@ -108,6 +108,7 @@ pub struct TableWidget<'a, Message> {
     on_next_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
     on_prev_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
     on_escape: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_quick_filter: Option<Box<dyn Fn(usize, String) -> Message + 'a>>,
 }
 
 #[derive(Default)]
@@ -201,6 +202,7 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_next_highlight: None,
             on_prev_highlight: None,
             on_escape: None,
+            on_quick_filter: None,
         }
     }
 
@@ -251,6 +253,11 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     pub fn on_escape(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_escape = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_quick_filter(mut self, f: impl Fn(usize, String) -> Message + 'a) -> Self {
+        self.on_quick_filter = Some(Box::new(f));
         self
     }
 
@@ -890,6 +897,42 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     state.dragging = None;
                     shell.capture_event();
                     shell.request_redraw();
+                }
+            }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+                let Some(p) = cursor.position_over(bounds) else {
+                    return;
+                };
+                let body = self.body_bounds(bounds);
+                if !body.contains(p) {
+                    return;
+                }
+                let local_y = (p.y - body.y) + state.scroll_offset.y;
+                if local_y < 0.0 {
+                    return;
+                }
+                let row = (local_y / self.row_height) as usize;
+                if row >= self.n_rows() {
+                    return;
+                }
+                // Find column from x position
+                let local_x = (p.x - bounds.x) + state.scroll_offset.x;
+                if local_x < 0.0 {
+                    return;
+                }
+                let mut acc = 0.0_f32;
+                for (col_idx, col_w) in (1..self.n_cols()).map(|i| (i, self.col_width(i))) {
+                    if local_x < acc + col_w {
+                        let col = col_idx - 1;
+                        if let Some(value) = self.cell_value(row, col_idx) {
+                            if let Some(cb) = &self.on_quick_filter {
+                                shell.publish(cb(col, value));
+                                shell.capture_event();
+                            }
+                        }
+                        return;
+                    }
+                    acc += col_w;
                 }
             }
             Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {

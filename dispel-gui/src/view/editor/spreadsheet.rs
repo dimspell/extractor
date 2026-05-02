@@ -919,6 +919,10 @@ pub enum SpreadsheetMessage {
     /// flows that schedule the compute through `spawn_blocking`; synchronous
     /// `compute_all_caches` callers do not emit this.
     CachesComputed(ComputedCaches),
+
+    // ── Context menu ─────────────────────────────────────────────────────
+    /// Apply a quick filter from right-click context menu.
+    QuickFilter(usize, String),
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -1515,6 +1519,9 @@ fn build_table_content_widget<'a>(
     .on_next_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
     .on_prev_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigatePrevHighlight))
     .on_escape(move || spreadsheet_msg(SpreadsheetMessage::ClearFilter))
+    .on_quick_filter(move |col, value| {
+        spreadsheet_msg(SpreadsheetMessage::QuickFilter(col, value))
+    })
     .into();
 
     let table: Element<Message> = body;

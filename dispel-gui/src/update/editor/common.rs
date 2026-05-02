@@ -322,6 +322,14 @@ macro_rules! handle_spreadsheet_messages {
                     $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
+            SM::QuickFilter(col, value) => {
+                $app.state.$spreadsheet.column_filters.insert(col, value);
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                }
+            }
         }
     };
 }
@@ -597,6 +605,14 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::ClearColumnFilter(col) => {
                             if let Some(catalog) = &ed.editor.catalog {
                                 ss.clear_column_filter(col, catalog);
+                                ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
+                            }
+                        }
+                        SM::QuickFilter(col, value) => {
+                            ss.column_filters.insert(col, value);
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.apply_filter(catalog);
                                 ss.apply_sort(catalog);
                                 ss.record_target_offset(0.0, 0.0);
                             }
