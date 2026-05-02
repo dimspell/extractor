@@ -30,6 +30,10 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state.$spreadsheet.filter_query = query;
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.record_target_offset(
+                        0.0,
+                        0.0,
+                    );
                 }
             }
             SM::ClearFilter => {
@@ -308,12 +312,14 @@ macro_rules! handle_spreadsheet_messages {
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
                     $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearColumnFilter(col) => {
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.clear_column_filter(col, catalog);
                     $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
         }
@@ -351,6 +357,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             ss.filter_query = query;
                             if let Some(c) = &ed.editor.catalog {
                                 ss.apply_filter(c);
+                                ss.record_target_offset(0.0, 0.0);
                             }
                         }
                         SM::ClearFilter => {
@@ -584,12 +591,14 @@ macro_rules! handle_spreadsheet_messages_tab {
                             if let Some(catalog) = &ed.editor.catalog {
                                 ss.apply_filter(catalog);
                                 ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
                             }
                         }
                         SM::ClearColumnFilter(col) => {
                             if let Some(catalog) = &ed.editor.catalog {
                                 ss.clear_column_filter(col, catalog);
                                 ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
                             }
                         }
                     }
