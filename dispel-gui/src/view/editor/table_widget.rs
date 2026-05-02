@@ -42,7 +42,7 @@ type Paragraph = GraphicsParagraph;
 
 /// Width in pixels of the painted scrollbar thumbs along the right and
 /// bottom edges of the table.
-const SCROLLBAR_THICKNESS: f32 = 8.0;
+const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// Width of the right-edge resize-handle strip painted in each column header.
 /// Click-drag on this strip resizes the column; double-click resets it.
@@ -1517,9 +1517,9 @@ fn draw_scrollbars(
 ) {
     let track_color = color!(0x141210);
     let thumb_idle = color!(0x5d4037);
-    let thumb_active = color!(0x8b6a4a);
-    let border_idle = color!(0x8b5a2b);
-    let border_active = color!(0xc89770);
+    let thumb_active = color!(0xB97024);
+    let border_idle = color!(0x5d4037);
+    let border_active = color!(0xB97024);
 
     if total_h > body.height {
         let track = Rectangle {
@@ -1559,7 +1559,7 @@ fn draw_scrollbars(
                 border: Border {
                     color: if active { border_active } else { border_idle },
                     width: if active { 1.0 } else { 0.5 },
-                    radius: (thumb_w / 2.0).into(),
+                    radius: 0.into(),
                 },
                 shadow: Shadow::default(),
                 snap: true,
@@ -1604,7 +1604,7 @@ fn draw_scrollbars(
                 border: Border {
                     color: if active { border_active } else { border_idle },
                     width: if active { 1.0 } else { 0.5 },
-                    radius: (thumb_h / 2.0).into(),
+                    radius: 0.into(),
                 },
                 shadow: Shadow::default(),
                 snap: true,
