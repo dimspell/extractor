@@ -105,6 +105,8 @@ pub struct TableWidget<'a, Message> {
     on_clear_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_start_resize: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_reset_column_width: Option<Box<dyn Fn(usize) -> Message + 'a>>,
+    on_next_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_prev_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 #[derive(Default)]
@@ -195,6 +197,8 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_clear_filter: None,
             on_start_resize: None,
             on_reset_column_width: None,
+            on_next_highlight: None,
+            on_prev_highlight: None,
         }
     }
 
@@ -230,6 +234,16 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     pub fn on_reset_column_width(mut self, f: impl Fn(usize) -> Message + 'a) -> Self {
         self.on_reset_column_width = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_next_highlight(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_next_highlight = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_prev_highlight(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_prev_highlight = Some(Box::new(f));
         self
     }
 
@@ -887,6 +901,20 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     keyboard::Key::Named(key::Named::Home) => 0.0,
                     keyboard::Key::Named(key::Named::End) => {
                         (self.total_height() - body.height).max(0.0)
+                    }
+                    keyboard::Key::Named(key::Named::ArrowRight) => {
+                        if let Some(cb) = &self.on_next_highlight {
+                            shell.publish(cb());
+                            shell.capture_event();
+                        }
+                        return;
+                    }
+                    keyboard::Key::Named(key::Named::ArrowLeft) => {
+                        if let Some(cb) = &self.on_prev_highlight {
+                            shell.publish(cb());
+                            shell.capture_event();
+                        }
+                        return;
                     }
                     _ => return,
                 };
