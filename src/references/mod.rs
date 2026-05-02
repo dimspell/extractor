@@ -91,6 +91,7 @@ pub mod party_ini_db;
 pub mod party_level_db;
 pub mod party_ref;
 pub mod quest_scr;
+pub mod save_file;
 pub mod store_db;
 pub mod wave_ini;
 pub mod weapons_db;

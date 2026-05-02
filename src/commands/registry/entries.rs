@@ -433,3 +433,16 @@ pub(crate) fn make_sprite() -> FileType {
         validate_fn: None,
     }
 }
+
+pub(crate) fn make_save_file() -> FileType {
+    FileType {
+        key: "save_file",
+        name: "*.sav",
+        description: "Game save file with player state, inventory, and world data",
+        extensions: &[".sav"],
+        detect_kind: DetectKind::Db(&["0.sav", "1.sav", "2.sav", "3.sav", "4.sav", "5.sav"]),
+        extract_fn: extract_as::<dispel_core::references::save_file::SaveFile>,
+        patch_fn: patch_as::<dispel_core::references::save_file::SaveFile>,
+        validate_fn: None,
+    }
+}
