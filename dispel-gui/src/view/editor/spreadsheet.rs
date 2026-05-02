@@ -1514,6 +1514,7 @@ fn build_table_content_widget<'a>(
     .on_reset_column_width(move |c| spreadsheet_msg(SpreadsheetMessage::ResetColumnWidth(c)))
     .on_next_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
     .on_prev_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigatePrevHighlight))
+    .on_escape(move || spreadsheet_msg(SpreadsheetMessage::ClearFilter))
     .into();
 
     let table: Element<Message> = body;

@@ -107,6 +107,7 @@ pub struct TableWidget<'a, Message> {
     on_reset_column_width: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_next_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
     on_prev_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_escape: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 #[derive(Default)]
@@ -199,6 +200,7 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_reset_column_width: None,
             on_next_highlight: None,
             on_prev_highlight: None,
+            on_escape: None,
         }
     }
 
@@ -244,6 +246,11 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     pub fn on_prev_highlight(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_prev_highlight = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_escape(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_escape = Some(Box::new(f));
         self
     }
 
@@ -885,10 +892,31 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.request_redraw();
                 }
             }
-            Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) => {
+            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
                 if !cursor.is_over(bounds) {
                     return;
                 }
+
+                // Ctrl+G = next highlight, Ctrl+Shift+G = previous highlight
+                if modifiers.control() {
+                    if let keyboard::Key::Character(c) = key {
+                        if c == "g" {
+                            if modifiers.shift() {
+                                if let Some(cb) = &self.on_prev_highlight {
+                                    shell.publish(cb());
+                                    shell.capture_event();
+                                }
+                            } else {
+                                if let Some(cb) = &self.on_next_highlight {
+                                    shell.publish(cb());
+                                    shell.capture_event();
+                                }
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 let body = self.body_bounds(bounds);
                 let page_rows = (body.height / self.row_height).floor() as i32;
                 let new_y = match key {
@@ -911,6 +939,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     keyboard::Key::Named(key::Named::ArrowLeft) => {
                         if let Some(cb) = &self.on_prev_highlight {
+                            shell.publish(cb());
+                            shell.capture_event();
+                        }
+                        return;
+                    }
+                    keyboard::Key::Named(key::Named::Escape) => {
+                        if let Some(cb) = &self.on_escape {
                             shell.publish(cb());
                             shell.capture_event();
                         }
