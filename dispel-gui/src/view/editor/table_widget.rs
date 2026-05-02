@@ -31,9 +31,10 @@ use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::widget::{tree, Tree, Widget};
 use iced::advanced::{Clipboard, Renderer as _, Shell};
+use iced::keyboard::key;
 use iced::{
-    alignment, color, mouse, Background, Border, Color, Element, Event, Font, Length, Pixels,
-    Point, Rectangle, Shadow, Size, Vector,
+    alignment, color, keyboard, mouse, Background, Border, Color, Element, Event, Font, Length,
+    Pixels, Point, Rectangle, Shadow, Size, Vector,
 };
 
 use crate::view::editor::cached_text::{ParagraphCache, ParagraphKey};
@@ -868,6 +869,29 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     state.dragging = None;
                     shell.capture_event();
                     shell.request_redraw();
+                }
+            }
+            Event::Keyboard(keyboard::Event::KeyPressed { key, .. }) => {
+                if !cursor.is_over(bounds) {
+                    return;
+                }
+                let body = self.body_bounds(bounds);
+                let page_rows = (body.height / self.row_height).floor() as i32;
+                let new_y = match key {
+                    keyboard::Key::Named(key::Named::PageUp) => {
+                        state.scroll_offset.y - (page_rows as f32 * self.row_height)
+                    }
+                    keyboard::Key::Named(key::Named::PageDown) => {
+                        state.scroll_offset.y + (page_rows as f32 * self.row_height)
+                    }
+                    keyboard::Key::Named(key::Named::Home) => 0.0,
+                    keyboard::Key::Named(key::Named::End) => {
+                        (self.total_height() - body.height).max(0.0)
+                    }
+                    _ => return,
+                };
+                if self.apply_scroll(state, bounds, state.scroll_offset.x, new_y, shell) {
+                    shell.capture_event();
                 }
             }
             _ => {}
