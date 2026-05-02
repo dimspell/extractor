@@ -307,7 +307,9 @@ macro_rules! handle_spreadsheet_messages {
                 }
             }
             SM::ApplyColumnFilter(col, value) => {
-                $app.state.$spreadsheet.column_filters.insert(col, value);
+                let mut set = std::collections::HashSet::new();
+                set.insert(value);
+                $app.state.$spreadsheet.column_filters.insert(col, set);
                 $app.state.$spreadsheet.active_column_filter = None;
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
@@ -323,7 +325,49 @@ macro_rules! handle_spreadsheet_messages {
                 }
             }
             SM::QuickFilter(col, value) => {
-                $app.state.$spreadsheet.column_filters.insert(col, value);
+                let mut set = std::collections::HashSet::new();
+                set.insert(value);
+                $app.state.$spreadsheet.column_filters.insert(col, set);
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                }
+            }
+            SM::ColumnFilterSearch(query) => {
+                $app.state.$spreadsheet.column_filter_search = query;
+            }
+            SM::ToggleColumnFilterValue(col, value) => {
+                let entry = $app.state.$spreadsheet.column_filters.entry(col).or_default();
+                if entry.contains(&value) {
+                    entry.remove(&value);
+                } else {
+                    entry.insert(value);
+                }
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                }
+            }
+            SM::SelectAllColumnFilter(col) => {
+                let all_values: std::collections::HashSet<String> = $app
+                    .state
+                    .$spreadsheet
+                    .column_filter_options
+                    .iter()
+                    .map(|opt| opt.value.clone())
+                    .collect();
+                $app.state.$spreadsheet.column_filters.insert(col, all_values);
+                if let Some(catalog) = &$app.state.$editor.catalog {
+                    $app.state.$spreadsheet.apply_filter(catalog);
+                    $app.state.$spreadsheet.apply_sort(catalog);
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                }
+            }
+            SM::ClearAllColumnFilter(col) => {
+                $app.state.$spreadsheet.column_filters.remove(&col);
+                $app.state.$spreadsheet.column_filter_search.clear();
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
                     $app.state.$spreadsheet.apply_sort(catalog);
@@ -594,7 +638,9 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         }
                         SM::ApplyColumnFilter(col, value) => {
-                            ss.column_filters.insert(col, value);
+                            let mut set = std::collections::HashSet::new();
+                            set.insert(value);
+                            ss.column_filters.insert(col, set);
                             ss.active_column_filter = None;
                             if let Some(catalog) = &ed.editor.catalog {
                                 ss.apply_filter(catalog);
@@ -610,7 +656,47 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         }
                         SM::QuickFilter(col, value) => {
-                            ss.column_filters.insert(col, value);
+                            let mut set = std::collections::HashSet::new();
+                            set.insert(value);
+                            ss.column_filters.insert(col, set);
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.apply_filter(catalog);
+                                ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
+                            }
+                        }
+                        SM::ColumnFilterSearch(query) => {
+                            ss.column_filter_search = query;
+                        }
+                        SM::ToggleColumnFilterValue(col, value) => {
+                            let entry = ss.column_filters.entry(col).or_default();
+                            if entry.contains(&value) {
+                                entry.remove(&value);
+                            } else {
+                                entry.insert(value);
+                            }
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.apply_filter(catalog);
+                                ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
+                            }
+                        }
+                        SM::SelectAllColumnFilter(col) => {
+                            let all_values: std::collections::HashSet<String> = ss
+                                .column_filter_options
+                                .iter()
+                                .map(|opt| opt.value.clone())
+                                .collect();
+                            ss.column_filters.insert(col, all_values);
+                            if let Some(catalog) = &ed.editor.catalog {
+                                ss.apply_filter(catalog);
+                                ss.apply_sort(catalog);
+                                ss.record_target_offset(0.0, 0.0);
+                            }
+                        }
+                        SM::ClearAllColumnFilter(col) => {
+                            ss.column_filters.remove(&col);
+                            ss.column_filter_search.clear();
                             if let Some(catalog) = &ed.editor.catalog {
                                 ss.apply_filter(catalog);
                                 ss.apply_sort(catalog);

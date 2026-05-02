@@ -1,6 +1,7 @@
 use crate::components::editor::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
 use crate::edit_history::EditHistory;
+use crate::view::editor::spreadsheet::ColumnFilterOption;
 use dispel_core::Extractor;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::Pane;
@@ -324,7 +325,8 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     /// Return a sorted, deduplicated list of every value that appears in
     /// column `col` (by field descriptor index) across the full catalog.
     /// Returns an empty `Vec` when `col` is out of range or no catalog is loaded.
-    pub fn unique_values_for_column(&self, col: usize) -> Vec<String> {
+    /// The options are sorted by frequency (most common first) with counts.
+    pub fn unique_values_for_column(&self, col: usize) -> Vec<ColumnFilterOption> {
         let descriptors = R::field_descriptors();
         let Some(desc) = descriptors.get(col) else {
             return Vec::new();
@@ -332,13 +334,20 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         let Some(catalog) = &self.catalog else {
             return Vec::new();
         };
-        let mut seen = std::collections::HashSet::new();
+        let mut counts = std::collections::HashMap::new();
         for record in catalog {
-            seen.insert(record.get_field(desc.name));
+            let value = record.get_field(desc.name);
+            *counts.entry(value).or_insert(0) += 1;
         }
-        let mut values: Vec<String> = seen.into_iter().collect();
-        values.sort();
-        values
+        let mut options: Vec<ColumnFilterOption> = counts
+            .into_iter()
+            .map(|(value, count)| ColumnFilterOption { value, count })
+            .collect();
+        // Sort by count descending (most frequent first), then alphabetically
+        options.sort_by(|a, b| {
+            b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value))
+        });
+        options
     }
 
     pub fn init_pane_state(&mut self) {

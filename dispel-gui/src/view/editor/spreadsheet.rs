@@ -75,6 +75,13 @@ pub enum GlobalFilterMode {
     Highlight,
 }
 
+/// A single option in the column filter dropdown with value and row count.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ColumnFilterOption {
+    pub value: String,
+    pub count: usize,
+}
+
 #[derive(Debug, Clone)]
 pub struct SpreadsheetState {
     pub active: bool,
@@ -169,12 +176,16 @@ pub struct SpreadsheetState {
     pub scroll_velocity_y: f32,
 
     // ── Column quick-filter ────────────────────────────────────────────────
-    /// Per-column exact-match filters.  Key = column index, value = required cell value.
-    pub column_filters: HashMap<usize, String>,
+    /// Per-column exact-match filters. Key = column index, value = set of selected values.
+    pub column_filters: HashMap<usize, std::collections::HashSet<String>>,
     /// Which column's quick-filter dropdown is currently open (`None` = closed).
     pub active_column_filter: Option<usize>,
-    /// Pre-computed unique values for the open column filter dropdown.
-    pub column_filter_options: Vec<String>,
+    /// Pre-computed unique values with counts for the open column filter dropdown.
+    pub column_filter_options: Vec<ColumnFilterOption>,
+    /// Search query for filtering the column filter dropdown.
+    pub column_filter_search: String,
+
+    // ── Inspector textarea state ───────────────────────────────────────────
 
     // ── Inspector textarea state ───────────────────────────────────────────
     /// One `text_editor::Content` per TextArea field of the currently-inspected
@@ -244,6 +255,7 @@ impl Default for SpreadsheetState {
             column_filters: HashMap::new(),
             active_column_filter: None,
             column_filter_options: Vec::new(),
+            column_filter_search: String::new(),
             inspector_textarea_contents: HashMap::new(),
             last_scroll_update: None,
             scroll_velocity_y: 0.0,
@@ -280,9 +292,10 @@ impl SpreadsheetState {
 
         // Column filters always hard-filter rows regardless of mode.
         let col_matches = |record: &R| -> bool {
-            for (&col, required) in &self.column_filters {
+            for (&col, selected_values) in &self.column_filters {
                 if let Some(desc) = descriptors.get(col) {
-                    if !record.get_field(desc.name).eq_ignore_ascii_case(required) {
+                    let value = record.get_field(desc.name);
+                    if !selected_values.is_empty() && !selected_values.contains(&value) {
                         return false;
                     }
                 }
@@ -923,6 +936,16 @@ pub enum SpreadsheetMessage {
     // ── Context menu ─────────────────────────────────────────────────────
     /// Apply a quick filter from right-click context menu.
     QuickFilter(usize, String),
+
+    // ── Enhanced column filter ──────────────────────────────────────────
+    /// Update search query within column filter dropdown.
+    ColumnFilterSearch(String),
+    /// Toggle a value in the column filter (for multi-select).
+    ToggleColumnFilterValue(usize, String),
+    /// Select all values in column filter.
+    SelectAllColumnFilter(usize),
+    /// Clear all selected values in column filter.
+    ClearAllColumnFilter(usize),
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -1111,26 +1134,80 @@ fn build_filter_bar<'a, R: EditableRecord>(
         }
     };
 
-    // Column quick-filter pick_list (visible only when a column filter menu is open).
+    // Column quick-filter with search and multi-select (visible only when a column filter menu is open).
     let col_filter_area: Element<Message> = if let Some(col) = spreadsheet.active_column_filter {
-        let options = spreadsheet.column_filter_options.clone();
-        let current = spreadsheet.column_filters.get(&col).cloned();
-        let col_filter_pick = pick_list(options, current, move |val| {
-            spreadsheet_msg(SpreadsheetMessage::ApplyColumnFilter(col, val))
-        })
-        .placeholder("Pick value…")
-        .width(Length::Fixed(160.0));
+        // Search input
+        let search_input = text_input("Search...", &spreadsheet.column_filter_search)
+            .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::ColumnFilterSearch(q)))
+            .padding(4)
+            .width(Length::Fixed(140.0))
+            .style(style::spreadsheet_filter_input);
+
+        // Filter options based on search
+        let search_lower = spreadsheet.column_filter_search.to_lowercase();
+        let filtered_options: Vec<_> = spreadsheet
+            .column_filter_options
+            .iter()
+            .filter(|opt| opt.value.to_lowercase().contains(&search_lower))
+            .collect();
+
+        // Build list of checkboxes with counts
+        let current_filter = spreadsheet.column_filters.get(&col);
+        let option_list: Vec<Element<Message>> = filtered_options
+            .iter()
+            .map(|opt| {
+                let is_checked = current_filter
+                    .map(|s| s.contains(&opt.value))
+                    .unwrap_or(false);
+                let label = if is_checked {
+                    format!("✓ {} ({})", opt.value, opt.count)
+                } else {
+                    format!("  {} ({})", opt.value, opt.count)
+                };
+                button(text(label).size(10))
+                    .on_press(spreadsheet_msg(SpreadsheetMessage::ToggleColumnFilterValue(
+                        col,
+                        opt.value.clone(),
+                    )))
+                    .width(Length::Fill)
+                    .style(if is_checked {
+                        style::browse_button
+                    } else {
+                        style::browse_button
+                    })
+                    .into()
+            })
+            .collect();
+
+        let scroll = scrollable(column(option_list).spacing(2))
+            .height(Length::Fixed(150.0))
+            .width(Length::Fixed(180.0));
+
+        // Select All / Clear All buttons
+        let select_all_btn = button(text("All").size(10))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(col)))
+            .style(style::browse_button);
+        let clear_all_btn = button(text("None").size(10))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(col)))
+            .style(style::browse_button);
         let close_btn = button(text("✕").size(11))
-            .padding([2, 6])
             .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
             .style(style::browse_button);
-        row![
-            text("Col filter:").size(11).style(style::subtle_text),
-            col_filter_pick,
-            close_btn,
-        ]
-        .spacing(4)
-        .align_y(iced::Alignment::Center)
+
+        let controls = row![select_all_btn, clear_all_btn, close_btn].spacing(4);
+
+        container(
+            column![
+                row![
+                    text("Filter:").size(11).style(style::subtle_text),
+                    search_input,
+                ],
+                scroll,
+                controls,
+            ]
+            .spacing(4),
+        )
+        .style(style::status_bar)
         .into()
     } else {
         horizontal_space().width(Length::Fixed(0.0)).into()
