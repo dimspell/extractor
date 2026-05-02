@@ -876,13 +876,24 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
     fn mouse_interaction(
         &self,
-        _tree: &Tree,
+        tree: &Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        if cursor.is_over(layout.bounds()) {
+        let state = tree.state.downcast_ref::<State>();
+        let bounds = layout.bounds();
+
+        if let Some(p) = cursor.position_over(bounds) {
+            if let Some((_col, region)) = self.header_hit(bounds, state.scroll_offset.x, p) {
+                if region == HeaderRegion::Resize {
+                    return mouse::Interaction::ResizingHorizontally;
+                }
+            }
+        }
+
+        if cursor.is_over(bounds) {
             mouse::Interaction::Pointer
         } else {
             mouse::Interaction::default()
