@@ -30,10 +30,7 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state.$spreadsheet.filter_query = query;
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.record_target_offset(
-                        0.0,
-                        0.0,
-                    );
+                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearFilter => {
@@ -338,7 +335,12 @@ macro_rules! handle_spreadsheet_messages {
                 $app.state.$spreadsheet.column_filter_search = query;
             }
             SM::ToggleColumnFilterValue(col, value) => {
-                let entry = $app.state.$spreadsheet.column_filters.entry(col).or_default();
+                let entry = $app
+                    .state
+                    .$spreadsheet
+                    .column_filters
+                    .entry(col)
+                    .or_default();
                 if entry.contains(&value) {
                     entry.remove(&value);
                 } else {
@@ -358,7 +360,10 @@ macro_rules! handle_spreadsheet_messages {
                     .iter()
                     .map(|opt| opt.value.clone())
                     .collect();
-                $app.state.$spreadsheet.column_filters.insert(col, all_values);
+                $app.state
+                    .$spreadsheet
+                    .column_filters
+                    .insert(col, all_values);
                 if let Some(catalog) = &$app.state.$editor.catalog {
                     $app.state.$spreadsheet.apply_filter(catalog);
                     $app.state.$spreadsheet.apply_sort(catalog);

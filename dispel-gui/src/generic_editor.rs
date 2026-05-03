@@ -344,9 +344,7 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
             .map(|(value, count)| ColumnFilterOption { value, count })
             .collect();
         // Sort by count descending (most frequent first), then alphabetically
-        options.sort_by(|a, b| {
-            b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value))
-        });
+        options.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.value.cmp(&b.value)));
         options
     }
 

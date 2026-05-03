@@ -175,12 +175,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for CachedText {
         Size::new(self.width, self.height)
     }
 
-    fn layout(
-        &mut self,
-        tree: &mut Tree,
-        _renderer: &iced::Renderer,
-        limits: &Limits,
-    ) -> Node {
+    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         layout::sized(limits, self.width, self.height, |limits| {
             let bounds = limits.max();
             let key = ParagraphKey::new(&self.content, self.size.0, bounds.width, self.font);

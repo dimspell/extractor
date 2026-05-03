@@ -16,11 +16,11 @@ use crate::components::editor::editable::{EditableRecord, FieldDescriptor, Field
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
+use crate::style;
+use crate::utils::{horizontal_rule, horizontal_space};
 #[cfg(not(feature = "table_widget"))]
 use crate::view::editor::cached_text::cached_text;
 use crate::view::editor::cached_text::ParagraphCache;
-use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self, Pane};
 #[cfg(not(feature = "table_widget"))]
 use iced::widget::scrollable::Direction as ScrollDir;
@@ -1185,10 +1185,9 @@ fn build_filter_bar<'a, R: EditableRecord>(
                     format!("  {} ({})", opt.value, opt.count)
                 };
                 button(text(label).size(10))
-                    .on_press(spreadsheet_msg(SpreadsheetMessage::ToggleColumnFilterValue(
-                        col,
-                        opt.value.clone(),
-                    )))
+                    .on_press(spreadsheet_msg(
+                        SpreadsheetMessage::ToggleColumnFilterValue(col, opt.value.clone()),
+                    ))
                     .width(Length::Fill)
                     .style(if is_checked {
                         style::browse_button
@@ -1205,10 +1204,14 @@ fn build_filter_bar<'a, R: EditableRecord>(
 
         // Select All / Clear All buttons
         let select_all_btn = button(text("All").size(10))
-            .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(col)))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(
+                col,
+            )))
             .style(style::browse_button);
         let clear_all_btn = button(text("None").size(10))
-            .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(col)))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(
+                col,
+            )))
             .style(style::browse_button);
         let close_btn = button(text("✕").size(11))
             .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
@@ -1337,7 +1340,12 @@ fn build_table_content<'a, R: EditableRecord>(
     // A/B comparison until we delete the lazy/column path.
     #[cfg(feature = "table_widget")]
     {
-        let _ = (current_highlight_orig, is_highlight_mode, catalog, total_width);
+        let _ = (
+            current_highlight_orig,
+            is_highlight_mode,
+            catalog,
+            total_width,
+        );
         return build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg);
     }
 
@@ -1597,9 +1605,7 @@ fn build_table_content_widget<'a>(
         spreadsheet.horizontal_scroll_offset,
         spreadsheet.vertical_scroll_offset,
     )
-    .on_select(move |visible_idx| {
-        spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx))
-    })
+    .on_select(move |visible_idx| spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx)))
     .on_scroll(move |x, y, vh| {
         spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
             iced::widget::scrollable::AbsoluteOffset { x, y },
@@ -1614,9 +1620,7 @@ fn build_table_content_widget<'a>(
     .on_next_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
     .on_prev_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigatePrevHighlight))
     .on_escape(move || spreadsheet_msg(SpreadsheetMessage::ClearFilter))
-    .on_quick_filter(move |col, value| {
-        spreadsheet_msg(SpreadsheetMessage::QuickFilter(col, value))
-    })
+    .on_quick_filter(move |col, value| spreadsheet_msg(SpreadsheetMessage::QuickFilter(col, value)))
     .into();
 
     let table: Element<Message> = body;
@@ -1638,14 +1642,13 @@ fn build_header_row<'a>(
     spreadsheet: &'a SpreadsheetState,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
-    let id_cell: Element<Message> =
-        container(text("#").size(10).style(style::subtle_text))
-            .width(ID_COL_WIDTH)
-            .padding([0, 6])
-            .height(ROW_HEIGHT)
-            .align_y(iced::Alignment::Center)
-            .style(style::spreadsheet_id_cell)
-            .into();
+    let id_cell: Element<Message> = container(text("#").size(10).style(style::subtle_text))
+        .width(ID_COL_WIDTH)
+        .padding([0, 6])
+        .height(ROW_HEIGHT)
+        .align_y(iced::Alignment::Center)
+        .style(style::spreadsheet_id_cell)
+        .into();
     let data_header = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
     container(row![id_cell, data_header].spacing(0))
         .style(style::spreadsheet_header)

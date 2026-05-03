@@ -381,12 +381,7 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// is over. Returns `None` when the cursor is above the frozen `#` cell
     /// or outside the header strip entirely — those areas have no
     /// interaction.
-    fn header_hit(
-        &self,
-        bounds: Rectangle,
-        off_x: f32,
-        p: Point,
-    ) -> Option<(usize, HeaderRegion)> {
+    fn header_hit(&self, bounds: Rectangle, off_x: f32, p: Point) -> Option<(usize, HeaderRegion)> {
         let header = self.header_bounds(bounds);
         if !header.contains(p) {
             return None;
@@ -561,7 +556,11 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     /// Geometry of the horizontal scrollbar (track + thumb), or `None` if the
     /// content fits horizontally.
-    fn horizontal_scrollbar(&self, bounds: Rectangle, off_x: f32) -> Option<(Rectangle, Rectangle)> {
+    fn horizontal_scrollbar(
+        &self,
+        bounds: Rectangle,
+        off_x: f32,
+    ) -> Option<(Rectangle, Rectangle)> {
         let body = self.body_bounds(bounds);
         let total_w = self.total_width();
         if total_w <= body.width {
@@ -829,8 +828,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     return;
                 }
                 // ── Vertical scrollbar ────────────────────────────────────
-                if let Some((track, thumb)) =
-                    self.vertical_scrollbar(bounds, state.scroll_offset.y)
+                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, state.scroll_offset.y)
                 {
                     if track.contains(p) {
                         if thumb.contains(p) {
@@ -846,17 +844,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                             let total_h = self.total_height();
                             let max_off = (total_h - body.height).max(1.0);
                             let travel = (body.height - thumb.height).max(1.0);
-                            let target_thumb_y = (p.y - thumb.height / 2.0)
-                                .clamp(body.y, body.y + travel);
+                            let target_thumb_y =
+                                (p.y - thumb.height / 2.0).clamp(body.y, body.y + travel);
                             let frac = (target_thumb_y - body.y) / travel;
                             let new_y = frac * max_off;
-                            self.apply_scroll(
-                                state,
-                                bounds,
-                                state.scroll_offset.x,
-                                new_y,
-                                shell,
-                            );
+                            self.apply_scroll(state, bounds, state.scroll_offset.x, new_y, shell);
                         }
                         shell.capture_event();
                         return;
@@ -878,17 +870,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                             let total_w = self.total_width();
                             let max_off = (total_w - body.width).max(1.0);
                             let travel = (body.width - thumb.width).max(1.0);
-                            let target_thumb_x = (p.x - thumb.width / 2.0)
-                                .clamp(body.x, body.x + travel);
+                            let target_thumb_x =
+                                (p.x - thumb.width / 2.0).clamp(body.x, body.x + travel);
                             let frac = (target_thumb_x - body.x) / travel;
                             let new_x = frac * max_off;
-                            self.apply_scroll(
-                                state,
-                                bounds,
-                                new_x,
-                                state.scroll_offset.y,
-                                shell,
-                            );
+                            self.apply_scroll(state, bounds, new_x, state.scroll_offset.y, shell);
                         }
                         shell.capture_event();
                         return;
@@ -1100,8 +1086,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
         // ── Visible row range ──────────────────────────────────────────────
         let first_row = ((off.y / self.row_height).floor() as usize).min(self.n_rows());
-        let last_row = (((off.y + body.height) / self.row_height).ceil() as usize)
-            .min(self.n_rows());
+        let last_row =
+            (((off.y + body.height) / self.row_height).ceil() as usize).min(self.n_rows());
 
         // ── Visible column range (cumulative x prefix sum) ─────────────────
         let n_cols = self.n_cols();
@@ -1606,10 +1592,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         // A scrollbar is "active" when the user is hovering its track or
         // currently dragging it — in either case the thumb fattens and the
         // colour brightens to telegraph that it's grabbable.
-        let active_axis = state
-            .dragging
-            .map(|d| d.axis)
-            .or(state.hovered_scrollbar);
+        let active_axis = state.dragging.map(|d| d.axis).or(state.hovered_scrollbar);
         // Scrollbars live in the strips reserved on the right/bottom of the
         // full bounds (outside `body`). Pass `bounds` and `body` separately
         // so the scrollbar draw can position the track on the strip while
@@ -1694,7 +1677,11 @@ fn draw_scrollbars(
         let thumb_y = body.y + (off.y / max_off) * (body.height - thumb_h);
 
         let active = active_axis == Some(Axis::Vertical);
-        let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
+        let extra = if active {
+            SCROLLBAR_THICKNESS * 0.5
+        } else {
+            0.0
+        };
         let thumb_w = SCROLLBAR_THICKNESS - 2.0 + extra;
         // Anchor the fattened thumb to the right edge so it grows leftward
         // into the table rather than off-screen.
@@ -1741,7 +1728,11 @@ fn draw_scrollbars(
         let thumb_x = bounds.x + (off.x / max_off) * (body.width - thumb_w);
 
         let active = active_axis == Some(Axis::Horizontal);
-        let extra = if active { SCROLLBAR_THICKNESS * 0.5 } else { 0.0 };
+        let extra = if active {
+            SCROLLBAR_THICKNESS * 0.5
+        } else {
+            0.0
+        };
         let thumb_h = SCROLLBAR_THICKNESS - 2.0 + extra;
         let thumb_y = track.y + 1.0 - extra;
 
