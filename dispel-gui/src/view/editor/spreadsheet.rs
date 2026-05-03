@@ -616,9 +616,29 @@ impl SpreadsheetState {
     }
 
     /// Compute the body-scrollable Y offset that centers `filtered_idx` in
-    /// the visible viewport. Used by keyboard navigation commands.
+    /// the visible viewport. Used by jump-style navigation (highlight cursor,
+    /// bottom).
     pub fn scroll_y_for_row(&self, filtered_idx: usize) -> f32 {
         ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
+    }
+
+    /// Minimal scroll offset to keep `filtered_idx` visible. If the row is
+    /// already inside the current viewport the existing offset is returned —
+    /// arrow-key navigation across already-visible rows must not jerk the
+    /// viewport. Otherwise the row is brought just-on-screen at the
+    /// nearest edge.
+    pub fn ensure_row_visible_y(&self, filtered_idx: usize) -> f32 {
+        let row_top = filtered_idx as f32 * ROW_HEIGHT;
+        let row_bottom = row_top + ROW_HEIGHT;
+        let cur = self.vertical_scroll_offset;
+        let cur_bottom = cur + self.viewport_height;
+        if row_top < cur {
+            row_top
+        } else if row_bottom > cur_bottom {
+            (row_bottom - self.viewport_height).max(0.0)
+        } else {
+            cur
+        }
     }
 
     /// Record a programmatic scroll target. Under the lazy/scrollable path
@@ -1564,8 +1584,6 @@ fn build_table_content_widget<'a>(
         }
     };
 
-    let viewport_height = spreadsheet.viewport_height.max(1.0);
-
     let body: Element<Message> = TableWidget::new(
         &spreadsheet.display_cache,
         &spreadsheet.filtered_indices,
@@ -1582,10 +1600,10 @@ fn build_table_content_widget<'a>(
     .on_select(move |visible_idx| {
         spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx))
     })
-    .on_scroll(move |x, y| {
+    .on_scroll(move |x, y, vh| {
         spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
             iced::widget::scrollable::AbsoluteOffset { x, y },
-            viewport_height,
+            vh,
         ))
     })
     .on_sort(move |c| spreadsheet_msg(SpreadsheetMessage::SortColumn(c)))

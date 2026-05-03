@@ -96,7 +96,7 @@ macro_rules! handle_spreadsheet_messages {
                             .$editor
                             .make_inspector_textarea_contents(orig_idx);
                     }
-                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                    let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, y);
                     return iced::widget::operation::scroll_to(
@@ -113,7 +113,7 @@ macro_rules! handle_spreadsheet_messages {
                             .$editor
                             .make_inspector_textarea_contents(orig_idx);
                     }
-                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
+                    let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, y);
                     return iced::widget::operation::scroll_to(
@@ -462,7 +462,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     ss.inspector_textarea_contents =
                                         ed.editor.make_inspector_textarea_contents(orig_idx);
                                 }
-                                let y = ss.scroll_y_for_row(fidx);
+                                let y = ss.ensure_row_visible_y(fidx);
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, y);
                                 return iced::widget::operation::scroll_to(
@@ -477,7 +477,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     ss.inspector_textarea_contents =
                                         ed.editor.make_inspector_textarea_contents(orig_idx);
                                 }
-                                let y = ss.scroll_y_for_row(fidx);
+                                let y = ss.ensure_row_visible_y(fidx);
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, y);
                                 return iced::widget::operation::scroll_to(

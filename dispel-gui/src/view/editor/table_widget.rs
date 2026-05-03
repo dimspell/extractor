@@ -99,7 +99,7 @@ pub struct TableWidget<'a, Message> {
     /// programmatic scroll-to-row from the message layer).
     external_offset: Vector,
     on_select: Option<Box<dyn Fn(usize) -> Message + 'a>>,
-    on_scroll: Option<Box<dyn Fn(f32, f32) -> Message + 'a>>,
+    on_scroll: Option<Box<dyn Fn(f32, f32, f32) -> Message + 'a>>,
     on_sort: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_open_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     on_clear_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
@@ -133,6 +133,11 @@ struct State {
     /// handle arrives within `DOUBLE_CLICK_MS` the second one is converted
     /// into `on_reset_column_width`.
     last_resize_click: Option<(usize, std::time::Instant)>,
+    /// Body height observed on the most recent event. Used to detect
+    /// viewport-size changes and republish `on_scroll` so the parent's
+    /// cached `viewport_height` stays fresh — programmatic scroll-to math
+    /// (arrow nav, highlight jumps) depends on it.
+    last_body_height: Option<f32>,
 }
 
 /// Sub-region of a header cell. Used for hit-testing clicks and for hover
@@ -211,7 +216,7 @@ impl<'a, Message> TableWidget<'a, Message> {
         self
     }
 
-    pub fn on_scroll(mut self, f: impl Fn(f32, f32) -> Message + 'a) -> Self {
+    pub fn on_scroll(mut self, f: impl Fn(f32, f32, f32) -> Message + 'a) -> Self {
         self.on_scroll = Some(Box::new(f));
         self
     }
@@ -470,8 +475,9 @@ impl<'a, Message> TableWidget<'a, Message> {
             state.last_external = Some(state.scroll_offset);
             shell.request_redraw();
             if let Some(cb) = &self.on_scroll {
-                shell.publish(cb(clamped_x, clamped_y));
+                shell.publish(cb(clamped_x, clamped_y, body.height));
             }
+            state.last_body_height = Some(body.height);
         }
         moved
     }
@@ -698,6 +704,20 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) {
         let state = tree.state.downcast_mut::<State>();
         let bounds = layout.bounds();
+
+        // Republish scroll on body-height change so the parent's cached
+        // viewport_height tracks reality. Without this, programmatic
+        // scroll-to math (arrow nav, highlight jumps) uses the
+        // SpreadsheetState default of 400 px until the user manually
+        // scrolls — which is wrong for any window taller than that and
+        // causes arrow keys to jerk the viewport.
+        let body_h = self.body_bounds(bounds).height;
+        if state.last_body_height != Some(body_h) {
+            state.last_body_height = Some(body_h);
+            if let Some(cb) = &self.on_scroll {
+                shell.publish(cb(state.scroll_offset.x, state.scroll_offset.y, body_h));
+            }
+        }
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
