@@ -1910,6 +1910,19 @@ fn build_inspector_field<'a>(
                     .into()
             }
         }
+        FieldKind::Enum { variants } => {
+            let field_name = descriptor.name.to_string();
+            let selected = variants.iter().find(|&&v| v == value).copied();
+            pick_list(*variants, selected, move |selected_variant| {
+                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                    orig_idx,
+                    field_name.clone(),
+                    selected_variant.to_string(),
+                ))
+            })
+            .width(Length::Fill)
+            .into()
+        }
         _ => {
             let field_name = descriptor.name.to_string();
             text_input("", &value)
