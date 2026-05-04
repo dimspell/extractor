@@ -20,8 +20,11 @@ pub fn handle(message: StartPageMessage, app: &mut App) -> Task<Message> {
             enter_editor_mode(app, path)
         }
         StartPageMessage::SelectRecentPath(path) => {
+            if !path.exists() {
+                return Task::none();
+            }
             app.start_page_input = path.to_string_lossy().to_string();
-            Task::none()
+            enter_editor_mode(app, path)
         }
         StartPageMessage::BackToStart => {
             app.app_mode = AppMode::StartPage;
