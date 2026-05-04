@@ -720,8 +720,11 @@ pub struct WorkspaceTab {
 /// The workspace manages dynamic tabs instead of a fixed Tab enum.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Workspace {
+    #[serde(skip)]
     pub tabs: Vec<WorkspaceTab>,
+    #[serde(skip)]
     pub active_tab: Option<usize>,
+    #[serde(skip)]
     pub next_id: usize,
     pub game_path: Option<PathBuf>,
     /// Recent files tracking for workspace navigation

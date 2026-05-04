@@ -94,28 +94,13 @@ impl App {
         // Also start file indexation for cache
         let indexation_task = state.start_file_indexation_if_needed();
 
-        let restore_tab_load_task = state
-            .workspace
-            .active()
-            .and_then(|tab| load_catalog_task(tab.editor_type));
-
         // Combine tasks if they exist
-        let final_init_task = match (init_task, indexation_task, restore_tab_load_task) {
-            (None, None, None) => Task::none(),
-            (a, b, None) => match (a, b) {
+        let final_init_task = match (init_task, indexation_task) {
+            (None, None) => Task::none(),
+            (a, b) => match (a, b) {
                 (None, None) => Task::none(),
                 (None, Some(t)) | (Some(t), None) => t,
                 (Some(a), Some(b)) => Task::batch([a, b]),
-            },
-            (a, b, Some(c)) => {
-                let mut tasks: Vec<Task<Message>> = vec![c];
-                if let Some(t) = a {
-                    tasks.push(t);
-                }
-                if let Some(t) = b {
-                    tasks.push(t);
-                }
-                Task::batch(tasks)
             }
         };
 
