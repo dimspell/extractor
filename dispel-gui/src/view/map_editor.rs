@@ -633,7 +633,7 @@ fn view_sprite_browser<'a>(
 
     let grid: Element<'_, Message> = scrollable(
         column![
-            text("Sprites").size(11).style(style::subtle_text),
+            container(text("Sprites").size(14).style(style::subtle_text)).padding([0, 16]),
             row(thumbnails).spacing(8).padding([8, 16]).wrap(),
         ]
         .spacing(4),
