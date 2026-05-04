@@ -279,12 +279,11 @@ impl App {
 
                 let toolbar = container(
                     column![
-                        mode_tab_row,
+                        row![mode_tab_row, action_row].spacing(0),
                         row![info_row].spacing(0),
                         row![layer_row, tile_status]
                             .spacing(16)
                             .align_y(iced::Alignment::Center),
-                        row![action_row].spacing(0),
                     ]
                     .spacing(0),
                 )
@@ -546,6 +545,7 @@ fn layer_toggle(
     };
     toggler(is_on)
         .label(label_str)
+        .text_size(11)
         .size(12)
         .on_toggle(move |_| Message::map_editor(MapEditorMessage::LayerToggled(tab_id, layer)))
         .into()
