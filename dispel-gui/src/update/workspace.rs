@@ -138,12 +138,22 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         WorkspaceMessage::CommandPaletteArrowUp => {
             if let Some(palette) = &mut app.command_palette {
                 palette.select_previous();
+                let y = palette.scroll_offset_for_index(palette.selected_index);
+                return iced::widget::operation::scroll_to(
+                    crate::components::command_palette::CommandPalette::scroll_id(),
+                    iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
+                );
             }
             Task::none()
         }
         WorkspaceMessage::CommandPaletteArrowDown => {
             if let Some(palette) = &mut app.command_palette {
                 palette.select_next();
+                let y = palette.scroll_offset_for_index(palette.selected_index);
+                return iced::widget::operation::scroll_to(
+                    crate::components::command_palette::CommandPalette::scroll_id(),
+                    iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
+                );
             }
             Task::none()
         }
@@ -233,11 +243,23 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         }
         WorkspaceMessage::GlobalSearchArrowUp => {
             app.global_search.select_previous();
-            Task::none()
+            let y = app
+                .global_search
+                .scroll_offset_for_index(app.global_search.selected_index);
+            return iced::widget::operation::scroll_to(
+                crate::global_search::GlobalSearch::scroll_id(),
+                iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
+            );
         }
         WorkspaceMessage::GlobalSearchArrowDown => {
             app.global_search.select_next();
-            Task::none()
+            let y = app
+                .global_search
+                .scroll_offset_for_index(app.global_search.selected_index);
+            return iced::widget::operation::scroll_to(
+                crate::global_search::GlobalSearch::scroll_id(),
+                iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
+            );
         }
 
         // Tools

@@ -65,6 +65,22 @@ impl GlobalSearch {
         iced::widget::Id::new("global_search_input")
     }
 
+    pub fn scroll_id() -> iced::widget::Id {
+        iced::widget::Id::new("global_search_list")
+    }
+
+    /// Calculate scroll Y offset for a given result index.
+    /// Item height = text bounds (size × line_height) + vertical padding + spacing.
+    pub fn scroll_offset_for_index(&self, index: usize) -> f32 {
+        const TEXT_SIZE: f32 = 12.0;
+        const LINE_HEIGHT: f32 = 1.3; // Iced default LineHeight::Relative(1.3)
+        const PADDING_V: f32 = 16.0; // [8, 12] = 8 top + 8 bottom
+        const SPACING: f32 = 2.0;
+        let text_height = TEXT_SIZE * LINE_HEIGHT;
+        let item_height = text_height + PADDING_V + SPACING; // ~33.6px
+        index as f32 * item_height
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let input = text_input("Search files...", &self.query)
             .id(Self::input_id())
@@ -95,7 +111,9 @@ impl GlobalSearch {
             .collect();
 
         let list = column(results_list).spacing(2);
-        let scroll = scrollable(list).height(Length::Fill);
+        let scroll = scrollable(list)
+            .height(Length::Fill)
+            .id(Self::scroll_id());
 
         let count = if self.results.is_empty() && !self.query.is_empty() {
             text("No results").size(12).style(style::subtle_text)

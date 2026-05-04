@@ -620,6 +620,22 @@ impl CommandPalette {
         iced::widget::Id::new("command_palette_input")
     }
 
+    pub fn scroll_id() -> iced::widget::Id {
+        iced::widget::Id::new("command_palette_list")
+    }
+
+    /// Calculate scroll Y offset for a given command index.
+    /// Item height = text bounds (size × line_height) + vertical padding + spacing.
+    pub fn scroll_offset_for_index(&self, index: usize) -> f32 {
+        const DEFAULT_TEXT_SIZE: f32 = 16.0; // Iced default text size
+        const LINE_HEIGHT: f32 = 1.3; // Iced default LineHeight::Relative(1.3)
+        const PADDING_V: f32 = 16.0; // [8, 12] = 8 top + 8 bottom
+        const SPACING: f32 = 2.0;
+        let text_height = DEFAULT_TEXT_SIZE * LINE_HEIGHT;
+        let item_height = text_height + PADDING_V + SPACING; // ~36.8px
+        index as f32 * item_height
+    }
+
     pub fn view(&self) -> Element<'_, Message> {
         let input = text_input("Search commands...", &self.input_value)
             .id(Self::input_id())
@@ -658,7 +674,9 @@ impl CommandPalette {
             })
             .collect();
 
-        let list = scrollable(column(commands)).spacing(2);
+        let list = scrollable(column(commands))
+            .spacing(2)
+            .id(Self::scroll_id());
 
         let content = column![input, list].spacing(8).padding(16);
 
