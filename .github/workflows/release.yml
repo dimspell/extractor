@@ -63,13 +63,13 @@ jobs:
             os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
-          - build: cli-linux
-            app: cli
+          - build: gui-linux
+            app: gui
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-gnu
-          - build: gui-linux
-            app: gui
+          - build: cli-linux
+            app: cli
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-gnu
@@ -123,7 +123,7 @@ jobs:
             bin="target/${{ matrix.target }}/release/dispel-gui"
           fi
           version="${{ needs.create-release.outputs.version }}"
-          echo "ARCHIVE=dispel-gui-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          echo "ARCHIVE=${{ matrix.build }}-$version" >> $GITHUB_ENV
           echo "BIN=$bin" >> $GITHUB_ENV
 
       - name: Build release binary (CLI)
@@ -137,7 +137,7 @@ jobs:
             bin="target/${{ matrix.target }}/release/dispel-extractor"
           fi          
           version="${{ needs.create-release.outputs.version }}"
-          echo "ARCHIVE=dispel-extractor-$version-${{ matrix.target }}" >> $GITHUB_ENV
+          echo "ARCHIVE=${{ matrix.build }}-$version" >> $GITHUB_ENV
           echo "BIN=$bin" >> $GITHUB_ENV
 
       - name: Creating directory for archive
