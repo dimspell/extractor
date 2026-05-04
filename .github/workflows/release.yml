@@ -88,8 +88,9 @@ jobs:
         run: |
           sudo apt-get update && \
           sudo apt-get install -y \
-            libwayland-dev \
             libasound2-dev \
+            libx11-dev \
+            libxkbcommon-dev \
             pkg-config
 
       - name: Install Rust
