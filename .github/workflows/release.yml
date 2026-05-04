@@ -94,7 +94,7 @@ jobs:
         run: |
           if [ "${{ matrix.build }}" = "gui-windows" ]; then
             cd dispel-gui
-            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
+            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget
             bin="target/${{ matrix.target }}/release/dispel-gui.exe"
           else
             ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
