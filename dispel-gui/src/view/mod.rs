@@ -124,16 +124,40 @@ impl App {
                                 self.view_localization_manager_tab()
                             }
                             Some(EditorType::Unknown) | None => {
-                                let placeholder_text = text("Select a file to edit")
-                                    .size(16)
-                                    .align_x(iced::Alignment::Center)
-                                    .align_y(iced::Alignment::Center)
-                                    .height(Length::Fill)
-                                    .width(Length::Fill)
-                                    .style(style::subtle_text);
+                                let content: Element<'_, Message> =
+                                    if self.state.recent_files.is_empty() {
+                                        column![
+                                            text("Select a file to edit")
+                                                .size(16)
+                                                .style(style::subtle_text),
+                                        ]
+                                        .align_x(iced::Alignment::Center)
+                                        .into()
+                                    } else {
+                                        column![
+                                            text("Select a file to edit")
+                                                .size(16)
+                                                .style(style::subtle_text),
+                                            vertical_space().height(20),
+                                            container(
+                                                column![
+                                                    text("Recent Files")
+                                                        .size(14)
+                                                        .style(style::subtle_text),
+                                                    vertical_space().height(10),
+                                                    self.view_recent_files(),
+                                                ]
+                                                .spacing(4)
+                                            )
+                                            .max_width(400),
+                                        ]
+                                        .align_x(iced::Alignment::Center)
+                                        .into()
+                                    };
 
-                                column![placeholder_text]
-                                    .padding(8)
+                                container(content)
+                                    .center_x(Fill)
+                                    .center_y(Fill)
                                     .height(Length::Fill)
                                     .width(Length::Fill)
                                     .into()
