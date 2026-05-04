@@ -13,19 +13,25 @@
 //! * One-click CSV export of the currently-filtered view.
 
 use crate::components::editor::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::modal;
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
-use crate::view::editor::cached_text::{cached_text, ParagraphCache};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
+#[cfg(not(feature = "table_widget"))]
+use crate::view::editor::cached_text::cached_text;
+use crate::view::editor::cached_text::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
+#[cfg(not(feature = "table_widget"))]
 use iced::widget::scrollable::Direction as ScrollDir;
 use iced::widget::text_editor;
 use iced::widget::{
     button, column, container, pick_list, progress_bar, row, scrollable, text, text_input, Column,
 };
-use iced::{Element, Fill, Font, Length};
+#[cfg(not(feature = "table_widget"))]
+use iced::Font;
+use iced::{Element, Fill, Length};
 use std::collections::HashMap;
 
 const ROW_HEIGHT: f32 = 24.0;
@@ -44,8 +50,10 @@ const OVERSCAN_VELOCITY_DIVISOR: f32 = 2.0;
 /// The virtual window boundary only shifts when `first_row` crosses a multiple
 /// of this value.  Snapping prevents a widget-tree rebuild (and costly
 /// cosmic-text Korean glyph layout) on every single scroll pixel.
+#[cfg(not(feature = "table_widget"))]
 const WINDOW_STEP: usize = 64;
 const ID_COL_WIDTH_PX: f32 = 42.0;
+#[cfg(not(feature = "table_widget"))]
 const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
 /// `SpreadsheetState::column_widths`. Using a fixed width (rather than
@@ -54,6 +62,7 @@ const COL_WIDTH: f32 = 140.0;
 const COL_WIDTH_MIN: f32 = 40.0;
 const COL_WIDTH_MAX: f32 = 600.0;
 /// Pixel width of the draggable separator between column headers.
+#[cfg(not(feature = "table_widget"))]
 const RESIZE_HANDLE_WIDTH: f32 = 5.0;
 
 /// How a global (filter-bar) query affects the row listing.
@@ -65,6 +74,13 @@ pub enum GlobalFilterMode {
     /// Show every row, but tint the matching ones and let the user step
     /// through them with prev/next (Ctrl+G style).
     Highlight,
+}
+
+/// A single option in the column filter dropdown with value and row count.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ColumnFilterOption {
+    pub value: String,
+    pub count: usize,
 }
 
 #[derive(Debug, Clone)]
@@ -161,12 +177,16 @@ pub struct SpreadsheetState {
     pub scroll_velocity_y: f32,
 
     // ── Column quick-filter ────────────────────────────────────────────────
-    /// Per-column exact-match filters.  Key = column index, value = required cell value.
-    pub column_filters: HashMap<usize, String>,
+    /// Per-column exact-match filters. Key = column index, value = set of selected values.
+    pub column_filters: HashMap<usize, std::collections::HashSet<String>>,
     /// Which column's quick-filter dropdown is currently open (`None` = closed).
     pub active_column_filter: Option<usize>,
-    /// Pre-computed unique values for the open column filter dropdown.
-    pub column_filter_options: Vec<String>,
+    /// Pre-computed unique values with counts for the open column filter dropdown.
+    pub column_filter_options: Vec<ColumnFilterOption>,
+    /// Search query for filtering the column filter dropdown.
+    pub column_filter_search: String,
+
+    // ── Inspector textarea state ───────────────────────────────────────────
 
     // ── Inspector textarea state ───────────────────────────────────────────
     /// One `text_editor::Content` per TextArea field of the currently-inspected
@@ -236,6 +256,7 @@ impl Default for SpreadsheetState {
             column_filters: HashMap::new(),
             active_column_filter: None,
             column_filter_options: Vec::new(),
+            column_filter_search: String::new(),
             inspector_textarea_contents: HashMap::new(),
             last_scroll_update: None,
             scroll_velocity_y: 0.0,
@@ -272,9 +293,10 @@ impl SpreadsheetState {
 
         // Column filters always hard-filter rows regardless of mode.
         let col_matches = |record: &R| -> bool {
-            for (&col, required) in &self.column_filters {
+            for (&col, selected_values) in &self.column_filters {
                 if let Some(desc) = descriptors.get(col) {
-                    if !record.get_field(desc.name).eq_ignore_ascii_case(required) {
+                    let value = record.get_field(desc.name);
+                    if !selected_values.is_empty() && !selected_values.contains(&value) {
                         return false;
                     }
                 }
@@ -595,9 +617,41 @@ impl SpreadsheetState {
     }
 
     /// Compute the body-scrollable Y offset that centers `filtered_idx` in
-    /// the visible viewport. Used by keyboard navigation commands.
+    /// the visible viewport. Used by jump-style navigation (highlight cursor,
+    /// bottom).
     pub fn scroll_y_for_row(&self, filtered_idx: usize) -> f32 {
         ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
+    }
+
+    /// Minimal scroll offset to keep `filtered_idx` visible. If the row is
+    /// already inside the current viewport the existing offset is returned —
+    /// arrow-key navigation across already-visible rows must not jerk the
+    /// viewport. Otherwise the row is brought just-on-screen at the
+    /// nearest edge.
+    pub fn ensure_row_visible_y(&self, filtered_idx: usize) -> f32 {
+        let row_top = filtered_idx as f32 * ROW_HEIGHT;
+        let row_bottom = row_top + ROW_HEIGHT;
+        let cur = self.vertical_scroll_offset;
+        let cur_bottom = cur + self.viewport_height;
+        if row_top < cur {
+            row_top
+        } else if row_bottom > cur_bottom {
+            (row_bottom - self.viewport_height).max(0.0)
+        } else {
+            cur
+        }
+    }
+
+    /// Record a programmatic scroll target. Under the lazy/scrollable path
+    /// this is redundant — the scrollable will emit `BodyScrolled` once it
+    /// applies the operation, which calls `record_scroll` with the same
+    /// values. Under the `table_widget` path, however, the custom widget
+    /// reads these fields on its next layout to snap its internal offset,
+    /// so this mutation is the *only* way programmatic navigation moves the
+    /// viewport.
+    pub fn record_target_offset(&mut self, x: f32, y: f32) {
+        self.horizontal_scroll_offset = x;
+        self.vertical_scroll_offset = y;
     }
 
     /// Record a scroll event from the body scrollable. Updates the cached
@@ -835,6 +889,100 @@ pub fn truncate_for_width(value: &str, col_width: f32) -> String {
     truncated
 }
 
+/// Build the column filter modal content
+fn build_column_filter_modal<'a>(
+    col: usize,
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    // Filter options based on search
+    let search_lower = spreadsheet.column_filter_search.to_lowercase();
+    let filtered_options: Vec<_> = spreadsheet
+        .column_filter_options
+        .iter()
+        .filter(|opt| opt.value.to_lowercase().contains(&search_lower))
+        .collect();
+
+    // Build list of toggleable options with counts
+    let current_filter = spreadsheet.column_filters.get(&col);
+    let option_buttons: Vec<Element<Message>> = filtered_options
+        .iter()
+        .map(|opt| {
+            let is_checked = current_filter
+                .map(|s| s.contains(&opt.value))
+                .unwrap_or(false);
+            let label = if is_checked {
+                format!("✓ {} ({})", opt.value, opt.count)
+            } else {
+                format!("  {} ({})", opt.value, opt.count)
+            };
+            button(text(label).size(11))
+                .on_press(spreadsheet_msg(
+                    SpreadsheetMessage::ToggleColumnFilterValue(col, opt.value.clone()),
+                ))
+                .width(Length::Fill)
+                .padding(6)
+                .style(if is_checked {
+                    style::selected_button
+                } else {
+                    style::browse_button
+                })
+                .into()
+        })
+        .collect();
+
+    let options_scroll = scrollable(column(option_buttons).spacing(2))
+        .height(Length::Fixed(200.0))
+        .width(Length::Fill);
+
+    // Action buttons
+    let select_all_btn = button(text("Select All").size(11))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(col)))
+        .padding([6, 12])
+        .style(style::commit_button);
+    let clear_all_btn = button(text("Clear All").size(11))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(col)))
+        .padding([6, 12])
+        .style(style::browse_button);
+
+    // Header with title and close button
+    let header = row![
+        text("Filter Column").size(14).style(style::section_header),
+        horizontal_space(),
+        button(text("✕").size(14))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::CloseColumnFilterModal))
+            .padding([4, 12])
+            .style(style::filter_clear_button)
+    ]
+    .align_y(iced::Alignment::Center)
+    .spacing(8)
+    .padding([8, 12]);
+
+    // Actions row
+    let actions = row![select_all_btn, clear_all_btn]
+        .spacing(8)
+        .padding([8, 12]);
+
+    container(
+        column![
+            header,
+            horizontal_rule(1),
+            text_input("Search options...", &spreadsheet.column_filter_search)
+                .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::ColumnFilterSearch(q)))
+                .padding(8)
+                .width(Length::Fill)
+                .style(style::spreadsheet_filter_input),
+            options_scroll,
+            horizontal_rule(1),
+            actions,
+        ]
+        .spacing(4),
+    )
+    .width(Length::Fixed(240.0))
+    .style(style::modal_container)
+    .into()
+}
+
 #[derive(Debug, Clone)]
 pub enum SpreadsheetMessage {
     ToggleActive,
@@ -899,6 +1047,22 @@ pub enum SpreadsheetMessage {
     /// flows that schedule the compute through `spawn_blocking`; synchronous
     /// `compute_all_caches` callers do not emit this.
     CachesComputed(ComputedCaches),
+
+    // ── Context menu ─────────────────────────────────────────────────────
+    /// Apply a quick filter from right-click context menu.
+    QuickFilter(usize, String),
+
+    // ── Enhanced column filter ──────────────────────────────────────────
+    /// Update search query within column filter dropdown.
+    ColumnFilterSearch(String),
+    /// Toggle a value in the column filter (for multi-select).
+    ToggleColumnFilterValue(usize, String),
+    /// Select all values in column filter.
+    SelectAllColumnFilter(usize),
+    /// Clear all selected values in column filter.
+    ClearAllColumnFilter(usize),
+    /// Close the column filter modal.
+    CloseColumnFilterModal,
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -946,9 +1110,41 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
 
     let catalog = editor.catalog.as_ref();
 
-    let Some(ref pane_state) = spreadsheet.pane_state else {
+    // Build the main content
+    let main_content = if let Some(ref pane_state) = spreadsheet.pane_state {
+        let pane_grid = pane_grid::PaneGrid::new(pane_state, |_id, pane_content, _is_maximized| {
+            let content: Element<Message> = match pane_content {
+                SpreadsheetPaneContent::Table => {
+                    build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg)
+                }
+                SpreadsheetPaneContent::Inspector => build_inspector_panel(
+                    editor,
+                    spreadsheet,
+                    lookups,
+                    field_changed_msg,
+                    spreadsheet_msg,
+                ),
+            };
+            pane_grid::Content::new(content)
+        })
+        .on_click(pane_clicked_msg)
+        .on_resize(4, pane_resized_msg)
+        .height(Length::Fill)
+        .width(Length::Fill);
+
+        column![
+            horizontal_rule(1),
+            filter_bar,
+            horizontal_rule(1),
+            pane_grid,
+            status_row,
+        ]
+        .spacing(0)
+        .height(Fill)
+        .into()
+    } else {
         let table = build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg);
-        return column![
+        column![
             horizontal_rule(1),
             filter_bar,
             horizontal_rule(1),
@@ -957,39 +1153,21 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         ]
         .spacing(0)
         .height(Fill)
-        .into();
+        .into()
     };
 
-    let pane_grid = pane_grid::PaneGrid::new(pane_state, |_id, pane_content, _is_maximized| {
-        let content: Element<Message> = match pane_content {
-            SpreadsheetPaneContent::Table => {
-                build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg)
-            }
-            SpreadsheetPaneContent::Inspector => build_inspector_panel(
-                editor,
-                spreadsheet,
-                lookups,
-                field_changed_msg,
-                spreadsheet_msg,
-            ),
-        };
-        pane_grid::Content::new(content)
-    })
-    .on_click(pane_clicked_msg)
-    .on_resize(4, pane_resized_msg)
-    .height(Length::Fill)
-    .width(Length::Fill);
-
-    column![
-        horizontal_rule(1),
-        filter_bar,
-        horizontal_rule(1),
-        pane_grid,
-        status_row,
-    ]
-    .spacing(0)
-    .height(Fill)
-    .into()
+    // Wrap with modal if column filter is active
+    if let Some(col) = spreadsheet.active_column_filter {
+        let modal_content = build_column_filter_modal(col, spreadsheet, spreadsheet_msg);
+        modal::modal(
+            main_content,
+            modal_content,
+            move || spreadsheet_msg(SpreadsheetMessage::CloseColumnFilterModal),
+            0.5,
+        )
+    } else {
+        main_content
+    }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1029,6 +1207,7 @@ fn build_filter_bar<'a, R: EditableRecord>(
     let filter_input = text_input("Search records...", &spreadsheet.filter_query)
         .id(spreadsheet.filter_input_id.clone())
         .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::FilterChanged(q)))
+        .on_submit(spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
         .padding(6)
         .width(Length::FillPortion(2))
         .style(style::spreadsheet_filter_input);
@@ -1086,37 +1265,11 @@ fn build_filter_bar<'a, R: EditableRecord>(
         }
     };
 
-    // Column quick-filter pick_list (visible only when a column filter menu is open).
-    let col_filter_area: Element<Message> = if let Some(col) = spreadsheet.active_column_filter {
-        let options = spreadsheet.column_filter_options.clone();
-        let current = spreadsheet.column_filters.get(&col).cloned();
-        let col_filter_pick = pick_list(options, current, move |val| {
-            spreadsheet_msg(SpreadsheetMessage::ApplyColumnFilter(col, val))
-        })
-        .placeholder("Pick value…")
-        .width(Length::Fixed(160.0));
-        let close_btn = button(text("✕").size(11))
-            .padding([2, 6])
-            .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
-            .style(style::browse_button);
-        row![
-            text("Col filter:").size(11).style(style::subtle_text),
-            col_filter_pick,
-            close_btn,
-        ]
-        .spacing(4)
-        .align_y(iced::Alignment::Center)
-        .into()
-    } else {
-        horizontal_space().width(Length::Fixed(0.0)).into()
-    };
-
     row![
         text("Filter:").size(12).style(style::subtle_text),
         mode_toggle,
         filter_input,
         clear_btn,
-        col_filter_area,
         horizontal_space(),
         status_area,
         horizontal_space().width(12),
@@ -1208,11 +1361,49 @@ fn build_table_content<'a, R: EditableRecord>(
     // this, which keeps column boundaries aligned between them.
     let total_width = spreadsheet.total_table_width(descriptors.len());
 
-    let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
-
     let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
     let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
 
+    // Approach B: custom virtualised table widget. Behind a feature flag for
+    // A/B comparison until we delete the lazy/column path.
+    #[cfg(feature = "table_widget")]
+    {
+        let _ = (
+            current_highlight_orig,
+            is_highlight_mode,
+            catalog,
+            total_width,
+        );
+        return build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg);
+    }
+
+    #[cfg(not(feature = "table_widget"))]
+    {
+        let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
+        build_table_content_lazy(
+            descriptors,
+            catalog,
+            header_row,
+            total_width,
+            spreadsheet,
+            current_highlight_orig,
+            is_highlight_mode,
+            spreadsheet_msg,
+        )
+    }
+}
+
+#[cfg(not(feature = "table_widget"))]
+fn build_table_content_lazy<'a, R: EditableRecord>(
+    descriptors: &'a [FieldDescriptor],
+    catalog: &'a Vec<R>,
+    header_row: Element<'a, Message>,
+    total_width: f32,
+    spreadsheet: &'a SpreadsheetState,
+    current_highlight_orig: Option<usize>,
+    is_highlight_mode: bool,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
     let total_visible = spreadsheet.filtered_indices.len();
 
     // Virtual-scroll window: only render rows that are in (or near) the viewport.
@@ -1387,21 +1578,124 @@ fn build_table_content<'a, R: EditableRecord>(
     }
 }
 
+#[cfg(feature = "table_widget")]
+fn build_table_content_widget<'a>(
+    descriptors: &'a [FieldDescriptor],
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
+
+    // Header is rendered inside the TableWidget itself — labels, sort
+    // indicators, filter icons, and resize handles are painted directly,
+    // so there is no separate header `scrollable` and no horizontal-scroll
+    // mirror to keep in sync.
+
+    let columns: Vec<TableColumn> = (0..descriptors.len())
+        .map(|c| TableColumn {
+            width_px: spreadsheet.column_width(c),
+            label: descriptors[c].label.to_string(),
+            sort: if spreadsheet.sort_column == Some(c) {
+                Some(spreadsheet.sort_ascending)
+            } else {
+                None
+            },
+            has_filter: spreadsheet.column_filters.contains_key(&c),
+        })
+        .collect();
+
+    let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
+    let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
+    let selected_orig = spreadsheet.selected_orig;
+    let highlighted = &spreadsheet.highlighted_indices;
+
+    let row_flags = move |visible_idx: usize| -> RowFlags {
+        let Some(&orig_idx) = spreadsheet.filtered_indices.get(visible_idx) else {
+            return RowFlags::default();
+        };
+        RowFlags {
+            selected: selected_orig == Some(orig_idx),
+            highlighted: is_highlight_mode && highlighted.contains(&orig_idx),
+            current_highlight: Some(orig_idx) == current_highlight_orig,
+        }
+    };
+
+    let body: Element<Message> = TableWidget::new(
+        &spreadsheet.display_cache,
+        &spreadsheet.filtered_indices,
+        columns,
+        ID_COL_WIDTH_PX,
+        row_flags,
+        ROW_HEIGHT,
+        spreadsheet.paragraph_cache.clone(),
+    )
+    .external_offset(
+        spreadsheet.horizontal_scroll_offset,
+        spreadsheet.vertical_scroll_offset,
+    )
+    .on_select(move |visible_idx| spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx)))
+    .on_scroll(move |x, y, vh| {
+        spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
+            iced::widget::scrollable::AbsoluteOffset { x, y },
+            vh,
+        ))
+    })
+    .on_sort(move |c| spreadsheet_msg(SpreadsheetMessage::SortColumn(c)))
+    .on_open_filter(move |c| spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(c)))
+    .on_clear_filter(move |c| spreadsheet_msg(SpreadsheetMessage::ClearColumnFilter(c)))
+    .on_start_resize(move |c| spreadsheet_msg(SpreadsheetMessage::StartResizeColumn(c)))
+    .on_reset_column_width(move |c| spreadsheet_msg(SpreadsheetMessage::ResetColumnWidth(c)))
+    .on_next_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigateNextHighlight))
+    .on_prev_highlight(move || spreadsheet_msg(SpreadsheetMessage::NavigatePrevHighlight))
+    .on_escape(move || spreadsheet_msg(SpreadsheetMessage::ClearFilter))
+    .on_quick_filter(move |col, value| spreadsheet_msg(SpreadsheetMessage::QuickFilter(col, value)))
+    .into();
+
+    let table: Element<Message> = body;
+
+    if spreadsheet.resizing_column.is_some() {
+        iced::widget::mouse_area(table)
+            .on_move(move |p| spreadsheet_msg(SpreadsheetMessage::ResizeColumnCursor(p.x)))
+            .on_release(spreadsheet_msg(SpreadsheetMessage::EndResizeColumn))
+            .interaction(iced::mouse::Interaction::ResizingHorizontally)
+            .into()
+    } else {
+        table
+    }
+}
+
+#[cfg(not(feature = "table_widget"))]
 fn build_header_row<'a>(
+    descriptors: &'a [FieldDescriptor],
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    let id_cell: Element<Message> = container(text("#").size(10).style(style::subtle_text))
+        .width(ID_COL_WIDTH)
+        .padding([0, 6])
+        .height(ROW_HEIGHT)
+        .align_y(iced::Alignment::Center)
+        .style(style::spreadsheet_id_cell)
+        .into();
+    let data_header = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
+    container(row![id_cell, data_header].spacing(0))
+        .style(style::spreadsheet_header)
+        .into()
+}
+
+/// Build the column-header row *without* the leading `#` cell. The widget
+/// path renders the `#` cell as a frozen header outside the horizontal
+/// scrollable so it stays put while the data column headers scroll with
+/// the body.
+#[cfg(not(feature = "table_widget"))]
+fn build_data_header_row<'a>(
     descriptors: &'a [FieldDescriptor],
     spreadsheet: &'a SpreadsheetState,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
 ) -> Element<'a, Message> {
     use iced::widget::mouse_area;
 
-    let mut header_cells: Vec<Element<Message>> =
-        vec![container(text("#").size(10).style(style::subtle_text))
-            .width(ID_COL_WIDTH)
-            .padding([0, 6])
-            .height(ROW_HEIGHT)
-            .align_y(iced::Alignment::Center)
-            .style(style::spreadsheet_id_cell)
-            .into()];
+    let mut header_cells: Vec<Element<Message>> = Vec::with_capacity(descriptors.len());
 
     let is_resizing = spreadsheet.resizing_column.is_some();
 
@@ -1483,9 +1777,7 @@ fn build_header_row<'a>(
         header_cells.push(row![label_cell, resize_handle].spacing(0).into());
     }
 
-    container(row(header_cells).spacing(0))
-        .style(style::spreadsheet_header)
-        .into()
+    row(header_cells).spacing(0).into()
 }
 
 /// A single cell inside a data row. Rendered as a plain `container` so that
@@ -1497,6 +1789,7 @@ fn build_header_row<'a>(
 /// rows that meant ~1150 button widgets per frame, each with its own state,
 /// hover handling, and text-shaping wrapper — the dominant per-frame cost
 /// during steady scrolling.
+#[cfg(not(feature = "table_widget"))]
 fn flattened_cell(
     display: String,
     col_width: f32,
@@ -1644,6 +1937,19 @@ fn build_inspector_field<'a>(
                     .width(Length::Fill)
                     .into()
             }
+        }
+        FieldKind::Enum { variants } => {
+            let field_name = descriptor.name.to_string();
+            let selected = variants.iter().find(|&&v| v == value).copied();
+            pick_list(*variants, selected, move |selected_variant| {
+                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                    orig_idx,
+                    field_name.clone(),
+                    selected_variant.to_string(),
+                ))
+            })
+            .width(Length::Fill)
+            .into()
         }
         _ => {
             let field_name = descriptor.name.to_string();

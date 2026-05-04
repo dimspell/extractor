@@ -29,6 +29,7 @@ lru = "0.12"
 default = []
 iced_test = ["dep:iced_test"]
 tokio = []
+table_widget = []
 
 [dependencies.rusqlite]
 version = "0.39.0"

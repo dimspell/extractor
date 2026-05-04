@@ -44,7 +44,7 @@ const CACHE_CAPACITY: usize = 16_384;
 /// probability is ~10⁻¹¹ — negligible compared to the cost of storing
 /// every cell string twice.
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
-struct ParagraphKey {
+pub struct ParagraphKey {
     text_hash: u64,
     size_x10: u16,
     max_width_px: u16,
@@ -52,7 +52,7 @@ struct ParagraphKey {
 }
 
 impl ParagraphKey {
-    fn new(text: &str, size: f32, max_width: f32, font: Font) -> Self {
+    pub fn new(text: &str, size: f32, max_width: f32, font: Font) -> Self {
         let mut h = std::collections::hash_map::DefaultHasher::new();
         text.hash(&mut h);
         let text_hash = h.finish();
@@ -86,7 +86,7 @@ impl Default for ParagraphCache {
 }
 
 impl ParagraphCache {
-    fn get_or_insert<F>(&self, key: ParagraphKey, build: F) -> Paragraph
+    pub fn get_or_insert<F>(&self, key: ParagraphKey, build: F) -> Paragraph
     where
         F: FnOnce() -> Paragraph,
     {
@@ -175,12 +175,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for CachedText {
         Size::new(self.width, self.height)
     }
 
-    fn layout(
-        &mut self,
-        tree: &mut Tree,
-        _renderer: &iced::Renderer,
-        limits: &Limits,
-    ) -> Node {
+    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         layout::sized(limits, self.width, self.height, |limits| {
             let bounds = limits.max();
             let key = ParagraphKey::new(&self.content, self.size.0, bounds.width, self.font);
