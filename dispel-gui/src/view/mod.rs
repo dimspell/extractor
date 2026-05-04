@@ -359,12 +359,6 @@ impl App {
         ]
         .spacing(1);
 
-        let _recent_section = column![
-            container(text("Recent").size(11).style(style::subtle_text)).padding([4, 16]),
-            self.view_recent_files(),
-        ]
-        .spacing(1);
-
         let tree_is_empty = self.file_tree.data.root.is_none();
         let file_tree_area: Element<'_, Message> = if self.is_indexing && tree_is_empty {
             container(
@@ -390,7 +384,6 @@ impl App {
             container(title).padding([0, 16]),
             vertical_space().height(16),
             file_tree_area,
-            // recent_section,
             vertical_space().height(8),
             tools_section,
             vertical_space().height(8),
