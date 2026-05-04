@@ -118,7 +118,7 @@ jobs:
         shell: bash
         if: matrix.app == 'cli'
         run: |
-          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget --bin dispel-extractor
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --bin dispel-extractor
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
           else
