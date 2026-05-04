@@ -1,6 +1,9 @@
 use super::types::{Axis, HeaderRegion, ScrollbarDrag, State};
 use super::widget::TableWidget;
-use super::{SCROLLBAR_THICKNESS, RESIZE_HANDLE_WIDTH, FILTER_ICON_WIDTH, FILTER_BADGE_WIDTH, DOUBLE_CLICK_MS};
+use super::{
+    DOUBLE_CLICK_MS, FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH,
+    SCROLLBAR_THICKNESS,
+};
 use crate::view::editor::cached_text::{ParagraphCache, ParagraphKey};
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::{Layout, Limits, Node};
@@ -10,7 +13,10 @@ use iced::advanced::widget::{tree, Tree, Widget};
 use iced::advanced::{Clipboard, Renderer as _, Shell};
 use iced::keyboard::{self, key};
 use iced::mouse;
-use iced::{alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Rectangle, Shadow, Size, Vector};
+use iced::{
+    alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Rectangle,
+    Shadow, Size, Vector,
+};
 
 type Paragraph = GraphicsParagraph;
 
@@ -160,7 +166,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.capture_event();
                     return;
                 }
-                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, state.scroll_offset.y) {
+                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, state.scroll_offset.y)
+                {
                     if track.contains(p) {
                         if thumb.contains(p) {
                             state.dragging = Some(ScrollbarDrag {
@@ -183,7 +190,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         return;
                     }
                 }
-                if let Some((track, thumb)) = self.horizontal_scrollbar(bounds, state.scroll_offset.x) {
+                if let Some((track, thumb)) =
+                    self.horizontal_scrollbar(bounds, state.scroll_offset.x)
+                {
                     if track.contains(p) {
                         if thumb.contains(p) {
                             state.dragging = Some(ScrollbarDrag {
@@ -441,7 +450,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         shadow: Shadow::default(),
                         snap: true,
                     },
-                    Background::Color(crate::view::editor::table_widget::style::row_bg(row_idx, flags, is_hovered)),
+                    Background::Color(crate::view::editor::table_widget::style::row_bg(
+                        row_idx, flags, is_hovered,
+                    )),
                 );
             }
 
@@ -502,7 +513,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 );
             }
 
-            if let Some((border_color, border_width)) = crate::view::editor::table_widget::style::row_border(flags) {
+            if let Some((border_color, border_width)) =
+                crate::view::editor::table_widget::style::row_border(flags)
+            {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {
@@ -605,7 +618,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 id_clip,
             );
 
-            if let Some((border_color, border_width)) = crate::view::editor::table_widget::style::row_border(flags) {
+            if let Some((border_color, border_width)) =
+                crate::view::editor::table_widget::style::row_border(flags)
+            {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {

@@ -1,8 +1,8 @@
-use super::*;
 use super::types::State;
+use super::*;
 use crate::view::editor::cached_text::ParagraphCache;
 use crate::view::editor::table_widget::style::cell_text_color;
-use iced::{Size, Vector, color};
+use iced::{color, Size, Vector};
 
 fn no_flags(_: usize) -> RowFlags {
     RowFlags::default()
@@ -20,8 +20,7 @@ fn col(width_px: f32) -> TableColumn {
 #[test]
 fn empty_table_does_not_panic() {
     let cache = ParagraphCache::default();
-    let _w: TableWidget<'_, ()> =
-        TableWidget::new(&[], &[], vec![], 42.0, no_flags, 24.0, cache);
+    let _w: TableWidget<'_, ()> = TableWidget::new(&[], &[], vec![], 42.0, no_flags, 24.0, cache);
 }
 
 #[test]

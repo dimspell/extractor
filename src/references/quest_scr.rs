@@ -2,11 +2,11 @@ use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
+use dispel_macros::Localizable;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-use dispel_macros::Localizable;
 // ===========================================================================
 // QUEST.SCR FILE FORMAT
 // ===========================================================================

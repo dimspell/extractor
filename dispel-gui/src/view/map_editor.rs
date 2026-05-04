@@ -317,8 +317,7 @@ impl App {
                             )))
                             .padding([5, 10])
                             .style(style::browse_button),
-                        text(format!("{:.0}%", state.view.zoom * 100.0))
-                            .size(10),
+                        text(format!("{:.0}%", state.view.zoom * 100.0)).size(10),
                         button(text("−").size(14))
                             .on_press(Message::map_editor(MapEditorMessage::ZoomChanged(
                                 tab_id,

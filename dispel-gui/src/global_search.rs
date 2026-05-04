@@ -111,9 +111,7 @@ impl GlobalSearch {
             .collect();
 
         let list = column(results_list).spacing(2);
-        let scroll = scrollable(list)
-            .height(Length::Fill)
-            .id(Self::scroll_id());
+        let scroll = scrollable(list).height(Length::Fill).id(Self::scroll_id());
 
         let count = if self.results.is_empty() && !self.query.is_empty() {
             text("No results").size(12).style(style::subtle_text)

@@ -9,13 +9,9 @@ use crate::workspace::Workspace;
 /// Render the workspace tab bar.
 pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
     if workspace.tabs.is_empty() {
-        return container(
-            text("No file opened")
-                .size(12)
-                .style(style::subtle_text),
-        )
-        .padding(8)
-        .into();
+        return container(text("No file opened").size(12).style(style::subtle_text))
+            .padding(8)
+            .into();
     }
 
     let tabs: Vec<Element<'_, TabBarMessage>> = workspace

@@ -11,7 +11,11 @@ const ITEM_TYPES: FieldKind = FieldKind::Enum {
 };
 
 fn hex_string(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+    bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn parse_hex_string(s: &str) -> Option<Vec<u8>> {
@@ -372,7 +376,10 @@ impl EditableRecord for ExtraRef {
             "x_pos" => set_int(&mut self.x_pos, value),
             "y_pos" => set_int(&mut self.y_pos, value),
             "rotation" => set_int(&mut self.rotation, value),
-            "unknown2" => parse_hex_string(&value).map_or(false, |v| { self.unknown2 = v; true }),
+            "unknown2" => parse_hex_string(&value).map_or(false, |v| {
+                self.unknown2 = v;
+                true
+            }),
             "unknown3" => set_int(&mut self.unknown3, value),
             "closed" => set_int(&mut self.closed, value),
             "required_item_id" => set_int(&mut self.required_item_id, value),
@@ -401,14 +408,20 @@ impl EditableRecord for ExtraRef {
             "unknown11" => set_enum(&mut self.unknown11, value, SpecialPatternFlag::from_name),
             "unknown12" => set_int(&mut self.unknown12, value),
             "unknown13" => set_enum(&mut self.unknown13, value, Special9999Flag::from_name),
-            "unknown14" => parse_hex_string(&value).map_or(false, |v| { self.unknown14 = v; true }),
+            "unknown14" => parse_hex_string(&value).map_or(false, |v| {
+                self.unknown14 = v;
+                true
+            }),
             "event_id" => set_int(&mut self.event_id, value),
             "message_id" => set_int(&mut self.message_id, value),
             "unknown15" => set_enum(&mut self.unknown15, value, SmallRange0to3::from_name),
             "unknown16" => set_enum(&mut self.unknown16, value, SmallRange0to3::from_name),
             "unknown17" => set_int(&mut self.unknown17, value),
             "interactive_element_type" => set_int(&mut self.interactive_element_type, value),
-            "unknown18" => parse_hex_string(&value).map_or(false, |v| { self.unknown18 = v; true }),
+            "unknown18" => parse_hex_string(&value).map_or(false, |v| {
+                self.unknown18 = v;
+                true
+            }),
             "is_quest_element" => set_int(&mut self.is_quest_element, value),
             "unknown20" => set_int(&mut self.unknown20, value),
             "unknown21" => set_int(&mut self.unknown21, value),

@@ -1,5 +1,6 @@
 use super::editable::{
-    fmt_enum, set_i32_enum, set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind,
+    fmt_enum, set_i32_enum, set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor,
+    FieldKind,
 };
 use dispel_core::{Map, MapLighting};
 

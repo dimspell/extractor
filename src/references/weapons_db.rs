@@ -141,10 +141,10 @@ pub struct WeaponItem {
     #[extractor(primitive(type = "i16"))]
     pub durability: i16,
     /// Padding field.
-    #[extractor(padding(count = 1,type = "i16"))]
+    #[extractor(padding(count = 1, type = "i16"))]
     pub padding2: i16,
     /// Padding field.
-    #[extractor(padding(count = 1,type = "i16"))]
+    #[extractor(padding(count = 1, type = "i16"))]
     pub padding3: i16,
     /// Player base strength needed to equip.
     #[extractor(primitive(type = "i16"))]

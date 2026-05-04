@@ -937,11 +937,15 @@ fn build_column_filter_modal<'a>(
 
     // Action buttons
     let select_all_btn = button(text("Select All").size(11))
-        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(col)))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(
+            col,
+        )))
         .padding([6, 12])
         .style(style::commit_button);
     let clear_all_btn = button(text("Clear All").size(11))
-        .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(col)))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(
+            col,
+        )))
         .padding([6, 12])
         .style(style::browse_button);
 

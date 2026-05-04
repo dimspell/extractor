@@ -127,11 +127,9 @@ impl App {
                             Some(EditorType::Unknown) | None => {
                                 let content: Element<'_, Message> =
                                     if self.state.recent_files.is_empty() {
-                                        column![
-                                            text("Select a file to edit")
-                                                .size(16)
-                                                .style(style::subtle_text),
-                                        ]
+                                        column![text("Select a file to edit")
+                                            .size(16)
+                                            .style(style::subtle_text),]
                                         .align_x(iced::Alignment::Center)
                                         .into()
                                     } else {

@@ -2,7 +2,11 @@ use super::editable::{set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::EventItem;
 
 fn hex_string(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+    bytes
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn parse_hex_string(s: &str) -> Option<Vec<u8>> {

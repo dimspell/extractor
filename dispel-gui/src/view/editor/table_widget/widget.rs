@@ -1,8 +1,8 @@
 use super::types::{Axis, HeaderRegion, RowFlags, ScrollbarDrag, State, TableColumn};
-use super::{SCROLLBAR_THICKNESS, RESIZE_HANDLE_WIDTH, FILTER_ICON_WIDTH, FILTER_BADGE_WIDTH};
+use super::{FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH, SCROLLBAR_THICKNESS};
 use crate::view::editor::cached_text::ParagraphCache;
-use iced::{Font, Length, Rectangle, Vector, Point, Size};
 use iced::advanced::Shell;
+use iced::{Font, Length, Point, Rectangle, Size, Vector};
 
 pub struct TableWidget<'a, Message> {
     /// Full display cache — `display_cache[orig_idx][col_idx]`.
@@ -233,7 +233,12 @@ impl<'a, Message> TableWidget<'a, Message> {
     }
 
     /// Hit-test a cursor position against the column-header strip.
-    pub(crate) fn header_hit(&self, bounds: Rectangle, off_x: f32, p: Point) -> Option<(usize, HeaderRegion)> {
+    pub(crate) fn header_hit(
+        &self,
+        bounds: Rectangle,
+        off_x: f32,
+        p: Point,
+    ) -> Option<(usize, HeaderRegion)> {
         let header = self.header_bounds(bounds);
         if !header.contains(p) {
             return None;
@@ -384,7 +389,11 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// content fits vertically. The track sits in the reserved strip on the
     /// right edge of `bounds`; thumb travel uses `body.height` so it doesn't
     /// extend past the horizontal scrollbar's corner reservation.
-    pub(crate) fn vertical_scrollbar(&self, bounds: Rectangle, off_y: f32) -> Option<(Rectangle, Rectangle)> {
+    pub(crate) fn vertical_scrollbar(
+        &self,
+        bounds: Rectangle,
+        off_y: f32,
+    ) -> Option<(Rectangle, Rectangle)> {
         let body = self.body_bounds(bounds);
         let total_h = self.total_height();
         if total_h <= body.height {

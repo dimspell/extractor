@@ -101,7 +101,7 @@ impl App {
                 (None, None) => Task::none(),
                 (None, Some(t)) | (Some(t), None) => t,
                 (Some(a), Some(b)) => Task::batch([a, b]),
-            }
+            },
         };
 
         let app_mode = if state.workspace.game_path.is_some() {

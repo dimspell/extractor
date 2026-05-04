@@ -1,5 +1,7 @@
 use super::editable::{set_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
-use dispel_core::references::enums::{BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7};
+use dispel_core::references::enums::{
+    BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
+};
 use dispel_core::NPC;
 
 impl EditableRecord for NPC {
