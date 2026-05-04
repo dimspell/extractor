@@ -415,6 +415,7 @@ pub struct PaneState {
     pub state: pane_grid::State<PaneContent>,
     pub focus: Pane,
     pub maximized: Option<Pane>,
+    pub sidebar_split: Option<pane_grid::Split>,
 }
 
 impl Default for PaneState {
@@ -425,14 +426,18 @@ impl Default for PaneState {
             first_pane,
             PaneContent::MainContent,
         );
-        if let Some((_, split)) = result {
+        let sidebar_split = if let Some((_, split)) = result {
             let ratio: f32 = 232_f32 / 1280_f32;
             state.resize(split, ratio);
-        }
+            Some(split)
+        } else {
+            None
+        };
         Self {
             state,
             focus: first_pane,
             maximized: None,
+            sidebar_split,
         }
     }
 }

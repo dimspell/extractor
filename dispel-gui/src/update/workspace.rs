@@ -17,7 +17,60 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             tab_bar::handle(msg, app)
         }
         WorkspaceMessage::ToggleSidebar => {
+            use iced::widget::pane_grid::{Axis, State as PaneGridState};
+            use crate::state::state::PaneContent;
+            
             app.sidebar_visible = !app.sidebar_visible;
+            
+            if app.sidebar_visible {
+                // Re-add sidebar: create new pane grid with sidebar + main content
+                let (mut new_state, sidebar_pane) = PaneGridState::new(PaneContent::Sidebar);
+                let result = new_state.split(
+                    Axis::Vertical,
+                    sidebar_pane,
+                    PaneContent::MainContent,
+                );
+                if let Some((main_pane, split)) = result {
+                    // Restore sidebar width ratio
+                    let ratio: f32 = 232_f32 / 1280_f32;
+                    new_state.resize(split, ratio);
+                    
+                    // If history panel was visible, add it back
+                    if app.history_panel_visible {
+                        if let Some((history_pane, _)) = new_state.split(
+                            Axis::Vertical,
+                            main_pane,
+                            PaneContent::HistoryPanel,
+                        ) {
+                            app.state.pane_state.focus = history_pane;
+                        }
+                    } else {
+                        app.state.pane_state.focus = main_pane;
+                    }
+                    
+                    app.state.pane_state.state = new_state;
+                    app.state.pane_state.sidebar_split = Some(split);
+                }
+            } else {
+                // Remove sidebar: create new pane grid with only main content
+                let (mut new_state, main_pane) = PaneGridState::new(PaneContent::MainContent);
+                
+                // If history panel is visible, add it
+                if app.history_panel_visible {
+                    if let Some((history_pane, _)) = new_state.split(
+                        Axis::Vertical,
+                        main_pane,
+                        PaneContent::HistoryPanel,
+                    ) {
+                        app.state.pane_state.focus = history_pane;
+                    }
+                } else {
+                    app.state.pane_state.focus = main_pane;
+                }
+                
+                app.state.pane_state.state = new_state;
+                // sidebar_split will be recreated when sidebar is shown again
+            }
             Task::none()
         }
         WorkspaceMessage::ToggleGlobalSearch => {

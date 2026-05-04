@@ -10,6 +10,7 @@ use crate::style;
 use crate::utils::{truncate_path, vertical_space};
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
+use iced::advanced::Widget;
 use iced::widget::pane_grid;
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill, Font, Length};
@@ -327,8 +328,8 @@ impl App {
     /// having a persistent file browser alongside the editing area.
     fn view_sidebar(&self) -> Element<'_, Message> {
         if !self.sidebar_visible {
-            return container(vertical_space().height(Fill))
-                .width(Fill)
+            return container(vertical_space())
+                .width(Length::Fixed(0.0))
                 .height(Fill)
                 .into();
         }
