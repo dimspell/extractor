@@ -1,5 +1,5 @@
 use super::editable::{
-    set_i32_enum, set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind,
+    fmt_enum, set_i32_enum, set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind,
 };
 use dispel_core::{Map, MapLighting};
 
@@ -48,7 +48,7 @@ impl EditableRecord for Map {
             "map_name" => self.map_name.clone(),
             "pgp_filename" => self.pgp_filename.clone().unwrap_or_default(),
             "dlg_filename" => self.dlg_filename.clone().unwrap_or_default(),
-            "lighting" => i32::from(self.lighting).to_string(),
+            "lighting" => fmt_enum(&self.lighting),
             _ => String::new(),
         }
     }

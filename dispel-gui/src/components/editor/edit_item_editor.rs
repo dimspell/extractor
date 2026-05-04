@@ -22,6 +22,21 @@ impl EditableRecord for EditItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding1",
+                label: "Padding 1:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding2",
+                label: "Padding 2:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding3",
+                label: "Padding 3:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "health_points",
                 label: "HP:",
                 kind: FieldKind::Integer,
@@ -82,6 +97,11 @@ impl EditableRecord for EditItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding4",
+                label: "Padding 4:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "modifies_item",
                 label: "Modifies Item:",
                 kind: FieldKind::Enum {
@@ -103,6 +123,9 @@ impl EditableRecord for EditItem {
             "name" => self.name.clone(),
             "description" => self.description.clone(),
             "base_price" => self.base_price.to_string(),
+            "padding1" => self.padding1.to_string(),
+            "padding2" => self.padding2.to_string(),
+            "padding3" => self.padding3.to_string(),
             "health_points" => self.health_points.to_string(),
             "mana_points" => self.mana_points.to_string(),
             "strength" => self.strength.to_string(),
@@ -115,6 +138,7 @@ impl EditableRecord for EditItem {
             "defense" => self.defense.to_string(),
             "magical_power" => self.magical_power.to_string(),
             "item_destroying_power" => self.item_destroying_power.to_string(),
+            "padding4" => self.padding4.to_string(),
             "modifies_item" => fmt_enum(&self.modifies_item),
             "additional_effect" => fmt_enum(&self.additional_effect),
             _ => String::new(),
@@ -126,6 +150,9 @@ impl EditableRecord for EditItem {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
             "base_price" => set_int(&mut self.base_price, value),
+            "padding1" => set_int(&mut self.padding1, value),
+            "padding2" => set_int(&mut self.padding2, value),
+            "padding3" => set_int(&mut self.padding3, value),
             "health_points" => set_int(&mut self.health_points, value),
             "mana_points" => set_int(&mut self.mana_points, value),
             "strength" => set_int(&mut self.strength, value),
@@ -138,6 +165,7 @@ impl EditableRecord for EditItem {
             "defense" => set_int(&mut self.defense, value),
             "magical_power" => set_int(&mut self.magical_power, value),
             "item_destroying_power" => set_int(&mut self.item_destroying_power, value),
+            "padding4" => set_int(&mut self.padding4, value),
             "modifies_item" => set_enum(
                 &mut self.modifies_item,
                 value,

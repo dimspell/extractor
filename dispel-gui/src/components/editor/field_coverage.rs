@@ -146,11 +146,7 @@ check_record!(
     src "src/references/dialogue_script.rs",
     struct "DialogueScript",
     virtual_desc [],
-    skip_fields [
-        "next_dialog_id1",  // choice dialog option 1
-        "next_dialog_id2",  // choice dialog option 2
-        "next_dialog_id3"   // choice dialog option 3
-    ]
+    skip_fields []
 );
 
 check_record!(
@@ -178,11 +174,7 @@ check_record!(
     struct "EditItem",
     virtual_desc [],
     skip_fields [
-        "index",    // auto-incremented position in file, not user-editable
-        "padding1", // binary padding, no semantic meaning
-        "padding2", // binary padding, no semantic meaning
-        "padding3", // binary padding, no semantic meaning
-        "padding4"  // binary padding, no semantic meaning
+        "index"    // auto-incremented position in file, not user-editable
     ]
 );
 
@@ -202,8 +194,7 @@ check_record!(
     struct "EventItem",
     virtual_desc [],
     skip_fields [
-        "id",      // positional index, not user-editable
-        "padding"  // binary padding, no semantic meaning
+        "id"      // positional index, not user-editable
     ]
 );
 
@@ -233,37 +224,7 @@ check_record!(
     virtual_desc [],
     skip_fields [
         // Positional / internal metadata
-        "number_in_file",
-        // Not yet reverse-engineered — unknown byte sequences
-        "unknown1",
-        "unknown2",
-        "unknown3",
-        "unknown4",
-        "unknown5",
-        "unknown6",
-        "unknown7",
-        "unknown8",
-        "unknown9",
-        "unknown10",
-        "unknown11",
-        "unknown12",
-        "unknown13",
-        "unknown14",
-        "unknown15",
-        "unknown16",
-        "unknown17",
-        "unknown18",
-        "unknown20",
-        "unknown21",
-        "unknown22",
-        "unknown23",
-        "unknown24",
-        "unknown25",
-        "unknown26",
-        "unknown27",
-        // Second required-item slot not yet exposed in the editor
-        "required_item_id2",
-        "required_item_type_id2"
+        "number_in_file"
     ]
 );
 
@@ -274,12 +235,7 @@ check_record!(
     struct "HealItem",
     virtual_desc [],
     skip_fields [
-        "id",       // positional index
-        "padding1", // binary padding
-        "padding2",
-        "padding3",
-        "padding4",
-        "padding5"
+        "id"       // positional index
     ]
 );
 
@@ -290,15 +246,7 @@ check_record!(
     struct "MagicSpell",
     virtual_desc [],
     skip_fields [
-        "id",        // positional index
-        "flag1",     // internal engine flag
-        "flag2",
-        "flag3",
-        "reserved1", // reserved/padding bytes
-        "reserved2",
-        "reserved3",
-        "reserved4",
-        "constant1"  // engine constant, not modder-relevant
+        "id"        // positional index
     ]
 );
 
@@ -327,8 +275,7 @@ check_record!(
     struct "MiscItem",
     virtual_desc [],
     skip_fields [
-        "id",      // positional index
-        "padding"  // binary padding, no semantic meaning
+        "id"      // positional index
     ]
 );
 
@@ -368,32 +315,7 @@ check_record!(
     struct "NPC",
     virtual_desc [],
     skip_fields [
-        "index",        // auto-incremented position in file
-        "description",  // NPC description/role
-        "unknown_1",    // unknown field
-        "goto1_filled", // internal "is waypoint active" flags derived from coords
-        "goto2_filled",
-        "goto3_filled",
-        "goto4_filled",
-        "unknown_2",    // unknown field
-        "unknown_3",    // unknown field
-        "unknown_4",    // unknown field
-        "unknown_5",    // unknown field
-        "unknown_6",    // unknown field
-        "unknown_7",    // unknown field
-        "unknown_8",    // unknown field
-        "unknown_10",   // unknown field
-        "unknown_11",   // unknown field
-        "unknown_12",   // unknown field
-        "unknown_13",   // unknown field
-        "unknown_14",   // unknown field
-        "unknown_15",   // unknown field
-        "unknown_16",   // unknown field
-        "unknown_20",    // unknown field
-        "unknown_9",     // unknown field
-        "unknown_17",    // unknown field
-        "unknown_18",    // unknown field
-        "unknown_19"     // unknown field
+        "index"        // auto-incremented position in file
     ]
 );
 
@@ -478,11 +400,6 @@ check_record!(
     struct "WeaponItem",
     virtual_desc [],
     skip_fields [
-        "id",       // positional index
-        "padding1", // binary padding, no semantic meaning
-        "padding2",
-        "padding3",
-        "padding4",
-        "padding5"
+        "id"       // positional index
     ]
 );

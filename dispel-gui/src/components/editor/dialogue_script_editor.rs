@@ -14,7 +14,7 @@ impl EditableRecord for DialogueScript {
             },
             FieldDescriptor {
                 name: "required_event_id",
-                label: "Previous Event:",
+                label: "Requires Event ID:",
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
@@ -42,8 +42,23 @@ impl EditableRecord for DialogueScript {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "next_dialog_id1",
+                label: "Next conversation option 1:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "next_dialog_id2",
+                label: "Next conversation option 2:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "next_dialog_id3",
+                label: "Next conversation option 3:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "triggered_event_id",
-                label: "Event ID:",
+                label: "Triggers Event ID:",
                 kind: FieldKind::Integer,
             },
         ]
@@ -57,7 +72,10 @@ impl EditableRecord for DialogueScript {
             "dialog_type" => get_opt_val(self.dialog_type, |v| v.value().to_string()),
             "dialog_owner" => get_opt_val(self.dialog_owner, |v| v.value().to_string()),
             "dialog_id" => get_opt_int(self.dialog_id),
-            "event_id" => get_opt_int(self.triggered_event_id),
+            "next_dialog_id1" => get_opt_int(self.next_dialog_id1),
+            "next_dialog_id2" => get_opt_int(self.next_dialog_id2),
+            "next_dialog_id3" => get_opt_int(self.next_dialog_id3),
+            "triggered_event_id" => get_opt_int(self.triggered_event_id),
             _ => String::new(),
         }
     }
@@ -72,6 +90,9 @@ impl EditableRecord for DialogueScript {
                 set_opt_i32_enum(&mut self.dialog_owner, value, DialogOwner::from_i32)
             }
             "dialog_id" => set_opt_int(&mut self.dialog_id, value),
+            "next_dialog_id1" => set_opt_int(&mut self.next_dialog_id1, value),
+            "next_dialog_id2" => set_opt_int(&mut self.next_dialog_id2, value),
+            "next_dialog_id3" => set_opt_int(&mut self.next_dialog_id3, value),
             "triggered_event_id" => set_opt_int(&mut self.triggered_event_id, value),
             _ => false,
         }

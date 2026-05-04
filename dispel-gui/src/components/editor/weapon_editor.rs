@@ -20,6 +20,11 @@ impl EditableRecord for WeaponItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding1",
+                label: "Padding 1:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "health_points",
                 label: "HP Bonus:",
                 kind: FieldKind::Integer,
@@ -80,8 +85,23 @@ impl EditableRecord for WeaponItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding2",
+                label: "Padding 2:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding3",
+                label: "Padding 3:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "req_strength",
                 label: "Required STR:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding4",
+                label: "Padding 4:",
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
@@ -90,8 +110,28 @@ impl EditableRecord for WeaponItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding5",
+                label: "Padding 5:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "req_wisdom",
                 label: "Required WIS:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding6",
+                label: "Padding 6:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding7",
+                label: "Padding 7:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding8",
+                label: "Padding 8:",
                 kind: FieldKind::Integer,
             },
         ]
@@ -102,6 +142,7 @@ impl EditableRecord for WeaponItem {
             "name" => self.name.clone(),
             "description" => self.description.clone(),
             "base_price" => self.base_price.to_string(),
+            "padding1" => self.padding1.to_string(),
             "health_points" => self.health_points.to_string(),
             "mana_points" => self.mana_points.to_string(),
             "strength" => self.strength.to_string(),
@@ -114,9 +155,16 @@ impl EditableRecord for WeaponItem {
             "defense" => self.defense.to_string(),
             "magical_strength" => self.magical_strength.to_string(),
             "durability" => self.durability.to_string(),
+            "padding2" => self.padding2.to_string(),
+            "padding3" => self.padding3.to_string(),
             "req_strength" => self.req_strength.to_string(),
+            "padding4" => self.padding4.to_string(),
             "req_agility" => self.req_agility.to_string(),
+            "padding5" => self.padding5.to_string(),
             "req_wisdom" => self.req_wisdom.to_string(),
+            "padding6" => self.padding6.to_string(),
+            "padding7" => self.padding7.to_string(),
+            "padding8" => self.padding8.to_string(),
             _ => String::new(),
         }
     }
@@ -126,6 +174,7 @@ impl EditableRecord for WeaponItem {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
             "base_price" => set_int(&mut self.base_price, value),
+            "padding1" => set_int(&mut self.padding1, value),
             "health_points" => set_int(&mut self.health_points, value),
             "mana_points" => set_int(&mut self.mana_points, value),
             "strength" => set_int(&mut self.strength, value),
@@ -138,9 +187,16 @@ impl EditableRecord for WeaponItem {
             "defense" => set_int(&mut self.defense, value),
             "magical_strength" => set_int(&mut self.magical_strength, value),
             "durability" => set_int(&mut self.durability, value),
+            "padding2" => set_int(&mut self.padding2, value),
+            "padding3" => set_int(&mut self.padding3, value),
             "req_strength" => set_int(&mut self.req_strength, value),
+            "padding4" => set_int(&mut self.padding4, value),
             "req_agility" => set_int(&mut self.req_agility, value),
+            "padding5" => set_int(&mut self.padding5, value),
             "req_wisdom" => set_int(&mut self.req_wisdom, value),
+            "padding6" => set_int(&mut self.padding6, value),
+            "padding7" => set_int(&mut self.padding7, value),
+            "padding8" => set_int(&mut self.padding8, value),
             _ => false,
         }
     }

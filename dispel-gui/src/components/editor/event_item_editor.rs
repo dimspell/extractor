@@ -1,6 +1,16 @@
 use super::editable::{set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::EventItem;
 
+fn hex_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(" ")
+}
+
+fn parse_hex_string(s: &str) -> Option<Vec<u8>> {
+    s.split_whitespace()
+        .map(|part| u8::from_str_radix(part, 16).ok())
+        .collect()
+}
+
 impl EditableRecord for EventItem {
     fn field_descriptors() -> &'static [FieldDescriptor] {
         &[
@@ -14,6 +24,11 @@ impl EditableRecord for EventItem {
                 label: "Description:",
                 kind: FieldKind::TextArea,
             },
+            FieldDescriptor {
+                name: "padding",
+                label: "Padding:",
+                kind: FieldKind::String,
+            },
         ]
     }
 
@@ -21,6 +36,7 @@ impl EditableRecord for EventItem {
         match field {
             "name" => self.name.clone(),
             "description" => self.description.clone(),
+            "padding" => hex_string(&self.padding),
             _ => String::new(),
         }
     }
@@ -29,6 +45,14 @@ impl EditableRecord for EventItem {
         match field {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
+            "padding" => parse_hex_string(&value).map_or(false, |v| {
+                if v.len() == 8 {
+                    self.padding = v.try_into().unwrap();
+                    true
+                } else {
+                    false
+                }
+            }),
             _ => false,
         }
     }

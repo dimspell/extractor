@@ -25,7 +25,7 @@ use dispel_macros::TextExtractor;
 /// - `map_name`: Display name shown in game
 /// - `pgp_filename`: Conversation script filename or "null"
 /// - `dlg_filename`: Dialog text filename or "null"
-/// - `lighting`: 0 = Dark, 1 = Light
+/// - `lighting`: 0 = Light, 1 = Dark
 ///
 /// # Special Values
 ///
@@ -55,7 +55,7 @@ pub struct Map {
     /// Filename of the associated dialog file.
     #[extractor(field = 4, parse_null)]
     pub dlg_filename: Option<String>,
-    /// Light indicator (0 = Dark, 1 = Light).
+    /// Light indicator (0 = Light, 1 = Dark).
     #[extractor(field = 5, enum_from_i32(type = "MapLighting"))]
     pub lighting: MapLighting,
 }
@@ -102,12 +102,12 @@ mod tests {
         assert_eq!(maps[0].map_name, "Forest");
         assert!(maps[0].pgp_filename.is_none());
         assert!(maps[0].dlg_filename.is_none());
-        assert_eq!(maps[0].lighting, MapLighting::Dark);
+        assert_eq!(maps[0].lighting, MapLighting::Light);
 
         assert_eq!(maps[1].id, 2);
         assert_eq!(maps[1].pgp_filename.as_deref(), Some("pgp2"));
         assert_eq!(maps[1].dlg_filename.as_deref(), Some("dlg2"));
-        assert_eq!(maps[1].lighting, MapLighting::Light);
+        assert_eq!(maps[1].lighting, MapLighting::Dark);
     }
 
     #[test]

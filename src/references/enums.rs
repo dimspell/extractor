@@ -190,18 +190,18 @@ impl From<bool> for PropertyFlag {
 #[derive(Default)]
 pub enum MapLighting {
     /// Dark map (interior, dungeon)
-    Dark = 0,
+    Light = 0,
     /// Light map (exterior, daytime)
     #[default]
-    Light = 1,
+    Dark = 1,
 }
 
 impl MapLighting {
     /// Convert from i32 with validation
     pub fn from_i32(value: i32) -> Option<Self> {
         match value {
-            0 => Some(MapLighting::Dark),
-            1 => Some(MapLighting::Light),
+            0 => Some(MapLighting::Light),
+            1 => Some(MapLighting::Dark),
             _ => None,
         }
     }
@@ -789,6 +789,14 @@ impl BooleanFlag {
             _ => None,
         }
     }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "No" => Some(BooleanFlag::False),
+            "Yes" => Some(BooleanFlag::True),
+            _ => None,
+        }
+    }
 }
 
 impl From<BooleanFlag> for i32 {
@@ -846,6 +854,25 @@ impl Unknown012 {
             _ => None,
         }
     }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(Unknown012::Value0),
+            "1" => Some(Unknown012::Value1),
+            "2" => Some(Unknown012::Value2),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Unknown012 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Unknown012::Value0 => write!(f, "0"),
+            Unknown012::Value1 => write!(f, "1"),
+            Unknown012::Value2 => write!(f, "2"),
+        }
+    }
 }
 
 impl From<Unknown012> for i32 {
@@ -891,6 +918,35 @@ impl Unknown0to7 {
             _ => None,
         }
     }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(Unknown0to7::Value0),
+            "1" => Some(Unknown0to7::Value1),
+            "2" => Some(Unknown0to7::Value2),
+            "3" => Some(Unknown0to7::Value3),
+            "4" => Some(Unknown0to7::Value4),
+            "5" => Some(Unknown0to7::Value5),
+            "6" => Some(Unknown0to7::Value6),
+            "7" => Some(Unknown0to7::Value7),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Unknown0to7 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Unknown0to7::Value0 => write!(f, "0"),
+            Unknown0to7::Value1 => write!(f, "1"),
+            Unknown0to7::Value2 => write!(f, "2"),
+            Unknown0to7::Value3 => write!(f, "3"),
+            Unknown0to7::Value4 => write!(f, "4"),
+            Unknown0to7::Value5 => write!(f, "5"),
+            Unknown0to7::Value6 => write!(f, "6"),
+            Unknown0to7::Value7 => write!(f, "7"),
+        }
+    }
 }
 
 impl From<Unknown0to7> for i32 {
@@ -919,6 +975,25 @@ impl Unknown0110 {
             1 => Some(Unknown0110::Value1),
             10 => Some(Unknown0110::Value10),
             _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(Unknown0110::Value0),
+            "1" => Some(Unknown0110::Value1),
+            "10" => Some(Unknown0110::Value10),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Unknown0110 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Unknown0110::Value0 => write!(f, "0"),
+            Unknown0110::Value1 => write!(f, "1"),
+            Unknown0110::Value10 => write!(f, "10"),
         }
     }
 }
@@ -1049,6 +1124,23 @@ impl Special9999Flag {
             _ => None,
         }
     }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(Special9999Flag::Zero),
+            "9999" => Some(Special9999Flag::Max),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for Special9999Flag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Special9999Flag::Zero => write!(f, "0"),
+            Special9999Flag::Max => write!(f, "9999"),
+        }
+    }
 }
 
 impl From<Special9999Flag> for i32 {
@@ -1089,6 +1181,16 @@ impl SmallRange0to3 {
             1 => Some(SmallRange0to3::Value1),
             2 => Some(SmallRange0to3::Value2),
             3 => Some(SmallRange0to3::Value3),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(SmallRange0to3::Value0),
+            "1" => Some(SmallRange0to3::Value1),
+            "2" => Some(SmallRange0to3::Value2),
+            "3" => Some(SmallRange0to3::Value3),
             _ => None,
         }
     }
@@ -1157,6 +1259,29 @@ impl SpecialPatternFlag {
             258 => Some(SpecialPatternFlag::Value258),
             9999 => Some(SpecialPatternFlag::Value9999),
             _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "0" => Some(SpecialPatternFlag::Zero),
+            "28" => Some(SpecialPatternFlag::Value28),
+            "84" => Some(SpecialPatternFlag::Value84),
+            "258" => Some(SpecialPatternFlag::Value258),
+            "9999" => Some(SpecialPatternFlag::Value9999),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for SpecialPatternFlag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SpecialPatternFlag::Zero => write!(f, "0"),
+            SpecialPatternFlag::Value28 => write!(f, "28"),
+            SpecialPatternFlag::Value84 => write!(f, "84"),
+            SpecialPatternFlag::Value258 => write!(f, "258"),
+            SpecialPatternFlag::Value9999 => write!(f, "9999"),
         }
     }
 }

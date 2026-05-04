@@ -25,6 +25,21 @@ impl EditableRecord for HealItem {
                 kind: FieldKind::Integer,
             },
             FieldDescriptor {
+                name: "padding1",
+                label: "Padding 1:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding2",
+                label: "Padding 2:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding3",
+                label: "Padding 3:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
                 name: "health_points",
                 label: "HP Restore:",
                 kind: FieldKind::Integer,
@@ -59,6 +74,16 @@ impl EditableRecord for HealItem {
                 label: "Cure Polymorph:",
                 kind: FLAGS,
             },
+            FieldDescriptor {
+                name: "padding4",
+                label: "Padding 4:",
+                kind: FieldKind::Integer,
+            },
+            FieldDescriptor {
+                name: "padding5",
+                label: "Padding 5:",
+                kind: FieldKind::Integer,
+            },
         ]
     }
 
@@ -67,6 +92,9 @@ impl EditableRecord for HealItem {
             "name" => self.name.clone(),
             "description" => self.description.clone(),
             "base_price" => self.base_price.to_string(),
+            "padding1" => self.padding1.to_string(),
+            "padding2" => self.padding2.to_string(),
+            "padding3" => self.padding3.to_string(),
             "health_points" => self.health_points.to_string(),
             "mana_points" => self.mana_points.to_string(),
             "restore_full_health" => fmt_enum(&self.restore_full_health),
@@ -74,6 +102,8 @@ impl EditableRecord for HealItem {
             "poison_heal" => fmt_enum(&self.poison_heal),
             "petrif_heal" => fmt_enum(&self.petrif_heal),
             "polimorph_heal" => fmt_enum(&self.polimorph_heal),
+            "padding4" => self.padding4.to_string(),
+            "padding5" => self.padding5.to_string(),
             _ => String::new(),
         }
     }
@@ -83,6 +113,9 @@ impl EditableRecord for HealItem {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
             "base_price" => set_int(&mut self.base_price, value),
+            "padding1" => set_int(&mut self.padding1, value),
+            "padding2" => set_int(&mut self.padding2, value),
+            "padding3" => set_int(&mut self.padding3, value),
             "health_points" => set_int(&mut self.health_points, value),
             "mana_points" => set_int(&mut self.mana_points, value),
             "restore_full_health" => set_enum(
@@ -96,6 +129,8 @@ impl EditableRecord for HealItem {
             "poison_heal" => set_enum(&mut self.poison_heal, value, HealItemFlag::from_name),
             "petrif_heal" => set_enum(&mut self.petrif_heal, value, HealItemFlag::from_name),
             "polimorph_heal" => set_enum(&mut self.polimorph_heal, value, HealItemFlag::from_name),
+            "padding4" => set_int(&mut self.padding4, value),
+            "padding5" => set_int(&mut self.padding5, value),
             _ => false,
         }
     }

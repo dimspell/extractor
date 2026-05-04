@@ -46,12 +46,15 @@ use serde::{Deserialize, Serialize};
 /// | - magical_strength: i16 (magical)    |
 /// | - durability: i16 (item HP)          |
 /// | - padding2: i16 (unknown)           |
-/// | - req_strength: i16 (requirement)    |
 /// | - padding3: i16 (unknown)           |
-/// | - req_agility: i16 (requirement)     |
+/// | - req_strength: i16 (requirement)    |
 /// | - padding4: i16 (unknown)           |
-/// | - req_wisdom: i16 (requirement)      |
+/// | - req_agility: i16 (requirement)     |
 /// | - padding5: i16 (unknown)           |
+/// | - req_wisdom: i16 (requirement)      |
+/// | - padding6: i16 (unknown)           |
+/// | - padding7: i16 (unknown)           |
+/// | - padding8: i16 (unknown)           |
 /// +--------------------------------------+
 /// | [Record 2]                           |
 /// | ... (same structure) ...             |
@@ -138,26 +141,35 @@ pub struct WeaponItem {
     #[extractor(primitive(type = "i16"))]
     pub durability: i16,
     /// Padding field.
-    #[extractor(padding(count = 2, type = "i16"))]
+    #[extractor(padding(count = 1,type = "i16"))]
     pub padding2: i16,
+    /// Padding field.
+    #[extractor(padding(count = 1,type = "i16"))]
+    pub padding3: i16,
     /// Player base strength needed to equip.
     #[extractor(primitive(type = "i16"))]
     pub req_strength: i16,
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
-    pub padding3: i16,
+    pub padding4: i16,
     /// Player base agility needed to equip.
     #[extractor(primitive(type = "i16"))]
     pub req_agility: i16,
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
-    pub padding4: i16,
+    pub padding5: i16,
     /// Player base wisdom/magic needed to equip.
     #[extractor(primitive(type = "i16"))]
     pub req_wisdom: i16,
     /// Padding field.
-    #[extractor(padding(count = 3, type = "i16"))]
-    pub padding5: i16,
+    #[extractor(padding(count = 1, type = "i16"))]
+    pub padding6: i16,
+    /// Padding field.
+    #[extractor(padding(count = 1, type = "i16"))]
+    pub padding7: i16,
+    /// Padding field.
+    #[extractor(padding(count = 1, type = "i16"))]
+    pub padding8: i16,
 }
 
 pub fn read_weapons_db(source_path: &Path) -> std::io::Result<Vec<WeaponItem>> {
