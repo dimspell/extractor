@@ -297,11 +297,17 @@ macro_rules! handle_spreadsheet_messages {
                 // Toggle: second click on the same column closes the dropdown.
                 if $app.state.$spreadsheet.active_column_filter == Some(col) {
                     $app.state.$spreadsheet.active_column_filter = None;
+                    $app.state.$spreadsheet.column_filter_search.clear();
                 } else {
                     $app.state.$spreadsheet.column_filter_options =
                         $app.state.$editor.unique_values_for_column(col);
                     $app.state.$spreadsheet.active_column_filter = Some(col);
+                    $app.state.$spreadsheet.column_filter_search.clear();
                 }
+            }
+            SM::CloseColumnFilterModal => {
+                $app.state.$spreadsheet.active_column_filter = None;
+                $app.state.$spreadsheet.column_filter_search.clear();
             }
             SM::ApplyColumnFilter(col, value) => {
                 let mut set = std::collections::HashSet::new();
@@ -637,10 +643,16 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::OpenColumnFilter(col) => {
                             if ss.active_column_filter == Some(col) {
                                 ss.active_column_filter = None;
+                                ss.column_filter_search.clear();
                             } else {
                                 ss.column_filter_options = ed.editor.unique_values_for_column(col);
                                 ss.active_column_filter = Some(col);
+                                ss.column_filter_search.clear();
                             }
+                        }
+                        SM::CloseColumnFilterModal => {
+                            ss.active_column_filter = None;
+                            ss.column_filter_search.clear();
                         }
                         SM::ApplyColumnFilter(col, value) => {
                             let mut set = std::collections::HashSet::new();

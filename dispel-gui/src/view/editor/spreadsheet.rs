@@ -13,6 +13,7 @@
 //! * One-click CSV export of the currently-filtered view.
 
 use crate::components::editor::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::modal;
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
@@ -888,6 +889,100 @@ pub fn truncate_for_width(value: &str, col_width: f32) -> String {
     truncated
 }
 
+/// Build the column filter modal content
+fn build_column_filter_modal<'a>(
+    col: usize,
+    spreadsheet: &'a SpreadsheetState,
+    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+) -> Element<'a, Message> {
+    // Filter options based on search
+    let search_lower = spreadsheet.column_filter_search.to_lowercase();
+    let filtered_options: Vec<_> = spreadsheet
+        .column_filter_options
+        .iter()
+        .filter(|opt| opt.value.to_lowercase().contains(&search_lower))
+        .collect();
+
+    // Build list of toggleable options with counts
+    let current_filter = spreadsheet.column_filters.get(&col);
+    let option_buttons: Vec<Element<Message>> = filtered_options
+        .iter()
+        .map(|opt| {
+            let is_checked = current_filter
+                .map(|s| s.contains(&opt.value))
+                .unwrap_or(false);
+            let label = if is_checked {
+                format!("✓ {} ({})", opt.value, opt.count)
+            } else {
+                format!("  {} ({})", opt.value, opt.count)
+            };
+            button(text(label).size(11))
+                .on_press(spreadsheet_msg(
+                    SpreadsheetMessage::ToggleColumnFilterValue(col, opt.value.clone()),
+                ))
+                .width(Length::Fill)
+                .padding(6)
+                .style(if is_checked {
+                    style::selected_button
+                } else {
+                    style::browse_button
+                })
+                .into()
+        })
+        .collect();
+
+    let options_scroll = scrollable(column(option_buttons).spacing(2))
+        .height(Length::Fixed(200.0))
+        .width(Length::Fill);
+
+    // Action buttons
+    let select_all_btn = button(text("Select All").size(11))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(col)))
+        .padding([6, 12])
+        .style(style::commit_button);
+    let clear_all_btn = button(text("Clear All").size(11))
+        .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(col)))
+        .padding([6, 12])
+        .style(style::browse_button);
+
+    // Header with title and close button
+    let header = row![
+        text("Filter Column").size(14).style(style::section_header),
+        horizontal_space(),
+        button(text("✕").size(14))
+            .on_press(spreadsheet_msg(SpreadsheetMessage::CloseColumnFilterModal))
+            .padding([4, 12])
+            .style(style::filter_clear_button)
+    ]
+    .align_y(iced::Alignment::Center)
+    .spacing(8)
+    .padding([8, 12]);
+
+    // Actions row
+    let actions = row![select_all_btn, clear_all_btn]
+        .spacing(8)
+        .padding([8, 12]);
+
+    container(
+        column![
+            header,
+            horizontal_rule(1),
+            text_input("Search options...", &spreadsheet.column_filter_search)
+                .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::ColumnFilterSearch(q)))
+                .padding(8)
+                .width(Length::Fill)
+                .style(style::spreadsheet_filter_input),
+            options_scroll,
+            horizontal_rule(1),
+            actions,
+        ]
+        .spacing(4),
+    )
+    .width(Length::Fixed(240.0))
+    .style(style::modal_container)
+    .into()
+}
+
 #[derive(Debug, Clone)]
 pub enum SpreadsheetMessage {
     ToggleActive,
@@ -966,6 +1061,8 @@ pub enum SpreadsheetMessage {
     SelectAllColumnFilter(usize),
     /// Clear all selected values in column filter.
     ClearAllColumnFilter(usize),
+    /// Close the column filter modal.
+    CloseColumnFilterModal,
 }
 
 /// Allocation-free case-insensitive substring search for pure-ASCII content.
@@ -1013,9 +1110,41 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
 
     let catalog = editor.catalog.as_ref();
 
-    let Some(ref pane_state) = spreadsheet.pane_state else {
+    // Build the main content
+    let main_content = if let Some(ref pane_state) = spreadsheet.pane_state {
+        let pane_grid = pane_grid::PaneGrid::new(pane_state, |_id, pane_content, _is_maximized| {
+            let content: Element<Message> = match pane_content {
+                SpreadsheetPaneContent::Table => {
+                    build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg)
+                }
+                SpreadsheetPaneContent::Inspector => build_inspector_panel(
+                    editor,
+                    spreadsheet,
+                    lookups,
+                    field_changed_msg,
+                    spreadsheet_msg,
+                ),
+            };
+            pane_grid::Content::new(content)
+        })
+        .on_click(pane_clicked_msg)
+        .on_resize(4, pane_resized_msg)
+        .height(Length::Fill)
+        .width(Length::Fill);
+
+        column![
+            horizontal_rule(1),
+            filter_bar,
+            horizontal_rule(1),
+            pane_grid,
+            status_row,
+        ]
+        .spacing(0)
+        .height(Fill)
+        .into()
+    } else {
         let table = build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg);
-        return column![
+        column![
             horizontal_rule(1),
             filter_bar,
             horizontal_rule(1),
@@ -1024,39 +1153,21 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         ]
         .spacing(0)
         .height(Fill)
-        .into();
+        .into()
     };
 
-    let pane_grid = pane_grid::PaneGrid::new(pane_state, |_id, pane_content, _is_maximized| {
-        let content: Element<Message> = match pane_content {
-            SpreadsheetPaneContent::Table => {
-                build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg)
-            }
-            SpreadsheetPaneContent::Inspector => build_inspector_panel(
-                editor,
-                spreadsheet,
-                lookups,
-                field_changed_msg,
-                spreadsheet_msg,
-            ),
-        };
-        pane_grid::Content::new(content)
-    })
-    .on_click(pane_clicked_msg)
-    .on_resize(4, pane_resized_msg)
-    .height(Length::Fill)
-    .width(Length::Fill);
-
-    column![
-        horizontal_rule(1),
-        filter_bar,
-        horizontal_rule(1),
-        pane_grid,
-        status_row,
-    ]
-    .spacing(0)
-    .height(Fill)
-    .into()
+    // Wrap with modal if column filter is active
+    if let Some(col) = spreadsheet.active_column_filter {
+        let modal_content = build_column_filter_modal(col, spreadsheet, spreadsheet_msg);
+        modal::modal(
+            main_content,
+            modal_content,
+            move || spreadsheet_msg(SpreadsheetMessage::CloseColumnFilterModal),
+            0.5,
+        )
+    } else {
+        main_content
+    }
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1154,94 +1265,11 @@ fn build_filter_bar<'a, R: EditableRecord>(
         }
     };
 
-    // Column quick-filter with search and multi-select (visible only when a column filter menu is open).
-    let col_filter_area: Element<Message> = if let Some(col) = spreadsheet.active_column_filter {
-        // Search input
-        let search_input = text_input("Search...", &spreadsheet.column_filter_search)
-            .on_input(move |q| spreadsheet_msg(SpreadsheetMessage::ColumnFilterSearch(q)))
-            .padding(4)
-            .width(Length::Fixed(140.0))
-            .style(style::spreadsheet_filter_input);
-
-        // Filter options based on search
-        let search_lower = spreadsheet.column_filter_search.to_lowercase();
-        let filtered_options: Vec<_> = spreadsheet
-            .column_filter_options
-            .iter()
-            .filter(|opt| opt.value.to_lowercase().contains(&search_lower))
-            .collect();
-
-        // Build list of checkboxes with counts
-        let current_filter = spreadsheet.column_filters.get(&col);
-        let option_list: Vec<Element<Message>> = filtered_options
-            .iter()
-            .map(|opt| {
-                let is_checked = current_filter
-                    .map(|s| s.contains(&opt.value))
-                    .unwrap_or(false);
-                let label = if is_checked {
-                    format!("✓ {} ({})", opt.value, opt.count)
-                } else {
-                    format!("  {} ({})", opt.value, opt.count)
-                };
-                button(text(label).size(10))
-                    .on_press(spreadsheet_msg(
-                        SpreadsheetMessage::ToggleColumnFilterValue(col, opt.value.clone()),
-                    ))
-                    .width(Length::Fill)
-                    .style(if is_checked {
-                        style::browse_button
-                    } else {
-                        style::browse_button
-                    })
-                    .into()
-            })
-            .collect();
-
-        let scroll = scrollable(column(option_list).spacing(2))
-            .height(Length::Fixed(150.0))
-            .width(Length::Fixed(180.0));
-
-        // Select All / Clear All buttons
-        let select_all_btn = button(text("All").size(10))
-            .on_press(spreadsheet_msg(SpreadsheetMessage::SelectAllColumnFilter(
-                col,
-            )))
-            .style(style::browse_button);
-        let clear_all_btn = button(text("None").size(10))
-            .on_press(spreadsheet_msg(SpreadsheetMessage::ClearAllColumnFilter(
-                col,
-            )))
-            .style(style::browse_button);
-        let close_btn = button(text("✕").size(11))
-            .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
-            .style(style::browse_button);
-
-        let controls = row![select_all_btn, clear_all_btn, close_btn].spacing(4);
-
-        container(
-            column![
-                row![
-                    text("Filter:").size(11).style(style::subtle_text),
-                    search_input,
-                ],
-                scroll,
-                controls,
-            ]
-            .spacing(4),
-        )
-        .style(style::status_bar)
-        .into()
-    } else {
-        horizontal_space().width(Length::Fixed(0.0)).into()
-    };
-
     row![
         text("Filter:").size(12).style(style::subtle_text),
         mode_toggle,
         filter_input,
         clear_btn,
-        col_filter_area,
         horizontal_space(),
         status_area,
         horizontal_space().width(12),
