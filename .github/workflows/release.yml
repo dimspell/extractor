@@ -53,19 +53,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - build: win-msvc
-            os: windows-latest
-            rust: nightly
-            target: x86_64-pc-windows-msvc
-          - build: gui-windows
+          - build: cli-windows
+            app: cli
             os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
-          - build: gui-linux
+          - build: gui-windows
+            app: gui
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+          - build: cli-linux
+            app: cli
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-gnu
-          - build: macos-arm
+          - build: gui-linux
+            app: gui
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+          - build: gui-macos-arm
+            app: gui
             os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
@@ -93,20 +102,27 @@ jobs:
           echo "target flag is: ${{ env.TARGET_FLAGS }}"
           echo "target dir is: ${{ env.TARGET_DIR }}"
 
-      - name: Build release binary
+      - name: Build release binary (GUI)
         shell: bash
+        if: matrix.app == 'gui'
         run: |
-          if [ "${{ matrix.build }}" = "gui-windows" ]; then
-            cd dispel-gui
-            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget --package dispel-gui --bin dispel-gui
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
             bin="target/${{ matrix.target }}/release/dispel-gui.exe"
           else
-            ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }}
-            if [ "${{ matrix.os }}" = "windows-latest" ]; then
-              bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
-            else
-              bin="target/${{ matrix.target }}/release/dispel-extractor"
-            fi
+            bin="target/${{ matrix.target }}/release/dispel-gui"
+          fi
+          echo "BIN=$bin" >> $GITHUB_ENV
+
+      - name: Build release binary (CLI)
+        shell: bash
+        if: matrix.app == 'cli'
+        run: |
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget --bin dispel-extractor
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
+          else
+            bin="target/${{ matrix.target }}/release/dispel-extractor"
           fi
           echo "BIN=$bin" >> $GITHUB_ENV
 
