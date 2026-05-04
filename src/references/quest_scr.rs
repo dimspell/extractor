@@ -6,7 +6,7 @@ use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
-
+use dispel_macros::Localizable;
 // ===========================================================================
 // QUEST.SCR FILE FORMAT
 // ===========================================================================
@@ -63,15 +63,17 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Localizable)]
 pub struct Quest {
     /// Quest table database pointer index.
     pub id: i32,
     /// Grouping context enum (0=Main, 1=Side, 2=Traders).
     pub type_id: i32, // 0=main, 1=side, 2=traders
     /// Journal summary topic literal.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub title: Option<String>,
     /// Journal paragraph body text literal.
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub description: Option<String>,
 }
 
