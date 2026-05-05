@@ -6,6 +6,7 @@ pub mod auto_save;
 pub mod components;
 pub mod db;
 pub mod edit_history;
+pub mod editors;
 pub mod file_index_cache;
 pub mod generic_editor;
 pub mod global_search;
