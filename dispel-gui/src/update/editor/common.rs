@@ -57,10 +57,6 @@ macro_rules! handle_spreadsheet_messages {
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         $app.state.$spreadsheet.record_target_offset(x, y);
-                        return iced::widget::operation::scroll_to(
-                            $app.state.$spreadsheet.body_scroll_id.clone(),
-                            iced::widget::scrollable::AbsoluteOffset { x, y },
-                        );
                     }
                 }
             }
@@ -78,10 +74,6 @@ macro_rules! handle_spreadsheet_messages {
                         let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                         let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                         $app.state.$spreadsheet.record_target_offset(x, y);
-                        return iced::widget::operation::scroll_to(
-                            $app.state.$spreadsheet.body_scroll_id.clone(),
-                            iced::widget::scrollable::AbsoluteOffset { x, y },
-                        );
                     }
                 }
             }
@@ -96,10 +88,6 @@ macro_rules! handle_spreadsheet_messages {
                     let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, y);
-                    return iced::widget::operation::scroll_to(
-                        $app.state.$spreadsheet.body_scroll_id.clone(),
-                        iced::widget::scrollable::AbsoluteOffset { x, y },
-                    );
                 }
             }
             SM::NavigateDown => {
@@ -113,10 +101,6 @@ macro_rules! handle_spreadsheet_messages {
                     let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, y);
-                    return iced::widget::operation::scroll_to(
-                        $app.state.$spreadsheet.body_scroll_id.clone(),
-                        iced::widget::scrollable::AbsoluteOffset { x, y },
-                    );
                 }
             }
             SM::NavigateTop => {
@@ -129,10 +113,6 @@ macro_rules! handle_spreadsheet_messages {
                     }
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, 0.0);
-                    return iced::widget::operation::scroll_to(
-                        $app.state.$spreadsheet.body_scroll_id.clone(),
-                        iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
-                    );
                 }
             }
             SM::NavigateBottom => {
@@ -146,10 +126,6 @@ macro_rules! handle_spreadsheet_messages {
                     let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
                     let x = $app.state.$spreadsheet.horizontal_scroll_offset;
                     $app.state.$spreadsheet.record_target_offset(x, y);
-                    return iced::widget::operation::scroll_to(
-                        $app.state.$spreadsheet.body_scroll_id.clone(),
-                        iced::widget::scrollable::AbsoluteOffset { x, y },
-                    );
                 }
             }
             SM::SelectRow(filtered_idx) => {
@@ -256,24 +232,9 @@ macro_rules! handle_spreadsheet_messages {
                 }
             },
             SM::BodyScrolled(offset, viewport_height) => {
-                use std::time::Instant;
-                let now = Instant::now();
-                let min_interval = std::time::Duration::from_millis(16);
-                if let Some(last) = $app.state.$spreadsheet.last_scroll_update {
-                    if now.duration_since(last) < min_interval {
-                        return iced::Task::none();
-                    }
-                }
                 $app.state
                     .$spreadsheet
                     .record_scroll(offset.x, offset.y, viewport_height);
-                return iced::widget::operation::scroll_to(
-                    $app.state.$spreadsheet.header_scroll_id.clone(),
-                    iced::widget::scrollable::AbsoluteOffset {
-                        x: offset.x,
-                        y: 0.0,
-                    },
-                );
             }
             SM::StartResizeColumn(col) => {
                 if $app.state.$spreadsheet.try_begin_column_resize(col) {
@@ -443,10 +404,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     ss.record_target_offset(x, y);
-                                    return iced::widget::operation::scroll_to(
-                                        ss.body_scroll_id.clone(),
-                                        iced::widget::scrollable::AbsoluteOffset { x, y },
-                                    );
                                 }
                             }
                         }
@@ -460,10 +417,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                     let y = ss.scroll_y_for_row(fidx);
                                     let x = ss.horizontal_scroll_offset;
                                     ss.record_target_offset(x, y);
-                                    return iced::widget::operation::scroll_to(
-                                        ss.body_scroll_id.clone(),
-                                        iced::widget::scrollable::AbsoluteOffset { x, y },
-                                    );
                                 }
                             }
                         }
@@ -476,10 +429,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 let y = ss.ensure_row_visible_y(fidx);
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, y);
-                                return iced::widget::operation::scroll_to(
-                                    ss.body_scroll_id.clone(),
-                                    iced::widget::scrollable::AbsoluteOffset { x, y },
-                                );
                             }
                         }
                         SM::NavigateDown => {
@@ -491,20 +440,12 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 let y = ss.ensure_row_visible_y(fidx);
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, y);
-                                return iced::widget::operation::scroll_to(
-                                    ss.body_scroll_id.clone(),
-                                    iced::widget::scrollable::AbsoluteOffset { x, y },
-                                );
                             }
                         }
                         SM::NavigateTop => {
-                            if let Some(_fidx) = ss.navigate_top() {
+                            if ss.navigate_top().is_some() {
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, 0.0);
-                                return iced::widget::operation::scroll_to(
-                                    ss.body_scroll_id.clone(),
-                                    iced::widget::scrollable::AbsoluteOffset { x, y: 0.0 },
-                                );
                             }
                         }
                         SM::NavigateBottom => {
@@ -512,10 +453,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 let y = ss.scroll_y_for_row(fidx);
                                 let x = ss.horizontal_scroll_offset;
                                 ss.record_target_offset(x, y);
-                                return iced::widget::operation::scroll_to(
-                                    ss.body_scroll_id.clone(),
-                                    iced::widget::scrollable::AbsoluteOffset { x, y },
-                                );
                             }
                         }
                         SM::SelectRow(filtered_idx) => {
@@ -609,22 +546,7 @@ macro_rules! handle_spreadsheet_messages_tab {
                             }
                         },
                         SM::BodyScrolled(offset, viewport_height) => {
-                            use std::time::Instant;
-                            let now = Instant::now();
-                            let min_interval = std::time::Duration::from_millis(16);
-                            if let Some(last) = ss.last_scroll_update {
-                                if now.duration_since(last) < min_interval {
-                                    return iced::Task::none();
-                                }
-                            }
                             ss.record_scroll(offset.x, offset.y, viewport_height);
-                            return iced::widget::operation::scroll_to(
-                                ss.header_scroll_id.clone(),
-                                iced::widget::scrollable::AbsoluteOffset {
-                                    x: offset.x,
-                                    y: 0.0,
-                                },
-                            );
                         }
                         SM::StartResizeColumn(col) => {
                             if ss.try_begin_column_resize(col) {

@@ -5,7 +5,7 @@
 //! to back `build_table_content` with a single widget that owns viewport
 //! state and draws cells directly. Only rows that intersect the visible
 //! bounds are shaped; everything else is skipped. Reuses [`ParagraphCache`]
-//! from `cached_text` so the shaped paragraphs survive viewport changes.
+//! from `paragraph_cache` so the shaped paragraphs survive viewport changes.
 //!
 //! ## Data layout
 //!

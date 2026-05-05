@@ -1,6 +1,6 @@
 use super::types::{Axis, HeaderRegion, RowFlags, ScrollbarDrag, State, TableColumn};
 use super::{FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH, SCROLLBAR_THICKNESS};
-use crate::view::editor::cached_text::ParagraphCache;
+use crate::view::editor::paragraph_cache::ParagraphCache;
 use iced::advanced::Shell;
 use iced::{Font, Length, Point, Rectangle, Size, Vector};
 

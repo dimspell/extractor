@@ -4,7 +4,7 @@ use super::{
     DOUBLE_CLICK_MS, FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH,
     SCROLLBAR_THICKNESS,
 };
-use crate::view::editor::cached_text::{ParagraphCache, ParagraphKey};
+use crate::view::editor::paragraph_cache::{ParagraphCache, ParagraphKey};
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;

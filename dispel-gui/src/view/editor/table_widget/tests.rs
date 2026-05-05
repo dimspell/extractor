@@ -1,6 +1,6 @@
 use super::types::State;
 use super::*;
-use crate::view::editor::cached_text::ParagraphCache;
+use crate::view::editor::paragraph_cache::ParagraphCache;
 use crate::view::editor::table_widget::style::cell_text_color;
 use iced::{color, Size, Vector};
 
