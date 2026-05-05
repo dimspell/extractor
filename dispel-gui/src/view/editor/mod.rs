@@ -1,6 +1,5 @@
 pub mod cached_text;
 pub mod spreadsheet;
-#[cfg(feature = "table_widget")]
 pub mod table_widget;
 
 pub use cached_text::{cached_text, ParagraphCache};

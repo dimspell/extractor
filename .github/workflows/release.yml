@@ -116,7 +116,7 @@ jobs:
         shell: bash
         if: matrix.app == 'gui'
         run: |
-          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --features table_widget --package dispel-gui --bin dispel-gui
+          ${{ env.CARGO }} build --verbose --release ${{ env.TARGET_FLAGS }} --package dispel-gui --bin dispel-gui
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             bin="target/${{ matrix.target }}/release/dispel-gui.exe"
           else
@@ -135,7 +135,7 @@ jobs:
             bin="target/${{ matrix.target }}/release/dispel-extractor.exe"
           else
             bin="target/${{ matrix.target }}/release/dispel-extractor"
-          fi          
+          fi
           version="${{ needs.create-release.outputs.version }}"
           echo "ARCHIVE=${{ matrix.build }}-$version" >> $GITHUB_ENV
           echo "BIN=$bin" >> $GITHUB_ENV

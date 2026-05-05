@@ -1,14 +1,11 @@
 //! Custom virtualised table widget — Approach B from
 //! `docs/spreadsheet_scroll_perf.md`.
 //!
-//! Replaces the `column(of lazy(of button(of row(of cells))))` tree in
-//! `build_table_content` with a single widget that owns viewport state and
-//! draws cells directly. Only rows that intersect the visible bounds are
-//! shaped; everything else is skipped. Reuses [`ParagraphCache`] from
-//! `cached_text` so the shaped paragraphs survive viewport changes.
-//!
-//! Lives behind the `table_widget` cargo feature so the existing lazy/column
-//! path remains the default until step 8 deletes it.
+//! Replaces the `column(of lazy(of button(of row(of cells))))` tree that used
+//! to back `build_table_content` with a single widget that owns viewport
+//! state and draws cells directly. Only rows that intersect the visible
+//! bounds are shaped; everything else is skipped. Reuses [`ParagraphCache`]
+//! from `cached_text` so the shaped paragraphs survive viewport changes.
 //!
 //! ## Data layout
 //!

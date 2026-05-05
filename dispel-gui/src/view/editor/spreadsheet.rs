@@ -19,18 +19,12 @@ use crate::generic_editor::GenericEditorState;
 use crate::message::{Message, SystemMessage};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
-#[cfg(not(feature = "table_widget"))]
-use crate::view::editor::cached_text::cached_text;
 use crate::view::editor::cached_text::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
-#[cfg(not(feature = "table_widget"))]
-use iced::widget::scrollable::Direction as ScrollDir;
 use iced::widget::text_editor;
 use iced::widget::{
     button, column, container, pick_list, progress_bar, row, scrollable, text, text_input, Column,
 };
-#[cfg(not(feature = "table_widget"))]
-use iced::Font;
 use iced::{Element, Fill, Length};
 use std::collections::HashMap;
 
@@ -47,23 +41,13 @@ const OVERSCAN_ROWS_MAX: usize = 512;
 /// `1` means "1 second of look-ahead at the current velocity"; lower numbers
 /// scale up faster.
 const OVERSCAN_VELOCITY_DIVISOR: f32 = 2.0;
-/// The virtual window boundary only shifts when `first_row` crosses a multiple
-/// of this value.  Snapping prevents a widget-tree rebuild (and costly
-/// cosmic-text Korean glyph layout) on every single scroll pixel.
-#[cfg(not(feature = "table_widget"))]
-const WINDOW_STEP: usize = 64;
 const ID_COL_WIDTH_PX: f32 = 42.0;
-#[cfg(not(feature = "table_widget"))]
-const ID_COL_WIDTH: Length = Length::Fixed(ID_COL_WIDTH_PX);
 /// Default pixel width for each data column; overridden per-column via
 /// `SpreadsheetState::column_widths`. Using a fixed width (rather than
 /// FillPortion) lets the table overflow its container and become scrollable.
 const COL_WIDTH: f32 = 140.0;
 const COL_WIDTH_MIN: f32 = 40.0;
 const COL_WIDTH_MAX: f32 = 600.0;
-/// Pixel width of the draggable separator between column headers.
-#[cfg(not(feature = "table_widget"))]
-const RESIZE_HANDLE_WIDTH: f32 = 5.0;
 
 /// How a global (filter-bar) query affects the row listing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -642,13 +626,9 @@ impl SpreadsheetState {
         }
     }
 
-    /// Record a programmatic scroll target. Under the lazy/scrollable path
-    /// this is redundant — the scrollable will emit `BodyScrolled` once it
-    /// applies the operation, which calls `record_scroll` with the same
-    /// values. Under the `table_widget` path, however, the custom widget
-    /// reads these fields on its next layout to snap its internal offset,
-    /// so this mutation is the *only* way programmatic navigation moves the
-    /// viewport.
+    /// Record a programmatic scroll target. The custom `TableWidget` reads
+    /// these fields on its next layout to snap its internal offset, so this
+    /// mutation is the only way programmatic navigation moves the viewport.
     pub fn record_target_offset(&mut self, x: f32, y: f32) {
         self.horizontal_scroll_offset = x;
         self.vertical_scroll_offset = y;
@@ -1361,228 +1341,10 @@ fn build_table_content<'a, R: EditableRecord>(
         .into();
     };
 
-    // Total content width — the header and body scrollables both stretch to
-    // this, which keeps column boundaries aligned between them.
-    let total_width = spreadsheet.total_table_width(descriptors.len());
-
-    let current_highlight_orig = spreadsheet.current_highlight_orig_idx();
-    let is_highlight_mode = spreadsheet.filter_mode == GlobalFilterMode::Highlight;
-
-    // Approach B: custom virtualised table widget. Behind a feature flag for
-    // A/B comparison until we delete the lazy/column path.
-    #[cfg(feature = "table_widget")]
-    {
-        let _ = (
-            current_highlight_orig,
-            is_highlight_mode,
-            catalog,
-            total_width,
-        );
-        return build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg);
-    }
-
-    #[cfg(not(feature = "table_widget"))]
-    {
-        let header_row = build_header_row(descriptors, spreadsheet, spreadsheet_msg);
-        build_table_content_lazy(
-            descriptors,
-            catalog,
-            header_row,
-            total_width,
-            spreadsheet,
-            current_highlight_orig,
-            is_highlight_mode,
-            spreadsheet_msg,
-        )
-    }
+    let _ = catalog;
+    build_table_content_widget(descriptors, spreadsheet, spreadsheet_msg)
 }
 
-#[cfg(not(feature = "table_widget"))]
-fn build_table_content_lazy<'a, R: EditableRecord>(
-    descriptors: &'a [FieldDescriptor],
-    catalog: &'a Vec<R>,
-    header_row: Element<'a, Message>,
-    total_width: f32,
-    spreadsheet: &'a SpreadsheetState,
-    current_highlight_orig: Option<usize>,
-    is_highlight_mode: bool,
-    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
-) -> Element<'a, Message> {
-    let total_visible = spreadsheet.filtered_indices.len();
-
-    // Virtual-scroll window: only render rows that are in (or near) the viewport.
-    // Snap first_row to WINDOW_STEP multiples so the widget tree only rebuilds
-    // every WINDOW_STEP rows of scroll rather than on every scroll pixel —
-    // this keeps cosmic-text Korean layout from blocking the scroll thread.
-    let overscan_rows = spreadsheet.overscan_rows();
-    let raw_first =
-        ((spreadsheet.vertical_scroll_offset / ROW_HEIGHT) as usize).saturating_sub(overscan_rows);
-    let first_row = (raw_first / WINDOW_STEP) * WINDOW_STEP;
-    let last_row = (((spreadsheet.vertical_scroll_offset + spreadsheet.viewport_height)
-        / ROW_HEIGHT) as usize
-        + overscan_rows
-        + WINDOW_STEP)
-        .min(total_visible);
-
-    // Top spacer fills the height of all rows above the render window so the
-    // scrollbar thumb and total content height stay correct.
-    let top_spacer_height = first_row as f32 * ROW_HEIGHT;
-    // Bottom spacer fills the rows below the render window.
-    let bottom_spacer_height = (total_visible.saturating_sub(last_row)) as f32 * ROW_HEIGHT;
-
-    let render_count = last_row.saturating_sub(first_row);
-    let mut data_rows: Vec<Element<Message>> = Vec::with_capacity(render_count + 2);
-
-    if top_spacer_height > 0.0 {
-        data_rows.push(
-            iced::widget::Space::new()
-                .width(Length::Fill)
-                .height(Length::Fixed(top_spacer_height))
-                .into(),
-        );
-    }
-
-    let col_widths: Vec<f32> = (0..descriptors.len())
-        .map(|c| spreadsheet.column_width(c))
-        .collect();
-    let col_widths_static = col_widths.clone();
-
-    for (filtered_idx, &orig_idx) in spreadsheet
-        .filtered_indices
-        .iter()
-        .enumerate()
-        .skip(first_row)
-        .take(render_count)
-    {
-        if catalog.get(orig_idx).is_none() {
-            continue;
-        }
-        let is_selected = spreadsheet.selected_orig == Some(orig_idx);
-        let is_highlighted =
-            is_highlight_mode && spreadsheet.highlighted_indices.contains(&orig_idx);
-        let is_current_highlight = Some(orig_idx) == current_highlight_orig;
-
-        if !spreadsheet.display_cache.is_empty() {
-            // Key: orig_idx (stable identity), is_selected/is_highlighted/current (change on user action),
-            // row_hash (changes on data edit), col_widths_gen (changes on resize)
-            let row_key = (
-                orig_idx,
-                is_selected as u8,
-                is_highlighted as u8,
-                is_current_highlight as u8,
-                spreadsheet.row_hash(orig_idx),
-                spreadsheet.col_widths_gen,
-            );
-            let col_widths_row = col_widths_static.clone();
-            let row_values: Vec<String> = spreadsheet
-                .display_cache
-                .get(orig_idx)
-                .cloned()
-                .unwrap_or_default();
-            let para_cache = spreadsheet.paragraph_cache.clone();
-
-            data_rows.push(
-                iced::widget::lazy(row_key, move |_| -> Element<'static, Message> {
-                    let row_style = style::spreadsheet_row(
-                        is_selected,
-                        filtered_idx,
-                        is_highlighted,
-                        is_current_highlight,
-                    );
-                    let id_cell = container(
-                        text(format!("{}", orig_idx + 1))
-                            .size(10)
-                            .font(Font::MONOSPACE),
-                    )
-                    .width(ID_COL_WIDTH)
-                    .padding([0, 6])
-                    .height(ROW_HEIGHT)
-                    .align_y(iced::Alignment::Center)
-                    .style(if is_selected || is_current_highlight {
-                        style::spreadsheet_id_cell_selected
-                    } else {
-                        style::spreadsheet_id_cell
-                    })
-                    .into();
-
-                    let mut cells: Vec<_> = vec![id_cell];
-                    cells.reserve(col_widths_row.len());
-                    for (col, col_width) in col_widths_row.iter().enumerate() {
-                        let raw = row_values.get(col).map(String::as_str).unwrap_or("");
-                        let display = truncate_for_width(raw, *col_width);
-                        cells.push(flattened_cell(display, *col_width, para_cache.clone()));
-                    }
-
-                    button(row(cells).spacing(0))
-                        .on_press(spreadsheet_msg(SpreadsheetMessage::SelectRow(filtered_idx)))
-                        .padding(0)
-                        .style(row_style)
-                        .into()
-                })
-                .into(),
-            );
-        }
-    }
-
-    if bottom_spacer_height > 0.0 {
-        data_rows.push(
-            iced::widget::Space::new()
-                .width(Length::Fill)
-                .height(Length::Fixed(bottom_spacer_height))
-                .into(),
-        );
-    }
-
-    // ── Sticky header ─────────────────────────────────────────────────────
-    // The header lives in its own horizontal scrollable whose scrollbar is
-    // hidden; a body `on_scroll` handler mirrors the body's horizontal
-    // offset onto this scrollable, which keeps columns aligned while the
-    // user scrolls the table.
-    let header_scroll = scrollable(container(header_row).width(Length::Fixed(total_width)))
-        .id(spreadsheet.header_scroll_id.clone())
-        .direction(ScrollDir::Horizontal(
-            iced::widget::scrollable::Scrollbar::new()
-                .width(0)
-                .scroller_width(0),
-        ))
-        .width(Length::Fill);
-
-    // ── Body (two-axis scroll, drives the header) ─────────────────────────
-    let body =
-        scrollable(container(column(data_rows).spacing(0)).width(Length::Fixed(total_width)))
-            .id(spreadsheet.body_scroll_id.clone())
-            .direction(ScrollDir::Both {
-                vertical: Default::default(),
-                horizontal: Default::default(),
-            })
-            .on_scroll(move |vp| {
-                spreadsheet_msg(SpreadsheetMessage::BodyScrolled(
-                    vp.absolute_offset(),
-                    vp.bounds().height,
-                ))
-            })
-            .height(Length::Fill)
-            .width(Length::Fill);
-
-    let table: Element<Message> = column![header_scroll, body].spacing(0).into();
-
-    // When a resize is in progress, wrap the entire table in a `MouseArea`.
-    // This wrapper's bounds are the whole table (fixed for the duration of
-    // the drag), so `on_move` fires on every pointer movement anywhere over
-    // the table — not just the 5px divider strip — giving the user the
-    // full viewport of travel. On release we exit drag mode.
-    if spreadsheet.resizing_column.is_some() {
-        iced::widget::mouse_area(table)
-            .on_move(move |p| spreadsheet_msg(SpreadsheetMessage::ResizeColumnCursor(p.x)))
-            .on_release(spreadsheet_msg(SpreadsheetMessage::EndResizeColumn))
-            .interaction(iced::mouse::Interaction::ResizingHorizontally)
-            .into()
-    } else {
-        table
-    }
-}
-
-#[cfg(feature = "table_widget")]
 fn build_table_content_widget<'a>(
     descriptors: &'a [FieldDescriptor],
     spreadsheet: &'a SpreadsheetState,
@@ -1666,145 +1428,6 @@ fn build_table_content_widget<'a>(
     } else {
         table
     }
-}
-
-#[cfg(not(feature = "table_widget"))]
-fn build_header_row<'a>(
-    descriptors: &'a [FieldDescriptor],
-    spreadsheet: &'a SpreadsheetState,
-    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
-) -> Element<'a, Message> {
-    let id_cell: Element<Message> = container(text("#").size(10).style(style::subtle_text))
-        .width(ID_COL_WIDTH)
-        .padding([0, 6])
-        .height(ROW_HEIGHT)
-        .align_y(iced::Alignment::Center)
-        .style(style::spreadsheet_id_cell)
-        .into();
-    let data_header = build_data_header_row(descriptors, spreadsheet, spreadsheet_msg);
-    container(row![id_cell, data_header].spacing(0))
-        .style(style::spreadsheet_header)
-        .into()
-}
-
-/// Build the column-header row *without* the leading `#` cell. The widget
-/// path renders the `#` cell as a frozen header outside the horizontal
-/// scrollable so it stays put while the data column headers scroll with
-/// the body.
-#[cfg(not(feature = "table_widget"))]
-fn build_data_header_row<'a>(
-    descriptors: &'a [FieldDescriptor],
-    spreadsheet: &'a SpreadsheetState,
-    spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
-) -> Element<'a, Message> {
-    use iced::widget::mouse_area;
-
-    let mut header_cells: Vec<Element<Message>> = Vec::with_capacity(descriptors.len());
-
-    let is_resizing = spreadsheet.resizing_column.is_some();
-
-    for (col, desc) in descriptors.iter().enumerate() {
-        let sort_indicator = match spreadsheet.sort_column {
-            Some(c) if c == col => {
-                if spreadsheet.sort_ascending {
-                    " ▲"
-                } else {
-                    " ▼"
-                }
-            }
-            _ => "",
-        };
-
-        let col_width = spreadsheet.column_width(col);
-        let has_col_filter = spreadsheet.column_filters.contains_key(&col);
-        // Reserve room for the filter badge when a filter is active (14 px).
-        let badge_width = if has_col_filter { 14.0 } else { 0.0 };
-        let label_width = (col_width - RESIZE_HANDLE_WIDTH - badge_width).max(0.0);
-
-        // ─ Filter badge: small "◼ ×" shown when a column filter is active ─
-        let filter_badge: Element<Message> = if has_col_filter {
-            button(text("◼").size(8))
-                .padding([0, 2])
-                .on_press(spreadsheet_msg(SpreadsheetMessage::ClearColumnFilter(col)))
-                .style(style::spreadsheet_header_button)
-                .into()
-        } else {
-            horizontal_space().width(Length::Fixed(0.0)).into()
-        };
-
-        // The sort+label button also doubles as the quick-filter trigger on
-        // right-click. For now, left-click sorts and a separate "▾" affordance
-        // opens the value list — added here as a tiny icon after the label.
-        let filter_btn: Element<Message> = button(text("▾").size(8))
-            .padding([0, 2])
-            .on_press(spreadsheet_msg(SpreadsheetMessage::OpenColumnFilter(col)))
-            .style(style::spreadsheet_header_button)
-            .into();
-
-        let label_cell = container(
-            row![
-                button(
-                    text(format!("{}{}", desc.label, sort_indicator))
-                        .size(10)
-                        .font(Font::MONOSPACE),
-                )
-                .on_press(spreadsheet_msg(SpreadsheetMessage::SortColumn(col)))
-                .style(style::spreadsheet_header_button)
-                .padding([0, 6])
-                .width(Length::Fill),
-                filter_btn,
-                filter_badge,
-            ]
-            .spacing(0)
-            .align_y(iced::Alignment::Center),
-        )
-        .width(Length::Fixed(label_width + badge_width))
-        .height(ROW_HEIGHT)
-        .align_y(iced::Alignment::Center);
-
-        // Thin, clickable strip at the right edge of each header cell. It
-        // captures the mouse-down (to record *which* column is being
-        // resized) and double-click-to-reset; the actual drag tracking is
-        // done by the outer `MouseArea` wrapping the whole table, so the
-        // cursor has the full viewport to roam in.
-        let _ = is_resizing;
-        let resize_handle = mouse_area(
-            container(text(""))
-                .width(Length::Fixed(RESIZE_HANDLE_WIDTH))
-                .height(ROW_HEIGHT)
-                .style(style::resize_handle),
-        )
-        .interaction(iced::mouse::Interaction::ResizingHorizontally)
-        .on_press(spreadsheet_msg(SpreadsheetMessage::StartResizeColumn(col)))
-        .on_double_click(spreadsheet_msg(SpreadsheetMessage::ResetColumnWidth(col)));
-
-        header_cells.push(row![label_cell, resize_handle].spacing(0).into());
-    }
-
-    row(header_cells).spacing(0).into()
-}
-
-/// A single cell inside a data row. Rendered as a plain `container` so that
-/// clicks bubble up to the surrounding row-level `button`, the row's
-/// background paints through, and the row's `text_color` cascades into the
-/// cell text (so selected rows show the gold accent without per-cell styling).
-///
-/// Previously each cell was its own `button`. With ~18 columns × 64 rendered
-/// rows that meant ~1150 button widgets per frame, each with its own state,
-/// hover handling, and text-shaping wrapper — the dominant per-frame cost
-/// during steady scrolling.
-#[cfg(not(feature = "table_widget"))]
-fn flattened_cell(
-    display: String,
-    col_width: f32,
-    cache: ParagraphCache,
-) -> Element<'static, Message> {
-    container(cached_text(display, cache).size(10).font(Font::MONOSPACE))
-        .padding([3, 8])
-        .width(Length::Fixed(col_width))
-        .height(ROW_HEIGHT)
-        .align_y(iced::Alignment::Center)
-        .into()
 }
 
 // ───────────────────────────────────────────────────────────────────────────
