@@ -50,7 +50,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                         format!("Party levels loaded: {} NPCs", npcs.len());
                     app.state.party_level_db_editor.status_msg =
                         format!("Loaded {} NPCs — select one to edit levels", npcs.len());
-                    app.state.party_level_db_spreadsheet =
+                    app.state.party_level_db_level_editor.spreadsheet =
                         crate::view::editor::SpreadsheetState::new();
                 }
                 Err(e) => {
@@ -81,14 +81,25 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             app.state.party_level_db_level_editor.status_msg =
                 format!("NPC {} — {} levels", npc_idx, records.len());
 
-            app.state.party_level_db_spreadsheet.apply_filter(&records);
             app.state
-                .party_level_db_spreadsheet
+                .party_level_db_level_editor
+                .spreadsheet
+                .apply_filter(&records);
+            app.state
+                .party_level_db_level_editor
+                .spreadsheet
                 .compute_all_caches(&records);
-            app.state.party_level_db_spreadsheet.init_pane_state();
-            app.state.party_level_db_spreadsheet.selected_orig = None;
             app.state
-                .party_level_db_spreadsheet
+                .party_level_db_level_editor
+                .spreadsheet
+                .init_pane_state();
+            app.state
+                .party_level_db_level_editor
+                .spreadsheet
+                .selected_orig = None;
+            app.state
+                .party_level_db_level_editor
+                .spreadsheet
                 .inspector_textarea_contents
                 .clear();
 
@@ -116,7 +127,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             if let Some(catalog) = &app.state.party_level_db_level_editor.catalog {
                 let catalog = catalog.clone();
                 app.state
-                    .party_level_db_spreadsheet
+                    .party_level_db_level_editor
+                    .spreadsheet
                     .compute_all_caches(&catalog);
             }
 
@@ -152,7 +164,6 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
         PartyLevelDbEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages!(
                 app,
-                party_level_db_spreadsheet,
                 party_level_db_level_editor,
                 |index, field, value| {
                     Message::Editor(crate::message::editor::EditorMessage::PartyLevelDb(
@@ -165,7 +176,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
         }
 
         PartyLevelDbEditorMessage::PaneResized(event) => {
-            if let Some(ref mut ps) = app.state.party_level_db_spreadsheet.pane_state {
+            if let Some(ref mut ps) = app.state.party_level_db_level_editor.spreadsheet.pane_state {
                 ps.resize(event.split, event.ratio);
             }
             Task::none()

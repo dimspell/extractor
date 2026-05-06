@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: party_ref,
     name_pascal: PartyRef,
     record: dispel_core::PartyRef,
-    state_field: party_ref_editor,
-    sheet_field: party_ref_spreadsheet,
+    field: party_ref_editor,
     file: "Ref/PartyRef.ref",
 }

@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: misc_item,
     name_pascal: MiscItem,
     record: dispel_core::MiscItem,
-    state_field: misc_item_editor,
-    sheet_field: misc_item_spreadsheet,
+    field: misc_item_editor,
     file: "CharacterInGame/MiscItem.db",
 }

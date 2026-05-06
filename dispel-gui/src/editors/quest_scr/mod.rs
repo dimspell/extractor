@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: quest_scr,
     name_pascal: QuestScr,
     record: dispel_core::Quest,
-    state_field: quest_scr_editor,
-    sheet_field: quest_scr_spreadsheet,
+    field: quest_scr_editor,
     file: "ExtraInGame/Quest.scr",
 }

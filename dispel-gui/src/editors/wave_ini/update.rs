@@ -18,7 +18,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             }
 
             app.state.wave_ini_editor.loading_state = LoadingState::Loading;
-            app.state.wave_ini_spreadsheet.is_loading = true;
+            app.state.wave_ini_editor.spreadsheet.is_loading = true;
             let path = PathBuf::from(&app.state.shared_game_path).join("Wave.ini");
 
             Task::perform(
@@ -36,16 +36,19 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                     app.state.wave_ini_editor.status_msg =
                         format!("Wave catalog loaded: {} entries", catalog.len());
 
-                    app.state.wave_ini_editor.refresh_waves();
+                    app.state.wave_ini_editor.refresh();
                     app.state.wave_ini_editor.init_pane_state();
-                    app.state.wave_ini_spreadsheet.apply_filter(&catalog);
-                    app.state.wave_ini_spreadsheet.compute_all_caches(&catalog);
-                    app.state.wave_ini_spreadsheet.is_loading = false;
+                    app.state.wave_ini_editor.spreadsheet.apply_filter(&catalog);
+                    app.state
+                        .wave_ini_editor
+                        .spreadsheet
+                        .compute_all_caches(&catalog);
+                    app.state.wave_ini_editor.spreadsheet.is_loading = false;
                 }
                 Err(e) => {
                     app.state.wave_ini_editor.status_msg =
                         format!("Error loading wave catalog: {}", e);
-                    app.state.wave_ini_spreadsheet.is_loading = false;
+                    app.state.wave_ini_editor.spreadsheet.is_loading = false;
                 }
             }
             Task::none()
@@ -68,7 +71,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             let result = app
                 .state
                 .wave_ini_editor
-                .save_waves(&app.state.shared_game_path);
+                .save(&app.state.shared_game_path, "Wave.ini");
 
             Task::perform(async { result }, |result: Result<(), String>| {
                 crate::message::Message::wave_ini(WaveIniEditorMessage::Saved(result))
@@ -89,7 +92,6 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
         WaveIniEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages!(
                 app,
-                wave_ini_spreadsheet,
                 wave_ini_editor,
                 |index, field, value| {
                     crate::message::Message::wave_ini(WaveIniEditorMessage::FieldChanged(
@@ -176,7 +178,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             if let Some(ref mut ps) = app.state.wave_ini_editor.pane_state {
                 ps.resize(event.split, event.ratio);
             }
-            if let Some(ref mut ps) = app.state.wave_ini_spreadsheet.pane_state {
+            if let Some(ref mut ps) = app.state.wave_ini_editor.spreadsheet.pane_state {
                 ps.resize(event.split, event.ratio);
             }
             Task::none()

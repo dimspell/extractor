@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: heal_item,
     name_pascal: HealItem,
     record: dispel_core::HealItem,
-    state_field: heal_item_editor,
-    sheet_field: heal_item_spreadsheet,
+    field: heal_item_editor,
     file: "CharacterInGame/healItem.db",
 }

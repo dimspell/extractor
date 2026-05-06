@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: chdata,
     name_pascal: ChData,
     record: dispel_core::ChData,
-    state_field: chdata_editor,
-    sheet_field: chdata_spreadsheet,
+    field: chdata_editor,
     file: "CharacterInGame/ChData.db",
 }

@@ -1,9 +1,8 @@
 use crate::components::editable::EditableRecord;
 use crate::components::standard::message::StandardEditorMessage;
-use crate::generic_editor::GenericEditorState;
+use crate::components::standard::state::StandardEditor;
 use crate::loading_state::LoadingState;
 use crate::message::Message;
-use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;
 use iced::Task;
 use std::path::PathBuf;
@@ -16,8 +15,7 @@ use std::path::PathBuf;
 /// `Spreadsheet` — that arm should never reach here.
 pub fn handle<T, F>(
     msg: StandardEditorMessage<T>,
-    editor: &mut GenericEditorState<T>,
-    spreadsheet: &mut SpreadsheetState,
+    bundle: &mut StandardEditor<T>,
     game_path: &str,
     file_path: &'static str,
     wrap: F,
@@ -26,6 +24,8 @@ where
     T: EditableRecord + Extractor + Clone + std::fmt::Debug + Send + 'static,
     F: Fn(StandardEditorMessage<T>) -> Message + Clone + Send + 'static,
 {
+    let editor = &mut bundle.state;
+    let spreadsheet = &mut bundle.spreadsheet;
     match msg {
         StandardEditorMessage::LoadCatalog => {
             if game_path.is_empty() {

@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: monster,
     name_pascal: Monster,
     record: dispel_core::Monster,
-    state_field: monster_editor,
-    sheet_field: monster_spreadsheet,
+    field: monster_editor,
     file: "MonsterInGame/Monster.db",
 }

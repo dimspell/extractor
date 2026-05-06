@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: draw_item,
     name_pascal: DrawItem,
     record: dispel_core::DrawItem,
-    state_field: draw_item_editor,
-    sheet_field: draw_item_spreadsheet,
+    field: draw_item_editor,
     file: "Ref/DRAWITEM.ref",
 }

@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: map_ini,
     name_pascal: MapIni,
     record: dispel_core::MapIni,
-    state_field: map_ini_editor,
-    sheet_field: map_ini_spreadsheet,
+    field: map_ini_editor,
     file: "Ref/Map.ini",
 }

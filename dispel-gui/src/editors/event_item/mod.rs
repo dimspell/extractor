@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: event_item,
     name_pascal: EventItem,
     record: dispel_core::EventItem,
-    state_field: event_item_editor,
-    sheet_field: event_item_spreadsheet,
+    field: event_item_editor,
     file: "CharacterInGame/EventItem.db",
 }

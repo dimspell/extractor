@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: magic,
     name_pascal: Magic,
     record: dispel_core::MagicSpell,
-    state_field: magic_editor,
-    sheet_field: magic_spreadsheet,
+    field: magic_editor,
     file: "MagicInGame/Magic.db",
 }

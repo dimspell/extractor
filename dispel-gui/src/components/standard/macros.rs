@@ -1,11 +1,12 @@
 /// Generates the boilerplate for a "standard" single-file catalog editor.
 ///
-/// A standard editor is one whose state is `GenericEditorState<T>` and whose
-/// message is `StandardEditorMessage<T>` — i.e. the data lives in one file,
-/// rendered in a spreadsheet, with no per-tab multiplicity.
+/// A standard editor is one whose state is `StandardEditor<T>` (which bundles
+/// `GenericEditorState<T>` + `SpreadsheetState`) and whose message is
+/// `StandardEditorMessage<T>` — i.e. the data lives in one file, rendered in a
+/// spreadsheet, with no per-tab multiplicity.
 ///
 /// Generates:
-/// - `pub type {Name}EditorState = GenericEditorState<T>`
+/// - `pub type {Name}EditorState = StandardEditor<T>`
 /// - `pub type {Name}EditorMessage = StandardEditorMessage<T>`
 /// - `pub fn handle(msg, app) -> Task<Message>`
 /// - `pub fn view(app) -> Element<Message>`
@@ -13,7 +14,7 @@
 /// The caller still needs to:
 /// - Define `component.rs` with the `EditableRecord` impl for `T`
 /// - Add the `EditorMessage::{Variant}` arm + `MessageExt::{name}` shortcut
-/// - Add the `{name}_editor` and `{name}_spreadsheet` fields to `AppState`
+/// - Add the `{field}` field to `AppState` with type `Box<{Name}EditorState>`
 /// - Wire the dispatch in `update/editor/mod.rs` and `view/mod.rs`
 ///
 /// # Example
@@ -22,8 +23,7 @@
 ///     name: weapon,
 ///     name_pascal: Weapon,
 ///     record: dispel_core::WeaponItem,
-///     state_field: weapon_editor,
-///     sheet_field: weapon_spreadsheet,
+///     field: weapon_editor,
 ///     file: "CharacterInGame/weaponItem.db",
 /// }
 /// ```
@@ -33,13 +33,12 @@ macro_rules! define_standard_editor {
         name: $name:ident,
         name_pascal: $Name:ident,
         record: $Record:path,
-        state_field: $state_field:ident,
-        sheet_field: $sheet_field:ident,
+        field: $field:ident,
         file: $file:expr $(,)?
     ) => {
         ::paste::paste! {
             pub type [<$Name EditorState>] =
-                $crate::generic_editor::GenericEditorState<$Record>;
+                $crate::components::standard::state::StandardEditor<$Record>;
 
             pub type [<$Name EditorMessage>] =
                 $crate::components::standard::message::StandardEditorMessage<$Record>;
@@ -53,8 +52,7 @@ macro_rules! define_standard_editor {
                     [<$Name EditorMessage>]::Spreadsheet(sm) => {
                         $crate::handle_spreadsheet_messages!(
                             app,
-                            $sheet_field,
-                            $state_field,
+                            $field,
                             |index, field, value| $crate::message::Message::$name(
                                 [<$Name EditorMessage>]::FieldChanged(index, field, value)
                             ),
@@ -64,8 +62,7 @@ macro_rules! define_standard_editor {
                     }
                     msg => $crate::components::standard::update::handle(
                         msg,
-                        &mut app.state.$state_field,
-                        &mut app.state.$sheet_field,
+                        &mut app.state.$field,
                         &app.state.shared_game_path.clone(),
                         $file,
                         $crate::message::Message::$name,
@@ -76,8 +73,8 @@ macro_rules! define_standard_editor {
             pub fn view(app: &$crate::app::App) -> ::iced::Element<'_, $crate::message::Message> {
                 use $crate::message::MessageExt;
                 $crate::view::editor::view_spreadsheet(
-                    &app.state.$state_field,
-                    &app.state.$sheet_field,
+                    &app.state.$field.state,
+                    &app.state.$field.spreadsheet,
                     $crate::message::Message::$name([<$Name EditorMessage>]::LoadCatalog),
                     $crate::message::Message::$name([<$Name EditorMessage>]::Save),
                     |idx| $crate::message::Message::$name([<$Name EditorMessage>]::Select(idx)),
