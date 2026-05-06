@@ -18,6 +18,7 @@ pub mod patchers;
 pub mod registry;
 pub mod value;
 pub mod vanilla;
+pub mod workspace;
 
 pub use apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
 pub use change::{BlobKind, ChangeAction, ChangeOp};
@@ -29,3 +30,4 @@ pub use patcher::RecordPatcher;
 pub use registry::PatcherRegistry;
 pub use value::Value;
 pub use vanilla::VanillaStore;
+pub use workspace::{InstalledMod, Workspace};

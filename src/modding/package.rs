@@ -13,7 +13,9 @@
 //! The `patches/` and `files/` directories only appear when relevant actions
 //! are present. Field-only mods produce a two-file zip.
 
+use std::fs;
 use std::io::{Read, Seek, Write};
+use std::path::Path;
 
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipArchive, ZipWriter};
@@ -113,6 +115,94 @@ pub fn read_zip<R: Read + Seek>(source: R) -> Result<ModPackage> {
 
 fn blob_entry_name(kind: BlobKind, action: &ChangeAction) -> String {
     format!("{}/{}.bin", kind.dir_name(), action.id)
+}
+
+/// Write a mod package as a directory mirroring the zip layout.
+///
+/// Used by [`Workspace`](super::workspace::Workspace) for the live, editable
+/// copy of each installed mod. The `dir` is created if missing; existing
+/// `manifest.json`, `changes.json`, `patches/`, and `files/` entries are
+/// overwritten (other files in `dir` are left alone).
+pub fn write_dir(dir: &Path, package: &ModPackage) -> Result<()> {
+    fs::create_dir_all(dir)?;
+
+    let manifest_path = dir.join(MANIFEST_ENTRY);
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&package.manifest)?,
+    )?;
+
+    let changes_path = dir.join(CHANGES_ENTRY);
+    fs::write(
+        &changes_path,
+        serde_json::to_vec_pretty(package.changes.actions())?,
+    )?;
+
+    // Wipe any stale blob dirs first so removed actions don't leave orphans.
+    for sub in ["patches", "files"] {
+        let p = dir.join(sub);
+        if p.is_dir() {
+            fs::remove_dir_all(&p)?;
+        }
+    }
+
+    for action in package.changes.actions() {
+        if let Some((kind, bytes)) = action.op.out_of_line_bytes() {
+            let blob_dir = dir.join(kind.dir_name());
+            fs::create_dir_all(&blob_dir)?;
+            let path = blob_dir.join(format!("{}.bin", action.id));
+            fs::write(&path, bytes)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Read a mod package from a directory written by [`write_dir`].
+pub fn read_dir(dir: &Path) -> Result<ModPackage> {
+    if !dir.is_dir() {
+        return Err(ModdingError::Malformed(format!(
+            "not a directory: {}",
+            dir.display()
+        )));
+    }
+
+    let manifest_path = dir.join(MANIFEST_ENTRY);
+    if !manifest_path.is_file() {
+        return Err(ModdingError::MissingEntry(MANIFEST_ENTRY.into()));
+    }
+    let manifest: ModManifest = serde_json::from_slice(&fs::read(&manifest_path)?)?;
+    if manifest.manifest_version > MANIFEST_VERSION {
+        return Err(ModdingError::UnsupportedManifestVersion(
+            manifest.manifest_version,
+        ));
+    }
+
+    let changes_path = dir.join(CHANGES_ENTRY);
+    let mut actions: Vec<ChangeAction> = if changes_path.is_file() {
+        serde_json::from_slice(&fs::read(&changes_path)?)?
+    } else {
+        Vec::new()
+    };
+
+    for action in actions.iter_mut() {
+        let Some((kind, _)) = action.op.out_of_line_bytes() else {
+            continue;
+        };
+        let blob_path = dir
+            .join(kind.dir_name())
+            .join(format!("{}.bin", action.id));
+        if !blob_path.is_file() {
+            return Err(ModdingError::MissingEntry(format!(
+                "{}/{}.bin",
+                kind.dir_name(),
+                action.id
+            )));
+        }
+        action.op.attach_blob(fs::read(&blob_path)?);
+    }
+
+    Ok(ModPackage::new(manifest, ChangeLog::from_actions(actions)))
 }
 
 #[cfg(test)]
@@ -256,6 +346,47 @@ mod tests {
         buf.set_position(0);
         let err = read_zip(&mut buf).unwrap_err();
         assert!(matches!(err, ModdingError::UnsupportedManifestVersion(_)));
+    }
+
+    #[test]
+    fn dir_round_trip() {
+        let pkg = ModPackage::new(
+            ModManifest::new("dir-test"),
+            ChangeLog::from_actions(vec![
+                field_action(),
+                binary_action(vec![1, 2, 3]),
+                replace_action(vec![9, 9, 9]),
+                delete_action(),
+            ]),
+        );
+        let tmp = tempfile::tempdir().unwrap();
+        super::write_dir(tmp.path(), &pkg).unwrap();
+        let back = super::read_dir(tmp.path()).unwrap();
+        assert_eq!(pkg, back);
+    }
+
+    #[test]
+    fn dir_overwrites_stale_blobs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let p1 = ModPackage::new(
+            ModManifest::new("v1"),
+            ChangeLog::from_actions(vec![binary_action(vec![1, 2, 3])]),
+        );
+        super::write_dir(tmp.path(), &p1).unwrap();
+        // Now write a different package — old blob must not linger.
+        let p2 = ModPackage::new(
+            ModManifest::new("v2"),
+            ChangeLog::from_actions(vec![field_action()]),
+        );
+        super::write_dir(tmp.path(), &p2).unwrap();
+
+        // patches/ either gone or empty.
+        let patches = tmp.path().join("patches");
+        if patches.exists() {
+            assert!(std::fs::read_dir(&patches).unwrap().next().is_none());
+        }
+        let back = super::read_dir(tmp.path()).unwrap();
+        assert_eq!(back.changes.len(), 1);
     }
 
     #[test]
