@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: message_scr,
     name_pascal: MessageScr,
     record: dispel_core::Message,
-    state_field: message_scr_editor,
-    sheet_field: message_scr_spreadsheet,
+    field: message_scr_editor,
     file: "ExtraInGame/Message.scr",
 }

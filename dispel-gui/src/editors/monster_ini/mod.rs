@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: monster_ini,
     name_pascal: MonsterIni,
     record: dispel_core::MonsterIni,
-    state_field: monster_ini_editor,
-    sheet_field: monster_ini_spreadsheet,
+    field: monster_ini_editor,
     file: "Monster.ini",
 }

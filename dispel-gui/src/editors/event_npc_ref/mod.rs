@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: event_npc_ref,
     name_pascal: EventNpcRef,
     record: dispel_core::EventNpcRef,
-    state_field: event_npc_ref_editor,
-    sheet_field: event_npc_ref_spreadsheet,
+    field: event_npc_ref_editor,
     file: "NpcInGame/Eventnpc.ref",
 }

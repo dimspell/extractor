@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: all_map_ini,
     name_pascal: AllMapIni,
     record: dispel_core::Map,
-    state_field: all_map_ini_editor,
-    sheet_field: all_map_ini_spreadsheet,
+    field: all_map_ini_editor,
     file: "AllMap.ini",
 }

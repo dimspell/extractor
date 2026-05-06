@@ -1,4 +1,5 @@
 use crate::components::file_tree::FileTree;
+use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::chest::ChestEditorState;
@@ -28,7 +29,6 @@ use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::file_index_cache::{FileIndexCache, FileIndexCacheManager};
-use crate::generic_editor::GenericEditorState;
 use crate::global_search::GlobalSearch;
 use crate::message::{system::SystemMessage, Message};
 use crate::view::editor::SpreadsheetState;
@@ -51,23 +51,22 @@ pub struct AppState {
     pub is_running: bool,
     pub viewer: Box<DbViewerState>,
     pub chest_editor: Box<ChestEditorState>,
-    pub weapon_editor: Box<GenericEditorState<WeaponItem>>,
-    pub heal_item_editor: Box<GenericEditorState<dispel_core::HealItem>>,
-    pub misc_item_editor: Box<GenericEditorState<dispel_core::MiscItem>>,
-    pub edit_item_editor: Box<GenericEditorState<dispel_core::EditItem>>,
-    pub event_item_editor: Box<GenericEditorState<dispel_core::EventItem>>,
-    pub monster_editor: Box<GenericEditorState<dispel_core::Monster>>,
+    pub weapon_editor: Box<StandardEditor<WeaponItem>>,
+    pub heal_item_editor: Box<StandardEditor<dispel_core::HealItem>>,
+    pub misc_item_editor: Box<StandardEditor<dispel_core::MiscItem>>,
+    pub edit_item_editor: Box<StandardEditor<dispel_core::EditItem>>,
+    pub event_item_editor: Box<StandardEditor<dispel_core::EventItem>>,
+    pub monster_editor: Box<StandardEditor<dispel_core::Monster>>,
     pub monster_ini_editor: Box<MonsterIniEditorState>,
     pub npc_ini_editor: Box<NpcIniEditorState>,
     pub magic_editor: Box<MagicEditorState>,
     pub store_editor: Box<StoreEditorState>,
-    pub party_ref_editor: Box<GenericEditorState<dispel_core::PartyRef>>,
+    pub party_ref_editor: Box<StandardEditor<dispel_core::PartyRef>>,
     pub party_ini_editor: Box<PartyIniEditorState>,
     pub monster_ref_editors: HashMap<usize, MonsterRefEditorState>,
     pub monster_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub sprite_viewers: HashMap<usize, SpriteViewerState>,
     pub all_map_ini_editor: Box<AllMapIniEditorState>,
-    pub all_map_ini_spreadsheet: SpreadsheetState,
     pub dialogue_script_editors: HashMap<usize, DialogueScriptEditorState>,
     pub dialogue_script_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub dialogue_paragraphs_editors: HashMap<usize, DialogueParagraphEditorState>,
@@ -83,7 +82,7 @@ pub struct AppState {
     pub npc_ref_editors: HashMap<usize, NpcRefEditorState>,
     pub npc_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
     pub party_level_db_editor: Box<PartyLevelDbEditorState>,
-    pub party_level_db_level_editor: Box<GenericEditorState<dispel_core::PartyLevelRecord>>,
+    pub party_level_db_level_editor: Box<StandardEditor<dispel_core::PartyLevelRecord>>,
     pub quest_scr_editor: Box<QuestScrEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
@@ -95,27 +94,6 @@ pub struct AppState {
     pub lookups: HashMap<String, Vec<(String, String)>>,
     pub workspace: Workspace,
     pub global_search: GlobalSearch,
-    pub heal_item_spreadsheet: SpreadsheetState,
-    pub misc_item_spreadsheet: SpreadsheetState,
-    pub magic_spreadsheet: SpreadsheetState,
-    pub weapon_spreadsheet: SpreadsheetState,
-    pub edit_item_spreadsheet: SpreadsheetState,
-    pub event_item_spreadsheet: SpreadsheetState,
-    pub party_ref_spreadsheet: SpreadsheetState,
-    pub party_ini_spreadsheet: SpreadsheetState,
-    pub event_ini_spreadsheet: SpreadsheetState,
-    pub event_npc_ref_spreadsheet: SpreadsheetState,
-    pub extra_ini_spreadsheet: SpreadsheetState,
-    pub map_ini_spreadsheet: SpreadsheetState,
-    pub message_scr_spreadsheet: SpreadsheetState,
-    pub party_level_db_spreadsheet: SpreadsheetState,
-    pub quest_scr_spreadsheet: SpreadsheetState,
-    pub wave_ini_spreadsheet: SpreadsheetState,
-    pub chdata_spreadsheet: SpreadsheetState,
-    pub draw_item_spreadsheet: SpreadsheetState,
-    pub monster_spreadsheet: SpreadsheetState,
-    pub monster_ini_spreadsheet: SpreadsheetState,
-    pub npc_ini_spreadsheet: SpreadsheetState,
     pub pane_state: PaneState,
     pub file_index_cache_manager: Option<FileIndexCacheManager>,
     pub file_tree: FileTree,
@@ -303,7 +281,6 @@ impl AppState {
         *self.party_ref_editor = Default::default();
         *self.party_ini_editor = Default::default();
         *self.all_map_ini_editor = Default::default();
-        self.all_map_ini_spreadsheet = SpreadsheetState::new();
         *self.draw_item_editor = Default::default();
         *self.event_ini_editor = Default::default();
         *self.event_npc_ref_editor = Default::default();
@@ -344,7 +321,6 @@ impl Default for AppState {
             monster_ref_spreadsheets: HashMap::new(),
             sprite_viewers: HashMap::new(),
             all_map_ini_editor: Box::default(),
-            all_map_ini_spreadsheet: SpreadsheetState::new(),
             dialogue_script_editors: HashMap::new(),
             dialogue_script_spreadsheets: HashMap::new(),
             dialogue_paragraphs_editors: HashMap::new(),
@@ -372,27 +348,6 @@ impl Default for AppState {
             lookups: HashMap::new(),
             workspace: Workspace::new(),
             global_search: GlobalSearch::new(),
-            heal_item_spreadsheet: SpreadsheetState::new(),
-            misc_item_spreadsheet: SpreadsheetState::new(),
-            magic_spreadsheet: SpreadsheetState::new(),
-            weapon_spreadsheet: SpreadsheetState::new(),
-            edit_item_spreadsheet: SpreadsheetState::new(),
-            event_item_spreadsheet: SpreadsheetState::new(),
-            party_ref_spreadsheet: SpreadsheetState::new(),
-            party_ini_spreadsheet: SpreadsheetState::new(),
-            event_ini_spreadsheet: SpreadsheetState::new(),
-            event_npc_ref_spreadsheet: SpreadsheetState::new(),
-            extra_ini_spreadsheet: SpreadsheetState::new(),
-            map_ini_spreadsheet: SpreadsheetState::new(),
-            message_scr_spreadsheet: SpreadsheetState::new(),
-            party_level_db_spreadsheet: SpreadsheetState::new(),
-            quest_scr_spreadsheet: SpreadsheetState::new(),
-            wave_ini_spreadsheet: SpreadsheetState::new(),
-            chdata_spreadsheet: SpreadsheetState::new(),
-            draw_item_spreadsheet: SpreadsheetState::new(),
-            monster_spreadsheet: SpreadsheetState::new(),
-            monster_ini_spreadsheet: SpreadsheetState::new(),
-            npc_ini_spreadsheet: SpreadsheetState::new(),
             pane_state: PaneState::default(),
             file_index_cache_manager: None,
             file_tree: FileTree::default(),

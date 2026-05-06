@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: weapon,
     name_pascal: Weapon,
     record: dispel_core::WeaponItem,
-    state_field: weapon_editor,
-    sheet_field: weapon_spreadsheet,
+    field: weapon_editor,
     file: "CharacterInGame/weaponItem.db",
 }

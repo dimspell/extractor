@@ -7,144 +7,154 @@
 /// Reduces ~80-100 lines of repetitive code to ~10 lines per editor
 #[macro_export]
 macro_rules! handle_spreadsheet_messages {
-    ($app:ident, $spreadsheet:ident, $editor:ident, $field_changed_msg:expr, $msg:ident) => {
+    ($app:ident, $field:ident, $field_changed_msg:expr, $msg:ident) => {
         use $crate::view::editor::SpreadsheetMessage as SM;
         match $msg {
             SM::ToggleActive => {
-                $app.state.$spreadsheet.toggle_active();
-                if $app.state.$spreadsheet.active {
-                    if let Some(catalog) = &$app.state.$editor.catalog {
-                        $app.state.$spreadsheet.init_filter(catalog);
-                        $app.state.$spreadsheet.compute_all_caches(catalog);
-                        $app.state.$spreadsheet.init_pane_state();
+                $app.state.$field.spreadsheet.toggle_active();
+                if $app.state.$field.spreadsheet.active {
+                    if let Some(catalog) = &$app.state.$field.state.catalog {
+                        $app.state.$field.spreadsheet.init_filter(catalog);
+                        $app.state.$field.spreadsheet.compute_all_caches(catalog);
+                        $app.state.$field.spreadsheet.init_pane_state();
                     }
                 }
             }
             SM::SortColumn(col) => {
-                $app.state.$spreadsheet.toggle_sort(col);
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_sort(catalog);
+                $app.state.$field.spreadsheet.toggle_sort(col);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
                 }
             }
             SM::FilterChanged(query) => {
-                $app.state.$spreadsheet.filter_query = query;
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                $app.state.$field.spreadsheet.filter_query = query;
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearFilter => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.clear_filter(catalog);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.clear_filter(catalog);
                 }
             }
             SM::SetFilterMode(mode) => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.set_filter_mode(mode, catalog);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.set_filter_mode(mode, catalog);
                 }
             }
             SM::NavigateNextHighlight => {
-                $app.state.$spreadsheet.navigate_next_highlight();
-                if let Some(orig_idx) = $app.state.$spreadsheet.current_highlight_orig_idx() {
+                $app.state.$field.spreadsheet.navigate_next_highlight();
+                if let Some(orig_idx) = $app.state.$field.spreadsheet.current_highlight_orig_idx() {
                     if let Some(fidx) = $app
                         .state
-                        .$spreadsheet
+                        .$field
+                        .spreadsheet
                         .filtered_indices
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
-                        $app.state.$spreadsheet.set_selection(fidx);
-                        let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
-                        let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                        $app.state.$spreadsheet.record_target_offset(x, y);
+                        $app.state.$field.spreadsheet.set_selection(fidx);
+                        let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
+                        let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                        $app.state.$field.spreadsheet.record_target_offset(x, y);
                     }
                 }
             }
             SM::NavigatePrevHighlight => {
-                $app.state.$spreadsheet.navigate_prev_highlight();
-                if let Some(orig_idx) = $app.state.$spreadsheet.current_highlight_orig_idx() {
+                $app.state.$field.spreadsheet.navigate_prev_highlight();
+                if let Some(orig_idx) = $app.state.$field.spreadsheet.current_highlight_orig_idx() {
                     if let Some(fidx) = $app
                         .state
-                        .$spreadsheet
+                        .$field
+                        .spreadsheet
                         .filtered_indices
                         .iter()
                         .position(|&i| i == orig_idx)
                     {
-                        $app.state.$spreadsheet.set_selection(fidx);
-                        let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
-                        let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                        $app.state.$spreadsheet.record_target_offset(x, y);
+                        $app.state.$field.spreadsheet.set_selection(fidx);
+                        let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
+                        let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                        $app.state.$field.spreadsheet.record_target_offset(x, y);
                     }
                 }
             }
             SM::NavigateUp => {
-                if let Some(fidx) = $app.state.$spreadsheet.navigate_up() {
-                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_up() {
+                    if let Some(&orig_idx) =
+                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
+                    {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
                     }
-                    let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
-                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                    $app.state.$spreadsheet.record_target_offset(x, y);
+                    let y = $app.state.$field.spreadsheet.ensure_row_visible_y(fidx);
+                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                    $app.state.$field.spreadsheet.record_target_offset(x, y);
                 }
             }
             SM::NavigateDown => {
-                if let Some(fidx) = $app.state.$spreadsheet.navigate_down() {
-                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_down() {
+                    if let Some(&orig_idx) =
+                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
+                    {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
                     }
-                    let y = $app.state.$spreadsheet.ensure_row_visible_y(fidx);
-                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                    $app.state.$spreadsheet.record_target_offset(x, y);
+                    let y = $app.state.$field.spreadsheet.ensure_row_visible_y(fidx);
+                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                    $app.state.$field.spreadsheet.record_target_offset(x, y);
                 }
             }
             SM::NavigateTop => {
-                if let Some(fidx) = $app.state.$spreadsheet.navigate_top() {
-                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_top() {
+                    if let Some(&orig_idx) =
+                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
+                    {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
                     }
-                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                    $app.state.$spreadsheet.record_target_offset(x, 0.0);
+                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                    $app.state.$field.spreadsheet.record_target_offset(x, 0.0);
                 }
             }
             SM::NavigateBottom => {
-                if let Some(fidx) = $app.state.$spreadsheet.navigate_bottom() {
-                    if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(fidx) {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_bottom() {
+                    if let Some(&orig_idx) =
+                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
+                    {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
                     }
-                    let y = $app.state.$spreadsheet.scroll_y_for_row(fidx);
-                    let x = $app.state.$spreadsheet.horizontal_scroll_offset;
-                    $app.state.$spreadsheet.record_target_offset(x, y);
+                    let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
+                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
+                    $app.state.$field.spreadsheet.record_target_offset(x, y);
                 }
             }
             SM::SelectRow(filtered_idx) => {
-                $app.state.$spreadsheet.select_row(filtered_idx);
-                $app.state.$spreadsheet.ensure_inspector_pane();
-                if let Some(&orig_idx) = $app.state.$spreadsheet.filtered_indices.get(filtered_idx)
+                $app.state.$field.spreadsheet.select_row(filtered_idx);
+                $app.state.$field.spreadsheet.ensure_inspector_pane();
+                if let Some(&orig_idx) = $app
+                    .state
+                    .$field
+                    .spreadsheet
+                    .filtered_indices
+                    .get(filtered_idx)
                 {
-                    $app.state.$spreadsheet.inspector_textarea_contents = $app
-                        .state
-                        .$editor
-                        .make_inspector_textarea_contents(orig_idx);
+                    $app.state.$field.spreadsheet.inspector_textarea_contents =
+                        $app.state.$field.make_inspector_textarea_contents(orig_idx);
                 } else {
-                    $app.state.$spreadsheet.inspector_textarea_contents.clear();
+                    $app.state
+                        .$field
+                        .spreadsheet
+                        .inspector_textarea_contents
+                        .clear();
                 }
             }
             SM::TextAreaChanged(orig_idx, field, action) => {
                 if let Some(tc) = $app
                     .state
-                    .$spreadsheet
+                    .$field
+                    .spreadsheet
                     .inspector_textarea_contents
                     .get_mut(&field)
                 {
@@ -153,9 +163,9 @@ macro_rules! handle_spreadsheet_messages {
                     let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
                     let msg = $field_changed_msg(orig_idx, field, new_text);
                     let task = $app.update(msg);
-                    if let Some(catalog) = &$app.state.$editor.catalog {
+                    if let Some(catalog) = &$app.state.$field.state.catalog {
                         let catalog = catalog.clone();
-                        $app.state.$spreadsheet.compute_all_caches(&catalog);
+                        $app.state.$field.spreadsheet.compute_all_caches(&catalog);
                     }
                     return task;
                 }
@@ -163,41 +173,39 @@ macro_rules! handle_spreadsheet_messages {
             SM::InspectorFieldChanged(orig_idx, field, value) => {
                 let msg = $field_changed_msg(orig_idx, field, value);
                 let task = $app.update(msg);
-                if let Some(catalog) = &$app.state.$editor.catalog {
+                if let Some(catalog) = &$app.state.$field.state.catalog {
                     let catalog = catalog.clone();
-                    $app.state.$spreadsheet.compute_all_caches(&catalog);
+                    $app.state.$field.spreadsheet.compute_all_caches(&catalog);
                 }
                 return task;
             }
             SM::CachesComputed(data) => {
-                $app.state.$spreadsheet.install_caches(data);
-                $app.state.$spreadsheet.is_loading = false;
+                $app.state.$field.spreadsheet.install_caches(data);
+                $app.state.$field.spreadsheet.is_loading = false;
             }
             SM::CancelEdit => {
-                if $app.state.$spreadsheet.resizing_column.is_some() {
-                    $app.state.$spreadsheet.end_column_resize();
+                if $app.state.$field.spreadsheet.resizing_column.is_some() {
+                    $app.state.$field.spreadsheet.end_column_resize();
                 }
             }
             SM::ToggleInspector => {
-                $app.state.$spreadsheet.toggle_inspector();
-                $app.state.$spreadsheet.ensure_inspector_pane();
+                $app.state.$field.spreadsheet.toggle_inspector();
+                $app.state.$field.spreadsheet.ensure_inspector_pane();
                 // Populate textarea contents now that the inspector is becoming visible.
-                if $app.state.$spreadsheet.show_inspector {
-                    if let Some(orig_idx) = $app.state.$spreadsheet.selected_orig {
-                        $app.state.$spreadsheet.inspector_textarea_contents = $app
-                            .state
-                            .$editor
-                            .make_inspector_textarea_contents(orig_idx);
+                if $app.state.$field.spreadsheet.show_inspector {
+                    if let Some(orig_idx) = $app.state.$field.spreadsheet.selected_orig {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
                     }
                 }
             }
             SM::CloseInspector => {
-                $app.state.$spreadsheet.show_inspector = false;
-                $app.state.$spreadsheet.ensure_inspector_pane();
+                $app.state.$field.spreadsheet.show_inspector = false;
+                $app.state.$field.spreadsheet.ensure_inspector_pane();
             }
             SM::ExportCsv => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    match $app.state.$spreadsheet.to_csv_bytes(catalog) {
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    match $app.state.$field.spreadsheet.to_csv_bytes(catalog) {
                         Ok(bytes) => {
                             if let Some(path) = rfd::FileDialog::new()
                                 .set_file_name("export.csv")
@@ -206,105 +214,118 @@ macro_rules! handle_spreadsheet_messages {
                             {
                                 match std::fs::write(&path, &bytes) {
                                     Ok(_) => {
-                                        $app.state.$editor.status_msg =
+                                        $app.state.$field.status_msg =
                                             format!("Exported CSV to {}", path.display());
                                     }
                                     Err(e) => {
-                                        $app.state.$editor.status_msg =
+                                        $app.state.$field.status_msg =
                                             format!("CSV export failed: {}", e);
                                     }
                                 }
                             }
                         }
                         Err(e) => {
-                            $app.state.$editor.status_msg = format!("CSV export failed: {}", e);
+                            $app.state.$field.status_msg = format!("CSV export failed: {}", e);
                         }
                     }
                 }
             }
             SM::CsvExported(result) => match result {
                 Ok(path) => {
-                    $app.state.$editor.status_msg = format!("Exported CSV to {}", path.display());
+                    $app.state.$field.status_msg = format!("Exported CSV to {}", path.display());
                 }
                 Err(e) if e == "cancelled" => {}
                 Err(e) => {
-                    $app.state.$editor.status_msg = format!("CSV export failed: {}", e);
+                    $app.state.$field.status_msg = format!("CSV export failed: {}", e);
                 }
             },
             SM::BodyScrolled(offset, viewport_height) => {
                 $app.state
-                    .$spreadsheet
+                    .$field
+                    .spreadsheet
                     .record_scroll(offset.x, offset.y, viewport_height);
             }
             SM::StartResizeColumn(col) => {
-                if $app.state.$spreadsheet.try_begin_column_resize(col) {
-                    if let Some(catalog) = &$app.state.$editor.catalog {
-                        $app.state.$spreadsheet.auto_size_column(col, catalog);
+                if $app.state.$field.spreadsheet.try_begin_column_resize(col) {
+                    if let Some(catalog) = &$app.state.$field.state.catalog {
+                        $app.state.$field.spreadsheet.auto_size_column(col, catalog);
                     }
                 }
             }
             SM::ResizeColumnCursor(x) => {
-                $app.state.$spreadsheet.update_column_resize(x);
+                $app.state.$field.spreadsheet.update_column_resize(x);
             }
             SM::EndResizeColumn => {
-                $app.state.$spreadsheet.end_column_resize();
+                $app.state.$field.spreadsheet.end_column_resize();
             }
             SM::ResetColumnWidth(col) => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.auto_size_column(col, catalog);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.auto_size_column(col, catalog);
                 }
             }
             SM::OpenColumnFilter(col) => {
                 // Toggle: second click on the same column closes the dropdown.
-                if $app.state.$spreadsheet.active_column_filter == Some(col) {
-                    $app.state.$spreadsheet.active_column_filter = None;
-                    $app.state.$spreadsheet.column_filter_search.clear();
+                if $app.state.$field.spreadsheet.active_column_filter == Some(col) {
+                    $app.state.$field.spreadsheet.active_column_filter = None;
+                    $app.state.$field.spreadsheet.column_filter_search.clear();
                 } else {
-                    $app.state.$spreadsheet.column_filter_options =
-                        $app.state.$editor.unique_values_for_column(col);
-                    $app.state.$spreadsheet.active_column_filter = Some(col);
-                    $app.state.$spreadsheet.column_filter_search.clear();
+                    $app.state.$field.spreadsheet.column_filter_options =
+                        $app.state.$field.unique_values_for_column(col);
+                    $app.state.$field.spreadsheet.active_column_filter = Some(col);
+                    $app.state.$field.spreadsheet.column_filter_search.clear();
                 }
             }
             SM::CloseColumnFilterModal => {
-                $app.state.$spreadsheet.active_column_filter = None;
-                $app.state.$spreadsheet.column_filter_search.clear();
+                $app.state.$field.spreadsheet.active_column_filter = None;
+                $app.state.$field.spreadsheet.column_filter_search.clear();
             }
             SM::ApplyColumnFilter(col, value) => {
                 let mut set = std::collections::HashSet::new();
                 set.insert(value);
-                $app.state.$spreadsheet.column_filters.insert(col, set);
-                $app.state.$spreadsheet.active_column_filter = None;
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                $app.state
+                    .$field
+                    .spreadsheet
+                    .column_filters
+                    .insert(col, set);
+                $app.state.$field.spreadsheet.active_column_filter = None;
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearColumnFilter(col) => {
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.clear_column_filter(col, catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state
+                        .$field
+                        .spreadsheet
+                        .clear_column_filter(col, catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::QuickFilter(col, value) => {
                 let mut set = std::collections::HashSet::new();
                 set.insert(value);
-                $app.state.$spreadsheet.column_filters.insert(col, set);
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                $app.state
+                    .$field
+                    .spreadsheet
+                    .column_filters
+                    .insert(col, set);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ColumnFilterSearch(query) => {
-                $app.state.$spreadsheet.column_filter_search = query;
+                $app.state.$field.spreadsheet.column_filter_search = query;
             }
             SM::ToggleColumnFilterValue(col, value) => {
                 let entry = $app
                     .state
-                    .$spreadsheet
+                    .$field
+                    .spreadsheet
                     .column_filters
                     .entry(col)
                     .or_default();
@@ -313,37 +334,39 @@ macro_rules! handle_spreadsheet_messages {
                 } else {
                     entry.insert(value);
                 }
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::SelectAllColumnFilter(col) => {
                 let all_values: std::collections::HashSet<String> = $app
                     .state
-                    .$spreadsheet
+                    .$field
+                    .spreadsheet
                     .column_filter_options
                     .iter()
                     .map(|opt| opt.value.clone())
                     .collect();
                 $app.state
-                    .$spreadsheet
+                    .$field
+                    .spreadsheet
                     .column_filters
                     .insert(col, all_values);
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearAllColumnFilter(col) => {
-                $app.state.$spreadsheet.column_filters.remove(&col);
-                $app.state.$spreadsheet.column_filter_search.clear();
-                if let Some(catalog) = &$app.state.$editor.catalog {
-                    $app.state.$spreadsheet.apply_filter(catalog);
-                    $app.state.$spreadsheet.apply_sort(catalog);
-                    $app.state.$spreadsheet.record_target_offset(0.0, 0.0);
+                $app.state.$field.spreadsheet.column_filters.remove(&col);
+                $app.state.$field.spreadsheet.column_filter_search.clear();
+                if let Some(catalog) = &$app.state.$field.state.catalog {
+                    $app.state.$field.spreadsheet.apply_filter(catalog);
+                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
         }
@@ -655,12 +678,12 @@ macro_rules! handle_load_catalog {
     ($app:ident, $editor:ident, $item_name:expr, $db_path:expr, $extractor:ty, $loaded_variant:expr) => {
         {
             if $app.state.shared_game_path.is_empty() {
-                $app.state.$editor.status_msg = "Please select game path first.".into();
+                $app.state.$field.status_msg = "Please select game path first.".into();
                 return Task::none();
             }
 
-            $app.state.$editor.loading_state = $crate::loading_state::LoadingState::Loading;
-            $app.state.$editor.status_msg = concat!($item_name, " catalog...").into();
+            $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loading;
+            $app.state.$field.status_msg = concat!($item_name, " catalog...").into();
 
             let path = std::path::PathBuf::from(&$app.state.shared_game_path).join($db_path);
 
@@ -678,22 +701,22 @@ macro_rules! handle_load_catalog {
 #[macro_export]
 macro_rules! handle_catalog_loaded {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$editor.loading_state = $crate::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(catalog) => {
-                $app.state.$editor.catalog = Some(catalog.clone());
-                $app.state.$editor.status_msg = format!(
+                $app.state.$field.catalog = Some(catalog.clone());
+                $app.state.$field.status_msg = format!(
                     concat!($item_name, " catalog loaded: {} {}"),
                     catalog.len(),
                     $item_name
                 );
-                $app.state.$editor.refresh();
-                $app.state.$editor.init_pane_state();
+                $app.state.$field.refresh();
+                $app.state.$field.init_pane_state();
                 Task::none()
             }
             Err(e) => {
                 let msg = format!(concat!("Failed to load ", $item_name, ": {}"), e);
-                $app.state.$editor.status_msg = msg.clone();
+                $app.state.$field.status_msg = msg.clone();
                 Task::done($crate::message::Message::System(
                     $crate::message::SystemMessage::ShowError(msg),
                 ))
@@ -715,7 +738,7 @@ macro_rules! handle_select_item {
 #[macro_export]
 macro_rules! handle_field_changed {
     ($app:ident, $editor:ident, $index:expr, $field:expr, $value:expr) => {{
-        $app.state.$editor.update_field($index, &$field, $value);
+        $app.state.$field.update_field($index, &$field, $value);
         Task::none()
     }};
 }
@@ -725,11 +748,11 @@ macro_rules! handle_field_changed {
 macro_rules! handle_save {
     ($app:ident, $editor:ident, $item_name:expr, $save_method:expr, $saved_variant:expr) => {{
         if $app.state.shared_game_path.is_empty() {
-            $app.state.$editor.status_msg = "Please select game path first.".into();
+            $app.state.$field.status_msg = "Please select game path first.".into();
             return Task::none();
         }
 
-        $app.state.$editor.loading_state = $crate::loading_state::LoadingState::Loading;
+        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loading;
         let result = $save_method;
 
         Task::perform(async { result }, move |result: Result<(), String>| {
@@ -742,7 +765,7 @@ macro_rules! handle_save {
 #[macro_export]
 macro_rules! handle_pane_resized {
     ($app:ident, $editor:ident, $event:ident) => {{
-        if let Some(ref mut ps) = $app.state.$editor.pane_state {
+        if let Some(ref mut ps) = $app.state.$field.pane_state {
             ps.resize($event.split, $event.ratio);
         }
         Task::none()
@@ -753,7 +776,7 @@ macro_rules! handle_pane_resized {
 #[macro_export]
 macro_rules! handle_pane_clicked {
     ($app:ident, $editor:ident, $pane:ident) => {{
-        $app.state.$editor.pane_focus = Some($pane);
+        $app.state.$field.pane_focus = Some($pane);
         Task::none()
     }};
 }
@@ -762,13 +785,13 @@ macro_rules! handle_pane_clicked {
 #[macro_export]
 macro_rules! handle_saved {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$editor.loading_state = $crate::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(_) => {
-                $app.state.$editor.status_msg = format!(concat!($item_name, " saved successfully"));
+                $app.state.$field.status_msg = format!(concat!($item_name, " saved successfully"));
             }
             Err(e) => {
-                $app.state.$editor.status_msg =
+                $app.state.$field.status_msg =
                     format!(concat!("Error saving ", $item_name, ": {}"), e);
             }
         }
@@ -812,7 +835,7 @@ macro_rules! handle_unsupported {
 #[macro_export]
 macro_rules! handle_error {
     ($app:ident, $editor:ident, $error_msg:expr) => {{
-        $app.state.$editor.status_msg = $error_msg.into();
+        $app.state.$field.status_msg = $error_msg.into();
         Task::none()
     }};
 }

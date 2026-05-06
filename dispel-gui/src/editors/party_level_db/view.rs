@@ -46,7 +46,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let spreadsheet_area: Element<Message> = if editor.selected_npc_idx.is_some() {
         view_spreadsheet(
             &app.state.party_level_db_level_editor,
-            &app.state.party_level_db_spreadsheet,
+            &app.state.party_level_db_level_editor.spreadsheet,
             Message::party_level_db(PartyLevelDbEditorMessage::LoadCatalog),
             Message::party_level_db(PartyLevelDbEditorMessage::Save),
             |_idx| Message::party_level_db(PartyLevelDbEditorMessage::LoadCatalog),

@@ -6,7 +6,6 @@ crate::define_standard_editor! {
     name: npc_ini,
     name_pascal: NpcIni,
     record: dispel_core::NpcIni,
-    state_field: npc_ini_editor,
-    sheet_field: npc_ini_spreadsheet,
+    field: npc_ini_editor,
     file: "Npc.ini",
 }

@@ -7,7 +7,7 @@ use iced::Element;
 pub fn view(app: &App) -> Element<'_, Message> {
     view_spreadsheet(
         &app.state.wave_ini_editor,
-        &app.state.wave_ini_spreadsheet,
+        &app.state.wave_ini_editor.spreadsheet,
         Message::wave_ini(WaveIniEditorMessage::LoadCatalog),
         Message::wave_ini(WaveIniEditorMessage::Save),
         |idx| Message::wave_ini(WaveIniEditorMessage::Select(idx)),
