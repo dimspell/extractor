@@ -83,7 +83,7 @@ impl App {
                                 crate::editors::dialogue_script::view(self)
                             }
                             Some(EditorType::DialogueTextEditor) => {
-                                crate::editors::dialogue_text::view(self)
+                                crate::editors::dialogue_paragraph::view(self)
                             }
                             Some(EditorType::DrawItemEditor) => {
                                 crate::editors::draw_item::view(self)

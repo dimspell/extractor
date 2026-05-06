@@ -5,7 +5,7 @@ use crate::editors::chdata::ChDataEditorState;
 use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
 use crate::editors::dialogue_script::DialogueScriptEditorState;
-use crate::editors::dialogue_text::DialogueParagraphEditorState;
+use crate::editors::dialogue_paragraph::DialogueParagraphEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;

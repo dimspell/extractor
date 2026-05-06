@@ -1,4 +1,4 @@
-// dialogue_text editor module
+// dialogue_paragraph editor module
 
 mod component;
 mod message;
