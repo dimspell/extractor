@@ -6,7 +6,7 @@ use crate::editors::tileset::{
 };
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::utils::horizontal_rule;
+use crate::components::utils::horizontal_rule;
 use iced::widget::{
     button, column, container, image, responsive, row, scrollable, slider, text, Space,
 };

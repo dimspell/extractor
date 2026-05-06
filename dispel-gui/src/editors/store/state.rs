@@ -1,5 +1,5 @@
-use crate::edit_history::EditHistory;
-use crate::generic_editor::UndoRedo;
+use crate::components::edit_history::EditHistory;
+use crate::components::generic_editor::UndoRedo;
 use dispel_core::{Extractor, ProductType, Store};
 use iced::widget::{pane_grid, text_editor};
 use std::path::PathBuf;
@@ -39,7 +39,7 @@ pub struct StoreEditorState {
     pub selected_product_idx: Option<usize>,
 
     pub status_msg: String,
-    pub loading_state: crate::loading_state::LoadingState<()>,
+    pub loading_state: crate::components::loading_state::LoadingState<()>,
     pub edit_history: EditHistory,
 
     pub pane_state: pane_grid::State<StorePaneContent>,
@@ -82,7 +82,7 @@ impl Default for StoreEditorState {
             edit_products: Vec::new(),
             selected_product_idx: None,
             status_msg: String::new(),
-            loading_state: crate::loading_state::LoadingState::default(),
+            loading_state: crate::components::loading_state::LoadingState::default(),
             edit_history: EditHistory::default(),
             pane_state: pane_grid::State::with_configuration(config),
             show_product_modal: false,
@@ -96,7 +96,7 @@ impl Default for StoreEditorState {
 impl UndoRedo for StoreEditorState {
     fn undo(&mut self) -> Option<String> {
         let action = self.edit_history.undo()?;
-        if let crate::edit_history::EditAction::FieldChange {
+        if let crate::components::edit_history::EditAction::FieldChange {
             record_idx,
             ref field,
             ref old_value,
@@ -111,7 +111,7 @@ impl UndoRedo for StoreEditorState {
     fn redo(&mut self) -> Option<String> {
         let action = self.edit_history.redo()?;
         // The redo action is the inverted undo action: old_value holds the value to re-apply.
-        if let crate::edit_history::EditAction::FieldChange {
+        if let crate::components::edit_history::EditAction::FieldChange {
             record_idx,
             ref field,
             ref old_value,
@@ -198,7 +198,7 @@ impl StoreEditorState {
         self.apply_field_to_store(orig_idx, field, value.clone());
 
         self.edit_history
-            .push(crate::edit_history::EditAction::FieldChange {
+            .push(crate::components::edit_history::EditAction::FieldChange {
                 record_idx: orig_idx,
                 field: field.to_string(),
                 old_value,
@@ -379,7 +379,7 @@ impl StoreEditorState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::generic_editor::UndoRedo;
+    use crate::components::generic_editor::UndoRedo;
 
     fn make_store(name: &str) -> Store {
         Store {

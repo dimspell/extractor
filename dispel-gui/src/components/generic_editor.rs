@@ -1,6 +1,6 @@
 use crate::components::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
-use crate::edit_history::EditHistory;
+use crate::components::edit_history::EditHistory;
 use crate::view::editor::spreadsheet::ColumnFilterOption;
 use dispel_core::Extractor;
 use iced::widget::pane_grid;
@@ -28,7 +28,7 @@ pub struct GenericEditorState<R: EditableRecord> {
     /// One string buffer per field descriptor, indexed by position.
     pub edit_buffers: Vec<String>,
     pub status_msg: String,
-    pub loading_state: crate::loading_state::LoadingState<()>,
+    pub loading_state: crate::components::loading_state::LoadingState<()>,
     pub edit_history: EditHistory,
     pub pane_state: Option<pane_grid::State<PaneContent>>,
     pub pane_focus: Option<Pane>,
@@ -42,7 +42,7 @@ impl<R: EditableRecord + Default> Default for GenericEditorState<R> {
             selected_idx: None,
             edit_buffers: Vec::new(),
             status_msg: String::new(),
-            loading_state: crate::loading_state::LoadingState::default(),
+            loading_state: crate::components::loading_state::LoadingState::default(),
             edit_history: EditHistory::default(),
             pane_state: None,
             pane_focus: None,
@@ -96,7 +96,7 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
             if record.set_field(field, value.clone()) {
                 // Record the change in history
                 self.edit_history
-                    .push(crate::edit_history::EditAction::FieldChange {
+                    .push(crate::components::edit_history::EditAction::FieldChange {
                         record_idx: *orig_idx,
                         field: field.to_string(),
                         old_value,
@@ -125,7 +125,7 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     pub fn undo(&mut self) -> Option<String> {
         if let Some(action) = self.edit_history.undo() {
             match action {
-                crate::edit_history::EditAction::FieldChange {
+                crate::components::edit_history::EditAction::FieldChange {
                     record_idx,
                     field,
                     old_value,
@@ -165,7 +165,7 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
     pub fn redo(&mut self) -> Option<String> {
         if let Some(action) = self.edit_history.redo() {
             match action {
-                crate::edit_history::EditAction::FieldChange {
+                crate::components::edit_history::EditAction::FieldChange {
                     record_idx,
                     field,
                     // The redo action is the inverted undo action: old/new are swapped.

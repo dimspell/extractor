@@ -3,7 +3,7 @@
 use crate::app::App;
 use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::handle_spreadsheet_messages;
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use crate::message::MessageExt;
 use dispel_core::{Extractor, WaveIni};
 use iced::Task;

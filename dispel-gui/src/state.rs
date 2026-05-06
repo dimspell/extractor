@@ -28,8 +28,8 @@ use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
-use crate::file_index_cache::{FileIndexCache, FileIndexCacheManager};
-use crate::global_search::GlobalSearch;
+use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
+use crate::components::global_search::GlobalSearch;
 use crate::message::{system::SystemMessage, Message};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
@@ -191,7 +191,7 @@ impl AppState {
 
         // Check if cache exists and is valid
         if let Ok(Some(cache)) = cache_manager.load_cache() {
-            if crate::indexation_service::IndexationService::validate_sprite_cache(
+            if crate::indexation::indexation_service::IndexationService::validate_sprite_cache(
                 &cache, &game_path,
             ) {
                 // Cache is valid, no need to reindex
@@ -208,7 +208,7 @@ impl AppState {
             async move {
                 eprintln!("DEBUG: Starting indexation for: {:?}", game_path_clone);
                 let indexation_service =
-                    crate::indexation_service::IndexationService::new(cache_manager_clone.clone());
+                    crate::indexation::indexation_service::IndexationService::new(cache_manager_clone.clone());
 
                 // Start indexation - it will collect whatever files it can even on error
                 let handle =

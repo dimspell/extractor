@@ -1,4 +1,4 @@
-use crate::edit_history::EditHistory;
+use crate::components::edit_history::EditHistory;
 use crate::message::{system::SystemMessage, workspace::WorkspaceMessage, Message};
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill};
@@ -6,7 +6,7 @@ use iced::{Element, Fill};
 pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::Message> {
     let header = row![
         text("Edit History").size(14),
-        crate::utils::horizontal_space(),
+        crate::components::utils::horizontal_space(),
         button(text("×").size(16))
             .on_press(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel))
             .style(crate::style::chip),
@@ -50,7 +50,7 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
     let content = column![
         undo_section,
         column(undo_items).spacing(2),
-        crate::utils::horizontal_space().height(10),
+        crate::components::utils::horizontal_space().height(10),
         redo_section,
         column(redo_items).spacing(2),
     ]
@@ -58,7 +58,7 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
 
     let scroll = scrollable(content).height(Fill);
 
-    container(column![header, crate::utils::horizontal_rule(1), scroll,].spacing(0))
+    container(column![header, crate::components::utils::horizontal_rule(1), scroll,].spacing(0))
         .height(Fill)
         .width(280)
         .style(crate::style::sidebar_container)

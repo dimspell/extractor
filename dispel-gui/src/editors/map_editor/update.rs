@@ -6,7 +6,7 @@ use crate::editors::map_editor::{
     MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode, SelectedEntity,
     SpriteExportDialogState, SpriteExportStatus, SpriteSequenceHandle, TilePixelData,
 };
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
 use iced::widget::image::Handle;

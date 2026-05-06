@@ -5,7 +5,7 @@ pub enum ViewerMessage {
     Connect,
     TablesLoaded(Result<Vec<String>, String>),
     SelectTable(String),
-    DataLoaded(Result<crate::db::QueryResult, String>),
+    DataLoaded(Result<crate::editors::db_viewer::db::QueryResult, String>),
     Search(String),
     SortColumn(usize),
     NextPage,

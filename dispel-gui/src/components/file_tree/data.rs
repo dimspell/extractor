@@ -4,7 +4,7 @@ use iced::widget::{button, column, container, row, scrollable, text, text_input}
 use iced::{Element, Fill, Font, Length, Padding};
 
 use crate::components::file_tree::tree_node::TreeNode;
-use crate::file_index_cache;
+use crate::indexation::file_index_cache;
 use crate::style;
 
 #[cfg(feature = "tokio")]

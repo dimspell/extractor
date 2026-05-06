@@ -53,7 +53,7 @@ const MAX_CACHE_SIZE: u64 = 50 * 1024 * 1024;
 /// Cache manager
 #[derive(Debug, Clone)]
 pub struct FileIndexCacheManager {
-    cache_dir: PathBuf,
+    pub(crate) cache_dir: PathBuf,
 }
 
 impl FileIndexCacheManager {
@@ -68,11 +68,11 @@ impl FileIndexCacheManager {
     /// Get cache directory using dirs crate
     fn get_cache_directory() -> Result<PathBuf, CacheError> {
         let cache_dir = dirs::cache_dir().ok_or(CacheError::DirectoryAccess)?;
-        Ok(cache_dir.join("dispel-gui"))
+        Ok(cache_dir.join("../.."))
     }
 
     /// Get cache file path
-    fn get_cache_path(&self) -> PathBuf {
+    pub(crate) fn get_cache_path(&self) -> PathBuf {
         self.cache_dir.join("file_index.cache")
     }
 
@@ -184,5 +184,3 @@ impl CacheValidator {
     }
 }
 
-#[cfg(test)]
-mod tests;

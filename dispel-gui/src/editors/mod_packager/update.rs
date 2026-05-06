@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::editors::mod_packager::state::ModMetadata;
 use crate::editors::mod_packager::ModPackagerMessage;
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use crate::message::MessageExt;
 use iced::Task;
 use std::io::Write;

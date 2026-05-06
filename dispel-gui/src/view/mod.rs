@@ -7,14 +7,13 @@ use crate::message::{
 };
 use crate::state::PaneContent;
 use crate::style;
-use crate::utils::{truncate_path, vertical_space};
+use crate::components::utils::{truncate_path, vertical_space};
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use iced::widget::pane_grid;
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill, Font, Length};
 
-pub mod db_viewer;
 pub mod editor;
 pub mod history_panel;
 pub mod start_page;

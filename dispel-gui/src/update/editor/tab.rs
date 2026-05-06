@@ -6,8 +6,8 @@ use dispel_core::Extractor;
 use iced::widget::pane_grid;
 use iced::Task;
 
-use crate::generic_editor::MultiFileEditorState;
-use crate::loading_state::LoadingState;
+use crate::components::generic_editor::MultiFileEditorState;
+use crate::components::loading_state::LoadingState;
 use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;

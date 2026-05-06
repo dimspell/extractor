@@ -1,7 +1,7 @@
 use crate::app::{App, AppMode};
 use crate::message::startpage::StartPageMessage;
 use crate::message::{system::SystemMessage, Message};
-use crate::utils::browse_folder;
+use crate::components::utils::browse_folder;
 use iced::Task;
 use std::path::PathBuf;
 
@@ -65,7 +65,7 @@ pub fn enter_editor_mode(app: &mut App, path: PathBuf) -> Task<Message> {
     let gp_cache = path.clone();
 
     let search_task = Task::perform(
-        async move { crate::search_index::build_index(&gp).await },
+        async move { crate::indexation::search_index::build_index(&gp).await },
         |index| Message::System(SystemMessage::IndexLoaded(Ok(index))),
     );
 
@@ -75,7 +75,7 @@ pub fn enter_editor_mode(app: &mut App, path: PathBuf) -> Task<Message> {
             search_task,
             Task::perform(
                 async move {
-                    let svc = crate::indexation_service::IndexationService::new(cache_manager);
+                    let svc = crate::indexation::indexation_service::IndexationService::new(cache_manager);
                     svc.start_indexation_with_fallback(gp_cache).await
                 },
                 |result| match result {

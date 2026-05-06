@@ -91,5 +91,5 @@ pub struct ChestEditorState {
     pub edit_closed: String,
 
     pub status_msg: String,
-    pub loading_state: crate::loading_state::LoadingState<()>,
+    pub loading_state: crate::components::loading_state::LoadingState<()>,
 }

@@ -1,4 +1,4 @@
-use crate::generic_editor::MultiFileEditorState;
+use crate::components::generic_editor::MultiFileEditorState;
 use dispel_core::NPC;
 
 pub type NpcRefEditorState = MultiFileEditorState<NPC>;

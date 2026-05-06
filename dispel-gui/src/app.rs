@@ -1,8 +1,8 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::file_tree::FileTree;
 use crate::components::tab_bar::TabBarMessage;
-use crate::db;
-use crate::edit_history::EditHistory;
+use crate::editors::db_viewer::db;
+use crate::components::edit_history::EditHistory;
 use crate::editors::chest::ChestEditorMessage;
 use crate::editors::db_viewer::PAGE_SIZE;
 use crate::editors::snf_editor::SnfEditorState;
@@ -29,9 +29,9 @@ pub struct App {
     pub sidebar_visible: bool,
     pub empty_edit_history: EditHistory,
     pub command_palette: Option<CommandPalette>,
-    pub global_search: crate::global_search::GlobalSearch,
+    pub global_search: crate::components::global_search::GlobalSearch,
     pub draft_manager: crate::auto_save::DraftManager,
-    pub search_index: crate::search_index::SearchIndex,
+    pub search_index: crate::indexation::search_index::SearchIndex,
     pub app_mode: AppMode,
     pub start_page_input: String,
     pub is_indexing: bool,
@@ -58,33 +58,33 @@ impl App {
         };
 
         // Try to load existing search index
-        let index_path = crate::search_index::SearchIndex::index_path();
+        let index_path = crate::indexation::search_index::SearchIndex::index_path();
         let search_index = if let Some(ref gp) = game_path {
-            match crate::search_index::SearchIndex::load(&index_path) {
+            match crate::indexation::search_index::SearchIndex::load(&index_path) {
                 Ok(idx) => {
                     if idx.game_path.as_deref() == Some(gp.to_str().unwrap_or("")) {
                         idx
                     } else {
-                        let mut fresh = crate::search_index::SearchIndex::new();
+                        let mut fresh = crate::indexation::search_index::SearchIndex::new();
                         fresh.game_path = Some(gp.to_string_lossy().to_string());
                         fresh
                     }
                 }
                 Err(_) => {
-                    let mut fresh = crate::search_index::SearchIndex::new();
+                    let mut fresh = crate::indexation::search_index::SearchIndex::new();
                     fresh.game_path = game_path.as_ref().map(|p| p.to_string_lossy().to_string());
                     fresh
                 }
             }
         } else {
-            crate::search_index::SearchIndex::new()
+            crate::indexation::search_index::SearchIndex::new()
         };
 
         let init_task: Option<Task<Message>> =
             if game_path.is_some() && search_index.file_mappings.is_empty() {
                 game_path.map(|gp| {
                     Task::perform(
-                        async move { crate::search_index::build_index(&gp).await },
+                        async move { crate::indexation::search_index::build_index(&gp).await },
                         |index| Message::System(SystemMessage::IndexLoaded(Ok(index))),
                     )
                 })
@@ -127,7 +127,7 @@ impl App {
                 sidebar_visible: true,
                 empty_edit_history: EditHistory::default(),
                 command_palette: None,
-                global_search: crate::global_search::GlobalSearch::new(),
+                global_search: crate::components::global_search::GlobalSearch::new(),
                 draft_manager: crate::auto_save::DraftManager::load(),
                 search_index,
                 app_mode,
@@ -154,9 +154,9 @@ impl App {
             sidebar_visible: true,
             empty_edit_history: EditHistory::default(),
             command_palette: None,
-            global_search: crate::global_search::GlobalSearch::new(),
+            global_search: crate::components::global_search::GlobalSearch::new(),
             draft_manager: crate::auto_save::DraftManager::load(),
-            search_index: crate::search_index::SearchIndex::new(),
+            search_index: crate::indexation::search_index::SearchIndex::new(),
             app_mode: AppMode::EditorMode,
             start_page_input: String::new(),
             is_indexing: false,
@@ -165,7 +165,7 @@ impl App {
     }
 
     pub fn get_active_edit_history(&self) -> &EditHistory {
-        use crate::generic_editor::UndoRedo;
+        use crate::components::generic_editor::UndoRedo;
         use crate::workspace::EditorType;
 
         if let Some(tab) = self.state.workspace.active() {
@@ -477,7 +477,7 @@ impl App {
                 let path_buf = path.to_path_buf();
                 self.state.dialogue_script_editors.insert(
                     tab_id,
-                    crate::generic_editor::MultiFileEditorState {
+                    crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
                         ..Default::default()
                     },
@@ -504,7 +504,7 @@ impl App {
                 let path_buf = path.to_path_buf();
                 self.state.dialogue_paragraphs_editors.insert(
                     tab_id,
-                    crate::generic_editor::MultiFileEditorState {
+                    crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
                         ..Default::default()
                     },
@@ -591,7 +591,7 @@ impl App {
     }
 
     pub fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
-        self.state.chest_editor.loading_state = crate::loading_state::LoadingState::Loading;
+        self.state.chest_editor.loading_state = crate::components::loading_state::LoadingState::Loading;
         Task::perform(
             async move { dispel_core::ExtraRef::read_file(&path) },
             |res: Result<Vec<dispel_core::ExtraRef>, std::io::Error>| {
@@ -634,7 +634,7 @@ impl App {
             Some(t) => t.clone(),
             None => return Task::none(),
         };
-        self.state.viewer.loading_state = crate::loading_state::LoadingState::Loading;
+        self.state.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
 
         // First get column info, then build query
         let path = self.state.viewer.db_path.clone();
@@ -658,7 +658,7 @@ impl App {
 
     /// Fetch data using the custom SQL query.
     pub fn fetch_viewer_data_sql(&mut self) -> Task<Message> {
-        self.state.viewer.loading_state = crate::loading_state::LoadingState::Loading;
+        self.state.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
         let path = self.state.viewer.db_path.clone();
         let sql = self.state.viewer.sql_query.clone();
         let page = self.state.viewer.page;

@@ -1,5 +1,5 @@
-use crate::edit_history::EditHistory;
-use crate::loading_state::LoadingState;
+use crate::components::edit_history::EditHistory;
+use crate::components::loading_state::LoadingState;
 use dispel_core::{Extractor, PartyLevelNpc, PartyRef};
 use std::path::PathBuf;
 
