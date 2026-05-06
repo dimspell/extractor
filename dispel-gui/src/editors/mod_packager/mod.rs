@@ -1,6 +1,7 @@
 // mod_packager editor module
 
 mod message;
+pub mod recording;
 pub mod state;
 mod update;
 mod view;

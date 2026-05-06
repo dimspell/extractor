@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use dispel_core::modding::{ChangeAction, InstalledMod, ModManifest};
 
+use super::recording::ObservedAction;
 use super::state::ModManagerTab;
 
 /// All Mod Manager messages. The variant set covers tab navigation,
@@ -45,6 +46,19 @@ pub enum ModPackagerMessage {
     Applied(Result<ApplyOutcome, String>),
     Revert,
     Reverted(Result<RevertOutcome, String>),
+
+    // Recording
+    StartRecording(String),
+    StopRecording,
+    RecordingObserved(ObservedAction),
+    /// Fires after the debounce interval elapses for one pending edit.
+    /// Only the timer matching the latest `generation` is allowed to flush;
+    /// stale timers are dropped silently.
+    RecordingDebounceFired {
+        key: crate::state::RecordingKey,
+        generation: u64,
+    },
+    RecordingPersisted(Result<(), String>),
 
     // Import / export
     ImportZip,

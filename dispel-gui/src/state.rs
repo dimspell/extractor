@@ -99,6 +99,50 @@ pub struct AppState {
     pub file_tree: FileTree,
     /// Recent files tracking for workspace navigation
     pub recent_files: Vec<PathBuf>,
+    /// Active mod-recording session, if any. While set, every successful
+    /// catalog edit is appended to that mod's `ChangeLog`.
+    pub recording: Option<RecordingSession>,
+}
+
+/// In-flight recording state. Lives on [`AppState`] while the user has
+/// "Record into …" turned on in the Mod Manager.
+///
+/// Edits are debounced per `(file, record_id, field)` key: incoming changes
+/// land in [`pending`](Self::pending) instead of being persisted directly,
+/// and a delayed `RecordingDebounceFired` message flushes them after the
+/// idle interval has elapsed without a superseding edit.
+#[derive(Debug, Clone, Default)]
+pub struct RecordingSession {
+    pub workspace_root: PathBuf,
+    pub mod_slug: String,
+    pub mod_name: String,
+    /// Count of committed (persisted) actions, not pending ones.
+    pub recorded_count: usize,
+    /// Per-key debounce buffer.
+    pub pending: std::collections::HashMap<RecordingKey, PendingEdit>,
+    /// Monotonic counter; bumped on every observed edit so stale debounce
+    /// timers can recognise and drop themselves.
+    pub next_generation: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RecordingKey {
+    pub file_path: String,
+    pub record_id: u32,
+    pub field: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingEdit {
+    /// The value present BEFORE the user started editing this field — kept
+    /// stable across keystrokes so the persisted `FieldDelta.old` is the
+    /// true pristine value rather than the previous keystroke.
+    pub original_old: dispel_core::modding::Value,
+    /// Most recent value seen for this key.
+    pub latest_new: dispel_core::modding::Value,
+    /// Generation of the most recent edit — only the timer carrying the
+    /// matching generation is allowed to flush.
+    pub generation: u64,
 }
 
 impl AppState {
@@ -352,6 +396,7 @@ impl Default for AppState {
             file_index_cache_manager: None,
             file_tree: FileTree::default(),
             recent_files: Vec::new(),
+            recording: None,
         }
     }
 }

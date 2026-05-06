@@ -2,15 +2,18 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dispel_core::modding::{
-    ApplyReport, InstalledMod, ModManifest, PatcherRegistry, RevertReport, Workspace,
+    ApplyReport, ChangeAction, ChangeOp, InstalledMod, ModManifest, PatcherRegistry, RevertReport,
+    Workspace,
 };
 use iced::Task;
 
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::mod_packager::message::{ApplyOutcome, RevertOutcome, SelectedMod};
+use crate::editors::mod_packager::recording::{ObservedAction, DEBOUNCE};
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
+use crate::state::{PendingEdit, RecordingKey, RecordingSession};
 
 const WORKSPACE_SUBDIR: &str = ".dispel-mods";
 
@@ -321,6 +324,86 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
 
+        // ----- Recording --------------------------------------------------
+        ModPackagerMessage::StartRecording(slug) => {
+            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+                app.state.mod_packager_editor.status_msg =
+                    "Open a workspace first.".into();
+                return Task::none();
+            };
+            let mod_name = app
+                .state
+                .mod_packager_editor
+                .mods
+                .iter()
+                .find(|m| m.slug == slug)
+                .map(|m| m.manifest.name.clone())
+                .unwrap_or_else(|| slug.clone());
+            // Flush any in-flight pending edits from a previous session
+            // before swapping over.
+            let flush = flush_all_pending(app);
+            app.state.recording = Some(RecordingSession {
+                workspace_root: root,
+                mod_slug: slug.clone(),
+                mod_name: mod_name.clone(),
+                recorded_count: 0,
+                pending: std::collections::HashMap::new(),
+                next_generation: 0,
+            });
+            app.state.mod_packager_editor.status_msg =
+                format!("Recording into `{mod_name}` — edits in any catalog editor are captured.");
+            flush
+        }
+        ModPackagerMessage::StopRecording => {
+            let flush = flush_all_pending(app);
+            let stopped_name = app
+                .state
+                .recording
+                .as_ref()
+                .map(|s| s.mod_name.clone())
+                .unwrap_or_default();
+            let committed = app
+                .state
+                .recording
+                .as_ref()
+                .map(|s| s.recorded_count)
+                .unwrap_or(0);
+            let pending = app
+                .state
+                .recording
+                .as_ref()
+                .map(|s| s.pending.len())
+                .unwrap_or(0);
+            app.state.recording = None;
+            if !stopped_name.is_empty() {
+                let total = committed + pending;
+                app.state.mod_packager_editor.status_msg = format!(
+                    "Stopped recording `{stopped_name}` — {total} change(s) captured."
+                );
+            }
+            flush.chain(Task::done(Message::mod_packager(
+                ModPackagerMessage::Refresh,
+            )))
+        }
+        ModPackagerMessage::RecordingObserved(observed) => observe_into_pending(app, observed),
+        ModPackagerMessage::RecordingDebounceFired { key, generation } => {
+            flush_one_pending(app, &key, Some(generation))
+        }
+        ModPackagerMessage::RecordingPersisted(result) => {
+            match result {
+                Ok(()) => {
+                    if let Some(session) = app.state.recording.as_mut() {
+                        session.recorded_count += 1;
+                    }
+                }
+                Err(e) => {
+                    app.state.mod_packager_editor.status_msg =
+                        format!("Recording persist failed: {e}");
+                }
+            }
+            Task::none()
+        }
+
         // ----- Import / export -------------------------------------------
         ModPackagerMessage::ImportZip => Task::perform(
             async {
@@ -525,6 +608,119 @@ fn save_manifest(app: &mut App) -> Task<Message> {
         },
         |result| Message::mod_packager(ModPackagerMessage::Saved(result)),
     )
+}
+
+/// Add or coalesce one observation into the recording session's pending
+/// buffer, then schedule a delayed flush.
+fn observe_into_pending(app: &mut App, observed: ObservedAction) -> Task<Message> {
+    let Some(session) = app.state.recording.as_mut() else {
+        return Task::none();
+    };
+    let ObservedAction { key, old, new } = observed;
+
+    // Bump generation FIRST so any in-flight timer for this key becomes
+    // stale and drops its flush attempt.
+    session.next_generation += 1;
+    let generation = session.next_generation;
+
+    match session.pending.get_mut(&key) {
+        Some(pending) => {
+            // Preserve original_old; just update the latest_new + generation.
+            pending.latest_new = new;
+            pending.generation = generation;
+        }
+        None => {
+            session.pending.insert(
+                key.clone(),
+                PendingEdit {
+                    original_old: old,
+                    latest_new: new,
+                    generation,
+                },
+            );
+        }
+    }
+
+    // Schedule a delayed flush.
+    Task::perform(
+        async move {
+            tokio::time::sleep(DEBOUNCE).await;
+            (key, generation)
+        },
+        |(key, generation)| {
+            Message::mod_packager(ModPackagerMessage::RecordingDebounceFired { key, generation })
+        },
+    )
+}
+
+/// Flush one pending entry to disk, but only if its generation still matches
+/// (i.e. no later edit has superseded it). When `expected_generation` is
+/// `None`, flush regardless of generation — used by the bulk flush path.
+fn flush_one_pending(
+    app: &mut App,
+    key: &RecordingKey,
+    expected_generation: Option<u64>,
+) -> Task<Message> {
+    let Some(session) = app.state.recording.as_mut() else {
+        return Task::none();
+    };
+    let workspace_root = session.workspace_root.clone();
+    let mod_slug = session.mod_slug.clone();
+
+    let pending = match session.pending.get(key) {
+        Some(p) => p,
+        None => return Task::none(),
+    };
+    if let Some(g) = expected_generation {
+        if pending.generation != g {
+            // A later keystroke superseded this timer; drop silently.
+            return Task::none();
+        }
+    }
+
+    // Skip no-op edits (user typed something then changed back to the original).
+    if pending.original_old == pending.latest_new {
+        session.pending.remove(key);
+        return Task::none();
+    }
+
+    let action = ChangeAction::new(
+        key.file_path.clone(),
+        ChangeOp::FieldDelta {
+            record_id: key.record_id,
+            field: key.field.clone(),
+            old: pending.original_old.clone(),
+            new: pending.latest_new.clone(),
+        },
+    );
+    session.pending.remove(key);
+
+    Task::perform(
+        async move {
+            tokio::task::spawn_blocking(move || -> Result<(), String> {
+                let ws = Workspace::open(workspace_root).map_err(|e| e.to_string())?;
+                ws.append_action(&mod_slug, action).map_err(|e| e.to_string())
+            })
+            .await
+            .unwrap_or_else(|e| Err(e.to_string()))
+        },
+        |result| Message::mod_packager(ModPackagerMessage::RecordingPersisted(result)),
+    )
+}
+
+/// Flush every pending entry immediately. Returns a Task that batches all
+/// the persistence operations.
+fn flush_all_pending(app: &mut App) -> Task<Message> {
+    let Some(session) = app.state.recording.as_ref() else {
+        return Task::none();
+    };
+    let keys: Vec<RecordingKey> = session.pending.keys().cloned().collect();
+    let mut tasks = Task::none();
+    for key in keys {
+        let t = flush_one_pending(app, &key, None);
+        tasks = tasks.chain(t);
+    }
+    tasks
 }
 
 fn nonempty_path(s: &str) -> Option<PathBuf> {

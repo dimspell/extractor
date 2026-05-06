@@ -248,6 +248,18 @@ impl Workspace {
         Ok(slug)
     }
 
+    /// Append one [`ChangeAction`](super::change::ChangeAction) to the named
+    /// mod, in load-mutate-save fashion. Used by recording mode.
+    pub fn append_action(
+        &self,
+        slug: &str,
+        action: super::change::ChangeAction,
+    ) -> Result<()> {
+        let mut pkg = self.read_mod(slug)?;
+        pkg.changes.push(action);
+        self.write_mod(slug, &pkg)
+    }
+
     pub fn delete_mod(&self, slug: &str) -> Result<()> {
         let dir = self.mod_dir(slug)?;
         if dir.is_dir() {
@@ -447,6 +459,97 @@ mod tests {
         let imported = ws.read_mod(&new_slug).unwrap();
         assert_eq!(imported.manifest.name, "typos");
         assert_eq!(imported.changes.len(), 1);
+    }
+
+    #[test]
+    fn recording_then_apply_round_trip() {
+        // Mirrors the GUI flow: create a mod, "record" several field deltas
+        // via append_action, then apply to a fake game dir.
+        use crate::modding::PatcherRegistry;
+        use crate::references::extractor::Extractor;
+        use crate::references::misc_item_db::MiscItem;
+        use std::io::Cursor;
+
+        let (root, ws) = ws();
+        let game = tempdir().unwrap();
+
+        // Seed the game dir with a small MiscItem.db.
+        let rel = "CharacterInGame/MiscItem.db";
+        let mut data = 1i32.to_le_bytes().to_vec();
+        let mut name_buf = [0u8; 30];
+        name_buf[..4].copy_from_slice(b"Helt");
+        data.extend_from_slice(&name_buf);
+        data.extend(vec![0u8; 202]);
+        data.extend_from_slice(&15i32.to_le_bytes());
+        data.extend(vec![0u8; 20]);
+        let game_file = game.path().join(rel);
+        fs::create_dir_all(game_file.parent().unwrap()).unwrap();
+        fs::write(&game_file, &data).unwrap();
+
+        // "Record" two stringly-typed deltas (as the GUI would).
+        let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
+        ws.append_action(
+            &slug,
+            ChangeAction::new(
+                rel,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "name".into(),
+                    old: Value::String("Helt".into()),
+                    new: Value::String("Helmet".into()),
+                },
+            ),
+        )
+        .unwrap();
+        ws.append_action(
+            &slug,
+            ChangeAction::new(
+                rel,
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "base_price".into(),
+                    old: Value::String("15".into()),
+                    new: Value::String("25".into()),
+                },
+            ),
+        )
+        .unwrap();
+
+        ws.set_enabled(&slug, true).unwrap();
+        let report = ws
+            .apply(game.path(), &PatcherRegistry::with_defaults())
+            .unwrap();
+        assert_eq!(report.actions_applied, 2);
+
+        let mut c = Cursor::new(fs::read(&game_file).unwrap());
+        let recs = MiscItem::parse(&mut c, fs::metadata(&game_file).unwrap().len()).unwrap();
+        assert_eq!(recs[0].name, "Helmet");
+        assert_eq!(recs[0].base_price, 25);
+
+        let _ = root; // hold tempdir
+    }
+
+    #[test]
+    fn append_action_grows_changelog() {
+        let (_root, ws) = ws();
+        let slug = ws.create_mod(ModManifest::new("typos")).unwrap();
+        for i in 0..3 {
+            ws.append_action(
+                &slug,
+                ChangeAction::new(
+                    "CharacterInGame/MiscItem.db",
+                    ChangeOp::FieldDelta {
+                        record_id: i,
+                        field: "name".into(),
+                        old: Value::Null,
+                        new: Value::String(format!("v{i}")),
+                    },
+                ),
+            )
+            .unwrap();
+        }
+        let pkg = ws.read_mod(&slug).unwrap();
+        assert_eq!(pkg.changes.len(), 3);
     }
 
     #[test]
