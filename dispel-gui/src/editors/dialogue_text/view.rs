@@ -1,7 +1,6 @@
 use crate::app::App;
-use crate::message::{
-    editor::dialogue_paragraph::DialogueParagraphEditorMessage, Message, MessageExt,
-};
+use crate::editors::dialogue_text::DialogueParagraphEditorMessage;
+use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
 use iced::widget::{container, text};

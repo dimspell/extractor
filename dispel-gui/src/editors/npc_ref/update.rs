@@ -6,7 +6,7 @@ use iced::Task;
 use crate::update::editor::tab;
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
-use crate::message::editor::npc_ref::NpcRefEditorMessage;
+use crate::editors::npc_ref::NpcRefEditorMessage;
 use crate::message::MessageExt;
 
 pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {

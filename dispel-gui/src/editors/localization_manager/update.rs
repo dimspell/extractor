@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::loading_state::LoadingState;
-use crate::message::editor::localization::LocalizationMessage;
+use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::MessageExt;
 use dispel_core::localization::Localizable;
 use dispel_core::{

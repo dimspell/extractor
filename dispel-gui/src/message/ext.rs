@@ -1,42 +1,42 @@
-use crate::message::editor::weapon::WeaponEditorMessage;
+use crate::editors::weapon::WeaponEditorMessage;
 use crate::message::EditorMessage;
 
 define_message_ext! {
-    weapon:         Weapon(crate::message::editor::weapon::WeaponEditorMessage),
-    monster_db:     Monster(crate::message::editor::monster_db::MonsterEditorMessage),
-    monster_ini:    MonsterIni(crate::message::editor::monster_ini::MonsterIniEditorMessage),
-    chest:          Chest(crate::message::editor::chest::ChestEditorMessage),
-    heal_item:      HealItem(crate::message::editor::heal_item::HealItemEditorMessage),
-    misc_item:      MiscItem(crate::message::editor::misc_item::MiscItemEditorMessage),
-    edit_item:      EditItem(crate::message::editor::edit_item::EditItemEditorMessage),
-    event_item:     EventItem(crate::message::editor::event_item::EventItemEditorMessage),
-    npc_ini:        NpcIni(crate::message::editor::npc_ini::NpcIniEditorMessage),
-    magic:          Magic(crate::message::editor::magic::MagicEditorMessage),
-    store:          Store(crate::message::editor::store::StoreEditorMessage),
-    party_ref:      PartyRef(crate::message::editor::party_ref::PartyRefEditorMessage),
-    party_ini:      PartyIni(crate::message::editor::party_ini::PartyIniEditorMessage),
-    sprite_viewer:  SpriteViewer(crate::message::editor::spritebrowser::SpriteViewerMessage),
-    monster_ref:    MonsterRef(crate::message::editor::monster_ref::MonsterRefEditorMessage),
-    all_map_ini:    AllMapIni(crate::message::editor::all_map_ini::AllMapIniEditorMessage),
-    dialogue_script: DialogueScript(crate::message::editor::dialogue_script::DialogueScriptEditorMessage),
-    dialogue_paragraph:  DialogueParagraph(crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage),
-    draw_item:      DrawItem(crate::message::editor::draw_item::DrawItemEditorMessage),
-    event_ini:      EventIni(crate::message::editor::event_ini::EventIniEditorMessage),
-    event_npc_ref:  EventNpcRef(crate::message::editor::event_npc_ref::EventNpcRefEditorMessage),
-    extra_ini:      ExtraIni(crate::message::editor::extra_ini::ExtraIniEditorMessage),
-    extra_ref:      ExtraRef(crate::message::editor::extra_ref::ExtraRefEditorMessage),
-    map_ini:        MapIni(crate::message::editor::map_ini::MapIniEditorMessage),
-    message_scr:    MessageScr(crate::message::editor::message_scr::MessageScrEditorMessage),
-    npc_ref:        NpcRef(crate::message::editor::npc_ref::NpcRefEditorMessage),
-    party_level_db: PartyLevelDb(crate::message::editor::party_level_db::PartyLevelDbEditorMessage),
-    quest_scr:      QuestScr(crate::message::editor::quest_scr::QuestScrEditorMessage),
-    wave_ini:       WaveIni(crate::message::editor::wave_ini::WaveIniEditorMessage),
-    ch_data:        ChData(crate::message::editor::chdata::ChDataEditorMessage),
-    map_editor:     MapEditor(crate::message::editor::map_editor::MapEditorMessage),
-    tileset_editor: Tileset(crate::message::editor::tileset::TilesetEditorMessage),
-    snf_editor:     Snf(crate::message::editor::snf::SnfEditorMessage),
-    mod_packager:    ModPackager(crate::message::editor::mod_packager::ModPackagerMessage),
-    localization:    Localization(crate::message::editor::localization::LocalizationMessage),
+    weapon:         Weapon(crate::editors::weapon::WeaponEditorMessage),
+    monster_db:     Monster(crate::editors::monster::MonsterEditorMessage),
+    monster_ini:    MonsterIni(crate::editors::monster_ini::MonsterIniEditorMessage),
+    chest:          Chest(crate::editors::chest::ChestEditorMessage),
+    heal_item:      HealItem(crate::editors::heal_item::HealItemEditorMessage),
+    misc_item:      MiscItem(crate::editors::misc_item::MiscItemEditorMessage),
+    edit_item:      EditItem(crate::editors::edit_item::EditItemEditorMessage),
+    event_item:     EventItem(crate::editors::event_item::EventItemEditorMessage),
+    npc_ini:        NpcIni(crate::editors::npc_ini::NpcIniEditorMessage),
+    magic:          Magic(crate::editors::magic::MagicEditorMessage),
+    store:          Store(crate::editors::store::StoreEditorMessage),
+    party_ref:      PartyRef(crate::editors::party_ref::PartyRefEditorMessage),
+    party_ini:      PartyIni(crate::editors::party_ini::PartyIniEditorMessage),
+    sprite_viewer:  SpriteViewer(crate::editors::sprite_browser::SpriteViewerMessage),
+    monster_ref:    MonsterRef(crate::editors::monster_ref::MonsterRefEditorMessage),
+    all_map_ini:    AllMapIni(crate::editors::all_map_ini::AllMapIniEditorMessage),
+    dialogue_script: DialogueScript(crate::editors::dialogue_script::DialogueScriptEditorMessage),
+    dialogue_paragraph:  DialogueParagraph(crate::editors::dialogue_text::DialogueParagraphEditorMessage),
+    draw_item:      DrawItem(crate::editors::draw_item::DrawItemEditorMessage),
+    event_ini:      EventIni(crate::editors::event_ini::EventIniEditorMessage),
+    event_npc_ref:  EventNpcRef(crate::editors::event_npc_ref::EventNpcRefEditorMessage),
+    extra_ini:      ExtraIni(crate::editors::extra_ini::ExtraIniEditorMessage),
+    extra_ref:      ExtraRef(crate::editors::extra_ref::ExtraRefEditorMessage),
+    map_ini:        MapIni(crate::editors::map_ini::MapIniEditorMessage),
+    message_scr:    MessageScr(crate::editors::message_scr::MessageScrEditorMessage),
+    npc_ref:        NpcRef(crate::editors::npc_ref::NpcRefEditorMessage),
+    party_level_db: PartyLevelDb(crate::editors::party_level_db::PartyLevelDbEditorMessage),
+    quest_scr:      QuestScr(crate::editors::quest_scr::QuestScrEditorMessage),
+    wave_ini:       WaveIni(crate::editors::wave_ini::WaveIniEditorMessage),
+    ch_data:        ChData(crate::editors::chdata::ChDataEditorMessage),
+    map_editor:     MapEditor(crate::editors::map_editor::MapEditorMessage),
+    tileset_editor: Tileset(crate::editors::tileset::TilesetEditorMessage),
+    snf_editor:     Snf(crate::editors::snf_editor::SnfEditorMessage),
+    mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
+    localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
 }
 
 /// Extension trait for building nested editor messages.
@@ -71,7 +71,7 @@ impl WeaponEditorMessageExt for WeaponEditorMessage {
 #[cfg(test)]
 mod tests {
     use crate::components::file_tree::message::FileTreeMessage;
-    use crate::message::editor::weapon::WeaponEditorMessage;
+    use crate::editors::weapon::WeaponEditorMessage;
     use crate::message::editor::EditorMessage;
     use crate::message::{Message, MessageExt};
     use std::path::PathBuf;
@@ -99,10 +99,10 @@ mod tests {
 
     #[test]
     fn test_store_message_constructor() {
-        let msg = Message::store(crate::message::editor::store::StoreEditorMessage::LoadCatalog);
+        let msg = Message::store(crate::editors::store::StoreEditorMessage::LoadCatalog);
         match msg {
             Message::Editor(EditorMessage::Store(
-                crate::message::editor::store::StoreEditorMessage::LoadCatalog,
+                crate::editors::store::StoreEditorMessage::LoadCatalog,
             )) => (),
             _ => panic!("Unexpected message variant"),
         }

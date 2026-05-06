@@ -1,5 +1,6 @@
 use crate::app::App;
-use crate::message::{editor::dialogue_script::DialogueScriptEditorMessage, Message, MessageExt};
+use crate::editors::dialogue_script::DialogueScriptEditorMessage;
+use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
 use iced::widget::{container, text};

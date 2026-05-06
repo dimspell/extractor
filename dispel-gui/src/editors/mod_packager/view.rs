@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::loading_state::LoadingState;
-use crate::message::editor::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Alignment, Element, Fill, Length};

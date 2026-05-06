@@ -1,7 +1,7 @@
 // Chest editor message handlers
 use crate::app::App;
 use crate::loading_state::LoadingState;
-use crate::message::editor::chest::ChestEditorMessage;
+use crate::editors::chest::ChestEditorMessage;
 use dispel_core::Extractor;
 use iced::Task;
 use std::path::PathBuf;

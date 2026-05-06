@@ -1,5 +1,6 @@
 use crate::app::App;
-use crate::message::{editor::draw_item::DrawItemEditorMessage, Message, MessageExt};
+use crate::editors::draw_item::DrawItemEditorMessage;
+use crate::message::{Message, MessageExt};
 use crate::view::editor::view_spreadsheet;
 use iced::Element;
 

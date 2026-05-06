@@ -5,7 +5,7 @@
 ///
 /// ```rust
 /// define_message_ext! {
-///     weapon: Weapon($crate::message::editor::weapon::WeaponEditorMessage),
+///     weapon: Weapon($crate::editors::weapon::WeaponEditorMessage),
 ///     …
 /// }
 /// ```

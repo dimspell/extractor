@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::components::modal::modal;
 use crate::components::textarea;
-use crate::message::editor::store::StoreEditorMessage;
+use crate::editors::store::StoreEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};

@@ -1,5 +1,6 @@
 use crate::app::App;
-use crate::message::{editor::chest::ChestEditorMessage, Message, MessageExt};
+use crate::editors::chest::ChestEditorMessage;
+use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::utils::{horizontal_space, labeled_input, labeled_select, vertical_space};
 use dispel_core::ItemTypeId;

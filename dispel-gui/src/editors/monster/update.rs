@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::monster_db::MonsterEditorMessage;
+use crate::editors::monster::MonsterEditorMessage;
 use crate::message::MessageExt;
 use iced::Task;
 

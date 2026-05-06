@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::loading_state::LoadingState;
-use crate::message::editor::store::StoreEditorMessage;
+use crate::editors::store::StoreEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{EditItem, Extractor, HealItem, MiscItem, Store, WeaponItem};
 use iced::Task;

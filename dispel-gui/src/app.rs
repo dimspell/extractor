@@ -3,10 +3,8 @@ use crate::components::file_tree::FileTree;
 use crate::components::tab_bar::TabBarMessage;
 use crate::db;
 use crate::edit_history::EditHistory;
-use crate::message::{
-    editor::chest::ChestEditorMessage, Message, MessageExt, SystemMessage, ViewerMessage,
-    WorkspaceMessage,
-};
+use crate::editors::chest::ChestEditorMessage;
+use crate::message::{Message, MessageExt, SystemMessage, ViewerMessage, WorkspaceMessage};
 use crate::workspace::EditorType;
 use dispel_core::Extractor;
 use iced::{Subscription, Task};
@@ -143,7 +141,7 @@ impl App {
 
     #[cfg(test)]
     pub fn test_new(workspace: crate::workspace::Workspace) -> Self {
-        use crate::state::state::AppState;
+        use crate::state::AppState;
 
         let mut state = AppState::default();
         state.workspace = workspace;
@@ -245,12 +243,12 @@ impl App {
         &self,
         sm: crate::view::editor::SpreadsheetMessage,
     ) -> Option<Message> {
-        use crate::message::editor::*;
+        use crate::editors::*;
         use crate::workspace::EditorType::*;
         let et = self.state.workspace.active()?.editor_type;
         Some(match et {
             WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-            MonsterEditor => Message::monster_db(monster_db::MonsterEditorMessage::Spreadsheet(sm)),
+            MonsterEditor => Message::monster_db(monster::MonsterEditorMessage::Spreadsheet(sm)),
             MonsterIniEditor => {
                 Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
             }
@@ -289,7 +287,7 @@ impl App {
                 dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
             ),
             DialogueTextEditor => Message::dialogue_paragraph(
-                dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
+                dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
             ),
             ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
             PartyLevelDbEditor => {
@@ -382,7 +380,7 @@ impl App {
 
         // Drive animation playback when any sprite viewer is playing.
         if self.state.sprite_viewers.values().any(|v| v.is_playing) {
-            use crate::message::editor::spritebrowser::SpriteViewerMessage;
+            use crate::editors::sprite_browser::SpriteViewerMessage;
             let anim = iced::time::every(std::time::Duration::from_millis(16))
                 .map(|_| Message::sprite_viewer(SpriteViewerMessage::Tick));
             subscriptions.push(anim);
@@ -395,7 +393,7 @@ impl App {
             .values()
             .any(|e| e.playback.is_some())
         {
-            use crate::message::editor::snf::SnfEditorMessage;
+            use crate::editors::snf_editor::SnfEditorMessage;
             let snf_tick = iced::time::every(std::time::Duration::from_millis(250))
                 .map(|_| Message::snf_editor(SnfEditorMessage::Tick));
             subscriptions.push(snf_tick);
@@ -494,7 +492,7 @@ impl App {
                     },
                     move |result| {
                         crate::message::Message::dialogue_script(
-                            crate::message::editor::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
+                            crate::editors::dialogue_script::DialogueScriptEditorMessage::CatalogLoaded(result),
                         )
                     },
                 )
@@ -521,23 +519,23 @@ impl App {
                     },
                     move |result| {
                         crate::message::Message::dialogue_paragraph(
-                            crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
+                            crate::editors::dialogue_text::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
                         )
                     },
                 )
             }
             EditorType::NpcRefEditor => Task::done(Message::npc_ref(
-                crate::message::editor::npc_ref::NpcRefEditorMessage::LoadCatalog(
+                crate::editors::npc_ref::NpcRefEditorMessage::LoadCatalog(
                     path.to_path_buf(),
                 ),
             )),
             EditorType::MonsterRefEditor => Task::done(Message::monster_ref(
-                crate::message::editor::monster_ref::MonsterRefEditorMessage::LoadCatalog(
+                crate::editors::monster_ref::MonsterRefEditorMessage::LoadCatalog(
                     path.to_path_buf(),
                 ),
             )),
             EditorType::ExtraRefEditor => Task::done(Message::extra_ref(
-                crate::message::editor::extra_ref::ExtraRefEditorMessage::LoadCatalog(
+                crate::editors::extra_ref::ExtraRefEditorMessage::LoadCatalog(
                     path.to_path_buf(),
                 ),
             )),
@@ -570,7 +568,7 @@ impl App {
                     return Task::none();
                 };
                 Task::done(Message::map_editor(
-                    crate::message::editor::map_editor::MapEditorMessage::Open(
+                    crate::editors::map_editor::MapEditorMessage::Open(
                         tab_id,
                         path.to_path_buf(),
                     ),
@@ -706,7 +704,7 @@ fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
         EditorType::ExtraIniEditor => load!(Message::extra_ini),
         EditorType::EventIniEditor => load!(Message::event_ini),
         EditorType::WaveIniEditor => Some(Task::done(Message::wave_ini(
-            crate::message::editor::wave_ini::WaveIniEditorMessage::LoadCatalog,
+            crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog,
         ))),
         EditorType::DrawItemEditor => load!(Message::draw_item),
         EditorType::EventNpcRefEditor => load!(Message::event_npc_ref),
@@ -714,10 +712,10 @@ fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
         EditorType::MessageScrEditor => load!(Message::message_scr),
         EditorType::ChDataEditor => load!(Message::ch_data),
         EditorType::StoreEditor => Some(Task::done(Message::store(
-            crate::message::editor::store::StoreEditorMessage::LoadCatalog,
+            crate::editors::store::StoreEditorMessage::LoadCatalog,
         ))),
         EditorType::PartyLevelDbEditor => Some(Task::done(Message::party_level_db(
-            crate::message::editor::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
+            crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
         ))),
         _ => None,
     }
@@ -730,13 +728,13 @@ fn build_spreadsheet_nav_msg(
     et: crate::workspace::EditorType,
     sm: crate::view::editor::SpreadsheetMessage,
 ) -> Option<crate::message::Message> {
-    use crate::message::editor::*;
+    use crate::editors::*;
     use crate::message::Message;
     use crate::message::MessageExt as _;
     use crate::workspace::EditorType::*;
     Some(match et {
         WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-        MonsterEditor => Message::monster_db(monster_db::MonsterEditorMessage::Spreadsheet(sm)),
+        MonsterEditor => Message::monster_db(monster::MonsterEditorMessage::Spreadsheet(sm)),
         MonsterIniEditor => {
             Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
         }
@@ -773,7 +771,7 @@ fn build_spreadsheet_nav_msg(
             dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
         ),
         DialogueTextEditor => Message::dialogue_paragraph(
-            dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
+            dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
         ),
         ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
         PartyLevelDbEditor => {

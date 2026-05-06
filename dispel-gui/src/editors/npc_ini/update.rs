@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::npc_ini::NpcIniEditorMessage;
+use crate::editors::npc_ini::NpcIniEditorMessage;
 use crate::message::MessageExt;
 use iced::Task;
 

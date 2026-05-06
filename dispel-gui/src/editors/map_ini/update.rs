@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::handle_spreadsheet_messages;
-use crate::message::editor::map_ini::MapIniEditorMessage;
+use crate::editors::map_ini::MapIniEditorMessage;
 use crate::message::MessageExt;
 use iced::Task;
 

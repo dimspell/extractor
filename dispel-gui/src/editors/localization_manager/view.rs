@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::components::textarea::textarea;
 use crate::loading_state::LoadingState;
-use crate::message::editor::localization::LocalizationMessage;
+use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use iced::widget::{

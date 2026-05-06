@@ -1,5 +1,6 @@
 use crate::app::App;
-use crate::message::{editor::extra_ref::ExtraRefEditorMessage, Message, MessageExt};
+use crate::editors::extra_ref::ExtraRefEditorMessage;
+use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
 use iced::widget::{container, text};

@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::editor::party_level_db::PartyLevelDbEditorMessage;
+use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;

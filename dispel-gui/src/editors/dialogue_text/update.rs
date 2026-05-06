@@ -5,7 +5,7 @@ use crate::update::editor::tab;
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
-use crate::message::editor::dialogue_paragraph::DialogueParagraphEditorMessage;
+use crate::editors::dialogue_text::DialogueParagraphEditorMessage;
 use crate::message::MessageExt;
 
 pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<crate::message::Message> {

@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::editor::snf::SnfEditorMessage;
+use crate::editors::snf_editor::SnfEditorMessage;
 use crate::message::{Message, MessageExt};
 use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
