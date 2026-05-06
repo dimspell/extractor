@@ -1,5 +1,5 @@
 use crate::components::editable::EditableRecord;
-use crate::generic_editor::GenericEditorState;
+use crate::components::generic_editor::GenericEditorState;
 use crate::view::editor::SpreadsheetState;
 use std::ops::{Deref, DerefMut};
 

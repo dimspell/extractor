@@ -3,7 +3,7 @@
 
 use crate::message::Message;
 use crate::style;
-use crate::utils::{horizontal_rule, horizontal_space};
+use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};

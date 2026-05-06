@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::editors::db_viewer::state::PAGE_SIZE;
 use crate::message::{viewer::ViewerMessage, Message};
 use crate::style;
-use crate::utils::{horizontal_space, vertical_space};
+use crate::components::utils::{horizontal_space, vertical_space};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
 

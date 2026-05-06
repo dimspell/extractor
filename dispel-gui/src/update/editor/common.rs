@@ -682,7 +682,7 @@ macro_rules! handle_load_catalog {
                 return Task::none();
             }
 
-            $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loading;
+            $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loading;
             $app.state.$field.status_msg = concat!($item_name, " catalog...").into();
 
             let path = std::path::PathBuf::from(&$app.state.shared_game_path).join($db_path);
@@ -701,7 +701,7 @@ macro_rules! handle_load_catalog {
 #[macro_export]
 macro_rules! handle_catalog_loaded {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(catalog) => {
                 $app.state.$field.catalog = Some(catalog.clone());
@@ -752,7 +752,7 @@ macro_rules! handle_save {
             return Task::none();
         }
 
-        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loading;
+        $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loading;
         let result = $save_method;
 
         Task::perform(async { result }, move |result: Result<(), String>| {
@@ -785,7 +785,7 @@ macro_rules! handle_pane_clicked {
 #[macro_export]
 macro_rules! handle_saved {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$field.loading_state = $crate::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(_) => {
                 $app.state.$field.status_msg = format!(concat!($item_name, " saved successfully"));

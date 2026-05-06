@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::file_index_cache;
+use crate::indexation::file_index_cache;
 
 /// A node in the file tree.
 #[derive(Debug, Clone)]

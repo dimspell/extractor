@@ -15,7 +15,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 return Task::none();
             }
             app.state.party_level_db_editor.loading_state =
-                crate::loading_state::LoadingState::Loading;
+                crate::components::loading_state::LoadingState::Loading;
             let level_path = PathBuf::from(&app.state.shared_game_path)
                 .join("NpcInGame")
                 .join("PrtLevel.db");
@@ -39,7 +39,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
 
         PartyLevelDbEditorMessage::CatalogLoaded(result) => {
             app.state.party_level_db_editor.loading_state =
-                crate::loading_state::LoadingState::Loaded(());
+                crate::components::loading_state::LoadingState::Loaded(());
             match result {
                 Ok((npcs, refs)) => {
                     app.state.party_level_db_editor.party_refs = refs;

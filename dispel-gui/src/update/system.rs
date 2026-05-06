@@ -3,10 +3,10 @@
 use crate::app::App;
 use crate::components::FileTree;
 use crate::editors::map_editor::MapEditorMessage;
-use crate::file_index_cache::FileIndexCacheManager;
-use crate::generic_editor::UndoRedo;
+use crate::indexation::file_index_cache::FileIndexCacheManager;
+use crate::components::generic_editor::UndoRedo;
 use crate::message::{system::SystemMessage, Message, MessageExt};
-use crate::utils::browse_folder;
+use crate::components::utils::browse_folder;
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
@@ -27,7 +27,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     // Save a search index before closing
                     let index = app.search_index.clone();
                     Task::perform(
-                        async move { index.save(&crate::search_index::SearchIndex::index_path()) },
+                        async move { index.save(&crate::indexation::search_index::SearchIndex::index_path()) },
                         |_| Message::System(SystemMessage::CloseApp),
                     )
                 }
@@ -209,7 +209,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     app.search_index.game_path = Some(s.clone());
                     let gp = pathbuf.clone();
                     return Task::perform(
-                        async move { crate::search_index::build_index(&gp).await },
+                        async move { crate::indexation::search_index::build_index(&gp).await },
                         |index| {
                             crate::message::Message::System(SystemMessage::IndexLoaded(Ok(index)))
                         },
@@ -241,7 +241,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
 
                 // Rebuild search index
                 let search_index_task = Task::perform(
-                    async move { crate::search_index::build_index(&gp).await },
+                    async move { crate::indexation::search_index::build_index(&gp).await },
                     |index| Message::System(SystemMessage::IndexLoaded(Ok(index))),
                 );
 
@@ -253,7 +253,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                         Task::perform(
                             async move {
                                 let indexation_service =
-                                    crate::indexation_service::IndexationService::new(
+                                    crate::indexation::indexation_service::IndexationService::new(
                                         cache_manager,
                                     );
                                 indexation_service
@@ -358,7 +358,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         SystemMessage::IndexSaveRequested => {
             let index = app.search_index.clone();
             Task::perform(
-                async move { index.save(&crate::search_index::SearchIndex::index_path()) },
+                async move { index.save(&crate::indexation::search_index::SearchIndex::index_path()) },
                 |result| match result {
                     Ok(()) => crate::message::Message::System(SystemMessage::IndexSaveComplete),
                     Err(e) => {

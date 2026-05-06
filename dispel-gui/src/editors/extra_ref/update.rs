@@ -4,7 +4,7 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use crate::message::MessageExt;
 use crate::update::editor::tab;
 

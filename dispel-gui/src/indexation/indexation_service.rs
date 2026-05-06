@@ -1,4 +1,4 @@
-use crate::file_index_cache::{
+use crate::indexation::file_index_cache::{
     CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata,
 };
 use std::cell::RefCell;

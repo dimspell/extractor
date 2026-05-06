@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::editors::store::StoreEditorMessage;
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use crate::message::MessageExt;
 use dispel_core::{EditItem, Extractor, HealItem, MiscItem, Store, WeaponItem};
 use iced::Task;
@@ -85,7 +85,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                         format!("Error loading store catalog: {}", e)
                 }
             }
-            app.state.store_editor.loading_state = crate::loading_state::LoadingState::Loaded(());
+            app.state.store_editor.loading_state = crate::components::loading_state::LoadingState::Loaded(());
             Task::none()
         }
         StoreEditorMessage::SelectStore(index) => {
@@ -145,7 +145,7 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             Task::none()
         }
         StoreEditorMessage::Saved(result) => {
-            app.state.store_editor.loading_state = crate::loading_state::LoadingState::Loaded(());
+            app.state.store_editor.loading_state = crate::components::loading_state::LoadingState::Loaded(());
 
             match result {
                 Ok(_) => {

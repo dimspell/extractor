@@ -3,10 +3,10 @@
 
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::textarea::{self, TextAreaContent};
-use crate::generic_editor::GenericEditorState;
+use crate::components::generic_editor::GenericEditorState;
 use crate::message::Message;
 use crate::style;
-use crate::utils::horizontal_space;
+use crate::components::utils::horizontal_space;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
 use iced::widget::{

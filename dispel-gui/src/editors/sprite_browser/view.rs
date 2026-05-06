@@ -5,7 +5,7 @@ use crate::editors::sprite_browser::{
 };
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::utils::horizontal_rule;
+use crate::components::utils::horizontal_rule;
 use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
 

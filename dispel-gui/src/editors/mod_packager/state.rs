@@ -1,4 +1,4 @@
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use std::path::PathBuf;
 
 #[derive(Debug, Default, Clone)]

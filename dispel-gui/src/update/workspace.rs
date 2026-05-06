@@ -71,7 +71,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             if app.global_search.is_visible {
                 app.command_palette = None;
                 return iced::widget::operation::focus(
-                    crate::global_search::GlobalSearch::input_id(),
+                    crate::components::global_search::GlobalSearch::input_id(),
                 );
             }
             Task::none()
@@ -256,7 +256,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 for entry in file_results.iter().take(app.global_search.max_results) {
                     app.global_search
                         .results
-                        .push(crate::global_search::SearchResult {
+                        .push(crate::components::global_search::SearchResult {
                             catalog_type: entry.editor_type.clone(),
                             record_idx: 0,
                             display_text: entry.file_path.clone(),
@@ -293,7 +293,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 .global_search
                 .scroll_offset_for_index(app.global_search.selected_index);
             return iced::widget::operation::scroll_to(
-                crate::global_search::GlobalSearch::scroll_id(),
+                crate::components::global_search::GlobalSearch::scroll_id(),
                 iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
             );
         }
@@ -303,7 +303,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 .global_search
                 .scroll_offset_for_index(app.global_search.selected_index);
             return iced::widget::operation::scroll_to(
-                crate::global_search::GlobalSearch::scroll_id(),
+                crate::components::global_search::GlobalSearch::scroll_id(),
                 iced::widget::scrollable::AbsoluteOffset { x: 0.0, y },
             );
         }

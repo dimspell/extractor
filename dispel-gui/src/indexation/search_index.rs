@@ -79,8 +79,8 @@ impl SearchIndex {
 
     /// Get the config directory path for the index file.
     pub fn index_path() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("dispel-gui");
+        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("../../.."));
+        path.push("../..");
         path.push("search_index.json");
         path
     }

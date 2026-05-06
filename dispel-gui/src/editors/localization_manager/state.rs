@@ -1,6 +1,6 @@
 use crate::components::textarea::TextAreaContent;
 use crate::editors::mod_packager::state::ModMetadata;
-use crate::loading_state::LoadingState;
+use crate::components::loading_state::LoadingState;
 use dispel_core::TextEntry;
 
 #[derive(Debug)]

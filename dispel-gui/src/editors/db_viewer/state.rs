@@ -1,4 +1,4 @@
-use crate::db;
+use crate::editors::db_viewer::db;
 use std::collections::HashMap;
 
 pub const PAGE_SIZE: usize = 200;
@@ -20,7 +20,7 @@ pub struct DbViewerState {
     pub sql_mode: bool,
     pub sql_query: String,
     pub status_msg: String,
-    pub loading_state: crate::loading_state::LoadingState<()>,
+    pub loading_state: crate::components::loading_state::LoadingState<()>,
 }
 
 impl Default for DbViewerState {
@@ -42,7 +42,7 @@ impl Default for DbViewerState {
             sql_mode: false,
             sql_query: String::new(),
             status_msg: String::new(),
-            loading_state: crate::loading_state::LoadingState::Idle,
+            loading_state: crate::components::loading_state::LoadingState::Idle,
         }
     }
 }
