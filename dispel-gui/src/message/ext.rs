@@ -3,7 +3,7 @@ use crate::message::EditorMessage;
 
 define_message_ext! {
     weapon:         Weapon(crate::editors::weapon::WeaponEditorMessage),
-    monster_db:     Monster(crate::editors::monster::MonsterEditorMessage),
+    monster:        Monster(crate::editors::monster::MonsterEditorMessage),
     monster_ini:    MonsterIni(crate::editors::monster_ini::MonsterIniEditorMessage),
     chest:          Chest(crate::editors::chest::ChestEditorMessage),
     heal_item:      HealItem(crate::editors::heal_item::HealItemEditorMessage),
@@ -31,7 +31,7 @@ define_message_ext! {
     party_level_db: PartyLevelDb(crate::editors::party_level_db::PartyLevelDbEditorMessage),
     quest_scr:      QuestScr(crate::editors::quest_scr::QuestScrEditorMessage),
     wave_ini:       WaveIni(crate::editors::wave_ini::WaveIniEditorMessage),
-    ch_data:        ChData(crate::editors::chdata::ChDataEditorMessage),
+    chdata:         ChData(crate::editors::chdata::ChDataEditorMessage),
     map_editor:     MapEditor(crate::editors::map_editor::MapEditorMessage),
     tileset_editor: Tileset(crate::editors::tileset::TilesetEditorMessage),
     snf_editor:     Snf(crate::editors::snf_editor::SnfEditorMessage),

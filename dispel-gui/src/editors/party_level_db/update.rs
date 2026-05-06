@@ -1,6 +1,6 @@
 use crate::app::App;
-use crate::handle_spreadsheet_messages;
 use crate::editors::party_level_db::PartyLevelDbEditorMessage;
+use crate::handle_spreadsheet_messages;
 use crate::message::Message;
 use dispel_core::{Extractor, PartyLevelNpc, PartyRef};
 use iced::Task;

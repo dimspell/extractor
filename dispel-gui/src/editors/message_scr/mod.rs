@@ -1,11 +1,12 @@
-// message_scr editor module
+// message_scr editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: message_scr,
+    name_pascal: MessageScr,
+    record: dispel_core::Message,
+    state_field: message_scr_editor,
+    sheet_field: message_scr_spreadsheet,
+    file: "ExtraInGame/Message.scr",
+}

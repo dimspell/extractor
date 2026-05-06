@@ -1036,6 +1036,7 @@ dependencies = [
  "log",
  "lru 0.12.5",
  "nucleo-matcher",
+ "paste",
  "proptest",
  "rfd",
  "rodio",

@@ -1,12 +1,12 @@
 use dispel_core::{DialogueScript, Extractor};
 use iced::Task;
 
-use crate::update::editor::tab;
 use crate::app::App;
+use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
-use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::message::MessageExt;
+use crate::update::editor::tab;
 
 pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = tab::get_tab_id(&app.state.workspace);

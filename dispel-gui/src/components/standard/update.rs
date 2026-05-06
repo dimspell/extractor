@@ -1,7 +1,7 @@
 use crate::components::editable::EditableRecord;
+use crate::components::standard::message::StandardEditorMessage;
 use crate::generic_editor::GenericEditorState;
 use crate::loading_state::LoadingState;
-use crate::components::standard::message::StandardEditorMessage;
 use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;

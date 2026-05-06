@@ -16,49 +16,47 @@ fn te(m: TilesetEditorMessage) -> Message {
     Message::tileset_editor(m)
 }
 
-impl App {
-    pub fn view_tileset_editor_tab(&self) -> Element<'_, Message> {
-        let tab_id = self
-            .state
-            .workspace
-            .active()
-            .map(|t| t.id)
-            .unwrap_or(usize::MAX);
+pub fn view(app: &App) -> Element<'_, Message> {
+    let tab_id = app
+        .state
+        .workspace
+        .active()
+        .map(|t| t.id)
+        .unwrap_or(usize::MAX);
 
-        let Some(editor) = self.state.tileset_editors.get(&tab_id) else {
-            return container(text("Tileset not loaded").size(14))
-                .width(Fill)
-                .height(Fill)
-                .padding(16)
-                .into();
-        };
-
-        if let Some(ref err) = editor.error {
-            return container(
-                column![
-                    text("Failed to load tileset").size(14),
-                    text(err.as_str()).size(12).style(style::subtle_text),
-                ]
-                .spacing(8),
-            )
+    let Some(editor) = app.state.tileset_editors.get(&tab_id) else {
+        return container(text("Tileset not loaded").size(14))
             .width(Fill)
             .height(Fill)
             .padding(16)
             .into();
-        }
+    };
 
-        let base = view_main(editor);
+    if let Some(ref err) = editor.error {
+        return container(
+            column![
+                text("Failed to load tileset").size(14),
+                text(err.as_str()).size(12).style(style::subtle_text),
+            ]
+            .spacing(8),
+        )
+        .width(Fill)
+        .height(Fill)
+        .padding(16)
+        .into();
+    }
 
-        if let Some(ref dlg) = editor.export_dialog {
-            modal(
-                base,
-                view_export_dialog(dlg),
-                || te(TilesetEditorMessage::CloseExportDialog),
-                0.5,
-            )
-        } else {
-            base
-        }
+    let base = view_main(editor);
+
+    if let Some(ref dlg) = editor.export_dialog {
+        modal(
+            base,
+            view_export_dialog(dlg),
+            || te(TilesetEditorMessage::CloseExportDialog),
+            0.5,
+        )
+    } else {
+        base
     }
 }
 

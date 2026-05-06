@@ -1,11 +1,12 @@
-// event_npc_ref editor module
+// event_npc_ref editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: event_npc_ref,
+    name_pascal: EventNpcRef,
+    record: dispel_core::EventNpcRef,
+    state_field: event_npc_ref_editor,
+    sheet_field: event_npc_ref_spreadsheet,
+    file: "NpcInGame/Eventnpc.ref",
+}

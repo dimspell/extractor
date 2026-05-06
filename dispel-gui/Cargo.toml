@@ -24,6 +24,7 @@ rodio = { version = "0.21", default-features = false, features = ["wav", "playba
 log = "0.4"
 zip = "2"
 lru = "0.12"
+paste = "1.0.15"
 
 [features]
 default = []
