@@ -350,7 +350,7 @@ impl App {
             tool_btn("DB Viewer", EditorType::DbViewer),
             tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
-            tool_btn("Mod Packager", EditorType::ModPackager),
+            tool_btn("Mod Manager", EditorType::ModPackager),
             tool_btn("Localization Packager", EditorType::LocalizationManager),
         ]
         .spacing(1);
