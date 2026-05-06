@@ -4,7 +4,7 @@
 
 use super::message::SpreadsheetMessage;
 use super::state::SpreadsheetState;
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use crate::message::{Message, SystemMessage};
 
 pub fn export_csv_task<R: EditableRecord>(

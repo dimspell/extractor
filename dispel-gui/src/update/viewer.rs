@@ -6,7 +6,7 @@ use crate::utils::browse_file;
 use crate::{db, loading_state};
 use iced::Task;
 
-use crate::state::db_viewer_state::PAGE_SIZE;
+use crate::editors::db_viewer::state::PAGE_SIZE;
 
 pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {

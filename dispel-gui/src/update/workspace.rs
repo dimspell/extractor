@@ -17,7 +17,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             tab_bar::handle(msg, app)
         }
         WorkspaceMessage::ToggleSidebar => {
-            use crate::state::state::PaneContent;
+            use crate::state::PaneContent;
             use iced::widget::pane_grid::{Axis, State as PaneGridState};
 
             app.sidebar_visible = !app.sidebar_visible;
@@ -83,7 +83,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 if let Some((new_pane, _split)) = app.state.pane_state.state.split(
                     pane_grid::Axis::Vertical,
                     app.state.pane_state.focus,
-                    crate::state::state::PaneContent::HistoryPanel,
+                    crate::state::PaneContent::HistoryPanel,
                 ) {
                     app.state.pane_state.focus = new_pane;
                 }
@@ -95,7 +95,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                     .state
                     .iter()
                     .filter_map(|(id, content)| {
-                        if matches!(content, crate::state::state::PaneContent::HistoryPanel) {
+                        if matches!(content, crate::state::PaneContent::HistoryPanel) {
                             Some(*id)
                         } else {
                             None
@@ -310,7 +310,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
 
         // Tools
         WorkspaceMessage::OpenToolTab(editor_type) => {
-            use crate::message::editor::localization::LocalizationMessage;
+            use crate::editors::localization_manager::LocalizationMessage;
             use crate::message::MessageExt;
             use crate::workspace::EditorType;
             let label = match editor_type {

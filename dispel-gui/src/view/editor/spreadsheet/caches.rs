@@ -8,7 +8,7 @@
 //! * [`SpreadsheetState::install_caches`](super::SpreadsheetState::install_caches)
 //!   is the cheap UI-thread mutation that swaps the result in.
 
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use std::hash::{Hash, Hasher};
 
 /// Pre-computed display data for an entire catalog.

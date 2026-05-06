@@ -16,7 +16,7 @@ impl App {
 }
 
 // Domain-specific handler modules
-mod editor;
+pub mod editor;
 mod file_tree;
 mod startpage;
 mod system;

@@ -4,12 +4,12 @@ use crate::app::App;
 use crate::components::FileTree;
 use crate::file_index_cache::FileIndexCacheManager;
 use crate::generic_editor::UndoRedo;
-use crate::message::editor::map_editor::MapEditorMessage;
 use crate::message::{system::SystemMessage, Message, MessageExt};
 use crate::utils::browse_folder;
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
+use crate::editors::map_editor::MapEditorMessage;
 
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
@@ -446,7 +446,7 @@ mod tests {
         // Add some editor states
         app.state
             .map_editors
-            .insert(1, crate::state::map_editor::MapEditorState::default());
+            .insert(1, crate::editors::map_editor::MapEditorState::default());
         app.state.lookups.insert(
             "test".to_string(),
             vec![("key1".to_string(), "value1".to_string())],

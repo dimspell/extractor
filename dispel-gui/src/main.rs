@@ -6,6 +6,7 @@ pub mod auto_save;
 pub mod components;
 pub mod db;
 pub mod edit_history;
+pub mod editors;
 pub mod file_index_cache;
 pub mod generic_editor;
 pub mod global_search;
@@ -13,13 +14,14 @@ pub mod indexation_service;
 pub mod loading_state;
 pub mod message;
 pub mod search_index;
-mod state;
 pub mod style;
 pub mod types;
 pub mod update;
 pub mod utils;
 pub mod view;
 pub mod workspace;
+#[allow(clippy::module_inception)]
+pub mod state;
 
 use crate::app::App;
 

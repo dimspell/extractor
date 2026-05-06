@@ -1,4 +1,4 @@
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
 use crate::edit_history::EditHistory;
 use crate::view::editor::spreadsheet::ColumnFilterOption;
@@ -536,7 +536,7 @@ fn glob_match(name: &str, pattern: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::editor::editable::EditableRecord;
+    use crate::components::editable::EditableRecord;
     use dispel_core::{EditItem, EventItem, HealItem, MiscItem, Monster, PartyRef, WeaponItem};
 
     #[test]

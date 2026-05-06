@@ -7,7 +7,7 @@
 
 use super::caches::{compute_caches, ComputedCaches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
 use crate::view::editor::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};

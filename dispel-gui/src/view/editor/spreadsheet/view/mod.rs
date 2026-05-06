@@ -9,7 +9,7 @@ pub mod table;
 
 use super::message::SpreadsheetMessage;
 use super::state::{SpreadsheetPaneContent, SpreadsheetState};
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use crate::components::modal;
 use crate::generic_editor::GenericEditorState;
 use crate::message::Message;

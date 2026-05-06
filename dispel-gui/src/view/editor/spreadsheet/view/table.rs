@@ -1,7 +1,7 @@
 //! Table content — wraps the custom `TableWidget` with an empty-catalog
 //! placeholder and the resize-drag `mouse_area`.
 
-use crate::components::editor::editable::{EditableRecord, FieldDescriptor};
+use crate::components::editable::{EditableRecord, FieldDescriptor};
 use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::constants::{ID_COL_WIDTH_PX, ROW_HEIGHT};
