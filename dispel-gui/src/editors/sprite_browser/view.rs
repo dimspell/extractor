@@ -14,50 +14,48 @@ fn sv(m: SpriteViewerMessage) -> Message {
     Message::sprite_viewer(m)
 }
 
-impl App {
-    pub fn view_sprite_viewer_tab(&self) -> Element<'_, Message> {
-        let tab_id = self
-            .state
-            .workspace
-            .active()
-            .map(|t| t.id)
-            .unwrap_or(usize::MAX);
+pub fn view(app: &App) -> Element<'_, Message> {
+    let tab_id = app
+        .state
+        .workspace
+        .active()
+        .map(|t| t.id)
+        .unwrap_or(usize::MAX);
 
-        let Some(viewer) = self.state.sprite_viewers.get(&tab_id) else {
-            return container(text("Sprite not loaded").size(14))
-                .width(Fill)
-                .height(Fill)
-                .padding(16)
-                .into();
-        };
-
-        if let Some(ref err) = viewer.error {
-            return container(
-                column![
-                    text("Failed to load sprite").size(14),
-                    text(err).size(12).style(style::subtle_text),
-                ]
-                .spacing(8),
-            )
+    let Some(viewer) = app.state.sprite_viewers.get(&tab_id) else {
+        return container(text("Sprite not loaded").size(14))
             .width(Fill)
             .height(Fill)
             .padding(16)
             .into();
-        }
+    };
 
-        let base = view_main(viewer);
+    if let Some(ref err) = viewer.error {
+        return container(
+            column![
+                text("Failed to load sprite").size(14),
+                text(err).size(12).style(style::subtle_text),
+            ]
+            .spacing(8),
+        )
+        .width(Fill)
+        .height(Fill)
+        .padding(16)
+        .into();
+    }
 
-        // Overlay the export dialog if it's open.
-        if let Some(ref dlg) = viewer.export_dialog {
-            modal(
-                base,
-                view_export_dialog(dlg),
-                || sv(SpriteViewerMessage::CloseExportDialog),
-                0.5,
-            )
-        } else {
-            base
-        }
+    let base = view_main(viewer);
+
+    // Overlay the export dialog if it's open.
+    if let Some(ref dlg) = viewer.export_dialog {
+        modal(
+            base,
+            view_export_dialog(dlg),
+            || sv(SpriteViewerMessage::CloseExportDialog),
+            0.5,
+        )
+    } else {
+        base
     }
 }
 

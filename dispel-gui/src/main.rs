@@ -14,14 +14,14 @@ pub mod indexation_service;
 pub mod loading_state;
 pub mod message;
 pub mod search_index;
+#[allow(clippy::module_inception)]
+pub mod state;
 pub mod style;
 pub mod types;
 pub mod update;
 pub mod utils;
 pub mod view;
 pub mod workspace;
-#[allow(clippy::module_inception)]
-pub mod state;
 
 use crate::app::App;
 

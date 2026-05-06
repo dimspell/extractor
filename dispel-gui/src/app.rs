@@ -4,16 +4,16 @@ use crate::components::tab_bar::TabBarMessage;
 use crate::db;
 use crate::edit_history::EditHistory;
 use crate::editors::chest::ChestEditorMessage;
-use crate::message::{Message, MessageExt, SystemMessage, ViewerMessage, WorkspaceMessage};
-use crate::workspace::EditorType;
-use dispel_core::Extractor;
-use iced::{Subscription, Task};
-use std::path::{Path, PathBuf};
 use crate::editors::db_viewer::PAGE_SIZE;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
+use crate::message::{Message, MessageExt, SystemMessage, ViewerMessage, WorkspaceMessage};
 use crate::state::AppState;
+use crate::workspace::EditorType;
+use dispel_core::Extractor;
+use iced::{Subscription, Task};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
@@ -248,7 +248,7 @@ impl App {
         let et = self.state.workspace.active()?.editor_type;
         Some(match et {
             WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-            MonsterEditor => Message::monster_db(monster::MonsterEditorMessage::Spreadsheet(sm)),
+            MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
             MonsterIniEditor => {
                 Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
             }
@@ -289,7 +289,7 @@ impl App {
             DialogueTextEditor => Message::dialogue_paragraph(
                 dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
             ),
-            ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
+            ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
             PartyLevelDbEditor => {
                 Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
             }
@@ -525,9 +525,7 @@ impl App {
                 )
             }
             EditorType::NpcRefEditor => Task::done(Message::npc_ref(
-                crate::editors::npc_ref::NpcRefEditorMessage::LoadCatalog(
-                    path.to_path_buf(),
-                ),
+                crate::editors::npc_ref::NpcRefEditorMessage::LoadCatalog(path.to_path_buf()),
             )),
             EditorType::MonsterRefEditor => Task::done(Message::monster_ref(
                 crate::editors::monster_ref::MonsterRefEditorMessage::LoadCatalog(
@@ -535,31 +533,32 @@ impl App {
                 ),
             )),
             EditorType::ExtraRefEditor => Task::done(Message::extra_ref(
-                crate::editors::extra_ref::ExtraRefEditorMessage::LoadCatalog(
-                    path.to_path_buf(),
-                ),
+                crate::editors::extra_ref::ExtraRefEditorMessage::LoadCatalog(path.to_path_buf()),
             )),
             EditorType::TilesetEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
-                    self.state.tileset_editors.entry(tab_id).or_insert_with(|| {
-                        TilesetEditorState::load(path)
-                    });
+                    self.state
+                        .tileset_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| TilesetEditorState::load(path));
                 }
                 Task::none()
             }
             EditorType::SpriteViewer => {
                 if let Some(tab_id) = self.active_tab_id() {
-                    self.state.sprite_viewers.entry(tab_id).or_insert_with(|| {
-                        SpriteViewerState::load_from_path(path)
-                    });
+                    self.state
+                        .sprite_viewers
+                        .entry(tab_id)
+                        .or_insert_with(|| SpriteViewerState::load_from_path(path));
                 }
                 Task::none()
             }
             EditorType::SnfEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
-                    self.state.snf_editors.entry(tab_id).or_insert_with(|| {
-                        SnfEditorState::load_from_path(path)
-                    });
+                    self.state
+                        .snf_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| SnfEditorState::load_from_path(path));
                 }
                 Task::none()
             }
@@ -568,10 +567,7 @@ impl App {
                     return Task::none();
                 };
                 Task::done(Message::map_editor(
-                    crate::editors::map_editor::MapEditorMessage::Open(
-                        tab_id,
-                        path.to_path_buf(),
-                    ),
+                    crate::editors::map_editor::MapEditorMessage::Open(tab_id, path.to_path_buf()),
                 ))
             }
             et => load_catalog_task(et).unwrap_or(Task::none()),
@@ -693,7 +689,7 @@ fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
         EditorType::MiscItemEditor => load!(Message::misc_item),
         EditorType::EditItemEditor => load!(Message::edit_item),
         EditorType::EventItemEditor => load!(Message::event_item),
-        EditorType::MonsterEditor => load!(Message::monster_db),
+        EditorType::MonsterEditor => load!(Message::monster),
         EditorType::MonsterIniEditor => load!(Message::monster_ini),
         EditorType::NpcIniEditor => load!(Message::npc_ini),
         EditorType::MagicEditor => load!(Message::magic),
@@ -710,7 +706,7 @@ fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
         EditorType::EventNpcRefEditor => load!(Message::event_npc_ref),
         EditorType::QuestScrEditor => load!(Message::quest_scr),
         EditorType::MessageScrEditor => load!(Message::message_scr),
-        EditorType::ChDataEditor => load!(Message::ch_data),
+        EditorType::ChDataEditor => load!(Message::chdata),
         EditorType::StoreEditor => Some(Task::done(Message::store(
             crate::editors::store::StoreEditorMessage::LoadCatalog,
         ))),
@@ -734,7 +730,7 @@ fn build_spreadsheet_nav_msg(
     use crate::workspace::EditorType::*;
     Some(match et {
         WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-        MonsterEditor => Message::monster_db(monster::MonsterEditorMessage::Spreadsheet(sm)),
+        MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
         MonsterIniEditor => {
             Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
         }
@@ -773,7 +769,7 @@ fn build_spreadsheet_nav_msg(
         DialogueTextEditor => Message::dialogue_paragraph(
             dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
         ),
-        ChDataEditor => Message::ch_data(chdata::ChDataEditorMessage::Spreadsheet(sm)),
+        ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
         PartyLevelDbEditor => {
             Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
         }

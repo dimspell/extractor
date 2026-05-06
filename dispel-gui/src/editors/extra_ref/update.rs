@@ -1,12 +1,12 @@
 use dispel_core::Extractor;
 use iced::Task;
 
-use crate::update::editor::tab;
 use crate::app::App;
+use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
-use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::message::MessageExt;
+use crate::update::editor::tab;
 
 pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = tab::get_tab_id(&app.state.workspace);

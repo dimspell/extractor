@@ -1,11 +1,12 @@
-// draw_item editor module
+// draw_item editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: draw_item,
+    name_pascal: DrawItem,
+    record: dispel_core::DrawItem,
+    state_field: draw_item_editor,
+    sheet_field: draw_item_spreadsheet,
+    file: "Ref/DRAWITEM.ref",
+}

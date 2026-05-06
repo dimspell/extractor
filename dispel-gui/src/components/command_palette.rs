@@ -116,18 +116,14 @@ impl Command {
                 label: "Scan: Load Weapon catalog",
                 shortcut: None,
                 action: || {
-                    Message::weapon(
-                        crate::editors::weapon::WeaponEditorMessage::LoadCatalog,
-                    )
+                    Message::weapon(crate::editors::weapon::WeaponEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-weapons",
                 label: "Save: Weapon Editor",
                 shortcut: None,
-                action: || {
-                    Message::weapon(crate::editors::weapon::WeaponEditorMessage::Save)
-                },
+                action: || Message::weapon(crate::editors::weapon::WeaponEditorMessage::Save),
             },
             // ── Heal Item Editor ─────────────────────────────────────────────
             Command {
@@ -145,9 +141,7 @@ impl Command {
                 label: "Save: Heal Item Editor",
                 shortcut: None,
                 action: || {
-                    Message::heal_item(
-                        crate::editors::heal_item::HealItemEditorMessage::Save,
-                    )
+                    Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::Save)
                 },
             },
             // ── Misc Item Editor ─────────────────────────────────────────────
@@ -166,9 +160,7 @@ impl Command {
                 label: "Save: Misc Item Editor",
                 shortcut: None,
                 action: || {
-                    Message::misc_item(
-                        crate::editors::misc_item::MiscItemEditorMessage::Save,
-                    )
+                    Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::Save)
                 },
             },
             // ── Magic Editor ─────────────────────────────────────────────────
@@ -176,9 +168,7 @@ impl Command {
                 id: "scan-magic",
                 label: "Scan: Load Magic catalog",
                 shortcut: None,
-                action: || {
-                    Message::magic(crate::editors::magic::MagicEditorMessage::LoadCatalog)
-                },
+                action: || Message::magic(crate::editors::magic::MagicEditorMessage::LoadCatalog),
             },
             Command {
                 id: "save-magic",
@@ -192,20 +182,14 @@ impl Command {
                 label: "Scan: Load Monster catalog",
                 shortcut: None,
                 action: || {
-                    Message::monster_db(
-                        crate::editors::monster::MonsterEditorMessage::LoadCatalog,
-                    )
+                    Message::monster(crate::editors::monster::MonsterEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-monsters",
                 label: "Save: Monster Editor",
                 shortcut: None,
-                action: || {
-                    Message::monster_db(
-                        crate::editors::monster::MonsterEditorMessage::Save,
-                    )
-                },
+                action: || Message::monster(crate::editors::monster::MonsterEditorMessage::Save),
             },
             // ── Party Ref Editor ─────────────────────────────────────────────
             Command {
@@ -223,9 +207,7 @@ impl Command {
                 label: "Save: Party Ref Editor",
                 shortcut: None,
                 action: || {
-                    Message::party_ref(
-                        crate::editors::party_ref::PartyRefEditorMessage::Save,
-                    )
+                    Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::Save)
                 },
             },
             // ── Party Ini Editor ─────────────────────────────────────────────
@@ -244,9 +226,7 @@ impl Command {
                 label: "Save: Party Ini Editor",
                 shortcut: None,
                 action: || {
-                    Message::party_ini(
-                        crate::editors::party_ini::PartyIniEditorMessage::Save,
-                    )
+                    Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::Save)
                 },
             },
             // ── ChData Editor ────────────────────────────────────────────────
@@ -255,18 +235,14 @@ impl Command {
                 label: "Scan: Load ChData catalog",
                 shortcut: None,
                 action: || {
-                    Message::ch_data(
-                        crate::editors::chdata::ChDataEditorMessage::LoadCatalog,
-                    )
+                    Message::chdata(crate::editors::chdata::ChDataEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-chdata",
                 label: "Save: ChData Editor",
                 shortcut: None,
-                action: || {
-                    Message::ch_data(crate::editors::chdata::ChDataEditorMessage::Save)
-                },
+                action: || Message::chdata(crate::editors::chdata::ChDataEditorMessage::Save),
             },
             // ── Map Ini Editor ───────────────────────────────────────────────
             Command {
@@ -274,18 +250,14 @@ impl Command {
                 label: "Scan: Load Map Ini catalog",
                 shortcut: None,
                 action: || {
-                    Message::map_ini(
-                        crate::editors::map_ini::MapIniEditorMessage::LoadCatalog,
-                    )
+                    Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-map-ini",
                 label: "Save: Map Ini Editor",
                 shortcut: None,
-                action: || {
-                    Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::Save)
-                },
+                action: || Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::Save),
             },
             // ── Wave Ini Editor ──────────────────────────────────────────────
             Command {
@@ -293,18 +265,14 @@ impl Command {
                 label: "Scan: Load Wave Ini catalog",
                 shortcut: None,
                 action: || {
-                    Message::wave_ini(
-                        crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog,
-                    )
+                    Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-wave-ini",
                 label: "Save: Wave Ini Editor",
                 shortcut: None,
-                action: || {
-                    Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::Save)
-                },
+                action: || Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::Save),
             },
             // ── Event Ini Editor ─────────────────────────────────────────────
             Command {
@@ -322,9 +290,7 @@ impl Command {
                 label: "Save: Event Ini Editor",
                 shortcut: None,
                 action: || {
-                    Message::event_ini(
-                        crate::editors::event_ini::EventIniEditorMessage::Save,
-                    )
+                    Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::Save)
                 },
             },
             // ── NPC Ini Editor ───────────────────────────────────────────────
@@ -333,18 +299,14 @@ impl Command {
                 label: "Scan: Load NPC Ini catalog",
                 shortcut: None,
                 action: || {
-                    Message::npc_ini(
-                        crate::editors::npc_ini::NpcIniEditorMessage::LoadCatalog,
-                    )
+                    Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::LoadCatalog)
                 },
             },
             Command {
                 id: "save-npc-ini",
                 label: "Save: NPC Ini Editor",
                 shortcut: None,
-                action: || {
-                    Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::Save)
-                },
+                action: || Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::Save),
             },
             // ── Quest Scr Editor ─────────────────────────────────────────────
             Command {
@@ -362,9 +324,7 @@ impl Command {
                 label: "Save: Quest Scr Editor",
                 shortcut: None,
                 action: || {
-                    Message::quest_scr(
-                        crate::editors::quest_scr::QuestScrEditorMessage::Save,
-                    )
+                    Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::Save)
                 },
             },
             // ── Message Scr Editor ───────────────────────────────────────────
@@ -383,9 +343,7 @@ impl Command {
                 label: "Save: Message Scr Editor",
                 shortcut: None,
                 action: || {
-                    Message::message_scr(
-                        crate::editors::message_scr::MessageScrEditorMessage::Save,
-                    )
+                    Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::Save)
                 },
             },
             // ── Extra Ini Editor ─────────────────────────────────────────────
@@ -404,9 +362,7 @@ impl Command {
                 label: "Save: Extra Ini Editor",
                 shortcut: None,
                 action: || {
-                    Message::extra_ini(
-                        crate::editors::extra_ini::ExtraIniEditorMessage::Save,
-                    )
+                    Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::Save)
                 },
             },
             // ── Event NpcRef Editor ──────────────────────────────────────────
@@ -446,9 +402,7 @@ impl Command {
                 label: "Save: All Map Ini Editor",
                 shortcut: None,
                 action: || {
-                    Message::all_map_ini(
-                        crate::editors::all_map_ini::AllMapIniEditorMessage::Save,
-                    )
+                    Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::Save)
                 },
             },
             // ── Party Level Db Editor ────────────────────────────────────────
@@ -458,8 +412,8 @@ impl Command {
                 shortcut: None,
                 action: || {
                     Message::party_level_db(
-                    crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog
-                )
+                        crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
+                    )
                 },
             },
             Command {
@@ -488,9 +442,7 @@ impl Command {
                 label: "Save: Draw Item Editor",
                 shortcut: None,
                 action: || {
-                    Message::draw_item(
-                        crate::editors::draw_item::DrawItemEditorMessage::Save,
-                    )
+                    Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::Save)
                 },
             },
             // ── Edit Item Editor ─────────────────────────────────────────────
@@ -509,9 +461,7 @@ impl Command {
                 label: "Save: Edit Item Editor",
                 shortcut: None,
                 action: || {
-                    Message::edit_item(
-                        crate::editors::edit_item::EditItemEditorMessage::Save,
-                    )
+                    Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::Save)
                 },
             },
             // ── Event Item Editor ────────────────────────────────────────────
@@ -530,9 +480,7 @@ impl Command {
                 label: "Save: Event Item Editor",
                 shortcut: None,
                 action: || {
-                    Message::event_item(
-                        crate::editors::event_item::EventItemEditorMessage::Save,
-                    )
+                    Message::event_item(crate::editors::event_item::EventItemEditorMessage::Save)
                 },
             },
         ]

@@ -1,11 +1,12 @@
-// monster_ini editor module
+// monster_ini editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: monster_ini,
+    name_pascal: MonsterIni,
+    record: dispel_core::MonsterIni,
+    state_field: monster_ini_editor,
+    sheet_field: monster_ini_spreadsheet,
+    file: "Monster.ini",
+}

@@ -2,13 +2,13 @@ use crate::app::App;
 use crate::components::modal::modal;
 use crate::components::textarea;
 use crate::editors::store::StoreEditorMessage;
+use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};
 use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self};
 use iced::widget::{button, column, container, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
-use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProductTypeOption {
@@ -454,64 +454,61 @@ fn multiline_field<'a>(label: &'a str, input: Element<'a, Message>) -> Element<'
 
 // ── Main view ────────────────────────────────────────────────────────────────
 
-impl App {
-    pub fn view_store_editor_tab(&self) -> Element<'_, Message> {
-        let editor = &self.state.store_editor;
-        let weapons = &self.state.weapon_editor.catalog;
-        let heals = &self.state.heal_item_editor.catalog;
-        let misc = &self.state.misc_item_editor.catalog;
-        let edit_items = &self.state.edit_item_editor.catalog;
+pub fn view(app: &App) -> Element<'_, Message> {
+    let editor = &app.state.store_editor;
+    let weapons = &app.state.weapon_editor.catalog;
+    let heals = &app.state.heal_item_editor.catalog;
+    let misc = &app.state.misc_item_editor.catalog;
+    let edit_items = &app.state.edit_item_editor.catalog;
 
-        let header = row![
-            text("Store Editor").size(20),
-            text(format!(
-                " — {} stores",
-                editor.catalog.as_ref().map_or(0, |c| c.len())
-            ))
-            .size(14)
-            .style(style::subtle_text),
-            horizontal_space(),
-            button(text("Load Catalog").size(13))
-                .padding([8, 16])
-                .on_press(Message::store(StoreEditorMessage::LoadCatalog))
-                .style(style::chip),
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center);
+    let header = row![
+        text("Store Editor").size(20),
+        text(format!(
+            " — {} stores",
+            editor.catalog.as_ref().map_or(0, |c| c.len())
+        ))
+        .size(14)
+        .style(style::subtle_text),
+        horizontal_space(),
+        button(text("Load Catalog").size(13))
+            .padding([8, 16])
+            .on_press(Message::store(StoreEditorMessage::LoadCatalog))
+            .style(style::chip),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
 
-        let status = text(&editor.status_msg).size(12).style(style::subtle_text);
+    let status = text(&editor.status_msg).size(12).style(style::subtle_text);
 
-        let panes =
-            pane_grid::PaneGrid::new(&editor.pane_state, |_pane, content, _is_maximized| {
-                let body: Element<'_, Message> = match content {
-                    StorePaneContent::StoreList => store_list_pane(editor),
-                    StorePaneContent::StoreDetails => store_details_pane(editor),
-                    StorePaneContent::ProductList => {
-                        product_list_pane(editor, weapons, heals, misc, edit_items)
-                    }
-                };
-                pane_grid::Content::new(body)
-            })
-            .on_resize(4, |e| Message::store(StoreEditorMessage::PaneResized(e)))
-            .height(Fill)
-            .width(Fill);
+    let panes = pane_grid::PaneGrid::new(&editor.pane_state, |_pane, content, _is_maximized| {
+        let body: Element<'_, Message> = match content {
+            StorePaneContent::StoreList => store_list_pane(editor),
+            StorePaneContent::StoreDetails => store_details_pane(editor),
+            StorePaneContent::ProductList => {
+                product_list_pane(editor, weapons, heals, misc, edit_items)
+            }
+        };
+        pane_grid::Content::new(body)
+    })
+    .on_resize(4, |e| Message::store(StoreEditorMessage::PaneResized(e)))
+    .height(Fill)
+    .width(Fill);
 
-        let base: Element<'_, Message> = column![header, horizontal_rule(1), status, panes,]
-            .spacing(10)
-            .padding(16)
-            .height(Length::Fill)
-            .into();
+    let base: Element<'_, Message> = column![header, horizontal_rule(1), status, panes,]
+        .spacing(10)
+        .padding(16)
+        .height(Length::Fill)
+        .into();
 
-        if editor.show_product_modal {
-            let modal_elem = product_modal(editor, weapons, heals, misc, edit_items);
-            modal(
-                base,
-                modal_elem,
-                || Message::store(StoreEditorMessage::CloseProductModal),
-                0.5,
-            )
-        } else {
-            base
-        }
+    if editor.show_product_modal {
+        let modal_elem = product_modal(editor, weapons, heals, misc, edit_items);
+        modal(
+            base,
+            modal_elem,
+            || Message::store(StoreEditorMessage::CloseProductModal),
+            0.5,
+        )
+    } else {
+        base
     }
 }

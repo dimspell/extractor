@@ -2,6 +2,7 @@
 
 use crate::app::App;
 use crate::components::FileTree;
+use crate::editors::map_editor::MapEditorMessage;
 use crate::file_index_cache::FileIndexCacheManager;
 use crate::generic_editor::UndoRedo;
 use crate::message::{system::SystemMessage, Message, MessageExt};
@@ -9,7 +10,6 @@ use crate::utils::browse_folder;
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
-use crate::editors::map_editor::MapEditorMessage;
 
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {

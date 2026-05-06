@@ -1,9 +1,12 @@
-// misc_item editor module
+// misc_item editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod update;
-mod view;
 
-pub use message::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: misc_item,
+    name_pascal: MiscItem,
+    record: dispel_core::MiscItem,
+    state_field: misc_item_editor,
+    sheet_field: misc_item_spreadsheet,
+    file: "CharacterInGame/MiscItem.db",
+}

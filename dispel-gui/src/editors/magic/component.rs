@@ -1,4 +1,6 @@
-use crate::components::editable::{fmt_enum, set_enum, set_int, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{
+    fmt_enum, set_enum, set_int, EditableRecord, FieldDescriptor, FieldKind,
+};
 use dispel_core::{MagicSchool, MagicSpell, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
 
 impl EditableRecord for MagicSpell {

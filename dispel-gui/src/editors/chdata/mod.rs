@@ -1,11 +1,12 @@
-// chdata editor module
+// chdata editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: chdata,
+    name_pascal: ChData,
+    record: dispel_core::ChData,
+    state_field: chdata_editor,
+    sheet_field: chdata_spreadsheet,
+    file: "CharacterInGame/ChData.db",
+}

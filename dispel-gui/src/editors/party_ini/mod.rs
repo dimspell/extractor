@@ -1,11 +1,12 @@
-// party_ini editor module
+// party_ini editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: party_ini,
+    name_pascal: PartyIni,
+    record: dispel_core::PartyIniNpc,
+    state_field: party_ini_editor,
+    sheet_field: party_ini_spreadsheet,
+    file: "NpcInGame/PrtIni.db",
+}

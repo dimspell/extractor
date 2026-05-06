@@ -1,11 +1,12 @@
-// magic editor module
+// magic editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod state;
-mod update;
-mod view;
 
-pub use message::*;
-pub use state::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: magic,
+    name_pascal: Magic,
+    record: dispel_core::MagicSpell,
+    state_field: magic_editor,
+    sheet_field: magic_spreadsheet,
+    file: "MagicInGame/Magic.db",
+}

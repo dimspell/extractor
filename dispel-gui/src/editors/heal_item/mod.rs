@@ -1,9 +1,12 @@
-// heal_item editor module
+// heal_item editor module — generated via define_standard_editor!
 
 mod component;
-mod message;
-mod update;
-mod view;
 
-pub use message::*;
-pub use update::*;
+crate::define_standard_editor! {
+    name: heal_item,
+    name_pascal: HealItem,
+    record: dispel_core::HealItem,
+    state_field: heal_item_editor,
+    sheet_field: heal_item_spreadsheet,
+    file: "CharacterInGame/healItem.db",
+}

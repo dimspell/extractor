@@ -3,11 +3,11 @@ use std::path::PathBuf;
 use dispel_core::{Extractor, NpcIni};
 use iced::Task;
 
-use crate::update::editor::tab;
 use crate::app::App;
-use crate::handle_spreadsheet_messages_tab;
 use crate::editors::npc_ref::NpcRefEditorMessage;
+use crate::handle_spreadsheet_messages_tab;
 use crate::message::MessageExt;
+use crate::update::editor::tab;
 
 pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = tab::get_tab_id(&app.state.workspace);

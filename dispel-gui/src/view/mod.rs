@@ -43,50 +43,84 @@ impl App {
                     PaneContent::MainContent => {
                         let content = match self.state.workspace.active().map(|t| t.editor_type) {
                             Some(EditorType::DbViewer) => self.view_db_viewer(),
-                            Some(EditorType::ChestEditor) => self.view_chest_editor_tab(),
-                            Some(EditorType::WeaponEditor) => self.view_weapon_editor_tab(),
-                            Some(EditorType::SpriteViewer) => self.view_sprite_viewer_tab(),
-                            Some(EditorType::HealItemEditor) => self.view_heal_item_editor_tab(),
-                            Some(EditorType::MiscItemEditor) => self.view_misc_item_editor_tab(),
-                            Some(EditorType::EditItemEditor) => self.view_edit_item_editor_tab(),
-                            Some(EditorType::EventItemEditor) => self.view_event_item_editor_tab(),
-                            Some(EditorType::MonsterEditor) => self.view_monster_editor_tab(),
+                            Some(EditorType::ChestEditor) => crate::editors::chest::view(self),
+                            Some(EditorType::WeaponEditor) => crate::editors::weapon::view(self),
+                            Some(EditorType::SpriteViewer) => {
+                                crate::editors::sprite_browser::view(self)
+                            }
+                            Some(EditorType::HealItemEditor) => {
+                                crate::editors::heal_item::view(self)
+                            }
+                            Some(EditorType::MiscItemEditor) => {
+                                crate::editors::misc_item::view(self)
+                            }
+                            Some(EditorType::EditItemEditor) => {
+                                crate::editors::edit_item::view(self)
+                            }
+                            Some(EditorType::EventItemEditor) => {
+                                crate::editors::event_item::view(self)
+                            }
+                            Some(EditorType::MonsterEditor) => crate::editors::monster::view(self),
                             Some(EditorType::MonsterIniEditor) => {
-                                self.view_monster_ini_editor_tab()
+                                crate::editors::monster_ini::view(self)
                             }
-                            Some(EditorType::NpcIniEditor) => self.view_npc_ini_editor_tab(),
-                            Some(EditorType::MagicEditor) => self.view_magic_editor_tab(),
-                            Some(EditorType::StoreEditor) => self.view_store_editor_tab(),
-                            Some(EditorType::PartyRefEditor) => self.view_party_ref_tab(),
-                            Some(EditorType::PartyIniEditor) => self.view_party_ini_tab(),
+                            Some(EditorType::NpcIniEditor) => crate::editors::npc_ini::view(self),
+                            Some(EditorType::MagicEditor) => crate::editors::magic::view(self),
+                            Some(EditorType::StoreEditor) => crate::editors::store::view(self),
+                            Some(EditorType::PartyRefEditor) => {
+                                crate::editors::party_ref::view(self)
+                            }
+                            Some(EditorType::PartyIniEditor) => {
+                                crate::editors::party_ini::view(self)
+                            }
                             Some(EditorType::MonsterRefEditor) => {
-                                self.view_monster_ref_editor_tab()
+                                crate::editors::monster_ref::view(self)
                             }
-                            Some(EditorType::AllMapIniEditor) => self.view_all_map_ini_editor_tab(),
+                            Some(EditorType::AllMapIniEditor) => {
+                                crate::editors::all_map_ini::view(self)
+                            }
                             Some(EditorType::DialogueScriptEditor) => {
-                                self.view_dialogue_script_editor_tab()
+                                crate::editors::dialogue_script::view(self)
                             }
                             Some(EditorType::DialogueTextEditor) => {
-                                self.view_dialogue_paragraph_editor_tab()
+                                crate::editors::dialogue_text::view(self)
                             }
-                            Some(EditorType::DrawItemEditor) => self.view_draw_item_tab(),
-                            Some(EditorType::EventIniEditor) => self.view_event_ini_tab(),
-                            Some(EditorType::EventNpcRefEditor) => self.view_event_npc_ref_tab(),
-                            Some(EditorType::ExtraIniEditor) => self.view_extra_ini_tab(),
-                            Some(EditorType::ExtraRefEditor) => self.view_extra_ref_editor_tab(),
-                            Some(EditorType::MapIniEditor) => self.view_map_ini_tab(),
-                            Some(EditorType::MessageScrEditor) => self.view_message_scr_tab(),
-                            Some(EditorType::NpcRefEditor) => self.view_npc_ref_tab(),
-                            Some(EditorType::PartyLevelDbEditor) => self.view_party_level_db_tab(),
-                            Some(EditorType::QuestScrEditor) => self.view_quest_scr_tab(),
-                            Some(EditorType::WaveIniEditor) => self.view_wave_ini_tab(),
-                            Some(EditorType::ChDataEditor) => self.view_chdata_tab(),
-                            Some(EditorType::TilesetEditor) => self.view_tileset_editor_tab(),
-                            Some(EditorType::MapEditor) => self.view_map_editor_tab(),
-                            Some(EditorType::SnfEditor) => self.view_snf_editor_tab(),
-                            Some(EditorType::ModPackager) => self.view_mod_packager_tab(),
+                            Some(EditorType::DrawItemEditor) => {
+                                crate::editors::draw_item::view(self)
+                            }
+                            Some(EditorType::EventIniEditor) => {
+                                crate::editors::event_ini::view(self)
+                            }
+                            Some(EditorType::EventNpcRefEditor) => {
+                                crate::editors::event_npc_ref::view(self)
+                            }
+                            Some(EditorType::ExtraIniEditor) => {
+                                crate::editors::extra_ini::view(self)
+                            }
+                            Some(EditorType::ExtraRefEditor) => {
+                                crate::editors::extra_ref::view(self)
+                            }
+                            Some(EditorType::MapIniEditor) => crate::editors::map_ini::view(self),
+                            Some(EditorType::MessageScrEditor) => {
+                                crate::editors::message_scr::view(self)
+                            }
+                            Some(EditorType::NpcRefEditor) => crate::editors::npc_ref::view(self),
+                            Some(EditorType::PartyLevelDbEditor) => {
+                                crate::editors::party_level_db::view(self)
+                            }
+                            Some(EditorType::QuestScrEditor) => {
+                                crate::editors::quest_scr::view(self)
+                            }
+                            Some(EditorType::WaveIniEditor) => crate::editors::wave_ini::view(self),
+                            Some(EditorType::ChDataEditor) => crate::editors::chdata::view(self),
+                            Some(EditorType::TilesetEditor) => crate::editors::tileset::view(self),
+                            Some(EditorType::MapEditor) => crate::editors::map_editor::view(self),
+                            Some(EditorType::SnfEditor) => crate::editors::snf_editor::view(self),
+                            Some(EditorType::ModPackager) => {
+                                crate::editors::mod_packager::view(self)
+                            }
                             Some(EditorType::LocalizationManager) => {
-                                self.view_localization_manager_tab()
+                                crate::editors::localization_manager::view(self)
                             }
                             Some(EditorType::Unknown) | None => {
                                 let content: Element<'_, Message> =
