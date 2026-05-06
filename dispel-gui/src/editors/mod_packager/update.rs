@@ -708,19 +708,53 @@ fn flush_one_pending(
     )
 }
 
-/// Flush every pending entry immediately. Returns a Task that batches all
-/// the persistence operations.
+/// Flush every pending entry immediately, in one workspace transaction, and
+/// collapse repeated FieldDelta entries against the same field. Used when
+/// the recording session ends or switches mods.
 fn flush_all_pending(app: &mut App) -> Task<Message> {
-    let Some(session) = app.state.recording.as_ref() else {
+    let Some(session) = app.state.recording.as_mut() else {
         return Task::none();
     };
-    let keys: Vec<RecordingKey> = session.pending.keys().cloned().collect();
-    let mut tasks = Task::none();
-    for key in keys {
-        let t = flush_one_pending(app, &key, None);
-        tasks = tasks.chain(t);
+    if session.pending.is_empty() {
+        return Task::none();
     }
-    tasks
+
+    let workspace_root = session.workspace_root.clone();
+    let mod_slug = session.mod_slug.clone();
+
+    // Drain the pending buffer into ChangeActions, skipping no-ops.
+    let mut actions: Vec<ChangeAction> = Vec::with_capacity(session.pending.len());
+    for (key, pending) in session.pending.drain() {
+        if pending.original_old == pending.latest_new {
+            continue;
+        }
+        actions.push(ChangeAction::new(
+            key.file_path,
+            ChangeOp::FieldDelta {
+                record_id: key.record_id,
+                field: key.field,
+                old: pending.original_old,
+                new: pending.latest_new,
+            },
+        ));
+    }
+    if actions.is_empty() {
+        return Task::none();
+    }
+
+    Task::perform(
+        async move {
+            tokio::task::spawn_blocking(move || -> Result<(), String> {
+                let ws = Workspace::open(workspace_root).map_err(|e| e.to_string())?;
+                ws.append_actions_and_flatten(&mod_slug, actions)
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })
+            .await
+            .unwrap_or_else(|e| Err(e.to_string()))
+        },
+        |result| Message::mod_packager(ModPackagerMessage::RecordingPersisted(result)),
+    )
 }
 
 fn nonempty_path(s: &str) -> Option<PathBuf> {

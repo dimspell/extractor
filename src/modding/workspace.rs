@@ -260,6 +260,23 @@ impl Workspace {
         self.write_mod(slug, &pkg)
     }
 
+    /// Append many actions in one read-mutate-write cycle, then collapse
+    /// repeated FieldDelta entries on the same `(file, record_id, field)`.
+    /// Returns the number of actions removed by the flatten pass.
+    pub fn append_actions_and_flatten(
+        &self,
+        slug: &str,
+        actions: Vec<super::change::ChangeAction>,
+    ) -> Result<usize> {
+        let mut pkg = self.read_mod(slug)?;
+        for a in actions {
+            pkg.changes.push(a);
+        }
+        let removed = pkg.changes.flatten_field_deltas();
+        self.write_mod(slug, &pkg)?;
+        Ok(removed)
+    }
+
     pub fn delete_mod(&self, slug: &str) -> Result<()> {
         let dir = self.mod_dir(slug)?;
         if dir.is_dir() {
