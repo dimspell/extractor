@@ -6,6 +6,7 @@
 pub mod database;
 pub mod localization;
 pub mod map;
+pub mod modding;
 pub mod references;
 pub mod snf;
 pub mod sprite;
