@@ -1,1 +1,1 @@
-pub type EventIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::Event>;
+pub type EventIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::Event>;

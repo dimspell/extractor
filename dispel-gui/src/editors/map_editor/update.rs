@@ -1,15 +1,13 @@
 use crate::app::App;
-use crate::components::editor::editable::EditableRecord;
-use crate::components::map_canvas::{decode_tileset_file, find_hovered_entity_impl};
+use crate::components::editable::EditableRecord;
+use crate::editors::map_editor::canvas::{decode_tileset_file, find_hovered_entity_impl};
+use crate::editors::map_editor::{
+    DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle, InternalSpriteHandle,
+    MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode, SelectedEntity,
+    SpriteExportDialogState, SpriteExportStatus, SpriteSequenceHandle, TilePixelData,
+};
 use crate::loading_state::LoadingState;
-use crate::message::editor::map_editor::{
-    DecodedEntitySprite, DecodedMapSprite, EntityBundle, MapDataHandle, MapEditorMessage, MapLayer,
-    MapViewMode, SelectedEntity, TilePixelData,
-};
 use crate::message::{Message, MessageExt};
-use crate::state::map_editor::{
-    EntitySpriteHandle, InternalSpriteHandle, MapEditAction, SpriteSequenceHandle,
-};
 use dispel_core::references::extractor::Extractor;
 use iced::widget::image::Handle;
 use iced::Task;
@@ -687,8 +685,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::ShowSpriteExportDialog(tab_id) => {
             if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
-                state.data.sprite_export_dialog =
-                    Some(crate::state::map_editor::SpriteExportDialogState::default());
+                state.data.sprite_export_dialog = Some(SpriteExportDialogState::default());
             }
             Task::none()
         }
@@ -714,7 +711,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
                 if let Some(ref mut dlg) = state.data.sprite_export_dialog {
                     dlg.export_dir = path;
-                    dlg.status = crate::state::map_editor::SpriteExportStatus::Idle;
+                    dlg.status = SpriteExportStatus::Idle;
                 }
             }
             Task::none()
@@ -737,7 +734,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             let export_dir = export_dir.clone();
 
             if let Some(ref mut dlg) = state.data.sprite_export_dialog {
-                dlg.status = crate::state::map_editor::SpriteExportStatus::Exporting;
+                dlg.status = SpriteExportStatus::Exporting;
             }
 
             Task::perform(
@@ -756,8 +753,8 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
                 if let Some(ref mut dlg) = state.data.sprite_export_dialog {
                     dlg.status = match result {
-                        Ok(msg) => crate::state::map_editor::SpriteExportStatus::Done(msg),
-                        Err(e) => crate::state::map_editor::SpriteExportStatus::Error(e),
+                        Ok(msg) => SpriteExportStatus::Done(msg),
+                        Err(e) => SpriteExportStatus::Error(e),
                     };
                 }
             }

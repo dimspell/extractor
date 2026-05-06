@@ -1,4 +1,4 @@
-use super::editable::{fmt_enum, set_enum, set_int, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{fmt_enum, set_enum, set_int, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::{ItemTypeId, MonsterRef};
 
 const LOOT_TYPES: FieldKind = FieldKind::Enum {

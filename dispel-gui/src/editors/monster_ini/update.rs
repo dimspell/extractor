@@ -18,7 +18,7 @@ pub fn handle(msg: MonsterIniEditorMessage, app: &mut App) -> Task<crate::messag
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.monster_ini_editor,
             &mut app.state.monster_ini_spreadsheet,

@@ -3,7 +3,7 @@ pub enum ChestEditorMessage {
     ScanMaps,
     MapsScanned(Result<Vec<String>, String>),
     LoadCatalog,
-    CatalogLoaded(Result<crate::state::chest_editor::ItemCatalog, String>),
+    CatalogLoaded(Result<crate::editors::chest::state::ItemCatalog, String>),
     SelectMap,
     SelectMapFromFile(String),
     MapLoaded(Result<Vec<(usize, dispel_core::ExtraRef)>, String>),

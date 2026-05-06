@@ -1,4 +1,4 @@
-use super::editable::{set_i32_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{set_i32_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::{Monster, MonsterAiType, PropertyFlag};
 
 impl EditableRecord for Monster {

@@ -1,1 +1,1 @@
-pub type WeaponEditorMessage = super::standard::StandardEditorMessage<dispel_core::WeaponItem>;
+pub type WeaponEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::WeaponItem>;

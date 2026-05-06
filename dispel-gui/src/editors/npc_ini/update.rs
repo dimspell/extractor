@@ -18,7 +18,7 @@ pub fn handle(msg: NpcIniEditorMessage, app: &mut App) -> Task<crate::message::M
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.npc_ini_editor,
             &mut app.state.npc_ini_spreadsheet,

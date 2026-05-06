@@ -18,7 +18,7 @@ pub fn handle(msg: WeaponEditorMessage, app: &mut App) -> Task<crate::message::M
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.weapon_editor,
             &mut app.state.weapon_spreadsheet,

@@ -1,9 +1,10 @@
 use crate::app::App;
-use crate::components::waveform_canvas;
 use crate::message::editor::snf::SnfEditorMessage;
 use crate::message::{Message, MessageExt};
 use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
+use crate::editors::snf_editor::ExportStatus;
+use crate::editors::snf_editor::waveform::waveform_canvas;
 
 impl App {
     pub fn view_snf_editor_tab(&self) -> Element<'_, Message> {
@@ -138,11 +139,11 @@ impl App {
 
         // Export status
         let status_row = match &editor.export_status {
-            crate::state::snf_editor::ExportStatus::Idle => row![],
-            crate::state::snf_editor::ExportStatus::Done(p) => {
+            ExportStatus::Idle => row![],
+            ExportStatus::Done(p) => {
                 row![text(format!("Exported: {}", p)).size(11)]
             }
-            crate::state::snf_editor::ExportStatus::Error(e) => {
+            ExportStatus::Error(e) => {
                 row![text(format!("Error: {}", e)).size(11)]
             }
         }

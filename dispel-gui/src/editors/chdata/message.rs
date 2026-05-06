@@ -1,1 +1,1 @@
-pub type ChDataEditorMessage = super::standard::StandardEditorMessage<dispel_core::ChData>;
+pub type ChDataEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::ChData>;

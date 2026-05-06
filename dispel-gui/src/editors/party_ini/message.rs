@@ -1,1 +1,1 @@
-pub type PartyIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::PartyIniNpc>;
+pub type PartyIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::PartyIniNpc>;

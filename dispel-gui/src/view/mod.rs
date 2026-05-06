@@ -5,7 +5,7 @@ use crate::message::{
     startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
     WorkspaceMessage,
 };
-use crate::state::state::PaneContent;
+use crate::state::PaneContent;
 use crate::style;
 use crate::utils::{truncate_path, vertical_space};
 use crate::view::history_panel::view_history_panel;
@@ -14,45 +14,10 @@ use iced::widget::pane_grid;
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill, Font, Length};
 
-pub mod all_map_ini_editor;
-pub mod chdata_editor;
-pub mod chest_editor;
 pub mod db_viewer;
-pub mod dialogue_script_editor;
-pub mod dialogue_text_editor;
-pub mod draw_item_editor;
-pub mod edit_item_editor;
 pub mod editor;
-pub mod event_ini_editor;
-pub mod event_item_editor;
-pub mod event_npc_ref_editor;
-pub mod extra_ini_editor;
-pub mod extra_ref_editor;
-pub mod heal_item_editor;
 pub mod history_panel;
-pub mod localization_manager;
-pub mod magic_editor;
-pub mod map_editor;
-pub mod map_ini_editor;
-pub mod message_scr_editor;
-pub mod misc_item_editor;
-pub mod mod_packager;
-pub mod monster_editor;
-pub mod monster_ini_editor;
-pub mod monster_ref_editor;
-pub mod npc_ini_editor;
-pub mod npc_ref_editor;
-pub mod party_ini_editor;
-pub mod party_level_db_editor;
-pub mod party_ref_editor;
-pub mod quest_scr_editor;
-pub mod snf_editor;
-pub mod sprite_browser;
 pub mod start_page;
-pub mod store_editor;
-pub mod tileset_editor;
-pub mod wave_ini_editor;
-pub mod weapon_editor;
 
 impl App {
     /// Main view entry point called by the Iced framework.

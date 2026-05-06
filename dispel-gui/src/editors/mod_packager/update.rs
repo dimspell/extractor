@@ -2,7 +2,7 @@ use crate::app::App;
 use crate::loading_state::LoadingState;
 use crate::message::editor::mod_packager::ModPackagerMessage;
 use crate::message::MessageExt;
-use crate::state::mod_packager::ModMetadata;
+use crate::editors::mod_packager::state::ModMetadata;
 use iced::Task;
 use std::io::Write;
 use std::path::PathBuf;

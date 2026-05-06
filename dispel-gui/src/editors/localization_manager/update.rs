@@ -567,7 +567,7 @@ fn walkdir(root: &Path) -> impl Iterator<Item = Result<PathBuf, std::io::Error>>
 fn apply_and_package(
     game_path: &Path,
     entries: &[TextEntry],
-    meta: &crate::state::mod_packager::ModMetadata,
+    meta: &crate::editors::mod_packager::state::ModMetadata,
 ) -> Result<PathBuf, String> {
     let mod_name = meta.name.trim().replace(' ', "_");
     let backup_dir = game_path.join("mods").join(&mod_name).join("backup");

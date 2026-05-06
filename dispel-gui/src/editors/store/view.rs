@@ -3,12 +3,12 @@ use crate::components::modal::modal;
 use crate::components::textarea;
 use crate::message::editor::store::StoreEditorMessage;
 use crate::message::{Message, MessageExt};
-use crate::state::store_editor::{EditableProduct, StoreEditorState, StorePaneContent};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use iced::widget::pane_grid::{self};
 use iced::widget::{button, column, container, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
+use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProductTypeOption {

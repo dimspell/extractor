@@ -18,7 +18,7 @@ pub fn handle(msg: ChDataEditorMessage, app: &mut App) -> Task<crate::message::M
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.chdata_editor,
             &mut app.state.chdata_spreadsheet,

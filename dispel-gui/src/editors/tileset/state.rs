@@ -1,7 +1,7 @@
-use crate::message::editor::tileset::TileExportFormat;
 use dispel_core::map::tileset::{extract, TILE_HEIGHT, TILE_WIDTH};
 use dispel_core::sprite::Color;
 use std::path::{Path, PathBuf};
+use crate::editors::tileset::TileExportFormat;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum TilesetFileType {

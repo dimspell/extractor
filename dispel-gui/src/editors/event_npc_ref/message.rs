@@ -1,2 +1,2 @@
 pub type EventNpcRefEditorMessage =
-    super::standard::StandardEditorMessage<dispel_core::EventNpcRef>;
+    crate::components::standard::message::StandardEditorMessage<dispel_core::EventNpcRef>;

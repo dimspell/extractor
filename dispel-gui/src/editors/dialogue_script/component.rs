@@ -1,4 +1,4 @@
-use super::editable::{
+use crate::components::editable::{
     get_opt_int, get_opt_val, set_int, set_opt_i32_enum, set_opt_int, EditableRecord,
     FieldDescriptor, FieldKind,
 };

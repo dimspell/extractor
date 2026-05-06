@@ -1,8 +1,7 @@
 use crate::app::App;
-use crate::message::editor::tileset::{TileExportFormat, TilesetEditorMessage};
-use crate::state::tileset_editor::{ExportDialogState, ExportStatus};
 use iced::Task;
 use std::path::PathBuf;
+use crate::editors::tileset::{TilesetEditorMessage, ExportDialogState, ExportStatus, TileExportFormat};
 
 pub fn handle(message: TilesetEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = app

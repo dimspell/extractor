@@ -1,7 +1,7 @@
 //! Right-hand inspector pane — one input widget per field of the
 //! currently-selected record.
 
-use crate::components::editor::editable::{EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::textarea::{self, TextAreaContent};
 use crate::generic_editor::GenericEditorState;
 use crate::message::Message;

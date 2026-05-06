@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use dispel_core::{Extractor, MonsterIni};
 use iced::Task;
 
-use super::tab;
+use crate::update::editor::tab;
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
 use crate::message::editor::monster_ref::MonsterRefEditorMessage;

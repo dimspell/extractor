@@ -18,7 +18,7 @@ pub fn handle(msg: EventNpcRefEditorMessage, app: &mut App) -> Task<crate::messa
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.event_npc_ref_editor,
             &mut app.state.event_npc_ref_spreadsheet,

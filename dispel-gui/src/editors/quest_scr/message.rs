@@ -1,1 +1,2 @@
-pub type QuestScrEditorMessage = super::standard::StandardEditorMessage<dispel_core::Quest>;
+pub type QuestScrEditorMessage =
+    crate::components::standard::message::StandardEditorMessage<dispel_core::Quest>;

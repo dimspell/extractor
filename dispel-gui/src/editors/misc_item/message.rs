@@ -1,1 +1,1 @@
-pub type MiscItemEditorMessage = super::standard::StandardEditorMessage<dispel_core::MiscItem>;
+pub type MiscItemEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::MiscItem>;

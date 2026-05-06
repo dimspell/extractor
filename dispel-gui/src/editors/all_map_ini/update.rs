@@ -18,7 +18,7 @@ pub fn handle(msg: AllMapIniEditorMessage, app: &mut App) -> Task<crate::message
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.all_map_ini_editor,
             &mut app.state.all_map_ini_spreadsheet,

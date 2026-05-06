@@ -1,11 +1,11 @@
+use super::canvas::{MapCanvasOverlaysLayer, MapCanvasTilesLayer};
+use super::message::{MapEditorMessage, MapLayer, MapViewMode, SelectedEntity};
+use super::state::{SpriteExportDialogState, SpriteExportStatus};
 use crate::app::App;
-use crate::components::editor::editable::{EditableRecord, FieldKind};
-use crate::components::map_canvas::{MapCanvasOverlaysLayer, MapCanvasTilesLayer};
+use crate::components::editable::{EditableRecord, FieldKind};
 use crate::components::modal::modal;
 use crate::loading_state::LoadingState;
-use crate::message::editor::map_editor::{MapEditorMessage, MapLayer, MapViewMode, SelectedEntity};
 use crate::message::{Message, MessageExt};
-use crate::state::map_editor::{SpriteExportDialogState, SpriteExportStatus};
 use crate::style;
 use crate::utils::{horizontal_rule, horizontal_space};
 use dispel_core::{ExtraRef, MonsterRef, NPC};
@@ -372,7 +372,7 @@ impl App {
 // ── Inspector ─────────────────────────────────────────────────────────────────
 
 fn build_inspector<'a>(
-    state: &'a crate::state::map_editor::MapEditorState,
+    state: &'a crate::editors::map_editor::state::MapEditorState,
     tab_id: usize,
     sel: SelectedEntity,
 ) -> Element<'a, Message> {
@@ -552,7 +552,7 @@ fn layer_toggle(
 // ── Sprite browser ────────────────────────────────────────────────────────────
 
 fn view_sprite_browser<'a>(
-    state: &'a crate::state::map_editor::MapEditorState,
+    state: &'a crate::editors::map_editor::state::MapEditorState,
     tab_id: usize,
 ) -> Element<'a, Message> {
     use iced::widget::image;

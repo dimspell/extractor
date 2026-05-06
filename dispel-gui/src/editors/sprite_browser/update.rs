@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use crate::app::App;
-use crate::message::editor::spritebrowser::{ExportFormat, SpriteViewerMessage};
-use crate::state::sprite_viewer::{ExportDialogState, ExportStatus};
 use iced::Task;
+use crate::editors::sprite_browser::{ExportDialogState, SpriteViewerMessage, ExportStatus, ExportFormat};
 
 /// Real-time milliseconds per animation tick (~60 fps clock).
 const TICK_MS: f32 = 16.0;

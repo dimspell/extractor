@@ -61,7 +61,7 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                 app.state.chest_editor.loading_state = LoadingState::Loading;
                 let path = PathBuf::from(&app.state.shared_game_path);
                 Task::perform(
-                    async move { crate::state::chest_editor::ItemCatalog::load_from_folder(&path) },
+                    async move { crate::editors::chest::state::ItemCatalog::load_from_folder(&path) },
                     |res| {
                         crate::message::Message::Editor(
                             crate::message::editor::EditorMessage::Chest(
@@ -80,7 +80,7 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             app.state.chest_editor.loading_state = LoadingState::Loading;
             let path = PathBuf::from(&app.state.shared_game_path);
             Task::perform(
-                async move { crate::state::chest_editor::ItemCatalog::load_from_folder(&path) },
+                async move { crate::editors::chest::state::ItemCatalog::load_from_folder(&path) },
                 |res| {
                     crate::message::Message::Editor(crate::message::editor::EditorMessage::Chest(
                         ChestEditorMessage::CatalogLoaded(res.map_err(|e| e.to_string())),

@@ -1,4 +1,4 @@
-use super::editable::{
+use crate::components::editable::{
     set_i32_enum, set_int, set_opt_str, EditableRecord, FieldDescriptor, FieldKind,
 };
 use dispel_core::{GhostFaceId, PartyRef};

@@ -1,4 +1,4 @@
-use super::editable::{
+use crate::components::editable::{
     fmt_enum, set_enum, set_int, set_str, EditableRecord, FieldDescriptor, FieldKind,
 };
 use dispel_core::{EditItem, EditItemEffect, EditItemModification};

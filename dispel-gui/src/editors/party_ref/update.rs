@@ -18,7 +18,7 @@ pub fn handle(msg: PartyRefEditorMessage, app: &mut App) -> Task<crate::message:
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.party_ref_editor,
             &mut app.state.party_ref_spreadsheet,

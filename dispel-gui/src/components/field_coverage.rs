@@ -18,7 +18,7 @@
 
 use std::collections::HashSet;
 
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 
 // ── AST helper ───────────────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ pub fn handle(msg: HealItemEditorMessage, app: &mut App) -> Task<crate::message:
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.heal_item_editor,
             &mut app.state.heal_item_spreadsheet,

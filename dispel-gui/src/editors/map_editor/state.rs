@@ -1,5 +1,5 @@
+use super::message::{MapDataHandle, MapViewMode, SelectedEntity};
 use crate::loading_state::LoadingState;
-use crate::message::editor::map_editor::{MapDataHandle, MapViewMode, SelectedEntity};
 use iced::widget::canvas;
 use iced::widget::image::Handle;
 use std::collections::{HashMap, VecDeque};

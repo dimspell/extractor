@@ -1,1 +1,1 @@
-pub type NpcIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::NpcIni>;
+pub type NpcIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::NpcIni>;

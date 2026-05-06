@@ -18,7 +18,7 @@ pub fn handle(msg: EditItemEditorMessage, app: &mut App) -> Task<crate::message:
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.edit_item_editor,
             &mut app.state.edit_item_spreadsheet,

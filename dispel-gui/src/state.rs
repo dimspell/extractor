@@ -1,37 +1,36 @@
 use crate::components::file_tree::FileTree;
+use crate::editors::all_map_ini::AllMapIniEditorState;
+use crate::editors::chdata::ChDataEditorState;
+use crate::editors::chest::ChestEditorState;
+use crate::editors::db_viewer::DbViewerState;
+use crate::editors::dialogue_script::DialogueScriptEditorState;
+use crate::editors::dialogue_text::DialogueParagraphEditorState;
+use crate::editors::draw_item::DrawItemEditorState;
+use crate::editors::event_ini::EventIniEditorState;
+use crate::editors::event_npc_ref::EventNpcRefEditorState;
+use crate::editors::extra_ini::ExtraIniEditorState;
+use crate::editors::extra_ref::ExtraRefEditorState;
+use crate::editors::magic::MagicEditorState;
+use crate::editors::map_editor::MapEditorState;
+use crate::editors::map_ini::MapIniEditorState;
+use crate::editors::message_scr::MessageScrEditorState;
+use crate::editors::monster_ini::MonsterIniEditorState;
+use crate::editors::monster_ref::MonsterRefEditorState;
+use crate::editors::npc_ini::NpcIniEditorState;
+use crate::editors::npc_ref::NpcRefEditorState;
+use crate::editors::party_ini::PartyIniEditorState;
+use crate::editors::party_level_db::PartyLevelDbEditorState;
+use crate::editors::quest_scr::QuestScrEditorState;
+use crate::editors::snf_editor::SnfEditorState;
+use crate::editors::sprite_browser::SpriteViewerState;
+use crate::editors::store::StoreEditorState;
+use crate::editors::tileset::TilesetEditorState;
+use crate::editors::wave_ini::WaveIniEditorState;
+use crate::editors::{localization_manager, mod_packager};
 use crate::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::generic_editor::GenericEditorState;
 use crate::global_search::GlobalSearch;
 use crate::message::{system::SystemMessage, Message};
-use crate::state::all_map_ini_editor;
-use crate::state::chdata_editor;
-use crate::state::chest_editor;
-use crate::state::db_viewer_state::DbViewerState;
-use crate::state::dialogue_paragraph_editor;
-use crate::state::dialogue_script_editor;
-use crate::state::draw_item_editor;
-use crate::state::event_ini_editor;
-use crate::state::event_npc_ref_editor;
-use crate::state::extra_ini_editor;
-use crate::state::extra_ref_editor;
-use crate::state::localization_manager;
-use crate::state::magic_editor;
-use crate::state::map_editor;
-use crate::state::map_ini_editor;
-use crate::state::message_scr_editor;
-use crate::state::mod_packager;
-use crate::state::monster_ini_editor;
-use crate::state::monster_ref_editor;
-use crate::state::npc_ini_editor;
-use crate::state::npc_ref_editor;
-use crate::state::party_ini_editor;
-use crate::state::party_level_db_editor;
-use crate::state::quest_scr_editor;
-use crate::state::snf_editor;
-use crate::state::sprite_viewer;
-use crate::state::store_editor;
-use crate::state::tileset_editor;
-use crate::state::wave_ini_editor;
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dirs;
@@ -51,47 +50,46 @@ pub struct AppState {
     pub log: String,
     pub is_running: bool,
     pub viewer: Box<DbViewerState>,
-    pub chest_editor: Box<chest_editor::ChestEditorState>,
+    pub chest_editor: Box<ChestEditorState>,
     pub weapon_editor: Box<GenericEditorState<WeaponItem>>,
     pub heal_item_editor: Box<GenericEditorState<dispel_core::HealItem>>,
     pub misc_item_editor: Box<GenericEditorState<dispel_core::MiscItem>>,
     pub edit_item_editor: Box<GenericEditorState<dispel_core::EditItem>>,
     pub event_item_editor: Box<GenericEditorState<dispel_core::EventItem>>,
     pub monster_editor: Box<GenericEditorState<dispel_core::Monster>>,
-    pub monster_ini_editor: Box<monster_ini_editor::MonsterIniEditorState>,
-    pub npc_ini_editor: Box<npc_ini_editor::NpcIniEditorState>,
-    pub magic_editor: Box<magic_editor::MagicEditorState>,
-    pub store_editor: Box<store_editor::StoreEditorState>,
+    pub monster_ini_editor: Box<MonsterIniEditorState>,
+    pub npc_ini_editor: Box<NpcIniEditorState>,
+    pub magic_editor: Box<MagicEditorState>,
+    pub store_editor: Box<StoreEditorState>,
     pub party_ref_editor: Box<GenericEditorState<dispel_core::PartyRef>>,
-    pub party_ini_editor: Box<party_ini_editor::PartyIniEditorState>,
-    pub monster_ref_editors: HashMap<usize, monster_ref_editor::MonsterRefEditorState>,
+    pub party_ini_editor: Box<PartyIniEditorState>,
+    pub monster_ref_editors: HashMap<usize, MonsterRefEditorState>,
     pub monster_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub sprite_viewers: HashMap<usize, sprite_viewer::SpriteViewerState>,
-    pub all_map_ini_editor: Box<all_map_ini_editor::AllMapIniEditorState>,
+    pub sprite_viewers: HashMap<usize, SpriteViewerState>,
+    pub all_map_ini_editor: Box<AllMapIniEditorState>,
     pub all_map_ini_spreadsheet: SpreadsheetState,
-    pub dialogue_script_editors: HashMap<usize, dialogue_script_editor::DialogueScriptEditorState>,
+    pub dialogue_script_editors: HashMap<usize, DialogueScriptEditorState>,
     pub dialogue_script_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub dialogue_paragraphs_editors:
-        HashMap<usize, dialogue_paragraph_editor::DialogueParagraphEditorState>,
+    pub dialogue_paragraphs_editors: HashMap<usize, DialogueParagraphEditorState>,
     pub dialogue_paragraph_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub draw_item_editor: Box<draw_item_editor::DrawItemEditorState>,
-    pub event_ini_editor: Box<event_ini_editor::EventIniEditorState>,
-    pub event_npc_ref_editor: Box<event_npc_ref_editor::EventNpcRefEditorState>,
-    pub extra_ini_editor: Box<extra_ini_editor::ExtraIniEditorState>,
-    pub extra_ref_editors: HashMap<usize, extra_ref_editor::ExtraRefEditorState>,
+    pub draw_item_editor: Box<DrawItemEditorState>,
+    pub event_ini_editor: Box<EventIniEditorState>,
+    pub event_npc_ref_editor: Box<EventNpcRefEditorState>,
+    pub extra_ini_editor: Box<ExtraIniEditorState>,
+    pub extra_ref_editors: HashMap<usize, ExtraRefEditorState>,
     pub extra_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub map_ini_editor: Box<map_ini_editor::MapIniEditorState>,
-    pub message_scr_editor: Box<message_scr_editor::MessageScrEditorState>,
-    pub npc_ref_editors: HashMap<usize, npc_ref_editor::NpcRefEditorState>,
+    pub map_ini_editor: Box<MapIniEditorState>,
+    pub message_scr_editor: Box<MessageScrEditorState>,
+    pub npc_ref_editors: HashMap<usize, NpcRefEditorState>,
     pub npc_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub party_level_db_editor: Box<party_level_db_editor::PartyLevelDbEditorState>,
+    pub party_level_db_editor: Box<PartyLevelDbEditorState>,
     pub party_level_db_level_editor: Box<GenericEditorState<dispel_core::PartyLevelRecord>>,
-    pub quest_scr_editor: Box<quest_scr_editor::QuestScrEditorState>,
-    pub wave_ini_editor: Box<wave_ini_editor::WaveIniEditorState>,
-    pub chdata_editor: Box<chdata_editor::ChDataEditorState>,
-    pub map_editors: HashMap<usize, map_editor::MapEditorState>,
-    pub tileset_editors: HashMap<usize, tileset_editor::TilesetEditorState>,
-    pub snf_editors: HashMap<usize, snf_editor::SnfEditorState>,
+    pub quest_scr_editor: Box<QuestScrEditorState>,
+    pub wave_ini_editor: Box<WaveIniEditorState>,
+    pub chdata_editor: Box<ChDataEditorState>,
+    pub map_editors: HashMap<usize, MapEditorState>,
+    pub tileset_editors: HashMap<usize, TilesetEditorState>,
+    pub snf_editors: HashMap<usize, SnfEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub lookups: HashMap<String, Vec<(String, String)>>,
@@ -268,8 +266,8 @@ impl AppState {
     }
 
     fn workspace_path() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("dispel-gui");
+        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("../.."));
+        path.push("..");
         path.push("workspace.json");
         path
     }

@@ -1,7 +1,6 @@
 use crate::app::App;
-use crate::message::editor::snf::SnfEditorMessage;
+use crate::editors::snf_editor::{ExportStatus, PlaybackHandle, SnfEditorMessage};
 use crate::message::MessageExt;
-use crate::state::snf_editor::PlaybackHandle;
 use iced::Task;
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -155,7 +154,6 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
         }
 
         SnfEditorMessage::ExportWavDone(result) => {
-            use crate::state::snf_editor::ExportStatus;
             editor.export_status = match result {
                 Ok(p) => ExportStatus::Done(p),
                 Err(e) => ExportStatus::Error(e),

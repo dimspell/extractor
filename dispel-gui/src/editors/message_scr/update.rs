@@ -18,7 +18,7 @@ pub fn handle(msg: MessageScrEditorMessage, app: &mut App) -> Task<crate::messag
             );
             Task::none()
         }
-        msg => super::standard::handle(
+        msg => crate::components::standard::update::handle(
             msg,
             &mut app.state.message_scr_editor,
             &mut app.state.message_scr_spreadsheet,

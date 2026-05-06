@@ -1,4 +1,4 @@
-use super::editable::{set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::NpcIni;
 
 impl EditableRecord for NpcIni {

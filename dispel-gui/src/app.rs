@@ -7,12 +7,15 @@ use crate::message::{
     editor::chest::ChestEditorMessage, Message, MessageExt, SystemMessage, ViewerMessage,
     WorkspaceMessage,
 };
-use crate::state::db_viewer_state::PAGE_SIZE;
-use crate::state::state::AppState;
 use crate::workspace::EditorType;
 use dispel_core::Extractor;
 use iced::{Subscription, Task};
 use std::path::{Path, PathBuf};
+use crate::editors::db_viewer::PAGE_SIZE;
+use crate::editors::snf_editor::SnfEditorState;
+use crate::editors::sprite_browser::SpriteViewerState;
+use crate::editors::tileset::TilesetEditorState;
+use crate::state::AppState;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
@@ -541,7 +544,7 @@ impl App {
             EditorType::TilesetEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state.tileset_editors.entry(tab_id).or_insert_with(|| {
-                        crate::state::tileset_editor::TilesetEditorState::load(path)
+                        TilesetEditorState::load(path)
                     });
                 }
                 Task::none()
@@ -549,7 +552,7 @@ impl App {
             EditorType::SpriteViewer => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state.sprite_viewers.entry(tab_id).or_insert_with(|| {
-                        crate::state::sprite_viewer::SpriteViewerState::load_from_path(path)
+                        SpriteViewerState::load_from_path(path)
                     });
                 }
                 Task::none()
@@ -557,7 +560,7 @@ impl App {
             EditorType::SnfEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state.snf_editors.entry(tab_id).or_insert_with(|| {
-                        crate::state::snf_editor::SnfEditorState::load_from_path(path)
+                        SnfEditorState::load_from_path(path)
                     });
                 }
                 Task::none()
@@ -677,7 +680,7 @@ impl App {
 /// path.  Returns `None` for editors that are opened by explicit file path
 /// (dialogue, tileset, map, ref files) or that have no load-on-start behaviour.
 fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
-    use crate::message::editor::standard::StandardEditorMessage;
+    use crate::components::standard::message::StandardEditorMessage;
     use crate::message::MessageExt;
 
     macro_rules! load {

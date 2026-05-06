@@ -1,4 +1,4 @@
-use super::editable::{set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{set_str, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::EventItem;
 
 fn hex_string(bytes: &[u8]) -> String {

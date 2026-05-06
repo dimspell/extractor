@@ -1,10 +1,10 @@
 use crate::app::App;
 use crate::components::modal::modal;
-use crate::message::editor::tileset::{TileExportFormat, TilesetEditorMessage};
-use crate::message::{Message, MessageExt};
-use crate::state::tileset_editor::{
-    ExportDialogState, ExportStatus, TilesetEditorState, TilesetFileType,
+use crate::editors::tileset::{
+    ExportDialogState, ExportStatus, TileExportFormat, TilesetEditorMessage, TilesetEditorState,
+    TilesetFileType,
 };
+use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::utils::horizontal_rule;
 use iced::widget::{

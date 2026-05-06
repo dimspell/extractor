@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use dispel_core::Extractor;
 use iced::widget::pane_grid;
 use iced::Task;
@@ -12,11 +12,11 @@ use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 
-pub(super) fn get_tab_id(workspace: &Workspace) -> usize {
+pub fn get_tab_id(workspace: &Workspace) -> usize {
     workspace.active().map(|t| t.id).unwrap_or(usize::MAX)
 }
 
-pub(super) fn select<T: EditableRecord + Extractor>(
+pub fn select<T: EditableRecord + Extractor>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
     index: usize,
@@ -27,7 +27,7 @@ pub(super) fn select<T: EditableRecord + Extractor>(
     Task::none()
 }
 
-pub(super) fn field_changed<T: EditableRecord + Extractor>(
+pub fn field_changed<T: EditableRecord + Extractor>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
     index: usize,
@@ -40,7 +40,7 @@ pub(super) fn field_changed<T: EditableRecord + Extractor>(
     Task::none()
 }
 
-pub(super) fn save<T: EditableRecord + Extractor>(
+pub fn save<T: EditableRecord + Extractor>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
     success_msg: &str,
@@ -58,7 +58,7 @@ pub(super) fn save<T: EditableRecord + Extractor>(
     Task::none()
 }
 
-pub(super) fn add_entry<T: EditableRecord + Extractor>(
+pub fn add_entry<T: EditableRecord + Extractor>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
 ) -> Task<Message> {
@@ -68,7 +68,7 @@ pub(super) fn add_entry<T: EditableRecord + Extractor>(
     Task::none()
 }
 
-pub(super) fn remove_entry<T: EditableRecord + Extractor>(
+pub fn remove_entry<T: EditableRecord + Extractor>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
     index: usize,
@@ -79,7 +79,7 @@ pub(super) fn remove_entry<T: EditableRecord + Extractor>(
     Task::none()
 }
 
-pub(super) fn pane_resized<T: EditableRecord>(
+pub fn pane_resized<T: EditableRecord>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     spreadsheets: &mut HashMap<usize, SpreadsheetState>,
     tab_id: usize,
@@ -98,7 +98,7 @@ pub(super) fn pane_resized<T: EditableRecord>(
     Task::none()
 }
 
-pub(super) fn pane_clicked<T: EditableRecord>(
+pub fn pane_clicked<T: EditableRecord>(
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     tab_id: usize,
     pane: pane_grid::Pane,
@@ -109,7 +109,7 @@ pub(super) fn pane_clicked<T: EditableRecord>(
     Task::none()
 }
 
-pub(super) fn load_catalog_sync<T: EditableRecord + Extractor>(
+pub fn load_catalog_sync<T: EditableRecord + Extractor>(
     path: PathBuf,
     editors: &mut HashMap<usize, MultiFileEditorState<T>>,
     spreadsheets: &mut HashMap<usize, SpreadsheetState>,

@@ -1,4 +1,4 @@
-use super::editable::{set_int, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{set_int, EditableRecord, FieldDescriptor, FieldKind};
 use dispel_core::{PartyLevelNpc, PartyLevelRecord};
 
 impl EditableRecord for PartyLevelNpc {

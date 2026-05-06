@@ -1,1 +1,1 @@
-pub type AllMapIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::Map>;
+pub type AllMapIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::Map>;

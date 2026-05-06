@@ -1,7 +1,7 @@
 //! Bottom status bar — status message, loading indicator, inspector toggle,
 //! save button.
 
-use crate::components::editor::editable::EditableRecord;
+use crate::components::editable::EditableRecord;
 use crate::generic_editor::GenericEditorState;
 use crate::message::Message;
 use crate::style;

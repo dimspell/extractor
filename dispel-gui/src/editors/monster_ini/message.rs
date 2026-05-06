@@ -1,1 +1,1 @@
-pub type MonsterIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::MonsterIni>;
+pub type MonsterIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::MonsterIni>;

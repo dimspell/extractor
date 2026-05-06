@@ -1,7 +1,7 @@
 use dispel_core::Extractor;
 use iced::Task;
 
-use super::tab;
+use crate::update::editor::tab;
 use crate::app::App;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;

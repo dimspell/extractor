@@ -1,7 +1,6 @@
 use dispel_core::sprite::get_sequence_pngs_by_index;
 use std::path::{Path, PathBuf};
-
-use crate::message::editor::spritebrowser::ExportFormat;
+use crate::editors::sprite_browser::ExportFormat;
 
 /// A decoded sprite frame ready for display and export.
 #[derive(Debug, Clone)]

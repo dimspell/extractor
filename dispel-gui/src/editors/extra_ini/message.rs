@@ -1,1 +1,1 @@
-pub type ExtraIniEditorMessage = super::standard::StandardEditorMessage<dispel_core::Extra>;
+pub type ExtraIniEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::Extra>;

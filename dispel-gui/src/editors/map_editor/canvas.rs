@@ -3,9 +3,9 @@
 /// Renders isometric tiles from GTL (ground) and BTL (building) layers using
 /// decoded image handles stored in `MapEditorState`. Supports mouse drag for
 /// panning and scroll wheel for zooming.
-use crate::message::editor::map_editor::{MapEditorMessage, SelectedEntity};
+use super::message::{MapEditorMessage, SelectedEntity};
+use super::state::{EntitySpriteHandle, MapEditorState};
 use crate::message::{Message, MessageExt};
-use crate::state::map_editor::{EntitySpriteHandle, MapEditorState};
 use iced::advanced::image::Image as CoreImage;
 use iced::widget::canvas::{self, Action, Frame, Geometry, Text as CanvasText};
 use iced::widget::image::Handle;

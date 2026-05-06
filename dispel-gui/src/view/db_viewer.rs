@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::message::{viewer::ViewerMessage, Message};
-use crate::state::db_viewer_state::PAGE_SIZE;
+use crate::editors::db_viewer::state::PAGE_SIZE;
 use crate::style;
 use crate::utils::{horizontal_space, vertical_space};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};

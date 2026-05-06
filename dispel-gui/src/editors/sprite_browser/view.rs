@@ -1,8 +1,9 @@
 use crate::app::App;
 use crate::components::modal::modal;
-use crate::message::editor::spritebrowser::{ExportFormat, SpriteViewerMessage};
+use crate::editors::sprite_browser::{
+    ExportDialogState, ExportFormat, ExportStatus, SpriteViewerMessage, SpriteViewerState,
+};
 use crate::message::{Message, MessageExt};
-use crate::state::sprite_viewer::{ExportStatus, SpriteViewerState};
 use crate::style;
 use crate::utils::horizontal_rule;
 use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
@@ -332,9 +333,7 @@ fn view_playback_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
 // ── Export dialog ─────────────────────────────────────────────────────────────
 
-fn view_export_dialog(
-    dlg: &crate::state::sprite_viewer::ExportDialogState,
-) -> Element<'_, Message> {
+fn view_export_dialog(dlg: &ExportDialogState) -> Element<'_, Message> {
     let title = text("Export Sprite").size(14).style(style::primary_text);
 
     // Format selector

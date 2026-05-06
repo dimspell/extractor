@@ -1,5 +1,12 @@
 // Editor message router
 use crate::app::App;
+use crate::editors::{
+    all_map_ini, chdata, chest, dialogue_script, dialogue_text, draw_item, edit_item, event_ini,
+    event_item, event_npc_ref, extra_ini, extra_ref, heal_item, localization_manager, magic,
+    map_editor, map_ini, message_scr, misc_item, mod_packager, monster, monster_ini, monster_ref,
+    npc_ini, npc_ref, party_ini, party_level_db, party_ref, quest_scr, snf_editor, sprite_browser,
+    store, tileset, wave_ini, weapon,
+};
 use crate::message::editor::EditorMessage;
 use iced::Task;
 
@@ -21,7 +28,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::MonsterRef(msg) => monster_ref::handle(msg, app),
         EditorMessage::AllMapIni(msg) => all_map_ini::handle(msg, app),
         EditorMessage::DialogueScript(msg) => dialogue_script::handle(msg, app),
-        EditorMessage::DialogueParagraph(msg) => dialogue_paragraph::handle(msg, app),
+        EditorMessage::DialogueParagraph(msg) => dialogue_text::handle(msg, app),
         EditorMessage::DrawItem(msg) => draw_item::handle(msg, app),
         EditorMessage::EventIni(msg) => event_ini::handle(msg, app),
         EditorMessage::EventNpcRef(msg) => event_npc_ref::handle(msg, app),
@@ -39,51 +46,10 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::Tileset(msg) => tileset::handle(msg, app),
         EditorMessage::Snf(msg) => snf_editor::handle(msg, app),
         EditorMessage::ModPackager(msg) => mod_packager::handle(msg, app),
-        EditorMessage::Localization(msg) => localization::handle(msg, app),
+        EditorMessage::Localization(msg) => localization_manager::handle(msg, app),
     }
 }
 
 // Common editor framework
 mod common;
-mod standard;
-mod tab;
-
-// Editor-specific handler modules
-mod all_map_ini;
-mod chdata;
-pub mod chest;
-mod dialogue_paragraph;
-mod dialogue_script;
-mod draw_item;
-mod edit_item;
-mod event_ini;
-mod event_item;
-mod event_npc_ref;
-mod extra_ini;
-mod extra_ref;
-mod heal_item;
-mod localization;
-mod magic;
-mod map_editor;
-mod map_ini;
-mod message_scr;
-mod misc_item;
-mod mod_packager;
-mod monster;
-mod monster_ini;
-mod monster_ref;
-mod npc_ini;
-mod npc_ref;
-mod party_ini;
-mod party_level_db;
-mod party_ref;
-mod quest_scr;
-mod snf_editor;
-mod sprite_browser;
-mod store;
-mod tileset;
-mod wave_ini;
-mod weapon;
-
-// Re-export common framework for use in other modules
-// Macros are automatically available at crate root when using #[macro_export]
+pub mod tab;

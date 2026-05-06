@@ -1,1 +1,1 @@
-pub type MessageScrEditorMessage = super::standard::StandardEditorMessage<dispel_core::Message>;
+pub type MessageScrEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::Message>;

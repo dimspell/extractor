@@ -1,1 +1,1 @@
-pub type DrawItemEditorMessage = super::standard::StandardEditorMessage<dispel_core::DrawItem>;
+pub type DrawItemEditorMessage = crate::components::standard::message::StandardEditorMessage<dispel_core::DrawItem>;
