@@ -15,6 +15,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let state = &app.state.mod_packager_editor;
 
     let header = build_header(state.tab, state.workspace_root.is_some());
+    let banner = recording_banner(app);
 
     let body: Element<'_, Message> = match state.tab {
         ModManagerTab::Library => library::view(app),
@@ -23,13 +24,41 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let status = text(state.status_msg.as_str()).size(12);
 
-    let content = column![header, body, status]
-        .spacing(12)
-        .padding(16)
-        .width(Fill)
-        .height(Fill);
+    let mut col = column![header].spacing(12).padding(16).width(Fill).height(Fill);
+    if let Some(b) = banner {
+        col = col.push(b);
+    }
+    col = col.push(body).push(status);
 
-    container(content).width(Fill).height(Fill).into()
+    container(col).width(Fill).height(Fill).into()
+}
+
+fn recording_banner(app: &App) -> Option<Element<'_, Message>> {
+    let session = app.state.recording.as_ref()?;
+    let pending_suffix = if session.pending.is_empty() {
+        String::new()
+    } else {
+        format!(", {} pending", session.pending.len())
+    };
+    let label = text(format!(
+        "● Recording into `{}` — {} change(s) captured{}",
+        session.mod_name, session.recorded_count, pending_suffix
+    ))
+    .size(12);
+    let stop = button(text("Stop").size(12))
+        .padding([4, 12])
+        .style(button::danger)
+        .on_press(Message::mod_packager(ModPackagerMessage::StopRecording));
+    Some(
+        container(
+            row![label, horizontal_space().width(Length::Fill), stop]
+                .spacing(8)
+                .align_y(Alignment::Center),
+        )
+        .padding(8)
+        .style(container::bordered_box)
+        .into(),
+    )
 }
 
 fn build_header(active: ModManagerTab, has_workspace: bool) -> Element<'static, Message> {

@@ -29,10 +29,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(8)
     .align_y(Alignment::Center);
 
+    let recording_slug = app
+        .state
+        .recording
+        .as_ref()
+        .map(|s| s.mod_slug.clone());
     let rows: Vec<Element<'_, Message>> = state
         .mods
         .iter()
-        .map(|m| mod_row(m, busy))
+        .map(|m| mod_row(m, busy, recording_slug.as_deref() == Some(m.slug.as_str())))
         .collect();
 
     let list: Element<'_, Message> = if rows.is_empty() {
@@ -70,7 +75,7 @@ fn empty_workspace() -> Element<'static, Message> {
     .into()
 }
 
-fn mod_row<'a>(m: &'a InstalledMod, busy: bool) -> Element<'a, Message> {
+fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'a, Message> {
     let toggle_label = if m.enabled { "Disable" } else { "Enable" };
     let toggle = action_btn(
         toggle_label,
@@ -84,6 +89,17 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool) -> Element<'a, Message> {
         ModPackagerMessage::MoveDown(m.slug.clone()),
         busy || !m.enabled,
     );
+
+    let record_btn = if is_recording {
+        action_btn("Stop Rec", ModPackagerMessage::StopRecording, busy)
+            .style(button::danger)
+    } else {
+        action_btn(
+            "Record",
+            ModPackagerMessage::StartRecording(m.slug.clone()),
+            busy,
+        )
+    };
 
     let edit = action_btn(
         "Edit",
@@ -122,6 +138,7 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool) -> Element<'a, Message> {
             up,
             down,
             toggle,
+            record_btn,
             edit,
             export,
             delete,

@@ -20,8 +20,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let manifest_section = manifest_form(state);
     let changelog_section = changelog_panel(&state.selected_changes);
 
+    let is_recording_this = app
+        .state
+        .recording
+        .as_ref()
+        .map(|s| s.mod_slug == slug)
+        .unwrap_or(false);
+    let record_btn = if is_recording_this {
+        action_btn("Stop Recording", ModPackagerMessage::StopRecording, busy)
+            .style(button::danger)
+    } else {
+        action_btn(
+            "Start Recording",
+            ModPackagerMessage::StartRecording(slug.to_owned()),
+            busy,
+        )
+        .style(button::primary)
+    };
     let actions = row![
         save_button(state.edit_dirty, busy),
+        record_btn,
         action_btn("Export .zip", ModPackagerMessage::ExportZip(slug.to_owned()), busy),
         horizontal_space().width(Length::Fill),
         action_btn(

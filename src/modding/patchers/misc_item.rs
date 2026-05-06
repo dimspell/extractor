@@ -45,6 +45,11 @@ impl RecordPatcher for MiscItemPatcher {
             },
             "base_price" => match new {
                 Value::I64(v) => rec.base_price = (*v) as i32,
+                // Recording mode emits Value::String — accept and parse.
+                Value::String(s) => match s.trim().parse::<i32>() {
+                    Ok(v) => rec.base_price = v,
+                    Err(_) => return Err(wrong_type(NAME, field, "i64", new)),
+                },
                 _ => return Err(wrong_type(NAME, field, "i64", new)),
             },
             "padding" => match new {
@@ -136,11 +141,23 @@ mod tests {
     }
 
     #[test]
-    fn wrong_type_errors() {
+    fn change_price_via_string() {
+        // Recording mode produces stringly-typed deltas; the patcher must
+        // accept and parse them.
+        let p = MiscItemPatcher;
+        let original = one_item_blob("Torch", 15);
+        let patched = p
+            .apply_field(&original, 0, "base_price", &Value::String("99".into()))
+            .unwrap();
+        assert_eq!(parse_back(&patched)[0].base_price, 99);
+    }
+
+    #[test]
+    fn unparseable_string_for_numeric_errors() {
         let p = MiscItemPatcher;
         let bytes = one_item_blob("X", 1);
         let err = p
-            .apply_field(&bytes, 0, "base_price", &Value::String("99".into()))
+            .apply_field(&bytes, 0, "base_price", &Value::String("oops".into()))
             .unwrap_err();
         assert!(err.to_string().contains("expected i64"));
     }
