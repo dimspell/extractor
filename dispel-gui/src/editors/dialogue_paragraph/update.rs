@@ -2,7 +2,7 @@ use dispel_core::{DialogueParagraph, Extractor};
 use iced::Task;
 
 use crate::app::App;
-use crate::editors::dialogue_text::DialogueParagraphEditorMessage;
+use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::loading_state::LoadingState;
 use crate::message::MessageExt;

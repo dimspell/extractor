@@ -251,7 +251,7 @@ Wave.ini (sound mappings)
     └── snf_filename → .snf audio files
 
 Sound IDs referenced by:
-    ├── dialogue_text.rs (wave_ini_entry_id)
+    ├── dialogue_paragraph.rs (wave_ini_entry_id)
     └── Game events and interactions
 ```
 

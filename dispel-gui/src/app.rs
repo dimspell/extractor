@@ -287,7 +287,7 @@ impl App {
                 dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
             ),
             DialogueTextEditor => Message::dialogue_paragraph(
-                dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
+                dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
             ),
             ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
             PartyLevelDbEditor => {
@@ -519,7 +519,7 @@ impl App {
                     },
                     move |result| {
                         crate::message::Message::dialogue_paragraph(
-                            crate::editors::dialogue_text::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
+                            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
                         )
                     },
                 )
@@ -767,7 +767,7 @@ fn build_spreadsheet_nav_msg(
             dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
         ),
         DialogueTextEditor => Message::dialogue_paragraph(
-            dialogue_text::DialogueParagraphEditorMessage::Spreadsheet(sm),
+            dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
         ),
         ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
         PartyLevelDbEditor => {

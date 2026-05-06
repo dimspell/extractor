@@ -114,13 +114,13 @@ The file follows a consistent CSV format where each line represents a sound effe
 **Database Integration**:
 - Processed by `WaveIni` struct in the codebase
 - Stored in database with id, snf_filename, and unknown_flag fields
-- Referenced by dialogue_text.rs for dialogue sound effects
+- Referenced by dialogue_paragraph.rs for dialogue sound effects
 
 ### Usage in Game
 
 1. **Audio System Initialization**: Game loads sound mappings from Wave.ini
 2. **Sound Playback**: Uses IDs to play appropriate SNF files
-3. **Dialogue Integration**: wave_ini_entry_id in dialogue_text.rs links to these sound IDs
+3. **Dialogue Integration**: wave_ini_entry_id in dialogue_paragraph.rs links to these sound IDs
 4. **Dynamic Audio**: unknown_flag controls playback behavior (looping, priority, etc.)
 5. **Resource Management**: Organizes 290+ sound effects for efficient loading
 

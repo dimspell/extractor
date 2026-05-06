@@ -19,7 +19,7 @@ define_message_ext! {
     monster_ref:    MonsterRef(crate::editors::monster_ref::MonsterRefEditorMessage),
     all_map_ini:    AllMapIni(crate::editors::all_map_ini::AllMapIniEditorMessage),
     dialogue_script: DialogueScript(crate::editors::dialogue_script::DialogueScriptEditorMessage),
-    dialogue_paragraph:  DialogueParagraph(crate::editors::dialogue_text::DialogueParagraphEditorMessage),
+    dialogue_paragraph:  DialogueParagraph(crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage),
     draw_item:      DrawItem(crate::editors::draw_item::DrawItemEditorMessage),
     event_ini:      EventIni(crate::editors::event_ini::EventIniEditorMessage),
     event_npc_ref:  EventNpcRef(crate::editors::event_npc_ref::EventNpcRefEditorMessage),

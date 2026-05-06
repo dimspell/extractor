@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::editors::dialogue_text::DialogueParagraphEditorMessage;
+use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use crate::view::editor::view_spreadsheet;
