@@ -6,16 +6,26 @@
 //! [`value`]). Phase 1 layers [`package`] read/write of the on-disk `mod.zip`
 //! format on top.
 
+pub mod apply;
+pub mod bsdiff;
 pub mod change;
 pub mod changelog;
 pub mod error;
 pub mod manifest;
 pub mod package;
+pub mod patcher;
+pub mod patchers;
+pub mod registry;
 pub mod value;
+pub mod vanilla;
 
+pub use apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
 pub use change::{BlobKind, ChangeAction, ChangeOp};
 pub use changelog::{ChangeLog, HISTORY_CAP};
 pub use error::{ModdingError, Result};
 pub use manifest::{ModManifest, MANIFEST_VERSION};
 pub use package::{read_zip, write_zip, ModPackage};
+pub use patcher::RecordPatcher;
+pub use registry::PatcherRegistry;
 pub use value::Value;
+pub use vanilla::VanillaStore;
