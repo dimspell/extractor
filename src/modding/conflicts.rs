@@ -25,6 +25,7 @@ use std::collections::BTreeMap;
 
 use super::apply::ModEntry;
 use super::change::ChangeOp;
+use super::resolution::{FieldKey, ResolutionMap};
 use super::value::Value;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,11 +59,22 @@ pub struct Conflict {
     pub kind: ConflictKind,
     /// Participants in load order — last entry wins under apply.
     pub participants: Vec<ConflictParticipant>,
+    /// `Some(mod_slug)` when a per-field pin has been set for this conflict;
+    /// always `None` for hard (Binary/FileWhole) conflicts.
+    pub pinned_to: Option<String>,
 }
 
 impl Conflict {
-    /// The mod_id of the mod whose value the apply engine would write.
+    /// The mod_id of the mod whose value the apply engine would write —
+    /// honors any pin, otherwise falls back to load order (last).
     pub fn winner(&self) -> &str {
+        if let Some(pin) = self.pinned_to.as_deref() {
+            // Make sure the pinned mod is actually a participant (otherwise
+            // the pin is stale and apply will fall through to load order).
+            if self.participants.iter().any(|p| p.mod_id == pin) {
+                return pin;
+            }
+        }
         &self.participants.last().expect("conflict must have ≥2 participants").mod_id
     }
 
@@ -78,6 +90,15 @@ impl Conflict {
 /// Output is sorted: by `file_path` ascending, then conflicts on the same
 /// file ordered by record_id (for `Field`) before `Binary`/`FileWhole`.
 pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
+    detect_conflicts_with(mods, &ResolutionMap::default())
+}
+
+/// Same as [`detect_conflicts`] but annotates field conflicts with the
+/// current pin (if any) from `resolutions`.
+pub fn detect_conflicts_with(
+    mods: &[ModEntry<'_>],
+    resolutions: &ResolutionMap,
+) -> Vec<Conflict> {
     // Field map: (file, record, field) -> Vec<participant>
     let mut field_map: BTreeMap<(String, u32, String), Vec<ConflictParticipant>> =
         BTreeMap::new();
@@ -132,10 +153,18 @@ pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
         if !is_real_field_conflict(&participants) {
             continue;
         }
+        let pinned_to = resolutions
+            .winner(&FieldKey {
+                file_path: file.clone(),
+                record_id,
+                field: field.clone(),
+            })
+            .map(str::to_owned);
         out.push(Conflict {
             file_path: file,
             kind: ConflictKind::Field { record_id, field },
             participants,
+            pinned_to,
         });
     }
     for (file, participants) in binary_map {
@@ -146,6 +175,7 @@ pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
             file_path: file,
             kind: ConflictKind::Binary,
             participants,
+            pinned_to: None,
         });
     }
     for (file, participants) in whole_map {
@@ -156,6 +186,7 @@ pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
             file_path: file,
             kind: ConflictKind::FileWhole,
             participants,
+            pinned_to: None,
         });
     }
 
@@ -328,6 +359,52 @@ mod tests {
         // Mod a's surviving value is the *last* one it proposed.
         let a_part = c[0].participants.iter().find(|p| p.mod_id == "a").unwrap();
         assert_eq!(a_part.field_new, Some(Value::String("Helmet".into())));
+    }
+
+    #[test]
+    fn pin_annotates_winner_and_overrides_load_order() {
+        let a = log(vec![fd(1, "name", "Helmet")]);
+        let b = log(vec![fd(1, "name", "Hat")]);
+        let mods = [
+            ModEntry { mod_id: "a", changes: &a },
+            ModEntry { mod_id: "b", changes: &b },
+        ];
+        let mut pins = ResolutionMap::default();
+        pins.pin(
+            FieldKey {
+                file_path: "MiscItem.db".into(),
+                record_id: 1,
+                field: "name".into(),
+            },
+            "a",
+        );
+        let c = detect_conflicts_with(&mods, &pins);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c[0].pinned_to.as_deref(), Some("a"));
+        assert_eq!(c[0].winner(), "a"); // overrides load order
+    }
+
+    #[test]
+    fn stale_pin_to_unknown_mod_falls_through_to_load_order() {
+        let a = log(vec![fd(1, "name", "Helmet")]);
+        let b = log(vec![fd(1, "name", "Hat")]);
+        let mods = [
+            ModEntry { mod_id: "a", changes: &a },
+            ModEntry { mod_id: "b", changes: &b },
+        ];
+        let mut pins = ResolutionMap::default();
+        pins.pin(
+            FieldKey {
+                file_path: "MiscItem.db".into(),
+                record_id: 1,
+                field: "name".into(),
+            },
+            "ghost",
+        );
+        let c = detect_conflicts_with(&mods, &pins);
+        assert_eq!(c[0].pinned_to.as_deref(), Some("ghost"));
+        // winner() ignores the stale pin and falls back to last-in-order.
+        assert_eq!(c[0].winner(), "b");
     }
 
     #[test]

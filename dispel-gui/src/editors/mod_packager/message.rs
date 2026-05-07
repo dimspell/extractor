@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dispel_core::modding::{ChangeAction, Conflict, InstalledMod, ModManifest};
+use dispel_core::modding::{ChangeAction, Conflict, FieldKey, InstalledMod, ModManifest};
 
 use super::recording::ObservedAction;
 use super::state::ModManagerTab;
@@ -59,6 +59,10 @@ pub enum ModPackagerMessage {
         generation: u64,
     },
     RecordingPersisted(Result<(), String>),
+
+    // Conflict resolution (per-field pin)
+    PinConflict { key: FieldKey, mod_slug: String },
+    UnpinConflict { key: FieldKey },
 
     // Import / export
     ImportZip,

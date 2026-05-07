@@ -1,7 +1,7 @@
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Fill, Length};
 
-use dispel_core::modding::{Conflict, ConflictKind};
+use dispel_core::modding::{Conflict, ConflictKind, FieldKey};
 
 use crate::app::App;
 use crate::components::utils::horizontal_space;
@@ -74,12 +74,17 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
         ConflictKind::Binary => format!("{}  •  binary delta overlap", c.file_path),
         ConflictKind::FileWhole => format!("{}  •  whole-file overlap", c.file_path),
     };
-    let winner_label = format!("winner: {}", c.winner());
+    let winner = c.winner().to_owned();
+    let winner_label = if c.pinned_to.as_deref() == Some(winner.as_str()) {
+        format!("📌 pinned to {winner}")
+    } else {
+        format!("winner: {winner}")
+    };
 
     let mut rows = column![].spacing(2);
-    let last = c.participants.len().saturating_sub(1);
     for (i, p) in c.participants.iter().enumerate() {
-        let marker = if i == last { "▶" } else { " " };
+        let is_winner = p.mod_id == winner;
+        let marker = if is_winner { "▶" } else { " " };
         let value = match &p.field_new {
             Some(v) => format!("{:?}", v),
             None => format!("({})", p.op),
@@ -88,20 +93,51 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
         rows = rows.push(text(line).size(11));
     }
 
-    let mut buttons = row![].spacing(6).align_y(Alignment::Center);
-    for (i, p) in c.participants.iter().enumerate() {
-        if i == last {
-            continue;
+    // Per-field pin controls only apply to soft (Field) conflicts.
+    let action_row: Element<'_, Message> = match &c.kind {
+        ConflictKind::Field { record_id, field } => {
+            let key = FieldKey {
+                file_path: c.file_path.clone(),
+                record_id: *record_id,
+                field: field.clone(),
+            };
+            let mut buttons = row![].spacing(6).align_y(Alignment::Center);
+            for p in &c.participants {
+                let pinned_here = c.pinned_to.as_deref() == Some(p.mod_id.as_str());
+                let label = if pinned_here {
+                    format!("✓ {}", p.mod_id)
+                } else {
+                    format!("Pin {}", p.mod_id)
+                };
+                let mut btn = button(text(label).size(11)).padding([2, 8]);
+                if !pinned_here {
+                    btn = btn.on_press(Message::mod_packager(
+                        ModPackagerMessage::PinConflict {
+                            key: key.clone(),
+                            mod_slug: p.mod_id.clone(),
+                        },
+                    ));
+                }
+                buttons = buttons.push(btn);
+            }
+            if c.pinned_to.is_some() {
+                buttons = buttons.push(
+                    button(text("Unpin").size(11))
+                        .padding([2, 8])
+                        .style(button::secondary)
+                        .on_press(Message::mod_packager(
+                            ModPackagerMessage::UnpinConflict { key: key.clone() },
+                        )),
+                );
+            }
+            buttons.into()
         }
-        let slug = p.mod_id.clone();
-        buttons = buttons.push(
-            button(text(format!("Promote `{}`", slug)).size(11))
-                .padding([2, 8])
-                .on_press(Message::mod_packager(ModPackagerMessage::MoveDown(
-                    slug.clone(),
-                ))),
-        );
-    }
+        ConflictKind::Binary | ConflictKind::FileWhole => {
+            text("Reorder load order in the Library tab to resolve.")
+                .size(11)
+                .into()
+        }
+    };
 
     container(
         column![
@@ -112,7 +148,7 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
             ]
             .align_y(Alignment::Center),
             rows,
-            buttons,
+            action_row,
         ]
         .spacing(6),
     )

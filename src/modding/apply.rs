@@ -27,6 +27,7 @@ use super::change::{ChangeAction, ChangeOp};
 use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
 use super::registry::PatcherRegistry;
+use super::resolution::{FieldKey, ResolutionMap};
 use super::vanilla::{validate_relative, VanillaStore};
 
 /// One enabled mod, presented to the apply engine in load order.
@@ -53,6 +54,7 @@ pub fn apply_all(
     game_dir: &Path,
     vanilla: &VanillaStore,
     registry: &PatcherRegistry,
+    resolutions: &ResolutionMap,
 ) -> Result<ApplyReport> {
     if !game_dir.is_dir() {
         return Err(ModdingError::Malformed(format!(
@@ -87,6 +89,19 @@ pub fn apply_all(
             for action in entry.changes.actions() {
                 if action.file_path != *path {
                     continue;
+                }
+                if let ChangeOp::FieldDelta { record_id, field, .. } = &action.op {
+                    let key = FieldKey {
+                        file_path: action.file_path.clone(),
+                        record_id: *record_id,
+                        field: field.clone(),
+                    };
+                    if let Some(winner) = resolutions.winner(&key) {
+                        if winner != entry.mod_id {
+                            // A pin exists for this field, and it's not us.
+                            continue;
+                        }
+                    }
                 }
                 apply_one(action, &mut working, vanilla_bytes.as_deref(), registry)?;
                 report.actions_applied += 1;
@@ -290,7 +305,7 @@ mod tests {
             changes: &log,
         }];
 
-        let report = apply_all(&mods, game.path(), &store, &registry).unwrap();
+        let report = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         assert_eq!(report.actions_applied, 1);
         assert_eq!(report.written, vec![rel.to_string()]);
         assert!(report.deleted.is_empty());
@@ -328,7 +343,7 @@ mod tests {
                 changes: &mod_b,
             },
         ];
-        apply_all(&mods, game.path(), &store, &registry).unwrap();
+        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         assert_eq!(parse_misc(&read_game_file(game.path(), rel))[0].name, "Hat");
 
         // Reorder: a wins.
@@ -342,11 +357,77 @@ mod tests {
                 changes: &mod_a,
             },
         ];
-        apply_all(&mods, game.path(), &store, &registry).unwrap();
+        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         assert_eq!(
             parse_misc(&read_game_file(game.path(), rel))[0].name,
             "Helmet"
         );
+    }
+
+    #[test]
+    fn pin_overrides_load_order_for_field() {
+        let game = tempdir().unwrap();
+        let vault = tempdir().unwrap();
+        let store = VanillaStore::new(vault.path().to_path_buf());
+        let registry = PatcherRegistry::with_defaults();
+        let rel = "CharacterInGame/MiscItem.db";
+        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+
+        // Two mods: load order [a, b]. Without pin, b wins.
+        let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
+        let mod_b = field_delta_log(rel, 0, "name", Value::String("Hat".into()));
+        let mods = [
+            ModEntry { mod_id: "a", changes: &mod_a },
+            ModEntry { mod_id: "b", changes: &mod_b },
+        ];
+
+        // Pin to `a` — `a`'s value wins despite `b` being later.
+        let mut pins = ResolutionMap::default();
+        pins.pin(
+            FieldKey {
+                file_path: rel.to_owned(),
+                record_id: 0,
+                field: "name".to_owned(),
+            },
+            "a",
+        );
+        apply_all(&mods, game.path(), &store, &registry, &pins).unwrap();
+        assert_eq!(
+            parse_misc(&read_game_file(game.path(), rel))[0].name,
+            "Helmet"
+        );
+    }
+
+    #[test]
+    fn pin_does_not_affect_unrelated_fields() {
+        let game = tempdir().unwrap();
+        let vault = tempdir().unwrap();
+        let store = VanillaStore::new(vault.path().to_path_buf());
+        let registry = PatcherRegistry::with_defaults();
+        let rel = "CharacterInGame/MiscItem.db";
+        write_game_file(game.path(), rel, &one_misc_item_blob("Helt", 15));
+
+        // Mod `a` changes the name; mod `b` changes base_price. No conflict.
+        let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
+        let mod_b = field_delta_log(rel, 0, "base_price", Value::I64(99));
+        let mods = [
+            ModEntry { mod_id: "a", changes: &mod_a },
+            ModEntry { mod_id: "b", changes: &mod_b },
+        ];
+        // Pin a *different* field to `a`. Both edits should still land.
+        let mut pins = ResolutionMap::default();
+        pins.pin(
+            FieldKey {
+                file_path: rel.to_owned(),
+                record_id: 99,
+                field: "name".to_owned(),
+            },
+            "a",
+        );
+        apply_all(&mods, game.path(), &store, &registry, &pins).unwrap();
+        let recs = parse_misc(&read_game_file(game.path(), rel));
+        assert_eq!(recs[0].name, "Helmet");
+        assert_eq!(recs[0].base_price, 99);
     }
 
     #[test]
@@ -367,6 +448,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap();
         assert_eq!(
@@ -375,7 +457,7 @@ mod tests {
         );
 
         // Now disable the mod (empty mod list) — file should snap back to vanilla.
-        apply_all(&[], game.path(), &store, &registry).unwrap();
+        apply_all(&[], game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         // Touched set is empty when no mods enabled; nothing rewritten.
         // To actually snap back the user calls revert_to_vanilla, OR re-applies
         // with the previously-touched files known. Verify revert path:
@@ -410,7 +492,7 @@ mod tests {
             changes: &log,
         }];
 
-        apply_all(&mods, game.path(), &store, &registry).unwrap();
+        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         assert_eq!(read_game_file(game.path(), rel), target);
 
         // Revert restores vanilla.
@@ -441,6 +523,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap();
         assert_eq!(read_game_file(game.path(), rel), b"replaced");
@@ -468,6 +551,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap();
         assert_eq!(read_game_file(game.path(), rel), b"shiny new");
@@ -493,6 +577,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap();
         assert!(!game.path().join(rel).exists());
@@ -524,6 +609,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap_err();
         assert!(matches!(err, ModdingError::Malformed(_)));
@@ -544,9 +630,9 @@ mod tests {
             changes: &log,
         }];
 
-        let r1 = apply_all(&mods, game.path(), &store, &registry).unwrap();
+        let r1 = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         let bytes1 = read_game_file(game.path(), rel);
-        let r2 = apply_all(&mods, game.path(), &store, &registry).unwrap();
+        let r2 = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
         let bytes2 = read_game_file(game.path(), rel);
         assert_eq!(bytes1, bytes2);
         assert_eq!(r1, r2);
@@ -570,6 +656,7 @@ mod tests {
             game.path(),
             &store,
             &registry,
+            &ResolutionMap::default(),
         )
         .unwrap_err();
         assert!(err.to_string().contains("no field patcher"));

@@ -415,6 +415,24 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
 
+        // ----- Conflict resolution ---------------------------------------
+        ModPackagerMessage::PinConflict { key, mod_slug } => {
+            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+                return Task::none();
+            };
+            workspace_action(root, move |ws| {
+                ws.pin_resolution(key, &mod_slug).map_err(|e| e.to_string())
+            })
+        }
+        ModPackagerMessage::UnpinConflict { key } => {
+            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+                return Task::none();
+            };
+            workspace_action(root, move |ws| {
+                ws.unpin_resolution(&key).map_err(|e| e.to_string())
+            })
+        }
+
         // ----- Import / export -------------------------------------------
         ModPackagerMessage::ImportZip => Task::perform(
             async {
