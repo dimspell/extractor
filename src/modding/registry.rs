@@ -22,11 +22,16 @@ impl PatcherRegistry {
     }
 
     /// Pre-populated registry containing every [`RecordPatcher`] dispel-core
-    /// ships out of the box. Phase 2 only includes `MiscItem.db`; later
-    /// phases will expand this list.
+    /// ships out of the box. Each entry's filename comes from the
+    /// `#[patcher(filename = ...)]` constant on the generated patcher,
+    /// keeping the registration site single-sourced with the derive.
     pub fn with_defaults() -> Self {
+        use super::patchers::{EditItemPatcher, EventItemPatcher, HealItemPatcher, MiscItemPatcher};
         let mut r = Self::new();
-        r.register("MiscItem.db", Arc::new(super::patchers::MiscItemPatcher));
+        r.register(MiscItemPatcher::FILENAME, Arc::new(MiscItemPatcher));
+        r.register(HealItemPatcher::FILENAME, Arc::new(HealItemPatcher));
+        r.register(EditItemPatcher::FILENAME, Arc::new(EditItemPatcher));
+        r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
         r
     }
 
@@ -83,8 +88,15 @@ mod tests {
     }
 
     #[test]
-    fn defaults_include_misc_item() {
+    fn defaults_include_all_generated_patchers() {
         let r = PatcherRegistry::with_defaults();
-        assert!(r.lookup("CharacterInGame/MiscItem.db").is_some());
+        for path in [
+            "CharacterInGame/MiscItem.db",
+            "CharacterInGame/HealItem.db",
+            "CharacterInGame/EditItem.db",
+            "CharacterInGame/EventItem.db",
+        ] {
+            assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
+        }
     }
 }

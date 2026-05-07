@@ -1,93 +1,15 @@
-//! Field-level patcher for `CharacterInGame/MiscItem.db`.
-
-use std::io::Cursor;
-
-use crate::modding::error::Result;
-use crate::modding::patcher::{out_of_range, unknown_field, wrong_type, RecordPatcher};
-use crate::modding::value::Value;
-use crate::references::extractor::Extractor;
-use crate::references::misc_item_db::MiscItem;
-
-const NAME: &str = "MiscItem";
-
-pub struct MiscItemPatcher;
-
-impl RecordPatcher for MiscItemPatcher {
-    fn name(&self) -> &'static str {
-        NAME
-    }
-
-    fn apply_field(
-        &self,
-        bytes: &[u8],
-        record_id: u32,
-        field: &str,
-        new: &Value,
-    ) -> Result<Vec<u8>> {
-        // Parse → mutate → serialise.
-        let mut cursor = Cursor::new(bytes);
-        let mut records = MiscItem::parse(&mut cursor, bytes.len() as u64)?;
-
-        let idx = record_id as usize;
-        if idx >= records.len() {
-            return Err(out_of_range(NAME, record_id, records.len()));
-        }
-        let rec = &mut records[idx];
-
-        match field {
-            "name" => match new {
-                Value::String(s) => rec.name = s.clone(),
-                _ => return Err(wrong_type(NAME, field, "string", new)),
-            },
-            "description" => match new {
-                Value::String(s) => rec.description = s.clone(),
-                _ => return Err(wrong_type(NAME, field, "string", new)),
-            },
-            "base_price" => match new {
-                Value::I64(v) => rec.base_price = (*v) as i32,
-                // Recording mode emits Value::String — accept and parse.
-                Value::String(s) => match s.trim().parse::<i32>() {
-                    Ok(v) => rec.base_price = v,
-                    Err(_) => return Err(wrong_type(NAME, field, "i64", new)),
-                },
-                _ => return Err(wrong_type(NAME, field, "i64", new)),
-            },
-            "padding" => match new {
-                Value::Bytes(b) if b.len() == 20 => {
-                    let mut arr = [0u8; 20];
-                    arr.copy_from_slice(b);
-                    rec.padding = arr;
-                }
-                Value::Bytes(_) => {
-                    return Err(crate::modding::error::ModdingError::Malformed(format!(
-                        "{NAME}.padding: expected 20 bytes, got {}",
-                        if let Value::Bytes(b) = new {
-                            b.len()
-                        } else {
-                            0
-                        }
-                    )));
-                }
-                _ => return Err(wrong_type(NAME, field, "bytes(20)", new)),
-            },
-            // `id` is positional; you can't change it via a delta.
-            "id" => {
-                return Err(crate::modding::error::ModdingError::Malformed(format!(
-                    "{NAME}.id is positional and cannot be patched"
-                )));
-            }
-            other => return Err(unknown_field(NAME, other)),
-        }
-
-        let mut out = Vec::with_capacity(bytes.len());
-        MiscItem::to_writer(&records, &mut out)?;
-        Ok(out)
-    }
-}
+//! Tests for the auto-generated `MiscItemPatcher` (defined alongside
+//! `MiscItem` via `#[derive(RecordPatcher)]`). The struct itself is
+//! re-exported from [`crate::modding::patchers`] for downstream callers.
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::modding::patcher::RecordPatcher;
+    use crate::modding::patchers::MiscItemPatcher;
+    use crate::modding::value::Value;
+    use crate::references::extractor::Extractor;
+    use crate::references::misc_item_db::MiscItem;
+    use std::io::Cursor;
 
     fn one_item_blob(name: &str, base_price: i32) -> Vec<u8> {
         let mut data = 1i32.to_le_bytes().to_vec();
@@ -142,8 +64,6 @@ mod tests {
 
     #[test]
     fn change_price_via_string() {
-        // Recording mode produces stringly-typed deltas; the patcher must
-        // accept and parse them.
         let p = MiscItemPatcher;
         let original = one_item_blob("Torch", 15);
         let patched = p
@@ -159,7 +79,7 @@ mod tests {
         let err = p
             .apply_field(&bytes, 0, "base_price", &Value::String("oops".into()))
             .unwrap_err();
-        assert!(err.to_string().contains("expected i64"));
+        assert!(err.to_string().contains("expected i32"));
     }
 
     #[test]
