@@ -14,6 +14,8 @@ use dispel_core::modding::Value;
 use iced::Task;
 
 use crate::app::App;
+use crate::components::editable::EditableRecord;
+use crate::components::generic_editor::MultiFileEditorState;
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
 use crate::state::RecordingKey;
@@ -40,13 +42,13 @@ pub fn observe_field_change(
         record_id,
         field: field.to_owned(),
     };
-    Task::done(Message::mod_packager(ModPackagerMessage::RecordingObserved(
-        ObservedAction {
+    Task::done(Message::mod_packager(
+        ModPackagerMessage::RecordingObserved(ObservedAction {
             key,
             old: Value::String(old),
             new: Value::String(new),
-        },
-    )))
+        }),
+    ))
 }
 
 /// Payload for [`ModPackagerMessage::RecordingObserved`].
@@ -55,4 +57,23 @@ pub struct ObservedAction {
     pub key: RecordingKey,
     pub old: Value,
     pub new: Value,
+}
+
+/// Snapshot needed to record a `FieldChanged` against a multi-file editor.
+///
+/// Reads the *original* record index (not the filtered position) and the
+/// current file path, so the eventual `FieldDelta` addresses the right row
+/// even when a filter is active. Returns `None` when the row or file isn't
+/// present — callers should treat that as "nothing to record" and skip
+/// `observe_field_change` entirely (rather than recording a phantom delta
+/// against `record_id=0` with an empty path).
+pub fn capture_field_recording_context<R: EditableRecord>(
+    editor: Option<&MultiFileEditorState<R>>,
+    index: usize,
+    field: &str,
+) -> Option<(String, u32, String)> {
+    let editor = editor?;
+    let (orig_idx, record) = editor.editor.filtered.get(index)?;
+    let file_path = editor.current_file.as_ref()?.to_string_lossy().into_owned();
+    Some((record.get_field(field), *orig_idx as u32, file_path))
 }
