@@ -90,6 +90,15 @@ impl PatcherRegistry {
         r.register(DrawItemPatcher::FILENAME, Arc::new(DrawItemPatcher));
         r.register(QuestPatcher::FILENAME, Arc::new(QuestPatcher));
 
+        // Per-file event scripts: every Event*.scr matches. Exact-filename
+        // matches for Quest.scr and Message.scr win over this via the
+        // by_filename map, so they aren't shadowed.
+        r.register_pattern(
+            EventScriptPatcher::EXTENSION,
+            EventScriptPatcher::STEM_PREFIX,
+            Arc::new(EventScriptPatcher),
+        );
+
         // Per-file dialogue formats: every *.dlg / *.pgp matches.
         r.register_pattern(
             DialogueScriptPatcher::EXTENSION,
@@ -213,6 +222,25 @@ mod tests {
     }
 
     #[test]
+    fn quest_and_message_scr_resolve_to_their_exact_patchers_not_event() {
+        let r = PatcherRegistry::with_defaults();
+        // Both files share the .scr extension with Event*.scr but must hit
+        // their dedicated handlers via the exact-filename map.
+        assert_eq!(
+            r.lookup("ExtraInGame/Quest.scr").unwrap().name(),
+            "Quest"
+        );
+        assert_eq!(
+            r.lookup("ExtraInGame/Message.scr").unwrap().name(),
+            "Message"
+        );
+        assert_eq!(
+            r.lookup("ExtraInGame/Eventcat1.scr").unwrap().name(),
+            "EventScript"
+        );
+    }
+
+    #[test]
     fn defaults_include_all_generated_patchers() {
         let r = PatcherRegistry::with_defaults();
         for path in [
@@ -256,6 +284,9 @@ mod tests {
             "NpcInGame/Dlgdun02.dlg",
             "NpcInGame/Pgpcat1.pgp",
             "NpcInGame/somefile.pgp",
+            // Per-file event scripts match every Event*.scr
+            "ExtraInGame/Eventcat1.scr",
+            "ExtraInGame/EVENTDUN02.scr",
         ] {
             assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
         }
