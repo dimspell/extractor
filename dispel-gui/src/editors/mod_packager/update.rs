@@ -2,14 +2,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dispel_core::modding::{
-    ApplyReport, ChangeAction, ChangeOp, InstalledMod, ModManifest, PatcherRegistry, RevertReport,
-    Workspace,
+    ApplyReport, ChangeAction, ChangeOp, ModManifest, PatcherRegistry, RevertReport, Workspace,
 };
 use iced::Task;
 
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
-use crate::editors::mod_packager::message::{ApplyOutcome, RevertOutcome, SelectedMod};
+use crate::editors::mod_packager::message::{
+    ApplyOutcome, LibrarySnapshot, RevertOutcome, SelectedMod,
+};
 use crate::editors::mod_packager::recording::{ObservedAction, DEBOUNCE};
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
@@ -52,9 +53,19 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         ModPackagerMessage::Refreshed(result) => {
             let state = &mut app.state.mod_packager_editor;
             match result {
-                Ok(mods) => {
-                    state.mods = mods;
-                    state.status_msg = format!("{} mod(s) installed", state.mods.len());
+                Ok(snap) => {
+                    let conflict_n = snap.conflicts.len();
+                    state.mods = snap.mods;
+                    state.conflicts = snap.conflicts;
+                    state.status_msg = if conflict_n > 0 {
+                        format!(
+                            "{} mod(s) installed — {} conflict(s)",
+                            state.mods.len(),
+                            conflict_n
+                        )
+                    } else {
+                        format!("{} mod(s) installed", state.mods.len())
+                    };
                 }
                 Err(e) => {
                     state.status_msg = format!("Failed to list mods: {e}");
@@ -527,9 +538,11 @@ fn open_workspace(app: &mut App, root: PathBuf) -> Task<Message> {
 fn refresh_library(root: PathBuf) -> Task<Message> {
     Task::perform(
         async move {
-            tokio::task::spawn_blocking(move || -> Result<Vec<InstalledMod>, String> {
+            tokio::task::spawn_blocking(move || -> Result<LibrarySnapshot, String> {
                 let ws = Workspace::open(root).map_err(|e| e.to_string())?;
-                ws.list_mods().map_err(|e| e.to_string())
+                let mods = ws.list_mods().map_err(|e| e.to_string())?;
+                let conflicts = ws.detect_conflicts().map_err(|e| e.to_string())?;
+                Ok(LibrarySnapshot { mods, conflicts })
             })
             .await
             .unwrap_or_else(|e| Err(e.to_string()))

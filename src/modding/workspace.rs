@@ -331,6 +331,24 @@ impl Workspace {
         revert_to_vanilla(game_dir, &self.vanilla)
     }
 
+    /// Detect conflicts across the enabled mods, in load order.
+    pub fn detect_conflicts(&self) -> Result<Vec<super::conflicts::Conflict>> {
+        let order = self.enabled_order()?;
+        let packages: Vec<ModPackage> = order
+            .iter()
+            .map(|slug| self.read_mod(slug))
+            .collect::<Result<Vec<_>>>()?;
+        let mods: Vec<ModEntry<'_>> = order
+            .iter()
+            .zip(packages.iter())
+            .map(|(slug, pkg)| ModEntry {
+                mod_id: slug.as_str(),
+                changes: &pkg.changes,
+            })
+            .collect();
+        Ok(super::conflicts::detect_conflicts(&mods))
+    }
+
     fn allocate_slug(&self, name: &str) -> Result<String> {
         let base = slugify(name);
         if base.is_empty() {
