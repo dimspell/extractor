@@ -38,6 +38,9 @@ thiserror = "2"
 version = "0.39.0"
 features = ["bundled"]
 
+[profile.dev.package.cosmic-text]
+overflow-checks = false
+
 [dev-dependencies]
 proptest = "1.4"
 tempfile = "3.8"
