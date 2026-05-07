@@ -108,15 +108,26 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
         }
 
         PartyLevelDbEditorMessage::FieldChanged(level_idx, field, value) => {
-            // Capture old value for recording before the edit.
-            let (old_value, orig_idx) = app
+            // Capture (npc, level, old) BEFORE the edit. Skip recording if
+            // either the row or the selected NPC is missing — recording a
+            // delta against a guessed npc_idx=0 would silently mis-address
+            // the change.
+            let captured = app
                 .state
-                .party_level_db_level_editor
-                .state
-                .filtered
-                .get(level_idx)
-                .map(|(i, r)| (r.get_field(&field), *i as u32))
-                .unwrap_or((String::new(),0));
+                .party_level_db_editor
+                .selected_npc_idx
+                .and_then(|npc_idx| {
+                    let (level_orig_idx, record) = app
+                        .state
+                        .party_level_db_level_editor
+                        .state
+                        .filtered
+                        .get(level_idx)?;
+                    Some((
+                        npc_idx as u32 * 20 + *level_orig_idx as u32,
+                        record.get_field(&field),
+                    ))
+                });
             let new_value = value.clone();
             app.state
                 .party_level_db_level_editor
@@ -143,19 +154,21 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                     .compute_all_caches(&catalog);
             }
 
-            // Observe for recording.
-            if old_value != new_value {
-                let observe = crate::editors::mod_packager::recording::observe_field_change(
-                    app,
-                    "NpcInGame/PrtLevel.db",
-                    orig_idx,
-                    &field,
-                    old_value,
-                    new_value,
-                );
-                return observe;
+            // Observe for recording. PartyLevelDbPatcher packs the address
+            // as `npc_idx * 20 + level_idx` (0-based on both axes).
+            match captured {
+                Some((record_id, old_value)) if old_value != new_value => {
+                    crate::editors::mod_packager::recording::observe_field_change(
+                        app,
+                        "NpcInGame/PrtLevel.db",
+                        record_id,
+                        &field,
+                        old_value,
+                        new_value,
+                    )
+                }
+                _ => Task::none(),
             }
-            Task::none()
         }
 
         PartyLevelDbEditorMessage::Save => {
