@@ -70,6 +70,9 @@ pub struct HexMatrix<'a, Message> {
     selection: Selection,
     edit: Option<EditView<'a>>,
     dirty: &'a BTreeSet<u64>,
+    /// Bytes that already differ from vanilla (load-time + cumulative).
+    /// Distinct from `dirty` (= dirtied this session); tinted differently.
+    vanilla_diff: &'a BTreeSet<u64>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -90,6 +93,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         selection: Selection,
         edit: Option<EditView<'a>>,
         dirty: &'a BTreeSet<u64>,
+        vanilla_diff: &'a BTreeSet<u64>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -98,6 +102,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             selection,
             edit,
             dirty,
+            vanilla_diff,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -652,6 +657,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let selection_text = color!(0xfff4e0);
         let dirty_bg = color!(0x4a1f1a);
         let dirty_text = color!(0xff9d6e);
+        let diff_bg = color!(0x232f1f);
+        let diff_text = color!(0x9bd07a);
         let edit_bg = color!(0xc25e1c);
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
@@ -695,9 +702,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
 
                 let in_sel = sel_range.contains(&addr);
                 let is_dirty = self.dirty.contains(&addr);
+                let is_diff = self.vanilla_diff.contains(&addr);
                 let is_editing = edit_addr == Some(addr);
 
-                // Background priority: edit > selection-cursor > selection > dirty.
+                // Background priority: edit > selection-cursor > selection >
+                // dirty (this session) > diff (cumulative vs vanilla).
                 let bg = if is_editing {
                     Some(edit_bg)
                 } else if in_sel {
@@ -708,6 +717,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     })
                 } else if is_dirty {
                     Some(dirty_bg)
+                } else if is_diff {
+                    Some(diff_bg)
                 } else {
                     None
                 };
@@ -722,6 +733,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     selection_text
                 } else if is_dirty {
                     dirty_text
+                } else if is_diff {
+                    diff_text
                 } else if b == 0 {
                     zero_color
                 } else {
@@ -733,6 +746,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     selection_text
                 } else if is_dirty {
                     dirty_text
+                } else if is_diff {
+                    diff_text
                 } else {
                     ascii_color
                 };

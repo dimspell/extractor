@@ -3,13 +3,12 @@ pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
 
-use iced::widget::{column, container, row, text};
+use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::app::App;
 use crate::components::modal::modal;
-use crate::editors::hex_editor::HexEditorMessage;
-use crate::editors::hex_editor::HexProvider;
+use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
 use crate::message::{Message, MessageExt};
 use crate::view::editor::ParagraphCache;
 
@@ -57,6 +56,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .padding([6, 12])
     .width(Fill);
 
+    let toolbar = build_toolbar(app, editor);
+
     let cache = ParagraphCache::default();
     let edit = editor.edit_mode.as_ref().map(|e| EditView {
         addr: e.addr,
@@ -68,6 +69,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         editor.selection,
         edit,
         editor.provider.dirty(),
+        &editor.vanilla_diff,
         cache,
     )
     .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
@@ -87,9 +89,10 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(0);
 
     let base: Element<'_, Message> = column![
+        toolbar,
         header,
         container(body).width(Fill).height(Fill),
-        footer::view(editor)
+        footer::view(editor),
     ]
     .spacing(0)
     .width(Fill)
@@ -106,4 +109,62 @@ pub fn view(app: &App) -> Element<'_, Message> {
     } else {
         base
     }
+}
+
+fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Message> {
+    let recording = app.state.recording.as_ref();
+    let has_dirty = editor.provider.dirty_count() > 0;
+    let has_session = recording.is_some();
+    let has_game = app.state.workspace.game_path.is_some();
+    let in_game_dir = app
+        .state
+        .workspace
+        .game_path
+        .as_ref()
+        .map(|gp| editor.path.starts_with(gp))
+        .unwrap_or(false);
+    let can_save = has_dirty && has_session && has_game && in_game_dir;
+
+    let label = match recording {
+        Some(s) => format!("Save into `{}`", s.mod_slug),
+        None => "Save into recording".to_string(),
+    };
+    let mut save_btn = button(text(label).size(11).font(Font::MONOSPACE)).padding([3, 10]);
+    if can_save {
+        save_btn = save_btn.on_press(Message::hex_editor(HexEditorMessage::SaveIntoRecording));
+    }
+
+    let hint = if !has_session {
+        "  ·  no recording active"
+    } else if !has_game {
+        "  ·  set a game directory"
+    } else if !in_game_dir {
+        "  ·  file is outside the game directory"
+    } else if !has_dirty {
+        "  ·  no edits to save"
+    } else {
+        ""
+    };
+
+    let status: Element<'a, Message> = if editor.status_msg.is_empty() {
+        text("").size(11).into()
+    } else {
+        text(editor.status_msg.clone())
+            .size(11)
+            .font(Font::MONOSPACE)
+            .into()
+    };
+
+    container(
+        row![
+            save_btn,
+            text(hint).size(11).font(Font::MONOSPACE),
+            container(status).width(Fill),
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([4, 12])
+    .width(Fill)
+    .into()
 }

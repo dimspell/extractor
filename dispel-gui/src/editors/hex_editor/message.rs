@@ -41,4 +41,13 @@ pub enum HexEditorMessage {
     CloseInspectorEdit,
     /// Encode the modal's draft and write it to the buffer.
     CommitInspectorEdit,
+
+    // ── Save into recording ───────────────────────────────────────────────
+    /// User pressed "Save into recording" — fire-and-forget; the async
+    /// follow-up message is [`SavedIntoRecording`].
+    SaveIntoRecording,
+    /// Async result from the save flow.
+    SavedIntoRecording(Result<String, String>),
+    /// Wipe the editor's transient status_msg.
+    ClearStatus,
 }

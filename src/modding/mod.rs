@@ -23,6 +23,7 @@ pub mod vanilla;
 pub mod workspace;
 
 pub use apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
+pub use bsdiff::{apply_delta, make_delta};
 pub use change::{BlobKind, ChangeAction, ChangeOp};
 pub use changelog::{ChangeLog, HISTORY_CAP};
 pub use conflicts::{detect_conflicts, Conflict, ConflictKind, ConflictParticipant};

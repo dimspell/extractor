@@ -2,13 +2,16 @@
 // editors don't claim. See plan/Phase 6a in
 // /Users/piotr/.claude/plans/could-you-read-the-modular-valley.md.
 
+pub mod coloring;
 pub mod editing;
 pub mod inspector;
+pub mod layout;
 mod message;
 mod provider;
 pub mod selection;
 mod state;
 mod update;
+pub mod vanilla_diff;
 mod view;
 
 pub use editing::{EditState, InspectorEditState};
