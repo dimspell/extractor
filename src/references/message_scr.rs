@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Localizable, TextExtractor};
+use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -33,8 +33,9 @@ use serde::{Deserialize, Serialize};
 /// - Lines starting with ";" are comments
 /// - Pipe (|) delimiter between fields
 /// - Maximum 3 lines per message
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Localizable, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Localizable, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "WINDOWS_1250", delimiter = "|")]
+#[patcher(filename = "Message.scr")]
 pub struct Message {
     /// Mapping bound tracking referenced externally by `message_id` structs.
     #[extractor(field = 0)]

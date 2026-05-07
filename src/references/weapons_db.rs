@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable};
+use dispel_macros::{Extractor, Localizable, RecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -84,8 +84,9 @@ use serde::{Deserialize, Serialize};
 /// Defines weapons and armor with stat modifications,
 /// requirements, and durability. Used for equipment
 /// system, character progression, and combat mechanics.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor, RecordPatcher)]
 #[extractor(property_item_size = 284)]
+#[patcher(filename = "WeaponItem.db")]
 pub struct WeaponItem {
     /// Internal record index (0-based) for the weapon/armor.
     #[extractor(id)]

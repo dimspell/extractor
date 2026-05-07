@@ -8,21 +8,27 @@
 //! pipe-delimited records, multi-section INIs — keep hand-written patchers
 //! alongside the generated ones.
 
+mod chdata;
 mod derived;
+mod dialogue;
 mod draw_item;
 mod misc_item;
 mod party_level;
 mod quest;
+mod store;
 
 // Auto-generated (binary, via #[derive(RecordPatcher)])
 pub use crate::references::edit_item_db::EditItemPatcher;
 pub use crate::references::event_item_db::EventItemPatcher;
 pub use crate::references::extra_ref::ExtraRefPatcher;
 pub use crate::references::heal_item_db::HealItemPatcher;
+pub use crate::references::magic_db::MagicSpellPatcher;
 pub use crate::references::misc_item_db::MiscItemPatcher;
 pub use crate::references::monster_db::MonsterPatcher;
 pub use crate::references::monster_ref::MonsterRefPatcher;
 pub use crate::references::npc_ref::NPCPatcher;
+pub use crate::references::party_ini_db::PartyIniNpcPatcher;
+pub use crate::references::weapons_db::WeaponItemPatcher;
 
 // Auto-generated (text, via #[derive(TextRecordPatcher)])
 pub use crate::references::all_map_ini::MapPatcher;
@@ -31,9 +37,15 @@ pub use crate::references::event_npc_ref::EventNpcRefPatcher;
 pub use crate::references::extra_ini::ExtraPatcher;
 pub use crate::references::map_ini::MapIniPatcher;
 pub use crate::references::monster_ini::MonsterIniPatcher;
+pub use crate::references::message_scr::MessagePatcher;
 pub use crate::references::npc_ini::NpcIniPatcher;
+pub use crate::references::party_ref::PartyRefPatcher;
+pub use crate::references::wave_ini::WaveIniPatcher;
 
 // Hand-written (irregular formats)
+pub use chdata::ChDataPatcher;
+pub use dialogue::{DialogueParagraphPatcher, DialogueScriptPatcher};
 pub use draw_item::DrawItemPatcher;
 pub use party_level::PartyLevelDbPatcher;
 pub use quest::QuestPatcher;
+pub use store::StorePatcher;

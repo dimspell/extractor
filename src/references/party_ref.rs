@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::GhostFaceId;
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -52,8 +52,9 @@ use serde::{Deserialize, Serialize};
 /// Defines all party characters with their names, classes, origin locations,
 /// dialog references, and visual representations. Used for party management,
 /// recruitment, and character interaction systems.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "WINDOWS_1250")]
+#[patcher(filename = "PartyRef.ref")]
 pub struct PartyRef {
     /// Party member identifier.
     #[extractor(field = 0)]
