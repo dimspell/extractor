@@ -993,7 +993,9 @@ fn draw_glyph_string(
         alignment::Horizontal::Left,
         alignment::Vertical::Center,
     );
-    let cell_clip = clip.intersection(&bounds).unwrap_or(bounds);
+    let Some(cell_clip) = clip.intersection(&bounds) else {
+        return;
+    };
     <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
 }
 
