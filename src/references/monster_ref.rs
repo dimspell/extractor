@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{BooleanFlag, ByteFlag, ItemTypeId, TriStateFlag};
 use crate::references::extractor::Extractor;
-use dispel_macros::Extractor;
+use dispel_macros::{Extractor, RecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -80,8 +80,9 @@ use serde::{Deserialize, Serialize};
 /// Defines monster placements on specific maps with position,
 /// event triggers, and loot configurations. Used by game engine
 /// for monster spawning and encounter design.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
 #[extractor(property_item_size = 56)]
+#[patcher(extension = "ref", stem_prefix = "mon")]
 pub struct MonsterRef {
     /// Record index relative to the file (0-based).
     #[extractor(index)]

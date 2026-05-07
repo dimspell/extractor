@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -62,7 +62,8 @@ use serde::{Deserialize, Serialize};
 /// Defines map initialization parameters including
 /// starting positions, linked files, and music tracks.
 /// Used for map loading and setup.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
+#[patcher(filename = "Map.ini")]
 pub struct MapIni {
     /// Map ini identifier.
     #[extractor(field = 0)]

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -46,8 +46,9 @@ use serde::{Deserialize, Serialize};
 /// Defines visual appearances for NPC characters with sprite
 /// filenames and descriptions. Used for rendering NPCs in
 /// the game world and linking to NPC behavior scripts.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR")]
+#[patcher(filename = "Npc.ini")]
 pub struct NpcIni {
     /// NPC visual type identifier.
     #[extractor(field = 0)]

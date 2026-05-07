@@ -269,6 +269,136 @@ mod tests {
         assert!(err.to_string().contains("positional"));
     }
 
+    // -------------------------------------------------------------------- Monster (binary, no header)
+
+    fn monster_blob() -> Vec<u8> {
+        // 24-byte name + 34 × i32 = 160 bytes; no record-count header
+        // (`counter_size = 0`).
+        let mut data = Vec::with_capacity(160);
+        let mut name = [0u8; 24];
+        name[..6].copy_from_slice(b"Goblin");
+        data.extend_from_slice(&name);
+        for _ in 0..34 {
+            data.extend_from_slice(&0i32.to_le_bytes());
+        }
+        data
+    }
+
+    fn parse_monster(b: &[u8]) -> Vec<crate::references::monster_db::Monster> {
+        crate::references::monster_db::Monster::parse(&mut Cursor::new(b), b.len() as u64).unwrap()
+    }
+
+    #[test]
+    fn monster_string_field() {
+        let p = crate::modding::patchers::MonsterPatcher;
+        let out = p
+            .apply_field(&monster_blob(), 0, "name", &Value::String("Dragon".into()))
+            .unwrap();
+        assert_eq!(parse_monster(&out)[0].name, "Dragon");
+    }
+
+    #[test]
+    fn monster_i32_field() {
+        let p = crate::modding::patchers::MonsterPatcher;
+        let out = p
+            .apply_field(&monster_blob(), 0, "health_points_max", &Value::I64(500))
+            .unwrap();
+        assert_eq!(parse_monster(&out)[0].health_points_max, 500);
+    }
+
+    #[test]
+    fn monster_index_field_rejected() {
+        let p = crate::modding::patchers::MonsterPatcher;
+        let err = p
+            .apply_field(&monster_blob(), 0, "id", &Value::I64(7))
+            .unwrap_err();
+        assert!(err.to_string().contains("positional"));
+    }
+
+    // -------------------------------------------------------------------- AllMap.ini (text, derived)
+
+    fn allmap_blob() -> Vec<u8> {
+        b"1,cat1,Forest,null,null,0\r\n2,cat2,Dungeon,pgp2,dlg2,1\r\n".to_vec()
+    }
+
+    fn parse_allmap(b: &[u8]) -> Vec<crate::references::all_map_ini::Map> {
+        crate::references::all_map_ini::Map::parse(&mut Cursor::new(b), b.len() as u64).unwrap()
+    }
+
+    #[test]
+    fn allmap_string_field() {
+        let p = crate::modding::patchers::MapPatcher;
+        let out = p
+            .apply_field(&allmap_blob(), 0, "map_name", &Value::String("Plains".into()))
+            .unwrap();
+        let recs = parse_allmap(&out);
+        assert_eq!(recs[0].map_name, "Plains");
+        assert_eq!(recs[1].map_name, "Dungeon"); // row 1 untouched
+    }
+
+    #[test]
+    fn allmap_option_string_set_to_some() {
+        let p = crate::modding::patchers::MapPatcher;
+        let out = p
+            .apply_field(
+                &allmap_blob(),
+                0,
+                "pgp_filename",
+                &Value::String("new.pgp".into()),
+            )
+            .unwrap();
+        assert_eq!(parse_allmap(&out)[0].pgp_filename.as_deref(), Some("new.pgp"));
+    }
+
+    #[test]
+    fn allmap_option_string_set_to_null_via_string_literal() {
+        let p = crate::modding::patchers::MapPatcher;
+        let out = p
+            .apply_field(
+                &allmap_blob(),
+                1,
+                "pgp_filename",
+                &Value::String("null".into()),
+            )
+            .unwrap();
+        assert_eq!(parse_allmap(&out)[1].pgp_filename, None);
+    }
+
+    #[test]
+    fn allmap_enum_field_via_i64() {
+        // MapLighting::Dark == 1
+        let p = crate::modding::patchers::MapPatcher;
+        let out = p
+            .apply_field(&allmap_blob(), 0, "lighting", &Value::I64(1))
+            .unwrap();
+        use crate::references::enums::MapLighting;
+        assert_eq!(parse_allmap(&out)[0].lighting, MapLighting::Dark);
+    }
+
+    #[test]
+    fn allmap_id_field_rejected() {
+        let p = crate::modding::patchers::MapPatcher;
+        let err = p
+            .apply_field(&allmap_blob(), 0, "id", &Value::I64(99))
+            .unwrap_err();
+        assert!(err.to_string().contains("positional"));
+    }
+
+    // -------------------------------------------------------------------- Eventnpc.ref (text, derived)
+
+    #[test]
+    fn eventnpc_text_record() {
+        use crate::references::event_npc_ref::EventNpcRef;
+        let p = crate::modding::patchers::EventNpcRefPatcher;
+        let blob = b"1,100,Guard Bob\r\n2,200,Merchant\r\n";
+        let out = p
+            .apply_field(blob, 1, "name", &Value::String("Hero".into()))
+            .unwrap();
+        let recs = EventNpcRef::parse(&mut Cursor::new(&out), out.len() as u64).unwrap();
+        assert_eq!(recs[1].name, "Hero");
+        assert_eq!(recs[0].name, "Guard Bob");
+    }
+
     #[test]
     fn extra_ref_padding_field_rejected() {
         // unknown1 is declared as `padding(...)` in the struct.
