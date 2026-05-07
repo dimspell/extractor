@@ -28,11 +28,13 @@ use super::error::{ModdingError, Result};
 use super::manifest::ModManifest;
 use super::package::{self, ModPackage};
 use super::registry::PatcherRegistry;
+use super::resolution::{FieldKey, ResolutionMap};
 use super::vanilla::VanillaStore;
 
 const MODS_DIR: &str = "mods";
 const VANILLA_DIR: &str = "vanilla";
 const ENABLED_FILE: &str = "enabled.json";
+const RESOLUTIONS_FILE: &str = "resolutions.json";
 
 /// Lightweight summary of one installed mod, suitable for the Library list.
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +85,41 @@ impl Workspace {
 
     fn enabled_path(&self) -> PathBuf {
         self.root.join(ENABLED_FILE)
+    }
+
+    fn resolutions_path(&self) -> PathBuf {
+        self.root.join(RESOLUTIONS_FILE)
+    }
+
+    /// Read the persisted per-field resolutions (pins). Returns an empty map
+    /// if the file is missing.
+    pub fn resolutions(&self) -> Result<ResolutionMap> {
+        let path = self.resolutions_path();
+        if !path.is_file() {
+            return Ok(ResolutionMap::new());
+        }
+        Ok(serde_json::from_slice(&fs::read(&path)?)?)
+    }
+
+    fn write_resolutions(&self, map: &ResolutionMap) -> Result<()> {
+        fs::write(self.resolutions_path(), serde_json::to_vec_pretty(map)?)?;
+        Ok(())
+    }
+
+    /// Pin a field to a specific mod's value, regardless of load order.
+    /// Subsequent applies will use that mod's contribution to this key.
+    pub fn pin_resolution(&self, key: FieldKey, mod_slug: &str) -> Result<()> {
+        validate_slug(mod_slug)?;
+        let mut map = self.resolutions()?;
+        map.pin(key, mod_slug);
+        self.write_resolutions(&map)
+    }
+
+    /// Drop the pin for `key`, falling back to load-order resolution.
+    pub fn unpin_resolution(&self, key: &FieldKey) -> Result<()> {
+        let mut map = self.resolutions()?;
+        map.unpin(key);
+        self.write_resolutions(&map)
     }
 
     fn mod_dir(&self, slug: &str) -> Result<PathBuf> {
@@ -308,9 +345,15 @@ impl Workspace {
         package::write_zip(file, &pkg)
     }
 
-    /// Apply all enabled mods to `game_dir`.
+    /// Apply all enabled mods to `game_dir`. Honors any persisted pins —
+    /// stale pins (pointing at disabled mods) are auto-pruned and persisted
+    /// before the apply runs.
     pub fn apply(&self, game_dir: &Path, registry: &PatcherRegistry) -> Result<ApplyReport> {
         let order = self.enabled_order()?;
+        let mut resolutions = self.resolutions()?;
+        if resolutions.prune_to(&order) > 0 {
+            self.write_resolutions(&resolutions)?;
+        }
         let packages: Vec<ModPackage> = order
             .iter()
             .map(|slug| self.read_mod(slug))
@@ -323,7 +366,7 @@ impl Workspace {
                 changes: &pkg.changes,
             })
             .collect();
-        apply_all(&mods, game_dir, &self.vanilla, registry)
+        apply_all(&mods, game_dir, &self.vanilla, registry, &resolutions)
     }
 
     /// Restore every snapshotted file back to vanilla state.
@@ -346,7 +389,8 @@ impl Workspace {
                 changes: &pkg.changes,
             })
             .collect();
-        Ok(super::conflicts::detect_conflicts(&mods))
+        let resolutions = self.resolutions()?;
+        Ok(super::conflicts::detect_conflicts_with(&mods, &resolutions))
     }
 
     fn allocate_slug(&self, name: &str) -> Result<String> {
@@ -585,6 +629,43 @@ mod tests {
         }
         let pkg = ws.read_mod(&slug).unwrap();
         assert_eq!(pkg.changes.len(), 3);
+    }
+
+    #[test]
+    fn pin_unpin_persists_across_reopen() {
+        let (root, ws) = ws();
+        let a = ws.create_mod(ModManifest::new("a")).unwrap();
+        let key = FieldKey {
+            file_path: "MiscItem.db".into(),
+            record_id: 0,
+            field: "name".into(),
+        };
+        ws.pin_resolution(key.clone(), &a).unwrap();
+        let map = ws.resolutions().unwrap();
+        assert_eq!(map.winner(&key), Some(a.as_str()));
+
+        // Reopen — pin survives.
+        let ws2 = Workspace::open(root.path().to_path_buf()).unwrap();
+        assert_eq!(ws2.resolutions().unwrap().winner(&key), Some(a.as_str()));
+
+        ws2.unpin_resolution(&key).unwrap();
+        assert!(ws2.resolutions().unwrap().winner(&key).is_none());
+    }
+
+    #[test]
+    fn apply_prunes_pins_to_disabled_mods() {
+        let (_root, ws) = ws();
+        let a = ws.create_mod(ModManifest::new("a")).unwrap();
+        let key = FieldKey {
+            file_path: "MiscItem.db".into(),
+            record_id: 0,
+            field: "name".into(),
+        };
+        ws.pin_resolution(key.clone(), &a).unwrap();
+        // a is not enabled — apply should drop the pin.
+        let game = tempdir().unwrap();
+        ws.apply(game.path(), &PatcherRegistry::new()).unwrap();
+        assert!(ws.resolutions().unwrap().winner(&key).is_none());
     }
 
     #[test]
