@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -65,8 +65,9 @@ use serde::{Deserialize, Serialize};
 /// Maps sound IDs to SNF audio files with playback
 /// behavior flags. Used for audio system initialization
 /// and sound effect management.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR")]
+#[patcher(filename = "Wave.ini")]
 pub struct WaveIni {
     /// Sound effect reference identifier.
     #[extractor(field = 0)]

@@ -1,5 +1,5 @@
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable};
+use dispel_macros::{Extractor, Localizable, RecordPatcher};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -58,8 +58,9 @@ use std::path::Path;
 /// Defines initial party member configurations
 /// with names and unknown parameters. Used for
 /// party initialization and character setup.
-#[derive(Debug, Clone, Serialize, Default, Deserialize, Extractor, Localizable)]
+#[derive(Debug, Clone, Serialize, Default, Deserialize, Extractor, Localizable, RecordPatcher)]
 #[extractor(counter_size = 0, property_item_size = 28)]
+#[patcher(filename = "PrtIni.db")]
 pub struct PartyIniNpc {
     /// Null-terminated root character identifier string.
     #[extractor(string(encoding = "UTF-8", size = 20))]

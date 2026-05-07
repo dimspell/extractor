@@ -45,9 +45,17 @@ impl PatcherRegistry {
         r.register(EditItemPatcher::FILENAME, Arc::new(EditItemPatcher));
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
         r.register(MonsterPatcher::FILENAME, Arc::new(MonsterPatcher));
+        r.register(WeaponItemPatcher::FILENAME, Arc::new(WeaponItemPatcher));
+        r.register(MagicSpellPatcher::FILENAME, Arc::new(MagicSpellPatcher));
+        // Magic.db has a sibling MulMagic.db with the same record format —
+        // route both filenames to the same patcher.
+        r.register("MulMagic.db", Arc::new(MagicSpellPatcher));
+        r.register(PartyIniNpcPatcher::FILENAME, Arc::new(PartyIniNpcPatcher));
 
         // Binary catalogs (.db) — hand-written.
         r.register(PartyLevelDbPatcher::FILENAME, Arc::new(PartyLevelDbPatcher));
+        r.register(StorePatcher::FILENAME, Arc::new(StorePatcher));
+        r.register(ChDataPatcher::FILENAME, Arc::new(ChDataPatcher));
 
         // Binary refs that vary per map.
         r.register_pattern(
@@ -74,10 +82,25 @@ impl PatcherRegistry {
         r.register(EventPatcher::FILENAME, Arc::new(EventPatcher));
         r.register(ExtraPatcher::FILENAME, Arc::new(ExtraPatcher));
         r.register(EventNpcRefPatcher::FILENAME, Arc::new(EventNpcRefPatcher));
+        r.register(MessagePatcher::FILENAME, Arc::new(MessagePatcher));
+        r.register(WaveIniPatcher::FILENAME, Arc::new(WaveIniPatcher));
+        r.register(PartyRefPatcher::FILENAME, Arc::new(PartyRefPatcher));
 
         // Text catalogs — hand-written.
         r.register(DrawItemPatcher::FILENAME, Arc::new(DrawItemPatcher));
         r.register(QuestPatcher::FILENAME, Arc::new(QuestPatcher));
+
+        // Per-file dialogue formats: every *.dlg / *.pgp matches.
+        r.register_pattern(
+            DialogueScriptPatcher::EXTENSION,
+            DialogueScriptPatcher::STEM_PREFIX,
+            Arc::new(DialogueScriptPatcher),
+        );
+        r.register_pattern(
+            DialogueParagraphPatcher::EXTENSION,
+            DialogueParagraphPatcher::STEM_PREFIX,
+            Arc::new(DialogueParagraphPatcher),
+        );
 
         r
     }
@@ -199,6 +222,10 @@ mod tests {
             "CharacterInGame/EditItem.db",
             "CharacterInGame/EventItem.db",
             "MonsterInGame/Monster.db",
+            "CharacterInGame/WeaponItem.db",
+            "MagicInGame/Magic.db",
+            "MagicInGame/MulMagic.db",
+            "NpcInGame/PrtIni.db",
             // Binary .db (hand-written)
             "NpcInGame/PrtLevel.db",
             // Per-map binary refs (pattern-matched)
@@ -216,9 +243,19 @@ mod tests {
             "Event.ini",
             "Extra.ini",
             "NpcInGame/Eventnpc.ref",
+            "Wave.ini",
+            "Ref/PartyRef.ref",
             // Text/ad-hoc (hand-written)
             "Ref/DRAWITEM.ref",
             "ExtraInGame/Quest.scr",
+            "ExtraInGame/Message.scr",
+            "CharacterInGame/Store.db",
+            "CharacterInGame/ChData.db",
+            // Per-file dialogue (.dlg / .pgp) match every stem
+            "NpcInGame/Dlgcat1.dlg",
+            "NpcInGame/Dlgdun02.dlg",
+            "NpcInGame/Pgpcat1.pgp",
+            "NpcInGame/somefile.pgp",
         ] {
             assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
         }
