@@ -4,6 +4,9 @@
 //! gap), ASCII gutter, scrollbar. Only rows in the viewport are touched per
 //! frame; everything else is virtual.
 
+use std::collections::BTreeSet;
+use std::time::{Duration, Instant};
+
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
@@ -36,6 +39,9 @@ const SCROLLBAR_THICKNESS: f32 = 8.0;
 /// don't reveal blank bands during rapid scroll.
 const OVERSCAN: u64 = 2;
 
+/// Time window for treating two consecutive clicks as a double-click.
+const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(450);
+
 /// Per-instance widget state — what the renderer keeps between frames.
 #[derive(Default)]
 pub struct State {
@@ -45,18 +51,36 @@ pub struct State {
     pub drag_start_offset: f32,
     /// True while the user is actively drag-selecting bytes.
     pub selecting: bool,
+    /// Last single-click address + timestamp, for double-click detection.
+    pub last_click_addr: Option<u64>,
+    pub last_click_at: Option<Instant>,
+}
+
+/// Read-only view of the active edit, threaded into the widget so the renderer
+/// can draw the draft and the input handler can react.
+#[derive(Debug, Clone, Copy)]
+pub struct EditView<'a> {
+    pub addr: u64,
+    pub draft: &'a str,
 }
 
 pub struct HexMatrix<'a, Message> {
     bytes: &'a [u8],
     bytes_per_row: u8,
     selection: Selection,
+    edit: Option<EditView<'a>>,
+    dirty: &'a BTreeSet<u64>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
     on_select_at: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     on_extend_to: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     on_nav: Option<Box<dyn Fn(NavDir, bool) -> Message + 'a>>,
+    on_begin_edit: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    on_edit_type: Option<Box<dyn Fn(char) -> Message + 'a>>,
+    on_edit_backspace: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_edit_cancel: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_edit_commit: Option<Box<dyn Fn(bool) -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -64,18 +88,27 @@ impl<'a, Message> HexMatrix<'a, Message> {
         bytes: &'a [u8],
         bytes_per_row: u8,
         selection: Selection,
+        edit: Option<EditView<'a>>,
+        dirty: &'a BTreeSet<u64>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
             bytes,
             bytes_per_row: bytes_per_row.max(1),
             selection,
+            edit,
+            dirty,
             cache,
             width: Length::Fill,
             height: Length::Fill,
             on_select_at: None,
             on_extend_to: None,
             on_nav: None,
+            on_begin_edit: None,
+            on_edit_type: None,
+            on_edit_backspace: None,
+            on_edit_cancel: None,
+            on_edit_commit: None,
         }
     }
 
@@ -91,6 +124,31 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_nav(mut self, f: impl Fn(NavDir, bool) -> Message + 'a) -> Self {
         self.on_nav = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_begin_edit(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_begin_edit = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_edit_type(mut self, f: impl Fn(char) -> Message + 'a) -> Self {
+        self.on_edit_type = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_edit_backspace(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_edit_backspace = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_edit_cancel(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_edit_cancel = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_edit_commit(mut self, f: impl Fn(bool) -> Message + 'a) -> Self {
+        self.on_edit_commit = Some(Box::new(f));
         self
     }
 
@@ -348,7 +406,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     return;
                 }
 
-                // Cell click → selection.
+                // Cell click → selection (and maybe edit on double-click).
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
@@ -356,13 +414,24 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     self.bytes_per_row,
                     total_len,
                 ) {
-                    let shift = iced::keyboard::Modifiers::default(); // see note below
-                                                                      // We can't read modifiers from the mouse event in iced 0.14;
-                                                                      // shift-click extension is handled via a separate keyboard
-                                                                      // event flow (Shift+Arrow). True shift+mouse-click extend
-                                                                      // would need modifiers tracked elsewhere — for now, plain
-                                                                      // click sets, and dragging extends.
-                    let _ = shift;
+                    let now = Instant::now();
+                    let is_double = matches!(
+                        (state.last_click_addr, state.last_click_at),
+                        (Some(prev), Some(at))
+                            if prev == addr && now.duration_since(at) <= DOUBLE_CLICK_WINDOW
+                    );
+                    state.last_click_addr = Some(addr);
+                    state.last_click_at = Some(now);
+
+                    if is_double {
+                        if let Some(cb) = &self.on_begin_edit {
+                            shell.publish(cb(addr));
+                            shell.request_redraw();
+                            shell.capture_event();
+                            return;
+                        }
+                    }
+
                     state.selecting = true;
                     if let Some(cb) = &self.on_select_at {
                         shell.publish(cb(addr));
@@ -416,10 +485,79 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     shell.capture_event();
                 }
             }
-            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+            Event::Keyboard(keyboard::Event::KeyPressed {
+                key,
+                modifiers,
+                text,
+                ..
+            }) => {
                 if !cursor.is_over(bounds) {
                     return;
                 }
+
+                // ── Edit-mode keys take priority ─────────────────────────
+                if self.edit.is_some() {
+                    match key {
+                        keyboard::Key::Named(key::Named::Escape) => {
+                            if let Some(cb) = &self.on_edit_cancel {
+                                shell.publish(cb());
+                                shell.capture_event();
+                                return;
+                            }
+                        }
+                        keyboard::Key::Named(key::Named::Enter | key::Named::Tab) => {
+                            if let Some(cb) = &self.on_edit_commit {
+                                shell.publish(cb(true));
+                                shell.capture_event();
+                                return;
+                            }
+                        }
+                        keyboard::Key::Named(key::Named::Backspace) => {
+                            if let Some(cb) = &self.on_edit_backspace {
+                                shell.publish(cb());
+                                shell.capture_event();
+                                return;
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+
+                // F2 starts an edit at the current cursor.
+                if matches!(key, keyboard::Key::Named(key::Named::F2)) && self.edit.is_none() {
+                    if let Some(cb) = &self.on_begin_edit {
+                        shell.publish(cb(self.selection.cursor));
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Hex-digit typing: append in edit mode, or auto-start one.
+                if !modifiers.control() && !modifiers.command() && !modifiers.alt() {
+                    if let Some(t) = text {
+                        if let Some(c) = first_hex_char(t) {
+                            if self.edit.is_some() {
+                                if let Some(cb) = &self.on_edit_type {
+                                    shell.publish(cb(c));
+                                    shell.capture_event();
+                                    return;
+                                }
+                            } else if !self.bytes.is_empty() {
+                                // Auto-start: behave like F2 then type.
+                                if let Some(begin) = &self.on_begin_edit {
+                                    shell.publish(begin(self.selection.cursor));
+                                }
+                                if let Some(typ) = &self.on_edit_type {
+                                    shell.publish(typ(c));
+                                }
+                                shell.capture_event();
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // ── Navigation ───────────────────────────────────────────
                 if modifiers.control() || modifiers.command() {
                     let dir = match key {
                         keyboard::Key::Named(key::Named::Home) => Some(NavDir::DocumentStart),
@@ -512,11 +650,17 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let selection_bg = color!(0x3b2a18);
         let cursor_bg = color!(0x6a4a26);
         let selection_text = color!(0xfff4e0);
+        let dirty_bg = color!(0x4a1f1a);
+        let dirty_text = color!(0xff9d6e);
+        let edit_bg = color!(0xc25e1c);
+        let edit_text = color!(0xfff8ee);
+        let caret_color = color!(0xfff4e0);
 
         let hex_start_x = bounds.x + ADDR_COL_WIDTH;
         let ascii_start_x = self.ascii_start_x(bounds.x);
         let sel_range = self.selection.range();
         let cursor_addr = self.selection.cursor;
+        let edit_addr = self.edit.map(|e| e.addr);
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
@@ -550,32 +694,102 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 let ax = ascii_start_x + col as f32 * ASCII_CELL_WIDTH;
 
                 let in_sel = sel_range.contains(&addr);
-                if in_sel {
-                    let bg = if addr == cursor_addr {
+                let is_dirty = self.dirty.contains(&addr);
+                let is_editing = edit_addr == Some(addr);
+
+                // Background priority: edit > selection-cursor > selection > dirty.
+                let bg = if is_editing {
+                    Some(edit_bg)
+                } else if in_sel {
+                    Some(if addr == cursor_addr {
                         cursor_bg
                     } else {
                         selection_bg
-                    };
+                    })
+                } else if is_dirty {
+                    Some(dirty_bg)
+                } else {
+                    None
+                };
+                if let Some(bg) = bg {
                     fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, bg, clip);
                     fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, bg, clip);
                 }
 
-                let color = if in_sel {
+                let text_color = if is_editing {
+                    edit_text
+                } else if in_sel {
                     selection_text
+                } else if is_dirty {
+                    dirty_text
                 } else if b == 0 {
                     zero_color
                 } else {
                     hex_color
                 };
-                let ascii_col = if in_sel { selection_text } else { ascii_color };
+                let ascii_col = if is_editing {
+                    edit_text
+                } else if in_sel {
+                    selection_text
+                } else if is_dirty {
+                    dirty_text
+                } else {
+                    ascii_color
+                };
 
-                let hi = shape_glyph(&self.cache, HEX_DIGITS[(b >> 4) as usize], font);
-                let lo = shape_glyph(&self.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
-                paint_glyph(renderer, &hi, cell_x, y, color, clip);
-                paint_glyph(renderer, &lo, cell_x + 8.0, y, color, clip);
+                if is_editing {
+                    // Render the in-flight draft instead of the underlying
+                    // byte. Empty draft → show a thin caret block where the
+                    // first nibble would land.
+                    let draft = self.edit.map(|e| e.draft).unwrap_or("");
+                    let chars: Vec<char> = draft.chars().collect();
+                    let hi = chars
+                        .first()
+                        .map(|c| char_to_glyph(*c))
+                        .unwrap_or(HEX_DIGITS[(b >> 4) as usize]);
+                    let lo = chars
+                        .get(1)
+                        .map(|c| char_to_glyph(*c))
+                        .unwrap_or(HEX_DIGITS[(b & 0x0F) as usize]);
+                    let hi_p = shape_glyph(&self.cache, hi, font);
+                    let lo_p = shape_glyph(&self.cache, lo, font);
+                    paint_glyph(renderer, &hi_p, cell_x, y, text_color, clip);
+                    paint_glyph(renderer, &lo_p, cell_x + 8.0, y, text_color, clip);
 
-                let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
-                paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                    // Caret over the next nibble slot.
+                    let caret_off = match chars.len() {
+                        0 => 0.0,
+                        1 => 8.0,
+                        _ => 16.0,
+                    };
+                    fill_cell(
+                        renderer,
+                        cell_x + caret_off,
+                        y + ROW_HEIGHT - 2.0,
+                        7.0,
+                        caret_color,
+                        clip,
+                    );
+
+                    // ASCII column shows the would-be byte.
+                    let ascii_glyph = match chars.len() {
+                        2 => {
+                            let v = u8::from_str_radix(draft, 16).unwrap_or(b);
+                            ascii_repr(v)
+                        }
+                        _ => "·",
+                    };
+                    let ascii = shape_glyph(&self.cache, ascii_glyph, font);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                } else {
+                    let hi = shape_glyph(&self.cache, HEX_DIGITS[(b >> 4) as usize], font);
+                    let lo = shape_glyph(&self.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
+                    paint_glyph(renderer, &hi, cell_x, y, text_color, clip);
+                    paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, clip);
+
+                    let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                }
             }
         }
 
@@ -604,6 +818,36 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
             draw_scrollbar(renderer, bounds, scroll, total_h, state.dragging_scrollbar);
         }
     }
+}
+
+/// Lift a hex character to its rendered glyph. Falls back to a blank for
+/// non-hex input (which the message handler also rejects).
+fn char_to_glyph(c: char) -> &'static str {
+    match c.to_ascii_uppercase() {
+        '0' => "0",
+        '1' => "1",
+        '2' => "2",
+        '3' => "3",
+        '4' => "4",
+        '5' => "5",
+        '6' => "6",
+        '7' => "7",
+        '8' => "8",
+        '9' => "9",
+        'A' => "A",
+        'B' => "B",
+        'C' => "C",
+        'D' => "D",
+        'E' => "E",
+        'F' => "F",
+        _ => " ",
+    }
+}
+
+/// First hex character in a typed `text` field, if any. Used so paste of
+/// "FF aa" only registers the first digit per keypress.
+pub fn first_hex_char(t: &str) -> Option<char> {
+    t.chars().find(|c| c.is_ascii_hexdigit())
 }
 
 impl<Message> HexMatrix<'_, Message> {
@@ -893,15 +1137,12 @@ mod tests {
 
     #[test]
     fn ensure_visible_scrolls_down_when_target_below() {
-        // 320px viewport, row 100 → row_top = 1600, row_bot = 1616.
-        // new scroll = row_bot - viewport = 1616 - 320 = 1296.
         let scroll = ensure_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
         assert_eq!(scroll, 1296.0);
     }
 
     #[test]
     fn ensure_visible_scrolls_up_when_target_above() {
-        // Cursor at row 5 (row_top=80) when scroll = 1000 → snap to 80.
         let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
         assert_eq!(scroll, 80.0);
     }
@@ -915,7 +1156,6 @@ mod tests {
     #[test]
     fn addr_at_hex_column_first_byte() {
         let bounds = make_bounds();
-        // First hex cell starts at x = ADDR_COL_WIDTH (88), y = 0.
         let p = Point::new(89.0, 4.0);
         let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
         assert_eq!(addr, 0);
@@ -924,8 +1164,6 @@ mod tests {
     #[test]
     fn addr_at_hex_column_with_scroll() {
         let bounds = make_bounds();
-        // scroll = 32 → first visible row is 2; click at top-left hex cell
-        // hits address 2*16 = 32.
         let p = Point::new(89.0, 4.0);
         let addr = addr_at(p, bounds, 32.0, 16, 1024).unwrap();
         assert_eq!(addr, 32);
@@ -938,7 +1176,6 @@ mod tests {
             + 16.0 * HEX_CELL_WIDTH
             + group_count(16) as f32 * GROUP_GAP
             + COLUMN_GAP;
-        // 3rd ASCII cell.
         let p = Point::new(ascii_start + 2.0 * ASCII_CELL_WIDTH + 1.0, 4.0);
         let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
         assert_eq!(addr, 2);
@@ -947,15 +1184,12 @@ mod tests {
     #[test]
     fn addr_at_outside_columns_returns_none() {
         let bounds = make_bounds();
-        // Address gutter (x < 88).
         assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 16, 1024).is_none());
     }
 
     #[test]
     fn addr_at_clamps_past_end_of_file() {
         let bounds = make_bounds();
-        // Pretend file has 5 bytes total; clicking the 16th hex cell (col 15)
-        // should clamp to the last valid byte (4).
         let p = Point::new(ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
         let addr = addr_at(p, bounds, 0.0, 16, 5).unwrap();
         assert_eq!(addr, 4);
@@ -965,5 +1199,22 @@ mod tests {
     fn addr_at_empty_file_returns_none() {
         let bounds = make_bounds();
         assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 16, 0).is_none());
+    }
+
+    #[test]
+    fn first_hex_char_picks_first_match() {
+        assert_eq!(first_hex_char("a"), Some('a'));
+        assert_eq!(first_hex_char("F"), Some('F'));
+        assert_eq!(first_hex_char(" 9"), Some('9'));
+        assert_eq!(first_hex_char("xyz"), None);
+        assert_eq!(first_hex_char(""), None);
+    }
+
+    #[test]
+    fn char_to_glyph_normalizes_case() {
+        assert_eq!(char_to_glyph('a'), "A");
+        assert_eq!(char_to_glyph('F'), "F");
+        assert_eq!(char_to_glyph('0'), "0");
+        assert_eq!(char_to_glyph('z'), " ");
     }
 }

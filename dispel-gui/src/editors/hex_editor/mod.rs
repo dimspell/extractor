@@ -2,6 +2,7 @@
 // editors don't claim. See plan/Phase 6a in
 // /Users/piotr/.claude/plans/could-you-read-the-modular-valley.md.
 
+pub mod editing;
 pub mod inspector;
 mod message;
 mod provider;
@@ -10,6 +11,7 @@ mod state;
 mod update;
 mod view;
 
+pub use editing::{EditState, InspectorEditState};
 pub use message::HexEditorMessage;
 pub use provider::{BufferProvider, HexProvider};
 pub use selection::Selection;

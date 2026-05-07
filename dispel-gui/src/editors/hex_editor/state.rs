@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use super::editing::{EditState, InspectorEditState};
 use super::provider::{BufferProvider, HexProvider};
 use super::selection::Selection;
 
@@ -13,6 +14,8 @@ pub struct HexEditorState {
     pub provider: BufferProvider,
     pub bytes_per_row: u8,
     pub selection: Selection,
+    pub edit_mode: Option<EditState>,
+    pub inspector_edit: Option<InspectorEditState>,
     pub error: Option<String>,
 }
 
@@ -31,6 +34,8 @@ impl HexEditorState {
                 provider: BufferProvider::from_bytes(bytes),
                 bytes_per_row: DEFAULT_BYTES_PER_ROW,
                 selection: Selection::default(),
+                edit_mode: None,
+                inspector_edit: None,
                 error: None,
             },
             Err(e) => Self {
@@ -39,6 +44,8 @@ impl HexEditorState {
                 provider: BufferProvider::default(),
                 bytes_per_row: DEFAULT_BYTES_PER_ROW,
                 selection: Selection::default(),
+                edit_mode: None,
+                inspector_edit: None,
                 error: Some(e.to_string()),
             },
         }
