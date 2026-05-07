@@ -26,7 +26,7 @@ pub const DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(800);
 /// edit-history entry.
 pub fn observe_field_change(
     app: &App,
-    file_path: &'static str,
+    file_path: impl Into<String>,
     record_id: u32,
     field: &str,
     old: String,
@@ -36,7 +36,7 @@ pub fn observe_field_change(
         return Task::none();
     }
     let key = RecordingKey {
-        file_path: file_path.to_owned(),
+        file_path: file_path.into(),
         record_id,
         field: field.to_owned(),
     };

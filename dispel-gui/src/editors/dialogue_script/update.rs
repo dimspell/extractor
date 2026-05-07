@@ -2,6 +2,7 @@ use dispel_core::{DialogueScript, Extractor};
 use iced::Task;
 
 use crate::app::App;
+use crate::components::editable::EditableRecord;
 use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::components::loading_state::LoadingState;
@@ -57,13 +58,39 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
         DialogueScriptEditorMessage::Select(index) => {
             tab::select(&mut app.state.dialogue_script_editors, tab_id, index)
         }
-        DialogueScriptEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
-            &mut app.state.dialogue_script_editors,
-            tab_id,
-            index,
-            field,
-            value,
-        ),
+        DialogueScriptEditorMessage::FieldChanged(index, field, value) => {
+            let (old_value, orig_idx, file_path) = app
+                .state
+                .dialogue_script_editors
+                .get(&tab_id)
+                .map(|e| {
+                    let (oidx, old) = e
+                        .editor
+                        .filtered
+                        .get(index)
+                        .map(|(i, r)| (*i as u32, r.get_field(&field)))
+                        .unwrap_or((0, String::new()));
+                    let fp = e.current_file.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+                    (old, oidx, fp)
+                })
+                .unwrap_or_default();
+            let new_value = value.clone();
+            let task = tab::field_changed(
+                &mut app.state.dialogue_script_editors,
+                tab_id,
+                index,
+                field.clone(),
+                value,
+            );
+            let observe = if old_value != new_value {
+                crate::editors::mod_packager::recording::observe_field_change(
+                    app, file_path, orig_idx, &field, old_value, new_value,
+                )
+            } else {
+                iced::Task::none()
+            };
+            observe.chain(task)
+        }
         DialogueScriptEditorMessage::Save => tab::save(
             &mut app.state.dialogue_script_editors,
             tab_id,
