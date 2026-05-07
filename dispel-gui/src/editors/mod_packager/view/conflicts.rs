@@ -69,7 +69,10 @@ fn header_summary(soft: usize, hard: usize) -> Element<'static, Message> {
 fn conflict_card(c: &Conflict) -> Element<'_, Message> {
     let title = match &c.kind {
         ConflictKind::Field { record_id, field } => {
-            format!("{}  •  record #{} field `{}`", c.file_path, record_id, field)
+            format!(
+                "{}  •  record #{} field `{}`",
+                c.file_path, record_id, field
+            )
         }
         ConflictKind::Binary => format!("{}  •  binary delta overlap", c.file_path),
         ConflictKind::FileWhole => format!("{}  •  whole-file overlap", c.file_path),
@@ -111,12 +114,10 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
                 };
                 let mut btn = button(text(label).size(11)).padding([2, 8]);
                 if !pinned_here {
-                    btn = btn.on_press(Message::mod_packager(
-                        ModPackagerMessage::PinConflict {
-                            key: key.clone(),
-                            mod_slug: p.mod_id.clone(),
-                        },
-                    ));
+                    btn = btn.on_press(Message::mod_packager(ModPackagerMessage::PinConflict {
+                        key: key.clone(),
+                        mod_slug: p.mod_id.clone(),
+                    }));
                 }
                 buttons = buttons.push(btn);
             }
@@ -125,9 +126,9 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
                     button(text("Unpin").size(11))
                         .padding([2, 8])
                         .style(button::secondary)
-                        .on_press(Message::mod_packager(
-                            ModPackagerMessage::UnpinConflict { key: key.clone() },
-                        )),
+                        .on_press(Message::mod_packager(ModPackagerMessage::UnpinConflict {
+                            key: key.clone(),
+                        })),
                 );
             }
             buttons.into()

@@ -76,8 +76,9 @@ fn parse_i32(field: &str, new: &Value) -> Result<i32> {
 
 fn parse_u8(field: &str, new: &Value) -> Result<u8> {
     match new {
-        Value::I64(v) => u8::try_from(*v)
-            .map_err(|_| wrong_type(DrawItemPatcher::RECORD_NAME, field, "u8", new)),
+        Value::I64(v) => {
+            u8::try_from(*v).map_err(|_| wrong_type(DrawItemPatcher::RECORD_NAME, field, "u8", new))
+        }
         Value::String(s) => s
             .trim()
             .parse::<u8>()

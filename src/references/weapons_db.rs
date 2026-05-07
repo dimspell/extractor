@@ -84,7 +84,9 @@ use serde::{Deserialize, Serialize};
 /// Defines weapons and armor with stat modifications,
 /// requirements, and durability. Used for equipment
 /// system, character progression, and combat mechanics.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor, RecordPatcher)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Localizable, Extractor, RecordPatcher,
+)]
 #[extractor(property_item_size = 284)]
 #[patcher(filename = "WeaponItem.db")]
 pub struct WeaponItem {

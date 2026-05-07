@@ -701,7 +701,8 @@ macro_rules! handle_load_catalog {
 #[macro_export]
 macro_rules! handle_catalog_loaded {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state =
+            $crate::components::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(catalog) => {
                 $app.state.$field.catalog = Some(catalog.clone());
@@ -785,7 +786,8 @@ macro_rules! handle_pane_clicked {
 #[macro_export]
 macro_rules! handle_saved {
     ($app:ident, $editor:ident, $item_name:expr, $result:expr) => {{
-        $app.state.$field.loading_state = $crate::components::loading_state::LoadingState::Loaded(());
+        $app.state.$field.loading_state =
+            $crate::components::loading_state::LoadingState::Loaded(());
         match $result {
             Ok(_) => {
                 $app.state.$field.status_msg = format!(concat!($item_name, " saved successfully"));

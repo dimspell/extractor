@@ -3,11 +3,11 @@ use super::message::{MapEditorMessage, MapLayer, MapViewMode, SelectedEntity};
 use super::state::{SpriteExportDialogState, SpriteExportStatus};
 use crate::app::App;
 use crate::components::editable::{EditableRecord, FieldKind};
-use crate::components::modal::modal;
 use crate::components::loading_state::LoadingState;
+use crate::components::modal::modal;
+use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::components::utils::{horizontal_rule, horizontal_space};
 use dispel_core::{ExtraRef, MonsterRef, NPC};
 use iced::widget::{
     button, canvas, column, container, pick_list, progress_bar, row, scrollable, stack, text,

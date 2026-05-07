@@ -33,7 +33,9 @@ use serde::{Deserialize, Serialize};
 /// - Lines starting with ";" are comments
 /// - Pipe (|) delimiter between fields
 /// - Maximum 3 lines per message
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Localizable, TextExtractor, TextRecordPatcher)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, Localizable, TextExtractor, TextRecordPatcher,
+)]
 #[extractor(encoding = "WINDOWS_1250", delimiter = "|")]
 #[patcher(filename = "Message.scr")]
 pub struct Message {

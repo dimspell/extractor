@@ -189,9 +189,7 @@ pub fn read_dir(dir: &Path) -> Result<ModPackage> {
         let Some((kind, _)) = action.op.out_of_line_bytes() else {
             continue;
         };
-        let blob_path = dir
-            .join(kind.dir_name())
-            .join(format!("{}.bin", action.id));
+        let blob_path = dir.join(kind.dir_name()).join(format!("{}.bin", action.id));
         if !blob_path.is_file() {
             return Err(ModdingError::MissingEntry(format!(
                 "{}/{}.bin",

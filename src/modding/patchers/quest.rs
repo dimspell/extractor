@@ -74,7 +74,12 @@ fn parse_optional_string(field: &str, new: &Value) -> Result<Option<String>> {
         Value::Null => Ok(None),
         Value::String(s) if s == "null" => Ok(None),
         Value::String(s) => Ok(Some(s.clone())),
-        _ => Err(wrong_type(QuestPatcher::RECORD_NAME, field, "string|null", new)),
+        _ => Err(wrong_type(
+            QuestPatcher::RECORD_NAME,
+            field,
+            "string|null",
+            new,
+        )),
     }
 }
 
@@ -121,14 +126,18 @@ mod tests {
     #[test]
     fn change_type_id() {
         let p = QuestPatcher;
-        let out = p.apply_field(&blob(), 1, "type_id", &Value::I64(2)).unwrap();
+        let out = p
+            .apply_field(&blob(), 1, "type_id", &Value::I64(2))
+            .unwrap();
         assert_eq!(parse_back(&out)[1].type_id, 2);
     }
 
     #[test]
     fn id_field_rejected() {
         let p = QuestPatcher;
-        let err = p.apply_field(&blob(), 0, "id", &Value::I64(99)).unwrap_err();
+        let err = p
+            .apply_field(&blob(), 0, "id", &Value::I64(99))
+            .unwrap_err();
         assert!(err.to_string().contains("positional"));
     }
 

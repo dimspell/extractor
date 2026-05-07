@@ -95,7 +95,8 @@ impl ResolutionMap {
     /// Returns the number of entries dropped.
     pub fn prune_to(&mut self, enabled: &[String]) -> usize {
         let before = self.entries.len();
-        self.entries.retain(|_, slug| enabled.iter().any(|e| e == slug));
+        self.entries
+            .retain(|_, slug| enabled.iter().any(|e| e == slug));
         before - self.entries.len()
     }
 

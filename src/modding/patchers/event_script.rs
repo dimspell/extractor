@@ -100,9 +100,9 @@ impl RecordPatcher for EventScriptPatcher {
 
         let mut cursor = Cursor::new(bytes);
         let mut scripts = EventScript::parse(&mut cursor, bytes.len() as u64)?;
-        let script = scripts
-            .get_mut(0)
-            .ok_or_else(|| ModdingError::Malformed(format!("{}: empty script", Self::RECORD_NAME)))?;
+        let script = scripts.get_mut(0).ok_or_else(|| {
+            ModdingError::Malformed(format!("{}: empty script", Self::RECORD_NAME))
+        })?;
 
         if field == "id" {
             return Err(ModdingError::Malformed(format!(
@@ -112,13 +112,17 @@ impl RecordPatcher for EventScriptPatcher {
         }
 
         let mut parts = field.split('.');
-        let section = parts.next().ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
+        let section = parts
+            .next()
+            .ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
         let idx = take_index(field, &mut parts)?;
         let sub = parts.next();
 
         match (section, sub) {
             // ---- string-line sections ----
-            ("header_comments", None) => string_element_op(field, &mut script.header_comments, idx, new)?,
+            ("header_comments", None) => {
+                string_element_op(field, &mut script.header_comments, idx, new)?
+            }
             ("map_content", None) => string_element_op(field, &mut script.map_content, idx, new)?,
             ("chr_content", None) => string_element_op(field, &mut script.chr_content, idx, new)?,
             ("npc_content", None) => string_element_op(field, &mut script.npc_content, idx, new)?,
@@ -219,7 +223,13 @@ impl RecordPatcher for EventScriptPatcher {
                                 delete_at(field, "parameters", &mut act.parameters, pidx)?;
                             } else {
                                 let s = expect_string(field, new)?;
-                                insert_or_replace(field, "parameters", &mut act.parameters, pidx, s)?;
+                                insert_or_replace(
+                                    field,
+                                    "parameters",
+                                    &mut act.parameters,
+                                    pidx,
+                                    s,
+                                )?;
                             }
                         }
                     },
@@ -268,7 +278,12 @@ fn expect_string(field: &str, new: &Value) -> Result<String> {
     match new {
         Value::String(s) => Ok(s.clone()),
         Value::Null => Ok(String::new()),
-        _ => Err(wrong_type(EventScriptPatcher::RECORD_NAME, field, "string", new)),
+        _ => Err(wrong_type(
+            EventScriptPatcher::RECORD_NAME,
+            field,
+            "string",
+            new,
+        )),
     }
 }
 
@@ -327,7 +342,11 @@ fn delete_at<T>(field: &str, section: &str, vec: &mut Vec<T>, idx: usize) -> Res
 }
 
 fn index_oob(field: &str, section: &str, idx: usize, len: usize) -> ModdingError {
-    let where_ = if section.is_empty() { field.to_string() } else { format!("{section} ({field})") };
+    let where_ = if section.is_empty() {
+        field.to_string()
+    } else {
+        format!("{section} ({field})")
+    };
     ModdingError::Malformed(format!(
         "{}: {where_} index {idx} out of range (have {len})",
         EventScriptPatcher::RECORD_NAME
@@ -394,7 +413,12 @@ mod tests {
     fn change_variable_value() {
         let p = EventScriptPatcher;
         let out = p
-            .apply_field(&sample(), 0, "variables.0.value", &Value::String("99".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.0.value",
+                &Value::String("99".into()),
+            )
             .unwrap();
         assert_eq!(parse(&out).variables[0].value, "99");
     }
@@ -403,7 +427,12 @@ mod tests {
     fn change_variable_name() {
         let p = EventScriptPatcher;
         let out = p
-            .apply_field(&sample(), 0, "variables.0.name", &Value::String("respawn".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.0.name",
+                &Value::String("respawn".into()),
+            )
             .unwrap();
         assert_eq!(parse(&out).variables[0].name, "respawn");
     }
@@ -496,7 +525,12 @@ mod tests {
     fn change_map_content_line() {
         let p = EventScriptPatcher;
         let out = p
-            .apply_field(&sample(), 0, "map_content.0", &Value::String("map(null)".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "map_content.0",
+                &Value::String("map(null)".into()),
+            )
             .unwrap();
         assert_eq!(parse(&out).map_content[0], "map(null)");
     }
@@ -532,7 +566,12 @@ mod tests {
         let p = EventScriptPatcher;
         // sample has 1 variable; index 1 == len → append.
         let out = p
-            .apply_field(&sample(), 0, "variables.1", &Value::String("kills=0".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.1",
+                &Value::String("kills=0".into()),
+            )
             .unwrap();
         let s = parse(&out);
         assert_eq!(s.variables.len(), 2);
@@ -647,7 +686,12 @@ mod tests {
             .apply_field(&sample(), 0, "variables.0", &Value::Null)
             .unwrap();
         let after_append = p
-            .apply_field(&after_delete, 0, "variables.0", &Value::String("respawn=10".into()))
+            .apply_field(
+                &after_delete,
+                0,
+                "variables.0",
+                &Value::String("respawn=10".into()),
+            )
             .unwrap();
         let s = parse(&after_append);
         assert_eq!(s.variables.len(), 1);
@@ -670,7 +714,12 @@ mod tests {
     fn nonzero_record_id_rejected() {
         let p = EventScriptPatcher;
         let err = p
-            .apply_field(&sample(), 1, "variables.0.value", &Value::String("x".into()))
+            .apply_field(
+                &sample(),
+                1,
+                "variables.0.value",
+                &Value::String("x".into()),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("record_id"), "got: {err}");
     }
@@ -688,7 +737,12 @@ mod tests {
     fn unknown_subfield_rejected() {
         let p = EventScriptPatcher;
         let err = p
-            .apply_field(&sample(), 0, "variables.0.bogus", &Value::String("x".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.0.bogus",
+                &Value::String("x".into()),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("unknown field"), "got: {err}");
     }
@@ -717,7 +771,12 @@ mod tests {
     fn out_of_range_subfield_rejected() {
         let p = EventScriptPatcher;
         let err = p
-            .apply_field(&sample(), 0, "variables.99.value", &Value::String("x".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.99.value",
+                &Value::String("x".into()),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("out of range"), "got: {err}");
     }
@@ -726,7 +785,12 @@ mod tests {
     fn non_numeric_index_rejected() {
         let p = EventScriptPatcher;
         let err = p
-            .apply_field(&sample(), 0, "variables.foo.value", &Value::String("x".into()))
+            .apply_field(
+                &sample(),
+                0,
+                "variables.foo.value",
+                &Value::String("x".into()),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("numeric index"), "got: {err}");
     }
@@ -754,7 +818,12 @@ mod tests {
         let p = EventScriptPatcher;
         let original = sample();
         let out = p
-            .apply_field(&original, 0, "wav_content.0", &Value::String("wav99".into()))
+            .apply_field(
+                &original,
+                0,
+                "wav_content.0",
+                &Value::String("wav99".into()),
+            )
             .unwrap();
         let s = parse(&out);
         assert_eq!(s.wav_content[0], "wav99");

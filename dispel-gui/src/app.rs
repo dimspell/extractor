@@ -1,9 +1,9 @@
 use crate::components::command_palette::CommandPalette;
+use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
 use crate::components::tab_bar::TabBarMessage;
-use crate::editors::db_viewer::db;
-use crate::components::edit_history::EditHistory;
 use crate::editors::chest::ChestEditorMessage;
+use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
@@ -591,7 +591,8 @@ impl App {
     }
 
     pub fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
-        self.state.chest_editor.loading_state = crate::components::loading_state::LoadingState::Loading;
+        self.state.chest_editor.loading_state =
+            crate::components::loading_state::LoadingState::Loading;
         Task::perform(
             async move { dispel_core::ExtraRef::read_file(&path) },
             |res: Result<Vec<dispel_core::ExtraRef>, std::io::Error>| {

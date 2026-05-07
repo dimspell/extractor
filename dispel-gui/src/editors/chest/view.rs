@@ -1,8 +1,8 @@
 use crate::app::App;
+use crate::components::utils::{horizontal_space, labeled_input, labeled_select, vertical_space};
 use crate::editors::chest::ChestEditorMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::components::utils::{horizontal_space, labeled_input, labeled_select, vertical_space};
 use dispel_core::ItemTypeId;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font};

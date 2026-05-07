@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
 ///
 /// Reads file: `ExtraInGame/Extdun01.ref (and other map-specific .ref files)`
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 184)]
 #[patcher(extension = "ref", stem_prefix = "ext")]
 pub struct ExtraRef {

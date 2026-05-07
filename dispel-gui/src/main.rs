@@ -5,6 +5,7 @@ pub mod app;
 pub mod auto_save;
 pub mod components;
 pub mod editors;
+pub mod indexation;
 pub mod message;
 #[allow(clippy::module_inception)]
 pub mod state;
@@ -12,7 +13,6 @@ pub mod style;
 pub mod update;
 pub mod view;
 pub mod workspace;
-pub mod indexation;
 
 use crate::app::App;
 

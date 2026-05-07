@@ -90,7 +90,10 @@ pub fn apply_all(
                 if action.file_path != *path {
                     continue;
                 }
-                if let ChangeOp::FieldDelta { record_id, field, .. } = &action.op {
+                if let ChangeOp::FieldDelta {
+                    record_id, field, ..
+                } = &action.op
+                {
                     let key = FieldKey {
                         file_path: action.file_path.clone(),
                         record_id: *record_id,
@@ -150,12 +153,7 @@ pub struct RevertReport {
     pub restored: Vec<String>,
 }
 
-fn walk_vanilla(
-    root: &Path,
-    dir: &Path,
-    game_dir: &Path,
-    report: &mut RevertReport,
-) -> Result<()> {
+fn walk_vanilla(root: &Path, dir: &Path, game_dir: &Path, report: &mut RevertReport) -> Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -305,7 +303,14 @@ mod tests {
             changes: &log,
         }];
 
-        let report = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        let report = apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         assert_eq!(report.actions_applied, 1);
         assert_eq!(report.written, vec![rel.to_string()]);
         assert!(report.deleted.is_empty());
@@ -343,7 +348,14 @@ mod tests {
                 changes: &mod_b,
             },
         ];
-        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         assert_eq!(parse_misc(&read_game_file(game.path(), rel))[0].name, "Hat");
 
         // Reorder: a wins.
@@ -357,7 +369,14 @@ mod tests {
                 changes: &mod_a,
             },
         ];
-        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         assert_eq!(
             parse_misc(&read_game_file(game.path(), rel))[0].name,
             "Helmet"
@@ -377,8 +396,14 @@ mod tests {
         let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
         let mod_b = field_delta_log(rel, 0, "name", Value::String("Hat".into()));
         let mods = [
-            ModEntry { mod_id: "a", changes: &mod_a },
-            ModEntry { mod_id: "b", changes: &mod_b },
+            ModEntry {
+                mod_id: "a",
+                changes: &mod_a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &mod_b,
+            },
         ];
 
         // Pin to `a` — `a`'s value wins despite `b` being later.
@@ -411,8 +436,14 @@ mod tests {
         let mod_a = field_delta_log(rel, 0, "name", Value::String("Helmet".into()));
         let mod_b = field_delta_log(rel, 0, "base_price", Value::I64(99));
         let mods = [
-            ModEntry { mod_id: "a", changes: &mod_a },
-            ModEntry { mod_id: "b", changes: &mod_b },
+            ModEntry {
+                mod_id: "a",
+                changes: &mod_a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &mod_b,
+            },
         ];
         // Pin a *different* field to `a`. Both edits should still land.
         let mut pins = ResolutionMap::default();
@@ -457,12 +488,22 @@ mod tests {
         );
 
         // Now disable the mod (empty mod list) — file should snap back to vanilla.
-        apply_all(&[], game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        apply_all(
+            &[],
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         // Touched set is empty when no mods enabled; nothing rewritten.
         // To actually snap back the user calls revert_to_vanilla, OR re-applies
         // with the previously-touched files known. Verify revert path:
         revert_to_vanilla(game.path(), &store).unwrap();
-        assert_eq!(parse_misc(&read_game_file(game.path(), rel))[0].name, "Helt");
+        assert_eq!(
+            parse_misc(&read_game_file(game.path(), rel))[0].name,
+            "Helt"
+        );
     }
 
     #[test]
@@ -483,16 +524,21 @@ mod tests {
 
         let log = ChangeLog::from_actions(vec![ChangeAction::new(
             rel,
-            ChangeOp::BinaryDelta {
-                patch_bytes: patch,
-            },
+            ChangeOp::BinaryDelta { patch_bytes: patch },
         )]);
         let mods = [ModEntry {
             mod_id: "sprite-tweak",
             changes: &log,
         }];
 
-        apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         assert_eq!(read_game_file(game.path(), rel), target);
 
         // Revert restores vanilla.
@@ -630,9 +676,23 @@ mod tests {
             changes: &log,
         }];
 
-        let r1 = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        let r1 = apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         let bytes1 = read_game_file(game.path(), rel);
-        let r2 = apply_all(&mods, game.path(), &store, &registry, &ResolutionMap::default()).unwrap();
+        let r2 = apply_all(
+            &mods,
+            game.path(),
+            &store,
+            &registry,
+            &ResolutionMap::default(),
+        )
+        .unwrap();
         let bytes2 = read_game_file(game.path(), rel);
         assert_eq!(bytes1, bytes2);
         assert_eq!(r1, r2);

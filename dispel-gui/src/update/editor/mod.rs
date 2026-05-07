@@ -1,11 +1,11 @@
 // Editor message router
 use crate::app::App;
 use crate::editors::{
-    all_map_ini, chdata, chest, dialogue_script, dialogue_paragraph, draw_item, edit_item, event_ini,
-    event_item, event_npc_ref, extra_ini, extra_ref, heal_item, localization_manager, magic,
-    map_editor, map_ini, message_scr, misc_item, mod_packager, monster, monster_ini, monster_ref,
-    npc_ini, npc_ref, party_ini, party_level_db, party_ref, quest_scr, snf_editor, sprite_browser,
-    store, tileset, wave_ini, weapon,
+    all_map_ini, chdata, chest, dialogue_paragraph, dialogue_script, draw_item, edit_item,
+    event_ini, event_item, event_npc_ref, extra_ini, extra_ref, heal_item, localization_manager,
+    magic, map_editor, map_ini, message_scr, misc_item, mod_packager, monster, monster_ini,
+    monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref, quest_scr, snf_editor,
+    sprite_browser, store, tileset, wave_ini, weapon,
 };
 use crate::message::editor::EditorMessage;
 use iced::Task;

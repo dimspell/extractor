@@ -45,7 +45,9 @@ use serde::{Deserialize, Serialize};
 /// Defines NPCs that appear only during specific scripted
 /// events. Used for quest-related characters, temporary
 /// merchants, and story-critical encounters.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, Localizable, TextRecordPatcher)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, TextExtractor, Localizable, TextRecordPatcher,
+)]
 #[extractor(encoding = "WINDOWS_1250")]
 #[patcher(filename = "Eventnpc.ref")]
 pub struct EventNpcRef {

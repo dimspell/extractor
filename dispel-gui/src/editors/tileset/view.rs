@@ -1,12 +1,12 @@
 use crate::app::App;
 use crate::components::modal::modal;
+use crate::components::utils::horizontal_rule;
 use crate::editors::tileset::{
     ExportDialogState, ExportStatus, TileExportFormat, TilesetEditorMessage, TilesetEditorState,
     TilesetFileType,
 };
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::components::utils::horizontal_rule;
 use iced::widget::{
     button, column, container, image, responsive, row, scrollable, slider, text, Space,
 };

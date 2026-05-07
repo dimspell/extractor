@@ -32,10 +32,7 @@ use super::value::Value;
 pub enum ConflictKind {
     /// Same `(file, record_id, field)` written by 2+ mods with different
     /// values. Resolvable by load order.
-    Field {
-        record_id: u32,
-        field: String,
-    },
+    Field { record_id: u32, field: String },
     /// Same file targeted by 2+ binary deltas across mods.
     Binary,
     /// Same file targeted by 2+ whole-file ops (replace/add/delete) across mods.
@@ -75,7 +72,11 @@ impl Conflict {
                 return pin;
             }
         }
-        &self.participants.last().expect("conflict must have ≥2 participants").mod_id
+        &self
+            .participants
+            .last()
+            .expect("conflict must have ≥2 participants")
+            .mod_id
     }
 
     /// `true` for binary / whole-file overlaps where load order is the only
@@ -95,13 +96,9 @@ pub fn detect_conflicts(mods: &[ModEntry<'_>]) -> Vec<Conflict> {
 
 /// Same as [`detect_conflicts`] but annotates field conflicts with the
 /// current pin (if any) from `resolutions`.
-pub fn detect_conflicts_with(
-    mods: &[ModEntry<'_>],
-    resolutions: &ResolutionMap,
-) -> Vec<Conflict> {
+pub fn detect_conflicts_with(mods: &[ModEntry<'_>], resolutions: &ResolutionMap) -> Vec<Conflict> {
     // Field map: (file, record, field) -> Vec<participant>
-    let mut field_map: BTreeMap<(String, u32, String), Vec<ConflictParticipant>> =
-        BTreeMap::new();
+    let mut field_map: BTreeMap<(String, u32, String), Vec<ConflictParticipant>> = BTreeMap::new();
     // Binary / whole-file: file -> Vec<participant>
     let mut binary_map: BTreeMap<String, Vec<ConflictParticipant>> = BTreeMap::new();
     let mut whole_map: BTreeMap<String, Vec<ConflictParticipant>> = BTreeMap::new();
@@ -122,25 +119,14 @@ pub fn detect_conflicts_with(
                 } => {
                     let key = (action.file_path.clone(), *record_id, field.clone());
                     let participants = field_map.entry(key).or_default();
-                    upsert(
-                        participants,
-                        &mod_id,
-                        "FieldDelta",
-                        Some(new.clone()),
-                    );
+                    upsert(participants, &mod_id, "FieldDelta", Some(new.clone()));
                 }
                 ChangeOp::BinaryDelta { .. } => {
-                    let participants = binary_map
-                        .entry(action.file_path.clone())
-                        .or_default();
+                    let participants = binary_map.entry(action.file_path.clone()).or_default();
                     upsert(participants, &mod_id, "BinaryDelta", None);
                 }
-                ChangeOp::FileReplace { .. }
-                | ChangeOp::FileAdd { .. }
-                | ChangeOp::FileDelete => {
-                    let participants = whole_map
-                        .entry(action.file_path.clone())
-                        .or_default();
+                ChangeOp::FileReplace { .. } | ChangeOp::FileAdd { .. } | ChangeOp::FileDelete => {
+                    let participants = whole_map.entry(action.file_path.clone()).or_default();
                     upsert(participants, &mod_id, action.op.variant_name(), None);
                 }
             }
@@ -267,8 +253,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helmet")]);
         let b = log(vec![fd(2, "name", "Sword")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         assert!(detect_conflicts(&mods).is_empty());
     }
@@ -278,8 +270,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helmet")]);
         let b = log(vec![fd(1, "name", "Helmet")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         assert!(detect_conflicts(&mods).is_empty());
     }
@@ -289,8 +287,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helmet")]);
         let b = log(vec![fd(1, "name", "Hat")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let conflicts = detect_conflicts(&mods);
         assert_eq!(conflicts.len(), 1);
@@ -308,15 +312,25 @@ mod tests {
     fn binary_overlap_is_hard_conflict() {
         let a = log(vec![ChangeAction::new(
             "Sprite/x.spr",
-            ChangeOp::BinaryDelta { patch_bytes: vec![1] },
+            ChangeOp::BinaryDelta {
+                patch_bytes: vec![1],
+            },
         )]);
         let b = log(vec![ChangeAction::new(
             "Sprite/x.spr",
-            ChangeOp::BinaryDelta { patch_bytes: vec![2] },
+            ChangeOp::BinaryDelta {
+                patch_bytes: vec![2],
+            },
         )]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let c = detect_conflicts(&mods);
         assert_eq!(c.len(), 1);
@@ -335,8 +349,14 @@ mod tests {
             ChangeOp::FileDelete,
         )]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let c = detect_conflicts(&mods);
         assert_eq!(c.len(), 1);
@@ -350,8 +370,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helm"), fd(1, "name", "Helmet")]);
         let b = log(vec![fd(1, "name", "Hat")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let c = detect_conflicts(&mods);
         assert_eq!(c.len(), 1);
@@ -366,8 +392,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helmet")]);
         let b = log(vec![fd(1, "name", "Hat")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let mut pins = ResolutionMap::default();
         pins.pin(
@@ -389,8 +421,14 @@ mod tests {
         let a = log(vec![fd(1, "name", "Helmet")]);
         let b = log(vec![fd(1, "name", "Hat")]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let mut pins = ResolutionMap::default();
         pins.pin(
@@ -410,28 +448,54 @@ mod tests {
     #[test]
     fn output_sorted_deterministically() {
         let a = log(vec![
-            ChangeAction::new("z.db", ChangeOp::FieldDelta {
-                record_id: 0, field: "x".into(),
-                old: Value::Null, new: Value::I64(1),
-            }),
-            ChangeAction::new("a.db", ChangeOp::FieldDelta {
-                record_id: 0, field: "x".into(),
-                old: Value::Null, new: Value::I64(1),
-            }),
+            ChangeAction::new(
+                "z.db",
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "x".into(),
+                    old: Value::Null,
+                    new: Value::I64(1),
+                },
+            ),
+            ChangeAction::new(
+                "a.db",
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "x".into(),
+                    old: Value::Null,
+                    new: Value::I64(1),
+                },
+            ),
         ]);
         let b = log(vec![
-            ChangeAction::new("z.db", ChangeOp::FieldDelta {
-                record_id: 0, field: "x".into(),
-                old: Value::Null, new: Value::I64(2),
-            }),
-            ChangeAction::new("a.db", ChangeOp::FieldDelta {
-                record_id: 0, field: "x".into(),
-                old: Value::Null, new: Value::I64(2),
-            }),
+            ChangeAction::new(
+                "z.db",
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "x".into(),
+                    old: Value::Null,
+                    new: Value::I64(2),
+                },
+            ),
+            ChangeAction::new(
+                "a.db",
+                ChangeOp::FieldDelta {
+                    record_id: 0,
+                    field: "x".into(),
+                    old: Value::Null,
+                    new: Value::I64(2),
+                },
+            ),
         ]);
         let mods = [
-            ModEntry { mod_id: "a", changes: &a },
-            ModEntry { mod_id: "b", changes: &b },
+            ModEntry {
+                mod_id: "a",
+                changes: &a,
+            },
+            ModEntry {
+                mod_id: "b",
+                changes: &b,
+            },
         ];
         let c = detect_conflicts(&mods);
         assert_eq!(c.len(), 2);

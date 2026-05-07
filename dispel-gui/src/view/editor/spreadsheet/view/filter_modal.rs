@@ -1,9 +1,9 @@
 //! Column quick-filter modal — a searchable, multi-select dropdown of unique
 //! values for one column. Opened via the `▾` icon in the table header.
 
+use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::Message;
 use crate::style;
-use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};

@@ -75,7 +75,10 @@ mod tests {
                 &Value::I64(enabled_disc as i64),
             )
             .unwrap();
-        assert_eq!(parse_heal(&out)[0].poison_heal, HealItemFlag::FullRestoration);
+        assert_eq!(
+            parse_heal(&out)[0].poison_heal,
+            HealItemFlag::FullRestoration
+        );
     }
 
     #[test]
@@ -232,7 +235,12 @@ mod tests {
         let p = crate::modding::patchers::ExtraRefPatcher;
         let bytes = vec![0xAA, 0xBB, 0xCC];
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "unknown2", &Value::Bytes(bytes.clone()))
+            .apply_field(
+                &extra_ref_blob(),
+                0,
+                "unknown2",
+                &Value::Bytes(bytes.clone()),
+            )
             .unwrap();
         assert_eq!(parse_extra(&out)[0].unknown2, bytes);
     }
@@ -329,7 +337,12 @@ mod tests {
     fn allmap_string_field() {
         let p = crate::modding::patchers::MapPatcher;
         let out = p
-            .apply_field(&allmap_blob(), 0, "map_name", &Value::String("Plains".into()))
+            .apply_field(
+                &allmap_blob(),
+                0,
+                "map_name",
+                &Value::String("Plains".into()),
+            )
             .unwrap();
         let recs = parse_allmap(&out);
         assert_eq!(recs[0].map_name, "Plains");
@@ -347,7 +360,10 @@ mod tests {
                 &Value::String("new.pgp".into()),
             )
             .unwrap();
-        assert_eq!(parse_allmap(&out)[0].pgp_filename.as_deref(), Some("new.pgp"));
+        assert_eq!(
+            parse_allmap(&out)[0].pgp_filename.as_deref(),
+            Some("new.pgp")
+        );
     }
 
     #[test]

@@ -1,11 +1,11 @@
 use crate::app::App;
 use crate::components::modal::modal;
+use crate::components::utils::horizontal_rule;
 use crate::editors::sprite_browser::{
     ExportDialogState, ExportFormat, ExportStatus, SpriteViewerMessage, SpriteViewerState,
 };
 use crate::message::{Message, MessageExt};
 use crate::style;
-use crate::components::utils::horizontal_rule;
 use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
 

@@ -61,8 +61,13 @@ pub enum ModPackagerMessage {
     RecordingPersisted(Result<(), String>),
 
     // Conflict resolution (per-field pin)
-    PinConflict { key: FieldKey, mod_slug: String },
-    UnpinConflict { key: FieldKey },
+    PinConflict {
+        key: FieldKey,
+        mod_slug: String,
+    },
+    UnpinConflict {
+        key: FieldKey,
+    },
 
     // Import / export
     ImportZip,

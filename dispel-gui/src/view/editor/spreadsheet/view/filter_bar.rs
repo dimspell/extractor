@@ -3,9 +3,9 @@
 
 use crate::components::editable::EditableRecord;
 use crate::components::generic_editor::GenericEditorState;
+use crate::components::utils::horizontal_space;
 use crate::message::Message;
 use crate::style;
-use crate::components::utils::horizontal_space;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::{GlobalFilterMode, SpreadsheetState};
 use iced::widget::{button, row, text, text_input};

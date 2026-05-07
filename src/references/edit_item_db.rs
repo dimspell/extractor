@@ -80,7 +80,9 @@ use dispel_macros::RecordPatcher;
 /// Defines modifiable base items with stat modifications for
 /// character equipment. Used for item crafting and stat
 /// enhancement systems.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 268)]
 #[patcher(filename = "EditItem.db")]
 pub struct EditItem {

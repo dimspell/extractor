@@ -60,7 +60,9 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// Defines quest and event-specific items with names and
 /// descriptions. Used for unique items that trigger
 /// events or are required for quest progression.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 240)]
 #[patcher(filename = "EventItem.db")]
 pub struct EventItem {

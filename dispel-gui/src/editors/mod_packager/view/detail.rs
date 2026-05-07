@@ -27,8 +27,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|s| s.mod_slug == slug)
         .unwrap_or(false);
     let record_btn = if is_recording_this {
-        action_btn("Stop Recording", ModPackagerMessage::StopRecording, busy)
-            .style(button::danger)
+        action_btn("Stop Recording", ModPackagerMessage::StopRecording, busy).style(button::danger)
     } else {
         action_btn(
             "Start Recording",
@@ -40,7 +39,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let actions = row![
         save_button(state.edit_dirty, busy),
         record_btn,
-        action_btn("Export .zip", ModPackagerMessage::ExportZip(slug.to_owned()), busy),
+        action_btn(
+            "Export .zip",
+            ModPackagerMessage::ExportZip(slug.to_owned()),
+            busy
+        ),
         horizontal_space().width(Length::Fill),
         action_btn(
             "Delete",
@@ -115,14 +118,15 @@ fn changelog_panel(changes: &[ChangeAction]) -> Element<'_, Message> {
     let header = text(format!("Change Log ({})", changes.len())).size(14);
 
     let body: Element<'_, Message> = if changes.is_empty() {
-        text(
-            "No changes recorded yet. Edits captured via Recording mode (Phase 4) will land here.",
-        )
-        .size(11)
-        .into()
+        text("No changes recorded yet. Edits captured via Recording mode (Phase 4) will land here.")
+            .size(11)
+            .into()
     } else {
-        let rows: Vec<Element<'_, Message>> =
-            changes.iter().enumerate().map(|(i, a)| change_row(i, a)).collect();
+        let rows: Vec<Element<'_, Message>> = changes
+            .iter()
+            .enumerate()
+            .map(|(i, a)| change_row(i, a))
+            .collect();
         scrollable(column(rows).spacing(4).padding(4).width(Fill))
             .height(Length::Fill)
             .into()
@@ -150,7 +154,10 @@ fn change_row(index: usize, action: &ChangeAction) -> Element<'_, Message> {
         col = col.push(d);
     }
 
-    container(col).padding(6).style(container::bordered_box).into()
+    container(col)
+        .padding(6)
+        .style(container::bordered_box)
+        .into()
 }
 
 fn describe(action: &ChangeAction) -> String {

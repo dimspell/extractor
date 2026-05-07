@@ -30,7 +30,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let status = text(state.status_msg.as_str()).size(12);
 
-    let mut col = column![header].spacing(12).padding(16).width(Fill).height(Fill);
+    let mut col = column![header]
+        .spacing(12)
+        .padding(16)
+        .width(Fill)
+        .height(Fill);
     if let Some(b) = banner {
         col = col.push(b);
     }

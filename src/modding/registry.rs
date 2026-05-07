@@ -141,7 +141,10 @@ impl PatcherRegistry {
     /// map first, then walks the pattern list.
     pub fn lookup(&self, relative_path: &str) -> Option<Arc<dyn RecordPatcher>> {
         let path = std::path::Path::new(relative_path);
-        let filename = path.file_name().and_then(|s| s.to_str())?.to_ascii_lowercase();
+        let filename = path
+            .file_name()
+            .and_then(|s| s.to_str())?
+            .to_ascii_lowercase();
         if let Some(p) = self.by_filename.get(&filename) {
             return Some(p.clone());
         }
@@ -226,10 +229,7 @@ mod tests {
         let r = PatcherRegistry::with_defaults();
         // Both files share the .scr extension with Event*.scr but must hit
         // their dedicated handlers via the exact-filename map.
-        assert_eq!(
-            r.lookup("ExtraInGame/Quest.scr").unwrap().name(),
-            "Quest"
-        );
+        assert_eq!(r.lookup("ExtraInGame/Quest.scr").unwrap().name(), "Quest");
         assert_eq!(
             r.lookup("ExtraInGame/Message.scr").unwrap().name(),
             "Message"
@@ -288,7 +288,10 @@ mod tests {
             "ExtraInGame/Eventcat1.scr",
             "ExtraInGame/EVENTDUN02.scr",
         ] {
-            assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
+            assert!(
+                r.lookup(path).is_some(),
+                "registry missing handler for {path}"
+            );
         }
     }
 }

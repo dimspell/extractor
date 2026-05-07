@@ -82,8 +82,9 @@ fn parse_string(field: &str, new: &Value) -> Result<String> {
 
 fn parse_i32(field: &str, new: &Value) -> Result<i32> {
     match new {
-        Value::I64(v) => i32::try_from(*v)
-            .map_err(|_| wrong_type(StorePatcher::RECORD_NAME, field, "i32", new)),
+        Value::I64(v) => {
+            i32::try_from(*v).map_err(|_| wrong_type(StorePatcher::RECORD_NAME, field, "i32", new))
+        }
         Value::String(s) => s
             .trim()
             .parse::<i32>()
@@ -94,8 +95,9 @@ fn parse_i32(field: &str, new: &Value) -> Result<i32> {
 
 fn parse_i16(field: &str, new: &Value) -> Result<i16> {
     match new {
-        Value::I64(v) => i16::try_from(*v)
-            .map_err(|_| wrong_type(StorePatcher::RECORD_NAME, field, "i16", new)),
+        Value::I64(v) => {
+            i16::try_from(*v).map_err(|_| wrong_type(StorePatcher::RECORD_NAME, field, "i16", new))
+        }
         Value::String(s) => s
             .trim()
             .parse::<i16>()
@@ -199,7 +201,12 @@ mod tests {
     fn out_of_range_id_errors() {
         let p = StorePatcher;
         let err = p
-            .apply_field(&one_inn_blob("Tavern", 50), 99, "store_name", &Value::String("x".into()))
+            .apply_field(
+                &one_inn_blob("Tavern", 50),
+                99,
+                "store_name",
+                &Value::String("x".into()),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("out of range"));
     }

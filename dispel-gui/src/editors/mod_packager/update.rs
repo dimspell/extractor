@@ -77,8 +77,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         // ----- Mod CRUD --------------------------------------------------
         ModPackagerMessage::CreateMod => {
             let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
-                app.state.mod_packager_editor.status_msg =
-                    "Open a workspace first.".into();
+                app.state.mod_packager_editor.status_msg = "Open a workspace first.".into();
                 return Task::none();
             };
             Task::perform(
@@ -232,9 +231,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
-            workspace_action(root, move |ws| {
-                ws.move_up(&slug).map_err(|e| e.to_string())
-            })
+            workspace_action(root, move |ws| ws.move_up(&slug).map_err(|e| e.to_string()))
         }
         ModPackagerMessage::MoveDown(slug) => {
             let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
@@ -338,8 +335,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         // ----- Recording --------------------------------------------------
         ModPackagerMessage::StartRecording(slug) => {
             let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
-                app.state.mod_packager_editor.status_msg =
-                    "Open a workspace first.".into();
+                app.state.mod_packager_editor.status_msg = "Open a workspace first.".into();
                 return Task::none();
             };
             let mod_name = app
@@ -388,9 +384,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             app.state.recording = None;
             if !stopped_name.is_empty() {
                 let total = committed + pending;
-                app.state.mod_packager_editor.status_msg = format!(
-                    "Stopped recording `{stopped_name}` — {total} change(s) captured."
-                );
+                app.state.mod_packager_editor.status_msg =
+                    format!("Stopped recording `{stopped_name}` — {total} change(s) captured.");
             }
             flush.chain(Task::done(Message::mod_packager(
                 ModPackagerMessage::Refresh,
@@ -542,8 +537,7 @@ fn open_workspace(app: &mut App, root: PathBuf) -> Task<Message> {
     match Workspace::open(root.clone()) {
         Ok(_) => {
             app.state.mod_packager_editor.workspace_root = Some(root.clone());
-            app.state.mod_packager_editor.status_msg =
-                format!("Workspace: {}", root.display());
+            app.state.mod_packager_editor.status_msg = format!("Workspace: {}", root.display());
             refresh_library(root)
         }
         Err(e) => {
@@ -730,7 +724,8 @@ fn flush_one_pending(
         async move {
             tokio::task::spawn_blocking(move || -> Result<(), String> {
                 let ws = Workspace::open(workspace_root).map_err(|e| e.to_string())?;
-                ws.append_action(&mod_slug, action).map_err(|e| e.to_string())
+                ws.append_action(&mod_slug, action)
+                    .map_err(|e| e.to_string())
             })
             .await
             .unwrap_or_else(|e| Err(e.to_string()))
@@ -800,4 +795,3 @@ fn nonempty_path(s: &str) -> Option<PathBuf> {
 fn default_workspace_root(game_path: &str) -> Option<PathBuf> {
     nonempty_path(game_path).map(|p| p.join(WORKSPACE_SUBDIR))
 }
-

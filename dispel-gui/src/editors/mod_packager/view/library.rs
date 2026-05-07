@@ -21,19 +21,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
         action_btn("New Mod", ModPackagerMessage::CreateMod, busy),
         action_btn("Import .zip", ModPackagerMessage::ImportZip, busy),
         horizontal_space().width(Length::Fill),
-        action_btn("Apply to Game", ModPackagerMessage::Apply, busy)
-            .style(button::primary),
-        action_btn("Revert to Vanilla", ModPackagerMessage::Revert, busy)
-            .style(button::danger),
+        action_btn("Apply to Game", ModPackagerMessage::Apply, busy).style(button::primary),
+        action_btn("Revert to Vanilla", ModPackagerMessage::Revert, busy).style(button::danger),
     ]
     .spacing(8)
     .align_y(Alignment::Center);
 
-    let recording_slug = app
-        .state
-        .recording
-        .as_ref()
-        .map(|s| s.mod_slug.clone());
+    let recording_slug = app.state.recording.as_ref().map(|s| s.mod_slug.clone());
     let rows: Vec<Element<'_, Message>> = state
         .mods
         .iter()
@@ -83,7 +77,11 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'
         busy,
     );
 
-    let up = action_btn("↑", ModPackagerMessage::MoveUp(m.slug.clone()), busy || !m.enabled);
+    let up = action_btn(
+        "↑",
+        ModPackagerMessage::MoveUp(m.slug.clone()),
+        busy || !m.enabled,
+    );
     let down = action_btn(
         "↓",
         ModPackagerMessage::MoveDown(m.slug.clone()),
@@ -91,8 +89,7 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'
     );
 
     let record_btn = if is_recording {
-        action_btn("Stop Rec", ModPackagerMessage::StopRecording, busy)
-            .style(button::danger)
+        action_btn("Stop Rec", ModPackagerMessage::StopRecording, busy).style(button::danger)
     } else {
         action_btn(
             "Record",
@@ -101,22 +98,26 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'
         )
     };
 
-    let edit = action_btn(
-        "Edit",
-        ModPackagerMessage::SelectMod(m.slug.clone()),
-        busy,
-    );
+    let edit = action_btn("Edit", ModPackagerMessage::SelectMod(m.slug.clone()), busy);
     let export = action_btn(
         "Export",
         ModPackagerMessage::ExportZip(m.slug.clone()),
         busy,
     );
-    let delete = action_btn("Delete", ModPackagerMessage::DeleteMod(m.slug.clone()), busy)
-        .style(button::danger);
+    let delete = action_btn(
+        "Delete",
+        ModPackagerMessage::DeleteMod(m.slug.clone()),
+        busy,
+    )
+    .style(button::danger);
 
-    let badge = text(if m.enabled { "● enabled" } else { "○ disabled" })
-        .size(11)
-        .width(Length::Fixed(80.0));
+    let badge = text(if m.enabled {
+        "● enabled"
+    } else {
+        "○ disabled"
+    })
+    .size(11)
+    .width(Length::Fixed(80.0));
 
     let title = text(m.manifest.name.as_str()).size(13);
     let subtitle = text(format!(

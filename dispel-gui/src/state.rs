@@ -1,11 +1,12 @@
 use crate::components::file_tree::FileTree;
+use crate::components::global_search::GlobalSearch;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
-use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorState;
+use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
@@ -29,7 +30,6 @@ use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
-use crate::components::global_search::GlobalSearch;
 use crate::message::{system::SystemMessage, Message};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
@@ -252,7 +252,9 @@ impl AppState {
             async move {
                 eprintln!("DEBUG: Starting indexation for: {:?}", game_path_clone);
                 let indexation_service =
-                    crate::indexation::indexation_service::IndexationService::new(cache_manager_clone.clone());
+                    crate::indexation::indexation_service::IndexationService::new(
+                        cache_manager_clone.clone(),
+                    );
 
                 // Start indexation - it will collect whatever files it can even on error
                 let handle =

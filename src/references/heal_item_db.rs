@@ -75,7 +75,9 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// Defines consumable healing items with restoration
 /// amounts and cure capabilities. Used for potions,
 /// scrolls, and other consumable healing items.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 252)]
 #[patcher(filename = "HealItem.db")]
 pub struct HealItem {

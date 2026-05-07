@@ -62,7 +62,9 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// Defines miscellaneous items with names, descriptions,
 /// and prices. Used for consumables, quest items,
 /// and generic inventory objects.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 256)]
 #[patcher(filename = "MiscItem.db")]
 pub struct MiscItem {

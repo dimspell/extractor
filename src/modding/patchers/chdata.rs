@@ -101,8 +101,9 @@ fn parse_indexed(field: &str, prefix: &str) -> Option<usize> {
 
 fn parse_u16(field: &str, new: &Value) -> Result<u16> {
     match new {
-        Value::I64(v) => u16::try_from(*v)
-            .map_err(|_| wrong_type(ChDataPatcher::RECORD_NAME, field, "u16", new)),
+        Value::I64(v) => {
+            u16::try_from(*v).map_err(|_| wrong_type(ChDataPatcher::RECORD_NAME, field, "u16", new))
+        }
         Value::String(s) => s
             .trim()
             .parse::<u16>()
@@ -113,8 +114,9 @@ fn parse_u16(field: &str, new: &Value) -> Result<u16> {
 
 fn parse_u32(field: &str, new: &Value) -> Result<u32> {
     match new {
-        Value::I64(v) => u32::try_from(*v)
-            .map_err(|_| wrong_type(ChDataPatcher::RECORD_NAME, field, "u32", new)),
+        Value::I64(v) => {
+            u32::try_from(*v).map_err(|_| wrong_type(ChDataPatcher::RECORD_NAME, field, "u32", new))
+        }
         Value::String(s) => s
             .trim()
             .parse::<u32>()

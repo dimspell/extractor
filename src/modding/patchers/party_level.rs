@@ -110,11 +110,13 @@ fn parse_numeric<T>(field: &str, new: &Value) -> Result<T>
 where
     T: std::str::FromStr + TryFrom<i64>,
 {
-    let expected = std::any::type_name::<T>().rsplit("::").next().unwrap_or("int");
+    let expected = std::any::type_name::<T>()
+        .rsplit("::")
+        .next()
+        .unwrap_or("int");
     match new {
-        Value::I64(v) => T::try_from(*v).map_err(|_| {
-            wrong_type(PartyLevelDbPatcher::RECORD_NAME, field, expected, new)
-        }),
+        Value::I64(v) => T::try_from(*v)
+            .map_err(|_| wrong_type(PartyLevelDbPatcher::RECORD_NAME, field, expected, new)),
         Value::String(s) => s
             .trim()
             .parse::<T>()
@@ -191,7 +193,12 @@ mod tests {
     fn u16_field_via_string() {
         let p = PartyLevelDbPatcher;
         let out = p
-            .apply_field(&empty_file(), 0, "health_points", &Value::String("250".into()))
+            .apply_field(
+                &empty_file(),
+                0,
+                "health_points",
+                &Value::String("250".into()),
+            )
             .unwrap();
         assert_eq!(parse_back(&out)[0].records[0].health_points, 250);
     }

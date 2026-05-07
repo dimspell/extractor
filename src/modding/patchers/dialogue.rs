@@ -162,13 +162,18 @@ impl RecordPatcher for DialogueParagraphPatcher {
 
 fn parse_i32(field: &str, new: &Value) -> Result<i32> {
     match new {
-        Value::I64(v) => i32::try_from(*v).map_err(|_| {
-            wrong_type(DialogueParagraphPatcher::RECORD_NAME, field, "i32", new)
-        }),
-        Value::String(s) => s.trim().parse::<i32>().map_err(|_| {
-            wrong_type(DialogueParagraphPatcher::RECORD_NAME, field, "i32", new)
-        }),
-        _ => Err(wrong_type(DialogueParagraphPatcher::RECORD_NAME, field, "i32", new)),
+        Value::I64(v) => i32::try_from(*v)
+            .map_err(|_| wrong_type(DialogueParagraphPatcher::RECORD_NAME, field, "i32", new)),
+        Value::String(s) => s
+            .trim()
+            .parse::<i32>()
+            .map_err(|_| wrong_type(DialogueParagraphPatcher::RECORD_NAME, field, "i32", new)),
+        _ => Err(wrong_type(
+            DialogueParagraphPatcher::RECORD_NAME,
+            field,
+            "i32",
+            new,
+        )),
     }
 }
 
@@ -261,9 +266,7 @@ mod tests {
     #[test]
     fn pgp_set_text_to_null_via_value_null() {
         let p = DialogueParagraphPatcher;
-        let out = p
-            .apply_field(&pgp_blob(), 0, "text", &Value::Null)
-            .unwrap();
+        let out = p.apply_field(&pgp_blob(), 0, "text", &Value::Null).unwrap();
         assert_eq!(parse_paras(&out)[0].text, "");
     }
 

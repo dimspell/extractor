@@ -254,14 +254,14 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             } else {
                 let file_results = app.search_index.search_files(&query);
                 for entry in file_results.iter().take(app.global_search.max_results) {
-                    app.global_search
-                        .results
-                        .push(crate::components::global_search::SearchResult {
+                    app.global_search.results.push(
+                        crate::components::global_search::SearchResult {
                             catalog_type: entry.editor_type.clone(),
                             record_idx: 0,
                             display_text: entry.file_path.clone(),
                             source_file: Some(entry.file_path.clone()),
-                        });
+                        },
+                    );
                 }
                 Task::none()
             }

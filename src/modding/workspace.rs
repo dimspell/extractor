@@ -148,9 +148,7 @@ impl Workspace {
         let installed: HashSet<String> = self.list_slugs()?.into_iter().collect();
         for slug in &order {
             if !installed.contains(slug) {
-                return Err(ModdingError::Malformed(format!(
-                    "unknown mod slug: {slug}"
-                )));
+                return Err(ModdingError::Malformed(format!("unknown mod slug: {slug}")));
             }
         }
         let raw = EnabledFile { enabled: order };
@@ -287,11 +285,7 @@ impl Workspace {
 
     /// Append one [`ChangeAction`](super::change::ChangeAction) to the named
     /// mod, in load-mutate-save fashion. Used by recording mode.
-    pub fn append_action(
-        &self,
-        slug: &str,
-        action: super::change::ChangeAction,
-    ) -> Result<()> {
+    pub fn append_action(&self, slug: &str, action: super::change::ChangeAction) -> Result<()> {
         let mut pkg = self.read_mod(slug)?;
         pkg.changes.push(action);
         self.write_mod(slug, &pkg)
