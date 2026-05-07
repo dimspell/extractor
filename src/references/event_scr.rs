@@ -98,21 +98,12 @@ pub struct EventScript {
     pub actions: Vec<ActionFunction>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct Variable {
     /// Variable name.
     pub name: String,
     /// Variable value.
     pub value: String,
-}
-
-impl Default for Variable {
-    fn default() -> Self {
-        Variable {
-            name: String::new(),
-            value: String::new(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -127,34 +118,31 @@ impl SpriteDefinition {
     /// Parse a sprite definition line like "Pope(PopeBlessing.spr)"
     pub(crate) fn parse(line: &str) -> Self {
         let trimmed = line.trim();
-
-        // Look for pattern: alias(filename)
-        if let Some(open_paren) = trimmed.find('(') {
-            let alias = trimmed[..open_paren].trim().to_string();
-            let rest = &trimmed[open_paren + 1..];
-
-            if let Some(close_paren) = rest.find(')') {
-                let file = rest[..close_paren].trim().to_string();
+        // Check if the line has the format: alias(filename)
+        if let Some(start) = trimmed.find('(') {
+            if let Some(end) = trimmed.rfind(')') {
+                let alias = trimmed[..start].trim();
+                let file = trimmed[start + 1..end].trim();
                 return SpriteDefinition {
-                    sprite_alias: alias,
-                    sprite_file: file,
+                    sprite_alias: alias.to_string(),
+                    sprite_file: file.to_string(),
                 };
             }
         }
-
         // Handle the simple format without parentheses: alias
         SpriteDefinition {
             sprite_alias: trimmed.to_string(),
             sprite_file: String::new(),
         }
     }
+}
 
-    /// Reconstruct the original line format
-    fn to_string(&self) -> String {
+impl std::fmt::Display for SpriteDefinition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.sprite_file.is_empty() {
-            self.sprite_alias.clone()
+            write!(f, "{}", self.sprite_alias)
         } else {
-            format!("{}({})", self.sprite_alias, self.sprite_file)
+            write!(f, "{}({})", self.sprite_alias, self.sprite_file)
         }
     }
 }
@@ -227,11 +215,12 @@ impl ActionFunction {
             }
         }
     }
+}
 
-    /// Reconstruct the original line format
-    fn to_string(&self) -> String {
+impl std::fmt::Display for ActionFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(raw) = &self.raw_content {
-            return raw.clone();
+            return write!(f, "{raw}");
         }
 
         let mut result = String::new();
@@ -252,7 +241,7 @@ impl ActionFunction {
             result.push(')');
         }
 
-        result
+        write!(f, "{result}")
     }
 }
 
@@ -311,37 +300,25 @@ impl Extractor for EventScript {
                         current_script.variables.push(Variable { name, value });
                     }
                 }
-                "MAP" => {
-                    if !trimmed.is_empty() {
-                        current_script.map_content.push(trimmed.to_string());
-                    }
+                "MAP" if !trimmed.is_empty() => {
+                    current_script.map_content.push(trimmed.to_string());
                 }
-                "CHR" => {
-                    if !trimmed.is_empty() {
-                        current_script.chr_content.push(trimmed.to_string());
-                    }
+                "CHR" if !trimmed.is_empty() => {
+                    current_script.chr_content.push(trimmed.to_string());
                 }
-                "NPC" => {
-                    if !trimmed.is_empty() {
-                        current_script.npc_content.push(trimmed.to_string());
-                    }
+                "NPC" if !trimmed.is_empty() => {
+                    current_script.npc_content.push(trimmed.to_string());
                 }
-                "SPR" => {
-                    if !trimmed.is_empty() {
-                        current_script
-                            .spr_content
-                            .push(SpriteDefinition::parse(trimmed));
-                    }
+                "SPR" if !trimmed.is_empty() => {
+                    current_script
+                        .spr_content
+                        .push(SpriteDefinition::parse(trimmed));
                 }
-                "WAV" => {
-                    if !trimmed.is_empty() {
-                        current_script.wav_content.push(trimmed.to_string());
-                    }
+                "WAV" if !trimmed.is_empty() => {
+                    current_script.wav_content.push(trimmed.to_string());
                 }
-                "ACT" => {
-                    if !trimmed.is_empty() {
-                        current_script.actions.push(ActionFunction::parse(trimmed));
-                    }
+                "ACT" if !trimmed.is_empty() => {
+                    current_script.actions.push(ActionFunction::parse(trimmed));
                 }
                 _ => {}
             }
@@ -417,7 +394,7 @@ impl Extractor for EventScript {
             // Write the SPR section (always write, even if empty)
             writer.write_all(b"[SPR]\r\n\r\n")?;
             for sprite in &script.spr_content {
-                let line = format!("{}\r\n", sprite.to_string());
+                let line = format!("{}\r\n", sprite);
                 let (cow, _, _) = EUC_KR.encode(&line);
                 writer.write_all(&cow)?;
             }
@@ -433,7 +410,7 @@ impl Extractor for EventScript {
             // Write the ACT section
             writer.write_all(b"[ACT]\r\n")?;
             for action in &script.actions {
-                let line = format!("{}\r\n", action.to_string());
+                let line = format!("{}\r\n", action);
                 let (cow, _, _) = EUC_KR.encode(&line);
                 writer.write_all(&cow)?;
             }

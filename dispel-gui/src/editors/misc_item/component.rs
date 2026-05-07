@@ -56,7 +56,7 @@ impl EditableRecord for MiscItem {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
             "base_price" => set_int(&mut self.base_price, value),
-            "padding" => parse_hex_string(&value).map_or(false, |v| {
+            "padding" => parse_hex_string(&value).is_some_and(|v| {
                 if v.len() == 20 {
                     self.padding = v.try_into().unwrap();
                     true

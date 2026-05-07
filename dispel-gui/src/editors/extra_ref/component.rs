@@ -376,7 +376,7 @@ impl EditableRecord for ExtraRef {
             "x_pos" => set_int(&mut self.x_pos, value),
             "y_pos" => set_int(&mut self.y_pos, value),
             "rotation" => set_int(&mut self.rotation, value),
-            "unknown2" => parse_hex_string(&value).map_or(false, |v| {
+            "unknown2" => parse_hex_string(&value).is_some_and(|v| {
                 self.unknown2 = v;
                 true
             }),
@@ -408,7 +408,7 @@ impl EditableRecord for ExtraRef {
             "unknown11" => set_enum(&mut self.unknown11, value, SpecialPatternFlag::from_name),
             "unknown12" => set_int(&mut self.unknown12, value),
             "unknown13" => set_enum(&mut self.unknown13, value, Special9999Flag::from_name),
-            "unknown14" => parse_hex_string(&value).map_or(false, |v| {
+            "unknown14" => parse_hex_string(&value).is_some_and(|v| {
                 self.unknown14 = v;
                 true
             }),
@@ -418,7 +418,7 @@ impl EditableRecord for ExtraRef {
             "unknown16" => set_enum(&mut self.unknown16, value, SmallRange0to3::from_name),
             "unknown17" => set_int(&mut self.unknown17, value),
             "interactive_element_type" => set_int(&mut self.interactive_element_type, value),
-            "unknown18" => parse_hex_string(&value).map_or(false, |v| {
+            "unknown18" => parse_hex_string(&value).is_some_and(|v| {
                 self.unknown18 = v;
                 true
             }),

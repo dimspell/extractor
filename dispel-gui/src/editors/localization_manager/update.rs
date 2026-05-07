@@ -396,7 +396,7 @@ fn load_session(path: &Path) -> Option<Vec<SavedTranslation>> {
 
 /// Merge saved translations into freshly-scanned entries.
 /// Matches by (file_path, record_id, field_name).
-fn merge_session(entries: &mut Vec<TextEntry>, saved: &[SavedTranslation]) {
+fn merge_session(entries: &mut [TextEntry], saved: &[SavedTranslation]) {
     use std::collections::HashMap;
     let saved_map: HashMap<(&str, usize, &str), &str> = saved
         .iter()

@@ -222,7 +222,7 @@ impl IndexationService {
             .collect();
 
         // Sort entries: directories first
-        entries_with_types.sort_by(|a, b| b.1.cmp(&a.1));
+        entries_with_types.sort_by_key(|b| std::cmp::Reverse(b.1));
 
         let total_entries = entries_with_types.len();
         let mut processed = 0;

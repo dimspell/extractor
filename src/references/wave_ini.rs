@@ -90,7 +90,6 @@ pub struct WaveIni {
 /// id,snf_filename,unknown_flag
 /// ```
 /// - `snf_filename` use literal `null` when absent.
-
 pub fn read_wave_ini(source_path: &Path) -> std::io::Result<Vec<WaveIni>> {
     WaveIni::read_file(source_path)
 }

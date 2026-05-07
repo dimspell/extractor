@@ -154,34 +154,32 @@ impl<'a> canvas::Program<Message> for MapCanvas<'a> {
                     MapEditorMessage::MouseMoved(self.tab_id, f32::NAN, f32::NAN, 0.0, 0.0),
                 )));
             }
-            Event::Mouse(MouseEvent::WheelScrolled { delta }) => {
-                if cursor.is_over(bounds) {
-                    let scroll_y = match delta {
-                        ScrollDelta::Lines { y, .. } => *y,
-                        ScrollDelta::Pixels { y, .. } => *y / 20.0,
+            Event::Mouse(MouseEvent::WheelScrolled { delta }) if cursor.is_over(bounds) => {
+                let scroll_y = match delta {
+                    ScrollDelta::Lines { y, .. } => *y,
+                    ScrollDelta::Pixels { y, .. } => *y / 20.0,
+                };
+                if scroll_y.abs() > 0.001 {
+                    // Multiplicative zoom: symmetric in/out, natural on trackpads.
+                    let magnitude = scroll_y.abs().min(3.0) * 0.12;
+                    let factor = if scroll_y > 0.0 {
+                        1.0 + magnitude
+                    } else {
+                        1.0 / (1.0 + magnitude)
                     };
-                    if scroll_y.abs() > 0.001 {
-                        // Multiplicative zoom: symmetric in/out, natural on trackpads.
-                        let magnitude = scroll_y.abs().min(3.0) * 0.12;
-                        let factor = if scroll_y > 0.0 {
-                            1.0 + magnitude
-                        } else {
-                            1.0 / (1.0 + magnitude)
-                        };
-                        let (cx, cy) = cursor
-                            .position_in(bounds)
-                            .map(|p| (p.x, p.y))
-                            .unwrap_or((0.0, 0.0));
-                        return Some(
-                            Action::publish(Message::map_editor(MapEditorMessage::ZoomChanged(
-                                self.tab_id,
-                                factor,
-                                cx,
-                                cy,
-                            )))
-                            .and_capture(),
-                        );
-                    }
+                    let (cx, cy) = cursor
+                        .position_in(bounds)
+                        .map(|p| (p.x, p.y))
+                        .unwrap_or((0.0, 0.0));
+                    return Some(
+                        Action::publish(Message::map_editor(MapEditorMessage::ZoomChanged(
+                            self.tab_id,
+                            factor,
+                            cx,
+                            cy,
+                        )))
+                        .and_capture(),
+                    );
                 }
             }
             _ => {}
