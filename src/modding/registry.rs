@@ -36,21 +36,49 @@ impl PatcherRegistry {
     /// `#[patcher(...)]` constants on the generated patcher, keeping the
     /// registration site single-sourced with the derive.
     pub fn with_defaults() -> Self {
-        use super::patchers::{
-            EditItemPatcher, EventItemPatcher, ExtraRefPatcher, HealItemPatcher, MiscItemPatcher,
-            PartyLevelDbPatcher,
-        };
+        use super::patchers::*;
         let mut r = Self::new();
+
+        // Binary catalogs (.db) — derived patchers.
         r.register(MiscItemPatcher::FILENAME, Arc::new(MiscItemPatcher));
         r.register(HealItemPatcher::FILENAME, Arc::new(HealItemPatcher));
         r.register(EditItemPatcher::FILENAME, Arc::new(EditItemPatcher));
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
+        r.register(MonsterPatcher::FILENAME, Arc::new(MonsterPatcher));
+
+        // Binary catalogs (.db) — hand-written.
         r.register(PartyLevelDbPatcher::FILENAME, Arc::new(PartyLevelDbPatcher));
+
+        // Binary refs that vary per map.
         r.register_pattern(
             ExtraRefPatcher::EXTENSION,
             ExtraRefPatcher::STEM_PREFIX,
             Arc::new(ExtraRefPatcher),
         );
+        r.register_pattern(
+            MonsterRefPatcher::EXTENSION,
+            MonsterRefPatcher::STEM_PREFIX,
+            Arc::new(MonsterRefPatcher),
+        );
+        r.register_pattern(
+            NPCPatcher::EXTENSION,
+            NPCPatcher::STEM_PREFIX,
+            Arc::new(NPCPatcher),
+        );
+
+        // Text catalogs (.ini / .ref) — derived text patchers.
+        r.register(MapPatcher::FILENAME, Arc::new(MapPatcher));
+        r.register(MapIniPatcher::FILENAME, Arc::new(MapIniPatcher));
+        r.register(MonsterIniPatcher::FILENAME, Arc::new(MonsterIniPatcher));
+        r.register(NpcIniPatcher::FILENAME, Arc::new(NpcIniPatcher));
+        r.register(EventPatcher::FILENAME, Arc::new(EventPatcher));
+        r.register(ExtraPatcher::FILENAME, Arc::new(ExtraPatcher));
+        r.register(EventNpcRefPatcher::FILENAME, Arc::new(EventNpcRefPatcher));
+
+        // Text catalogs — hand-written.
+        r.register(DrawItemPatcher::FILENAME, Arc::new(DrawItemPatcher));
+        r.register(QuestPatcher::FILENAME, Arc::new(QuestPatcher));
+
         r
     }
 
@@ -165,13 +193,32 @@ mod tests {
     fn defaults_include_all_generated_patchers() {
         let r = PatcherRegistry::with_defaults();
         for path in [
+            // Binary .db (derived)
             "CharacterInGame/MiscItem.db",
             "CharacterInGame/HealItem.db",
             "CharacterInGame/EditItem.db",
             "CharacterInGame/EventItem.db",
+            "MonsterInGame/Monster.db",
+            // Binary .db (hand-written)
+            "NpcInGame/PrtLevel.db",
+            // Per-map binary refs (pattern-matched)
             "NpcInGame/Extdun01.ref",
             "NpcInGame/Extfld02.ref",
-            "NpcInGame/PrtLevel.db",
+            "MonsterInGame/Mondun01.ref",
+            "MonsterInGame/Monfld02.ref",
+            "NpcInGame/Npccat1.ref",
+            "NpcInGame/Npcdun02.ref",
+            // Text catalogs (derived)
+            "AllMap.ini",
+            "Ref/Map.ini",
+            "Monster.ini",
+            "Npc.ini",
+            "Event.ini",
+            "Extra.ini",
+            "NpcInGame/Eventnpc.ref",
+            // Text/ad-hoc (hand-written)
+            "Ref/DRAWITEM.ref",
+            "ExtraInGame/Quest.scr",
         ] {
             assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
         }

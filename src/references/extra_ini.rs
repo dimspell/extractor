@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -47,8 +47,9 @@ use serde::{Deserialize, Serialize};
 //
 // ===========================================================================
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR")]
+#[patcher(filename = "Extra.ini")]
 pub struct Extra {
     /// Tool or object identifier.
     #[extractor(field = 0)]

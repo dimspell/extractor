@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::references::enums::MapLighting;
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 
 /// Stores the general list of all maps in the game.
 ///
@@ -37,8 +37,9 @@ use dispel_macros::TextExtractor;
 ///
 /// Master index of all game maps, linking map IDs to filenames and metadata.
 /// Used by the game engine to load the correct map files and associated assets.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "WINDOWS_1250")]
+#[patcher(filename = "AllMap.ini")]
 pub struct Map {
     /// Map identifier.
     #[extractor(field = 0)]
