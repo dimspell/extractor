@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use dispel_core::modding::{ChangeAction, InstalledMod, ModManifest};
+use dispel_core::modding::{ChangeAction, Conflict, InstalledMod, ModManifest};
 
 use crate::components::loading_state::LoadingState;
 
@@ -10,6 +10,7 @@ pub enum ModManagerTab {
     #[default]
     Library,
     Detail,
+    Conflicts,
 }
 
 /// Legacy struct kept for `localization_manager`. New code should use
@@ -48,6 +49,10 @@ pub struct ModPackagerState {
     pub edit_author: String,
     pub edit_description: String,
     pub edit_dirty: bool,
+
+    /// Cached conflict list across enabled mods. Recomputed on Refresh and
+    /// after any load-order change.
+    pub conflicts: Vec<Conflict>,
 
     pub status_msg: String,
     pub loading_state: LoadingState<()>,

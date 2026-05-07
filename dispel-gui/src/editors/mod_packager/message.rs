@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use dispel_core::modding::{ChangeAction, InstalledMod, ModManifest};
+use dispel_core::modding::{ChangeAction, Conflict, InstalledMod, ModManifest};
 
 use super::recording::ObservedAction;
 use super::state::ModManagerTab;
@@ -18,7 +18,7 @@ pub enum ModPackagerMessage {
     OpenWorkspace,
     WorkspacePicked(Option<PathBuf>),
     Refresh,
-    Refreshed(Result<Vec<InstalledMod>, String>),
+    Refreshed(Result<LibrarySnapshot, String>),
 
     // Mod CRUD
     CreateMod,
@@ -67,6 +67,14 @@ pub enum ModPackagerMessage {
     ExportZip(String),
     ExportPicked(String, Option<PathBuf>),
     Exported(Result<PathBuf, String>),
+}
+
+/// Payload for [`ModPackagerMessage::Refreshed`] — installed mods and the
+/// derived conflicts list, fetched in one workspace round-trip.
+#[derive(Debug, Clone)]
+pub struct LibrarySnapshot {
+    pub mods: Vec<InstalledMod>,
+    pub conflicts: Vec<Conflict>,
 }
 
 /// Payload for [`ModPackagerMessage::Selected`] — keeps the message clonable
