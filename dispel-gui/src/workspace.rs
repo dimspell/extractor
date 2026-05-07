@@ -45,6 +45,9 @@ pub enum EditorType {
     MapEditor,
     ModPackager,
     LocalizationManager,
+    /// Universal fallback editor for any binary file no dedicated editor
+    /// claims. Also reachable via "Open as Hex" from the file tree.
+    HexEditor,
     #[serde(other)]
     Unknown,
 }
@@ -71,7 +74,7 @@ impl EditorType {
                 "chdata" => EditorType::ChDataEditor,
                 "prtlevel" => EditorType::PartyLevelDbEditor,
                 "prtini" => EditorType::PartyIniEditor,
-                _ => EditorType::Unknown,
+                _ => EditorType::HexEditor,
             },
             "ini" => match stem.as_str() {
                 "allmap" => EditorType::AllMapIniEditor,
@@ -82,7 +85,7 @@ impl EditorType {
                 "npc" => EditorType::NpcIniEditor,
                 "npcini" => EditorType::NpcIniEditor,
                 "wave" => EditorType::WaveIniEditor,
-                _ => EditorType::Unknown,
+                _ => EditorType::HexEditor,
             },
             "ref" => match stem.as_str() {
                 "partyref" => EditorType::PartyRefEditor,
@@ -96,14 +99,14 @@ impl EditorType {
                     } else if stem.starts_with("ext") {
                         EditorType::ExtraRefEditor
                     } else {
-                        EditorType::Unknown
+                        EditorType::HexEditor
                     }
                 }
             },
             "scr" => match stem.as_str() {
                 "quest" => EditorType::QuestScrEditor,
                 "message" => EditorType::MessageScrEditor,
-                _ => EditorType::Unknown,
+                _ => EditorType::HexEditor,
             },
             "btl" | "gtl" => EditorType::TilesetEditor,
             "dlg" => EditorType::DialogueScriptEditor,
@@ -111,7 +114,7 @@ impl EditorType {
             "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
             "map" => EditorType::MapEditor,
-            _ => EditorType::Unknown,
+            _ => EditorType::HexEditor,
         }
     }
 }
@@ -516,12 +519,13 @@ mod tests {
     }
 
     #[test]
-    fn test_editor_type_unknown() {
+    fn test_editor_type_unknown_falls_back_to_hex() {
+        // No dedicated editor matches → hex editor takes over.
         let path = PathBuf::from("/path/file.txt");
-        assert_eq!(EditorType::from_path(&path), EditorType::Unknown);
+        assert_eq!(EditorType::from_path(&path), EditorType::HexEditor);
 
         let path = PathBuf::from("/path/unknown.xyz");
-        assert_eq!(EditorType::from_path(&path), EditorType::Unknown);
+        assert_eq!(EditorType::from_path(&path), EditorType::HexEditor);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1083,22 +1087,23 @@ mod editor_type_tests {
     }
 
     #[test]
-    fn unknown_files_return_unknown() {
+    fn unknown_files_fall_back_to_hex_editor() {
+        // No dedicated handler → hex editor as universal fallback.
         assert_eq!(
             EditorType::from_path(Path::new("Unknown.xyz")),
-            EditorType::Unknown
+            EditorType::HexEditor
         );
         assert_eq!(
             EditorType::from_path(Path::new("Random.txt")),
-            EditorType::Unknown
+            EditorType::HexEditor
         );
         assert_eq!(
             EditorType::from_path(Path::new("Unknown.db")),
-            EditorType::Unknown
+            EditorType::HexEditor
         );
         assert_eq!(
             EditorType::from_path(Path::new("Unknown.ini")),
-            EditorType::Unknown
+            EditorType::HexEditor
         );
     }
 }

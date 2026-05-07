@@ -2,10 +2,10 @@
 use crate::app::App;
 use crate::editors::{
     all_map_ini, chdata, chest, dialogue_paragraph, dialogue_script, draw_item, edit_item,
-    event_ini, event_item, event_npc_ref, extra_ini, extra_ref, heal_item, localization_manager,
-    magic, map_editor, map_ini, message_scr, misc_item, mod_packager, monster, monster_ini,
-    monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref, quest_scr, snf_editor,
-    sprite_browser, store, tileset, wave_ini, weapon,
+    event_ini, event_item, event_npc_ref, extra_ini, extra_ref, heal_item, hex_editor,
+    localization_manager, magic, map_editor, map_ini, message_scr, misc_item, mod_packager,
+    monster, monster_ini, monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref,
+    quest_scr, snf_editor, sprite_browser, store, tileset, wave_ini, weapon,
 };
 use crate::message::editor::EditorMessage;
 use iced::Task;
@@ -47,6 +47,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::Snf(msg) => snf_editor::handle(msg, app),
         EditorMessage::ModPackager(msg) => mod_packager::handle(msg, app),
         EditorMessage::Localization(msg) => localization_manager::handle(msg, app),
+        EditorMessage::HexEditor(msg) => hex_editor::handle(msg, app),
     }
 }
 

@@ -121,6 +121,7 @@ impl App {
                             Some(EditorType::LocalizationManager) => {
                                 crate::editors::localization_manager::view(self)
                             }
+                            Some(EditorType::HexEditor) => crate::editors::hex_editor::view(self),
                             Some(EditorType::Unknown) | None => {
                                 let content: Element<'_, Message> =
                                     if self.state.recent_files.is_empty() {

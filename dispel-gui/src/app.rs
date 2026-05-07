@@ -5,6 +5,7 @@ use crate::components::tab_bar::TabBarMessage;
 use crate::editors::chest::ChestEditorMessage;
 use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
+use crate::editors::hex_editor::HexEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -559,6 +560,15 @@ impl App {
                         .snf_editors
                         .entry(tab_id)
                         .or_insert_with(|| SnfEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
+            EditorType::HexEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .hex_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| HexEditorState::load_from_path(path));
                 }
                 Task::none()
             }

@@ -12,6 +12,7 @@ use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
 use crate::editors::extra_ref::ExtraRefEditorState;
+use crate::editors::hex_editor::HexEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -89,6 +90,7 @@ pub struct AppState {
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
+    pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub lookups: HashMap<String, Vec<(String, String)>>,
@@ -313,6 +315,7 @@ impl AppState {
         self.npc_ref_spreadsheets.clear();
         self.map_editors.clear();
         self.snf_editors.clear();
+        self.hex_editors.clear();
 
         // Reset boxed editors to default state
         *self.weapon_editor = Default::default();
@@ -389,6 +392,7 @@ impl Default for AppState {
             map_editors: HashMap::new(),
             tileset_editors: HashMap::new(),
             snf_editors: HashMap::new(),
+            hex_editors: HashMap::new(),
             mod_packager_editor: mod_packager::ModPackagerState::default(),
             localization_manager: localization_manager::LocalizationManagerState::default(),
             lookups: HashMap::new(),
