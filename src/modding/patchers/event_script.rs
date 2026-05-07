@@ -12,28 +12,46 @@
 //! There is exactly one record per file (the file *is* the script; its `id`
 //! is derived from the filename, e.g. `Eventcat1.scr` → `id = "cat1"`-ish).
 //! So `record_id` is always `0`; anything else is rejected. Field paths
-//! are dotted to navigate the section + index + sub-field:
+//! are dotted to navigate the section + index + sub-field.
 //!
-//! | Path | Type | Notes |
-//! |---|---|---|
-//! | `header_comments.N` | string | replaces line N of the header block |
-//! | `variables.N.name` | string | rename of variable N |
-//! | `variables.N.value` | string | new value for variable N |
-//! | `map_content.N` | string | replace MAP line N |
-//! | `chr_content.N` | string | replace CHR line N |
-//! | `npc_content.N` | string | replace NPC line N |
-//! | `spr_content.N.sprite_alias` | string | rename sprite alias |
-//! | `spr_content.N.sprite_file` | string | swap sprite file |
-//! | `wav_content.N` | string | replace WAV line N |
-//! | `actions.N.prefix` | string \| null | object prefix (`Pope~setmappos`) |
-//! | `actions.N.function_name` | string | rename function call |
-//! | `actions.N.parameters` | string | comma-joined param list (replaces all) |
-//! | `actions.N.parameters.M` | string | replace one parameter |
-//! | `actions.N.raw_content` | string \| null | for control-flow lines (`{`, `}`, `if(...)`) |
+//! ### Element-level paths
 //!
-//! Indexes are zero-based and must already exist (no insertion). Out-of-range
-//! indexes return a `Malformed` error rather than silently growing the vec —
-//! a typo'd index in a recorded delta should fail loudly, not corrupt state.
+//! Address one element of a section's vec. Three operations:
+//!
+//! | Path & value | Effect |
+//! |---|---|
+//! | `<section>.N = String` with `N < len` | **replace** element N |
+//! | `<section>.N = String` with `N == len` | **append** new element |
+//! | `<section>.N = Null` with `N < len` | **delete** element N |
+//!
+//! For struct-shaped sections (`variables`, `spr_content`, `actions`), the
+//! `String` is parsed in the on-disk format for that section:
+//!
+//! | Section | Insert/replace string format |
+//! |---|---|
+//! | `variables` | `name=value` (must contain `=`) |
+//! | `spr_content` | `alias(file)` or just `alias` |
+//! | `actions` | any line — function call, brace, `if(...)`, etc. |
+//!
+//! ### Subfield paths
+//!
+//! Address one field inside an existing struct element. The element must
+//! already exist (insertion via subfield is not supported — use the bare
+//! element path with the on-disk format string instead).
+//!
+//! | Path | Type |
+//! |---|---|
+//! | `variables.N.name` / `variables.N.value` | string |
+//! | `spr_content.N.sprite_alias` / `spr_content.N.sprite_file` | string |
+//! | `actions.N.prefix` / `actions.N.raw_content` | string \| null |
+//! | `actions.N.function_name` | string |
+//! | `actions.N.parameters` | string (comma-joined, replaces all) |
+//! | `actions.N.parameters.M` | string (insert/replace) or null (delete) |
+//!
+//! Indexes are zero-based. Out-of-range writes (other than the one-past-end
+//! append) and out-of-range deletes return `Malformed` rather than silently
+//! growing or no-op'ing — a typo'd index in a recorded delta should fail
+//! loudly, not corrupt state.
 //!
 //! ## Why not derive?
 //!
@@ -47,7 +65,7 @@ use std::io::Cursor;
 use crate::modding::error::{ModdingError, Result};
 use crate::modding::patcher::{unknown_field, wrong_type, RecordPatcher};
 use crate::modding::value::Value;
-use crate::references::event_scr::EventScript;
+use crate::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
 use crate::references::extractor::Extractor;
 
 pub struct EventScriptPatcher;
@@ -86,7 +104,6 @@ impl RecordPatcher for EventScriptPatcher {
             .get_mut(0)
             .ok_or_else(|| ModdingError::Malformed(format!("{}: empty script", Self::RECORD_NAME)))?;
 
-        // Top-level non-vector fields first.
         if field == "id" {
             return Err(ModdingError::Malformed(format!(
                 "{}.id is derived from the filename and cannot be patched",
@@ -96,43 +113,28 @@ impl RecordPatcher for EventScriptPatcher {
 
         let mut parts = field.split('.');
         let section = parts.next().ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
+        let idx = take_index(field, &mut parts)?;
+        let sub = parts.next();
 
-        match section {
-            "header_comments" => {
-                let idx = take_index(field, &mut parts)?;
-                expect_no_more(field, &mut parts)?;
-                let s = expect_string(field, new)?;
-                set_at(field, &mut script.header_comments, idx, s)?;
+        match (section, sub) {
+            // ---- string-line sections ----
+            ("header_comments", None) => string_element_op(field, &mut script.header_comments, idx, new)?,
+            ("map_content", None) => string_element_op(field, &mut script.map_content, idx, new)?,
+            ("chr_content", None) => string_element_op(field, &mut script.chr_content, idx, new)?,
+            ("npc_content", None) => string_element_op(field, &mut script.npc_content, idx, new)?,
+            ("wav_content", None) => string_element_op(field, &mut script.wav_content, idx, new)?,
+
+            // ---- variables: insert/replace/delete a whole entry ----
+            ("variables", None) => {
+                if matches!(new, Value::Null) {
+                    delete_at(field, "variables", &mut script.variables, idx)?;
+                } else {
+                    let raw = expect_string(field, new)?;
+                    let var = parse_variable_line(field, &raw)?;
+                    insert_or_replace(field, "variables", &mut script.variables, idx, var)?;
+                }
             }
-            "map_content" => {
-                let idx = take_index(field, &mut parts)?;
-                expect_no_more(field, &mut parts)?;
-                let s = expect_string(field, new)?;
-                set_at(field, &mut script.map_content, idx, s)?;
-            }
-            "chr_content" => {
-                let idx = take_index(field, &mut parts)?;
-                expect_no_more(field, &mut parts)?;
-                let s = expect_string(field, new)?;
-                set_at(field, &mut script.chr_content, idx, s)?;
-            }
-            "npc_content" => {
-                let idx = take_index(field, &mut parts)?;
-                expect_no_more(field, &mut parts)?;
-                let s = expect_string(field, new)?;
-                set_at(field, &mut script.npc_content, idx, s)?;
-            }
-            "wav_content" => {
-                let idx = take_index(field, &mut parts)?;
-                expect_no_more(field, &mut parts)?;
-                let s = expect_string(field, new)?;
-                set_at(field, &mut script.wav_content, idx, s)?;
-            }
-            "variables" => {
-                let idx = take_index(field, &mut parts)?;
-                let sub = parts
-                    .next()
-                    .ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
+            ("variables", Some(sub)) => {
                 expect_no_more(field, &mut parts)?;
                 let len = script.variables.len();
                 let var = script
@@ -145,11 +147,18 @@ impl RecordPatcher for EventScriptPatcher {
                     _ => return Err(unknown_field(Self::RECORD_NAME, field)),
                 }
             }
-            "spr_content" => {
-                let idx = take_index(field, &mut parts)?;
-                let sub = parts
-                    .next()
-                    .ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
+
+            // ---- spr_content ----
+            ("spr_content", None) => {
+                if matches!(new, Value::Null) {
+                    delete_at(field, "spr_content", &mut script.spr_content, idx)?;
+                } else {
+                    let raw = expect_string(field, new)?;
+                    let spr = SpriteDefinition::parse(&raw);
+                    insert_or_replace(field, "spr_content", &mut script.spr_content, idx, spr)?;
+                }
+            }
+            ("spr_content", Some(sub)) => {
                 expect_no_more(field, &mut parts)?;
                 let len = script.spr_content.len();
                 let spr = script
@@ -162,11 +171,18 @@ impl RecordPatcher for EventScriptPatcher {
                     _ => return Err(unknown_field(Self::RECORD_NAME, field)),
                 }
             }
-            "actions" => {
-                let idx = take_index(field, &mut parts)?;
-                let sub = parts
-                    .next()
-                    .ok_or_else(|| unknown_field(Self::RECORD_NAME, field))?;
+
+            // ---- actions ----
+            ("actions", None) => {
+                if matches!(new, Value::Null) {
+                    delete_at(field, "actions", &mut script.actions, idx)?;
+                } else {
+                    let raw = expect_string(field, new)?;
+                    let act = ActionFunction::parse(&raw);
+                    insert_or_replace(field, "actions", &mut script.actions, idx, act)?;
+                }
+            }
+            ("actions", Some(sub)) => {
                 let len = script.actions.len();
                 let act = script
                     .actions
@@ -185,30 +201,32 @@ impl RecordPatcher for EventScriptPatcher {
                         expect_no_more(field, &mut parts)?;
                         act.raw_content = expect_optional_string(field, new)?;
                     }
-                    "parameters" => {
-                        // Either `actions.N.parameters` (replace all,
-                        // comma-joined) or `actions.N.parameters.M`
-                        // (replace one).
-                        match parts.next() {
-                            None => {
+                    "parameters" => match parts.next() {
+                        // `actions.N.parameters` — replace all (comma-joined).
+                        None => {
+                            let s = expect_string(field, new)?;
+                            act.parameters = if s.is_empty() {
+                                Vec::new()
+                            } else {
+                                s.split(',').map(|p| p.trim().to_string()).collect()
+                            };
+                        }
+                        // `actions.N.parameters.M` — single-param op.
+                        Some(m) => {
+                            expect_no_more(field, &mut parts)?;
+                            let pidx = parse_index(field, m)?;
+                            if matches!(new, Value::Null) {
+                                delete_at(field, "parameters", &mut act.parameters, pidx)?;
+                            } else {
                                 let s = expect_string(field, new)?;
-                                act.parameters = if s.is_empty() {
-                                    Vec::new()
-                                } else {
-                                    s.split(',').map(|p| p.trim().to_string()).collect()
-                                };
-                            }
-                            Some(m) => {
-                                expect_no_more(field, &mut parts)?;
-                                let pidx = parse_index(field, m)?;
-                                let s = expect_string(field, new)?;
-                                set_at(field, &mut act.parameters, pidx, s)?;
+                                insert_or_replace(field, "parameters", &mut act.parameters, pidx, s)?;
                             }
                         }
-                    }
+                    },
                     _ => return Err(unknown_field(Self::RECORD_NAME, field)),
                 }
             }
+
             _ => return Err(unknown_field(Self::RECORD_NAME, field)),
         }
 
@@ -267,10 +285,44 @@ fn expect_optional_string(field: &str, new: &Value) -> Result<Option<String>> {
     }
 }
 
-fn set_at(field: &str, vec: &mut [String], idx: usize, val: String) -> Result<()> {
+/// Element-level op for plain string vectors (`header_comments`, `map_content`, …).
+/// `Null` deletes; any string value inserts (when `idx == len`) or replaces.
+fn string_element_op(field: &str, vec: &mut Vec<String>, idx: usize, new: &Value) -> Result<()> {
+    if matches!(new, Value::Null) {
+        delete_at(field, "", vec, idx)
+    } else {
+        let s = expect_string(field, new)?;
+        insert_or_replace(field, "", vec, idx, s)
+    }
+}
+
+/// Replace the element at `idx`, or append when `idx == vec.len()`.
+/// Anything past the end is rejected.
+fn insert_or_replace<T>(
+    field: &str,
+    section: &str,
+    vec: &mut Vec<T>,
+    idx: usize,
+    val: T,
+) -> Result<()> {
     let len = vec.len();
-    let slot = vec.get_mut(idx).ok_or_else(|| index_oob(field, "", idx, len))?;
-    *slot = val;
+    if idx == len {
+        vec.push(val);
+        Ok(())
+    } else if idx < len {
+        vec[idx] = val;
+        Ok(())
+    } else {
+        Err(index_oob(field, section, idx, len))
+    }
+}
+
+fn delete_at<T>(field: &str, section: &str, vec: &mut Vec<T>, idx: usize) -> Result<()> {
+    let len = vec.len();
+    if idx >= len {
+        return Err(index_oob(field, section, idx, len));
+    }
+    vec.remove(idx);
     Ok(())
 }
 
@@ -280,6 +332,23 @@ fn index_oob(field: &str, section: &str, idx: usize, len: usize) -> ModdingError
         "{}: {where_} index {idx} out of range (have {len})",
         EventScriptPatcher::RECORD_NAME
     ))
+}
+
+/// Parse `name=value` for a `[VAR]` insert. Requires a literal `=`; the
+/// on-disk parser silently skips lines without one, but here that's
+/// almost certainly a malformed delta and we should surface it.
+fn parse_variable_line(field: &str, raw: &str) -> Result<Variable> {
+    let trimmed = raw.trim();
+    let eq = trimmed.find('=').ok_or_else(|| {
+        ModdingError::Malformed(format!(
+            "{}.{field}: variable insert requires `name=value`, got `{trimmed}`",
+            EventScriptPatcher::RECORD_NAME
+        ))
+    })?;
+    Ok(Variable {
+        name: trimmed[..eq].trim().to_string(),
+        value: trimmed[eq + 1..].trim().to_string(),
+    })
 }
 
 // ===================================================================== tests
@@ -318,6 +387,8 @@ mod tests {
             .unwrap()
             .remove(0)
     }
+
+    // --------------------------------------------------------- replace (existing)
 
     #[test]
     fn change_variable_value() {
@@ -410,7 +481,6 @@ mod tests {
     #[test]
     fn change_raw_control_flow_line() {
         let p = EventScriptPatcher;
-        // action 1 is the `{` brace; rewrite to `}`.
         let out = p
             .apply_field(
                 &sample(),
@@ -444,6 +514,148 @@ mod tests {
             .unwrap();
         assert_eq!(parse(&out).header_comments[0], "; Patched by tests");
     }
+
+    // --------------------------------------------------------- append
+
+    #[test]
+    fn append_string_line_at_end_of_section() {
+        let p = EventScriptPatcher;
+        // sample has 1 wav line; index 1 == len → append.
+        let out = p
+            .apply_field(&sample(), 0, "wav_content.1", &Value::String("wav2".into()))
+            .unwrap();
+        assert_eq!(parse(&out).wav_content, vec!["wav1", "wav2"]);
+    }
+
+    #[test]
+    fn append_variable_via_name_equals_value() {
+        let p = EventScriptPatcher;
+        // sample has 1 variable; index 1 == len → append.
+        let out = p
+            .apply_field(&sample(), 0, "variables.1", &Value::String("kills=0".into()))
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.variables.len(), 2);
+        assert_eq!(s.variables[1].name, "kills");
+        assert_eq!(s.variables[1].value, "0");
+    }
+
+    #[test]
+    fn append_sprite_definition() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &sample(),
+                0,
+                "spr_content.1",
+                &Value::String("King(KingWave.spr)".into()),
+            )
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.spr_content.len(), 2);
+        assert_eq!(s.spr_content[1].sprite_alias, "King");
+        assert_eq!(s.spr_content[1].sprite_file, "KingWave.spr");
+    }
+
+    #[test]
+    fn append_action_function_call() {
+        let p = EventScriptPatcher;
+        // sample.actions.len() == 2 → index 2 appends.
+        let out = p
+            .apply_field(
+                &sample(),
+                0,
+                "actions.2",
+                &Value::String("King~saypopup(42,1)".into()),
+            )
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.actions.len(), 3);
+        assert_eq!(s.actions[2].prefix.as_deref(), Some("King"));
+        assert_eq!(s.actions[2].function_name, "saypopup");
+        assert_eq!(s.actions[2].parameters, vec!["42", "1"]);
+    }
+
+    #[test]
+    fn append_action_parameter() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(
+                &sample(),
+                0,
+                "actions.0.parameters.2",
+                &Value::String("30".into()),
+            )
+            .unwrap();
+        assert_eq!(parse(&out).actions[0].parameters, vec!["10", "20", "30"]);
+    }
+
+    // --------------------------------------------------------- delete
+
+    #[test]
+    fn delete_string_line() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(&sample(), 0, "wav_content.0", &Value::Null)
+            .unwrap();
+        assert!(parse(&out).wav_content.is_empty());
+    }
+
+    #[test]
+    fn delete_variable() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(&sample(), 0, "variables.0", &Value::Null)
+            .unwrap();
+        assert!(parse(&out).variables.is_empty());
+    }
+
+    #[test]
+    fn delete_sprite_definition() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(&sample(), 0, "spr_content.0", &Value::Null)
+            .unwrap();
+        assert!(parse(&out).spr_content.is_empty());
+    }
+
+    #[test]
+    fn delete_action() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(&sample(), 0, "actions.0", &Value::Null)
+            .unwrap();
+        let s = parse(&out);
+        assert_eq!(s.actions.len(), 1);
+        // The remaining action is the `{` brace that originally lived at idx 1.
+        assert_eq!(s.actions[0].raw_content.as_deref(), Some("{"));
+    }
+
+    #[test]
+    fn delete_single_action_parameter() {
+        let p = EventScriptPatcher;
+        let out = p
+            .apply_field(&sample(), 0, "actions.0.parameters.0", &Value::Null)
+            .unwrap();
+        assert_eq!(parse(&out).actions[0].parameters, vec!["20"]);
+    }
+
+    #[test]
+    fn delete_then_append_round_trips() {
+        let p = EventScriptPatcher;
+        let after_delete = p
+            .apply_field(&sample(), 0, "variables.0", &Value::Null)
+            .unwrap();
+        let after_append = p
+            .apply_field(&after_delete, 0, "variables.0", &Value::String("respawn=10".into()))
+            .unwrap();
+        let s = parse(&after_append);
+        assert_eq!(s.variables.len(), 1);
+        assert_eq!(s.variables[0].name, "respawn");
+        assert_eq!(s.variables[0].value, "10");
+    }
+
+    // --------------------------------------------------------- error paths
 
     #[test]
     fn id_field_rejected() {
@@ -482,7 +694,27 @@ mod tests {
     }
 
     #[test]
-    fn out_of_range_index_rejected() {
+    fn write_past_end_rejected() {
+        let p = EventScriptPatcher;
+        // sample.variables.len() == 1 → idx 99 is neither replace (idx<len)
+        // nor append (idx==len), so reject.
+        let err = p
+            .apply_field(&sample(), 0, "variables.99", &Value::String("x=1".into()))
+            .unwrap_err();
+        assert!(err.to_string().contains("out of range"), "got: {err}");
+    }
+
+    #[test]
+    fn delete_past_end_rejected() {
+        let p = EventScriptPatcher;
+        let err = p
+            .apply_field(&sample(), 0, "variables.99", &Value::Null)
+            .unwrap_err();
+        assert!(err.to_string().contains("out of range"), "got: {err}");
+    }
+
+    #[test]
+    fn out_of_range_subfield_rejected() {
         let p = EventScriptPatcher;
         let err = p
             .apply_field(&sample(), 0, "variables.99.value", &Value::String("x".into()))
@@ -509,6 +741,15 @@ mod tests {
     }
 
     #[test]
+    fn variable_insert_without_equals_rejected() {
+        let p = EventScriptPatcher;
+        let err = p
+            .apply_field(&sample(), 0, "variables.1", &Value::String("kills".into()))
+            .unwrap_err();
+        assert!(err.to_string().contains("name=value"), "got: {err}");
+    }
+
+    #[test]
     fn full_round_trip_patch_changes_only_target_field() {
         let p = EventScriptPatcher;
         let original = sample();
@@ -517,7 +758,6 @@ mod tests {
             .unwrap();
         let s = parse(&out);
         assert_eq!(s.wav_content[0], "wav99");
-        // Other sections untouched.
         assert_eq!(s.variables[0].name, "spawn");
         assert_eq!(s.spr_content[0].sprite_alias, "Pope");
         assert_eq!(s.actions[0].function_name, "setmappos");
