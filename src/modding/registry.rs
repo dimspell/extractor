@@ -1,19 +1,29 @@
 //! Mapping from relative game-file paths to [`RecordPatcher`] handlers.
 //!
-//! Lookup is by **case-insensitive filename suffix**: registering
-//! `"MiscItem.db"` matches `CharacterInGame/MiscItem.db` regardless of the
-//! directory layout the user ships. This mirrors how the GUI's
-//! `EditorType::from_path` already routes catalog files.
+//! Two registration shapes:
+//!
+//! * **Exact filename** (case-insensitive on the last path component).
+//!   `MiscItem.db` matches `CharacterInGame/MiscItem.db` regardless of how
+//!   the user has nested it. Use [`Self::register`].
+//! * **Extension + stem-prefix pattern.** Used by catalogs whose filename
+//!   varies per map, e.g. `Extdun01.ref`, `Extfld01.ref`, ... — registered
+//!   once with `extension = "ref"`, `stem_prefix = "ext"`. Use
+//!   [`Self::register_pattern`].
+//!
+//! Lookup tries the exact-filename map first (O(1)), then falls back to the
+//! pattern list (O(N) but N is small).
 
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::patcher::RecordPatcher;
 
-/// Indexed collection of [`RecordPatcher`]s keyed by filename suffix.
+/// Indexed collection of [`RecordPatcher`]s.
 #[derive(Default, Clone)]
 pub struct PatcherRegistry {
     by_filename: HashMap<String, Arc<dyn RecordPatcher>>,
+    /// `(lowercase_extension, lowercase_stem_prefix, patcher)`.
+    patterns: Vec<(String, String, Arc<dyn RecordPatcher>)>,
 }
 
 impl PatcherRegistry {
@@ -22,16 +32,23 @@ impl PatcherRegistry {
     }
 
     /// Pre-populated registry containing every [`RecordPatcher`] dispel-core
-    /// ships out of the box. Each entry's filename comes from the
-    /// `#[patcher(filename = ...)]` constant on the generated patcher,
-    /// keeping the registration site single-sourced with the derive.
+    /// ships out of the box. Each entry's filename / pattern comes from the
+    /// `#[patcher(...)]` constants on the generated patcher, keeping the
+    /// registration site single-sourced with the derive.
     pub fn with_defaults() -> Self {
-        use super::patchers::{EditItemPatcher, EventItemPatcher, HealItemPatcher, MiscItemPatcher};
+        use super::patchers::{
+            EditItemPatcher, EventItemPatcher, ExtraRefPatcher, HealItemPatcher, MiscItemPatcher,
+        };
         let mut r = Self::new();
         r.register(MiscItemPatcher::FILENAME, Arc::new(MiscItemPatcher));
         r.register(HealItemPatcher::FILENAME, Arc::new(HealItemPatcher));
         r.register(EditItemPatcher::FILENAME, Arc::new(EditItemPatcher));
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
+        r.register_pattern(
+            ExtraRefPatcher::EXTENSION,
+            ExtraRefPatcher::STEM_PREFIX,
+            Arc::new(ExtraRefPatcher),
+        );
         r
     }
 
@@ -42,21 +59,53 @@ impl PatcherRegistry {
             .insert(filename.to_ascii_lowercase(), patcher);
     }
 
-    /// Look up the handler for a relative path, by its filename component.
+    /// Register a patcher matching every file whose extension equals
+    /// `extension` and whose filename stem starts with `stem_prefix`,
+    /// both compared case-insensitively.
+    pub fn register_pattern(
+        &mut self,
+        extension: &str,
+        stem_prefix: &str,
+        patcher: Arc<dyn RecordPatcher>,
+    ) {
+        self.patterns.push((
+            extension.to_ascii_lowercase(),
+            stem_prefix.to_ascii_lowercase(),
+            patcher,
+        ));
+    }
+
+    /// Look up the handler for a relative path. Tries the exact-filename
+    /// map first, then walks the pattern list.
     pub fn lookup(&self, relative_path: &str) -> Option<Arc<dyn RecordPatcher>> {
-        let filename = std::path::Path::new(relative_path)
-            .file_name()
+        let path = std::path::Path::new(relative_path);
+        let filename = path.file_name().and_then(|s| s.to_str())?.to_ascii_lowercase();
+        if let Some(p) = self.by_filename.get(&filename) {
+            return Some(p.clone());
+        }
+        let stem = path
+            .file_stem()
             .and_then(|s| s.to_str())?
             .to_ascii_lowercase();
-        self.by_filename.get(&filename).cloned()
+        let ext = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        for (pat_ext, pat_prefix, patcher) in &self.patterns {
+            if pat_ext == &ext && stem.starts_with(pat_prefix.as_str()) {
+                return Some(patcher.clone());
+            }
+        }
+        None
     }
 
     pub fn len(&self) -> usize {
-        self.by_filename.len()
+        self.by_filename.len() + self.patterns.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.by_filename.is_empty()
+        self.by_filename.is_empty() && self.patterns.is_empty()
     }
 }
 
@@ -88,6 +137,29 @@ mod tests {
     }
 
     #[test]
+    fn pattern_matches_by_extension_and_stem_prefix() {
+        let mut r = PatcherRegistry::new();
+        r.register_pattern("ref", "ext", Arc::new(Stub("extra")));
+
+        assert!(r.lookup("NpcInGame/Extdun01.ref").is_some());
+        assert!(r.lookup("NpcInGame/extfld02.ref").is_some());
+        assert!(r.lookup("NpcInGame/EXTBOSS.REF").is_some());
+        // Wrong extension — no match.
+        assert!(r.lookup("NpcInGame/Extdun01.db").is_none());
+        // Wrong prefix — no match.
+        assert!(r.lookup("NpcInGame/Npcdun01.ref").is_none());
+    }
+
+    #[test]
+    fn exact_match_wins_over_pattern() {
+        let mut r = PatcherRegistry::new();
+        r.register_pattern("ref", "ext", Arc::new(Stub("pattern")));
+        r.register("Extdun01.ref", Arc::new(Stub("exact")));
+        let p = r.lookup("NpcInGame/Extdun01.ref").unwrap();
+        assert_eq!(p.name(), "exact");
+    }
+
+    #[test]
     fn defaults_include_all_generated_patchers() {
         let r = PatcherRegistry::with_defaults();
         for path in [
@@ -95,6 +167,8 @@ mod tests {
             "CharacterInGame/HealItem.db",
             "CharacterInGame/EditItem.db",
             "CharacterInGame/EventItem.db",
+            "NpcInGame/Extdun01.ref",
+            "NpcInGame/Extfld02.ref",
         ] {
             assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
         }

@@ -182,6 +182,103 @@ mod tests {
         assert_eq!(&parse_event(&out)[0].padding[..], &bytes[..]);
     }
 
+    // -------------------------------------------------------------------- ExtraRef (pattern + complex enums)
+
+    fn extra_ref_blob() -> Vec<u8> {
+        let mut data = 1i32.to_le_bytes().to_vec();
+        let mut rec = vec![0u8; 184];
+        rec[0] = 1; // number_in_file
+        rec[2] = 3; // ext_id
+        rec[3..3 + 6].copy_from_slice(b"Chest1");
+        // x_pos at 36
+        rec[36..40].copy_from_slice(&10i32.to_le_bytes());
+        // y_pos at 40
+        rec[40..44].copy_from_slice(&20i32.to_le_bytes());
+        // gold at 80
+        rec[80..84].copy_from_slice(&50i32.to_le_bytes());
+        data.extend_from_slice(&rec);
+        data
+    }
+
+    fn parse_extra(b: &[u8]) -> Vec<crate::references::extra_ref::ExtraRef> {
+        crate::references::extra_ref::ExtraRef::parse(&mut Cursor::new(b), b.len() as u64).unwrap()
+    }
+
+    #[test]
+    fn extra_ref_string_field() {
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let out = p
+            .apply_field(
+                &extra_ref_blob(),
+                0,
+                "name",
+                &Value::String("Treasure".into()),
+            )
+            .unwrap();
+        assert_eq!(parse_extra(&out)[0].name, "Treasure");
+    }
+
+    #[test]
+    fn extra_ref_i32_primitive() {
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let out = p
+            .apply_field(&extra_ref_blob(), 0, "gold_amount", &Value::I64(9999))
+            .unwrap();
+        assert_eq!(parse_extra(&out)[0].gold_amount, 9999);
+    }
+
+    #[test]
+    fn extra_ref_vec_u8_field() {
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let bytes = vec![0xAA, 0xBB, 0xCC];
+        let out = p
+            .apply_field(&extra_ref_blob(), 0, "unknown2", &Value::Bytes(bytes.clone()))
+            .unwrap();
+        assert_eq!(parse_extra(&out)[0].unknown2, bytes);
+    }
+
+    #[test]
+    fn extra_ref_enum_from_i32_via_i64() {
+        // BooleanFlag::True discriminant = 1 (per references/enums.rs).
+        use crate::references::enums::BooleanFlag;
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let out = p
+            .apply_field(&extra_ref_blob(), 0, "closed", &Value::I64(1))
+            .unwrap();
+        let parsed = &parse_extra(&out)[0];
+        assert_ne!(parsed.closed, BooleanFlag::default());
+    }
+
+    #[test]
+    fn extra_ref_enum_from_i32_from_u8() {
+        // visibility uses enum_from_i32_from_u8(VisibilityType) — wire is u8.
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let out = p
+            .apply_field(&extra_ref_blob(), 0, "visibility", &Value::I64(1))
+            .unwrap();
+        // Round-trip should not panic; just verify parse succeeds.
+        assert!(!parse_extra(&out).is_empty());
+    }
+
+    #[test]
+    fn extra_ref_id_field_rejected() {
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let err = p
+            .apply_field(&extra_ref_blob(), 0, "id", &Value::I64(7))
+            .unwrap_err();
+        assert!(err.to_string().contains("positional"));
+    }
+
+    #[test]
+    fn extra_ref_padding_field_rejected() {
+        // unknown1 is declared as `padding(...)` in the struct.
+        let p = crate::modding::patchers::ExtraRefPatcher;
+        let err = p
+            .apply_field(&extra_ref_blob(), 0, "unknown1", &Value::I64(0))
+            .unwrap_err();
+        assert!(err.to_string().contains("synthetic padding"));
+    }
+
     #[test]
     fn event_array_wrong_length_errors() {
         let p = EventItemPatcher;

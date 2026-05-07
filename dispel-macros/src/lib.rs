@@ -1170,8 +1170,13 @@ pub fn derive_record_patcher(input: TokenStream) -> TokenStream {
     let patcher_ident = Ident::new(&format!("{name}Patcher"), Span::call_site());
     let name_str = name.to_string();
 
-    // Locate the required `#[patcher(filename = "...")]` struct attribute.
+    // Two forms of `#[patcher(...)]`:
+    //   1. `#[patcher(filename = "MiscItem.db")]`            — exact match
+    //   2. `#[patcher(extension = "ref", stem_prefix = "ext")]` — pattern,
+    //      for files whose name varies per map (`Extdun01.ref`, etc.).
     let mut filename: Option<String> = None;
+    let mut extension: Option<String> = None;
+    let mut stem_prefix: Option<String> = None;
     for attr in &input.attrs {
         if attr.path().is_ident("patcher") {
             attr.parse_nested_meta(|meta| {
@@ -1179,14 +1184,36 @@ pub fn derive_record_patcher(input: TokenStream) -> TokenStream {
                     let value = meta.value()?;
                     let lit: LitStr = value.parse()?;
                     filename = Some(lit.value());
+                } else if meta.path.is_ident("extension") {
+                    let value = meta.value()?;
+                    let lit: LitStr = value.parse()?;
+                    extension = Some(lit.value());
+                } else if meta.path.is_ident("stem_prefix") {
+                    let value = meta.value()?;
+                    let lit: LitStr = value.parse()?;
+                    stem_prefix = Some(lit.value());
                 }
                 Ok(())
             })
             .expect("Failed to parse #[patcher(...)] arguments");
         }
     }
-    let filename = filename
-        .expect("RecordPatcher requires #[patcher(filename = \"...\")] on the struct");
+    let key_consts = match (&filename, &extension, &stem_prefix) {
+        (Some(f), None, None) => quote! {
+            /// The relative filename this patcher targets (exact match).
+            pub const FILENAME: &'static str = #f;
+        },
+        (None, Some(ext), Some(prefix)) => quote! {
+            /// Extension this patcher matches (case-insensitive, no leading dot).
+            pub const EXTENSION: &'static str = #ext;
+            /// Filename-stem prefix this patcher matches (case-insensitive).
+            pub const STEM_PREFIX: &'static str = #prefix;
+        },
+        _ => panic!(
+            "RecordPatcher requires either #[patcher(filename = \"...\")] or \
+             #[patcher(extension = \"...\", stem_prefix = \"...\")] on the struct"
+        ),
+    };
 
     // Re-parse field-level #[extractor(...)] attributes via the existing helper.
     let fields = match &input.data {
@@ -1306,8 +1333,7 @@ pub fn derive_record_patcher(input: TokenStream) -> TokenStream {
         pub struct #patcher_ident;
 
         impl #patcher_ident {
-            /// The relative filename this patcher targets.
-            pub const FILENAME: &'static str = #filename;
+            #key_consts
             /// Human-readable record name, used in error messages.
             pub const RECORD_NAME: &'static str = #name_str;
         }
