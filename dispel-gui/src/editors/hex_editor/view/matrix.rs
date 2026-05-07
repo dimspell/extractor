@@ -10,12 +10,14 @@ use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::widget::{tree, Tree, Widget};
 use iced::advanced::{Clipboard, Renderer as _, Shell};
+use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{
-    alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Rectangle,
-    Shadow, Size,
+    alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Point,
+    Rectangle, Shadow, Size,
 };
 
+use crate::editors::hex_editor::selection::{NavDir, Selection};
 use crate::view::editor::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 type Paragraph = GraphicsParagraph;
@@ -41,27 +43,55 @@ pub struct State {
     pub dragging_scrollbar: bool,
     pub drag_start_cursor_y: f32,
     pub drag_start_offset: f32,
+    /// True while the user is actively drag-selecting bytes.
+    pub selecting: bool,
 }
 
 pub struct HexMatrix<'a, Message> {
     bytes: &'a [u8],
     bytes_per_row: u8,
+    selection: Selection,
     cache: ParagraphCache,
     width: Length,
     height: Length,
-    _phantom: std::marker::PhantomData<Message>,
+    on_select_at: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    on_extend_to: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    on_nav: Option<Box<dyn Fn(NavDir, bool) -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
-    pub fn new(bytes: &'a [u8], bytes_per_row: u8, cache: ParagraphCache) -> Self {
+    pub fn new(
+        bytes: &'a [u8],
+        bytes_per_row: u8,
+        selection: Selection,
+        cache: ParagraphCache,
+    ) -> Self {
         Self {
             bytes,
             bytes_per_row: bytes_per_row.max(1),
+            selection,
             cache,
             width: Length::Fill,
             height: Length::Fill,
-            _phantom: std::marker::PhantomData,
+            on_select_at: None,
+            on_extend_to: None,
+            on_nav: None,
         }
+    }
+
+    pub fn on_select_at(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_select_at = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_extend_to(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_extend_to = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_nav(mut self, f: impl Fn(NavDir, bool) -> Message + 'a) -> Self {
+        self.on_nav = Some(Box::new(f));
+        self
     }
 
     fn total_rows(&self) -> u64 {
@@ -75,6 +105,15 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     fn total_height(&self) -> f32 {
         self.total_rows() as f32 * ROW_HEIGHT
+    }
+
+    fn ascii_start_x(&self, bounds_x: f32) -> f32 {
+        let bpr = self.bytes_per_row as usize;
+        bounds_x
+            + ADDR_COL_WIDTH
+            + (bpr as f32) * HEX_CELL_WIDTH
+            + group_count(bpr) as f32 * GROUP_GAP
+            + COLUMN_GAP
     }
 }
 
@@ -102,6 +141,96 @@ pub fn visible_row_range(
 fn clamp_scroll(scroll: f32, total_height: f32, viewport_height: f32) -> f32 {
     let max_off = (total_height - viewport_height).max(0.0);
     scroll.clamp(0.0, max_off)
+}
+
+/// Number of complete rows that fit in `viewport_height`. Used both for
+/// PageUp/PageDown nav and for "ensure visible" math.
+fn page_rows(viewport_height: f32) -> u64 {
+    (viewport_height / ROW_HEIGHT).floor().max(1.0) as u64
+}
+
+/// Adjust `scroll` so that `addr` is visible. Returns the new scroll value.
+pub fn ensure_visible(
+    scroll: f32,
+    addr: u64,
+    bytes_per_row: u64,
+    viewport_height: f32,
+    total_height: f32,
+) -> f32 {
+    let bpr = bytes_per_row.max(1);
+    let row = addr / bpr;
+    let row_top = row as f32 * ROW_HEIGHT;
+    let row_bot = row_top + ROW_HEIGHT;
+    let scroll = if row_top < scroll {
+        row_top
+    } else if row_bot > scroll + viewport_height {
+        row_bot - viewport_height
+    } else {
+        scroll
+    };
+    clamp_scroll(scroll, total_height, viewport_height)
+}
+
+/// Hit-test: convert a screen point inside `bounds` to a byte address.
+/// Considers both the hex column and the ASCII column.
+pub fn addr_at(
+    point: Point,
+    bounds: Rectangle,
+    scroll: f32,
+    bytes_per_row: u8,
+    total_len: u64,
+) -> Option<u64> {
+    if total_len == 0 {
+        return None;
+    }
+    if !bounds.contains(point) {
+        return None;
+    }
+    let bpr = bytes_per_row.max(1) as f32;
+    let local_y = (point.y - bounds.y) + scroll;
+    if local_y < 0.0 {
+        return None;
+    }
+    let row = (local_y / ROW_HEIGHT) as u64;
+
+    let hex_start = bounds.x + ADDR_COL_WIDTH;
+    let bpr_usize = bytes_per_row.max(1) as usize;
+    let hex_end = hex_start + bpr * HEX_CELL_WIDTH + group_count(bpr_usize) as f32 * GROUP_GAP;
+    let ascii_start = hex_end + COLUMN_GAP;
+    let ascii_end = ascii_start + bpr * ASCII_CELL_WIDTH;
+
+    let col = if point.x >= hex_start && point.x < hex_end {
+        // Account for inter-group gaps when figuring out the column index.
+        let mut x = point.x - hex_start;
+        let mut col = 0u64;
+        for c in 0..bytes_per_row.max(1) as u64 {
+            let g = (c / 8) as f32;
+            let cell_l = c as f32 * HEX_CELL_WIDTH + g * GROUP_GAP;
+            let cell_r = cell_l + HEX_CELL_WIDTH;
+            if x < cell_r {
+                col = c;
+                x = -1.0; // sentinel: found
+                break;
+            }
+            col = c;
+        }
+        if x >= 0.0 {
+            // Past the last cell — clamp.
+            col = bytes_per_row.saturating_sub(1) as u64;
+        }
+        col
+    } else if point.x >= ascii_start && point.x < ascii_end {
+        ((point.x - ascii_start) / ASCII_CELL_WIDTH) as u64
+    } else {
+        return None;
+    };
+
+    let addr = row * bytes_per_row as u64 + col;
+    if addr >= total_len {
+        Some(total_len - 1)
+    } else {
+        Some(addr)
+    }
 }
 
 fn shape_glyph(cache: &ParagraphCache, glyph: &str, font: Font) -> Paragraph {
@@ -175,6 +304,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let state = tree.state.downcast_mut::<State>();
         let bounds = layout.bounds();
         let total_h = self.total_height();
+        let total_len = self.bytes.len() as u64;
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
@@ -196,6 +326,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
+                // Scrollbar takes precedence.
                 let scrollbar = scrollbar_track(bounds);
                 if scrollbar.contains(p) && total_h > bounds.height {
                     let thumb = scrollbar_thumb(scrollbar, state.scroll_offset, total_h);
@@ -204,7 +335,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         state.drag_start_cursor_y = p.y;
                         state.drag_start_offset = state.scroll_offset;
                     } else {
-                        // Click above/below thumb — page scroll toward cursor.
                         let dir = if p.y < thumb.y { -1.0 } else { 1.0 };
                         let new = clamp_scroll(
                             state.scroll_offset + dir * bounds.height,
@@ -215,29 +345,108 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         shell.request_redraw();
                     }
                     shell.capture_event();
+                    return;
+                }
+
+                // Cell click → selection.
+                if let Some(addr) = addr_at(
+                    p,
+                    bounds,
+                    state.scroll_offset,
+                    self.bytes_per_row,
+                    total_len,
+                ) {
+                    let shift = iced::keyboard::Modifiers::default(); // see note below
+                                                                      // We can't read modifiers from the mouse event in iced 0.14;
+                                                                      // shift-click extension is handled via a separate keyboard
+                                                                      // event flow (Shift+Arrow). True shift+mouse-click extend
+                                                                      // would need modifiers tracked elsewhere — for now, plain
+                                                                      // click sets, and dragging extends.
+                    let _ = shift;
+                    state.selecting = true;
+                    if let Some(cb) = &self.on_select_at {
+                        shell.publish(cb(addr));
+                    }
+                    shell.request_redraw();
+                    shell.capture_event();
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
-                if !state.dragging_scrollbar {
+                if state.dragging_scrollbar {
+                    let Some(p) = cursor.position() else { return };
+                    let scrollbar = scrollbar_track(bounds);
+                    let thumb_h = thumb_height(scrollbar, total_h);
+                    let travel = (scrollbar.height - thumb_h).max(1.0);
+                    let max_off = (total_h - bounds.height).max(1.0);
+                    let dy = p.y - state.drag_start_cursor_y;
+                    let new = state.drag_start_offset + dy * (max_off / travel);
+                    state.scroll_offset = clamp_scroll(new, total_h, bounds.height);
+                    shell.request_redraw();
+                    shell.capture_event();
                     return;
                 }
-                let Some(p) = cursor.position() else { return };
-                let scrollbar = scrollbar_track(bounds);
-                let thumb_h = thumb_height(scrollbar, total_h);
-                let travel = (scrollbar.height - thumb_h).max(1.0);
-                let max_off = (total_h - bounds.height).max(1.0);
-                let dy = p.y - state.drag_start_cursor_y;
-                let new = state.drag_start_offset + dy * (max_off / travel);
-                let new = clamp_scroll(new, total_h, bounds.height);
-                state.scroll_offset = new;
-                shell.request_redraw();
-                shell.capture_event();
+                if state.selecting {
+                    let Some(p) = cursor.position() else { return };
+                    if let Some(addr) = addr_at(
+                        p,
+                        bounds,
+                        state.scroll_offset,
+                        self.bytes_per_row,
+                        total_len,
+                    ) {
+                        if let Some(cb) = &self.on_extend_to {
+                            shell.publish(cb(addr));
+                        }
+                        shell.request_redraw();
+                        shell.capture_event();
+                    }
+                }
             }
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
-                if state.dragging_scrollbar =>
-            {
-                state.dragging_scrollbar = false;
-                shell.capture_event();
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
+                let mut consumed = false;
+                if state.dragging_scrollbar {
+                    state.dragging_scrollbar = false;
+                    consumed = true;
+                }
+                if state.selecting {
+                    state.selecting = false;
+                    consumed = true;
+                }
+                if consumed {
+                    shell.capture_event();
+                }
+            }
+            Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+                if !cursor.is_over(bounds) {
+                    return;
+                }
+                if modifiers.control() || modifiers.command() {
+                    let dir = match key {
+                        keyboard::Key::Named(key::Named::Home) => Some(NavDir::DocumentStart),
+                        keyboard::Key::Named(key::Named::End) => Some(NavDir::DocumentEnd),
+                        _ => None,
+                    };
+                    if let Some(dir) = dir {
+                        self.publish_nav(state, dir, modifiers.shift(), bounds, shell);
+                        shell.capture_event();
+                    }
+                    return;
+                }
+                let dir = match key {
+                    keyboard::Key::Named(key::Named::ArrowLeft) => Some(NavDir::Left),
+                    keyboard::Key::Named(key::Named::ArrowRight) => Some(NavDir::Right),
+                    keyboard::Key::Named(key::Named::ArrowUp) => Some(NavDir::Up),
+                    keyboard::Key::Named(key::Named::ArrowDown) => Some(NavDir::Down),
+                    keyboard::Key::Named(key::Named::Home) => Some(NavDir::LineStart),
+                    keyboard::Key::Named(key::Named::End) => Some(NavDir::LineEnd),
+                    keyboard::Key::Named(key::Named::PageUp) => Some(NavDir::PageUp),
+                    keyboard::Key::Named(key::Named::PageDown) => Some(NavDir::PageDown),
+                    _ => None,
+                };
+                if let Some(dir) = dir {
+                    self.publish_nav(state, dir, modifiers.shift(), bounds, shell);
+                    shell.capture_event();
+                }
             }
             _ => {}
         }
@@ -300,12 +509,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let zero_color = color!(0x4a4339);
         let ascii_color = color!(0xb8a898);
         let group_separator_color = color!(0x251f1a);
+        let selection_bg = color!(0x3b2a18);
+        let cursor_bg = color!(0x6a4a26);
+        let selection_text = color!(0xfff4e0);
 
         let hex_start_x = bounds.x + ADDR_COL_WIDTH;
-        let ascii_start_x = hex_start_x
-            + (bpr as f32) * HEX_CELL_WIDTH
-            + group_count(bpr) as f32 * GROUP_GAP
-            + COLUMN_GAP;
+        let ascii_start_x = self.ascii_start_x(bounds.x);
+        let sel_range = self.selection.range();
+        let cursor_addr = self.selection.cursor;
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
@@ -333,24 +544,42 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
             let row_bytes = &self.bytes[base_addr as usize..row_end];
 
             for (col, &b) in row_bytes.iter().enumerate() {
+                let addr = base_addr + col as u64;
                 let group = col / 8;
                 let cell_x = hex_start_x + col as f32 * HEX_CELL_WIDTH + group as f32 * GROUP_GAP;
-                let color = if b == 0 { zero_color } else { hex_color };
+                let ax = ascii_start_x + col as f32 * ASCII_CELL_WIDTH;
 
-                // Two nibbles, painted via the shared paragraph cache.
+                let in_sel = sel_range.contains(&addr);
+                if in_sel {
+                    let bg = if addr == cursor_addr {
+                        cursor_bg
+                    } else {
+                        selection_bg
+                    };
+                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, bg, clip);
+                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, bg, clip);
+                }
+
+                let color = if in_sel {
+                    selection_text
+                } else if b == 0 {
+                    zero_color
+                } else {
+                    hex_color
+                };
+                let ascii_col = if in_sel { selection_text } else { ascii_color };
+
                 let hi = shape_glyph(&self.cache, HEX_DIGITS[(b >> 4) as usize], font);
                 let lo = shape_glyph(&self.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
                 paint_glyph(renderer, &hi, cell_x, y, color, clip);
                 paint_glyph(renderer, &lo, cell_x + 8.0, y, color, clip);
 
                 let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
-                let ax = ascii_start_x + col as f32 * ASCII_CELL_WIDTH;
-                paint_glyph(renderer, &ascii, ax, y, ascii_color, clip);
+                paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
             }
         }
 
-        // Subtle vertical separator between every 8-byte group (drawn over
-        // the row content). Cheap because it's two fill_quads per group.
+        // Subtle vertical separator between every 8-byte group.
         for g in 1..group_count(bpr) {
             let x =
                 hex_start_x + (g * 8) as f32 * HEX_CELL_WIDTH + (g - 1) as f32 * GROUP_GAP + 4.0;
@@ -377,8 +606,76 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
     }
 }
 
+impl<Message> HexMatrix<'_, Message> {
+    fn publish_nav(
+        &self,
+        state: &mut State,
+        dir: NavDir,
+        extend: bool,
+        bounds: Rectangle,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        if self.bytes.is_empty() {
+            return;
+        }
+        if let Some(cb) = &self.on_nav {
+            shell.publish(cb(dir, extend));
+        }
+        // Optimistically mirror nav_target so we can scroll-into-view this
+        // frame instead of waiting for the next message round-trip.
+        let bpr = self.bytes_per_row as u64;
+        let max_addr = (self.bytes.len() as u64).saturating_sub(1);
+        let target = crate::editors::hex_editor::selection::nav_target(
+            self.selection.cursor,
+            dir,
+            bpr,
+            page_rows(bounds.height),
+            max_addr,
+        );
+        let new_scroll = ensure_visible(
+            state.scroll_offset,
+            target,
+            bpr,
+            bounds.height,
+            self.total_height(),
+        );
+        if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
+            state.scroll_offset = new_scroll;
+        }
+        shell.request_redraw();
+    }
+}
+
 fn group_count(bpr: usize) -> usize {
     bpr.div_ceil(8).saturating_sub(1)
+}
+
+fn fill_cell(
+    renderer: &mut iced::Renderer,
+    x: f32,
+    y: f32,
+    width: f32,
+    color: Color,
+    clip: Rectangle,
+) {
+    let cell = Rectangle {
+        x,
+        y,
+        width,
+        height: ROW_HEIGHT,
+    };
+    let Some(rect) = clip.intersection(&cell) else {
+        return;
+    };
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: rect,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
+        Background::Color(color),
+    );
 }
 
 fn paint_glyph(
@@ -519,6 +816,15 @@ where
 mod tests {
     use super::*;
 
+    fn make_bounds() -> Rectangle {
+        Rectangle {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 320.0,
+        }
+    }
+
     #[test]
     fn empty_provider_yields_empty_range() {
         assert_eq!(visible_row_range(0.0, 200.0, 16.0, 0, 2), 0..0);
@@ -526,7 +832,6 @@ mod tests {
 
     #[test]
     fn visible_range_with_zero_scroll() {
-        // 200/16 = 12.5 → ceil = 13; +overscan*2+1 = 18.
         let r = visible_row_range(0.0, 200.0, 16.0, 100, 2);
         assert_eq!(r.start, 0);
         assert_eq!(r.end, 18);
@@ -534,7 +839,6 @@ mod tests {
 
     #[test]
     fn visible_range_scrolled_into_middle() {
-        // scroll = 320 → row 20; first = 20-2 = 18; last = 18+18 = 36.
         let r = visible_row_range(320.0, 200.0, 16.0, 100, 2);
         assert_eq!(r.start, 18);
         assert_eq!(r.end, 36);
@@ -542,7 +846,6 @@ mod tests {
 
     #[test]
     fn visible_range_clamps_at_total() {
-        // Near-end scroll truncates to total_rows.
         let r = visible_row_range(2_000.0, 200.0, 16.0, 100, 2);
         assert!(r.end <= 100);
         assert!(r.start <= r.end);
@@ -563,7 +866,6 @@ mod tests {
 
     #[test]
     fn clamp_scroll_when_content_smaller_than_viewport() {
-        // total_h < viewport_height → max_off should be 0.
         assert_eq!(clamp_scroll(500.0, 100.0, 1000.0), 0.0);
     }
 
@@ -581,5 +883,87 @@ mod tests {
         assert_eq!(group_count(8), 0);
         assert_eq!(group_count(16), 1);
         assert_eq!(group_count(32), 3);
+    }
+
+    #[test]
+    fn ensure_visible_no_op_when_already_visible() {
+        let scroll = ensure_visible(0.0, 5 * 16, 16, 320.0, 1000.0);
+        assert_eq!(scroll, 0.0);
+    }
+
+    #[test]
+    fn ensure_visible_scrolls_down_when_target_below() {
+        // 320px viewport, row 100 → row_top = 1600, row_bot = 1616.
+        // new scroll = row_bot - viewport = 1616 - 320 = 1296.
+        let scroll = ensure_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
+        assert_eq!(scroll, 1296.0);
+    }
+
+    #[test]
+    fn ensure_visible_scrolls_up_when_target_above() {
+        // Cursor at row 5 (row_top=80) when scroll = 1000 → snap to 80.
+        let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
+        assert_eq!(scroll, 80.0);
+    }
+
+    #[test]
+    fn page_rows_at_least_one() {
+        assert_eq!(page_rows(0.0), 1);
+        assert_eq!(page_rows(160.0), 10);
+    }
+
+    #[test]
+    fn addr_at_hex_column_first_byte() {
+        let bounds = make_bounds();
+        // First hex cell starts at x = ADDR_COL_WIDTH (88), y = 0.
+        let p = Point::new(89.0, 4.0);
+        let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
+        assert_eq!(addr, 0);
+    }
+
+    #[test]
+    fn addr_at_hex_column_with_scroll() {
+        let bounds = make_bounds();
+        // scroll = 32 → first visible row is 2; click at top-left hex cell
+        // hits address 2*16 = 32.
+        let p = Point::new(89.0, 4.0);
+        let addr = addr_at(p, bounds, 32.0, 16, 1024).unwrap();
+        assert_eq!(addr, 32);
+    }
+
+    #[test]
+    fn addr_at_ascii_column() {
+        let bounds = make_bounds();
+        let ascii_start = ADDR_COL_WIDTH
+            + 16.0 * HEX_CELL_WIDTH
+            + group_count(16) as f32 * GROUP_GAP
+            + COLUMN_GAP;
+        // 3rd ASCII cell.
+        let p = Point::new(ascii_start + 2.0 * ASCII_CELL_WIDTH + 1.0, 4.0);
+        let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
+        assert_eq!(addr, 2);
+    }
+
+    #[test]
+    fn addr_at_outside_columns_returns_none() {
+        let bounds = make_bounds();
+        // Address gutter (x < 88).
+        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 16, 1024).is_none());
+    }
+
+    #[test]
+    fn addr_at_clamps_past_end_of_file() {
+        let bounds = make_bounds();
+        // Pretend file has 5 bytes total; clicking the 16th hex cell (col 15)
+        // should clamp to the last valid byte (4).
+        let p = Point::new(ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
+        let addr = addr_at(p, bounds, 0.0, 16, 5).unwrap();
+        assert_eq!(addr, 4);
+    }
+
+    #[test]
+    fn addr_at_empty_file_returns_none() {
+        let bounds = make_bounds();
+        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 16, 0).is_none());
     }
 }

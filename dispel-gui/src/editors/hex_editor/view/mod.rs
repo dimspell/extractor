@@ -1,11 +1,14 @@
+pub mod footer;
+pub mod inspector;
 pub mod matrix;
 
-use iced::widget::{column, container, text};
+use iced::widget::{column, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::app::App;
+use crate::editors::hex_editor::HexEditorMessage;
 use crate::editors::hex_editor::HexProvider;
-use crate::message::Message;
+use crate::message::{Message, MessageExt};
 use crate::view::editor::ParagraphCache;
 
 use self::matrix::HexMatrix;
@@ -52,19 +55,31 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .padding([6, 12])
     .width(Fill);
 
-    // The widget needs a long-lived ParagraphCache; store one per app and
-    // hand a cheap Arc-clone to the matrix each frame. For commit 1 we
-    // materialise a fresh cache per view call — paragraphs are reused
-    // within a frame even with a fresh cache (every glyph is shaped once
-    // per draw call), and the next commit will lift the cache onto state
-    // alongside selection / inspector data.
     let cache = ParagraphCache::default();
-    let matrix: Element<'_, Message> =
-        HexMatrix::new(editor.provider.as_slice(), editor.bytes_per_row, cache).into();
+    let matrix: Element<'_, Message> = HexMatrix::new(
+        editor.provider.as_slice(),
+        editor.bytes_per_row,
+        editor.selection,
+        cache,
+    )
+    .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
+    .on_extend_to(|addr| Message::hex_editor(HexEditorMessage::ExtendTo(addr)))
+    .on_nav(|dir, extend| Message::hex_editor(HexEditorMessage::Nav { dir, extend }))
+    .into();
 
-    column![header, container(matrix).width(Fill).height(Fill)]
-        .spacing(0)
-        .width(Fill)
-        .height(Fill)
-        .into()
+    let body = row![
+        container(matrix).width(Fill).height(Fill),
+        inspector::view(editor),
+    ]
+    .spacing(0);
+
+    column![
+        header,
+        container(body).width(Fill).height(Fill),
+        footer::view(editor)
+    ]
+    .spacing(0)
+    .width(Fill)
+    .height(Fill)
+    .into()
 }
