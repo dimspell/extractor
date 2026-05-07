@@ -38,12 +38,14 @@ impl PatcherRegistry {
     pub fn with_defaults() -> Self {
         use super::patchers::{
             EditItemPatcher, EventItemPatcher, ExtraRefPatcher, HealItemPatcher, MiscItemPatcher,
+            PartyLevelDbPatcher,
         };
         let mut r = Self::new();
         r.register(MiscItemPatcher::FILENAME, Arc::new(MiscItemPatcher));
         r.register(HealItemPatcher::FILENAME, Arc::new(HealItemPatcher));
         r.register(EditItemPatcher::FILENAME, Arc::new(EditItemPatcher));
         r.register(EventItemPatcher::FILENAME, Arc::new(EventItemPatcher));
+        r.register(PartyLevelDbPatcher::FILENAME, Arc::new(PartyLevelDbPatcher));
         r.register_pattern(
             ExtraRefPatcher::EXTENSION,
             ExtraRefPatcher::STEM_PREFIX,
@@ -169,6 +171,7 @@ mod tests {
             "CharacterInGame/EventItem.db",
             "NpcInGame/Extdun01.ref",
             "NpcInGame/Extfld02.ref",
+            "NpcInGame/PrtLevel.db",
         ] {
             assert!(r.lookup(path).is_some(), "registry missing handler for {path}");
         }
