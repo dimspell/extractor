@@ -7,6 +7,7 @@ use crate::references::enums::{EditItemEffect, EditItemModification};
 use crate::references::extractor::Extractor;
 use dispel_macros::Extractor;
 use dispel_macros::Localizable;
+use dispel_macros::RecordPatcher;
 
 /// EditItem.db - Modifiable Base Items
 ///
@@ -79,8 +80,9 @@ use dispel_macros::Localizable;
 /// Defines modifiable base items with stat modifications for
 /// character equipment. Used for item crafting and stat
 /// enhancement systems.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
 #[extractor(property_item_size = 268)]
+#[patcher(filename = "EditItem.db")]
 pub struct EditItem {
     /// Iteration tracking for editor modifications.
     #[extractor(index)]

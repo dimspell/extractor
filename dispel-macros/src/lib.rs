@@ -1128,3 +1128,285 @@ fn parse_text_extractor_attr(
         ty: field_ty,
     })
 }
+
+// ============================================================================
+// RecordPatcher Derive Macro
+// ============================================================================
+
+/// Derive macro that generates a [`crate::modding::patcher::RecordPatcher`]
+/// implementation by *reusing* the `#[extractor(...)]` attributes already on
+/// the struct. Emits a unit struct named `<Struct>Patcher;` alongside the
+/// trait impl, mirroring how hand-written patchers are organized.
+///
+/// # Struct attribute
+///
+/// `#[patcher(filename = "MiscItem.db")]` (required) — used as the patcher's
+/// `name()` (after stripping the extension) and exposed as
+/// `<Struct>Patcher::FILENAME` so [`PatcherRegistry`] can register it
+/// without duplicating the filename string.
+///
+/// # Field handling
+///
+/// Reuses the parsed `#[extractor(...)]` info on every field:
+///
+/// | Variant            | Behavior                                                   |
+/// |--------------------|------------------------------------------------------------|
+/// | `id` / `index`     | Rejected (positional, can't be patched).                  |
+/// | `string`           | Accepts `Value::String`.                                  |
+/// | `primitive(i16/i32/u8/u16/u32)` | Accepts `Value::I64` (range-checked) or `Value::String` (parsed). |
+/// | `enum_from_*`      | Accepts `Value::I64` (then via `from_*`) or `Value::String` parsed as int. |
+/// | `array(u8, size)`  | Accepts `Value::Bytes` of exactly `size` length.          |
+/// | `vec_u8(size)`     | Accepts `Value::Bytes` of exactly `size` length.          |
+/// | `padding`          | Rejected (synthetic).                                     |
+/// | `skip` / no attr   | Rejected ("unknown field").                               |
+///
+/// `Value::String` is accepted as a stand-in for any numeric/enum field so
+/// that recording mode (which currently emits stringly-typed deltas from
+/// text inputs) Just Works.
+#[proc_macro_derive(RecordPatcher, attributes(extractor, patcher))]
+pub fn derive_record_patcher(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &input.ident;
+    let patcher_ident = Ident::new(&format!("{name}Patcher"), Span::call_site());
+    let name_str = name.to_string();
+
+    // Locate the required `#[patcher(filename = "...")]` struct attribute.
+    let mut filename: Option<String> = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("patcher") {
+            attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("filename") {
+                    let value = meta.value()?;
+                    let lit: LitStr = value.parse()?;
+                    filename = Some(lit.value());
+                }
+                Ok(())
+            })
+            .expect("Failed to parse #[patcher(...)] arguments");
+        }
+    }
+    let filename = filename
+        .expect("RecordPatcher requires #[patcher(filename = \"...\")] on the struct");
+
+    // Re-parse field-level #[extractor(...)] attributes via the existing helper.
+    let fields = match &input.data {
+        Data::Struct(s) => match &s.fields {
+            Fields::Named(f) => &f.named,
+            _ => panic!("RecordPatcher only supports structs with named fields"),
+        },
+        _ => panic!("RecordPatcher can only be derived for structs"),
+    };
+
+    let mut field_arms: Vec<TokenStream2> = Vec::new();
+
+    for field in fields {
+        let field_ident = field.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+        let field_ty = &field.ty;
+        let attr = match field.attrs.iter().find(|a| a.path().is_ident("extractor")) {
+            Some(a) => a,
+            None => continue,
+        };
+        let (info, _, _) = parse_extractor_attr(attr, field_ident, field_ty);
+        let Some(info) = info else { continue };
+
+        let arm = match info {
+            FieldInfo::Id { .. } | FieldInfo::Index { .. } => quote! {
+                #field_name => {
+                    return Err(crate::modding::error::ModdingError::Malformed(format!(
+                        "{}.{} is positional and cannot be patched",
+                        Self::RECORD_NAME, #field_name
+                    )));
+                }
+            },
+            FieldInfo::String { ident, .. } => quote! {
+                #field_name => match new {
+                    crate::modding::value::Value::String(s) => rec.#ident = s.clone(),
+                    _ => return Err(crate::modding::patcher::wrong_type(
+                        Self::RECORD_NAME, #field_name, "string", new,
+                    )),
+                },
+            },
+            FieldInfo::Primitive { ident, ty } => primitive_arm(&field_name, ident, &ty),
+            FieldInfo::EnumFromU8 { ident, enum_ty } => {
+                enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
+            }
+            FieldInfo::EnumFromU32 { ident, enum_ty } => {
+                enum_arm(&field_name, ident, &enum_ty, "u32", "from_u32")
+            }
+            FieldInfo::EnumFromI16 { ident, enum_ty } => {
+                enum_arm(&field_name, ident, &enum_ty, "i16", "from_i16")
+            }
+            FieldInfo::EnumFromI32 { ident, enum_ty } => {
+                enum_arm(&field_name, ident, &enum_ty, "i32", "from_i32")
+            }
+            FieldInfo::EnumFromI32FromU8 { ident, enum_ty } => {
+                // Stored as u8 even though declared as i32-ish on the enum.
+                enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
+            }
+            FieldInfo::Array { ident, size, ty } => {
+                if ty != "u8" {
+                    panic!("RecordPatcher only supports array(type = \"u8\")");
+                }
+                quote! {
+                    #field_name => match new {
+                        crate::modding::value::Value::Bytes(b) if b.len() == #size => {
+                            let mut arr = [0u8; #size];
+                            arr.copy_from_slice(b);
+                            rec.#ident = arr;
+                        }
+                        crate::modding::value::Value::Bytes(_) => {
+                            return Err(crate::modding::error::ModdingError::Malformed(format!(
+                                "{}.{}: expected {} bytes, got {}",
+                                Self::RECORD_NAME, #field_name, #size,
+                                if let crate::modding::value::Value::Bytes(b) = new { b.len() } else { 0 }
+                            )));
+                        }
+                        _ => return Err(crate::modding::patcher::wrong_type(
+                            Self::RECORD_NAME, #field_name,
+                            concat!("bytes(", stringify!(#size), ")"), new,
+                        )),
+                    },
+                }
+            }
+            FieldInfo::VecU8 { ident, size } => quote! {
+                #field_name => match new {
+                    crate::modding::value::Value::Bytes(b) if b.len() == #size => {
+                        rec.#ident = b.clone();
+                    }
+                    crate::modding::value::Value::Bytes(_) => {
+                        return Err(crate::modding::error::ModdingError::Malformed(format!(
+                            "{}.{}: expected {} bytes, got {}",
+                            Self::RECORD_NAME, #field_name, #size,
+                            if let crate::modding::value::Value::Bytes(b) = new { b.len() } else { 0 }
+                        )));
+                    }
+                    _ => return Err(crate::modding::patcher::wrong_type(
+                        Self::RECORD_NAME, #field_name,
+                        concat!("bytes(", stringify!(#size), ")"), new,
+                    )),
+                },
+            },
+            FieldInfo::Padding { .. } => quote! {
+                #field_name => {
+                    return Err(crate::modding::error::ModdingError::Malformed(format!(
+                        "{}.{} is synthetic padding and cannot be patched",
+                        Self::RECORD_NAME, #field_name
+                    )));
+                }
+            },
+            FieldInfo::Skip => continue,
+        };
+        field_arms.push(arm);
+    }
+
+    let expanded = quote! {
+        /// Auto-generated patcher for the surrounding struct. See
+        /// [`crate::modding::patcher::RecordPatcher`].
+        pub struct #patcher_ident;
+
+        impl #patcher_ident {
+            /// The relative filename this patcher targets.
+            pub const FILENAME: &'static str = #filename;
+            /// Human-readable record name, used in error messages.
+            pub const RECORD_NAME: &'static str = #name_str;
+        }
+
+        impl crate::modding::patcher::RecordPatcher for #patcher_ident {
+            fn name(&self) -> &'static str {
+                Self::RECORD_NAME
+            }
+
+            fn apply_field(
+                &self,
+                bytes: &[u8],
+                record_id: u32,
+                field: &str,
+                new: &crate::modding::value::Value,
+            ) -> crate::modding::error::Result<Vec<u8>> {
+                use crate::references::extractor::Extractor as _;
+
+                let mut cursor = std::io::Cursor::new(bytes);
+                let mut records = #name::parse(&mut cursor, bytes.len() as u64)?;
+
+                let idx = record_id as usize;
+                if idx >= records.len() {
+                    return Err(crate::modding::patcher::out_of_range(
+                        Self::RECORD_NAME, record_id, records.len(),
+                    ));
+                }
+                let rec = &mut records[idx];
+
+                match field {
+                    #(#field_arms)*
+                    other => return Err(crate::modding::patcher::unknown_field(
+                        Self::RECORD_NAME, other,
+                    )),
+                }
+
+                let mut out = Vec::with_capacity(bytes.len());
+                #name::to_writer(&records, &mut out)?;
+                Ok(out)
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+/// Generate a `match` arm for a primitive numeric field. Accepts
+/// `Value::I64` (range-checked), `Value::F64` for `f` types (none yet),
+/// and `Value::String` (parsed) so recording-mode stringly deltas work.
+fn primitive_arm(field_name: &str, ident: &Ident, ty: &str) -> TokenStream2 {
+    let ty_ident = Ident::new(ty, Span::call_site());
+    let expected = ty.to_string();
+    quote! {
+        #field_name => match new {
+            crate::modding::value::Value::I64(v) => {
+                rec.#ident = (*v) as #ty_ident;
+            }
+            crate::modding::value::Value::String(s) => match s.trim().parse::<#ty_ident>() {
+                Ok(v) => rec.#ident = v,
+                Err(_) => return Err(crate::modding::patcher::wrong_type(
+                    Self::RECORD_NAME, #field_name, #expected, new,
+                )),
+            },
+            _ => return Err(crate::modding::patcher::wrong_type(
+                Self::RECORD_NAME, #field_name, #expected, new,
+            )),
+        },
+    }
+}
+
+/// Generate a `match` arm for an enum field. Accepts `Value::I64` (cast to
+/// the wire type, then `from_X`) and `Value::String` (parsed as the wire
+/// type). Falls back to `Default::default()` if the discriminant is invalid,
+/// matching the parse-side behavior in `Extractor`.
+fn enum_arm(
+    field_name: &str,
+    ident: &Ident,
+    enum_ty: &str,
+    wire_ty: &str,
+    from_fn: &str,
+) -> TokenStream2 {
+    let enum_ident = Ident::new(enum_ty, Span::call_site());
+    let wire_ident = Ident::new(wire_ty, Span::call_site());
+    let from_ident = Ident::new(from_fn, Span::call_site());
+    let expected = format!("i64 (discriminant of {})", enum_ty);
+    quote! {
+        #field_name => match new {
+            crate::modding::value::Value::I64(v) => {
+                rec.#ident = #enum_ident::#from_ident((*v) as #wire_ident).unwrap_or_default();
+            }
+            crate::modding::value::Value::String(s) => match s.trim().parse::<#wire_ident>() {
+                Ok(v) => rec.#ident = #enum_ident::#from_ident(v).unwrap_or_default(),
+                Err(_) => return Err(crate::modding::patcher::wrong_type(
+                    Self::RECORD_NAME, #field_name, #expected, new,
+                )),
+            },
+            _ => return Err(crate::modding::patcher::wrong_type(
+                Self::RECORD_NAME, #field_name, #expected, new,
+            )),
+        },
+    }
+}
