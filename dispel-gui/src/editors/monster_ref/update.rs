@@ -4,6 +4,7 @@ use dispel_core::{Extractor, MonsterIni};
 use iced::Task;
 
 use crate::app::App;
+use crate::components::editable::EditableRecord;
 use crate::editors::monster_ref::MonsterRefEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::message::MessageExt;
@@ -16,13 +17,39 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<crate::messag
         MonsterRefEditorMessage::SelectEntry(index) => {
             tab::select(&mut app.state.monster_ref_editors, tab_id, index)
         }
-        MonsterRefEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
-            &mut app.state.monster_ref_editors,
-            tab_id,
-            index,
-            field,
-            value,
-        ),
+        MonsterRefEditorMessage::FieldChanged(index, field, value) => {
+            let (old_value, orig_idx, file_path) = app
+                .state
+                .monster_ref_editors
+                .get(&tab_id)
+                .map(|e| {
+                    let (oidx, old) = e
+                        .editor
+                        .filtered
+                        .get(index)
+                        .map(|(i, r)| (*i as u32, r.get_field(&field)))
+                        .unwrap_or((0, String::new()));
+                    let fp = e.current_file.as_ref().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
+                    (old, oidx, fp)
+                })
+                .unwrap_or_default();
+            let new_value = value.clone();
+            let task = tab::field_changed(
+                &mut app.state.monster_ref_editors,
+                tab_id,
+                index,
+                field.clone(),
+                value,
+            );
+            let observe = if old_value != new_value {
+                crate::editors::mod_packager::recording::observe_field_change(
+                    app, file_path, orig_idx, &field, old_value, new_value,
+                )
+            } else {
+                iced::Task::none()
+            };
+            observe.chain(task)
+        }
         MonsterRefEditorMessage::Save => tab::save(
             &mut app.state.monster_ref_editors,
             tab_id,

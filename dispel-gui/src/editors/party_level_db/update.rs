@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::components::editable::EditableRecord;
 use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::handle_spreadsheet_messages;
 use crate::message::Message;
@@ -107,6 +108,16 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
         }
 
         PartyLevelDbEditorMessage::FieldChanged(level_idx, field, value) => {
+            // Capture old value for recording before the edit.
+            let (old_value, orig_idx) = app
+                .state
+                .party_level_db_level_editor
+                .state
+                .filtered
+                .get(level_idx)
+                .map(|(i, r)| (r.get_field(&field), *i as u32))
+                .unwrap_or((String::new(),0));
+            let new_value = value.clone();
             app.state
                 .party_level_db_level_editor
                 .update_field(level_idx, &field, value);
@@ -132,6 +143,18 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                     .compute_all_caches(&catalog);
             }
 
+            // Observe for recording.
+            if old_value != new_value {
+                let observe = crate::editors::mod_packager::recording::observe_field_change(
+                    app,
+                    "NpcInGame/PrtLevel.db",
+                    orig_idx,
+                    &field,
+                    old_value,
+                    new_value,
+                );
+                return observe;
+            }
             Task::none()
         }
 

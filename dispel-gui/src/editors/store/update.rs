@@ -99,7 +99,32 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             Task::none()
         }
         StoreEditorMessage::FieldChanged(index, field, value) => {
+            // Capture old value for recording before the edit.
+            let old_value = app.state.store_editor.filtered_stores.get(index).map(|(_, r)| {
+                match field.as_str() {
+                    "store_name" => r.store_name.clone(),
+                    "inn_night_cost" => r.inn_night_cost.to_string(),
+                    "some_unknown_number" => r.some_unknown_number.to_string(),
+                    "invitation" => r.invitation.clone(),
+                    "haggle_success" => r.haggle_success.clone(),
+                    "haggle_fail" => r.haggle_fail.clone(),
+                    _ => String::new(),
+                }
+            }).unwrap_or_default();
+            let new_value = value.clone();
             app.state.store_editor.update_field(index, &field, value);
+            // Observe for recording.
+            if old_value != new_value {
+                let observe = crate::editors::mod_packager::recording::observe_field_change(
+                    app,
+                    "CharacterInGame/STORE.DB",
+                    index as u32,
+                    &field,
+                    old_value,
+                    new_value,
+                );
+                return observe;
+            }
             Task::none()
         }
         StoreEditorMessage::SelectProduct(index) => {
