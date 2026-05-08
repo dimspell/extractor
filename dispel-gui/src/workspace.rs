@@ -114,7 +114,7 @@ impl EditorType {
                         _ => EditorType::HexEditor,
                     }
                 }
-            },
+            }
             "btl" | "gtl" => EditorType::TilesetEditor,
             "dlg" => EditorType::DialogueScriptEditor,
             "pgp" => EditorType::DialogueTextEditor,

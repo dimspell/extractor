@@ -1,6 +1,6 @@
+use super::state::SectionTab;
 use dispel_core::references::event_scr::EventScript;
 use std::path::PathBuf;
-use super::state::SectionTab;
 
 #[derive(Debug, Clone)]
 pub enum EventScrEditorMessage {
