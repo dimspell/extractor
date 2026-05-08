@@ -1,128 +1,93 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use crate::references::extractor::Extractor;
+use dispel_macros::{Extractor, RecordPatcher};
 use serde::{Deserialize, Serialize};
 
-use crate::references::extractor::Extractor;
-
-// ===========================================================================
-// CHDATA.DB FILE FORMAT
-// ===========================================================================
-//
-// ASCII Structure:
-//
-// +--------------------------------------+
-// | ChData.db - Character Statistics      |
-// +--------------------------------------+
-// | Encoding: Binary (Little-Endian)     |
-// | Record Size: 84 bytes                |
-// | Single-record file                  |
-// +--------------------------------------+
-// | [Header]                            |
-// | - magic: 4 bytes ("Item")            |
-// | - padding: 26 bytes                 |
-// +--------------------------------------+
-// | [Data Section]                      |
-// | - values: 16 × u16 (32 bytes)        |
-// | - padding: 2 bytes                  |
-// | - counts: 4 × u32 (16 bytes)         |
-// | - total: u32 (4 bytes)               |
-// +--------------------------------------+
-//
-// ===========================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct ChData {
-    pub magic: String,
-    pub values: Vec<u16>,
-    pub counts: Vec<u32>,
-    pub total: u32,
-}
-
-/// Stores global character statistics, counts, or internal game state properties.
+/// Stores information about the initial attributes during character creation.
 ///
 /// Reads file: `CharacterInGame/ChData.db`
-/// # File Format: `CharacterInGame/ChData.db`
-///
-/// Binary file, little-endian. Fixed-size single-record file:
-/// - Bytes 0–3   : magic signature (`Item` ASCII)
-/// - Bytes 4–29  : 26 bytes zero-padding (seek to offset 0x1E)
-/// - Bytes 30–61 : 16 × u16 values
-/// - Bytes 62–63 : 2 bytes padding (align to 0x40)
-/// - Bytes 64–79 : 4 × u32 counts
-/// - Bytes 80–83 : u32 total
-impl Extractor for ChData {
-    fn parse<R: Read + Seek>(reader: &mut R, _len: u64) -> std::io::Result<Vec<Self>> {
-        // Read magic "Item"
-        let mut magic_buf = [0u8; 4];
-        reader.read_exact(&mut magic_buf)?;
-        let magic = String::from_utf8_lossy(&magic_buf).to_string();
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
+#[extractor(property_item_size = 86)]
+#[patcher(filename = "ChData.db")]
+pub struct ChData {
+    /// Asset identifier string (unused).
+    #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    pub unused_name: String,
 
-        // Skip padding to 0x1E (30 bytes total from start: 4 magic + 26 padding)
-        reader.seek(SeekFrom::Start(30))?;
+    /// Strength attribute for Warrior character class
+    #[extractor(primitive(type = "i16"))]
+    pub warrior_strength: i16,
+    /// Constitution attribute for Warrior character class
+    #[extractor(primitive(type = "i16"))]
+    pub warrior_constitution: i16,
+    /// Wisdom attribute for Warrior character class
+    #[extractor(primitive(type = "i16"))]
+    pub warrior_wisdom: i16,
+    /// Agility attribute for Warrior character class
+    #[extractor(primitive(type = "i16"))]
+    pub warrior_agility: i16,
 
-        // Read 16 u16s
-        let mut values = Vec::with_capacity(16);
-        for _ in 0..16 {
-            values.push(reader.read_u16::<LittleEndian>()?);
-        }
+    /// Strength attribute for Knight character class
+    #[extractor(primitive(type = "i16"))]
+    pub knight_strength: i16,
+    /// Constitution attribute for Knight character class
+    #[extractor(primitive(type = "i16"))]
+    pub knight_constitution: i16,
+    /// Wisdom attribute for Knight character class
+    #[extractor(primitive(type = "i16"))]
+    pub knight_wisdom: i16,
+    /// Agility attribute for Knight character class
+    #[extractor(primitive(type = "i16"))]
+    pub knight_agility: i16,
 
-        // Skip padding (2 bytes) to 0x40 (64 bytes from start)
-        // 30 bytes + 16*2 bytes = 62 bytes. Need 2 bytes more to reach 64.
-        reader.seek(SeekFrom::Current(2))?;
+    /// Strength attribute for Archer character class
+    #[extractor(primitive(type = "i16"))]
+    pub archer_strength: i16,
+    /// Constitution attribute for Archer character class
+    #[extractor(primitive(type = "i16"))]
+    pub archer_constitution: i16,
+    /// Wisdom attribute for Archer character class
+    #[extractor(primitive(type = "i16"))]
+    pub archer_wisdom: i16,
+    /// Agility attribute for Archer character class
+    #[extractor(primitive(type = "i16"))]
+    pub archer_agility: i16,
 
-        // Read 4 u32s (counts of 5)
-        let mut counts = Vec::with_capacity(4);
-        for _ in 0..4 {
-            counts.push(reader.read_u32::<LittleEndian>()?);
-        }
+    /// Strength attribute for Mage character class
+    #[extractor(primitive(type = "i16"))]
+    pub mage_strength: i16,
+    /// Constitution attribute for Mage character class
+    #[extractor(primitive(type = "i16"))]
+    pub mage_constitution: i16,
+    /// Wisdom attribute for Mage character class
+    #[extractor(primitive(type = "i16"))]
+    pub mage_wisdom: i16,
+    /// Agility attribute for Mage character class
+    #[extractor(primitive(type = "i16"))]
+    pub mage_agility: i16,
 
-        // Read total (value 10)
-        let total = reader.read_u32::<LittleEndian>()?;
+    /// Extra attribute points during character creation for the Warrior class (unused)
+    #[extractor(primitive(type = "i32"))]
+    pub warrior_extra_points: i32,
+    /// Extra attribute points during character creation for the Knight class (unused)
+    #[extractor(primitive(type = "i32"))]
+    pub knight_extra_points: i32,
+    /// Extra attribute points during character creation for theArcher class (unused)
+    #[extractor(primitive(type = "i32"))]
+    pub archer_extra_points: i32,
+    /// Extra attribute points during character creation for the Mage class (unused)
+    #[extractor(primitive(type = "i32"))]
+    pub mage_extra_points: i32,
 
-        Ok(vec![ChData {
-            magic,
-            values,
-            counts,
-            total,
-        }])
-    }
-
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
-        if records.is_empty() {
-            return Ok(());
-        }
-        let record = &records[0];
-
-        let mut magic_buf = [0u8; 4];
-        let bytes = record.magic.as_bytes();
-        let len = std::cmp::min(bytes.len(), 4);
-        magic_buf[..len].copy_from_slice(&bytes[..len]);
-        writer.write_all(&magic_buf)?;
-
-        // Padding to 30 bytes
-        writer.write_all(&[0u8; 26])?;
-
-        for &val in &record.values {
-            writer.write_u16::<LittleEndian>(val)?;
-        }
-
-        // Padding of 2 bytes
-        writer.write_all(&[0u8; 2])?;
-
-        for &count in &record.counts {
-            writer.write_u32::<LittleEndian>(count)?;
-        }
-
-        writer.write_u32::<LittleEndian>(record.total)?;
-
-        Ok(())
-    }
+    /// Extra attribute points received after leveling up (in-game) (unused)
+    #[extractor(primitive(type = "i32"))]
+    pub extra_points_per_level: i32,
 }
 
-pub fn read_chdata(path: &Path) -> std::io::Result<Vec<ChData>> {
-    ChData::read_file(path)
+pub fn read_chdata(source_path: &Path) -> std::io::Result<Vec<ChData>> {
+    ChData::read_file(source_path)
 }
 
 #[cfg(test)]
@@ -156,8 +121,8 @@ mod tests {
         let records = ChData::parse(&mut c, 84).unwrap();
 
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].magic, "Item");
-        assert_eq!(records[0].values[0], 10);
+        assert_eq!(records[0].unused_name, "Unused");
+        assert_eq!(records[0].warrior_extra_points, 10);
         assert_eq!(records[0].values[1], 20);
         assert_eq!(records[0].values[2], 30);
         assert_eq!(records[0].counts, vec![5, 3, 1, 2]);
