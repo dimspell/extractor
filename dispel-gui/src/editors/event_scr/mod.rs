@@ -1,6 +1,5 @@
 // event_scr editor module — Custom multi-section editor for EventScript files
 
-mod component;
 pub mod state;
 pub mod message;
 pub mod update;
