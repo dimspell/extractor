@@ -33,6 +33,7 @@ pub enum EditorType {
     PartyRefEditor,
     PartyIniEditor,
     QuestScrEditor,
+    EventScrEditor,
     WaveIniEditor,
     AllMapIniEditor,
     ChestEditor,
@@ -103,10 +104,16 @@ impl EditorType {
                     }
                 }
             },
-            "scr" => match stem.as_str() {
-                "quest" => EditorType::QuestScrEditor,
-                "message" => EditorType::MessageScrEditor,
-                _ => EditorType::HexEditor,
+            "scr" => {
+                if stem.starts_with("event") {
+                    EditorType::EventScrEditor
+                } else {
+                    match stem.as_str() {
+                        "quest" => EditorType::QuestScrEditor,
+                        "message" => EditorType::MessageScrEditor,
+                        _ => EditorType::HexEditor,
+                    }
+                }
             },
             "btl" | "gtl" => EditorType::TilesetEditor,
             "dlg" => EditorType::DialogueScriptEditor,

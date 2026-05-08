@@ -18,6 +18,7 @@ pub mod edit_item;
 pub mod event_ini;
 pub mod event_item;
 pub mod event_npc_ref;
+pub mod event_scr;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod heal_item;

@@ -110,6 +110,10 @@ impl App {
                             Some(EditorType::QuestScrEditor) => {
                                 crate::editors::quest_scr::view(self)
                             }
+                            Some(EditorType::EventScrEditor) => {
+                                crate::editors::event_scr::view(self)
+                                    .map(|msg| crate::message::Message::Editor(crate::message::editor::EditorMessage::EventScr(msg)))
+                            }
                             Some(EditorType::WaveIniEditor) => crate::editors::wave_ini::view(self),
                             Some(EditorType::ChDataEditor) => crate::editors::chdata::view(self),
                             Some(EditorType::TilesetEditor) => crate::editors::tileset::view(self),

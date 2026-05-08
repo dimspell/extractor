@@ -33,6 +33,7 @@ use crate::editors::party_ini::PartyIniEditorMessage;
 use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::editors::party_ref::PartyRefEditorMessage;
 use crate::editors::quest_scr::QuestScrEditorMessage;
+use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::snf_editor::SnfEditorMessage;
 use crate::editors::sprite_browser::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
@@ -70,6 +71,7 @@ pub enum EditorMessage {
     NpcRef(NpcRefEditorMessage),
     PartyLevelDb(PartyLevelDbEditorMessage),
     QuestScr(QuestScrEditorMessage),
+    EventScr(EventScrEditorMessage),
     WaveIni(WaveIniEditorMessage),
     ChData(ChDataEditorMessage),
     MapEditor(MapEditorMessage),

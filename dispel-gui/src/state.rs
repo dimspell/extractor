@@ -23,6 +23,7 @@ use crate::editors::npc_ini::NpcIniEditorState;
 use crate::editors::npc_ref::NpcRefEditorState;
 use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
+use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
@@ -85,6 +86,7 @@ pub struct AppState {
     pub party_level_db_editor: Box<PartyLevelDbEditorState>,
     pub party_level_db_level_editor: Box<StandardEditor<dispel_core::PartyLevelRecord>>,
     pub quest_scr_editor: Box<QuestScrEditorState>,
+    pub event_scr_editor: Box<EventScriptEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
     pub map_editors: HashMap<usize, MapEditorState>,
@@ -387,6 +389,7 @@ impl Default for AppState {
             party_level_db_editor: Box::default(),
             party_level_db_level_editor: Box::default(),
             quest_scr_editor: Box::default(),
+            event_scr_editor: Box::default(),
             wave_ini_editor: Box::default(),
             chdata_editor: Box::default(),
             map_editors: HashMap::new(),
