@@ -1,19 +1,60 @@
-use crate::components::generic_editor::GenericEditorState;
 use dispel_core::references::event_scr::EventScript;
+use std::path::PathBuf;
 
-pub type EventScriptEditorState = GenericEditorState<EventScript>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SectionTab {
+    #[default]
+    Header,
+    Var,
+    Map,
+    Chr,
+    Npc,
+    Spr,
+    Wav,
+    Act,
+}
 
-impl EventScriptEditorState {
-    pub fn current_section(&self) -> String {
-        self.catalog
-            .as_ref()
-            .and_then(|c| c.first())
-            .map(|_| "VAR".to_string())
-            .unwrap_or_default()
+impl SectionTab {
+    pub fn label(&self) -> &'static str {
+        match self {
+            SectionTab::Header => "Header",
+            SectionTab::Var => "VAR",
+            SectionTab::Map => "MAP",
+            SectionTab::Chr => "CHR",
+            SectionTab::Npc => "NPC",
+            SectionTab::Spr => "SPR",
+            SectionTab::Wav => "WAV",
+            SectionTab::Act => "ACT",
+        }
     }
 
-    pub fn set_current_section(&mut self, section: String) {
-        // In a real implementation, this would switch which section's data is edited
-        let _ = section;
+    pub fn all() -> Vec<SectionTab> {
+        vec![
+            SectionTab::Header,
+            SectionTab::Var,
+            SectionTab::Map,
+            SectionTab::Chr,
+            SectionTab::Npc,
+            SectionTab::Spr,
+            SectionTab::Wav,
+            SectionTab::Act,
+        ]
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct EventScriptEditorState {
+    pub script: Option<EventScript>,
+    pub file_path: Option<PathBuf>,
+    pub active_section: SectionTab,
+    pub modified: bool,
+    pub load_error: Option<String>,
+    pub save_error: Option<String>,
+    pub act_parse_errors: Vec<(usize, String)>,
+}
+
+impl EventScriptEditorState {
+    pub fn is_loaded(&self) -> bool {
+        self.script.is_some() && self.load_error.is_none()
     }
 }

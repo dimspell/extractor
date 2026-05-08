@@ -1,24 +1,38 @@
-use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
+use dispel_core::references::event_scr::EventScript;
+use std::path::PathBuf;
+use super::state::SectionTab;
 
 #[derive(Debug, Clone)]
 pub enum EventScrEditorMessage {
     // Section switching
-    SectionChanged(String),
+    SectionChanged(SectionTab),
     // Variable actions
-    VariableAdded(usize, Variable),
-    VariableEdited(usize, Variable),
+    VariableAdded,
+    VariableNameChanged(usize, String),
+    VariableValueChanged(usize, String),
     VariableDeleted(usize),
+    // MAP/CHR/NPC/WAV line actions
+    LineAdded(SectionTab),
+    LineContentChanged(SectionTab, usize, String),
+    LineDeleted(SectionTab, usize),
     // Sprite actions
-    SpriteAdded(usize, SpriteDefinition),
-    SpriteEdited(usize, SpriteDefinition),
+    SpriteAdded,
+    SpriteAliasChanged(usize, String),
+    SpriteFileChanged(usize, String),
     SpriteDeleted(usize),
     // Action function actions
-    ActionAdded(usize, ActionFunction),
-    ActionEdited(usize, ActionFunction),
+    ActionAdded,
+    ActionRawAdded,
+    ActionPrefixChanged(usize, String),
+    ActionFunctionChanged(usize, String),
+    ActionParamsChanged(usize, String),
+    ActionRawContentChanged(usize, String),
     ActionDeleted(usize),
     // File operations
-    Loaded(EventScript),
+    LoadScript(PathBuf),
+    ScriptLoaded(EventScript),
     LoadError(String),
-    Saved,
+    SaveScript,
+    SaveSuccess,
     SaveError(String),
 }

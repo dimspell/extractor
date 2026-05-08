@@ -586,6 +586,13 @@ impl App {
                     crate::editors::map_editor::MapEditorMessage::Open(tab_id, path.to_path_buf()),
                 ))
             }
+            EditorType::EventScrEditor => {
+                let path_buf = path.to_path_buf();
+                self.state.event_scr_editor.file_path = Some(path_buf.clone());
+                Task::done(Message::Editor(crate::message::editor::EditorMessage::EventScr(
+                    crate::editors::event_scr::message::EventScrEditorMessage::LoadScript(path_buf)
+                )))
+            }
             et => load_catalog_task(et).unwrap_or(Task::none()),
         }
     }

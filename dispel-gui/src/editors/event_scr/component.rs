@@ -17,39 +17,39 @@ impl EditableRecord for EventScript {
                 kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "variable_count",
-                label: "Variable Count:",
-                kind: FieldKind::Integer,
+                name: "variables",
+                label: "Variables (name=value):",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "map_content_count",
-                label: "Map Content Count:",
-                kind: FieldKind::Integer,
+                name: "map_content",
+                label: "Map Content:",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "chr_content_count",
-                label: "Character Content Count:",
-                kind: FieldKind::Integer,
+                name: "chr_content",
+                label: "Character Content:",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "npc_content_count",
-                label: "NPC Content Count:",
-                kind: FieldKind::Integer,
+                name: "npc_content",
+                label: "NPC Content:",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "spr_content_count",
-                label: "Sprite Count:",
-                kind: FieldKind::Integer,
+                name: "spr_content",
+                label: "Sprites (alias(file)):",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "wav_content_count",
-                label: "Sound Count:",
-                kind: FieldKind::Integer,
+                name: "wav_content",
+                label: "Sounds:",
+                kind: FieldKind::TextArea,
             },
             FieldDescriptor {
-                name: "action_count",
-                label: "Action Count:",
-                kind: FieldKind::Integer,
+                name: "actions",
+                label: "Actions:",
+                kind: FieldKind::TextArea,
             },
         ]
     }
@@ -58,13 +58,25 @@ impl EditableRecord for EventScript {
         match field {
             "id" => self.id.to_string(),
             "header_comments" => self.header_comments.join("\n"),
-            "variable_count" => self.variables.len().to_string(),
-            "map_content_count" => self.map_content.len().to_string(),
-            "chr_content_count" => self.chr_content.len().to_string(),
-            "npc_content_count" => self.npc_content.len().to_string(),
-            "spr_content_count" => self.spr_content.len().to_string(),
-            "wav_content_count" => self.wav_content.len().to_string(),
-            "action_count" => self.actions.len().to_string(),
+            "variables" => self.variables
+                .iter()
+                .map(|v| format!("{}={}", v.name, v.value))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            "map_content" => self.map_content.join("\n"),
+            "chr_content" => self.chr_content.join("\n"),
+            "npc_content" => self.npc_content.join("\n"),
+            "spr_content" => self.spr_content
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            "wav_content" => self.wav_content.join("\n"),
+            "actions" => self.actions
+                .iter()
+                .map(|a| a.to_string())
+                .collect::<Vec<_>>()
+                .join("\n"),
             _ => String::new(),
         }
     }
@@ -74,6 +86,69 @@ impl EditableRecord for EventScript {
             "id" => set_int(&mut self.id, value),
             "header_comments" => {
                 self.header_comments = value.lines().map(|s| s.to_string()).collect();
+                true
+            }
+            "variables" => {
+                self.variables = value
+                    .lines()
+                    .filter_map(|line| {
+                        let line = line.trim();
+                        if line.is_empty() {
+                            return None;
+                        }
+                        let parts: Vec<&str> = line.splitn(2, '=').collect();
+                        if parts.len() == 2 {
+                            Some(dispel_core::references::event_scr::Variable {
+                                name: parts[0].trim().to_string(),
+                                value: parts[1].trim().to_string(),
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                true
+            }
+            "map_content" => {
+                self.map_content = value.lines().map(|s| s.to_string()).collect();
+                true
+            }
+            "chr_content" => {
+                self.chr_content = value.lines().map(|s| s.to_string()).collect();
+                true
+            }
+            "npc_content" => {
+                self.npc_content = value.lines().map(|s| s.to_string()).collect();
+                true
+            }
+            "spr_content" => {
+                self.spr_content = value
+                    .lines()
+                    .filter_map(|line| {
+                        let line = line.trim();
+                        if line.is_empty() {
+                            return None;
+                        }
+                        Some(dispel_core::references::event_scr::SpriteDefinition::parse(line))
+                    })
+                    .collect();
+                true
+            }
+            "wav_content" => {
+                self.wav_content = value.lines().map(|s| s.to_string()).collect();
+                true
+            }
+            "actions" => {
+                self.actions = value
+                    .lines()
+                    .filter_map(|line| {
+                        let line = line.trim();
+                        if line.is_empty() {
+                            return None;
+                        }
+                        Some(dispel_core::references::event_scr::ActionFunction::parse(line))
+                    })
+                    .collect();
                 true
             }
             _ => false,
@@ -97,7 +172,7 @@ impl EditableRecord for EventScript {
     }
 
     fn detail_width() -> f32 {
-        360.0
+        500.0
     }
 }
 
@@ -131,5 +206,21 @@ mod tests {
     fn test_list_label() {
         let script = EventScript { id: 3, ..Default::default() };
         assert_eq!(script.list_label(), "EventScript [3]");
+    }
+
+    #[test]
+    fn test_set_variables() {
+        let mut script = EventScript::default();
+        assert!(script.set_field("variables", "spawn=5\nhealth=100".to_string()));
+        assert_eq!(script.variables.len(), 2);
+        assert_eq!(script.variables[0].name, "spawn");
+        assert_eq!(script.variables[0].value, "5");
+    }
+
+    #[test]
+    fn test_set_actions() {
+        let mut script = EventScript::default();
+        assert!(script.set_field("actions", "do_action(1)\nif(cond)".to_string()));
+        assert_eq!(script.actions.len(), 2);
     }
 }

@@ -1,59 +1,252 @@
 use crate::app::App;
 use crate::editors::event_scr::message::EventScrEditorMessage;
+use crate::editors::event_scr::state::{EventScriptEditorState, SectionTab};
 use crate::message::Message;
-use dispel_core::references::event_scr::EventScript;
+use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
 use iced::Task;
 
 pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
+    let state: &mut EventScriptEditorState = &mut app.state.event_scr_editor;
     match message {
-        EventScrEditorMessage::SectionChanged(section) => {
-            app.state.event_scr_editor.set_current_section(section);
+        EventScrEditorMessage::SectionChanged(tab) => {
+            state.active_section = tab;
+            Task::none()
         }
-        EventScrEditorMessage::VariableAdded(_index, _variable) => {
-            if let Some(ref mut catalog) = app.state.event_scr_editor.catalog {
-                if _index <= catalog.len() {
-                    catalog.insert(_index, EventScript::default());
+        EventScrEditorMessage::VariableAdded => {
+            if let Some(ref mut script) = state.script {
+                script.variables.push(Variable { name: String::new(), value: String::new() });
+                state.modified = true;
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::VariableNameChanged(index, name) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(var) = script.variables.get_mut(index) {
+                    var.name = name;
+                    state.modified = true;
                 }
             }
+            Task::none()
         }
-        EventScrEditorMessage::VariableEdited(_index, _variable) => {
-            // Edit variable logic
+        EventScrEditorMessage::VariableValueChanged(index, value) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(var) = script.variables.get_mut(index) {
+                    var.value = value;
+                    state.modified = true;
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::VariableDeleted(_index) => {
-            // Delete variable logic
+        EventScrEditorMessage::VariableDeleted(index) => {
+            if let Some(ref mut script) = state.script {
+                if index < script.variables.len() {
+                    script.variables.remove(index);
+                    state.modified = true;
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::SpriteAdded(_index, _sprite) => {
-            // Add sprite logic
+        EventScrEditorMessage::LineAdded(section) => {
+            if let Some(ref mut script) = state.script {
+                match section {
+                    SectionTab::Map => script.map_content.push(String::new()),
+                    SectionTab::Chr => script.chr_content.push(String::new()),
+                    SectionTab::Npc => script.npc_content.push(String::new()),
+                    SectionTab::Wav => script.wav_content.push(String::new()),
+                    _ => {}
+                }
+                state.modified = true;
+            }
+            Task::none()
         }
-        EventScrEditorMessage::SpriteEdited(_index, _sprite) => {
-            // Edit sprite logic
+        EventScrEditorMessage::LineContentChanged(section, index, content) => {
+            if let Some(ref mut script) = state.script {
+                match section {
+                    SectionTab::Map if index < script.map_content.len() => {
+                        script.map_content[index] = content;
+                        state.modified = true;
+                    }
+                    SectionTab::Chr if index < script.chr_content.len() => {
+                        script.chr_content[index] = content;
+                        state.modified = true;
+                    }
+                    SectionTab::Npc if index < script.npc_content.len() => {
+                        script.npc_content[index] = content;
+                        state.modified = true;
+                    }
+                    SectionTab::Wav if index < script.wav_content.len() => {
+                        script.wav_content[index] = content;
+                        state.modified = true;
+                    }
+                    _ => {}
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::SpriteDeleted(_index) => {
-            // Delete sprite logic
+        EventScrEditorMessage::LineDeleted(section, index) => {
+            if let Some(ref mut script) = state.script {
+                match section {
+                    SectionTab::Map if index < script.map_content.len() => {
+                        script.map_content.remove(index);
+                        state.modified = true;
+                    }
+                    SectionTab::Chr if index < script.chr_content.len() => {
+                        script.chr_content.remove(index);
+                        state.modified = true;
+                    }
+                    SectionTab::Npc if index < script.npc_content.len() => {
+                        script.npc_content.remove(index);
+                        state.modified = true;
+                    }
+                    SectionTab::Wav if index < script.wav_content.len() => {
+                        script.wav_content.remove(index);
+                        state.modified = true;
+                    }
+                    _ => {}
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::ActionAdded(_index, _action) => {
-            // Add action logic
+        EventScrEditorMessage::SpriteAdded => {
+            if let Some(ref mut script) = state.script {
+                script.spr_content.push(SpriteDefinition { sprite_alias: String::new(), sprite_file: String::new() });
+                state.modified = true;
+            }
+            Task::none()
         }
-        EventScrEditorMessage::ActionEdited(_index, _action) => {
-            // Edit action logic
+        EventScrEditorMessage::SpriteAliasChanged(index, alias) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(spr) = script.spr_content.get_mut(index) {
+                    spr.sprite_alias = alias;
+                    state.modified = true;
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::ActionDeleted(_index) => {
-            // Delete action logic
+        EventScrEditorMessage::SpriteFileChanged(index, file) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(spr) = script.spr_content.get_mut(index) {
+                    spr.sprite_file = file;
+                    state.modified = true;
+                }
+            }
+            Task::none()
         }
-        EventScrEditorMessage::Loaded(script) => {
-            app.state.event_scr_editor.catalog = Some(vec![script]);
-        },
+        EventScrEditorMessage::SpriteDeleted(index) => {
+            if let Some(ref mut script) = state.script {
+                if index < script.spr_content.len() {
+                    script.spr_content.remove(index);
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionAdded => {
+            if let Some(ref mut script) = state.script {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: None,
+                });
+                state.modified = true;
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionRawAdded => {
+            if let Some(ref mut script) = state.script {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some(String::new()),
+                });
+                state.modified = true;
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionRawContentChanged(index, content) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.raw_content = Some(content);
+                    act.prefix = None;
+                    act.function_name = String::new();
+                    act.parameters = Vec::new();
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionPrefixChanged(index, prefix) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.prefix = if prefix.is_empty() { None } else { Some(prefix) };
+                    act.raw_content = None;
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionFunctionChanged(index, func_name) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.function_name = func_name;
+                    act.raw_content = None;
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionParamsChanged(index, params_str) => {
+            if let Some(ref mut script) = state.script {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.parameters = params_str.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                    act.raw_content = None;
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ActionDeleted(index) => {
+            if let Some(ref mut script) = state.script {
+                if index < script.actions.len() {
+                    script.actions.remove(index);
+                    state.modified = true;
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::LoadScript(path) => load_from_path(path),
+        EventScrEditorMessage::ScriptLoaded(script) => {
+            state.script = Some(script);
+            state.modified = false;
+            state.load_error = None;
+            state.save_error = None;
+            Task::none()
+        }
         EventScrEditorMessage::LoadError(e) => {
-            eprintln!("Failed to load EventScript: {}", e);
-        },
-        EventScrEditorMessage::Saved => {
-            app.state.event_scr_editor.edit_history.clear();
-        },
+            state.script = None;
+            state.load_error = Some(e);
+            Task::none()
+        }
+        EventScrEditorMessage::SaveScript => {
+            if let Some(ref script) = state.script {
+                if let Some(ref path) = state.file_path {
+                    return save_to_path(path.clone(), script.clone());
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::SaveSuccess => {
+            state.modified = false;
+            state.save_error = None;
+            Task::none()
+        }
         EventScrEditorMessage::SaveError(e) => {
-            eprintln!("Failed to save EventScript: {}", e);
-        },
+            state.save_error = Some(e);
+            Task::none()
+        }
     }
-    Task::none()
 }
 
 // Helper to load EventScript from path
@@ -66,21 +259,18 @@ pub fn load_from_path(path: std::path::PathBuf) -> Task<Message> {
                         if let Some(script) = scripts.pop() {
                             Ok(script)
                         } else {
-                            Err(std::io::Error::new(
-                                std::io::ErrorKind::InvalidData,
-                                "No EventScript found in file",
-                            ))
+                            Err(std::io::Error::other("No EventScript found in file"))
                         }
                     })
                     .and_then(|res| res)
             })
             .await
-            .unwrap_or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
+            .unwrap_or_else(|e| Err(std::io::Error::other(e)))
         },
         |result| {
             Message::Editor(crate::message::editor::EditorMessage::EventScr(
                 match result {
-                    Ok(script) => EventScrEditorMessage::Loaded(script),
+                    Ok(script) => EventScrEditorMessage::ScriptLoaded(script),
                     Err(e) => EventScrEditorMessage::LoadError(e.to_string()),
                 },
             ))
@@ -97,12 +287,12 @@ pub fn save_to_path(path: std::path::PathBuf, script: EventScript) -> Task<Messa
                 <EventScript as dispel_core::Extractor>::to_writer(&[script], &mut file)
             })
             .await
-            .unwrap_or_else(|e| Err(std::io::Error::new(std::io::ErrorKind::Other, e)))
+            .unwrap_or_else(|e| Err(std::io::Error::other(e)))
         },
         |result| {
             Message::Editor(crate::message::editor::EditorMessage::EventScr(
                 match result {
-                    Ok(()) => EventScrEditorMessage::Saved,
+                    Ok(()) => EventScrEditorMessage::SaveSuccess,
                     Err(e) => EventScrEditorMessage::SaveError(e.to_string()),
                 },
             ))
