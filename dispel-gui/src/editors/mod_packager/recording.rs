@@ -67,13 +67,136 @@ pub struct ObservedAction {
 /// present — callers should treat that as "nothing to record" and skip
 /// `observe_field_change` entirely (rather than recording a phantom delta
 /// against `record_id=0` with an empty path).
+///
+/// The `shared_game_path` is used to convert absolute file paths to relative paths.
 pub fn capture_field_recording_context<R: EditableRecord>(
     editor: Option<&MultiFileEditorState<R>>,
     index: usize,
     field: &str,
+    shared_game_path: &str,
 ) -> Option<(String, u32, String)> {
     let editor = editor?;
     let (orig_idx, record) = editor.editor.filtered.get(index)?;
-    let file_path = editor.current_file.as_ref()?.to_string_lossy().into_owned();
-    Some((record.get_field(field), *orig_idx as u32, file_path))
+    let absolute_path = editor.current_file.as_ref()?;
+    let relative_path = if shared_game_path.is_empty() {
+        absolute_path.to_string_lossy().into_owned()
+    } else {
+        let game_path = std::path::Path::new(shared_game_path);
+        absolute_path
+            .strip_prefix(game_path)
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|_| absolute_path.to_string_lossy().into_owned())
+    };
+    Some((record.get_field(field), *orig_idx as u32, relative_path))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::components::editable::{EditableRecord, FieldDescriptor};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+    struct TestRecord {
+        name: String,
+    }
+
+    impl EditableRecord for TestRecord {
+        fn field_descriptors() -> &'static [FieldDescriptor] {
+            &[]
+        }
+
+        fn get_field(&self, _field: &str) -> String {
+            self.name.clone()
+        }
+
+        fn set_field(&mut self, _field: &str, _value: String) -> bool {
+            false
+        }
+
+        fn list_label(&self) -> String {
+            self.name.clone()
+        }
+
+        fn detail_title() -> &'static str {
+            "Test"
+        }
+
+        fn empty_selection_text() -> &'static str {
+            "No selection"
+        }
+
+        fn save_button_label() -> &'static str {
+            "Save"
+        }
+    }
+
+    #[test]
+    fn converts_absolute_to_relative_path() {
+        let mut editor = MultiFileEditorState::<TestRecord> {
+            current_file: Some(std::path::PathBuf::from("/game/MonsterInGame/Mondun01.ref")),
+            ..Default::default()
+        };
+        editor.editor.catalog = Some(vec![TestRecord {
+            name: "test".to_string(),
+        }]);
+        editor.editor.filtered = vec![(
+            0,
+            TestRecord {
+                name: "test".to_string(),
+            },
+        )];
+
+        let result = capture_field_recording_context(Some(&editor), 0, "name", "/game");
+
+        assert!(result.is_some());
+        let (_, _, file_path) = result.unwrap();
+        assert_eq!(file_path, "MonsterInGame/Mondun01.ref");
+    }
+
+    #[test]
+    fn preserves_absolute_when_shared_game_path_empty() {
+        let mut editor = MultiFileEditorState::<TestRecord> {
+            current_file: Some(std::path::PathBuf::from("/game/MonsterInGame/Mondun01.ref")),
+            ..Default::default()
+        };
+        editor.editor.catalog = Some(vec![TestRecord {
+            name: "test".to_string(),
+        }]);
+        editor.editor.filtered = vec![(
+            0,
+            TestRecord {
+                name: "test".to_string(),
+            },
+        )];
+
+        let result = capture_field_recording_context(Some(&editor), 0, "name", "");
+
+        assert!(result.is_some());
+        let (_, _, file_path) = result.unwrap();
+        assert_eq!(file_path, "/game/MonsterInGame/Mondun01.ref");
+    }
+
+    #[test]
+    fn falls_back_to_absolute_when_not_prefix() {
+        let mut editor = MultiFileEditorState::<TestRecord> {
+            current_file: Some(std::path::PathBuf::from("/some/other/path/Mondun01.ref")),
+            ..Default::default()
+        };
+        editor.editor.catalog = Some(vec![TestRecord {
+            name: "test".to_string(),
+        }]);
+        editor.editor.filtered = vec![(
+            0,
+            TestRecord {
+                name: "test".to_string(),
+            },
+        )];
+
+        let result = capture_field_recording_context(Some(&editor), 0, "name", "/game");
+
+        assert!(result.is_some());
+        let (_, _, file_path) = result.unwrap();
+        assert_eq!(file_path, "/some/other/path/Mondun01.ref");
+    }
 }

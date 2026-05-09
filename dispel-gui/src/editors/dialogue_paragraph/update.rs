@@ -64,6 +64,7 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<crate:
                 app.state.dialogue_paragraphs_editors.get(&tab_id),
                 index,
                 &field,
+                &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(

@@ -66,6 +66,7 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
                 app.state.extra_ref_editors.get(&tab_id),
                 index,
                 &field,
+                &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(

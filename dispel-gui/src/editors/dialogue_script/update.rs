@@ -65,6 +65,7 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
                 app.state.dialogue_script_editors.get(&tab_id),
                 index,
                 &field,
+                &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(
