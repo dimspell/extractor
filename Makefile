@@ -183,3 +183,6 @@ extracts-help:
 
 help:
 	cargo run -- --help
+
+iced_test:
+    cargo test -p dispel-gui --features iced_test app::tests

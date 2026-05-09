@@ -787,3 +787,48 @@ fn build_spreadsheet_nav_msg(
         _ => return None,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+
+    #[test]
+    fn test_empty_state_displayed_when_no_tabs_open() {
+        let workspace = Workspace::default();
+        let app = App::test_new(workspace);
+
+        assert_eq!(app.app_mode, AppMode::EditorMode);
+        assert!(app.state.workspace.active().is_none());
+
+        let view = app.view();
+
+        let mut ui = iced_test::simulator(view);
+
+        ui.find("Select a file to edit")
+            .expect("Empty state should display 'Select a file to edit'");
+    }
+
+    #[test]
+    fn test_empty_state_not_shown_when_tab_is_open() {
+        let mut workspace = Workspace::default();
+        workspace.tabs.push(WorkspaceTab {
+            id: 1,
+            label: "Test".into(),
+            path: None,
+            editor_type: EditorType::LocalizationManager,
+            modified: false,
+            pinned: false,
+        });
+        workspace.active_tab = Some(0);
+
+        let app = App::test_new(workspace);
+
+        let view = app.view();
+
+        let mut ui = iced_test::simulator(view);
+
+        ui.find("Select a file to edit")
+            .expect_err("Empty state should NOT be shown when a tab is open");
+    }
+}
