@@ -50,4 +50,15 @@ pub enum HexEditorMessage {
     SavedIntoRecording(Result<String, String>),
     /// Wipe the editor's transient status_msg.
     ClearStatus,
+
+    // ── Pattern highlighting ─────────────────────────────────────────────
+    /// Create a pattern from the current selection range (CTRL+E).
+    CreatePattern,
+    /// Remove pattern at a specific address.
+    RemovePatternAt(u64),
+    /// Clear all patterns.
+    ClearAllPatterns,
+    /// Right-click at a specific address — used to determine which context
+    /// menu options to show (remove pattern vs create pattern).
+    RightClickAt(u64),
 }

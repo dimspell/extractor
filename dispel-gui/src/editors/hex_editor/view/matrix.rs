@@ -73,6 +73,8 @@ pub struct HexMatrix<'a, Message> {
     /// Bytes that already differ from vanilla (load-time + cumulative).
     /// Distinct from `dirty` (= dirtied this session); tinted differently.
     vanilla_diff: &'a BTreeSet<u64>,
+    /// Highlighted byte ranges for pattern matching/debugging.
+    patterns: &'a BTreeSet<u64>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -84,6 +86,8 @@ pub struct HexMatrix<'a, Message> {
     on_edit_backspace: Option<Box<dyn Fn() -> Message + 'a>>,
     on_edit_cancel: Option<Box<dyn Fn() -> Message + 'a>>,
     on_edit_commit: Option<Box<dyn Fn(bool) -> Message + 'a>>,
+    on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -94,6 +98,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         edit: Option<EditView<'a>>,
         dirty: &'a BTreeSet<u64>,
         vanilla_diff: &'a BTreeSet<u64>,
+        patterns: &'a BTreeSet<u64>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -103,6 +108,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             edit,
             dirty,
             vanilla_diff,
+            patterns,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -114,6 +120,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_edit_backspace: None,
             on_edit_cancel: None,
             on_edit_commit: None,
+            on_right_click: None,
+            on_create_pattern: None,
         }
     }
 
@@ -154,6 +162,16 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_edit_commit(mut self, f: impl Fn(bool) -> Message + 'a) -> Self {
         self.on_edit_commit = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_right_click(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_right_click = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_create_pattern(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_create_pattern = Some(Box::new(f));
         self
     }
 
@@ -445,6 +463,23 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     shell.capture_event();
                 }
             }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
+                let Some(p) = cursor.position_over(bounds) else {
+                    return;
+                };
+                if let Some(addr) = addr_at(
+                    p,
+                    bounds,
+                    state.scroll_offset,
+                    self.bytes_per_row,
+                    total_len,
+                ) {
+                    if let Some(cb) = &self.on_right_click {
+                        shell.publish(cb(addr));
+                    }
+                    shell.capture_event();
+                }
+            }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
                 if state.dragging_scrollbar {
                     let Some(p) = cursor.position() else { return };
@@ -532,6 +567,17 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 if matches!(key, keyboard::Key::Named(key::Named::F2)) && self.edit.is_none() {
                     if let Some(cb) = &self.on_begin_edit {
                         shell.publish(cb(self.selection.cursor));
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // CTRL+E creates a pattern from the current selection.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "e")
+                {
+                    if let Some(cb) = &self.on_create_pattern {
+                        shell.publish(cb());
                         shell.capture_event();
                         return;
                     }
@@ -662,6 +708,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let edit_bg = color!(0xc25e1c);
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
+        let pattern_bg = color!(0x1a3a4f);
+        let pattern_text = color!(0x6ab0d0);
 
         let hex_start_x = bounds.x + ADDR_COL_WIDTH;
         let ascii_start_x = self.ascii_start_x(bounds.x);
@@ -703,10 +751,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 let in_sel = sel_range.contains(&addr);
                 let is_dirty = self.dirty.contains(&addr);
                 let is_diff = self.vanilla_diff.contains(&addr);
+                let is_pattern = self.patterns.contains(&addr);
                 let is_editing = edit_addr == Some(addr);
 
                 // Background priority: edit > selection-cursor > selection >
-                // dirty (this session) > diff (cumulative vs vanilla).
+                // pattern > dirty (this session) > diff (cumulative vs vanilla).
                 let bg = if is_editing {
                     Some(edit_bg)
                 } else if in_sel {
@@ -715,6 +764,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     } else {
                         selection_bg
                     })
+                } else if is_pattern {
+                    Some(pattern_bg)
                 } else if is_dirty {
                     Some(dirty_bg)
                 } else if is_diff {
@@ -731,6 +782,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     edit_text
                 } else if in_sel {
                     selection_text
+                } else if is_pattern {
+                    pattern_text
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {
@@ -744,6 +797,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     edit_text
                 } else if in_sel {
                     selection_text
+                } else if is_pattern {
+                    pattern_text
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {

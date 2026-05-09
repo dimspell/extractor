@@ -7,6 +7,7 @@ use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::app::App;
+use crate::components::context_menu::ContextMenu;
 use crate::components::modal::modal;
 use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
 use crate::message::{Message, MessageExt};
@@ -70,6 +71,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         edit,
         editor.provider.dirty(),
         &editor.vanilla_diff,
+        &editor.patterns,
         cache,
     )
     .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
@@ -80,7 +82,44 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .on_edit_backspace(|| Message::hex_editor(HexEditorMessage::EditBackspace))
     .on_edit_cancel(|| Message::hex_editor(HexEditorMessage::EditCancel))
     .on_edit_commit(|advance| Message::hex_editor(HexEditorMessage::EditCommit { advance }))
+    .on_right_click(|addr| Message::hex_editor(HexEditorMessage::RightClickAt(addr)))
+    .on_create_pattern(|| Message::hex_editor(HexEditorMessage::CreatePattern))
     .into();
+
+    let has_selection_range = !editor.selection.is_single();
+    let clicked_on_pattern = editor
+        .context_menu_addr
+        .map(|addr| editor.patterns.contains(&addr))
+        .unwrap_or(false);
+    let has_patterns = !editor.patterns.is_empty();
+
+    let mut pattern_menu_entries: Vec<(&str, Message)> = Vec::new();
+    if has_selection_range {
+        pattern_menu_entries.push((
+            "Create Pattern",
+            Message::hex_editor(HexEditorMessage::CreatePattern),
+        ));
+    }
+    if clicked_on_pattern {
+        if let Some(addr) = editor.context_menu_addr {
+            pattern_menu_entries.push((
+                "Remove Pattern",
+                Message::hex_editor(HexEditorMessage::RemovePatternAt(addr)),
+            ));
+        }
+    }
+    if has_patterns {
+        pattern_menu_entries.push((
+            "Clear All Patterns",
+            Message::hex_editor(HexEditorMessage::ClearAllPatterns),
+        ));
+    }
+
+    let matrix = if pattern_menu_entries.is_empty() {
+        matrix
+    } else {
+        ContextMenu::new(matrix, pattern_menu_entries).into()
+    };
 
     let body = row![
         container(matrix).width(Fill).height(Fill),

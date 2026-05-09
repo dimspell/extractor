@@ -209,6 +209,27 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
         HexEditorMessage::ClearStatus => {
             editor.status_msg.clear();
         }
+
+        // ── Pattern highlighting ────────────────────────────────────────
+        HexEditorMessage::CreatePattern => {
+            if editor.selection.is_single() {
+                editor.status_msg = "Select a range of bytes to create a pattern".to_string();
+            } else {
+                let (start, end) = (editor.selection.start(), editor.selection.end());
+                editor.add_pattern(start, end);
+                editor.status_msg = format!("Pattern created: 0x{:08X}..0x{:08X}", start, end);
+            }
+        }
+        HexEditorMessage::RemovePatternAt(addr) => {
+            editor.remove_pattern(addr);
+        }
+        HexEditorMessage::ClearAllPatterns => {
+            editor.clear_patterns();
+            editor.status_msg = "All patterns cleared".to_string();
+        }
+        HexEditorMessage::RightClickAt(addr) => {
+            editor.context_menu_addr = Some(addr);
+        }
     }
     Task::none()
 }

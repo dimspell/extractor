@@ -25,6 +25,11 @@ pub struct HexEditorState {
     /// Cached set of addresses where `provider != vanilla`. Recomputed on
     /// every write through [`recompute_vanilla_diff`].
     pub vanilla_diff: BTreeSet<u64>,
+    /// Highlighted byte ranges for pattern matching/debugging. In-memory only,
+    /// not persisted to disk.
+    pub patterns: BTreeSet<u64>,
+    /// Last address where right-click occurred (for context menu).
+    pub context_menu_addr: Option<u64>,
     /// Last user-facing message produced by an editor action ("Saved …",
     /// "Recording not active", parse errors). Cleared on next save.
     pub status_msg: String,
@@ -55,6 +60,8 @@ impl HexEditorState {
                     inspector_edit: None,
                     vanilla,
                     vanilla_diff: BTreeSet::new(),
+                    patterns: BTreeSet::new(),
+                    context_menu_addr: None,
                     status_msg: String::new(),
                     error: None,
                 }
@@ -69,6 +76,8 @@ impl HexEditorState {
                 inspector_edit: None,
                 vanilla: None,
                 vanilla_diff: BTreeSet::new(),
+                patterns: BTreeSet::new(),
+                context_menu_addr: None,
                 status_msg: String::new(),
                 error: Some(e.to_string()),
             },
@@ -87,5 +96,22 @@ impl HexEditorState {
             Some(v) => compute_diff(v, self.provider.as_slice()),
             None => BTreeSet::new(),
         };
+    }
+
+    /// Add all addresses in [start, end] range to patterns.
+    pub fn add_pattern(&mut self, start: u64, end: u64) {
+        for addr in start..=end {
+            self.patterns.insert(addr);
+        }
+    }
+
+    /// Remove address from patterns.
+    pub fn remove_pattern(&mut self, addr: u64) {
+        self.patterns.remove(&addr);
+    }
+
+    /// Clear all patterns.
+    pub fn clear_patterns(&mut self) {
+        self.patterns.clear();
     }
 }
