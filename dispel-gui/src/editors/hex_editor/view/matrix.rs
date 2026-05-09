@@ -477,7 +477,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     if let Some(cb) = &self.on_right_click {
                         shell.publish(cb(addr));
                     }
-                    shell.capture_event();
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
