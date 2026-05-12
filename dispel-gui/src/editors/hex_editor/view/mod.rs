@@ -115,11 +115,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ));
     }
 
-    let matrix = if pattern_menu_entries.is_empty() {
-        matrix
-    } else {
-        ContextMenu::new(matrix, pattern_menu_entries).into()
-    };
+    let matrix = ContextMenu::new(matrix, pattern_menu_entries);
 
     let body = row![
         container(matrix).width(Fill).height(Fill),
