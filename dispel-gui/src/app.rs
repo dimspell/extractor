@@ -311,7 +311,7 @@ impl App {
                     if let Key::Character(c) = key.as_ref() {
                         let ch = c.chars().next()?;
                         // Shift+X → reopen active file in hex editor
-                        if modifiers.shift() && ch == 'X' {
+                        if modifiers.shift() && ch == 'x' {
                             return Some(Message::Workspace(
                                 WorkspaceMessage::ReopenActiveTabAsHex,
                             ));
