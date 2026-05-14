@@ -7,6 +7,8 @@ use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size, Vector};
 
 use crate::style;
 
+mod platform;
+
 /// A context menu entry.
 #[derive(Debug, Clone)]
 pub enum Entry<Message> {
@@ -320,6 +322,22 @@ where
         if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
             if let Some(position) = cursor.position_over(layout.bounds()) {
                 let state = tree.state.downcast_mut::<State>();
+
+                match platform::try_show_native_menu(&self.entries) {
+                    Some(platform::NativeResult::Selected(idx)) => {
+                        if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
+                            shell.publish(action.clone());
+                        }
+                        shell.capture_event();
+                        return;
+                    }
+                    Some(platform::NativeResult::Cancelled) => {
+                        shell.capture_event();
+                        return;
+                    }
+                    None => {}
+                }
+
                 state.status = Status::Open {
                     position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
                 };
