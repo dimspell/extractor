@@ -29,6 +29,13 @@ pub(crate) enum NativeResult {
 pub(crate) fn try_show_native_menu<Message: Clone>(
     entries: &[Entry<Message>],
 ) -> Option<NativeResult> {
+    // Set FORCE_CUSTOM_CONTEXT_MENU=1 to skip native menus and use
+    // the Iced-rendered overlay instead (useful for debugging layout/style).
+    // Bash: DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1 cargo run -p dispel-gui
+    if std::env::var("FORCE_CUSTOM_CONTEXT_MENU").is_ok() {
+        return None;
+    }
+
     let items: Vec<MenuItem> = entries
         .iter()
         .map(|e| match e {
