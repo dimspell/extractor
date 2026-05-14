@@ -9,7 +9,7 @@ use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::app::App;
-use crate::components::context_menu::ContextMenu;
+use crate::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use crate::components::modal::modal;
 use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
 use crate::message::{Message, MessageExt};
@@ -95,26 +95,30 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(false);
     let has_patterns = !editor.patterns.is_empty();
 
-    let mut pattern_menu_entries: Vec<(&str, Message)> = Vec::new();
+    let mut pattern_menu_entries: Vec<MenuEntry<Message>> = Vec::new();
     if has_selection_range {
-        pattern_menu_entries.push((
+        pattern_menu_entries.push(MenuEntry::item(
             "Create Pattern",
             Message::hex_editor(HexEditorMessage::CreatePattern),
         ));
+    } else {
+        pattern_menu_entries.push(MenuEntry::disabled("Create Pattern"));
     }
     if clicked_on_pattern {
         if let Some(addr) = editor.context_menu_addr {
-            pattern_menu_entries.push((
+            pattern_menu_entries.push(MenuEntry::item(
                 "Remove Pattern",
                 Message::hex_editor(HexEditorMessage::RemovePatternAt(addr)),
             ));
         }
     }
     if has_patterns {
-        pattern_menu_entries.push((
+        pattern_menu_entries.push(MenuEntry::item(
             "Clear All Patterns",
             Message::hex_editor(HexEditorMessage::ClearAllPatterns),
         ));
+    } else {
+        pattern_menu_entries.push(MenuEntry::disabled("Clear All Patterns"));
     }
 
     let matrix = ContextMenu::new(matrix, pattern_menu_entries);

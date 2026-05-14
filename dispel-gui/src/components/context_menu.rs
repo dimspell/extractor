@@ -2,31 +2,111 @@ use std::slice;
 
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::widget::{button, column, container, text};
+use iced::widget::{button, column, container, row, text};
 use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size, Vector};
 
 use crate::style;
+
+/// A context menu entry.
+#[derive(Debug, Clone)]
+pub enum Entry<Message> {
+    Item {
+        label: String,
+        icon: Option<String>,
+        action: Message,
+    },
+    Separator,
+    Disabled {
+        label: String,
+        icon: Option<String>,
+    },
+}
+
+impl<Message: Clone> Entry<Message> {
+    pub fn item<S: Into<String>>(label: S, action: Message) -> Self {
+        Entry::Item {
+            label: label.into(),
+            icon: None,
+            action,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn item_with_icon<S: Into<String>, I: Into<String>>(
+        label: S,
+        icon: I,
+        action: Message,
+    ) -> Self {
+        Entry::Item {
+            label: label.into(),
+            icon: Some(icon.into()),
+            action,
+        }
+    }
+
+    pub fn separator() -> Self {
+        Entry::Separator
+    }
+
+    pub fn disabled<S: Into<String>>(label: S) -> Self {
+        Entry::Disabled {
+            label: label.into(),
+            icon: None,
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn disabled_with_icon<S: Into<String>, I: Into<String>>(label: S, icon: I) -> Self {
+        Entry::Disabled {
+            label: label.into(),
+            icon: Some(icon.into()),
+        }
+    }
+}
 
 /// A widget that adds a right-click context menu overlay to any base element.
 ///
 /// Menu state is widget-local — no app messages needed for open/close.
 pub struct ContextMenu<'a, Message> {
     base: Element<'a, Message>,
-    entries: Vec<(&'a str, Message)>,
-    /// Cached menu element; rebuilt each time the menu is opened.
-    menu: Option<Element<'a, Message>>,
+    entries: Vec<Entry<Message>>,
+    offset: Point,
 }
 
 impl<'a, Message> ContextMenu<'a, Message>
 where
     Message: Clone + 'a,
 {
-    pub fn new(base: impl Into<Element<'a, Message>>, entries: Vec<(&'a str, Message)>) -> Self {
+    pub fn new(base: impl Into<Element<'a, Message>>, entries: Vec<Entry<Message>>) -> Self {
         Self {
             base: base.into(),
             entries,
-            menu: None,
+            offset: Point::new(2.0, 2.0),
         }
+    }
+
+    /// Convenience constructor that wraps each `(String, Message)` pair as
+    /// `Entry::item`.
+    pub fn from_simple(
+        base: impl Into<Element<'a, Message>>,
+        entries: Vec<(String, Message)>,
+    ) -> Self {
+        let entries = entries
+            .into_iter()
+            .map(|(label, action)| Entry::item(label, action))
+            .collect();
+        Self {
+            base: base.into(),
+            entries,
+            offset: Point::new(2.0, 2.0),
+        }
+    }
+
+    /// Set the offset from the cursor position where the menu appears.
+    #[allow(dead_code)]
+    pub fn offset(mut self, offset: Point) -> Self {
+        self.offset = offset;
+        self
     }
 }
 
@@ -67,33 +147,81 @@ impl Default for State {
 
 // ── Menu construction ─────────────────────────────────────────────────────────
 
-fn build_menu<'a, Message>(entries: &[(&'a str, Message)]) -> Element<'a, Message>
+fn build_menu<Message>(entries: &[Entry<Message>]) -> Element<'static, Message>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'static,
 {
-    let items: Vec<Element<'a, Message>> = entries
-        .iter()
-        .map(|(label, msg)| {
-            button(text(*label).size(12))
-                .on_press(msg.clone())
-                .width(Fill)
-                .style(style::menu_item)
-                .into()
-        })
-        .collect();
+    let mut items: Vec<Element<'static, Message>> = Vec::with_capacity(entries.len());
 
-    container(column(items).spacing(2).padding(4))
+    for entry in entries {
+        match entry {
+            Entry::Item {
+                label,
+                icon,
+                action,
+            } => {
+                let content: Element<'static, Message> = if let Some(icon) = icon {
+                    let i = icon.clone();
+                    let l = label.clone();
+                    row![text(i).size(14), text(l).size(13)].spacing(6).into()
+                } else {
+                    text(label.clone()).size(13).into()
+                };
+                items.push(
+                    button(content)
+                        .on_press(action.clone())
+                        .width(Fill)
+                        .padding([6, 10])
+                        .style(style::menu_item)
+                        .into(),
+                );
+            }
+            Entry::Separator => {
+                items.push(
+                    container(row![].height(1))
+                        .padding([2, 4])
+                        .style(style::menu_separator)
+                        .into(),
+                );
+            }
+            Entry::Disabled { label, icon } => {
+                let content: Element<'static, Message> = if let Some(icon) = icon {
+                    row![
+                        text(icon.clone()).size(14).style(style::menu_disabled_text),
+                        text(label.clone())
+                            .size(13)
+                            .style(style::menu_disabled_text),
+                    ]
+                    .spacing(6)
+                    .into()
+                } else {
+                    text(label.clone())
+                        .size(13)
+                        .style(style::menu_disabled_text)
+                        .into()
+                };
+                items.push(
+                    button(content)
+                        .width(Fill)
+                        .padding([6, 10])
+                        .style(style::menu_disabled_item)
+                        .into(),
+                );
+            }
+        }
+    }
+
+    container(column(items).spacing(1).padding(4))
         .style(style::context_menu)
-        .width(200)
+        .width(220)
         .into()
 }
 
 // ── Widget implementation ─────────────────────────────────────────────────────
 
-// TODO: The order of `impl` members differs from the trait
 impl<'a, Message> Widget<Message, iced::Theme, iced::Renderer> for ContextMenu<'a, Message>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'a + 'static,
 {
     fn size(&self) -> iced::Size<iced::Length> {
         self.base.as_widget().size()
@@ -181,7 +309,7 @@ where
             if let Some(position) = cursor.position_over(layout.bounds()) {
                 let state = tree.state.downcast_mut::<State>();
                 state.status = Status::Open {
-                    position: Point::new(position.x + 5.0, position.y + 5.0),
+                    position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
                 };
                 shell.capture_event();
                 shell.request_redraw();
@@ -236,34 +364,15 @@ where
 
         let state = tree.state.downcast_mut::<State>();
 
-        // Sync the cached menu element with current status.
-        match state.status {
-            Status::Open { .. } => {
-                if self.menu.is_none() {
-                    let m = build_menu(&self.entries);
-                    state.menu_tree.diff(&m);
-                    self.menu = Some(m);
-                } else if let Some(m) = &self.menu {
-                    state.menu_tree.diff(m);
-                }
-            }
-            Status::Closed => {
-                self.menu = None;
-            }
-        }
-
-        let context_overlay =
-            state
-                .status
-                .position()
-                .zip(self.menu.as_mut())
-                .map(|(position, menu)| {
-                    overlay::Element::new(Box::new(MenuOverlay {
-                        menu,
-                        state,
-                        position: position + translation,
-                    }))
-                });
+        let context_overlay = state.status.position().map(|position| {
+            let menu = build_menu(&self.entries);
+            state.menu_tree.diff(&menu);
+            overlay::Element::new(Box::new(MenuOverlay {
+                menu,
+                state,
+                position: position + translation,
+            }))
+        });
 
         match (base_overlay, context_overlay) {
             (None, None) => None,
@@ -278,7 +387,7 @@ where
 
 impl<'a, Message> From<ContextMenu<'a, Message>> for Element<'a, Message>
 where
-    Message: Clone + 'a,
+    Message: Clone + 'a + 'static,
 {
     fn from(cm: ContextMenu<'a, Message>) -> Self {
         Element::new(cm)
@@ -287,16 +396,15 @@ where
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
-struct MenuOverlay<'a, 'b, Message> {
-    menu: &'b mut Element<'a, Message>,
-    state: &'b mut State,
+struct MenuOverlay<'a, Message> {
+    menu: Element<'static, Message>,
+    state: &'a mut State,
     position: Point,
 }
 
-impl<Message> overlay::Overlay<Message, iced::Theme, iced::Renderer>
-    for MenuOverlay<'_, '_, Message>
+impl<Message> overlay::Overlay<Message, iced::Theme, iced::Renderer> for MenuOverlay<'_, Message>
 where
-    Message: Clone,
+    Message: Clone + 'static,
 {
     fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
         let limits = layout::Limits::new(Size::ZERO, bounds);
@@ -370,6 +478,7 @@ where
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = event {
             if !shell.is_event_captured() {
                 self.state.status = Status::Closed;
+                shell.request_redraw();
             }
         }
     }
@@ -405,363 +514,88 @@ where
 mod tests {
     use super::*;
     use iced::widget::button;
-    use iced::{Element, Point};
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ContextMenu Creation Tests
-    // ═══════════════════════════════════════════════════════════════════════════
+    type TestMessage = String;
 
     #[test]
-    fn test_context_menu_creation() {
-        let base = button("Test Button");
-        let entries = vec![("Option 1", "msg1"), ("Option 2", "msg2")];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
-        assert!(true);
+    fn test_entry_item() {
+        let entry: Entry<TestMessage> = Entry::item("Test", "action".into());
+        assert!(matches!(entry, Entry::Item { label, .. } if label == "Test"));
     }
 
     #[test]
-    fn test_context_menu_with_single_entry() {
-        let base = button("Single Option");
-        let entries = vec![("Only Option", "only")];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
+    fn test_entry_separator() {
+        let entry: Entry<TestMessage> = Entry::separator();
+        assert!(matches!(entry, Entry::Separator));
     }
 
     #[test]
-    fn test_context_menu_with_many_entries() {
-        let base = button("Many Options");
-        let entries = vec![
-            ("Option 1", "msg1"),
-            ("Option 2", "msg2"),
-            ("Option 3", "msg3"),
-            ("Option 4", "msg4"),
-            ("Option 5", "msg5"),
-            ("Option 6", "msg6"),
-            ("Option 7", "msg7"),
-            ("Option 8", "msg8"),
-            ("Option 9", "msg9"),
-            ("Option 10", "msg10"),
-        ];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
+    fn test_entry_disabled() {
+        let entry: Entry<TestMessage> = Entry::disabled("Unavailable");
+        assert!(matches!(entry, Entry::Disabled { label, .. } if label == "Unavailable"));
     }
 
     #[test]
-    fn test_context_menu_empty_entries() {
-        let base = button("Test Button");
-        let entries = vec![];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
-    }
-
-    #[test]
-    fn test_context_menu_with_various_message_types() {
-        #[derive(Clone, Debug, PartialEq)]
-        enum TestMsg {
-            Close,
-            Open(String),
-            Delete,
-        }
-
-        let base = button("Test");
-        let entries = vec![
-            ("Close", TestMsg::Close),
-            ("Open", TestMsg::Open("test".to_string())),
-            ("Delete", TestMsg::Delete),
-        ];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, TestMsg> = context_menu.into();
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Status Enum Tests
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_status_default_is_closed() {
+    fn test_status_default_closed() {
         let status = Status::default();
         assert!(matches!(status, Status::Closed));
     }
 
     #[test]
-    fn test_status_open_with_position() {
-        let position = Point::new(100.0, 200.0);
-        let status = Status::Open { position };
-        assert!(matches!(status, Status::Open { position: _ }));
-        assert_eq!(status.position(), Some(position));
-    }
-
-    #[test]
-    fn test_status_closed_has_no_position() {
-        let status = Status::Closed;
-        assert_eq!(status.position(), None);
-    }
-
-    #[test]
-    fn test_status_debug_trait() {
-        let closed = Status::Closed;
-        let open = Status::Open {
-            position: Point::new(10.0, 20.0),
+    fn test_status_position() {
+        let status = Status::Open {
+            position: Point::new(100.0, 200.0),
         };
-        let debug_closed = format!("{:?}", closed);
-        let debug_open = format!("{:?}", open);
-        assert!(debug_closed.contains("Closed"));
-        assert!(debug_open.contains("Open"));
+        assert_eq!(status.position(), Some(Point::new(100.0, 200.0)));
     }
 
     #[test]
-    fn test_status_partial_eq() {
-        let pos1 = Point::new(10.0, 20.0);
-        let pos2 = Point::new(10.0, 20.0);
-        let pos3 = Point::new(30.0, 40.0);
-
-        let status1 = Status::Open { position: pos1 };
-        let status2 = Status::Open { position: pos2 };
-        let status3 = Status::Open { position: pos3 };
-        let status_closed = Status::Closed;
-
-        assert_eq!(status1, status2);
-        assert_ne!(status1, status3);
-        assert_ne!(status1, status_closed);
+    fn test_context_menu_new() {
+        let entries = vec![Entry::item("Option", "msg".into())];
+        let cm = ContextMenu::new(button("Test"), entries);
+        let _: Element<'static, TestMessage> = cm.into();
     }
 
     #[test]
-    fn test_status_clone() {
-        let pos = Point::new(50.0, 75.0);
-        let status = Status::Open { position: pos };
-        let cloned = status;
-        assert_eq!(status.position(), cloned.position());
+    fn test_context_menu_from_simple() {
+        let entries = vec![("Option".to_string(), "msg".into())];
+        let cm = ContextMenu::from_simple(button("Test"), entries);
+        let _: Element<'static, TestMessage> = cm.into();
     }
 
     #[test]
-    fn test_status_copy() {
-        let status = Status::Closed;
-        let copied = status;
-        assert!(matches!(copied, Status::Closed));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // State Tests
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_state_default() {
-        let state = State::default();
-        assert!(matches!(state.status, Status::Closed));
-    }
-
-    #[test]
-    fn test_state_debug() {
-        let state = State::default();
-        let debug = format!("{:?}", state);
-        assert!(debug.contains("status"));
-        assert!(debug.contains("menu_tree"));
-    }
-
-    #[test]
-    fn test_state_transitions() {
-        let mut state = State::default();
-        assert!(matches!(state.status, Status::Closed));
-
-        state.status = Status::Open {
-            position: Point::new(100.0, 100.0),
-        };
-        assert!(matches!(state.status, Status::Open { position: _ }));
-
-        state.status = Status::Closed;
-        assert!(matches!(state.status, Status::Closed));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Build Menu Tests
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_build_menu_with_entries() {
+    fn test_context_menu_with_separator() {
         let entries = vec![
-            ("Option 1", "msg1"),
-            ("Option 2", "msg2"),
-            ("Option 3", "msg3"),
+            Entry::item("Copy", "copy".into()),
+            Entry::separator(),
+            Entry::item("Paste", "paste".into()),
         ];
-        let menu = build_menu(&entries);
-        let _ = menu;
+        let cm = ContextMenu::new(button("Test"), entries);
+        let _: Element<'static, TestMessage> = cm.into();
     }
 
     #[test]
-    fn test_build_menu_with_empty_entries() {
-        let entries: Vec<(&str, &str)> = vec![];
-        let menu = build_menu(&entries);
-        let _ = menu;
+    fn test_context_menu_with_disabled() {
+        let entries = vec![
+            Entry::item("Enabled", "enabled".into()),
+            Entry::separator(),
+            Entry::disabled("Not available"),
+        ];
+        let cm = ContextMenu::new(button("Test"), entries);
+        let _: Element<'static, TestMessage> = cm.into();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Widget Lifecycle Tests
-    // ═══════════════════════════════════════════════════════════════════════════
+    #[test]
+    fn test_context_menu_empty_entries() {
+        let entries: Vec<Entry<TestMessage>> = vec![];
+        let cm = ContextMenu::new(button("Test"), entries);
+        let _: Element<'static, TestMessage> = cm.into();
+    }
 
     #[test]
     fn test_context_menu_tag() {
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Test", "msg")]);
-        let tag = context_menu.tag();
-        assert_eq!(tag, tree::Tag::of::<State>());
-    }
-
-    #[test]
-    fn test_context_menu_state_creation() {
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Test", "msg")]);
-        let _state = context_menu.state();
-    }
-
-    #[test]
-    fn test_context_menu_children() {
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Test", "msg")]);
-        let children = context_menu.children();
-        assert_eq!(children.len(), 1);
-    }
-
-    #[test]
-    fn test_context_menu_size() {
-        let base = button("Test Button");
-        let context_menu = ContextMenu::new(base, vec![("Test", "msg")]);
-        let size = context_menu.size();
-        let _ = size.width;
-        let _ = size.height;
-    }
-
-    #[test]
-    fn test_context_menu_size_hint() {
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Test", "msg")]);
-        let hint = context_menu.size_hint();
-        let _ = hint.width;
-        let _ = hint.height;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Element Conversion Tests
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_from_context_menu_to_element() {
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Option", "msg")]);
-        let _element: Element<'_, &str> = context_menu.into();
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Event Handling Tests (Conceptual)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_status_position_method() {
-        let closed = Status::Closed;
-        let open = Status::Open {
-            position: Point::new(42.0, 84.0),
-        };
-
-        assert_eq!(closed.position(), None);
-        assert_eq!(open.position(), Some(Point::new(42.0, 84.0)));
-    }
-
-    #[test]
-    fn test_status_equality_regardless_of_position() {
-        let status1 = Status::Open {
-            position: Point::new(10.0, 20.0),
-        };
-        let status2 = Status::Open {
-            position: Point::new(10.0, 20.0),
-        };
-        let status3 = Status::Open {
-            position: Point::new(30.0, 40.0),
-        };
-
-        assert_eq!(status1, status2);
-        assert_ne!(status1, status3);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Edge Cases
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_context_menu_with_unicode_labels() {
-        let base = button("Test");
-        let entries = vec![
-            ("Close", "close"),
-            ("Zamknij", "close_pl"),
-            ("关闭", "close_cn"),
-            ("Закрыть", "close_ru"),
-        ];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
-    }
-
-    #[test]
-    fn test_context_menu_with_long_labels() {
-        let base = button("Test");
-        let long_label = "A very long option label that exceeds normal length".to_string();
-        let entries: Vec<(&str, &str)> = vec![(Box::leak(long_label.into_boxed_str()), "long")];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
-    }
-
-    #[test]
-    fn test_context_menu_with_special_characters() {
-        let base = button("Test");
-        let entries = vec![
-            ("Normal", "normal"),
-            ("With & Ampersand", "amp"),
-            ("With Quotes", "quotes"),
-            ("With Brackets", "brackets"),
-            ("With  spaces  ", "spaces"),
-        ];
-        let context_menu = ContextMenu::new(base, entries);
-        let _element: Element<'_, &str> = context_menu.into();
-    }
-
-    #[test]
-    fn test_multiple_context_menu_instances_independent() {
-        let base1 = button("Button 1");
-        let base2 = button("Button 2");
-
-        let menu1 = ContextMenu::new(base1, vec![("Option 1", "msg1")]);
-        let menu2 = ContextMenu::new(base2, vec![("Option A", "msgA"), ("Option B", "msgB")]);
-
-        let _elem1: Element<'_, &str> = menu1.into();
-        let _elem2: Element<'_, &str> = menu2.into();
-    }
-
-    #[test]
-    fn test_context_menu_as_widget() {
-        use iced::advanced::widget::Widget;
-
-        let base = button("Test");
-        let context_menu = ContextMenu::new(base, vec![("Option", "msg")]);
-
-        let tag = context_menu.tag();
-        assert_eq!(tag, tree::Tag::of::<State>());
-
-        let size = context_menu.size();
-        let _ = size.height;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Menu Overlay Positioning Tests (Conceptual)
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    #[test]
-    fn test_status_position_offset() {
-        let cursor_pos = Point::new(100.0, 150.0);
-        let expected_menu_pos = Point::new(cursor_pos.x + 5.0, cursor_pos.y + 5.0);
-
-        let mut state = State::default();
-        state.status = Status::Open {
-            position: expected_menu_pos,
-        };
-
-        assert_eq!(state.status.position(), Some(Point::new(105.0, 155.0)));
+        let entries: Vec<Entry<TestMessage>> = vec![];
+        let cm = ContextMenu::new(button("Test"), entries);
+        assert_eq!(cm.tag(), tree::Tag::of::<State>());
     }
 }
