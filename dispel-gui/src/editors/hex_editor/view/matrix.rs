@@ -4,6 +4,7 @@
 //! gap), ASCII gutter, scrollbar. Only rows in the viewport are touched per
 //! frame; everything else is virtual.
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
@@ -46,7 +47,7 @@ const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(450);
 /// Per-instance widget state — what the renderer keeps between frames.
 #[derive(Default)]
 pub struct State {
-    pub scroll_offset: f32,
+    pub scroll_offset: Cell<f32>,
     pub dragging_scrollbar: bool,
     pub drag_start_cursor_y: f32,
     pub drag_start_offset: f32,
@@ -56,10 +57,8 @@ pub struct State {
     pub last_click_addr: Option<u64>,
     pub last_click_at: Option<Instant>,
     /// Selection cursor from the previous frame, used to detect external
-    /// selection changes (e.g. via NavigateToPattern) and auto-scroll.
-    last_cursor: Option<u64>,
-    /// When set (in `diff`), `layout` will call `ensure_visible` and clear it.
-    pending_scroll_target: Option<u64>,
+    /// selection changes (e.g. via NavigateToPattern).
+    last_cursor: Cell<Option<u64>>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -398,9 +397,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
     fn diff(&self, tree: &mut Tree) {
         let state = tree.state.downcast_mut::<State>();
         let cursor = self.selection.cursor;
-        if state.last_cursor != Some(cursor) {
-            state.last_cursor = Some(cursor);
-            state.pending_scroll_target = Some(cursor);
+        if state.last_cursor.get() != Some(cursor) {
+            state.last_cursor.set(Some(cursor));
         }
     }
 
@@ -408,26 +406,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         Size::new(self.width, self.height)
     }
 
-    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
-        let state = tree.state.downcast_mut::<State>();
-        if let Some(target) = state.pending_scroll_target.take() {
-            let max = limits.max();
-            let bpr = self.bytes_per_row as u64;
-            let total_rows = self.total_rows();
-            if total_rows > 0 {
-                let total_h = self.total_height();
-                let new_scroll = ensure_visible(
-                    state.scroll_offset,
-                    target,
-                    bpr,
-                    max.height,
-                    total_h,
-                );
-                if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
-                    state.scroll_offset = new_scroll;
-                }
-            }
-        }
+    fn layout(&mut self, _tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         let max = limits.max();
         Node::new(Size::new(max.width, max.height))
     }
@@ -457,9 +436,10 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     mouse::ScrollDelta::Lines { y, .. } => -y * ROW_HEIGHT * 3.0,
                     mouse::ScrollDelta::Pixels { y, .. } => -y,
                 };
-                let new = clamp_scroll(state.scroll_offset + dy, total_h, bounds.height);
-                if (new - state.scroll_offset).abs() > f32::EPSILON {
-                    state.scroll_offset = new;
+                let so = state.scroll_offset.get();
+                let new = clamp_scroll(so + dy, total_h, bounds.height);
+                if (new - so).abs() > f32::EPSILON {
+                    state.scroll_offset.set(new);
                     shell.request_redraw();
                     shell.capture_event();
                 }
@@ -471,19 +451,19 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 // Scrollbar takes precedence.
                 let scrollbar = scrollbar_track(bounds);
                 if scrollbar.contains(p) && total_h > bounds.height {
-                    let thumb = scrollbar_thumb(scrollbar, state.scroll_offset, total_h);
+                    let thumb = scrollbar_thumb(scrollbar, state.scroll_offset.get(), total_h);
                     if thumb.contains(p) {
                         state.dragging_scrollbar = true;
                         state.drag_start_cursor_y = p.y;
-                        state.drag_start_offset = state.scroll_offset;
+                        state.drag_start_offset = state.scroll_offset.get();
                     } else {
                         let dir = if p.y < thumb.y { -1.0 } else { 1.0 };
                         let new = clamp_scroll(
-                            state.scroll_offset + dir * bounds.height,
+                            state.scroll_offset.get() + dir * bounds.height,
                             total_h,
                             bounds.height,
                         );
-                        state.scroll_offset = new;
+                        state.scroll_offset.set(new);
                         shell.request_redraw();
                     }
                     shell.capture_event();
@@ -494,7 +474,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
-                    state.scroll_offset,
+                    state.scroll_offset.get(),
                     self.bytes_per_row,
                     total_len,
                 ) {
@@ -531,7 +511,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
-                    state.scroll_offset,
+                    state.scroll_offset.get(),
                     self.bytes_per_row,
                     total_len,
                 ) {
@@ -549,7 +529,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     let max_off = (total_h - bounds.height).max(1.0);
                     let dy = p.y - state.drag_start_cursor_y;
                     let new = state.drag_start_offset + dy * (max_off / travel);
-                    state.scroll_offset = clamp_scroll(new, total_h, bounds.height);
+                    state.scroll_offset.set(clamp_scroll(new, total_h, bounds.height));
                     shell.request_redraw();
                     shell.capture_event();
                     return;
@@ -559,7 +539,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     if let Some(addr) = addr_at(
                         p,
                         bounds,
-                        state.scroll_offset,
+                        state.scroll_offset.get(),
                         self.bytes_per_row,
                         total_len,
                     ) {
@@ -770,7 +750,17 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
         let bpr = self.bytes_per_row as usize;
         let total_h = self.total_height();
-        let scroll = clamp_scroll(state.scroll_offset, total_h, bounds.height);
+
+        // Ensure cursor is visible.
+        let new_scroll = ensure_visible(
+            state.scroll_offset.get(),
+            self.selection.cursor,
+            self.bytes_per_row as u64,
+            bounds.height,
+            total_h,
+        );
+        state.scroll_offset.set(new_scroll);
+        let scroll = new_scroll;
 
         let visible = visible_row_range(scroll, bounds.height, ROW_HEIGHT, total_rows, OVERSCAN);
 
@@ -1049,14 +1039,14 @@ impl<'a, Message> HexMatrix<'a, Message> {
             max_addr,
         );
         let new_scroll = ensure_visible(
-            state.scroll_offset,
+            state.scroll_offset.get(),
             target,
             bpr,
             bounds.height,
             self.total_height(),
         );
-        if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
-            state.scroll_offset = new_scroll;
+        if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
+            state.scroll_offset.set(new_scroll);
         }
         shell.request_redraw();
     }
