@@ -74,7 +74,7 @@ pub(crate) fn try_show_native_menu<Message: Clone>(
 #[cfg(target_os = "macos")]
 fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     use objc2::rc::Retained;
-    use objc2::{MainThreadMarker, MainThreadOnly};
+    use objc2::{sel, MainThreadMarker, MainThreadOnly};
     use objc2_app_kit::{NSMenu, NSMenuItem, NSEvent};
     use objc2_foundation::NSString;
 
@@ -87,6 +87,9 @@ fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     let menu: Retained<NSMenu> =
         NSMenu::initWithTitle(NSMenu::alloc(mtm), &empty);
 
+    // Prevent AppKit from auto-disabling items with no valid responder target
+    menu.setAutoenablesItems(false);
+
     for (idx, item) in items.iter().enumerate() {
         if item.is_separator {
             let sep = NSMenuItem::separatorItem(mtm);
@@ -97,7 +100,7 @@ fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
                 NSMenuItem::initWithTitle_action_keyEquivalent(
                     NSMenuItem::alloc(mtm),
                     &title,
-                    None,
+                    Some(sel!(dummy:)), // dummy — we detect selection via highlightedItem tag
                     &empty,
                 )
             };
