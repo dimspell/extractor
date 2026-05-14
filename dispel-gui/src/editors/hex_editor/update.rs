@@ -235,18 +235,30 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
             editor.search.visible = true;
             editor.search.query = query;
             editor.search.execute(editor.provider.as_slice());
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
         }
         HexEditorMessage::ToggleSearchMode => {
             editor.search.mode = editor.search.mode.toggle();
             if !editor.search.query.is_empty() {
                 editor.search.execute(editor.provider.as_slice());
+                if let Some(addr) = editor.search.current_addr() {
+                    editor.selection.select(addr.min(max_addr), max_addr);
+                }
             }
         }
         HexEditorMessage::SearchNext => {
             editor.search.next_match();
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
         }
         HexEditorMessage::SearchPrev => {
             editor.search.prev_match();
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
         }
         HexEditorMessage::ReplaceOne(replace_str) => {
             if let Some((start, _end)) = editor.search.current_range() {
@@ -259,6 +271,9 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
                     editor.recompute_vanilla_diff();
                     editor.search.execute(editor.provider.as_slice());
                     editor.search.next_match();
+                    if let Some(addr) = editor.search.current_addr() {
+                        editor.selection.select(addr.min(max_addr), max_addr);
+                    }
                 }
             }
         }
