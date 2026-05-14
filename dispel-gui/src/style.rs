@@ -1118,6 +1118,38 @@ pub fn tree_menu_button(_theme: &Theme, status: button::Status) -> button::Style
     }
 }
 
+pub fn menu_disabled_item(_theme: &Theme, _status: button::Status) -> button::Style {
+    button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: color!(0x706860),
+        border: Border {
+            color: Color::TRANSPARENT,
+            width: 0.0,
+            radius: 4.into(),
+        },
+        ..Default::default()
+    }
+}
+
+pub fn menu_disabled_text(_theme: &Theme) -> text::Style {
+    text::Style {
+        color: Some(color!(0x706860)),
+    }
+}
+
+pub fn menu_separator(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x4a3a2e))),
+        border: Border {
+            color: Color::TRANSPARENT,
+            width: 0.0,
+            radius: 0.into(),
+        },
+        text_color: None,
+        ..Default::default()
+    }
+}
+
 pub fn menu_item(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),

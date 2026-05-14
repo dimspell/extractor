@@ -11,7 +11,7 @@ use crate::style;
 use super::filter::FileTreeResult;
 use super::filter::{fuzzy_match, FileTreeError, FileTreeFilter};
 use super::message::FileTreeMessage;
-use crate::components::context_menu::ContextMenu;
+use crate::components::context_menu::{ContextMenu, Entry};
 
 /// File tree data structure (pure data representation).
 #[derive(Debug, Clone, Default)]
@@ -573,12 +573,12 @@ fn render_node<'a>(
             });
 
             let entries = vec![
-                (
+                Entry::item(
                     "Extract to JSON",
                     FileTreeMessage::ExtractToJson(path.clone()),
                 ),
-                ("Validate", FileTreeMessage::ValidateFile(path.clone())),
-                (
+                Entry::item("Validate", FileTreeMessage::ValidateFile(path.clone())),
+                Entry::item(
                     "Show in File Manager",
                     FileTreeMessage::ShowInFileManager(path.clone()),
                 ),

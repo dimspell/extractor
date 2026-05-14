@@ -1,4 +1,4 @@
-use crate::components::context_menu::ContextMenu;
+use crate::components::context_menu::{ContextMenu, Entry};
 use iced::widget::{button, container, row, scrollable, text};
 use iced::{Element, Length};
 
@@ -59,10 +59,10 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
 
             // Add context menu for right-click actions
             let context_entries = vec![
-                ("Close", TabBarMessage::CloseTab(idx)),
-                ("Close Others", TabBarMessage::CloseOthers(idx)),
-                ("Close All", TabBarMessage::CloseAll),
-                ("Pin/Unpin", TabBarMessage::TogglePin(idx)),
+                Entry::item("Close", TabBarMessage::CloseTab(idx)),
+                Entry::item("Close Others", TabBarMessage::CloseOthers(idx)),
+                Entry::item("Close All", TabBarMessage::CloseAll),
+                Entry::item("Pin/Unpin", TabBarMessage::TogglePin(idx)),
             ];
 
             ContextMenu::new(btn, context_entries).into()
