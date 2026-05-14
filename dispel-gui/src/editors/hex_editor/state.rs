@@ -2,8 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use super::editing::{EditState, InspectorEditState};
+use super::goto::GotoState;
 use super::pattern::Pattern;
 use super::provider::{BufferProvider, HexProvider};
+use super::search::SearchState;
 use super::selection::Selection;
 use super::vanilla_diff::compute_diff;
 
@@ -37,6 +39,10 @@ pub struct HexEditorState {
     pub next_pattern_id: usize,
     /// Last address where right-click occurred (for context menu).
     pub context_menu_addr: Option<u64>,
+    /// Goto-address dialog state (None when closed).
+    pub goto: Option<GotoState>,
+    /// Search & replace overlay state.
+    pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
     /// "Recording not active", parse errors). Cleared on next save.
     pub status_msg: String,
@@ -72,6 +78,8 @@ impl HexEditorState {
                     show_pattern_list: false,
                     next_pattern_id: 0,
                     context_menu_addr: None,
+                    goto: None,
+                    search: SearchState::new(),
                     status_msg: String::new(),
                     error: None,
                 }
@@ -91,6 +99,8 @@ impl HexEditorState {
                 show_pattern_list: false,
                 next_pattern_id: 0,
                 context_menu_addr: None,
+                goto: None,
+                search: SearchState::new(),
                 status_msg: String::new(),
                 error: Some(e.to_string()),
             },

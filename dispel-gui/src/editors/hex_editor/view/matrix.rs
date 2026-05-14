@@ -81,6 +81,12 @@ pub struct HexMatrix<'a, Message> {
     vanilla_diff: &'a BTreeSet<u64>,
     /// Fast lookup: byte address → pattern id.
     patterns: &'a BTreeMap<u64, usize>,
+    /// Search results: all byte addresses covered by any match.
+    search_match_set: &'a BTreeSet<u64>,
+    /// Length (in bytes) of the current search query.
+    search_query_len: u64,
+    /// Start address of the current (navigated-to) match, if any.
+    search_current_addr: Option<u64>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -94,6 +100,8 @@ pub struct HexMatrix<'a, Message> {
     on_edit_commit: Option<Box<dyn Fn(bool) -> Message + 'a>>,
     on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_goto: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_search: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -106,6 +114,9 @@ impl<'a, Message> HexMatrix<'a, Message> {
         dirty: &'a BTreeSet<u64>,
         vanilla_diff: &'a BTreeSet<u64>,
         patterns: &'a BTreeMap<u64, usize>,
+        search_match_set: &'a BTreeSet<u64>,
+        search_query_len: u64,
+        search_current_addr: Option<u64>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -116,6 +127,9 @@ impl<'a, Message> HexMatrix<'a, Message> {
             dirty,
             vanilla_diff,
             patterns,
+            search_match_set,
+            search_query_len,
+            search_current_addr,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -129,6 +143,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_edit_commit: None,
             on_right_click: None,
             on_create_pattern: None,
+            on_open_goto: None,
+            on_open_search: None,
         }
     }
 
@@ -179,6 +195,16 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_create_pattern(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_create_pattern = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_open_goto(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_open_goto = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_open_search(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_open_search = Some(Box::new(f));
         self
     }
 
@@ -360,7 +386,7 @@ const HEX_DIGITS: [&str; 16] = [
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F",
 ];
 
-impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Message> {
+impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a, Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -617,6 +643,28 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     }
                 }
 
+                // Ctrl+G opens the goto dialog.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "g")
+                {
+                    if let Some(cb) = &self.on_open_goto {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Ctrl+F opens the search overlay.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "f")
+                {
+                    if let Some(cb) = &self.on_open_search {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
                 // Hex-digit typing: append in edit mode, or auto-start one.
                 if !modifiers.control() && !modifiers.command() && !modifiers.alt() {
                     if let Some(t) = text {
@@ -788,7 +836,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
 
                 // Background priority: edit > selection-cursor > selection >
                 // pattern > dirty (this session) > diff (cumulative vs vanilla).
-                let bg = if is_editing {
+                let base_bg = if is_editing {
                     Some(edit_bg)
                 } else if in_sel {
                     Some(if addr == cursor_addr {
@@ -805,10 +853,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 } else {
                     None
                 };
-                if let Some(bg) = bg {
-                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, bg, clip);
-                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, bg, clip);
-                }
 
                 let text_color = if is_editing {
                     edit_text
@@ -838,6 +882,32 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 } else {
                     ascii_color
                 };
+
+                // Search-match overlay (overrides bg/fg when applicable).
+                let in_search = self.search_match_set.contains(&addr);
+                let in_current_match = self
+                    .search_current_addr
+                    .map(|cur| addr >= cur && addr < cur + self.search_query_len)
+                    .unwrap_or(false);
+                let bg = if in_current_match {
+                    Some(color!(0x4a6a2a))
+                } else if in_search {
+                    Some(color!(0x2a4a2a))
+                } else {
+                    base_bg
+                };
+                let text_color = if in_current_match {
+                    color!(0xfff8ee)
+                } else if in_search {
+                    color!(0xfff4e0)
+                } else {
+                    text_color
+                };
+
+                if let Some(c) = bg {
+                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, clip);
+                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, clip);
+                }
 
                 if is_editing {
                     // Render the in-flight draft instead of the underlying
@@ -952,7 +1022,7 @@ pub fn first_hex_char(t: &str) -> Option<char> {
     t.chars().find(|c| c.is_ascii_hexdigit())
 }
 
-impl<Message> HexMatrix<'_, Message> {
+impl<'a, Message> HexMatrix<'a, Message> {
     fn publish_nav(
         &self,
         state: &mut State,

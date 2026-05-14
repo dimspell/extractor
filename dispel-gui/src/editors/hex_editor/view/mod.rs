@@ -1,8 +1,10 @@
 pub mod footer;
+pub mod goto_modal;
 pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
 pub mod patterns;
+pub mod search_overlay;
 
 use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, text};
@@ -74,6 +76,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
         editor.provider.dirty(),
         &editor.vanilla_diff,
         &editor.pattern_by_addr,
+        &editor.search.match_set,
+        editor.search.query_len,
+        editor.search.current_addr(),
         cache,
     )
     .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
@@ -86,6 +91,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .on_edit_commit(|advance| Message::hex_editor(HexEditorMessage::EditCommit { advance }))
     .on_right_click(|addr| Message::hex_editor(HexEditorMessage::RightClickAt(addr)))
     .on_create_pattern(|| Message::hex_editor(HexEditorMessage::CreatePattern))
+    .on_open_goto(|| Message::hex_editor(HexEditorMessage::OpenGotoDialog))
+    .on_open_search(|| Message::hex_editor(HexEditorMessage::OpenSearch))
     .into();
 
     let has_selection_range = !editor.selection.is_single();
@@ -135,8 +142,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         Space::default().height(0).into()
     };
 
+    let search_section: Element<'_, Message> = if editor.search.is_visible() {
+        search_overlay::view(&editor.search)
+    } else {
+        Space::default().height(0).into()
+    };
+
     let base: Element<'_, Message> = column![
         toolbar,
+        search_section,
         header,
         pattern_section,
         container(body).width(Fill).height(Fill),
@@ -147,12 +161,23 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .height(Fill)
     .into();
 
-    if let Some(ref ie) = editor.inspector_edit {
+    let base = if let Some(ref ie) = editor.inspector_edit {
         modal(
             base,
             inspector_modal::view(ie),
             || Message::hex_editor(HexEditorMessage::CloseInspectorEdit),
             0.4,
+        )
+    } else {
+        base
+    };
+
+    if let Some(ref g) = editor.goto {
+        modal(
+            base,
+            goto_modal::view(g),
+            || Message::hex_editor(HexEditorMessage::CloseGotoDialog),
+            0.3,
         )
     } else {
         base
@@ -203,6 +228,22 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
         .padding([3, 10])
         .on_press(Message::hex_editor(HexEditorMessage::TogglePatternList));
 
+    // Bytes-per-row toggle group.
+    let goto_btn = button(text("Go to...").size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(Message::hex_editor(HexEditorMessage::OpenGotoDialog));
+
+    let bpr = editor.bytes_per_row;
+    let bpr_btn = |n: u8| {
+        let label = format!("{:02}", n);
+        let active = bpr == n;
+        let mut btn = button(text(label).size(11).font(Font::MONOSPACE)).padding([3, 6]);
+        if !active {
+            btn = btn.style(button::text);
+        }
+        btn.on_press(Message::hex_editor(HexEditorMessage::SetBytesPerRow(n)))
+    };
+
     let status: Element<'a, Message> = if editor.status_msg.is_empty() {
         text("").size(11).into()
     } else {
@@ -215,7 +256,16 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
     container(
         row![
             save_btn,
+            goto_btn,
             patterns_btn,
+            row![
+                text("BPR").size(10).font(Font::MONOSPACE),
+                bpr_btn(8),
+                bpr_btn(16),
+                bpr_btn(32),
+            ]
+            .spacing(2)
+            .align_y(iced::Alignment::Center),
             text(hint).size(11).font(Font::MONOSPACE),
             container(status).width(Fill),
         ]
