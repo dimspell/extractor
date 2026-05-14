@@ -310,6 +310,12 @@ impl App {
                 if modifiers.control() || modifiers.command() {
                     if let Key::Character(c) = key.as_ref() {
                         let ch = c.chars().next()?;
+                        // Shift+X → reopen active file in hex editor
+                        if modifiers.shift() && ch == 'X' {
+                            return Some(Message::Workspace(
+                                WorkspaceMessage::ReopenActiveTabAsHex,
+                            ));
+                        }
                         return match ch {
                             'z' => Some(Message::System(SystemMessage::Undo)),
                             'y' => Some(Message::System(SystemMessage::Redo)),
@@ -582,6 +588,30 @@ impl App {
             }
             et => load_catalog_task(et).unwrap_or(Task::none()),
         }
+    }
+
+    /// Open a file in the hex editor, bypassing the auto-detected editor type.
+    pub fn open_file_in_workspace_as_hex(&mut self, path: &Path) -> Task<Message> {
+        let label = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        self.state.workspace.open_with_editor_type(
+            label,
+            Some(path.to_path_buf()),
+            EditorType::HexEditor,
+        );
+        self.track_recent_file(path);
+        self.save_workspace();
+
+        if let Some(tab_id) = self.active_tab_id() {
+            self.state
+                .hex_editors
+                .entry(tab_id)
+                .or_insert_with(|| HexEditorState::load_from_path(path));
+        }
+        Task::none()
     }
 
     fn active_tab_id(&self) -> Option<usize> {

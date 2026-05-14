@@ -574,6 +574,11 @@ fn render_node<'a>(
 
             let entries = vec![
                 Entry::item(
+                    "Open as Hex",
+                    FileTreeMessage::OpenAsHex(path.clone()),
+                ),
+                Entry::separator(),
+                Entry::item(
                     "Extract to JSON",
                     FileTreeMessage::ExtractToJson(path.clone()),
                 ),

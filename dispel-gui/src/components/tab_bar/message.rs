@@ -7,6 +7,7 @@ pub enum TabBarMessage {
     CloseAll,
     TogglePin(usize),
     CloseActiveTab,
+    OpenAsHex(usize),
 }
 
 #[cfg(test)]
@@ -62,6 +63,20 @@ mod tests {
         assert!(matches!(msg, TabBarMessage::CloseActiveTab));
     }
 
+    #[test]
+    fn test_open_as_hex_message() {
+        let msg = TabBarMessage::OpenAsHex(3);
+        assert!(matches!(msg, TabBarMessage::OpenAsHex(3)));
+    }
+
+    #[test]
+    fn test_open_as_hex_debug() {
+        let msg = TabBarMessage::OpenAsHex(3);
+        let debug = format!("{:?}", msg);
+        assert!(debug.contains("OpenAsHex"));
+        assert!(debug.contains("3"));
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // TabBarMessage Equality Tests
     // ═══════════════════════════════════════════════════════════════════════════
@@ -110,6 +125,15 @@ mod tests {
     }
 
     #[test]
+    fn test_open_as_hex_equality() {
+        let msg1 = TabBarMessage::OpenAsHex(1);
+        let msg2 = TabBarMessage::OpenAsHex(1);
+        let msg3 = TabBarMessage::OpenAsHex(2);
+        assert_eq!(msg1, msg2);
+        assert_ne!(msg1, msg3);
+    }
+
+    #[test]
     fn test_close_active_tab_is_unique() {
         let msg1 = TabBarMessage::CloseActiveTab;
         let msg2 = TabBarMessage::CloseActiveTab;
@@ -136,6 +160,7 @@ mod tests {
             TabBarMessage::CloseAll,
             TabBarMessage::TogglePin(3),
             TabBarMessage::CloseActiveTab,
+            TabBarMessage::OpenAsHex(4),
         ];
         for msg in messages {
             let cloned = msg.clone();
@@ -175,6 +200,7 @@ mod tests {
             TabBarMessage::CloseAll,
             TabBarMessage::TogglePin(0),
             TabBarMessage::CloseActiveTab,
+            TabBarMessage::OpenAsHex(0),
         ];
         for msg in messages {
             match &msg {
@@ -184,6 +210,7 @@ mod tests {
                 TabBarMessage::CloseAll => {}
                 TabBarMessage::TogglePin(_) => {}
                 TabBarMessage::CloseActiveTab => {}
+                TabBarMessage::OpenAsHex(_) => {}
             }
         }
     }

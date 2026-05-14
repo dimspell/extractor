@@ -7,6 +7,7 @@ pub enum FileTreeMessage {
     OpenFile(PathBuf),
     Search(String),
     /// Context menu actions
+    OpenAsHex(PathBuf),
     ExtractToJson(PathBuf),
     ValidateFile(PathBuf),
     ShowInFileManager(PathBuf),

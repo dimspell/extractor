@@ -100,6 +100,13 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.snf_editors.clear();
             Task::none()
         }
+        TabBarMessage::OpenAsHex(tab_index) => {
+            let path = app.state.workspace.tabs.get(tab_index).and_then(|t| t.path.clone());
+            if let Some(path) = path {
+                return app.open_file_in_workspace_as_hex(&path);
+            }
+            Task::none()
+        }
     }
 }
 
@@ -454,5 +461,55 @@ mod tests {
         let _ = handle(TabBarMessage::CloseTab(0), &mut app);
         assert_eq!(app.state.workspace.tabs.len(), 4);
         assert!(app.state.workspace.tabs[1].pinned);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // OpenAsHex Tests
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_open_as_hex_creates_new_tab() {
+        let mut workspace = Workspace::new();
+        workspace.tabs.push(WorkspaceTab {
+            id: 0,
+            label: "test.bin".into(),
+            path: Some(std::path::PathBuf::from("/fake/test.bin")),
+            editor_type: EditorType::Unknown,
+            modified: false,
+            pinned: false,
+        });
+        let before = workspace.tabs.len();
+        let mut app = crate::app::App::test_new(workspace);
+
+        let _ = handle(TabBarMessage::OpenAsHex(0), &mut app);
+
+        // Should have created a new hex tab
+        assert_eq!(app.state.workspace.tabs.len(), before + 1);
+        let hex_tab = app.state.workspace.tabs.last().unwrap();
+        assert_eq!(hex_tab.editor_type, EditorType::HexEditor);
+        assert_eq!(
+            hex_tab.path,
+            Some(std::path::PathBuf::from("/fake/test.bin"))
+        );
+    }
+
+    #[test]
+    fn test_open_as_hex_on_tool_tab_does_nothing() {
+        let mut workspace = Workspace::new();
+        workspace.tabs.push(WorkspaceTab {
+            id: 0,
+            label: "DB Viewer".into(),
+            path: None,
+            editor_type: EditorType::DbViewer,
+            modified: false,
+            pinned: false,
+        });
+        let before = workspace.tabs.len();
+        let mut app = crate::app::App::test_new(workspace);
+
+        let _ = handle(TabBarMessage::OpenAsHex(0), &mut app);
+
+        // No new tab created since tool tab has no path
+        assert_eq!(app.state.workspace.tabs.len(), before);
     }
 }
