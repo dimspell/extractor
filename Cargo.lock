@@ -1023,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "dispel-extractor"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "byteorder",
  "clap",
@@ -1045,7 +1045,7 @@ dependencies = [
 
 [[package]]
 name = "dispel-gui"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "bincode",
  "chrono",
@@ -1078,7 +1078,7 @@ dependencies = [
 
 [[package]]
 name = "dispel-macros"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "proc-macro2",
  "quote",
