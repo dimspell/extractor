@@ -112,6 +112,16 @@ where
 
 // ── Widget-local state ────────────────────────────────────────────────────────
 
+impl Status {
+    #[allow(dead_code)]
+    fn position(self) -> Option<Point> {
+        match self {
+            Status::Closed => None,
+            Status::Open { position } => Some(position),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Status {
     #[default]
@@ -121,26 +131,18 @@ pub enum Status {
     },
 }
 
-impl Status {
-    fn position(self) -> Option<Point> {
-        match self {
-            Status::Closed => None,
-            Status::Open { position } => Some(position),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct State {
+pub struct State<Message> {
     status: Status,
     menu_tree: widget::Tree,
+    menu: Option<Element<'static, Message>>,
 }
 
-impl Default for State {
+impl<Message> Default for State<Message> {
     fn default() -> Self {
         Self {
             status: Status::Closed,
             menu_tree: widget::Tree::empty(),
+            menu: None,
         }
     }
 }
@@ -232,11 +234,11 @@ where
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State>()
+        tree::Tag::of::<State<Message>>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::default())
+        tree::State::new(State::<Message>::default())
     }
 
     fn children(&self) -> Vec<widget::Tree> {
@@ -307,7 +309,7 @@ where
 
         if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
             if let Some(position) = cursor.position_over(layout.bounds()) {
-                let state = tree.state.downcast_mut::<State>();
+                let state = tree.state.downcast_mut::<State<Message>>();
                 state.status = Status::Open {
                     position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
                 };
@@ -362,17 +364,25 @@ where
             translation,
         );
 
-        let state = tree.state.downcast_mut::<State>();
+        let state = tree.state.downcast_mut::<State<Message>>();
 
-        let context_overlay = state.status.position().map(|position| {
-            let menu = build_menu(&self.entries);
-            state.menu_tree.diff(&menu);
-            overlay::Element::new(Box::new(MenuOverlay {
-                menu,
-                state,
-                position: position + translation,
-            }))
-        });
+        let context_overlay = match state.status {
+            Status::Open { position } => {
+                if state.menu.is_none() {
+                    let m = build_menu(&self.entries);
+                    state.menu_tree.diff(&m);
+                    state.menu = Some(m);
+                }
+                Some(overlay::Element::new(Box::new(MenuOverlay {
+                    state,
+                    position: position + translation,
+                })))
+            }
+            Status::Closed => {
+                state.menu = None;
+                None
+            }
+        };
 
         match (base_overlay, context_overlay) {
             (None, None) => None,
@@ -397,8 +407,7 @@ where
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
 struct MenuOverlay<'a, Message> {
-    menu: Element<'static, Message>,
-    state: &'a mut State,
+    state: &'a mut State<Message>,
     position: Point,
 }
 
@@ -407,9 +416,9 @@ where
     Message: Clone + 'static,
 {
     fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
+        let menu = self.state.menu.as_mut().unwrap();
         let limits = layout::Limits::new(Size::ZERO, bounds);
-        let node = self
-            .menu
+        let node = menu
             .as_widget_mut()
             .layout(&mut self.state.menu_tree, renderer, &limits);
 
@@ -444,7 +453,8 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        self.menu.as_widget().draw(
+        let menu = self.state.menu.as_ref().unwrap();
+        menu.as_widget().draw(
             &self.state.menu_tree,
             renderer,
             theme,
@@ -464,7 +474,8 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        self.menu.as_widget_mut().update(
+        let menu = self.state.menu.as_mut().unwrap();
+        menu.as_widget_mut().update(
             &mut self.state.menu_tree,
             event,
             layout,
@@ -476,10 +487,8 @@ where
         );
 
         if let Event::Mouse(mouse::Event::ButtonPressed(_)) = event {
-            if !shell.is_event_captured() {
-                self.state.status = Status::Closed;
-                shell.request_redraw();
-            }
+            self.state.status = Status::Closed;
+            shell.request_redraw();
         }
     }
 
@@ -489,7 +498,8 @@ where
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        self.menu.as_widget().mouse_interaction(
+        let menu = self.state.menu.as_ref().unwrap();
+        menu.as_widget().mouse_interaction(
             &self.state.menu_tree,
             layout,
             cursor,
@@ -504,8 +514,8 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        self.menu
-            .as_widget_mut()
+        let menu = self.state.menu.as_mut().unwrap();
+        menu.as_widget_mut()
             .operate(&mut self.state.menu_tree, layout, renderer, operation);
     }
 }
@@ -596,6 +606,6 @@ mod tests {
     fn test_context_menu_tag() {
         let entries: Vec<Entry<TestMessage>> = vec![];
         let cm = ContextMenu::new(button("Test"), entries);
-        assert_eq!(cm.tag(), tree::Tag::of::<State>());
+        assert_eq!(cm.tag(), tree::Tag::of::<State<TestMessage>>());
     }
 }
