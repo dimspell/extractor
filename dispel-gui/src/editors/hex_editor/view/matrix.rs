@@ -55,6 +55,11 @@ pub struct State {
     /// Last single-click address + timestamp, for double-click detection.
     pub last_click_addr: Option<u64>,
     pub last_click_at: Option<Instant>,
+    /// Selection cursor from the previous frame, used to detect external
+    /// selection changes (e.g. via NavigateToPattern) and auto-scroll.
+    last_cursor: Option<u64>,
+    /// When set (in `diff`), `layout` will call `ensure_visible` and clear it.
+    pending_scroll_target: Option<u64>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -92,6 +97,7 @@ pub struct HexMatrix<'a, Message> {
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         bytes: &'a [u8],
         bytes_per_row: u8,
@@ -363,11 +369,39 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         tree::State::new(State::default())
     }
 
+    fn diff(&self, tree: &mut Tree) {
+        let state = tree.state.downcast_mut::<State>();
+        let cursor = self.selection.cursor;
+        if state.last_cursor != Some(cursor) {
+            state.last_cursor = Some(cursor);
+            state.pending_scroll_target = Some(cursor);
+        }
+    }
+
     fn size(&self) -> Size<Length> {
         Size::new(self.width, self.height)
     }
 
-    fn layout(&mut self, _tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
+    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
+        let state = tree.state.downcast_mut::<State>();
+        if let Some(target) = state.pending_scroll_target.take() {
+            let max = limits.max();
+            let bpr = self.bytes_per_row as u64;
+            let total_rows = self.total_rows();
+            if total_rows > 0 {
+                let total_h = self.total_height();
+                let new_scroll = ensure_visible(
+                    state.scroll_offset,
+                    target,
+                    bpr,
+                    max.height,
+                    total_h,
+                );
+                if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
+                    state.scroll_offset = new_scroll;
+                }
+            }
+        }
         let max = limits.max();
         Node::new(Size::new(max.width, max.height))
     }
