@@ -570,15 +570,16 @@ where
         &self,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
-        renderer: &iced::Renderer,
+        _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        self.menu.as_widget().mouse_interaction(
-            self.menu_tree,
-            layout,
-            cursor,
-            &layout.bounds(),
-            renderer,
-        )
+        if let Some(pos) = cursor.position() {
+            if let Some(idx) = find_hovered_entry(layout, pos, self.entries.len()) {
+                if matches!(self.entries.get(idx), Some(Entry::Item { .. })) {
+                    return mouse::Interaction::Pointer;
+                }
+            }
+        }
+        mouse::Interaction::Idle
     }
 
     fn operate(

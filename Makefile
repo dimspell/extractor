@@ -181,8 +181,14 @@ extracts-help:
 	cargo run -- extract -i "fixtures/Dispel/NpcInGame/PrtLevel.db"
 	cargo run -- extract -i "fixtures/Dispel/NpcInGame/Eventnpc.ref"
 
+run:
+	cargo run -p dispel-gui
+
+run-custom-context-menu:
+	sh -ac "FORCE_CUSTOM_CONTEXT_MENU=1 cargo run -p dispel-gui"
+
 help:
 	cargo run -- --help
 
 iced_test:
-    cargo test -p dispel-gui --features iced_test app::tests
+    cargo test -p dispel-gui --features "iced_test app::tests"
