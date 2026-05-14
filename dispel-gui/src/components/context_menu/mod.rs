@@ -1,77 +1,34 @@
 pub mod platform;
 
+mod entry;
+mod popup;
+mod state;
+
 #[cfg(test)]
 mod tests;
 
 use std::slice;
 
 use iced::advanced::widget::tree;
-use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::widget::{button, column, container, row, text};
-use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size, Vector};
+use iced::advanced::{layout, renderer, widget, Clipboard, Layout, Shell, Widget};
+use iced::advanced::overlay as iced_overlay;
+use iced::{mouse, Element, Event, Point, Rectangle, Vector};
 
-use crate::style;
+pub use entry::Entry;
+pub use state::{State, Status};
 
-/// A context menu entry.
-#[derive(Debug, Clone)]
-pub enum Entry<Message> {
-    Item {
-        label: String,
-        icon: Option<String>,
-        action: Message,
-    },
-    Separator,
-    Disabled {
-        label: String,
-        icon: Option<String>,
-    },
-}
+use popup::MenuOverlay;
 
-impl<Message: Clone> Entry<Message> {
-    pub fn item<S: Into<String>>(label: S, action: Message) -> Self {
-        Entry::Item {
-            label: label.into(),
-            icon: None,
-            action,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn item_with_icon<S: Into<String>, I: Into<String>>(
-        label: S,
-        icon: I,
-        action: Message,
-    ) -> Self {
-        Entry::Item {
-            label: label.into(),
-            icon: Some(icon.into()),
-            action,
-        }
-    }
-
-    pub fn separator() -> Self {
-        Entry::Separator
-    }
-
-    pub fn disabled<S: Into<String>>(label: S) -> Self {
-        Entry::Disabled {
-            label: label.into(),
-            icon: None,
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn disabled_with_icon<S: Into<String>, I: Into<String>>(label: S, icon: I) -> Self {
-        Entry::Disabled {
-            label: label.into(),
-            icon: Some(icon.into()),
-        }
-    }
-}
+/// The offset from the cursor where the custom overlay menu appears.
+const MENU_OFFSET: Point = Point::new(2.0, 2.0);
 
 /// A widget that adds a right-click context menu overlay to any base element.
 ///
 /// Menu state is widget-local — no app messages needed for open/close.
+///
+/// On macOS and Windows a native OS menu is shown. On all other platforms the
+/// Iced-rendered overlay is used (set `DISPEL_FORCE_CUSTOM_CONTEXT_MENU=1` to
+/// force the overlay on macOS/Windows for debugging).
 pub struct ContextMenu<'a, Message> {
     base: Element<'a, Message>,
     entries: Vec<Entry<Message>>,
@@ -86,7 +43,7 @@ where
         Self {
             base: base.into(),
             entries,
-            offset: Point::new(2.0, 2.0),
+            offset: MENU_OFFSET,
         }
     }
 
@@ -103,7 +60,7 @@ where
         Self {
             base: base.into(),
             entries,
-            offset: Point::new(2.0, 2.0),
+            offset: MENU_OFFSET,
         }
     }
 
@@ -113,125 +70,6 @@ where
         self.offset = offset;
         self
     }
-}
-
-// ── Widget-local state ────────────────────────────────────────────────────────
-
-impl Status {
-    #[allow(dead_code)]
-    fn position(self) -> Option<Point> {
-        match self {
-            Status::Closed => None,
-            Status::Open { position } => Some(position),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub enum Status {
-    #[default]
-    Closed,
-    Open {
-        position: Point,
-    },
-}
-
-pub struct State {
-    status: Status,
-    menu_tree: widget::Tree,
-    hovered_idx: Option<usize>,
-}
-
-impl Default for State {
-    fn default() -> Self {
-        Self {
-            status: Status::Closed,
-            menu_tree: widget::Tree::empty(),
-            hovered_idx: None,
-        }
-    }
-}
-
-// ── Menu construction ─────────────────────────────────────────────────────────
-
-fn build_menu<Message>(
-    entries: &[Entry<Message>],
-    hovered_idx: Option<usize>,
-) -> Element<'static, Message>
-where
-    Message: Clone + 'static,
-{
-    let mut items: Vec<Element<'static, Message>> = Vec::with_capacity(entries.len());
-
-    for (idx, entry) in entries.iter().enumerate() {
-        match entry {
-            Entry::Item {
-                label,
-                icon,
-                action: _,
-            } => {
-                let content: Element<'static, Message> = if let Some(icon) = icon {
-                    let i = icon.clone();
-                    let l = label.clone();
-                    row![text(i).size(14), text(l).size(13)].spacing(6).into()
-                } else {
-                    text(label.clone()).size(13).into()
-                };
-                let hovered = hovered_idx == Some(idx);
-                items.push(
-                    button(content)
-                        .style(move |theme, _status| {
-                            let s = if hovered {
-                                button::Status::Hovered
-                            } else {
-                                button::Status::Active
-                            };
-                            style::menu_item(theme, s)
-                        })
-                        .width(Fill)
-                        .padding([6, 10])
-                        .into(),
-                );
-            }
-            Entry::Separator => {
-                items.push(
-                    container(row![].height(1))
-                        .padding([2, 4])
-                        .style(style::menu_separator)
-                        .into(),
-                );
-            }
-            Entry::Disabled { label, icon } => {
-                let content: Element<'static, Message> = if let Some(icon) = icon {
-                    row![
-                        text(icon.clone()).size(14).style(style::menu_disabled_text),
-                        text(label.clone())
-                            .size(13)
-                            .style(style::menu_disabled_text),
-                    ]
-                    .spacing(6)
-                    .into()
-                } else {
-                    text(label.clone())
-                        .size(13)
-                        .style(style::menu_disabled_text)
-                        .into()
-                };
-                items.push(
-                    button(content)
-                        .width(Fill)
-                        .padding([6, 10])
-                        .style(style::menu_disabled_item)
-                        .into(),
-                );
-            }
-        }
-    }
-
-    container(column(items).spacing(1).padding(4))
-        .style(style::context_menu)
-        .width(220)
-        .into()
 }
 
 // ── Widget implementation ─────────────────────────────────────────────────────
@@ -342,7 +180,10 @@ where
                 }
 
                 state.status = Status::Open {
-                    position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
+                    position: Point::new(
+                        position.x + self.offset.x,
+                        position.y + self.offset.y,
+                    ),
                 };
                 shell.capture_event();
                 shell.request_redraw();
@@ -386,7 +227,7 @@ where
         renderer: &iced::Renderer,
         viewport: &Rectangle,
         translation: Vector,
-    ) -> Option<overlay::Element<'b, Message, iced::Theme, iced::Renderer>> {
+    ) -> Option<iced_overlay::Element<'b, Message, iced::Theme, iced::Renderer>> {
         let base_overlay = self.base.as_widget_mut().overlay(
             &mut tree.children[0],
             layout,
@@ -397,28 +238,21 @@ where
 
         let state = tree.state.downcast_mut::<State>();
 
-        // Destructure to borrow disjoint fields for MenuOverlay.
-        let State {
-            ref mut status,
-            ref mut menu_tree,
-            ref mut hovered_idx,
-        } = state;
-
-        let context_overlay = match *status {
+        let context_overlay = match state.status {
             Status::Open { position } => {
-                let menu = build_menu(&self.entries, *hovered_idx);
-                menu_tree.diff(&menu);
-                Some(overlay::Element::new(Box::new(MenuOverlay {
+                let menu = popup::build_menu(&self.entries, state.hovered_idx);
+                state.menu_tree.diff(&menu);
+                Some(iced_overlay::Element::new(Box::new(MenuOverlay {
                     menu,
-                    menu_tree,
-                    status,
-                    hovered_idx,
+                    menu_tree: &mut state.menu_tree,
+                    status: &mut state.status,
+                    hovered_idx: &mut state.hovered_idx,
                     entries: &self.entries[..],
                     position: position + translation,
                 })))
             }
             Status::Closed => {
-                *hovered_idx = None;
+                state.hovered_idx = None;
                 None
             }
         };
@@ -428,7 +262,7 @@ where
             (Some(base), None) => Some(base),
             (None, Some(ctx)) => Some(ctx),
             (Some(base), Some(ctx)) => {
-                Some(overlay::Group::with_children(vec![base, ctx]).overlay())
+                Some(iced_overlay::Group::with_children(vec![base, ctx]).overlay())
             }
         }
     }
@@ -440,159 +274,5 @@ where
 {
     fn from(cm: ContextMenu<'a, Message>) -> Self {
         Element::new(cm)
-    }
-}
-
-/// Walk the layout tree to find which menu entry the cursor is over.
-///
-/// The menu layout is: Container → Column → [items].
-fn find_hovered_entry(layout: Layout<'_>, cursor_pos: Point, entry_count: usize) -> Option<usize> {
-    // First child of the container is the column.
-    let column = layout.children().next()?;
-    for (idx, child) in column.children().enumerate() {
-        if idx >= entry_count {
-            break;
-        }
-        if child.bounds().contains(cursor_pos) {
-            return Some(idx);
-        }
-    }
-    None
-}
-
-// ── Overlay ───────────────────────────────────────────────────────────────────
-
-struct MenuOverlay<'a, Message> {
-    menu: Element<'static, Message>,
-    menu_tree: &'a mut widget::Tree,
-    status: &'a mut Status,
-    hovered_idx: &'a mut Option<usize>,
-    entries: &'a [Entry<Message>],
-    position: Point,
-}
-
-impl<Message> overlay::Overlay<Message, iced::Theme, iced::Renderer> for MenuOverlay<'_, Message>
-where
-    Message: Clone + 'static,
-{
-    fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
-        let limits = layout::Limits::new(Size::ZERO, bounds);
-        let node = self
-            .menu
-            .as_widget_mut()
-            .layout(self.menu_tree, renderer, &limits);
-
-        // Clamp position so the menu stays within the viewport (5px inset).
-        let padding = 5.0;
-        let vp = Rectangle::new(
-            Point::new(padding, padding),
-            Size::new(bounds.width - 2.0 * padding, bounds.height - 2.0 * padding),
-        );
-        let mut rect = Rectangle::new(self.position, node.size());
-
-        if rect.x < vp.x {
-            rect.x = vp.x;
-        } else if vp.x + vp.width < rect.x + rect.width {
-            rect.x = vp.x + vp.width - rect.width;
-        }
-
-        if rect.y < vp.y {
-            rect.y = vp.y;
-        } else if vp.y + vp.height < rect.y + rect.height {
-            rect.y = vp.y + vp.height - rect.height;
-        }
-
-        node.move_to(rect.position())
-    }
-
-    fn draw(
-        &self,
-        renderer: &mut iced::Renderer,
-        theme: &iced::Theme,
-        style: &renderer::Style,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-    ) {
-        self.menu.as_widget().draw(
-            self.menu_tree,
-            renderer,
-            theme,
-            style,
-            layout,
-            cursor,
-            &layout.bounds(),
-        );
-    }
-
-    fn update(
-        &mut self,
-        event: &Event,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        renderer: &iced::Renderer,
-        clipboard: &mut dyn Clipboard,
-        shell: &mut Shell<'_, Message>,
-    ) {
-        match event {
-            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
-                if let Some(pos) = cursor.position() {
-                    let new = find_hovered_entry(layout, pos, self.entries.len());
-                    if *self.hovered_idx != new {
-                        *self.hovered_idx = new;
-                        shell.request_redraw();
-                    }
-                }
-            }
-            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if let Some(idx) = *self.hovered_idx {
-                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
-                        shell.publish(action.clone());
-                        shell.capture_event();
-                    }
-                }
-                *self.status = Status::Closed;
-                shell.request_redraw();
-                return;
-            }
-            _ => {}
-        }
-
-        self.menu.as_widget_mut().update(
-            self.menu_tree,
-            event,
-            layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-            &layout.bounds(),
-        );
-    }
-
-    fn mouse_interaction(
-        &self,
-        layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        _renderer: &iced::Renderer,
-    ) -> mouse::Interaction {
-        if let Some(pos) = cursor.position() {
-            if let Some(idx) = find_hovered_entry(layout, pos, self.entries.len()) {
-                if matches!(self.entries.get(idx), Some(Entry::Item { .. })) {
-                    return mouse::Interaction::Pointer;
-                }
-            }
-        }
-        mouse::Interaction::Idle
-    }
-
-    fn operate(
-        &mut self,
-        layout: Layout<'_>,
-        renderer: &iced::Renderer,
-        operation: &mut dyn widget::Operation<()>,
-    ) {
-        self.menu
-            .as_widget_mut()
-            .operate(self.menu_tree, layout, renderer, operation);
     }
 }
