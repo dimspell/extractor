@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Reads file: `CharacterInGame/ChData.db`
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, RecordPatcher)]
-#[extractor(property_item_size = 86)]
+#[extractor(property_item_size = 84)]
 #[patcher(filename = "ChData.db")]
 pub struct ChData {
     /// Asset identifier string (unused).
@@ -67,6 +67,10 @@ pub struct ChData {
     /// Agility attribute for Mage character class
     #[extractor(primitive(type = "i16"))]
     pub mage_agility: i16,
+
+    /// Unknown value, always zero.
+    #[extractor(primitive(type = "i16"))]
+    pub reseverd: i16,
 
     /// Extra attribute points during character creation for the Warrior class (unused)
     #[extractor(primitive(type = "i32"))]
