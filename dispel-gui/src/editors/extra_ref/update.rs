@@ -2,9 +2,12 @@ use dispel_core::Extractor;
 use iced::Task;
 
 use crate::app::App;
-use crate::editors::extra_ref::ExtraRefEditorMessage;
-use crate::handle_spreadsheet_messages_tab;
 use crate::components::loading_state::LoadingState;
+use crate::editors::extra_ref::ExtraRefEditorMessage;
+use crate::editors::mod_packager::recording::{
+    capture_field_recording_context, observe_field_change,
+};
+use crate::handle_spreadsheet_messages_tab;
 use crate::message::MessageExt;
 use crate::update::editor::tab;
 
@@ -58,13 +61,31 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
         ExtraRefEditorMessage::Select(index) => {
             tab::select(&mut app.state.extra_ref_editors, tab_id, index)
         }
-        ExtraRefEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
-            &mut app.state.extra_ref_editors,
-            tab_id,
-            index,
-            field,
-            value,
-        ),
+        ExtraRefEditorMessage::FieldChanged(index, field, value) => {
+            let captured = capture_field_recording_context(
+                app.state.extra_ref_editors.get(&tab_id),
+                index,
+                &field,
+                &app.state.shared_game_path,
+            );
+            let new_value = value.clone();
+            let task = tab::field_changed(
+                &mut app.state.extra_ref_editors,
+                tab_id,
+                index,
+                field.clone(),
+                value,
+            );
+            match captured {
+                Some((old_value, orig_idx, file_path)) if old_value != new_value => {
+                    let observe = observe_field_change(
+                        app, file_path, orig_idx, &field, old_value, new_value,
+                    );
+                    task.chain(observe)
+                }
+                _ => task,
+            }
+        }
         ExtraRefEditorMessage::Save => tab::save(
             &mut app.state.extra_ref_editors,
             tab_id,

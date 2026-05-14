@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::EventType;
 use crate::references::extractor::Extractor;
-use dispel_macros::TextExtractor;
+use dispel_macros::{TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -45,8 +45,9 @@ use serde::{Deserialize, Serialize};
 /// Defines event scripts with execution conditions, prerequisites,
 /// and repetition limits. Used for quest progression, interactive
 /// objects, and game state management.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR")]
+#[patcher(filename = "Event.ini")]
 pub struct Event {
     /// Unique event identifier.
     #[extractor(field = 0)]

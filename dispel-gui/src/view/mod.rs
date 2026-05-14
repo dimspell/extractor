@@ -1,13 +1,13 @@
 use crate::app::{App, AppMode};
 use crate::components::modal::modal;
 use crate::components::tab_bar::view as tab_bar;
+use crate::components::utils::{truncate_path, vertical_space};
 use crate::message::{
     startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
     WorkspaceMessage,
 };
 use crate::state::PaneContent;
 use crate::style;
-use crate::components::utils::{truncate_path, vertical_space};
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use iced::widget::pane_grid;
@@ -121,6 +121,7 @@ impl App {
                             Some(EditorType::LocalizationManager) => {
                                 crate::editors::localization_manager::view(self)
                             }
+                            Some(EditorType::HexEditor) => crate::editors::hex_editor::view(self),
                             Some(EditorType::Unknown) | None => {
                                 let content: Element<'_, Message> =
                                     if self.state.recent_files.is_empty() {
@@ -350,7 +351,7 @@ impl App {
             tool_btn("DB Viewer", EditorType::DbViewer),
             tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
-            tool_btn("Mod Packager", EditorType::ModPackager),
+            tool_btn("Mod Manager", EditorType::ModPackager),
             tool_btn("Localization Packager", EditorType::LocalizationManager),
         ]
         .spacing(1);

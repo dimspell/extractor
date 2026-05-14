@@ -1,7 +1,7 @@
 use crate::app::App;
+use crate::components::loading_state::LoadingState;
 use crate::components::textarea::textarea;
 use crate::editors::localization_manager::LocalizationMessage;
-use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use iced::widget::{
@@ -22,7 +22,7 @@ impl std::fmt::Display for FileFilter {
         match self {
             FileFilter::All => write!(f, "All files"),
             FileFilter::File(name) => {
-                let short = name.split('/').last().unwrap_or(name);
+                let short = name.split('/').next_back().unwrap_or(name);
                 write!(f, "{short}")
             }
         }
@@ -169,7 +169,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             let short_file = entry
                 .file_path
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or(&entry.file_path);
 
             // Truncate original for list display
@@ -260,7 +260,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             let short_file = entry
                 .file_path
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or(&entry.file_path);
 
             let context_line = text(format!(

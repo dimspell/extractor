@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{MonsterAiType, PropertyFlag};
 use crate::references::extractor::Extractor;
-use dispel_macros::Extractor;
+use dispel_macros::{Extractor, RecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -95,8 +95,9 @@ use serde::{Deserialize, Serialize};
 ///
 /// Defines all monster types with complete combat statistics, behavior patterns,
 /// and reward systems. Used by game engine for monster spawning and combat AI.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Extractor)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Extractor, RecordPatcher)]
 #[extractor(property_item_size = 160, counter_size = 0)]
+#[patcher(filename = "Monster.db")]
 pub struct Monster {
     /// Unique monster archetype tracking ID.
     #[extractor(index)]

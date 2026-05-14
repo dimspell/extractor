@@ -37,6 +37,7 @@ define_message_ext! {
     snf_editor:     Snf(crate::editors::snf_editor::SnfEditorMessage),
     mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
+    hex_editor:      HexEditor(crate::editors::hex_editor::HexEditorMessage),
 }
 
 /// Extension trait for building nested editor messages.

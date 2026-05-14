@@ -1,8 +1,10 @@
+use crate::indexation::file_index_cache::{
+    CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata,
+};
+use crate::indexation::indexation_service::IndexationService;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::indexation::indexation_service::IndexationService;
 use tempfile::tempdir;
-use crate::indexation::file_index_cache::{CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata};
 
 #[test]
 fn test_cache_serialization_deserialization() {

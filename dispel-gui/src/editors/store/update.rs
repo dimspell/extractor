@@ -1,6 +1,7 @@
 use crate::app::App;
-use crate::editors::store::StoreEditorMessage;
+use crate::components::editable::EditableRecord;
 use crate::components::loading_state::LoadingState;
+use crate::editors::store::StoreEditorMessage;
 use crate::message::MessageExt;
 use dispel_core::{EditItem, Extractor, HealItem, MiscItem, Store, WeaponItem};
 use iced::Task;
@@ -85,7 +86,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                         format!("Error loading store catalog: {}", e)
                 }
             }
-            app.state.store_editor.loading_state = crate::components::loading_state::LoadingState::Loaded(());
+            app.state.store_editor.loading_state =
+                crate::components::loading_state::LoadingState::Loaded(());
             Task::none()
         }
         StoreEditorMessage::SelectStore(index) => {
@@ -99,8 +101,31 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             Task::none()
         }
         StoreEditorMessage::FieldChanged(index, field, value) => {
+            // Capture (orig_idx, old) BEFORE the edit. `index` from the
+            // message is the position in the *filtered* view; the patcher
+            // addresses by the original record id, so use `i` from the
+            // (orig_idx, store) tuple. Bail out if the row is missing.
+            let captured = app
+                .state
+                .store_editor
+                .filtered_stores
+                .get(index)
+                .map(|(i, r)| (*i as u32, r.get_field(&field)));
+            let new_value = value.clone();
             app.state.store_editor.update_field(index, &field, value);
-            Task::none()
+            match captured {
+                Some((orig_idx, old_value)) if old_value != new_value => {
+                    crate::editors::mod_packager::recording::observe_field_change(
+                        app,
+                        "CharacterInGame/STORE.DB",
+                        orig_idx,
+                        &field,
+                        old_value,
+                        new_value,
+                    )
+                }
+                _ => Task::none(),
+            }
         }
         StoreEditorMessage::SelectProduct(index) => {
             app.state.store_editor.selected_product_idx = Some(index);
@@ -145,7 +170,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             Task::none()
         }
         StoreEditorMessage::Saved(result) => {
-            app.state.store_editor.loading_state = crate::components::loading_state::LoadingState::Loaded(());
+            app.state.store_editor.loading_state =
+                crate::components::loading_state::LoadingState::Loaded(());
 
             match result {
                 Ok(_) => {

@@ -1,10 +1,11 @@
 use crate::components::command_palette::CommandPalette;
+use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
 use crate::components::tab_bar::TabBarMessage;
-use crate::editors::db_viewer::db;
-use crate::components::edit_history::EditHistory;
 use crate::editors::chest::ChestEditorMessage;
+use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
+use crate::editors::hex_editor::HexEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -562,6 +563,15 @@ impl App {
                 }
                 Task::none()
             }
+            EditorType::HexEditor => {
+                if let Some(tab_id) = self.active_tab_id() {
+                    self.state
+                        .hex_editors
+                        .entry(tab_id)
+                        .or_insert_with(|| HexEditorState::load_from_path(path));
+                }
+                Task::none()
+            }
             EditorType::MapEditor => {
                 let Some(tab_id) = self.active_tab_id() else {
                     return Task::none();
@@ -591,7 +601,8 @@ impl App {
     }
 
     pub fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
-        self.state.chest_editor.loading_state = crate::components::loading_state::LoadingState::Loading;
+        self.state.chest_editor.loading_state =
+            crate::components::loading_state::LoadingState::Loading;
         Task::perform(
             async move { dispel_core::ExtraRef::read_file(&path) },
             |res: Result<Vec<dispel_core::ExtraRef>, std::io::Error>| {
@@ -775,4 +786,49 @@ fn build_spreadsheet_nav_msg(
         }
         _ => return None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
+
+    #[test]
+    fn test_empty_state_displayed_when_no_tabs_open() {
+        let workspace = Workspace::default();
+        let app = App::test_new(workspace);
+
+        assert_eq!(app.app_mode, AppMode::EditorMode);
+        assert!(app.state.workspace.active().is_none());
+
+        let view = app.view();
+
+        let mut ui = iced_test::simulator(view);
+
+        ui.find("Select a file to edit")
+            .expect("Empty state should display 'Select a file to edit'");
+    }
+
+    #[test]
+    fn test_empty_state_not_shown_when_tab_is_open() {
+        let mut workspace = Workspace::default();
+        workspace.tabs.push(WorkspaceTab {
+            id: 1,
+            label: "Test".into(),
+            path: None,
+            editor_type: EditorType::LocalizationManager,
+            modified: false,
+            pinned: false,
+        });
+        workspace.active_tab = Some(0);
+
+        let app = App::test_new(workspace);
+
+        let view = app.view();
+
+        let mut ui = iced_test::simulator(view);
+
+        ui.find("Select a file to edit")
+            .expect_err("Empty state should NOT be shown when a tab is open");
+    }
 }

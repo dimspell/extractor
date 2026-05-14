@@ -232,12 +232,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.capture_event();
                 }
             }
-            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)) => {
-                if state.dragging.is_some() {
-                    state.dragging = None;
-                    shell.capture_event();
-                    shell.request_redraw();
-                }
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
+                if state.dragging.is_some() =>
+            {
+                state.dragging = None;
+                shell.capture_event();
+                shell.request_redraw();
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
                 let Some(p) = cursor.position_over(bounds) else {
@@ -456,8 +456,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 );
             }
 
-            for col_idx in first_col.max(1)..last_col {
-                let cell_x = bounds.x + col_x[col_idx] - off.x;
+            for (col_idx, &cell_x_offset) in col_x
+                .iter()
+                .enumerate()
+                .take(last_col)
+                .skip(first_col.max(1))
+            {
+                let cell_x = bounds.x + cell_x_offset - off.x;
                 let cell_w = self.col_width(col_idx);
 
                 let value = match self.cell_value(row_idx, col_idx) {
@@ -672,8 +677,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             .intersection(&header_data_rect)
             .unwrap_or(header_data_rect);
 
-        for col_idx in first_col.max(1)..last_col {
-            let col_l_screen = bounds.x + col_x[col_idx] - off.x;
+        for (col_idx, &col_x_offset) in col_x
+            .iter()
+            .enumerate()
+            .take(last_col)
+            .skip(first_col.max(1))
+        {
+            let col_l_screen = bounds.x + col_x_offset - off.x;
             let col_w = self.col_width(col_idx);
             let data_col = col_idx - 1;
             let column = &self.columns[data_col];

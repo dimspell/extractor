@@ -1,12 +1,12 @@
 use crate::app::App;
 use crate::components::editable::EditableRecord;
+use crate::components::loading_state::LoadingState;
 use crate::editors::map_editor::canvas::{decode_tileset_file, find_hovered_entity_impl};
 use crate::editors::map_editor::{
     DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle, InternalSpriteHandle,
     MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode, SelectedEntity,
     SpriteExportDialogState, SpriteExportStatus, SpriteSequenceHandle, TilePixelData,
 };
-use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
 use iced::widget::image::Handle;

@@ -49,7 +49,7 @@ impl EditableRecord for EventItem {
         match field {
             "name" => set_str(&mut self.name, value),
             "description" => set_str(&mut self.description, value),
-            "padding" => parse_hex_string(&value).map_or(false, |v| {
+            "padding" => parse_hex_string(&value).is_some_and(|v| {
                 if v.len() == 8 {
                     self.padding = v.try_into().unwrap();
                     true

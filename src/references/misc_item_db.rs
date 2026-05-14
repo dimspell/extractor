@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable};
+use dispel_macros::{Extractor, Localizable, RecordPatcher};
 
 /// MiscItem.db - Miscellaneous Items
 ///
@@ -62,8 +62,11 @@ use dispel_macros::{Extractor, Localizable};
 /// Defines miscellaneous items with names, descriptions,
 /// and prices. Used for consumables, quest items,
 /// and generic inventory objects.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 256)]
+#[patcher(filename = "MiscItem.db")]
 pub struct MiscItem {
     /// Numeric tracking index.
     #[extractor(id)]

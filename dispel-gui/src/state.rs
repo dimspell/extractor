@@ -1,16 +1,18 @@
 use crate::components::file_tree::FileTree;
+use crate::components::global_search::GlobalSearch;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
-use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorState;
+use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
 use crate::editors::extra_ref::ExtraRefEditorState;
+use crate::editors::hex_editor::HexEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -29,7 +31,6 @@ use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
-use crate::components::global_search::GlobalSearch;
 use crate::message::{system::SystemMessage, Message};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
@@ -89,6 +90,7 @@ pub struct AppState {
     pub map_editors: HashMap<usize, MapEditorState>,
     pub tileset_editors: HashMap<usize, TilesetEditorState>,
     pub snf_editors: HashMap<usize, SnfEditorState>,
+    pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
     pub lookups: HashMap<String, Vec<(String, String)>>,
@@ -99,6 +101,50 @@ pub struct AppState {
     pub file_tree: FileTree,
     /// Recent files tracking for workspace navigation
     pub recent_files: Vec<PathBuf>,
+    /// Active mod-recording session, if any. While set, every successful
+    /// catalog edit is appended to that mod's `ChangeLog`.
+    pub recording: Option<RecordingSession>,
+}
+
+/// In-flight recording state. Lives on [`AppState`] while the user has
+/// "Record into …" turned on in the Mod Manager.
+///
+/// Edits are debounced per `(file, record_id, field)` key: incoming changes
+/// land in [`pending`](Self::pending) instead of being persisted directly,
+/// and a delayed `RecordingDebounceFired` message flushes them after the
+/// idle interval has elapsed without a superseding edit.
+#[derive(Debug, Clone, Default)]
+pub struct RecordingSession {
+    pub workspace_root: PathBuf,
+    pub mod_slug: String,
+    pub mod_name: String,
+    /// Count of committed (persisted) actions, not pending ones.
+    pub recorded_count: usize,
+    /// Per-key debounce buffer.
+    pub pending: std::collections::HashMap<RecordingKey, PendingEdit>,
+    /// Monotonic counter; bumped on every observed edit so stale debounce
+    /// timers can recognise and drop themselves.
+    pub next_generation: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct RecordingKey {
+    pub file_path: String,
+    pub record_id: u32,
+    pub field: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct PendingEdit {
+    /// The value present BEFORE the user started editing this field — kept
+    /// stable across keystrokes so the persisted `FieldDelta.old` is the
+    /// true pristine value rather than the previous keystroke.
+    pub original_old: dispel_core::modding::Value,
+    /// Most recent value seen for this key.
+    pub latest_new: dispel_core::modding::Value,
+    /// Generation of the most recent edit — only the timer carrying the
+    /// matching generation is allowed to flush.
+    pub generation: u64,
 }
 
 impl AppState {
@@ -208,7 +254,9 @@ impl AppState {
             async move {
                 eprintln!("DEBUG: Starting indexation for: {:?}", game_path_clone);
                 let indexation_service =
-                    crate::indexation::indexation_service::IndexationService::new(cache_manager_clone.clone());
+                    crate::indexation::indexation_service::IndexationService::new(
+                        cache_manager_clone.clone(),
+                    );
 
                 // Start indexation - it will collect whatever files it can even on error
                 let handle =
@@ -267,6 +315,7 @@ impl AppState {
         self.npc_ref_spreadsheets.clear();
         self.map_editors.clear();
         self.snf_editors.clear();
+        self.hex_editors.clear();
 
         // Reset boxed editors to default state
         *self.weapon_editor = Default::default();
@@ -343,6 +392,7 @@ impl Default for AppState {
             map_editors: HashMap::new(),
             tileset_editors: HashMap::new(),
             snf_editors: HashMap::new(),
+            hex_editors: HashMap::new(),
             mod_packager_editor: mod_packager::ModPackagerState::default(),
             localization_manager: localization_manager::LocalizationManagerState::default(),
             lookups: HashMap::new(),
@@ -352,6 +402,7 @@ impl Default for AppState {
             file_index_cache_manager: None,
             file_tree: FileTree::default(),
             recent_files: Vec::new(),
+            recording: None,
         }
     }
 }

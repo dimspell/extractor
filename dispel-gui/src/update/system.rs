@@ -1,12 +1,12 @@
 // System message handlers
 
 use crate::app::App;
+use crate::components::generic_editor::UndoRedo;
+use crate::components::utils::browse_folder;
 use crate::components::FileTree;
 use crate::editors::map_editor::MapEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
-use crate::components::generic_editor::UndoRedo;
 use crate::message::{system::SystemMessage, Message, MessageExt};
-use crate::components::utils::browse_folder;
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
@@ -27,7 +27,9 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     // Save a search index before closing
                     let index = app.search_index.clone();
                     Task::perform(
-                        async move { index.save(&crate::indexation::search_index::SearchIndex::index_path()) },
+                        async move {
+                            index.save(&crate::indexation::search_index::SearchIndex::index_path())
+                        },
                         |_| Message::System(SystemMessage::CloseApp),
                     )
                 }

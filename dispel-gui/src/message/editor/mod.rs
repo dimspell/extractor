@@ -6,8 +6,8 @@
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
 use crate::editors::chest::ChestEditorMessage;
-use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
+use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
 use crate::editors::edit_item::EditItemEditorMessage;
 use crate::editors::event_ini::EventIniEditorMessage;
@@ -16,6 +16,7 @@ use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
+use crate::editors::hex_editor::HexEditorMessage;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::editors::magic::MagicEditorMessage;
 use crate::editors::map_editor::MapEditorMessage;
@@ -76,4 +77,5 @@ pub enum EditorMessage {
     Snf(SnfEditorMessage),
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
+    HexEditor(HexEditorMessage),
 }

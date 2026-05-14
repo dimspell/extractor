@@ -60,6 +60,50 @@ macro_rules! define_standard_editor {
                         );
                         ::iced::Task::none()
                     }
+                    [<$Name EditorMessage>]::FieldChanged(idx, field, value) => {
+                        // Capture the value already in the editor BEFORE the
+                        // edit so recording sees the true `old`.
+                        let old_value = app
+                            .state
+                            .$field
+                            .state
+                            .filtered
+                            .get(idx)
+                            .map(|(_, r)| {
+                                use $crate::components::editable::EditableRecord;
+                                r.get_field(&field)
+                            })
+                            .unwrap_or_default();
+                        let orig_idx = app
+                            .state
+                            .$field
+                            .state
+                            .filtered
+                            .get(idx)
+                            .map(|(i, _)| *i as u32);
+                        let new_value = value.clone();
+                        let task = $crate::components::standard::update::handle(
+                            [<$Name EditorMessage>]::FieldChanged(idx, field.clone(), value),
+                            &mut app.state.$field,
+                            &app.state.shared_game_path.clone(),
+                            $file,
+                            $crate::message::Message::$name,
+                        );
+                        // Only record if the edit actually changed the value
+                        // (avoids no-op observations).
+                        let observe = if let Some(rid) = orig_idx {
+                            if old_value != new_value {
+                                $crate::editors::mod_packager::recording::observe_field_change(
+                                    app, $file, rid, &field, old_value, new_value,
+                                )
+                            } else {
+                                ::iced::Task::none()
+                            }
+                        } else {
+                            ::iced::Task::none()
+                        };
+                        observe.chain(task)
+                    }
                     msg => $crate::components::standard::update::handle(
                         msg,
                         &mut app.state.$field,

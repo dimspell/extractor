@@ -4,6 +4,8 @@ use crate::view::editor::paragraph_cache::ParagraphCache;
 use iced::advanced::Shell;
 use iced::{Font, Length, Point, Rectangle, Size, Vector};
 
+type ScrollCallback<'a, Message> = Box<dyn Fn(f32, f32, f32) -> Message + 'a>;
+
 pub struct TableWidget<'a, Message> {
     /// Full display cache — `display_cache[orig_idx][col_idx]`.
     pub(crate) display_cache: &'a [Vec<String>],
@@ -27,7 +29,7 @@ pub struct TableWidget<'a, Message> {
     /// programmatic scroll-to-row from the message layer).
     pub(crate) external_offset: Vector,
     pub(crate) on_select: Option<Box<dyn Fn(usize) -> Message + 'a>>,
-    pub(crate) on_scroll: Option<Box<dyn Fn(f32, f32, f32) -> Message + 'a>>,
+    pub(crate) on_scroll: Option<ScrollCallback<'a, Message>>,
     pub(crate) on_sort: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     pub(crate) on_open_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,
     pub(crate) on_clear_filter: Option<Box<dyn Fn(usize) -> Message + 'a>>,

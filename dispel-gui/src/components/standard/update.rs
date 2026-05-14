@@ -1,7 +1,7 @@
 use crate::components::editable::EditableRecord;
+use crate::components::loading_state::LoadingState;
 use crate::components::standard::message::StandardEditorMessage;
 use crate::components::standard::state::StandardEditor;
-use crate::components::loading_state::LoadingState;
 use crate::message::Message;
 use dispel_core::Extractor;
 use iced::Task;

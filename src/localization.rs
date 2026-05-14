@@ -118,7 +118,7 @@ pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
         "max_bytes",
     ])?;
     for e in entries {
-        wtr.write_record(&[
+        wtr.write_record([
             e.file_path.as_str(),
             &e.record_id.to_string(),
             e.field_name,
@@ -137,7 +137,7 @@ pub fn export_csv(entries: &[TextEntry]) -> Result<String, csv::Error> {
 
 /// Import translations from CSV; matches rows by (file_path, record_id, field_name).
 /// Only updates the `translation` field of matching entries; returns error count.
-pub fn import_csv(csv: &str, entries: &mut Vec<TextEntry>) -> Result<usize, csv::Error> {
+pub fn import_csv(csv: &str, entries: &mut [TextEntry]) -> Result<usize, csv::Error> {
     let mut rdr = csv::Reader::from_reader(csv.as_bytes());
     // Build a lookup: (file_path, record_id, field_name) → index in entries
     let mut index: HashMap<(String, usize, String), usize> = HashMap::new();
@@ -195,7 +195,7 @@ pub fn export_po(entries: &[TextEntry], source_lang: &str, target_lang: &str) ->
 /// Import translations from a PO file; matches by `msgid` value.
 /// When multiple entries share the same `msgid`, all are updated.
 /// Returns the number of `msgstr` values applied.
-pub fn import_po(po: &str, entries: &mut Vec<TextEntry>) -> usize {
+pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
     // Build a lookup: original → list of indices
     let mut by_original: HashMap<String, Vec<usize>> = HashMap::new();
     for (i, e) in entries.iter().enumerate() {
@@ -209,7 +209,7 @@ pub fn import_po(po: &str, entries: &mut Vec<TextEntry>) -> usize {
 
     for line in po.lines() {
         let line = line.trim();
-        if line.starts_with("msgid ") {
+        if let Some(stripped) = line.strip_prefix("msgid ") {
             if in_msgstr {
                 // flush previous pair
                 if let Some(ref id) = current_msgid {
@@ -225,11 +225,11 @@ pub fn import_po(po: &str, entries: &mut Vec<TextEntry>) -> usize {
             }
             in_msgstr = false;
             msgstr_buf.clear();
-            let value = po_unquote(&line["msgid ".len()..]);
+            let value = po_unquote(stripped);
             current_msgid = if value.is_empty() { None } else { Some(value) };
-        } else if line.starts_with("msgstr ") {
+        } else if let Some(stripped) = line.strip_prefix("msgstr ") {
             in_msgstr = true;
-            msgstr_buf = po_unquote(&line["msgstr ".len()..]);
+            msgstr_buf = po_unquote(stripped);
         } else if in_msgstr && line.starts_with('"') {
             msgstr_buf.push_str(&po_unquote(line));
         } else if line.is_empty() && in_msgstr {

@@ -1,12 +1,12 @@
 // Viewer message handlers
 
 use crate::app::App;
-use crate::message::viewer::ViewerMessage;
+use crate::components::loading_state;
 use crate::components::utils::browse_file;
 use crate::editors::db_viewer::db;
-use iced::Task;
-use crate::components::loading_state;
 use crate::editors::db_viewer::state::PAGE_SIZE;
+use crate::message::viewer::ViewerMessage;
+use iced::Task;
 
 pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
@@ -114,7 +114,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // );
         }
         ViewerMessage::DataLoaded(result) => {
-            app.state.viewer.loading_state = crate::components::loading_state::LoadingState::Loaded(());
+            app.state.viewer.loading_state =
+                crate::components::loading_state::LoadingState::Loaded(());
             match result {
                 Ok(qr) => {
                     app.state.viewer.columns = qr.columns;

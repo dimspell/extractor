@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable};
+use dispel_macros::{Extractor, Localizable, RecordPatcher};
 
 /// EventItem.db - Quest/Event Specific Items
 ///
@@ -60,8 +60,11 @@ use dispel_macros::{Extractor, Localizable};
 /// Defines quest and event-specific items with names and
 /// descriptions. Used for unique items that trigger
 /// events or are required for quest progression.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable)]
+#[derive(
+    Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
+)]
 #[extractor(property_item_size = 240)]
+#[patcher(filename = "EventItem.db")]
 pub struct EventItem {
     /// Internal record ID representing the quest item.
     #[extractor(id)]

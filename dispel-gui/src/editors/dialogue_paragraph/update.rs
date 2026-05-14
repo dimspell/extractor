@@ -2,9 +2,12 @@ use dispel_core::{DialogueParagraph, Extractor};
 use iced::Task;
 
 use crate::app::App;
-use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
-use crate::handle_spreadsheet_messages_tab;
 use crate::components::loading_state::LoadingState;
+use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
+use crate::editors::mod_packager::recording::{
+    capture_field_recording_context, observe_field_change,
+};
+use crate::handle_spreadsheet_messages_tab;
 use crate::message::MessageExt;
 use crate::update::editor::tab;
 
@@ -56,13 +59,31 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<crate:
         DialogueParagraphEditorMessage::Select(index) => {
             tab::select(&mut app.state.dialogue_paragraphs_editors, tab_id, index)
         }
-        DialogueParagraphEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
-            &mut app.state.dialogue_paragraphs_editors,
-            tab_id,
-            index,
-            field,
-            value,
-        ),
+        DialogueParagraphEditorMessage::FieldChanged(index, field, value) => {
+            let captured = capture_field_recording_context(
+                app.state.dialogue_paragraphs_editors.get(&tab_id),
+                index,
+                &field,
+                &app.state.shared_game_path,
+            );
+            let new_value = value.clone();
+            let task = tab::field_changed(
+                &mut app.state.dialogue_paragraphs_editors,
+                tab_id,
+                index,
+                field.clone(),
+                value,
+            );
+            match captured {
+                Some((old_value, orig_idx, file_path)) if old_value != new_value => {
+                    let observe = observe_field_change(
+                        app, file_path, orig_idx, &field, old_value, new_value,
+                    );
+                    task.chain(observe)
+                }
+                _ => task,
+            }
+        }
         DialogueParagraphEditorMessage::Save => tab::save(
             &mut app.state.dialogue_paragraphs_editors,
             tab_id,

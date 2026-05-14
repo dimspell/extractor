@@ -4,6 +4,9 @@ use dispel_core::{Extractor, MonsterIni};
 use iced::Task;
 
 use crate::app::App;
+use crate::editors::mod_packager::recording::{
+    capture_field_recording_context, observe_field_change,
+};
 use crate::editors::monster_ref::MonsterRefEditorMessage;
 use crate::handle_spreadsheet_messages_tab;
 use crate::message::MessageExt;
@@ -16,13 +19,31 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<crate::messag
         MonsterRefEditorMessage::SelectEntry(index) => {
             tab::select(&mut app.state.monster_ref_editors, tab_id, index)
         }
-        MonsterRefEditorMessage::FieldChanged(index, field, value) => tab::field_changed(
-            &mut app.state.monster_ref_editors,
-            tab_id,
-            index,
-            field,
-            value,
-        ),
+        MonsterRefEditorMessage::FieldChanged(index, field, value) => {
+            let captured = capture_field_recording_context(
+                app.state.monster_ref_editors.get(&tab_id),
+                index,
+                &field,
+                &app.state.shared_game_path,
+            );
+            let new_value = value.clone();
+            let task = tab::field_changed(
+                &mut app.state.monster_ref_editors,
+                tab_id,
+                index,
+                field.clone(),
+                value,
+            );
+            match captured {
+                Some((old_value, orig_idx, file_path)) if old_value != new_value => {
+                    let observe = observe_field_change(
+                        app, file_path, orig_idx, &field, old_value, new_value,
+                    );
+                    task.chain(observe)
+                }
+                _ => task,
+            }
+        }
         MonsterRefEditorMessage::Save => tab::save(
             &mut app.state.monster_ref_editors,
             tab_id,

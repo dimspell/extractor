@@ -4,7 +4,7 @@ use crate::references::enums::{
     BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
 };
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, Localizable};
+use dispel_macros::{Extractor, Localizable, RecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -88,8 +88,9 @@ use serde::{Deserialize, Serialize};
 /// Defines NPC placements on specific maps with waypoints,
 /// dialogue triggers, and visual configurations. Used for populating
 /// maps with interactive characters and quest givers.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, Localizable)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
 #[extractor(property_item_size = 672)]
+#[patcher(extension = "ref", stem_prefix = "npc")]
 pub struct NPC {
     /// Internal iteration index mapped from the file array.
     #[extractor(index)]

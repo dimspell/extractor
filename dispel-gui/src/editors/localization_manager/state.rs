@@ -1,6 +1,6 @@
+use crate::components::loading_state::LoadingState;
 use crate::components::textarea::TextAreaContent;
 use crate::editors::mod_packager::state::ModMetadata;
-use crate::components::loading_state::LoadingState;
 use dispel_core::TextEntry;
 
 #[derive(Debug)]
@@ -68,7 +68,7 @@ impl LocalizationManagerState {
                 let file_ok = self
                     .filter_file
                     .as_deref()
-                    .map_or(true, |f| e.file_path.contains(f));
+                    .is_none_or(|f| e.file_path.contains(f));
                 let translated_ok = !self.show_untranslated_only || !e.is_translated();
                 let overlong_ok = !self.show_overlong_only || e.would_truncate();
                 let search_ok = q.is_empty()
