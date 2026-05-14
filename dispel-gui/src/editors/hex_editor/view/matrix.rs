@@ -59,6 +59,8 @@ pub struct State {
     /// Selection cursor from the previous frame, used to detect external
     /// selection changes (e.g. via NavigateToPattern).
     last_cursor: Cell<Option<u64>>,
+    /// Flag set when cursor changed externally and draw() should scroll to it.
+    scroll_to_cursor: Cell<bool>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -399,6 +401,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let cursor = self.selection.cursor;
         if state.last_cursor.get() != Some(cursor) {
             state.last_cursor.set(Some(cursor));
+            state.scroll_to_cursor.set(true);
         }
     }
 
@@ -529,7 +532,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     let max_off = (total_h - bounds.height).max(1.0);
                     let dy = p.y - state.drag_start_cursor_y;
                     let new = state.drag_start_offset + dy * (max_off / travel);
-                    state.scroll_offset.set(clamp_scroll(new, total_h, bounds.height));
+                    state
+                        .scroll_offset
+                        .set(clamp_scroll(new, total_h, bounds.height));
                     shell.request_redraw();
                     shell.capture_event();
                     return;
@@ -751,16 +756,20 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let bpr = self.bytes_per_row as usize;
         let total_h = self.total_height();
 
-        // Ensure cursor is visible.
-        let new_scroll = ensure_visible(
-            state.scroll_offset.get(),
-            self.selection.cursor,
-            self.bytes_per_row as u64,
-            bounds.height,
-            total_h,
-        );
-        state.scroll_offset.set(new_scroll);
-        let scroll = new_scroll;
+        // Scroll to cursor only when explicitly requested (external cursor change).
+        let scroll = if state.scroll_to_cursor.get() {
+            state.scroll_to_cursor.set(false);
+            ensure_visible(
+                state.scroll_offset.get(),
+                self.selection.cursor,
+                self.bytes_per_row as u64,
+                bounds.height,
+                total_h,
+            )
+        } else {
+            state.scroll_offset.get()
+        };
+        state.scroll_offset.set(scroll);
 
         let visible = visible_row_range(scroll, bounds.height, ROW_HEIGHT, total_rows, OVERSCAN);
 
