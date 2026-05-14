@@ -8,7 +8,6 @@
 //! pipe-delimited records, multi-section INIs — keep hand-written patchers
 //! alongside the generated ones.
 
-mod chdata;
 mod derived;
 mod dialogue;
 mod draw_item;
@@ -19,6 +18,7 @@ mod quest;
 mod store;
 
 // Auto-generated (binary, via #[derive(RecordPatcher)])
+pub use crate::references::chdata_db::ChDataPatcher;
 pub use crate::references::edit_item_db::EditItemPatcher;
 pub use crate::references::event_item_db::EventItemPatcher;
 pub use crate::references::extra_ref::ExtraRefPatcher;
@@ -44,7 +44,6 @@ pub use crate::references::party_ref::PartyRefPatcher;
 pub use crate::references::wave_ini::WaveIniPatcher;
 
 // Hand-written (irregular formats)
-pub use chdata::ChDataPatcher;
 pub use dialogue::{DialogueParagraphPatcher, DialogueScriptPatcher};
 pub use draw_item::DrawItemPatcher;
 pub use event_script::EventScriptPatcher;
