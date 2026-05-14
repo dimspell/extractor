@@ -91,6 +91,8 @@ pub enum HexEditorMessage {
     ReplaceOne(String),
     /// Show the replace-all confirmation dialog.
     ShowReplaceConfirm(String),
+    /// Set the replace query (for live input without triggering replace).
+    SetReplaceQuery(String),
     /// Confirm replace-all.
     CommitReplaceAll,
     /// Dismiss replace-all confirmation.

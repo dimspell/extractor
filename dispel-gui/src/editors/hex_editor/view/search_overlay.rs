@@ -46,7 +46,7 @@ pub fn view(state: &SearchState) -> Element<'_, Message> {
         .on_press(Message::hex_editor(HexEditorMessage::SearchNext));
 
     let replace_input = text_input("Replace...", &state.replace_query)
-        .on_input(|s| Message::hex_editor(HexEditorMessage::ShowReplaceConfirm(s)))
+        .on_input(|s| Message::hex_editor(HexEditorMessage::SetReplaceQuery(s)))
         .padding(4)
         .size(11)
         .width(Length::Fixed(120.0));

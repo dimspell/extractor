@@ -277,6 +277,9 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
                 }
             }
         }
+        HexEditorMessage::SetReplaceQuery(replace_str) => {
+            editor.search.replace_query = replace_str;
+        }
         HexEditorMessage::ShowReplaceConfirm(replace_str) => {
             editor.search.replace_query = replace_str;
             editor.search.show_replace_confirm = true;
