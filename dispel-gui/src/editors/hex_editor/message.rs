@@ -61,4 +61,12 @@ pub enum HexEditorMessage {
     /// Right-click at a specific address — used to determine which context
     /// menu options to show (remove pattern vs create pattern).
     RightClickAt(u64),
+
+    // ── Pattern list panel ───────────────────────────────────────────────
+    /// Show/hide the pattern list panel.
+    TogglePatternList,
+    /// Navigate to a pattern's start address.
+    NavigateToPattern(usize),
+    /// Remove a pattern by its id.
+    RemovePattern(usize),
 }

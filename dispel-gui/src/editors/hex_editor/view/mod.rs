@@ -2,7 +2,9 @@ pub mod footer;
 pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
+pub mod patterns;
 
+use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
@@ -71,7 +73,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         edit,
         editor.provider.dirty(),
         &editor.vanilla_diff,
-        &editor.patterns,
+        &editor.pattern_by_addr,
         cache,
     )
     .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
@@ -89,7 +91,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let has_selection_range = !editor.selection.is_single();
     let clicked_on_pattern = editor
         .context_menu_addr
-        .map(|addr| editor.patterns.contains(&addr))
+        .map(|addr| editor.pattern_id_at(addr).is_some())
         .unwrap_or(false);
     let has_patterns = !editor.patterns.is_empty();
 
@@ -123,9 +125,16 @@ pub fn view(app: &App) -> Element<'_, Message> {
     ]
     .spacing(0);
 
+    let pattern_section: Element<'_, Message> = if editor.show_pattern_list {
+        patterns::view(editor)
+    } else {
+        Space::default().height(0).into()
+    };
+
     let base: Element<'_, Message> = column![
         toolbar,
         header,
+        pattern_section,
         container(body).width(Fill).height(Fill),
         footer::view(editor),
     ]
@@ -181,6 +190,15 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
         ""
     };
 
+    let patterns_label = if editor.show_pattern_list {
+        "Hide Patterns"
+    } else {
+        "Patterns"
+    };
+    let patterns_btn = button(text(patterns_label).size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(Message::hex_editor(HexEditorMessage::TogglePatternList));
+
     let status: Element<'a, Message> = if editor.status_msg.is_empty() {
         text("").size(11).into()
     } else {
@@ -193,6 +211,7 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
     container(
         row![
             save_btn,
+            patterns_btn,
             text(hint).size(11).font(Font::MONOSPACE),
             container(status).width(Fill),
         ]

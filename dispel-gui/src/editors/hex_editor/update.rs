@@ -221,7 +221,9 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
             }
         }
         HexEditorMessage::RemovePatternAt(addr) => {
-            editor.remove_pattern(addr);
+            if let Some(id) = editor.pattern_id_at(addr) {
+                editor.remove_pattern(id);
+            }
         }
         HexEditorMessage::ClearAllPatterns => {
             editor.clear_patterns();
@@ -229,6 +231,19 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
         }
         HexEditorMessage::RightClickAt(addr) => {
             editor.context_menu_addr = Some(addr);
+        }
+
+        // ── Pattern list panel ──────────────────────────────────────────
+        HexEditorMessage::TogglePatternList => {
+            editor.show_pattern_list = !editor.show_pattern_list;
+        }
+        HexEditorMessage::NavigateToPattern(id) => {
+            if let Some(pat) = editor.pattern_by_id(id) {
+                editor.selection.select(pat.start, max_addr);
+            }
+        }
+        HexEditorMessage::RemovePattern(id) => {
+            editor.remove_pattern(id);
         }
     }
     Task::none()

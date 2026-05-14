@@ -7,6 +7,7 @@ pub mod editing;
 pub mod inspector;
 pub mod layout;
 mod message;
+pub mod pattern;
 mod provider;
 pub mod selection;
 mod state;
@@ -16,6 +17,7 @@ mod view;
 
 pub use editing::{EditState, InspectorEditState};
 pub use message::HexEditorMessage;
+pub use pattern::Pattern;
 pub use provider::{BufferProvider, HexProvider};
 pub use selection::Selection;
 pub use state::{HexEditorState, DEFAULT_BYTES_PER_ROW};

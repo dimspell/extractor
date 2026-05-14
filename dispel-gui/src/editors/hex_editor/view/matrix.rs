@@ -4,7 +4,7 @@
 //! gap), ASCII gutter, scrollbar. Only rows in the viewport are touched per
 //! frame; everything else is virtual.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
@@ -20,6 +20,7 @@ use iced::{
     Rectangle, Shadow, Size,
 };
 
+use crate::editors::hex_editor::pattern::{pattern_bg, pattern_fg};
 use crate::editors::hex_editor::selection::{NavDir, Selection};
 use crate::view::editor::paragraph_cache::{ParagraphCache, ParagraphKey};
 
@@ -73,8 +74,8 @@ pub struct HexMatrix<'a, Message> {
     /// Bytes that already differ from vanilla (load-time + cumulative).
     /// Distinct from `dirty` (= dirtied this session); tinted differently.
     vanilla_diff: &'a BTreeSet<u64>,
-    /// Highlighted byte ranges for pattern matching/debugging.
-    patterns: &'a BTreeSet<u64>,
+    /// Fast lookup: byte address → pattern id.
+    patterns: &'a BTreeMap<u64, usize>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -98,7 +99,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         edit: Option<EditView<'a>>,
         dirty: &'a BTreeSet<u64>,
         vanilla_diff: &'a BTreeSet<u64>,
-        patterns: &'a BTreeSet<u64>,
+        patterns: &'a BTreeMap<u64, usize>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -707,8 +708,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let edit_bg = color!(0xc25e1c);
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
-        let pattern_bg = color!(0x1a3a4f);
-        let pattern_text = color!(0x6ab0d0);
 
         let hex_start_x = bounds.x + ADDR_COL_WIDTH;
         let ascii_start_x = self.ascii_start_x(bounds.x);
@@ -750,7 +749,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 let in_sel = sel_range.contains(&addr);
                 let is_dirty = self.dirty.contains(&addr);
                 let is_diff = self.vanilla_diff.contains(&addr);
-                let is_pattern = self.patterns.contains(&addr);
+                let pattern_id = self.patterns.get(&addr).copied();
                 let is_editing = edit_addr == Some(addr);
 
                 // Background priority: edit > selection-cursor > selection >
@@ -763,8 +762,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     } else {
                         selection_bg
                     })
-                } else if is_pattern {
-                    Some(pattern_bg)
+                } else if let Some(pid) = pattern_id {
+                    Some(pattern_bg(pid as u8))
                 } else if is_dirty {
                     Some(dirty_bg)
                 } else if is_diff {
@@ -781,8 +780,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     edit_text
                 } else if in_sel {
                     selection_text
-                } else if is_pattern {
-                    pattern_text
+                } else if let Some(pid) = pattern_id {
+                    pattern_fg(pid as u8)
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {
@@ -796,8 +795,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     edit_text
                 } else if in_sel {
                     selection_text
-                } else if is_pattern {
-                    pattern_text
+                } else if let Some(pid) = pattern_id {
+                    pattern_fg(pid as u8)
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {
