@@ -58,12 +58,20 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
                 .padding([4, 8]);
 
             // Add context menu for right-click actions
-            let context_entries = vec![
+            let mut context_entries = vec![
                 Entry::item("Close", TabBarMessage::CloseTab(idx)),
                 Entry::item("Close Others", TabBarMessage::CloseOthers(idx)),
                 Entry::item("Close All", TabBarMessage::CloseAll),
                 Entry::item("Pin/Unpin", TabBarMessage::TogglePin(idx)),
             ];
+            // Only show "Open as Hex" for file-backed tabs (not tool tabs)
+            if tab.path.is_some() {
+                context_entries.push(Entry::separator());
+                context_entries.push(Entry::item(
+                    "Open as Hex",
+                    TabBarMessage::OpenAsHex(idx),
+                ));
+            }
 
             ContextMenu::new(btn, context_entries).into()
         })

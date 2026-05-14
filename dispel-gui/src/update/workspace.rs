@@ -308,6 +308,15 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             )
         }
 
+        // Hex: reopen active file in hex editor
+        WorkspaceMessage::ReopenActiveTabAsHex => {
+            let path = app.state.workspace.active().and_then(|t| t.path.clone());
+            if let Some(path) = path {
+                return app.open_file_in_workspace_as_hex(&path);
+            }
+            Task::none()
+        }
+
         // Tools
         WorkspaceMessage::OpenToolTab(editor_type) => {
             use crate::editors::localization_manager::LocalizationMessage;

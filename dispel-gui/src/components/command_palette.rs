@@ -103,6 +103,16 @@ impl Command {
             },
             // ── File operations ──────────────────────────────────────────────
             Command {
+                id: "open-as-hex",
+                label: "Open current file in the hex editor",
+                shortcut: Some("Ctrl+Shift+X"),
+                action: || {
+                    Message::Workspace(
+                        crate::message::workspace::WorkspaceMessage::ReopenActiveTabAsHex,
+                    )
+                },
+            },
+            Command {
                 id: "browse-game-path",
                 label: "Set Game Path…",
                 shortcut: None,

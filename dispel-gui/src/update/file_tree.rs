@@ -11,6 +11,7 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
             Task::none()
         }
         FileTreeMessage::OpenFile(file_path) => app.open_file_in_workspace(&file_path),
+        FileTreeMessage::OpenAsHex(file_path) => app.open_file_in_workspace_as_hex(&file_path),
         FileTreeMessage::Search(query) => {
             // Use cache-aware search when query changes
             let cache_manager = app.state.file_index_cache_manager.clone();

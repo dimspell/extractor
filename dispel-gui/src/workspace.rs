@@ -876,6 +876,38 @@ impl Workspace {
         idx
     }
 
+    /// Open a tab with an explicit editor type, bypassing auto-detection.
+    /// Deduplicates on (path, editor_type) tuple so a file already open in
+    /// another editor can get a separate tab.
+    pub fn open_with_editor_type(
+        &mut self,
+        label: String,
+        path: Option<PathBuf>,
+        editor_type: EditorType,
+    ) -> usize {
+        if let Some(idx) = self
+            .tabs
+            .iter()
+            .position(|t| t.path == path && t.editor_type == editor_type)
+        {
+            self.active_tab = Some(idx);
+            return idx;
+        }
+        let id = self.next_id;
+        self.next_id += 1;
+        let idx = self.tabs.len();
+        self.tabs.push(WorkspaceTab {
+            id,
+            label,
+            path,
+            editor_type,
+            modified: false,
+            pinned: false,
+        });
+        self.active_tab = Some(idx);
+        idx
+    }
+
     /// Open a tool tab that is not backed by a file path.
     /// Re-activates an existing tab of the same type rather than opening a duplicate.
     pub fn open_tool(&mut self, label: String, editor_type: EditorType) -> usize {
