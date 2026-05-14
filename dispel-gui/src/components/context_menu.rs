@@ -149,9 +149,6 @@ impl Default for State {
 
 // ── Menu construction ─────────────────────────────────────────────────────────
 
-/// Height of one menu entry row in pixels.
-const ROW_HEIGHT: f32 = 25.0;
-
 fn build_menu<Message>(
     entries: &[Entry<Message>],
     hovered_idx: Option<usize>,
@@ -425,6 +422,23 @@ where
     }
 }
 
+/// Walk the layout tree to find which menu entry the cursor is over.
+///
+/// The menu layout is: Container → Column → [items].
+fn find_hovered_entry(layout: Layout<'_>, cursor_pos: Point, entry_count: usize) -> Option<usize> {
+    // First child of the container is the column.
+    let column = layout.children().next()?;
+    for (idx, child) in column.children().enumerate() {
+        if idx >= entry_count {
+            break;
+        }
+        if child.bounds().contains(cursor_pos) {
+            return Some(idx);
+        }
+    }
+    None
+}
+
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
 struct MenuOverlay<'a, Message> {
@@ -501,13 +515,7 @@ where
         match event {
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
                 if let Some(pos) = cursor.position() {
-                    let rel_y = pos.y - layout.bounds().y;
-                    let idx = (rel_y / ROW_HEIGHT) as usize;
-                    let new = if idx < self.entries.len() {
-                        Some(idx)
-                    } else {
-                        None
-                    };
+                    let new = find_hovered_entry(layout, pos, self.entries.len());
                     if *self.hovered_idx != new {
                         *self.hovered_idx = new;
                         shell.request_redraw();
