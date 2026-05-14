@@ -131,36 +131,42 @@ pub enum Status {
     },
 }
 
-pub struct State<Message> {
+pub struct State {
     status: Status,
     menu_tree: widget::Tree,
-    menu: Option<Element<'static, Message>>,
+    hovered_idx: Option<usize>,
 }
 
-impl<Message> Default for State<Message> {
+impl Default for State {
     fn default() -> Self {
         Self {
             status: Status::Closed,
             menu_tree: widget::Tree::empty(),
-            menu: None,
+            hovered_idx: None,
         }
     }
 }
 
 // ── Menu construction ─────────────────────────────────────────────────────────
 
-fn build_menu<Message>(entries: &[Entry<Message>]) -> Element<'static, Message>
+/// Height of one menu entry row in pixels.
+const ROW_HEIGHT: f32 = 25.0;
+
+fn build_menu<Message>(
+    entries: &[Entry<Message>],
+    hovered_idx: Option<usize>,
+) -> Element<'static, Message>
 where
     Message: Clone + 'static,
 {
     let mut items: Vec<Element<'static, Message>> = Vec::with_capacity(entries.len());
 
-    for entry in entries {
+    for (idx, entry) in entries.iter().enumerate() {
         match entry {
             Entry::Item {
                 label,
                 icon,
-                action,
+                action: _,
             } => {
                 let content: Element<'static, Message> = if let Some(icon) = icon {
                     let i = icon.clone();
@@ -169,12 +175,19 @@ where
                 } else {
                     text(label.clone()).size(13).into()
                 };
+                let hovered = hovered_idx == Some(idx);
                 items.push(
                     button(content)
-                        .on_press(action.clone())
+                        .style(move |theme, _status| {
+                            let s = if hovered {
+                                button::Status::Hovered
+                            } else {
+                                button::Status::Active
+                            };
+                            style::menu_item(theme, s)
+                        })
                         .width(Fill)
                         .padding([6, 10])
-                        .style(style::menu_item)
                         .into(),
                 );
             }
@@ -234,11 +247,11 @@ where
     }
 
     fn tag(&self) -> tree::Tag {
-        tree::Tag::of::<State<Message>>()
+        tree::Tag::of::<State>()
     }
 
     fn state(&self) -> tree::State {
-        tree::State::new(State::<Message>::default())
+        tree::State::new(State::default())
     }
 
     fn children(&self) -> Vec<widget::Tree> {
@@ -309,7 +322,7 @@ where
 
         if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
             if let Some(position) = cursor.position_over(layout.bounds()) {
-                let state = tree.state.downcast_mut::<State<Message>>();
+                let state = tree.state.downcast_mut::<State>();
                 state.status = Status::Open {
                     position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
                 };
@@ -364,22 +377,30 @@ where
             translation,
         );
 
-        let state = tree.state.downcast_mut::<State<Message>>();
+        let state = tree.state.downcast_mut::<State>();
 
-        let context_overlay = match state.status {
+        // Destructure to borrow disjoint fields for MenuOverlay.
+        let State {
+            ref mut status,
+            ref mut menu_tree,
+            ref mut hovered_idx,
+        } = state;
+
+        let context_overlay = match *status {
             Status::Open { position } => {
-                if state.menu.is_none() {
-                    let m = build_menu(&self.entries);
-                    state.menu_tree.diff(&m);
-                    state.menu = Some(m);
-                }
+                let menu = build_menu(&self.entries, *hovered_idx);
+                menu_tree.diff(&menu);
                 Some(overlay::Element::new(Box::new(MenuOverlay {
-                    state,
+                    menu,
+                    menu_tree,
+                    status,
+                    hovered_idx,
+                    entries: &self.entries[..],
                     position: position + translation,
                 })))
             }
             Status::Closed => {
-                state.menu = None;
+                *hovered_idx = None;
                 None
             }
         };
@@ -407,7 +428,11 @@ where
 // ── Overlay ───────────────────────────────────────────────────────────────────
 
 struct MenuOverlay<'a, Message> {
-    state: &'a mut State<Message>,
+    menu: Element<'static, Message>,
+    menu_tree: &'a mut widget::Tree,
+    status: &'a mut Status,
+    hovered_idx: &'a mut Option<usize>,
+    entries: &'a [Entry<Message>],
     position: Point,
 }
 
@@ -416,11 +441,11 @@ where
     Message: Clone + 'static,
 {
     fn layout(&mut self, renderer: &iced::Renderer, bounds: Size) -> layout::Node {
-        let menu = self.state.menu.as_mut().unwrap();
         let limits = layout::Limits::new(Size::ZERO, bounds);
-        let node = menu
+        let node = self
+            .menu
             .as_widget_mut()
-            .layout(&mut self.state.menu_tree, renderer, &limits);
+            .layout(self.menu_tree, renderer, &limits);
 
         // Clamp position so the menu stays within the viewport (5px inset).
         let padding = 5.0;
@@ -453,9 +478,8 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
     ) {
-        let menu = self.state.menu.as_ref().unwrap();
-        menu.as_widget().draw(
-            &self.state.menu_tree,
+        self.menu.as_widget().draw(
+            self.menu_tree,
             renderer,
             theme,
             style,
@@ -474,9 +498,38 @@ where
         clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
-        let menu = self.state.menu.as_mut().unwrap();
-        menu.as_widget_mut().update(
-            &mut self.state.menu_tree,
+        match event {
+            Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                if let Some(pos) = cursor.position() {
+                    let rel_y = pos.y - layout.bounds().y;
+                    let idx = (rel_y / ROW_HEIGHT) as usize;
+                    let new = if idx < self.entries.len() {
+                        Some(idx)
+                    } else {
+                        None
+                    };
+                    if *self.hovered_idx != new {
+                        *self.hovered_idx = new;
+                        shell.request_redraw();
+                    }
+                }
+            }
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
+                if let Some(idx) = *self.hovered_idx {
+                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
+                        shell.publish(action.clone());
+                        shell.capture_event();
+                    }
+                }
+                *self.status = Status::Closed;
+                shell.request_redraw();
+                return;
+            }
+            _ => {}
+        }
+
+        self.menu.as_widget_mut().update(
+            self.menu_tree,
             event,
             layout,
             cursor,
@@ -485,11 +538,6 @@ where
             shell,
             &layout.bounds(),
         );
-
-        if let Event::Mouse(mouse::Event::ButtonPressed(_)) = event {
-            self.state.status = Status::Closed;
-            shell.request_redraw();
-        }
     }
 
     fn mouse_interaction(
@@ -498,9 +546,8 @@ where
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        let menu = self.state.menu.as_ref().unwrap();
-        menu.as_widget().mouse_interaction(
-            &self.state.menu_tree,
+        self.menu.as_widget().mouse_interaction(
+            self.menu_tree,
             layout,
             cursor,
             &layout.bounds(),
@@ -514,9 +561,9 @@ where
         renderer: &iced::Renderer,
         operation: &mut dyn widget::Operation<()>,
     ) {
-        let menu = self.state.menu.as_mut().unwrap();
-        menu.as_widget_mut()
-            .operate(&mut self.state.menu_tree, layout, renderer, operation);
+        self.menu
+            .as_widget_mut()
+            .operate(self.menu_tree, layout, renderer, operation);
     }
 }
 
@@ -606,6 +653,6 @@ mod tests {
     fn test_context_menu_tag() {
         let entries: Vec<Entry<TestMessage>> = vec![];
         let cm = ContextMenu::new(button("Test"), entries);
-        assert_eq!(cm.tag(), tree::Tag::of::<State<TestMessage>>());
+        assert_eq!(cm.tag(), tree::Tag::of::<State>());
     }
 }
