@@ -248,6 +248,16 @@ impl<'a, Message> HexMatrix<'a, Message> {
             + COLUMN_GAP
             + (bpr as f32) * ASCII_CELL_WIDTH
     }
+
+    /// Viewport height available for content, accounting for horizontal scrollbar.
+    fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {
+        let needs_hscroll = self.total_content_width() > bounds_w - SCROLLBAR_THICKNESS;
+        if needs_hscroll {
+            (bounds_h - SCROLLBAR_THICKNESS).max(0.0)
+        } else {
+            bounds_h
+        }
+    }
 }
 
 /// Pure helper — clamp `scroll_offset` and compute `[first, last)` visible
@@ -451,6 +461,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let bounds = layout.bounds();
         let total_h = self.total_height();
         let total_len = self.bytes.len() as u64;
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
@@ -461,7 +472,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     mouse::ScrollDelta::Lines { y, x, .. } => {
                         let dy = -y * ROW_HEIGHT * 3.0;
                         let so = state.scroll_offset.get();
-                        let new = clamp_scroll(so + dy, total_h, bounds.height);
+                        let new = clamp_scroll(so + dy, total_h, viewport_h);
                         if (new - so).abs() > f32::EPSILON {
                             state.scroll_offset.set(new);
                             shell.request_redraw();
@@ -480,7 +491,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                     mouse::ScrollDelta::Pixels { y, x } => {
                         let so = state.scroll_offset.get();
-                        let new = clamp_scroll(so - y, total_h, bounds.height);
+                        let new = clamp_scroll(so - y, total_h, viewport_h);
                         if (new - so).abs() > f32::EPSILON {
                             state.scroll_offset.set(new);
                             shell.request_redraw();
@@ -532,8 +543,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
 
                 // Vertical scrollbar.
-                let scrollbar = scrollbar_track(bounds);
-                if scrollbar.contains(p) && total_h > bounds.height {
+                let scrollbar = scrollbar_track(bounds, viewport_h);
+                if scrollbar.contains(p) && total_h > viewport_h {
                     let thumb = scrollbar_thumb(scrollbar, state.scroll_offset.get(), total_h);
                     if thumb.contains(p) {
                         state.dragging_scrollbar = true;
@@ -542,9 +553,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     } else {
                         let dir = if p.y < thumb.y { -1.0 } else { 1.0 };
                         let new = clamp_scroll(
-                            state.scroll_offset.get() + dir * bounds.height,
+                            state.scroll_offset.get() + dir * viewport_h,
                             total_h,
-                            bounds.height,
+                            viewport_h,
                         );
                         state.scroll_offset.set(new);
                         shell.request_redraw();
@@ -611,25 +622,22 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     let htrack = hscrollbar_track(bounds);
                     let content_w = self.total_content_width();
                     let avail_w = bounds.width - SCROLLBAR_THICKNESS;
-                    let thumb_w =
-                        hthumb_len(htrack, content_w, avail_w);
+                    let thumb_w = hthumb_len(htrack, content_w, avail_w);
                     let travel = (htrack.width - thumb_w).max(1.0);
                     let max_off = (content_w - avail_w).max(1.0);
                     let dx = p.x - state.drag_start_cursor_x;
                     let nsx = state.drag_start_offset_x + dx * (max_off / travel);
-                    state
-                        .scroll_x
-                        .set(clamp_scroll_x(nsx, content_w, avail_w));
+                    state.scroll_x.set(clamp_scroll_x(nsx, content_w, avail_w));
                     shell.request_redraw();
                     shell.capture_event();
                     return;
                 }
                 if state.dragging_scrollbar {
                     let Some(p) = cursor.position() else { return };
-                    let scrollbar = scrollbar_track(bounds);
+                    let scrollbar = scrollbar_track(bounds, viewport_h);
                     let thumb_h = thumb_height(scrollbar, total_h);
                     let travel = (scrollbar.height - thumb_h).max(1.0);
-                    let max_off = (total_h - bounds.height).max(1.0);
+                    let max_off = (total_h - viewport_h).max(1.0);
                     let dy = p.y - state.drag_start_cursor_y;
                     let new = state.drag_start_offset + dy * (max_off / travel);
                     state
@@ -854,16 +862,12 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         );
 
         // Clip content rendering to exclude scrollbar areas.
-        let needs_hscroll = self.total_content_width() > bounds.width - SCROLLBAR_THICKNESS;
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
         let clip = Rectangle {
             x: clip.x,
             y: clip.y,
             width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
-            height: if needs_hscroll {
-                (clip.height - SCROLLBAR_THICKNESS).max(0.0)
-            } else {
-                clip.height
-            },
+            height: viewport_h.min(clip.height),
         };
 
         let total_rows = self.total_rows();
@@ -875,7 +879,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let total_h = self.total_height();
         let bpr64 = bpr as u64;
 
-        let scroll = if total_h <= bounds.height {
+        let scroll = if total_h <= viewport_h {
             // Content fits — no scrolling needed.
             0.0
         } else {
@@ -889,18 +893,18 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     state.scroll_offset.get(),
                     cursor,
                     bpr64,
-                    bounds.height,
+                    viewport_h,
                     total_h,
                 )
             } else {
                 state.scroll_offset.get()
             }
         };
-state.scroll_offset.set(scroll);
+        state.scroll_offset.set(scroll);
 
-         let scroll_x = state.scroll_x.get();
+        let scroll_x = state.scroll_x.get();
 
-         let visible = visible_row_range(scroll, bounds.height, ROW_HEIGHT, total_rows, OVERSCAN);
+        let visible = visible_row_range(scroll, viewport_h, ROW_HEIGHT, total_rows, OVERSCAN);
 
         let font = Font::MONOSPACE;
         let addr_color = color!(0x7a6f64);
@@ -919,11 +923,11 @@ state.scroll_offset.set(scroll);
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
 
-let hex_start_x = bounds.x + ADDR_COL_WIDTH - scroll_x;
-         let ascii_start_x = self.ascii_start_x(bounds.x) - scroll_x;
-         let sel_range = self.selection.range();
-         let cursor_addr = self.selection.cursor;
-         let edit_addr = self.edit.map(|e| e.addr);
+        let hex_start_x = bounds.x + ADDR_COL_WIDTH - scroll_x;
+        let ascii_start_x = self.ascii_start_x(bounds.x) - scroll_x;
+        let sel_range = self.selection.range();
+        let cursor_addr = self.selection.cursor;
+        let edit_addr = self.edit.map(|e| e.addr);
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
@@ -1103,7 +1107,7 @@ let hex_start_x = bounds.x + ADDR_COL_WIDTH - scroll_x;
                         x,
                         y: bounds.y,
                         width: 1.0,
-                        height: bounds.height,
+                        height: viewport_h,
                     },
                     border: Border::default(),
                     shadow: Shadow::default(),
@@ -1115,17 +1119,18 @@ let hex_start_x = bounds.x + ADDR_COL_WIDTH - scroll_x;
 
         // Scrollbar with search-match and cursor-position markers.
         let total_len = self.bytes.len() as u64;
-        let needs_vscroll = total_h > bounds.height;
+        let needs_vscroll = total_h > viewport_h;
         if needs_vscroll {
             let hovering = cursor
                 .position_over(bounds)
-                .map(|p| scrollbar_track(bounds).contains(p))
+                .map(|p| scrollbar_track(bounds, viewport_h).contains(p))
                 .unwrap_or(false);
             draw_vscrollbar(
                 renderer,
                 bounds,
                 scroll,
                 total_h,
+                viewport_h,
                 state.dragging_scrollbar || hovering,
                 self.search_match_starts,
                 self.selection.cursor,
@@ -1204,18 +1209,19 @@ impl<'a, Message> HexMatrix<'a, Message> {
         // frame instead of waiting for the next message round-trip.
         let bpr = self.bytes_per_row as u64;
         let max_addr = (self.bytes.len() as u64).saturating_sub(1);
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
         let target = crate::editors::hex_editor::selection::nav_target(
             self.selection.cursor,
             dir,
             bpr,
-            page_rows(bounds.height),
+            page_rows(viewport_h),
             max_addr,
         );
         let new_scroll = ensure_visible(
             state.scroll_offset.get(),
             target,
             bpr,
-            bounds.height,
+            viewport_h,
             self.total_height(),
         );
         if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
@@ -1319,12 +1325,12 @@ fn draw_glyph_string(
     <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
 }
 
-fn scrollbar_track(bounds: Rectangle) -> Rectangle {
+fn scrollbar_track(bounds: Rectangle, viewport_h: f32) -> Rectangle {
     Rectangle {
         x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
         y: bounds.y,
         width: SCROLLBAR_THICKNESS,
-        height: bounds.height,
+        height: viewport_h,
     }
 }
 
@@ -1387,12 +1393,13 @@ fn draw_vscrollbar(
     bounds: Rectangle,
     scroll: f32,
     total_h: f32,
+    viewport_h: f32,
     active: bool,
     search_match_starts: &[u64],
     cursor_addr: u64,
     total_len: u64,
 ) {
-    let track = scrollbar_track(bounds);
+    let track = scrollbar_track(bounds, viewport_h);
     let thumb = scrollbar_thumb(track, scroll, total_h);
 
     // Track background.
