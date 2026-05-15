@@ -264,7 +264,7 @@ fn page_rows(viewport_height: f32) -> u64 {
     (viewport_height / ROW_HEIGHT).floor().max(1.0) as u64
 }
 
-/// Adjust `scroll` so that `addr` is visible. Returns the new scroll value.
+/// Adjust `scroll` to center `addr` in the viewport. Returns the new scroll value.
 pub fn ensure_visible(
     scroll: f32,
     addr: u64,
@@ -276,14 +276,11 @@ pub fn ensure_visible(
     let row = addr / bpr;
     let row_top = row as f32 * ROW_HEIGHT;
     let row_bot = row_top + ROW_HEIGHT;
-    let scroll = if row_top < scroll {
-        row_top
-    } else if row_bot > scroll + viewport_height {
-        row_bot - viewport_height
-    } else {
-        scroll
-    };
-    clamp_scroll(scroll, total_height, viewport_height)
+    if row_top >= scroll && row_bot <= scroll + viewport_height {
+        return clamp_scroll(scroll, total_height, viewport_height);
+    }
+    let center = row_top - (viewport_height - ROW_HEIGHT) / 2.0;
+    clamp_scroll(center, total_height, viewport_height)
 }
 
 /// Hit-test: convert a screen point inside `bounds` to a byte address.
@@ -1319,13 +1316,13 @@ mod tests {
     #[test]
     fn ensure_visible_scrolls_down_when_target_below() {
         let scroll = ensure_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
-        assert_eq!(scroll, 1296.0);
+        assert_eq!(scroll, 1448.0);
     }
 
     #[test]
     fn ensure_visible_scrolls_up_when_target_above() {
         let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
-        assert_eq!(scroll, 80.0);
+        assert_eq!(scroll, 0.0);
     }
 
     #[test]
