@@ -65,6 +65,9 @@ pub struct State {
     last_cursor: Cell<Option<u64>>,
     /// Row of the cursor that we've already scrolled to.
     last_cursor_row: Cell<Option<u64>>,
+    /// Tracks whether cursor is over either scrollbar, to avoid unnecessary
+    /// redraws during cursor movement.
+    pub hovering_scrollbar: Cell<bool>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -617,6 +620,18 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                // Repaint on hover transitions over scrollbar tracks.
+                if cursor.is_over(bounds) {
+                    if let Some(p) = cursor.position() {
+                        let vtrack = scrollbar_track(bounds, viewport_h);
+                        let htrack = hscrollbar_track(bounds);
+                        let now_hovering = vtrack.contains(p) || htrack.contains(p);
+                        if now_hovering != state.hovering_scrollbar.get() {
+                            state.hovering_scrollbar.set(now_hovering);
+                            shell.request_redraw();
+                        }
+                    }
+                }
                 if state.dragging_scrollbar_x {
                     let Some(p) = cursor.position() else { return };
                     let htrack = hscrollbar_track(bounds);
