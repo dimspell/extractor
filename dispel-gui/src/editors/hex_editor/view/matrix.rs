@@ -35,7 +35,7 @@ const ASCII_CELL_WIDTH: f32 = 9.0;
 const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
 const ADDR_COL_WIDTH: f32 = 88.0;
-const SCROLLBAR_THICKNESS: f32 = 8.0;
+const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
 /// don't reveal blank bands during rapid scroll.
