@@ -1,7 +1,10 @@
+use std::path::PathBuf;
+
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, SectionTab};
+use crate::editors::mod_packager::recording::record_file_replace;
 use crate::message::Message;
 use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
 use iced::Task;
@@ -252,6 +255,50 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         EventScrEditorMessage::SaveScript => {
             if let LoadingState::Loaded(ref script) = state.script_loading {
                 if let Some(ref path) = state.file_path {
+                    let new_bytes = serialize_script(script);
+
+                    if let Some(session) = app.state.recording.as_ref() {
+                        let game_dir = PathBuf::from(&app.state.shared_game_path);
+                        let relative = path
+                            .strip_prefix(&game_dir)
+                            .map(|p| p.to_string_lossy().replace('\\', "/"))
+                            .unwrap_or_default();
+                        let workspace_root = session.workspace_root.clone();
+                        let mod_slug = session.mod_slug.clone();
+                        let path = path.clone();
+                        return Task::perform(
+                            async move {
+                                tokio::task::spawn_blocking(move || -> Result<(), String> {
+                                    record_file_replace(
+                                        &workspace_root,
+                                        &game_dir,
+                                        &mod_slug,
+                                        &relative,
+                                        &new_bytes,
+                                    )?;
+                                    std::fs::write(&path, &new_bytes)
+                                        .map_err(|e| e.to_string())
+                                })
+                                .await
+                                .unwrap_or_else(|e| Err(e.to_string()))
+                            },
+                            |result| {
+                                Message::Editor(
+                                    crate::message::editor::EditorMessage::EventScr(
+                                        match result {
+                                            Ok(()) => {
+                                                EventScrEditorMessage::SaveSuccess
+                                            }
+                                            Err(e) => {
+                                                EventScrEditorMessage::SaveError(e)
+                                            }
+                                        },
+                                    ),
+                                )
+                            },
+                        );
+                    }
+
                     return save_to_path(path.clone(), script.clone());
                 }
             }
@@ -356,6 +403,14 @@ fn validate_actions(script: &EventScript) -> Vec<(usize, String)> {
 
 pub fn validate_script(script: &EventScript) -> Vec<(usize, String)> {
     validate_actions(script)
+}
+
+/// Serialize an [`EventScript`] to raw bytes (EUC-KR encoded).
+fn serialize_script(script: &EventScript) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    <EventScript as dispel_core::Extractor>::to_writer(std::slice::from_ref(script), &mut bytes)
+        .expect("EventScript serialization should not fail");
+    bytes
 }
 
 // Helper to save EventScript to path
