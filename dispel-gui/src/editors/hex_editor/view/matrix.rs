@@ -842,14 +842,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let bounds = layout.bounds();
         let clip = bounds.intersection(viewport).unwrap_or(bounds);
 
-        // Content area excludes the vertical scrollbar strip on the right.
-        let _content_clip = Rectangle {
-            x: clip.x,
-            y: clip.y,
-            width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
-            height: clip.height,
-        };
-
         // Background (full bounds — fill everything).
         renderer.fill_quad(
             renderer::Quad {
@@ -860,6 +852,14 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             },
             Background::Color(color!(0x14110f)),
         );
+
+        // Clip content rendering to exclude the scrollbar area.
+        let clip = Rectangle {
+            x: clip.x,
+            y: clip.y,
+            width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
+            height: clip.height,
+        };
 
         let total_rows = self.total_rows();
         if total_rows == 0 {
