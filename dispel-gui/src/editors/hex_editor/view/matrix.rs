@@ -870,6 +870,14 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             height: viewport_h.min(clip.height),
         };
 
+        // Further clip hex/ASCII content to exclude the address gutter.
+        let cell_clip = Rectangle {
+            x: clip.x.max(bounds.x + ADDR_COL_WIDTH),
+            y: clip.y,
+            width: (clip.x + clip.width - clip.x.max(bounds.x + ADDR_COL_WIDTH)).max(0.0),
+            height: clip.height,
+        };
+
         let total_rows = self.total_rows();
         if total_rows == 0 {
             return;
@@ -928,6 +936,23 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let sel_range = self.selection.range();
         let cursor_addr = self.selection.cursor;
         let edit_addr = self.edit.map(|e| e.addr);
+
+        // Address-gutter background — covers any hex/ASCII content that may
+        // have scrolled underneath when scroll_x > 0.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x,
+                    y: bounds.y,
+                    width: ADDR_COL_WIDTH,
+                    height: viewport_h,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x14110f)),
+        );
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
@@ -1037,8 +1062,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 };
 
                 if let Some(c) = bg {
-                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, clip);
-                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, clip);
+                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, cell_clip);
+                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, cell_clip);
                 }
 
                 if is_editing {
@@ -1057,8 +1082,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         .unwrap_or(HEX_DIGITS[(b & 0x0F) as usize]);
                     let hi_p = shape_glyph(&self.cache, hi, font);
                     let lo_p = shape_glyph(&self.cache, lo, font);
-                    paint_glyph(renderer, &hi_p, cell_x, y, text_color, clip);
-                    paint_glyph(renderer, &lo_p, cell_x + 8.0, y, text_color, clip);
+                    paint_glyph(renderer, &hi_p, cell_x, y, text_color, cell_clip);
+                    paint_glyph(renderer, &lo_p, cell_x + 8.0, y, text_color, cell_clip);
 
                     // Caret over the next nibble slot.
                     let caret_off = match chars.len() {
@@ -1072,7 +1097,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         y + ROW_HEIGHT - 2.0,
                         7.0,
                         caret_color,
-                        clip,
+                        cell_clip,
                     );
 
                     // ASCII column shows the would-be byte.
@@ -1084,15 +1109,15 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         _ => "·",
                     };
                     let ascii = shape_glyph(&self.cache, ascii_glyph, font);
-                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
                 } else {
                     let hi = shape_glyph(&self.cache, HEX_DIGITS[(b >> 4) as usize], font);
                     let lo = shape_glyph(&self.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
-                    paint_glyph(renderer, &hi, cell_x, y, text_color, clip);
-                    paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, clip);
+                    paint_glyph(renderer, &hi, cell_x, y, text_color, cell_clip);
+                    paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, cell_clip);
 
                     let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
-                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
                 }
             }
         }
