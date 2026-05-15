@@ -9,7 +9,7 @@ use crate::style;
 use iced::widget::{
     button, column, container, progress_bar, row, scrollable, text, text_input, Space,
 };
-use iced::{font, Alignment, Border, Color, Element, Font, Length};
+use iced::{Alignment, Color, Element, Font, Length};
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.event_scr_editor;
@@ -51,17 +51,14 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
             let save_button = button("Save")
                 .on_press(EventScrEditorMessage::SaveScript)
                 .style(if state.modified {
-                    button::primary
+                    style::commit_button
                 } else {
-                    button::secondary
+                    style::browse_button
                 });
 
             let save_error: Element<EventScrEditorMessage> = if let Some(ref err) = state.save_error
             {
-                text(err)
-                    .size(14)
-                    .color(iced::Color::from_rgb(1.0, 0.0, 0.0))
-                    .into()
+                text(err).size(14).style(style::primary_text).into()
             } else {
                 text("").into()
             };
@@ -71,7 +68,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                     text(format!("EventScript [{}]", script_id)).size(20),
                     text(modified_indicator)
                         .size(20)
-                        .color(iced::Color::from_rgb(1.0, 0.8, 0.0)),
+                        .style(style::section_header),
                     Space::new().width(Length::Fill),
                     save_button,
                 ]
@@ -123,14 +120,14 @@ fn tab_button(tab: SectionTab, active: SectionTab) -> Element<'static, EventScrE
     } else {
         text(tab.label())
     };
-    let btn = button(label)
+    button(label)
         .on_press(EventScrEditorMessage::SectionChanged(tab))
         .style(if is_active {
-            button::primary
+            style::active_tab_button
         } else {
-            button::secondary
-        });
-    btn.into()
+            style::tab_button
+        })
+        .into()
 }
 
 fn view_header(
@@ -143,10 +140,9 @@ fn view_header(
         .collect();
 
     column![
-        text("Header Comments").size(16).font(Font {
-            weight: font::Weight::Bold,
-            ..Font::DEFAULT
-        }),
+        text("Header Comments")
+            .size(16)
+            .style(style::section_header),
         column(comments).spacing(5),
     ]
     .spacing(10)
@@ -158,22 +154,13 @@ fn view_var_section(
 ) -> Element<'static, EventScrEditorMessage> {
     let header = row![
         text("Name")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(2)),
         text("Value")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(2)),
         text("Actions")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(1)),
     ]
     .spacing(10);
@@ -192,7 +179,8 @@ fn view_var_section(
                     .width(Length::FillPortion(2)),
                 button("Delete")
                     .on_press(EventScrEditorMessage::VariableDeleted(i))
-                    .width(Length::FillPortion(1)),
+                    .width(Length::FillPortion(1))
+                    .style(style::normal_row_button),
             ]
             .spacing(10)
             .into()
@@ -200,13 +188,12 @@ fn view_var_section(
         .collect();
 
     column![
-        text("Variables").size(16).font(Font {
-            weight: font::Weight::Bold,
-            ..Font::DEFAULT
-        }),
+        text("Variables").size(16).style(style::section_header),
         header,
         scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Variable").on_press(EventScrEditorMessage::VariableAdded),
+        button("+ Add Variable")
+            .on_press(EventScrEditorMessage::VariableAdded)
+            .style(style::browse_button),
     ]
     .spacing(10)
     .into()
@@ -234,7 +221,8 @@ fn view_line_section(
                     .width(Length::FillPortion(5)),
                 button("Delete")
                     .on_press(EventScrEditorMessage::LineDeleted(section, i))
-                    .width(Length::FillPortion(1)),
+                    .width(Length::FillPortion(1))
+                    .style(style::normal_row_button),
             ]
             .spacing(10)
             .into()
@@ -242,12 +230,11 @@ fn view_line_section(
         .collect();
 
     column![
-        text(section.label()).size(16).font(Font {
-            weight: font::Weight::Bold,
-            ..Font::DEFAULT
-        }),
+        text(section.label()).size(16).style(style::section_header),
         scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Line").on_press(EventScrEditorMessage::LineAdded(section)),
+        button("+ Add Line")
+            .on_press(EventScrEditorMessage::LineAdded(section))
+            .style(style::browse_button),
     ]
     .spacing(10)
     .into()
@@ -258,22 +245,13 @@ fn view_spr_section(
 ) -> Element<'static, EventScrEditorMessage> {
     let header = row![
         text("Alias")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(2)),
         text("Filename")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(2)),
         text("Actions")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(1)),
     ]
     .spacing(10);
@@ -292,7 +270,8 @@ fn view_spr_section(
                     .width(Length::FillPortion(2)),
                 button("Delete")
                     .on_press(EventScrEditorMessage::SpriteDeleted(i))
-                    .width(Length::FillPortion(1)),
+                    .width(Length::FillPortion(1))
+                    .style(style::normal_row_button),
             ]
             .spacing(10)
             .into()
@@ -300,13 +279,12 @@ fn view_spr_section(
         .collect();
 
     column![
-        text("Sprites").size(16).font(Font {
-            weight: font::Weight::Bold,
-            ..Font::DEFAULT
-        }),
+        text("Sprites").size(16).style(style::section_header),
         header,
         scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Sprite").on_press(EventScrEditorMessage::SpriteAdded),
+        button("+ Add Sprite")
+            .on_press(EventScrEditorMessage::SpriteAdded)
+            .style(style::browse_button),
     ]
     .spacing(10)
     .into()
@@ -323,7 +301,7 @@ fn view_act_section<'a>(
             row![
                 text(format!("{} function(s) indexed", count))
                     .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5)),
+                    .style(style::subtle_text),
                 button("Refresh Index")
                     .on_press(EventScrEditorMessage::BuildFunctionIndex)
                     .padding([4, 10]),
@@ -360,34 +338,19 @@ fn view_act_section<'a>(
     // ── Action rows ──────────────────────────────────────────────────────
     let header = row![
         text("Type")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(1)),
         text("Prefix")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(1)),
         text("Function/Content")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(3)),
         text("Params")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(2)),
         text("Actions")
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .width(Length::FillPortion(1)),
     ]
     .spacing(10);
@@ -408,7 +371,8 @@ fn view_act_section<'a>(
                     text("-").width(Length::FillPortion(2)),
                     button("Delete")
                         .on_press(EventScrEditorMessage::ActionDeleted(i))
-                        .width(Length::FillPortion(1)),
+                        .width(Length::FillPortion(1))
+                        .style(style::normal_row_button),
                 ]
                 .spacing(10)
                 .into()
@@ -428,7 +392,8 @@ fn view_act_section<'a>(
                         .width(Length::FillPortion(2)),
                     button("Delete")
                         .on_press(EventScrEditorMessage::ActionDeleted(i))
-                        .width(Length::FillPortion(1)),
+                        .width(Length::FillPortion(1))
+                        .style(style::normal_row_button),
                 ]
                 .spacing(10)
                 .into()
@@ -441,10 +406,7 @@ fn view_act_section<'a>(
     act_content.push(
         text("Action Functions")
             .size(16)
-            .font(Font {
-                weight: font::Weight::Bold,
-                ..Font::DEFAULT
-            })
+            .style(style::section_header)
             .into(),
     );
 
@@ -456,9 +418,15 @@ fn view_act_section<'a>(
 
     act_content.push(
         row![
-            button("+ Add Action").on_press(EventScrEditorMessage::ActionAdded),
-            button("+ Add Raw Text").on_press(EventScrEditorMessage::ActionRawAdded),
-            button("Pick Function").on_press(EventScrEditorMessage::ToggleFunctionPicker),
+            button("+ Add Action")
+                .on_press(EventScrEditorMessage::ActionAdded)
+                .style(style::browse_button),
+            button("+ Add Raw Text")
+                .on_press(EventScrEditorMessage::ActionRawAdded)
+                .style(style::browse_button),
+            button("Pick Function")
+                .on_press(EventScrEditorMessage::ToggleFunctionPicker)
+                .style(style::chip),
         ]
         .spacing(10)
         .into(),
@@ -481,53 +449,44 @@ fn view_status_bar(state: &EventScriptEditorState) -> Element<'static, EventScrE
         .map(|p| p.display().to_string())
         .unwrap_or_else(|| "No file loaded".to_string());
 
-    let encoding_badge = container(text("EUC-KR").size(12))
+    let encoding_badge = button(text("EUC-KR").size(12))
         .padding([2, 6])
-        .style(|_theme| container::Style {
-            background: Some(Color::from_rgb(0.2, 0.6, 0.2).into()),
-            border: Border::default(),
-            text_color: Some(Color::WHITE),
-            ..Default::default()
-        });
+        .style(style::chip);
 
     let modified_text = if state.modified {
-        text("Modified")
-            .size(12)
-            .color(Color::from_rgb(1.0, 0.8, 0.0))
+        text("Modified").size(12).style(style::section_header)
     } else {
-        text("Saved").size(12).color(Color::from_rgb(0.5, 0.5, 0.5))
+        text("Saved").size(12).style(style::subtle_text)
     };
 
     let error_count = state.act_parse_errors.len();
     let error_text = if error_count > 0 {
         text(format!("{} error(s)", error_count))
             .size(12)
-            .color(Color::from_rgb(1.0, 0.0, 0.0))
+            .style(style::primary_text)
     } else {
-        text("No errors")
-            .size(12)
-            .color(Color::from_rgb(0.5, 0.5, 0.5))
+        text("No errors").size(12).style(style::subtle_text)
     };
 
-    let shortcut_text = text("Ctrl+S to save")
-        .size(11)
-        .color(Color::from_rgb(0.6, 0.6, 0.6));
+    let shortcut_text = text("Ctrl+S to save").size(11).style(style::subtle_text);
 
-    row![
-        text(file_path)
-            .size(12)
-            .color(Color::from_rgb(0.7, 0.7, 0.7))
-            .width(Length::Fill),
-        encoding_badge,
-        separator(),
-        modified_text,
-        separator(),
-        error_text,
-        separator(),
-        shortcut_text,
-    ]
-    .spacing(10)
-    .align_y(Alignment::Center)
+    container(
+        row![
+            text(file_path)
+                .size(12)
+                .style(style::subtle_text)
+                .width(Length::Fill),
+            encoding_badge,
+            modified_text,
+            error_text,
+            shortcut_text,
+        ]
+        .spacing(10)
+        .align_y(Alignment::Center),
+    )
+    .style(style::status_bar)
+    .padding([4, 12])
+    .width(Length::Fill)
     .into()
 }
 
@@ -554,11 +513,9 @@ fn index_progress_modal(state: &EventScriptEditorState) -> Element<'static, Even
     let content = column![
         text("Indexing Event Scripts").size(16),
         hr(1),
-        progress_bar(0.0..=1.0, fraction),
+        progress_bar(0.0..=1.0, fraction).style(style::primary_progress_bar),
         text(format!("{}% — {} / {} files", pct, processed, total)).size(13),
-        text(current_file)
-            .size(11)
-            .color(Color::from_rgb(0.6, 0.6, 0.6)),
+        text(current_file).size(11).style(style::subtle_text),
         hr(1),
         button(text("Cancel").size(13))
             .on_press(EventScrEditorMessage::CancelIndexing)
@@ -615,17 +572,6 @@ fn view_function_picker(state: &EventScriptEditorState) -> Element<'static, Even
     .spacing(6)
     .padding(8)
     .into()
-}
-
-fn separator() -> Element<'static, EventScrEditorMessage> {
-    container(text(""))
-        .height(Length::Fixed(1.0))
-        .width(Length::Fixed(1.0))
-        .style(|_theme| container::Style {
-            background: Some(Color::from_rgb(0.5, 0.5, 0.5).into()),
-            ..Default::default()
-        })
-        .into()
 }
 
 fn empty_editor<'a>() -> Element<'a, EventScrEditorMessage> {
