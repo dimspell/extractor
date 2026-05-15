@@ -1,4 +1,5 @@
 use super::state::SectionTab;
+use crate::editors::event_scr::functions::EventScriptFunctionIndex;
 use dispel_core::references::event_scr::EventScript;
 use std::path::PathBuf;
 
@@ -35,4 +36,9 @@ pub enum EventScrEditorMessage {
     SaveScript,
     SaveSuccess,
     SaveError(String),
+    // Function index
+    BuildFunctionIndex,
+    FunctionIndexBuilt(Result<EventScriptFunctionIndex, String>),
+    CancelIndexing,
+    IndexTick,
 }

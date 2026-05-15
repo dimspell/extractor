@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::event_scr::message::EventScrEditorMessage;
-use crate::editors::event_scr::state::{EventScriptEditorState, SectionTab};
+use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::editors::mod_packager::recording::record_file_replace;
 use crate::message::Message;
 use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
@@ -311,6 +311,65 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::SaveError(e) => {
             state.save_error = Some(e);
+            Task::none()
+        }
+        // ── Function index ────────────────────────────────────────────────
+        EventScrEditorMessage::BuildFunctionIndex => {
+            let game_path = app.state.shared_game_path.clone();
+            if game_path.is_empty() {
+                state.index_state =
+                    FunctionIndexState::Failed("Game path not set".to_string());
+                return Task::none();
+            }
+            let progress = crate::editors::event_scr::functions::IndexProgress::new();
+            let progress_clone = progress.clone();
+            state.index_state = FunctionIndexState::Indexing { progress };
+
+            let index_path = crate::editors::event_scr::functions::index_file_path();
+            Task::perform(
+                async move {
+                    tokio::task::spawn_blocking(move || {
+                        let result = crate::editors::event_scr::functions::build_index(
+                            std::path::Path::new(&game_path),
+                            progress_clone,
+                        );
+                        if let Ok(ref index) = result {
+                            if let Ok(json) = serde_json::to_string_pretty(index) {
+                                std::fs::write(&index_path, &json).ok();
+                            }
+                        }
+                        result
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
+                },
+                |result| {
+                    Message::Editor(crate::message::editor::EditorMessage::EventScr(
+                        EventScrEditorMessage::FunctionIndexBuilt(result),
+                    ))
+                },
+            )
+        }
+        EventScrEditorMessage::FunctionIndexBuilt(result) => {
+            state.index_state = match result {
+                Ok(index) => {
+                    state.act_parse_errors.clear();
+                    FunctionIndexState::Loaded(index)
+                }
+                Err(e) => FunctionIndexState::Failed(e),
+            };
+            Task::none()
+        }
+        EventScrEditorMessage::CancelIndexing => {
+            if let FunctionIndexState::Indexing { ref progress, .. } = state.index_state {
+                progress.cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            state.index_state = FunctionIndexState::Idle;
+            Task::none()
+        }
+        EventScrEditorMessage::IndexTick => {
+            // Just triggers a re-render; the view reads progress
+            // from the Arc<IndexProgress> stored in index_state.
             Task::none()
         }
     }

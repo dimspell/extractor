@@ -407,6 +407,18 @@ impl App {
             subscriptions.push(snf_tick);
         }
 
+        // Poll for event script indexing progress.
+        if matches!(
+            self.state.event_scr_editor.index_state,
+            crate::editors::event_scr::FunctionIndexState::Indexing { .. }
+        ) {
+            let index_tick = iced::time::every(std::time::Duration::from_millis(100))
+                .map(|_| Message::event_scr(
+                    crate::editors::event_scr::EventScrEditorMessage::IndexTick,
+                ));
+            subscriptions.push(index_tick);
+        }
+
         // Spreadsheet row navigation (Arrow / Home / End keys).
         // Only active when a spreadsheet editor is in the foreground and no
         // overlay is consuming keys.

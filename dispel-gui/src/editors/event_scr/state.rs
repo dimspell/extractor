@@ -1,6 +1,10 @@
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use crate::components::loading_state::LoadingState;
 use dispel_core::references::event_scr::EventScript;
-use std::path::PathBuf;
+
+use super::functions::{EventScriptFunctionIndex, IndexProgress};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SectionTab {
@@ -43,6 +47,16 @@ impl SectionTab {
     }
 }
 
+/// Status of the function-index background scan.
+#[derive(Debug, Clone, Default)]
+pub enum FunctionIndexState {
+    #[default]
+    Idle,
+    Indexing { progress: Arc<IndexProgress> },
+    Loaded(EventScriptFunctionIndex),
+    Failed(String),
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct EventScriptEditorState {
     pub script_loading: LoadingState<EventScript>,
@@ -51,6 +65,7 @@ pub struct EventScriptEditorState {
     pub modified: bool,
     pub save_error: Option<String>,
     pub act_parse_errors: Vec<(usize, String)>,
+    pub index_state: FunctionIndexState,
 }
 
 impl EventScriptEditorState {
