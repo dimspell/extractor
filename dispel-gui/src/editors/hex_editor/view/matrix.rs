@@ -59,8 +59,8 @@ pub struct State {
     /// Selection cursor from the previous frame, used to detect external
     /// selection changes (e.g. via NavigateToPattern).
     last_cursor: Cell<Option<u64>>,
-    /// Flag set when cursor changed externally and draw() should scroll to it.
-    scroll_to_cursor: Cell<bool>,
+    /// Row of the cursor that we've already scrolled to.
+    last_cursor_row: Cell<Option<u64>>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -401,7 +401,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let cursor = self.selection.cursor;
         if state.last_cursor.get() != Some(cursor) {
             state.last_cursor.set(Some(cursor));
-            state.scroll_to_cursor.set(true);
         }
     }
 
@@ -755,19 +754,28 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
         let bpr = self.bytes_per_row as usize;
         let total_h = self.total_height();
+        let bpr64 = bpr as u64;
 
-        // Scroll to cursor only when explicitly requested (external cursor change).
-        let scroll = if state.scroll_to_cursor.get() {
-            state.scroll_to_cursor.set(false);
-            ensure_visible(
-                state.scroll_offset.get(),
-                self.selection.cursor,
-                self.bytes_per_row as u64,
-                bounds.height,
-                total_h,
-            )
+        let scroll = if total_h <= bounds.height {
+            // Content fits — no scrolling needed.
+            0.0
         } else {
-            state.scroll_offset.get()
+            let cursor = self.selection.cursor;
+            let cursor_row = cursor / bpr64;
+            let last = state.last_cursor_row.get();
+
+            if last != Some(cursor_row) {
+                state.last_cursor_row.set(Some(cursor_row));
+                ensure_visible(
+                    state.scroll_offset.get(),
+                    cursor,
+                    bpr64,
+                    bounds.height,
+                    total_h,
+                )
+            } else {
+                state.scroll_offset.get()
+            }
         };
         state.scroll_offset.set(scroll);
 
