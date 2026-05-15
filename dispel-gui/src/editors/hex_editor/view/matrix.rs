@@ -725,7 +725,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     shell.capture_event();
                 }
             }
-            Event::Keyboard(keyboard::Event::KeyReleased { modifiers, .. }) => {
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
                 state.shift_pressed.set(modifiers.shift());
             }
             Event::Keyboard(keyboard::Event::KeyPressed {
@@ -734,7 +734,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 text,
                 ..
             }) => {
-                state.shift_pressed.set(modifiers.shift());
                 if !cursor.is_over(bounds) {
                     return;
                 }
