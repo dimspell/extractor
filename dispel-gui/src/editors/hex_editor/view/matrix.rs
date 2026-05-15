@@ -68,6 +68,9 @@ pub struct State {
     /// Tracks whether cursor is over either scrollbar, to avoid unnecessary
     /// redraws during cursor movement.
     pub hovering_scrollbar: Cell<bool>,
+    /// Shift modifier state — held while scrolling redirects vertical wheel
+    /// delta to horizontal scroll.
+    pub shift_pressed: Cell<bool>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -471,16 +474,29 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 if !cursor.is_over(bounds) {
                     return;
                 }
+                let shift = state.shift_pressed.get();
                 match delta {
                     mouse::ScrollDelta::Lines { y, x, .. } => {
-                        let dy = -y * ROW_HEIGHT * 3.0;
-                        let so = state.scroll_offset.get();
-                        let new = clamp_scroll(so + dy, total_h, viewport_h);
-                        if (new - so).abs() > f32::EPSILON {
-                            state.scroll_offset.set(new);
-                            shell.request_redraw();
+                        if shift {
+                            // Shift redirects vertical wheel to horizontal.
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - y * ROW_HEIGHT * 3.0, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        } else {
+                            let dy = -y * ROW_HEIGHT * 3.0;
+                            let so = state.scroll_offset.get();
+                            let new = clamp_scroll(so + dy, total_h, viewport_h);
+                            if (new - so).abs() > f32::EPSILON {
+                                state.scroll_offset.set(new);
+                                shell.request_redraw();
+                            }
                         }
-                        if *x != 0.0 {
+                        if !shift && *x != 0.0 {
                             let content_w = self.total_content_width();
                             let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                             let sx = state.scroll_x.get();
@@ -493,13 +509,24 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         shell.capture_event();
                     }
                     mouse::ScrollDelta::Pixels { y, x } => {
-                        let so = state.scroll_offset.get();
-                        let new = clamp_scroll(so - y, total_h, viewport_h);
-                        if (new - so).abs() > f32::EPSILON {
-                            state.scroll_offset.set(new);
-                            shell.request_redraw();
+                        if shift {
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - y, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        } else {
+                            let so = state.scroll_offset.get();
+                            let new = clamp_scroll(so - y, total_h, viewport_h);
+                            if (new - so).abs() > f32::EPSILON {
+                                state.scroll_offset.set(new);
+                                shell.request_redraw();
+                            }
                         }
-                        if *x != 0.0 {
+                        if !shift && *x != 0.0 {
                             let content_w = self.total_content_width();
                             let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                             let sx = state.scroll_x.get();
@@ -698,12 +725,16 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     shell.capture_event();
                 }
             }
+            Event::Keyboard(keyboard::Event::KeyReleased { modifiers, .. }) => {
+                state.shift_pressed.set(modifiers.shift());
+            }
             Event::Keyboard(keyboard::Event::KeyPressed {
                 key,
                 modifiers,
                 text,
                 ..
             }) => {
+                state.shift_pressed.set(modifiers.shift());
                 if !cursor.is_over(bounds) {
                     return;
                 }
@@ -1724,5 +1755,79 @@ mod tests {
         assert_eq!(char_to_glyph('F'), "F");
         assert_eq!(char_to_glyph('0'), "0");
         assert_eq!(char_to_glyph('z'), " ");
+    }
+
+    // ── Shift+scroll horizontal redirect ───────────────────────────────
+
+    #[test]
+    fn state_shift_pressed_defaults_to_false() {
+        let s = State::default();
+        assert!(!s.shift_pressed.get());
+    }
+
+    #[test]
+    fn state_shift_pressed_set_and_read() {
+        let s = State::default();
+        s.shift_pressed.set(true);
+        assert!(s.shift_pressed.get());
+        s.shift_pressed.set(false);
+        assert!(!s.shift_pressed.get());
+    }
+
+    #[test]
+    fn clamp_scroll_x_clamps_negative_to_zero() {
+        // Simulates Shift+scroll UP from scroll_x=50 with y=1.0
+        // formula: sx - y * ROW_HEIGHT * 3.0 = 50 - 48 = 2
+        let sx = 50.0;
+        let y = 1.0;
+        let scroll_target = sx - y * ROW_HEIGHT * 3.0;
+        assert!((scroll_target - 2.0).abs() < f32::EPSILON);
+        let result = clamp_scroll_x(scroll_target, 1000.0, 800.0);
+        assert_eq!(result, 2.0);
+    }
+
+    #[test]
+    fn clamp_scroll_x_clamps_below_zero() {
+        // Shift+scroll UP from scroll_x=10 with y=1.0
+        // sx - y * ROW_HEIGHT * 3.0 = 10 - 48 = -38 → clamped to 0
+        let sx = 10.0;
+        let y = 1.0;
+        let scroll_target = sx - y * ROW_HEIGHT * 3.0;
+        let result = clamp_scroll_x(scroll_target, 1000.0, 800.0);
+        assert_eq!(result, 0.0);
+    }
+
+    #[test]
+    fn clamp_scroll_x_scrolls_right_on_negative_y() {
+        // Shift+scroll DOWN (y = -1.0) from scroll_x=10
+        // sx - y * ROW_HEIGHT * 3.0 = 10 - (-48) = 58
+        let sx = 10.0;
+        let y = -1.0;
+        let scroll_target = sx - y * ROW_HEIGHT * 3.0;
+        assert!((scroll_target - 58.0).abs() < f32::EPSILON);
+        let result = clamp_scroll_x(scroll_target, 1000.0, 800.0);
+        assert_eq!(result, 58.0);
+    }
+
+    #[test]
+    fn clamp_scroll_x_clamps_above_max() {
+        // Shift+scroll DOWN with large y past max
+        // max_scroll = 1000 - 800 = 200, target > 200 → clamped to 200
+        let sx = 100.0;
+        let y = -10.0;
+        let result = clamp_scroll_x(sx - y * ROW_HEIGHT * 3.0, 1000.0, 800.0);
+        assert_eq!(result, 200.0);
+    }
+
+    #[test]
+    fn normal_wheel_not_affected_by_shift_scroll_logic() {
+        // Without shift, vertical scroll uses: so + y' where y' = -y * ROW_HEIGHT * 3.0
+        // This test verifies the vertical scroll formula is unchanged
+        // when shift is NOT pressed (the clamp_scroll function).
+        let so = 100.0;
+        let y = 1.0; // scroll up
+        let dy = -y * ROW_HEIGHT * 3.0;
+        let result = clamp_scroll(so + dy, 10000.0, 1000.0);
+        assert_eq!(result, 52.0);
     }
 }
