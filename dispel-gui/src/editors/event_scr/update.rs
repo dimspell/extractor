@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::components::loading_state::LoadingState;
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, SectionTab};
 use crate::message::Message;
@@ -13,7 +14,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::VariableAdded => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 script.variables.push(Variable {
                     name: String::new(),
                     value: String::new(),
@@ -23,7 +24,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::VariableNameChanged(index, name) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(var) = script.variables.get_mut(index) {
                     var.name = name;
                     state.modified = true;
@@ -32,7 +33,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::VariableValueChanged(index, value) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(var) = script.variables.get_mut(index) {
                     var.value = value;
                     state.modified = true;
@@ -41,7 +42,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::VariableDeleted(index) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if index < script.variables.len() {
                     script.variables.remove(index);
                     state.modified = true;
@@ -50,7 +51,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::LineAdded(section) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 match section {
                     SectionTab::Map => script.map_content.push(String::new()),
                     SectionTab::Chr => script.chr_content.push(String::new()),
@@ -63,7 +64,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::LineContentChanged(section, index, content) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 match section {
                     SectionTab::Map if index < script.map_content.len() => {
                         script.map_content[index] = content;
@@ -87,7 +88,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::LineDeleted(section, index) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 match section {
                     SectionTab::Map if index < script.map_content.len() => {
                         script.map_content.remove(index);
@@ -111,7 +112,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SpriteAdded => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 script.spr_content.push(SpriteDefinition {
                     sprite_alias: String::new(),
                     sprite_file: String::new(),
@@ -121,7 +122,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SpriteAliasChanged(index, alias) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(spr) = script.spr_content.get_mut(index) {
                     spr.sprite_alias = alias;
                     state.modified = true;
@@ -130,7 +131,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SpriteFileChanged(index, file) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(spr) = script.spr_content.get_mut(index) {
                     spr.sprite_file = file;
                     state.modified = true;
@@ -139,7 +140,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SpriteDeleted(index) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if index < script.spr_content.len() {
                     script.spr_content.remove(index);
                     state.modified = true;
@@ -148,7 +149,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionAdded => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 script.actions.push(ActionFunction {
                     prefix: None,
                     function_name: String::new(),
@@ -161,7 +162,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionRawAdded => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 script.actions.push(ActionFunction {
                     prefix: None,
                     function_name: String::new(),
@@ -174,7 +175,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionRawContentChanged(index, content) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.raw_content = Some(content);
                     act.prefix = None;
@@ -187,7 +188,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionPrefixChanged(index, prefix) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.prefix = if prefix.is_empty() {
                         None
@@ -202,7 +203,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionFunctionChanged(index, func_name) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.function_name = func_name;
                     act.raw_content = None;
@@ -213,7 +214,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionParamsChanged(index, params_str) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.parameters = params_str
                         .split(',')
@@ -228,7 +229,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionDeleted(index) => {
-            if let Some(ref mut script) = state.script {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if index < script.actions.len() {
                     script.actions.remove(index);
                     state.modified = true;
@@ -239,19 +240,17 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::LoadScript(path) => load_from_path(path),
         EventScrEditorMessage::ScriptLoaded(script) => {
-            state.script = Some(script);
+            state.script_loading = LoadingState::Loaded(script);
             state.modified = false;
-            state.load_error = None;
             state.save_error = None;
             Task::none()
         }
         EventScrEditorMessage::LoadError(e) => {
-            state.script = None;
-            state.load_error = Some(e);
+            state.script_loading = LoadingState::Failed(e);
             Task::none()
         }
         EventScrEditorMessage::SaveScript => {
-            if let Some(ref script) = state.script {
+            if let LoadingState::Loaded(ref script) = state.script_loading {
                 if let Some(ref path) = state.file_path {
                     return save_to_path(path.clone(), script.clone());
                 }

@@ -231,6 +231,7 @@ impl App {
                 EditorType::PartyRefEditor => self.state.party_ref_editor.edit_history(),
                 EditorType::PartyIniEditor => self.state.party_ini_editor.edit_history(),
                 EditorType::StoreEditor => self.state.store_editor.edit_history(),
+                EditorType::EventScrEditor => &self.empty_edit_history,
                 _ => &self.empty_edit_history,
             };
         }

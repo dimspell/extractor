@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_rule as hr;
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, SectionTab};
@@ -8,76 +9,78 @@ use iced::{font, Alignment, Border, Color, Element, Font, Length};
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.event_scr_editor;
 
-    if let Some(ref script) = state.script {
-        let script_id = script.id;
-        let active_tab = state.active_section;
+    match &state.script_loading {
+        LoadingState::Loaded(script) => {
+            let script_id = script.id;
+            let active_tab = state.active_section;
 
-        // Tab bar
-        let tabs = row![
-            tab_button(SectionTab::Header, active_tab),
-            tab_button(SectionTab::Var, active_tab),
-            tab_button(SectionTab::Map, active_tab),
-            tab_button(SectionTab::Chr, active_tab),
-            tab_button(SectionTab::Npc, active_tab),
-            tab_button(SectionTab::Spr, active_tab),
-            tab_button(SectionTab::Wav, active_tab),
-            tab_button(SectionTab::Act, active_tab),
-        ]
-        .spacing(5)
-        .wrap();
-
-        // Section content
-        let content: Element<EventScrEditorMessage> = match active_tab {
-            SectionTab::Header => view_header(script),
-            SectionTab::Var => view_var_section(script),
-            SectionTab::Map => view_line_section(script, SectionTab::Map),
-            SectionTab::Chr => view_line_section(script, SectionTab::Chr),
-            SectionTab::Npc => view_line_section(script, SectionTab::Npc),
-            SectionTab::Spr => view_spr_section(script),
-            SectionTab::Wav => view_line_section(script, SectionTab::Wav),
-            SectionTab::Act => view_act_section(script),
-        };
-
-        let modified_indicator = if state.modified { " ●" } else { "" };
-
-        // Save button and errors
-        let save_button = button("Save")
-            .on_press(EventScrEditorMessage::SaveScript)
-            .style(if state.modified {
-                button::primary
-            } else {
-                button::secondary
-            });
-
-        let save_error: Element<EventScrEditorMessage> = if let Some(ref err) = state.save_error {
-            text(err)
-                .size(14)
-                .color(iced::Color::from_rgb(1.0, 0.0, 0.0))
-                .into()
-        } else {
-            text("").into()
-        };
-
-        column![
-            row![
-                text(format!("EventScript [{}]", script_id)).size(20),
-                text(modified_indicator)
-                    .size(20)
-                    .color(iced::Color::from_rgb(1.0, 0.8, 0.0)),
-                Space::new().width(Length::Fill),
-                save_button,
+            // Tab bar
+            let tabs = row![
+                tab_button(SectionTab::Header, active_tab),
+                tab_button(SectionTab::Var, active_tab),
+                tab_button(SectionTab::Map, active_tab),
+                tab_button(SectionTab::Chr, active_tab),
+                tab_button(SectionTab::Npc, active_tab),
+                tab_button(SectionTab::Spr, active_tab),
+                tab_button(SectionTab::Wav, active_tab),
+                tab_button(SectionTab::Act, active_tab),
             ]
-            .align_y(iced::Alignment::Center),
-            tabs,
-            content,
-            save_error,
-            hr(1),
-            view_status_bar(state),
-        ]
-        .spacing(10)
-        .into()
-    } else if let Some(ref err) = state.load_error {
-        container(column![
+            .spacing(5)
+            .wrap();
+
+            // Section content
+            let content: Element<EventScrEditorMessage> = match active_tab {
+                SectionTab::Header => view_header(script),
+                SectionTab::Var => view_var_section(script),
+                SectionTab::Map => view_line_section(script, SectionTab::Map),
+                SectionTab::Chr => view_line_section(script, SectionTab::Chr),
+                SectionTab::Npc => view_line_section(script, SectionTab::Npc),
+                SectionTab::Spr => view_spr_section(script),
+                SectionTab::Wav => view_line_section(script, SectionTab::Wav),
+                SectionTab::Act => view_act_section(script),
+            };
+
+            let modified_indicator = if state.modified { " ●" } else { "" };
+
+            // Save button and errors
+            let save_button = button("Save")
+                .on_press(EventScrEditorMessage::SaveScript)
+                .style(if state.modified {
+                    button::primary
+                } else {
+                    button::secondary
+                });
+
+            let save_error: Element<EventScrEditorMessage> = if let Some(ref err) = state.save_error
+            {
+                text(err)
+                    .size(14)
+                    .color(iced::Color::from_rgb(1.0, 0.0, 0.0))
+                    .into()
+            } else {
+                text("").into()
+            };
+
+            column![
+                row![
+                    text(format!("EventScript [{}]", script_id)).size(20),
+                    text(modified_indicator)
+                        .size(20)
+                        .color(iced::Color::from_rgb(1.0, 0.8, 0.0)),
+                    Space::new().width(Length::Fill),
+                    save_button,
+                ]
+                .align_y(iced::Alignment::Center),
+                tabs,
+                content,
+                save_error,
+                hr(1),
+                view_status_bar(state),
+            ]
+            .spacing(10)
+            .into()
+        }
+        LoadingState::Failed(err) => container(column![
             text("Failed to load EventScript")
                 .size(20)
                 .color(iced::Color::from_rgb(1.0, 0.0, 0.0)),
@@ -87,9 +90,8 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
-        .into()
-    } else {
-        empty_editor()
+        .into(),
+        LoadingState::Idle | LoadingState::Loading => empty_editor(),
     }
 }
 

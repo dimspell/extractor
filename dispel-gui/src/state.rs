@@ -341,6 +341,7 @@ impl AppState {
         *self.quest_scr_editor = Default::default();
         *self.wave_ini_editor = Default::default();
         *self.chdata_editor = Default::default();
+        *self.event_scr_editor = Default::default();
 
         // Clear lookups that might reference old workspace data
         self.lookups.clear();
