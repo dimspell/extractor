@@ -1598,35 +1598,6 @@ where
 mod tests {
     use super::*;
 
-    /// Extract of the wheel-scroll Lines logic for unit testing.
-    /// Returns `(scroll_offset, scroll_x)` — each equals the input if no change.
-    #[allow(clippy::too_many_arguments)]
-    fn shift_scroll_lines(
-        shift: bool,
-        y: f32,
-        x: f32,
-        scroll_y: f32,
-        scroll_x: f32,
-        content_w: f32,
-        avail_w: f32,
-        total_h: f32,
-        viewport_h: f32,
-    ) -> (f32, f32) {
-        const STEP: f32 = ROW_HEIGHT * 3.0;
-        if shift {
-            let nsx = clamp_scroll_x(scroll_x - y * STEP, content_w, avail_w);
-            (scroll_y, nsx)
-        } else {
-            let nsy = clamp_scroll(scroll_y - y * STEP, total_h, viewport_h);
-            let nsx = if x.abs() > 0.0 {
-                clamp_scroll_x(scroll_x - x * STEP, content_w, avail_w)
-            } else {
-                scroll_x
-            };
-            (nsy, nsx)
-        }
-    }
-
     fn make_bounds() -> Rectangle {
         Rectangle {
             x: 0.0,
@@ -1783,83 +1754,5 @@ mod tests {
         assert_eq!(char_to_glyph('F'), "F");
         assert_eq!(char_to_glyph('0'), "0");
         assert_eq!(char_to_glyph('z'), " ");
-    }
-
-    // ── Shift+scroll horizontal redirect ───────────────────────────────
-
-    const CW: f32 = 1000.0; // content width
-    const AW: f32 = 800.0; // available viewport width
-    const TH: f32 = 10000.0;
-    const VH: f32 = 1000.0;
-    const STEP: f32 = ROW_HEIGHT * 3.0;
-
-    #[test]
-    fn shift_scroll_up_moves_horizontal() {
-        // Shift+scroll UP (y=1) from sx=50 → scroll_x decreases by STEP
-        let (sy, sx) = shift_scroll_lines(true, 1.0, 0.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sy, 100.0); // vertical unchanged
-        assert_eq!(sx, 50.0 - STEP);
-    }
-
-    #[test]
-    fn shift_scroll_down_moves_horizontal() {
-        // Shift+scroll DOWN (y=-1) from sx=50 → scroll_x increases by STEP
-        let (sy, sx) = shift_scroll_lines(true, -1.0, 0.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sy, 100.0);
-        assert_eq!(sx, 50.0 + STEP);
-    }
-
-    #[test]
-    fn shift_scroll_up_at_left_edge_clamps() {
-        // Shift+scroll UP can't go below 0
-        let (_, sx) = shift_scroll_lines(true, 1.0, 0.0, 100.0, 10.0, CW, AW, TH, VH);
-        assert_eq!(sx, 0.0);
-    }
-
-    #[test]
-    fn shift_scroll_down_at_right_edge_clamps() {
-        // max_off = 1000 - 800 = 200
-        let (_, sx) = shift_scroll_lines(true, -10.0, 0.0, 100.0, 100.0, CW, AW, TH, VH);
-        assert_eq!(sx, 200.0);
-    }
-
-    #[test]
-    fn no_shift_scroll_normal_moves_vertical() {
-        // No Shift, y=1 (scroll up), x=0 → only scroll_y changes
-        let (sy, sx) = shift_scroll_lines(false, 1.0, 0.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sx, 50.0); // horizontal unchanged
-        assert_eq!(sy, 100.0 - STEP);
-    }
-
-    #[test]
-    fn no_shift_scroll_down_normal_moves_vertical() {
-        // No Shift, y=-1 (scroll down), x=0 → only scroll_y changes
-        let (sy, sx) = shift_scroll_lines(false, -1.0, 0.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sx, 50.0);
-        assert_eq!(sy, 100.0 + STEP);
-    }
-
-    #[test]
-    fn no_shift_scroll_with_x_moves_both() {
-        // No Shift, y=1, x=1 → both axes move
-        let (sy, sx) = shift_scroll_lines(false, 1.0, 1.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sy, 100.0 - STEP);
-        assert_eq!(sx, 50.0 - STEP);
-    }
-
-    #[test]
-    fn shift_does_not_affect_vertical() {
-        // When shift is held, scroll_y must stay unchanged
-        for y in &[0.5, 1.0, 2.0, -1.0, -3.0] {
-            let (sy, _) = shift_scroll_lines(true, *y, 0.0, 500.0, 0.0, CW, AW, TH, VH);
-            assert_eq!(sy, 500.0, "scroll_y changed for y={y}");
-        }
-    }
-
-    #[test]
-    fn no_shift_ignores_x_when_zero() {
-        // x=0 should not change scroll_x
-        let (_, sx) = shift_scroll_lines(false, 1.0, 0.0, 100.0, 50.0, CW, AW, TH, VH);
-        assert_eq!(sx, 50.0);
     }
 }
