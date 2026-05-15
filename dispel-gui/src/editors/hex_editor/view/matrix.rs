@@ -853,12 +853,17 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             Background::Color(color!(0x14110f)),
         );
 
-        // Clip content rendering to exclude the scrollbar area.
+        // Clip content rendering to exclude scrollbar areas.
+        let needs_hscroll = self.total_content_width() > bounds.width - SCROLLBAR_THICKNESS;
         let clip = Rectangle {
             x: clip.x,
             y: clip.y,
             width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
-            height: clip.height,
+            height: if needs_hscroll {
+                (clip.height - SCROLLBAR_THICKNESS).max(0.0)
+            } else {
+                clip.height
+            },
         };
 
         let total_rows = self.total_rows();
