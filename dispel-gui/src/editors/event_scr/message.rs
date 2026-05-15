@@ -41,4 +41,8 @@ pub enum EventScrEditorMessage {
     FunctionIndexBuilt(Result<EventScriptFunctionIndex, String>),
     CancelIndexing,
     IndexTick,
+    // Function picker
+    ToggleFunctionPicker,
+    PickerFilterChanged(String),
+    InsertPickedFunction(String, usize),
 }

@@ -52,7 +52,9 @@ impl SectionTab {
 pub enum FunctionIndexState {
     #[default]
     Idle,
-    Indexing { progress: Arc<IndexProgress> },
+    Indexing {
+        progress: Arc<IndexProgress>,
+    },
     Loaded(EventScriptFunctionIndex),
     Failed(String),
 }
@@ -66,6 +68,8 @@ pub struct EventScriptEditorState {
     pub save_error: Option<String>,
     pub act_parse_errors: Vec<(usize, String)>,
     pub index_state: FunctionIndexState,
+    pub picker_open: bool,
+    pub picker_filter: String,
 }
 
 impl EventScriptEditorState {

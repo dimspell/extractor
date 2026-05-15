@@ -246,6 +246,11 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             state.script_loading = LoadingState::Loaded(script);
             state.modified = false;
             state.save_error = None;
+            // Auto-index if not already loaded/indexing
+            let should_index = matches!(state.index_state, FunctionIndexState::Idle);
+            if should_index && !app.state.shared_game_path.is_empty() {
+                return handle(EventScrEditorMessage::BuildFunctionIndex, app);
+            }
             Task::none()
         }
         EventScrEditorMessage::LoadError(e) => {
@@ -276,25 +281,18 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                                         &relative,
                                         &new_bytes,
                                     )?;
-                                    std::fs::write(&path, &new_bytes)
-                                        .map_err(|e| e.to_string())
+                                    std::fs::write(&path, &new_bytes).map_err(|e| e.to_string())
                                 })
                                 .await
                                 .unwrap_or_else(|e| Err(e.to_string()))
                             },
                             |result| {
-                                Message::Editor(
-                                    crate::message::editor::EditorMessage::EventScr(
-                                        match result {
-                                            Ok(()) => {
-                                                EventScrEditorMessage::SaveSuccess
-                                            }
-                                            Err(e) => {
-                                                EventScrEditorMessage::SaveError(e)
-                                            }
-                                        },
-                                    ),
-                                )
+                                Message::Editor(crate::message::editor::EditorMessage::EventScr(
+                                    match result {
+                                        Ok(()) => EventScrEditorMessage::SaveSuccess,
+                                        Err(e) => EventScrEditorMessage::SaveError(e),
+                                    },
+                                ))
                             },
                         );
                     }
@@ -317,8 +315,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         EventScrEditorMessage::BuildFunctionIndex => {
             let game_path = app.state.shared_game_path.clone();
             if game_path.is_empty() {
-                state.index_state =
-                    FunctionIndexState::Failed("Game path not set".to_string());
+                state.index_state = FunctionIndexState::Failed("Game path not set".to_string());
                 return Task::none();
             }
             let progress = crate::editors::event_scr::functions::IndexProgress::new();
@@ -362,7 +359,9 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::CancelIndexing => {
             if let FunctionIndexState::Indexing { ref progress, .. } = state.index_state {
-                progress.cancelled.store(true, std::sync::atomic::Ordering::Relaxed);
+                progress
+                    .cancelled
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
             }
             state.index_state = FunctionIndexState::Idle;
             Task::none()
@@ -370,6 +369,33 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         EventScrEditorMessage::IndexTick => {
             // Just triggers a re-render; the view reads progress
             // from the Arc<IndexProgress> stored in index_state.
+            Task::none()
+        }
+        // ── Function picker ──────────────────────────────────────────────
+        EventScrEditorMessage::ToggleFunctionPicker => {
+            state.picker_open = !state.picker_open;
+            if !state.picker_open {
+                state.picker_filter.clear();
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::PickerFilterChanged(filter) => {
+            state.picker_filter = filter;
+            Task::none()
+        }
+        EventScrEditorMessage::InsertPickedFunction(name, param_count) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: name,
+                    parameters: vec![String::new(); param_count],
+                    raw_content: None,
+                });
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+                state.picker_open = false;
+                state.picker_filter.clear();
+            }
             Task::none()
         }
     }
