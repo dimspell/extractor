@@ -88,6 +88,8 @@ pub struct HexMatrix<'a, Message> {
     search_query_len: u64,
     /// Start address of the current (navigated-to) match, if any.
     search_current_addr: Option<u64>,
+    /// Start addresses of all search matches, for scrollbar markers.
+    search_match_starts: &'a [u64],
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -118,6 +120,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         search_match_set: &'a BTreeSet<u64>,
         search_query_len: u64,
         search_current_addr: Option<u64>,
+        search_match_starts: &'a [u64],
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -131,6 +134,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             search_match_set,
             search_query_len,
             search_current_addr,
+            search_match_starts,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -726,7 +730,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         _theme: &Theme,
         _defaults: &renderer::Style,
         layout: Layout<'_>,
-        _cursor: mouse::Cursor,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<State>();
@@ -989,9 +993,23 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             );
         }
 
-        // Scrollbar (vertical only in v1).
+        // Scrollbar with search-match and cursor-position markers.
+        let total_len = self.bytes.len() as u64;
         if total_h > bounds.height {
-            draw_scrollbar(renderer, bounds, scroll, total_h, state.dragging_scrollbar);
+            let hovering = cursor
+                .position_over(bounds)
+                .map(|p| scrollbar_track(bounds).contains(p))
+                .unwrap_or(false);
+            draw_scrollbar(
+                renderer,
+                bounds,
+                scroll,
+                total_h,
+                state.dragging_scrollbar || hovering,
+                self.search_match_starts,
+                self.selection.cursor,
+                total_len,
+            );
         }
     }
 }
@@ -1161,67 +1179,139 @@ fn draw_glyph_string(
 }
 
 fn scrollbar_track(bounds: Rectangle) -> Rectangle {
-    Rectangle {
-        x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
-        y: bounds.y,
-        width: SCROLLBAR_THICKNESS,
-        height: bounds.height,
-    }
-}
+     Rectangle {
+         x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
+         y: bounds.y,
+         width: SCROLLBAR_THICKNESS,
+         height: bounds.height,
+     }
+ }
 
-fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
-    (track.height / total_h * track.height).max(20.0)
-}
+ fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
+     (track.height / total_h * track.height).max(20.0)
+ }
 
-fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
-    let h = thumb_height(track, total_h);
-    let max_off = (total_h - track.height).max(1.0);
-    let y = track.y + (scroll / max_off) * (track.height - h);
-    Rectangle {
-        x: track.x + 1.0,
-        y,
-        width: track.width - 2.0,
-        height: h,
-    }
-}
+ /// Y position of a file address on the scrollbar track, as a fraction 0..1.
+ fn scrollbar_y_frac(addr: u64, total_len: u64, track: Rectangle) -> f32 {
+     if total_len <= 1 {
+         return track.y;
+     }
+     track.y + (addr as f32 / (total_len - 1) as f32) * track.height
+ }
 
-fn draw_scrollbar(
-    renderer: &mut iced::Renderer,
-    bounds: Rectangle,
-    scroll: f32,
-    total_h: f32,
-    active: bool,
-) {
-    let track = scrollbar_track(bounds);
-    let thumb = scrollbar_thumb(track, scroll, total_h);
-    renderer.fill_quad(
-        renderer::Quad {
-            bounds: track,
-            border: Border::default(),
-            shadow: Shadow::default(),
-            snap: true,
-        },
-        Background::Color(color!(0x141210)),
-    );
-    let thumb_color = if active {
-        color!(0xB97024)
-    } else {
-        color!(0x5d4037)
-    };
-    renderer.fill_quad(
-        renderer::Quad {
-            bounds: thumb,
-            border: Border {
-                color: thumb_color,
-                width: 0.5,
-                radius: 0.into(),
-            },
-            shadow: Shadow::default(),
-            snap: true,
-        },
-        Background::Color(thumb_color),
-    );
-}
+ fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
+     let h = thumb_height(track, total_h);
+     let max_off = (total_h - track.height).max(1.0);
+     let y = track.y + (scroll / max_off) * (track.height - h);
+     Rectangle {
+         x: track.x + 1.0,
+         y,
+         width: track.width - 2.0,
+         height: h,
+     }
+ }
+
+ /// Marker dot size in pixels.
+ const MARKER_SIZE: f32 = 4.0;
+
+ #[allow(clippy::too_many_arguments)]
+ fn draw_scrollbar(
+     renderer: &mut iced::Renderer,
+     bounds: Rectangle,
+     scroll: f32,
+     total_h: f32,
+     active: bool,
+     search_match_starts: &[u64],
+     cursor_addr: u64,
+     total_len: u64,
+ ) {
+     let track = scrollbar_track(bounds);
+
+     // Thicken on hover/drag (like table widget).
+     let (track, thumb) = if active {
+         let fat = SCROLLBAR_THICKNESS + 5.0;
+         let fat_track = Rectangle {
+             x: bounds.x + bounds.width - fat,
+             y: bounds.y,
+             width: fat,
+             height: bounds.height,
+         };
+         let thumb = scrollbar_thumb(fat_track, scroll, total_h);
+         (fat_track, thumb)
+     } else {
+         let t = track;
+         let thumb = scrollbar_thumb(t, scroll, total_h);
+         (t, thumb)
+     };
+
+     // Track background.
+     renderer.fill_quad(
+         renderer::Quad {
+             bounds: track,
+             border: Border::default(),
+             shadow: Shadow::default(),
+             snap: true,
+         },
+         Background::Color(color!(0x141210)),
+     );
+
+     let thumb_color = if active {
+         color!(0xB97024)
+     } else {
+         color!(0x5d4037)
+     };
+
+     // Search-match markers (small green dots).
+     for &match_start in search_match_starts {
+         let my = scrollbar_y_frac(match_start, total_len, track);
+         renderer.fill_quad(
+             renderer::Quad {
+                 bounds: Rectangle {
+                     x: track.x + (track.width - MARKER_SIZE) / 2.0,
+                     y: my - MARKER_SIZE / 2.0,
+                     width: MARKER_SIZE,
+                     height: MARKER_SIZE,
+                 },
+                 border: Border::default(),
+                 shadow: Shadow::default(),
+                 snap: true,
+             },
+             Background::Color(color!(0x4a7a2a)),
+         );
+     }
+
+     // Cursor-position marker (amber dot).
+     let cy = scrollbar_y_frac(cursor_addr, total_len, track);
+     renderer.fill_quad(
+         renderer::Quad {
+             bounds: Rectangle {
+                 x: track.x + (track.width - MARKER_SIZE) / 2.0,
+                 y: cy - MARKER_SIZE / 2.0,
+                 width: MARKER_SIZE,
+                 height: MARKER_SIZE,
+             },
+             border: Border::default(),
+             shadow: Shadow::default(),
+             snap: true,
+         },
+         Background::Color(color!(0xB97024)),
+     );
+
+     // Thumb.
+     renderer.fill_quad(
+         renderer::Quad {
+             bounds: thumb,
+             border: Border {
+                 color: thumb_color,
+                 width: 0.5,
+                 radius: 0.into(),
+             },
+             shadow: Shadow::default(),
+             snap: true,
+         },
+         Background::Color(thumb_color),
+     );
+ }
 
 impl<'a, Message, Theme> From<HexMatrix<'a, Message>>
     for Element<'a, Message, Theme, iced::Renderer>

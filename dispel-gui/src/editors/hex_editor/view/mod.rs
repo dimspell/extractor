@@ -79,6 +79,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         &editor.search.match_set,
         editor.search.query_len,
         editor.search.current_addr(),
+        &editor.search.results,
         cache,
     )
     .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
