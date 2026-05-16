@@ -49,4 +49,8 @@ pub enum EventScrEditorMessage {
     ToggleFunctionPicker,
     PickerFilterChanged(String),
     InsertPickedFunction(String, usize),
+    // Insert helpers
+    InsertIfBlock,
+    InsertElseBlock,
+    InsertReturnBlock,
 }

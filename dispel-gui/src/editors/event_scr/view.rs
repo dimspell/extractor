@@ -357,10 +357,19 @@ fn view_act_section<'a>(
             button("+ Add Action")
                 .on_press(EventScrEditorMessage::ActionAdded)
                 .style(style::browse_button),
-            button("+ Add Raw Text")
+            button("+ Raw Text")
                 .on_press(EventScrEditorMessage::ActionRawAdded)
                 .style(style::browse_button),
-            button("Pick Function")
+            button("IF")
+                .on_press(EventScrEditorMessage::InsertIfBlock)
+                .style(style::chip),
+            button("ELSE")
+                .on_press(EventScrEditorMessage::InsertElseBlock)
+                .style(style::chip),
+            button("RET")
+                .on_press(EventScrEditorMessage::InsertReturnBlock)
+                .style(style::chip),
+            button("Pick")
                 .on_press(EventScrEditorMessage::ToggleFunctionPicker)
                 .style(style::chip),
         ]

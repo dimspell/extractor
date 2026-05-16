@@ -405,6 +405,70 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        // ── Insert helpers ───────────────────────────────────────────────
+        EventScrEditorMessage::InsertIfBlock => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("if()".to_string()),
+                });
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("{".to_string()),
+                });
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("}".to_string()),
+                });
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::InsertElseBlock => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("else".to_string()),
+                });
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("{".to_string()),
+                });
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("}".to_string()),
+                });
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::InsertReturnBlock => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                script.actions.push(ActionFunction {
+                    prefix: None,
+                    function_name: String::new(),
+                    parameters: Vec::new(),
+                    raw_content: Some("return()".to_string()),
+                });
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+            }
+            Task::none()
+        }
         // ── Tree view ────────────────────────────────────────────────────
         EventScrEditorMessage::ToggleFold(index) => {
             if !state.act_folded.remove(&index) {
