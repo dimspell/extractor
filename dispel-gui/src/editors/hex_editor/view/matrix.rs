@@ -34,7 +34,6 @@ const HEX_CELL_WIDTH: f32 = 20.0;
 const ASCII_CELL_WIDTH: f32 = 9.0;
 const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
-const ADDR_COL_WIDTH: f32 = 88.0;
 const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
@@ -115,6 +114,8 @@ pub struct HexMatrix<'a, Message> {
     on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_goto: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_search: Option<Box<dyn Fn() -> Message + 'a>>,
+    show_decimal: bool,
+    on_toggle_addr_format: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -160,6 +161,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_create_pattern: None,
             on_open_goto: None,
             on_open_search: None,
+            show_decimal: false,
+            on_toggle_addr_format: None,
         }
     }
 
@@ -223,6 +226,28 @@ impl<'a, Message> HexMatrix<'a, Message> {
         self
     }
 
+    pub fn show_decimal(mut self, v: bool) -> Self {
+        self.show_decimal = v;
+        self
+    }
+
+    pub fn on_toggle_addr_format(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_toggle_addr_format = Some(Box::new(f));
+        self
+    }
+
+    fn addr_col_width(&self) -> f32 {
+        let char_w = 9.0;
+        let pad = 16.0;
+        let chars = if self.show_decimal {
+            let max_addr = self.bytes.len().saturating_sub(1);
+            format!("{}", max_addr).len().max(1)
+        } else {
+            8usize
+        };
+        chars as f32 * char_w + pad
+    }
+
     fn total_rows(&self) -> u64 {
         let bpr = self.bytes_per_row as u64;
         if self.bytes.is_empty() {
@@ -239,7 +264,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
     fn ascii_start_x(&self, bounds_x: f32) -> f32 {
         let bpr = self.bytes_per_row as usize;
         bounds_x
-            + ADDR_COL_WIDTH
+            + self.addr_col_width()
             + (bpr as f32) * HEX_CELL_WIDTH
             + group_count(bpr) as f32 * GROUP_GAP
             + COLUMN_GAP
@@ -248,7 +273,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
     /// Total width of the address + hex + ASCII content area.
     fn total_content_width(&self) -> f32 {
         let bpr = self.bytes_per_row as usize;
-        ADDR_COL_WIDTH
+        self.addr_col_width()
             + (bpr as f32) * HEX_CELL_WIDTH
             + group_count(bpr) as f32 * GROUP_GAP
             + COLUMN_GAP
@@ -333,6 +358,7 @@ pub fn addr_at(
     scroll_x: f32,
     bytes_per_row: u8,
     total_len: u64,
+    addr_col_width: f32,
 ) -> Option<u64> {
     if total_len == 0 {
         return None;
@@ -347,7 +373,7 @@ pub fn addr_at(
     }
     let row = (local_y / ROW_HEIGHT) as u64;
 
-    let hex_start = bounds.x + ADDR_COL_WIDTH - scroll_x;
+    let hex_start = bounds.x + addr_col_width - scroll_x;
     let bpr_usize = bytes_per_row.max(1) as usize;
     let hex_end = hex_start + bpr * HEX_CELL_WIDTH + group_count(bpr_usize) as f32 * GROUP_GAP;
     let ascii_start = hex_end + COLUMN_GAP;
@@ -594,6 +620,16 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     return;
                 }
 
+                // Gutter click → toggle address format.
+                if p.x >= bounds.x && p.x < bounds.x + self.addr_col_width() {
+                    if let Some(cb) = &self.on_toggle_addr_format {
+                        shell.publish(cb());
+                    }
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
+                }
+
                 // Cell click → selection (and maybe edit on double-click).
                 if let Some(addr) = addr_at(
                     p,
@@ -602,6 +638,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     state.scroll_x.get(),
                     self.bytes_per_row,
                     total_len,
+                    self.addr_col_width(),
                 ) {
                     let now = Instant::now();
                     let is_double = matches!(
@@ -640,6 +677,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     state.scroll_x.get(),
                     self.bytes_per_row,
                     total_len,
+                    self.addr_col_width(),
                 ) {
                     if let Some(cb) = &self.on_right_click {
                         shell.publish(cb(addr));
@@ -698,6 +736,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         state.scroll_x.get(),
                         self.bytes_per_row,
                         total_len,
+                        self.addr_col_width(),
                     ) {
                         if let Some(cb) = &self.on_extend_to {
                             shell.publish(cb(addr));
@@ -917,9 +956,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
         // Further clip hex/ASCII content to exclude the address gutter.
         let cell_clip = Rectangle {
-            x: clip.x.max(bounds.x + ADDR_COL_WIDTH),
+            x: clip.x.max(bounds.x + self.addr_col_width()),
             y: clip.y,
-            width: (clip.x + clip.width - clip.x.max(bounds.x + ADDR_COL_WIDTH)).max(0.0),
+            width: (clip.x + clip.width - clip.x.max(bounds.x + self.addr_col_width())).max(0.0),
             height: clip.height,
         };
 
@@ -976,7 +1015,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
 
-        let hex_start_x = bounds.x + ADDR_COL_WIDTH - scroll_x;
+        let hex_start_x = bounds.x + self.addr_col_width() - scroll_x;
         let ascii_start_x = self.ascii_start_x(bounds.x) - scroll_x;
         let sel_range = self.selection.range();
         let cursor_addr = self.selection.cursor;
@@ -989,7 +1028,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 bounds: Rectangle {
                     x: bounds.x,
                     y: bounds.y,
-                    width: ADDR_COL_WIDTH,
+                    width: self.addr_col_width(),
                     height: viewport_h,
                 },
                 border: Border::default(),
@@ -1004,7 +1043,11 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             let y = bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
             // Address gutter.
-            let addr_str = format!("{:08X}", base_addr);
+            let addr_str = if self.show_decimal {
+                format!("{}", base_addr)
+            } else {
+                format!("{:08X}", base_addr)
+            };
             draw_glyph_string(
                 renderer,
                 &self.cache,
@@ -1013,7 +1056,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 Rectangle {
                     x: bounds.x + 8.0,
                     y,
-                    width: ADDR_COL_WIDTH - 16.0,
+                    width: self.addr_col_width() - 16.0,
                     height: ROW_HEIGHT,
                 },
                 addr_color,
@@ -1598,6 +1641,8 @@ where
 mod tests {
     use super::*;
 
+    const TEST_ADDR_COL_WIDTH: f32 = 88.0;
+
     fn make_bounds() -> Rectangle {
         Rectangle {
             x: 0.0,
@@ -1695,7 +1740,7 @@ mod tests {
     fn addr_at_hex_column_first_byte() {
         let bounds = make_bounds();
         let p = Point::new(89.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 0);
     }
 
@@ -1703,40 +1748,40 @@ mod tests {
     fn addr_at_hex_column_with_scroll() {
         let bounds = make_bounds();
         let p = Point::new(89.0, 4.0);
-        let addr = addr_at(p, bounds, 32.0, 0.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 32.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 32);
     }
 
     #[test]
     fn addr_at_ascii_column() {
         let bounds = make_bounds();
-        let ascii_start = ADDR_COL_WIDTH
+        let ascii_start = TEST_ADDR_COL_WIDTH
             + 16.0 * HEX_CELL_WIDTH
             + group_count(16) as f32 * GROUP_GAP
             + COLUMN_GAP;
         let p = Point::new(ascii_start + 2.0 * ASCII_CELL_WIDTH + 1.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 2);
     }
 
     #[test]
     fn addr_at_outside_columns_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 0.0, 16, 1024).is_none());
+        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).is_none());
     }
 
     #[test]
     fn addr_at_clamps_past_end_of_file() {
         let bounds = make_bounds();
-        let p = Point::new(ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 5).unwrap();
+        let p = Point::new(TEST_ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 5, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 4);
     }
 
     #[test]
     fn addr_at_empty_file_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 0.0, 16, 0).is_none());
+        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 0.0, 16, 0, TEST_ADDR_COL_WIDTH).is_none());
     }
 
     #[test]

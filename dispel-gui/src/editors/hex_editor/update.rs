@@ -384,6 +384,11 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
         HexEditorMessage::RemovePattern(id) => {
             editor.remove_pattern(id);
         }
+
+        // ── Address format ──────────────────────────────────────────────
+        HexEditorMessage::ToggleAddrFormat => {
+            editor.show_decimal = !editor.show_decimal;
+        }
     }
     Task::none()
 }

@@ -23,18 +23,34 @@ pub fn format_footer(editor: &HexEditorState) -> String {
         return format!("(empty)  ·  total: 0 (0 B)  ·  dirty: {dirty}");
     }
     let sel = editor.selection;
-    let sel_str = format_selection(sel);
+    let sel_str = format_selection(sel, editor.show_decimal);
+    let total_fmt = if editor.show_decimal {
+        format!("{total}")
+    } else {
+        format!("0x{total:X}")
+    };
+    let cursor_fmt = if editor.show_decimal {
+        format!("{cursor}")
+    } else {
+        format!("0x{cursor:X}")
+    };
     format!(
-        "{sel}  ·  total: 0x{total:X} ({total_str})  ·  dirty: {dirty}  ·  cursor: 0x{cursor:X}",
+        "{sel}  ·  total: {total_fmt} ({total_str})  ·  dirty: {dirty}  ·  cursor: {cursor_fmt}",
         sel = sel_str,
     )
 }
 
-pub fn format_selection(sel: Selection) -> String {
+pub fn format_selection(sel: Selection, show_decimal: bool) -> String {
     let lo = sel.start();
     let hi = sel.end();
     let len = sel.len();
-    if sel.is_single() {
+    if show_decimal {
+        if sel.is_single() {
+            format!("{lo}")
+        } else {
+            format!("{lo} - {hi} ({len} B)")
+        }
+    } else if sel.is_single() {
         format!("0x{lo:X}")
     } else {
         format!("0x{lo:X} - 0x{hi:X} (0x{len:X} / {len} B)")
@@ -69,7 +85,7 @@ mod tests {
 
     #[test]
     fn format_selection_single_byte() {
-        assert_eq!(format_selection(Selection::single(0x10)), "0x10");
+        assert_eq!(format_selection(Selection::single(0x10), false), "0x10");
     }
 
     #[test]
@@ -78,8 +94,20 @@ mod tests {
             anchor: 0x10,
             cursor: 0x1F,
         };
-        let s = format_selection(sel);
+        let s = format_selection(sel, false);
         assert!(s.contains("0x10 - 0x1F"));
         assert!(s.contains("(0x10 / 16 B)"));
+    }
+
+    #[test]
+    fn format_selection_decimal() {
+        assert_eq!(format_selection(Selection::single(0x10), true), "16");
+        let sel = Selection {
+            anchor: 0x10,
+            cursor: 0x1F,
+        };
+        let s = format_selection(sel, true);
+        assert!(s.contains("16 - 31"));
+        assert!(s.contains("(16 B)"));
     }
 }

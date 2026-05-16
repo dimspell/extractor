@@ -45,6 +45,8 @@ pub struct HexEditorState {
     pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
     /// "Recording not active", parse errors). Cleared on next save.
+    /// Toggle: false → hex addresses (default), true → decimal.
+    pub show_decimal: bool,
     pub status_msg: String,
     pub error: Option<String>,
 }
@@ -80,6 +82,7 @@ impl HexEditorState {
                     context_menu_addr: None,
                     goto: None,
                     search: SearchState::new(),
+                    show_decimal: false,
                     status_msg: String::new(),
                     error: None,
                 }
@@ -101,6 +104,7 @@ impl HexEditorState {
                 context_menu_addr: None,
                 goto: None,
                 search: SearchState::new(),
+                show_decimal: false,
                 status_msg: String::new(),
                 error: Some(e.to_string()),
             },

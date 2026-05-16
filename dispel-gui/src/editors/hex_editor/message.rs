@@ -107,4 +107,8 @@ pub enum HexEditorMessage {
     NavigateToPattern(usize),
     /// Remove a pattern by its id.
     RemovePattern(usize),
+
+    // ── Address format ──────────────────────────────────────────────────
+    /// Toggle between hex and decimal address display.
+    ToggleAddrFormat,
 }

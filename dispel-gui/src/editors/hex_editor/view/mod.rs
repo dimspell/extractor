@@ -94,6 +94,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .on_create_pattern(|| Message::hex_editor(HexEditorMessage::CreatePattern))
     .on_open_goto(|| Message::hex_editor(HexEditorMessage::OpenGotoDialog))
     .on_open_search(|| Message::hex_editor(HexEditorMessage::OpenSearch))
+    .show_decimal(editor.show_decimal)
+    .on_toggle_addr_format(|| Message::hex_editor(HexEditorMessage::ToggleAddrFormat))
     .into();
 
     let has_selection_range = !editor.selection.is_single();
