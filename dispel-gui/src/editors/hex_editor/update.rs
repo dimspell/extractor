@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use dispel_core::modding::{make_delta, ChangeAction, ChangeOp, Workspace};
+use dispel_core::modding::{ChangeAction, ChangeOp, Workspace};
 use iced::Task;
 
 use crate::app::App;
