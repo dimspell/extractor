@@ -83,8 +83,9 @@ pub struct MiscItem {
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
     /// Padding field to preserve binary compatibility.
-    #[extractor(array(size = 20, type = "u8"))]
-    pub padding: [u8; 20],
+    #[extractor(string(encoding = "EUC-KR", size = 20))]
+    #[translatable(encoding = "EUC-KR", max_bytes = 20)]
+    pub padding: String,
 }
 
 pub fn read_misc_item_db(source_path: &Path) -> std::io::Result<Vec<MiscItem>> {
