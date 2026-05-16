@@ -5,6 +5,7 @@ use iced::Task;
 
 use crate::app::App;
 use crate::editors::hex_editor::editing::{EditState, InspectorEditState};
+use crate::editors::hex_editor::goto::GotoState;
 use crate::editors::hex_editor::inspector::ENTRIES;
 use crate::editors::hex_editor::selection::nav_target;
 use crate::editors::hex_editor::HexEditorMessage;
@@ -129,6 +130,21 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
             }
         }
 
+        // ── Inspector ───────────────────────────────────────────────────
+        HexEditorMessage::CopyInspectorValue(idx) => {
+            let cursor = editor.selection.cursor;
+            let len = editor.provider.len();
+            let avail = (len - cursor) as usize;
+            let read_end = (cursor + 64).min(len);
+            let bytes = editor.provider.read(cursor..read_end);
+            if let Some(entry) = ENTRIES.get(idx) {
+                if avail >= entry.min_size {
+                    let decoded = (entry.decode)(bytes);
+                    editor.status_msg = format!("Copied: {decoded}");
+                }
+            }
+        }
+
         HexEditorMessage::BeginInspectorEdit(idx) => {
             if editor.provider.is_empty() {
                 return Task::none();
@@ -210,6 +226,76 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
             editor.status_msg.clear();
         }
 
+        // ── Search & Find/Replace ──────────────────────────────────────
+        HexEditorMessage::OpenSearch => {
+            editor.search.open();
+        }
+        HexEditorMessage::Search(query) => {
+            editor.search.visible = true;
+            editor.search.query = query;
+            editor.search.execute(editor.provider.as_slice());
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
+        }
+        HexEditorMessage::ToggleSearchMode => {
+            editor.search.mode = editor.search.mode.toggle();
+            if !editor.search.query.is_empty() {
+                editor.search.execute(editor.provider.as_slice());
+                if let Some(addr) = editor.search.current_addr() {
+                    editor.selection.select(addr.min(max_addr), max_addr);
+                }
+            }
+        }
+        HexEditorMessage::SearchNext => {
+            editor.search.next_match();
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
+        }
+        HexEditorMessage::SearchPrev => {
+            editor.search.prev_match();
+            if let Some(addr) = editor.search.current_addr() {
+                editor.selection.select(addr.min(max_addr), max_addr);
+            }
+        }
+        HexEditorMessage::CloseSearch => {
+            editor.search.clear();
+        }
+
+        // ── Goto address ───────────────────────────────────────────────
+        HexEditorMessage::OpenGotoDialog => {
+            editor.goto = Some(GotoState::new());
+            return iced::widget::operation::focus(GotoState::input_id());
+        }
+        HexEditorMessage::SetGotoDraft(s) => {
+            if let Some(ref mut g) = editor.goto {
+                g.draft = s;
+                g.error = None;
+            }
+        }
+        HexEditorMessage::CommitGoto => {
+            let parse_result = editor
+                .goto
+                .as_ref()
+                .map(|g| g.parse(editor.selection.cursor, max_addr));
+            match parse_result {
+                Some(Ok(addr)) => {
+                    editor.selection.select(addr, max_addr);
+                    editor.goto = None;
+                }
+                Some(Err(msg)) => {
+                    if let Some(ref mut g) = editor.goto {
+                        g.error = Some(msg);
+                    }
+                }
+                None => {}
+            }
+        }
+        HexEditorMessage::CloseGotoDialog => {
+            editor.goto = None;
+        }
+
         // ── Pattern highlighting ────────────────────────────────────────
         HexEditorMessage::CreatePattern => {
             if editor.selection.is_single() {
@@ -244,6 +330,11 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
         }
         HexEditorMessage::RemovePattern(id) => {
             editor.remove_pattern(id);
+        }
+
+        // ── Address format ──────────────────────────────────────────────
+        HexEditorMessage::ToggleAddrFormat => {
+            editor.show_decimal = !editor.show_decimal;
         }
     }
     Task::none()

@@ -31,6 +31,10 @@ pub enum HexEditorMessage {
     /// inspector modal and any future scripted edit path.
     WriteBytes { addr: u64, bytes: Vec<u8> },
 
+    // ── Inspector ────────────────────────────────────────────────────────
+    /// Copy the decoded value of inspector entry `idx` to the clipboard.
+    CopyInspectorValue(usize),
+
     // ── Inspector edit modal ──────────────────────────────────────────────
     /// Open the inspector edit modal for entry index `idx` at the current
     /// cursor.
@@ -62,6 +66,30 @@ pub enum HexEditorMessage {
     /// menu options to show (remove pattern vs create pattern).
     RightClickAt(u64),
 
+    // ── Goto address ────────────────────────────────────────────────────
+    /// Open the goto-address dialog.
+    OpenGotoDialog,
+    /// Update the input draft.
+    SetGotoDraft(String),
+    /// Parse and navigate.
+    CommitGoto,
+    /// Dismiss the dialog.
+    CloseGotoDialog,
+
+    // ── Search ──────────────────────────────────────────────────────────
+    /// Open the search overlay.
+    OpenSearch,
+    /// Trigger a search with the given query string.
+    Search(String),
+    /// Toggle search mode (hex / ASCII).
+    ToggleSearchMode,
+    /// Navigate to the next match.
+    SearchNext,
+    /// Navigate to the previous match.
+    SearchPrev,
+    /// Close the search overlay.
+    CloseSearch,
+
     // ── Pattern list panel ───────────────────────────────────────────────
     /// Show/hide the pattern list panel.
     TogglePatternList,
@@ -69,4 +97,8 @@ pub enum HexEditorMessage {
     NavigateToPattern(usize),
     /// Remove a pattern by its id.
     RemovePattern(usize),
+
+    // ── Address format ──────────────────────────────────────────────────
+    /// Toggle between hex and decimal address display.
+    ToggleAddrFormat,
 }

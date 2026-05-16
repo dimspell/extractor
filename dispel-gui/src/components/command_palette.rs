@@ -113,6 +113,26 @@ impl Command {
                 },
             },
             Command {
+                id: "hex-search",
+                label: "Hex editor: Search (Find)",
+                shortcut: Some("Ctrl+F"),
+                action: || {
+                    Message::hex_editor(
+                        crate::editors::hex_editor::HexEditorMessage::OpenSearch,
+                    )
+                },
+            },
+            Command {
+                id: "hex-goto",
+                label: "Hex editor: Go to address",
+                shortcut: Some("Ctrl+G"),
+                action: || {
+                    Message::hex_editor(
+                        crate::editors::hex_editor::HexEditorMessage::OpenGotoDialog,
+                    )
+                },
+            },
+            Command {
                 id: "browse-game-path",
                 label: "Set Game Path…",
                 shortcut: None,

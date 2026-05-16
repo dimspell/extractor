@@ -4,6 +4,7 @@
 //! gap), ASCII gutter, scrollbar. Only rows in the viewport are touched per
 //! frame; everything else is virtual.
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
@@ -33,8 +34,7 @@ const HEX_CELL_WIDTH: f32 = 20.0;
 const ASCII_CELL_WIDTH: f32 = 9.0;
 const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
-const ADDR_COL_WIDTH: f32 = 88.0;
-const SCROLLBAR_THICKNESS: f32 = 8.0;
+const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
 /// don't reveal blank bands during rapid scroll.
@@ -46,20 +46,30 @@ const DOUBLE_CLICK_WINDOW: Duration = Duration::from_millis(450);
 /// Per-instance widget state — what the renderer keeps between frames.
 #[derive(Default)]
 pub struct State {
-    pub scroll_offset: f32,
+    pub scroll_offset: Cell<f32>,
+    pub scroll_x: Cell<f32>,
     pub dragging_scrollbar: bool,
+    pub dragging_scrollbar_x: bool,
     pub drag_start_cursor_y: f32,
+    pub drag_start_cursor_x: f32,
     pub drag_start_offset: f32,
+    pub drag_start_offset_x: f32,
     /// True while the user is actively drag-selecting bytes.
     pub selecting: bool,
     /// Last single-click address + timestamp, for double-click detection.
     pub last_click_addr: Option<u64>,
     pub last_click_at: Option<Instant>,
     /// Selection cursor from the previous frame, used to detect external
-    /// selection changes (e.g. via NavigateToPattern) and auto-scroll.
-    last_cursor: Option<u64>,
-    /// When set (in `diff`), `layout` will call `ensure_visible` and clear it.
-    pending_scroll_target: Option<u64>,
+    /// selection changes (e.g. via NavigateToPattern).
+    last_cursor: Cell<Option<u64>>,
+    /// Row of the cursor that we've already scrolled to.
+    last_cursor_row: Cell<Option<u64>>,
+    /// Tracks whether cursor is over either scrollbar, to avoid unnecessary
+    /// redraws during cursor movement.
+    pub hovering_scrollbar: Cell<bool>,
+    /// Shift modifier state — held while scrolling redirects vertical wheel
+    /// delta to horizontal scroll.
+    pub shift_pressed: Cell<bool>,
 }
 
 /// Read-only view of the active edit, threaded into the widget so the renderer
@@ -81,6 +91,14 @@ pub struct HexMatrix<'a, Message> {
     vanilla_diff: &'a BTreeSet<u64>,
     /// Fast lookup: byte address → pattern id.
     patterns: &'a BTreeMap<u64, usize>,
+    /// Search results: all byte addresses covered by any match.
+    search_match_set: &'a BTreeSet<u64>,
+    /// Length (in bytes) of the current search query.
+    search_query_len: u64,
+    /// Start address of the current (navigated-to) match, if any.
+    search_current_addr: Option<u64>,
+    /// Start addresses of all search matches, for scrollbar markers.
+    search_match_starts: &'a [u64],
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -94,6 +112,10 @@ pub struct HexMatrix<'a, Message> {
     on_edit_commit: Option<Box<dyn Fn(bool) -> Message + 'a>>,
     on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_goto: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_open_search: Option<Box<dyn Fn() -> Message + 'a>>,
+    show_decimal: bool,
+    on_toggle_addr_format: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -106,6 +128,10 @@ impl<'a, Message> HexMatrix<'a, Message> {
         dirty: &'a BTreeSet<u64>,
         vanilla_diff: &'a BTreeSet<u64>,
         patterns: &'a BTreeMap<u64, usize>,
+        search_match_set: &'a BTreeSet<u64>,
+        search_query_len: u64,
+        search_current_addr: Option<u64>,
+        search_match_starts: &'a [u64],
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -116,6 +142,10 @@ impl<'a, Message> HexMatrix<'a, Message> {
             dirty,
             vanilla_diff,
             patterns,
+            search_match_set,
+            search_query_len,
+            search_current_addr,
+            search_match_starts,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -129,6 +159,10 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_edit_commit: None,
             on_right_click: None,
             on_create_pattern: None,
+            on_open_goto: None,
+            on_open_search: None,
+            show_decimal: false,
+            on_toggle_addr_format: None,
         }
     }
 
@@ -182,6 +216,38 @@ impl<'a, Message> HexMatrix<'a, Message> {
         self
     }
 
+    pub fn on_open_goto(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_open_goto = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_open_search(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_open_search = Some(Box::new(f));
+        self
+    }
+
+    pub fn show_decimal(mut self, v: bool) -> Self {
+        self.show_decimal = v;
+        self
+    }
+
+    pub fn on_toggle_addr_format(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_toggle_addr_format = Some(Box::new(f));
+        self
+    }
+
+    fn addr_col_width(&self) -> f32 {
+        let char_w = 9.0;
+        let pad = 16.0;
+        let chars = if self.show_decimal {
+            let max_addr = self.bytes.len().saturating_sub(1);
+            format!("{}", max_addr).len().max(1)
+        } else {
+            8usize
+        };
+        chars as f32 * char_w + pad
+    }
+
     fn total_rows(&self) -> u64 {
         let bpr = self.bytes_per_row as u64;
         if self.bytes.is_empty() {
@@ -198,10 +264,30 @@ impl<'a, Message> HexMatrix<'a, Message> {
     fn ascii_start_x(&self, bounds_x: f32) -> f32 {
         let bpr = self.bytes_per_row as usize;
         bounds_x
-            + ADDR_COL_WIDTH
+            + self.addr_col_width()
             + (bpr as f32) * HEX_CELL_WIDTH
             + group_count(bpr) as f32 * GROUP_GAP
             + COLUMN_GAP
+    }
+
+    /// Total width of the address + hex + ASCII content area.
+    fn total_content_width(&self) -> f32 {
+        let bpr = self.bytes_per_row as usize;
+        self.addr_col_width()
+            + (bpr as f32) * HEX_CELL_WIDTH
+            + group_count(bpr) as f32 * GROUP_GAP
+            + COLUMN_GAP
+            + (bpr as f32) * ASCII_CELL_WIDTH
+    }
+
+    /// Viewport height available for content, accounting for horizontal scrollbar.
+    fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {
+        let needs_hscroll = self.total_content_width() > bounds_w - SCROLLBAR_THICKNESS;
+        if needs_hscroll {
+            (bounds_h - SCROLLBAR_THICKNESS).max(0.0)
+        } else {
+            bounds_h
+        }
     }
 }
 
@@ -231,13 +317,20 @@ fn clamp_scroll(scroll: f32, total_height: f32, viewport_height: f32) -> f32 {
     scroll.clamp(0.0, max_off)
 }
 
+/// Clamp horizontal scroll. `content_w` = total content width,
+/// `view_w` = viewport width for content (after reserving scrollbar / address gutter).
+fn clamp_scroll_x(scroll: f32, content_w: f32, view_w: f32) -> f32 {
+    let max_off = (content_w - view_w).max(0.0);
+    scroll.clamp(0.0, max_off)
+}
+
 /// Number of complete rows that fit in `viewport_height`. Used both for
 /// PageUp/PageDown nav and for "ensure visible" math.
 fn page_rows(viewport_height: f32) -> u64 {
     (viewport_height / ROW_HEIGHT).floor().max(1.0) as u64
 }
 
-/// Adjust `scroll` so that `addr` is visible. Returns the new scroll value.
+/// Adjust `scroll` to center `addr` in the viewport. Returns the new scroll value.
 pub fn ensure_visible(
     scroll: f32,
     addr: u64,
@@ -249,14 +342,11 @@ pub fn ensure_visible(
     let row = addr / bpr;
     let row_top = row as f32 * ROW_HEIGHT;
     let row_bot = row_top + ROW_HEIGHT;
-    let scroll = if row_top < scroll {
-        row_top
-    } else if row_bot > scroll + viewport_height {
-        row_bot - viewport_height
-    } else {
-        scroll
-    };
-    clamp_scroll(scroll, total_height, viewport_height)
+    if row_top >= scroll && row_bot <= scroll + viewport_height {
+        return clamp_scroll(scroll, total_height, viewport_height);
+    }
+    let center = row_top - (viewport_height - ROW_HEIGHT) / 2.0;
+    clamp_scroll(center, total_height, viewport_height)
 }
 
 /// Hit-test: convert a screen point inside `bounds` to a byte address.
@@ -265,8 +355,10 @@ pub fn addr_at(
     point: Point,
     bounds: Rectangle,
     scroll: f32,
+    scroll_x: f32,
     bytes_per_row: u8,
     total_len: u64,
+    addr_col_width: f32,
 ) -> Option<u64> {
     if total_len == 0 {
         return None;
@@ -281,7 +373,7 @@ pub fn addr_at(
     }
     let row = (local_y / ROW_HEIGHT) as u64;
 
-    let hex_start = bounds.x + ADDR_COL_WIDTH;
+    let hex_start = bounds.x + addr_col_width - scroll_x;
     let bpr_usize = bytes_per_row.max(1) as usize;
     let hex_end = hex_start + bpr * HEX_CELL_WIDTH + group_count(bpr_usize) as f32 * GROUP_GAP;
     let ascii_start = hex_end + COLUMN_GAP;
@@ -360,7 +452,7 @@ const HEX_DIGITS: [&str; 16] = [
     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F",
 ];
 
-impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Message> {
+impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a, Message> {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -372,9 +464,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
     fn diff(&self, tree: &mut Tree) {
         let state = tree.state.downcast_mut::<State>();
         let cursor = self.selection.cursor;
-        if state.last_cursor != Some(cursor) {
-            state.last_cursor = Some(cursor);
-            state.pending_scroll_target = Some(cursor);
+        if state.last_cursor.get() != Some(cursor) {
+            state.last_cursor.set(Some(cursor));
         }
     }
 
@@ -382,26 +473,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         Size::new(self.width, self.height)
     }
 
-    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
-        let state = tree.state.downcast_mut::<State>();
-        if let Some(target) = state.pending_scroll_target.take() {
-            let max = limits.max();
-            let bpr = self.bytes_per_row as u64;
-            let total_rows = self.total_rows();
-            if total_rows > 0 {
-                let total_h = self.total_height();
-                let new_scroll = ensure_visible(
-                    state.scroll_offset,
-                    target,
-                    bpr,
-                    max.height,
-                    total_h,
-                );
-                if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
-                    state.scroll_offset = new_scroll;
-                }
-            }
-        }
+    fn layout(&mut self, _tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         let max = limits.max();
         Node::new(Size::new(max.width, max.height))
     }
@@ -421,45 +493,139 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let bounds = layout.bounds();
         let total_h = self.total_height();
         let total_len = self.bytes.len() as u64;
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
                 if !cursor.is_over(bounds) {
                     return;
                 }
-                let dy = match delta {
-                    mouse::ScrollDelta::Lines { y, .. } => -y * ROW_HEIGHT * 3.0,
-                    mouse::ScrollDelta::Pixels { y, .. } => -y,
-                };
-                let new = clamp_scroll(state.scroll_offset + dy, total_h, bounds.height);
-                if (new - state.scroll_offset).abs() > f32::EPSILON {
-                    state.scroll_offset = new;
-                    shell.request_redraw();
-                    shell.capture_event();
+                let shift = state.shift_pressed.get();
+                match delta {
+                    mouse::ScrollDelta::Lines { y, x, .. } => {
+                        if shift {
+                            // Shift redirects vertical wheel to horizontal.
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - y * ROW_HEIGHT * 3.0, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        } else {
+                            let dy = -y * ROW_HEIGHT * 3.0;
+                            let so = state.scroll_offset.get();
+                            let new = clamp_scroll(so + dy, total_h, viewport_h);
+                            if (new - so).abs() > f32::EPSILON {
+                                state.scroll_offset.set(new);
+                                shell.request_redraw();
+                            }
+                        }
+                        if !shift && *x != 0.0 {
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - x * ROW_HEIGHT * 3.0, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        }
+                        shell.capture_event();
+                    }
+                    mouse::ScrollDelta::Pixels { y, x } => {
+                        if shift {
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - y, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        } else {
+                            let so = state.scroll_offset.get();
+                            let new = clamp_scroll(so - y, total_h, viewport_h);
+                            if (new - so).abs() > f32::EPSILON {
+                                state.scroll_offset.set(new);
+                                shell.request_redraw();
+                            }
+                        }
+                        if !shift && *x != 0.0 {
+                            let content_w = self.total_content_width();
+                            let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                            let sx = state.scroll_x.get();
+                            let nsx = clamp_scroll_x(sx - x, content_w, avail_w);
+                            if (nsx - sx).abs() > f32::EPSILON {
+                                state.scroll_x.set(nsx);
+                                shell.request_redraw();
+                            }
+                        }
+                        shell.capture_event();
+                    }
                 }
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
-                // Scrollbar takes precedence.
-                let scrollbar = scrollbar_track(bounds);
-                if scrollbar.contains(p) && total_h > bounds.height {
-                    let thumb = scrollbar_thumb(scrollbar, state.scroll_offset, total_h);
+
+                // Horizontal scrollbar takes precedence.
+                let htrack = hscrollbar_track(bounds);
+                let content_w = self.total_content_width();
+                let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                let needs_hscroll = content_w > avail_w;
+                if needs_hscroll && htrack.contains(p) {
+                    let hthumb = hscrollbar_thumb(htrack, state.scroll_x.get(), content_w, avail_w);
+                    if hthumb.contains(p) {
+                        state.dragging_scrollbar_x = true;
+                        state.drag_start_cursor_x = p.x;
+                        state.drag_start_offset_x = state.scroll_x.get();
+                    } else {
+                        let dir = if p.x < hthumb.x { -1.0 } else { 1.0 };
+                        let nsx = clamp_scroll_x(
+                            state.scroll_x.get() + dir * avail_w,
+                            content_w,
+                            avail_w,
+                        );
+                        if (nsx - state.scroll_x.get()).abs() > f32::EPSILON {
+                            state.scroll_x.set(nsx);
+                            shell.request_redraw();
+                        }
+                    }
+                    shell.capture_event();
+                    return;
+                }
+
+                // Vertical scrollbar.
+                let scrollbar = scrollbar_track(bounds, viewport_h);
+                if scrollbar.contains(p) && total_h > viewport_h {
+                    let thumb = scrollbar_thumb(scrollbar, state.scroll_offset.get(), total_h);
                     if thumb.contains(p) {
                         state.dragging_scrollbar = true;
                         state.drag_start_cursor_y = p.y;
-                        state.drag_start_offset = state.scroll_offset;
+                        state.drag_start_offset = state.scroll_offset.get();
                     } else {
                         let dir = if p.y < thumb.y { -1.0 } else { 1.0 };
                         let new = clamp_scroll(
-                            state.scroll_offset + dir * bounds.height,
+                            state.scroll_offset.get() + dir * viewport_h,
                             total_h,
-                            bounds.height,
+                            viewport_h,
                         );
-                        state.scroll_offset = new;
+                        state.scroll_offset.set(new);
                         shell.request_redraw();
                     }
+                    shell.capture_event();
+                    return;
+                }
+
+                // Gutter click → toggle address format.
+                if p.x >= bounds.x && p.x < bounds.x + self.addr_col_width() {
+                    if let Some(cb) = &self.on_toggle_addr_format {
+                        shell.publish(cb());
+                    }
+                    shell.request_redraw();
                     shell.capture_event();
                     return;
                 }
@@ -468,9 +634,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
-                    state.scroll_offset,
+                    state.scroll_offset.get(),
+                    state.scroll_x.get(),
                     self.bytes_per_row,
                     total_len,
+                    self.addr_col_width(),
                 ) {
                     let now = Instant::now();
                     let is_double = matches!(
@@ -505,9 +673,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
-                    state.scroll_offset,
+                    state.scroll_offset.get(),
+                    state.scroll_x.get(),
                     self.bytes_per_row,
                     total_len,
+                    self.addr_col_width(),
                 ) {
                     if let Some(cb) = &self.on_right_click {
                         shell.publish(cb(addr));
@@ -515,15 +685,44 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                // Repaint on hover transitions over scrollbar tracks.
+                if cursor.is_over(bounds) {
+                    if let Some(p) = cursor.position() {
+                        let vtrack = scrollbar_track(bounds, viewport_h);
+                        let htrack = hscrollbar_track(bounds);
+                        let now_hovering = vtrack.contains(p) || htrack.contains(p);
+                        if now_hovering != state.hovering_scrollbar.get() {
+                            state.hovering_scrollbar.set(now_hovering);
+                            shell.request_redraw();
+                        }
+                    }
+                }
+                if state.dragging_scrollbar_x {
+                    let Some(p) = cursor.position() else { return };
+                    let htrack = hscrollbar_track(bounds);
+                    let content_w = self.total_content_width();
+                    let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+                    let thumb_w = hthumb_len(htrack, content_w, avail_w);
+                    let travel = (htrack.width - thumb_w).max(1.0);
+                    let max_off = (content_w - avail_w).max(1.0);
+                    let dx = p.x - state.drag_start_cursor_x;
+                    let nsx = state.drag_start_offset_x + dx * (max_off / travel);
+                    state.scroll_x.set(clamp_scroll_x(nsx, content_w, avail_w));
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
+                }
                 if state.dragging_scrollbar {
                     let Some(p) = cursor.position() else { return };
-                    let scrollbar = scrollbar_track(bounds);
+                    let scrollbar = scrollbar_track(bounds, viewport_h);
                     let thumb_h = thumb_height(scrollbar, total_h);
                     let travel = (scrollbar.height - thumb_h).max(1.0);
-                    let max_off = (total_h - bounds.height).max(1.0);
+                    let max_off = (total_h - viewport_h).max(1.0);
                     let dy = p.y - state.drag_start_cursor_y;
                     let new = state.drag_start_offset + dy * (max_off / travel);
-                    state.scroll_offset = clamp_scroll(new, total_h, bounds.height);
+                    state
+                        .scroll_offset
+                        .set(clamp_scroll(new, total_h, bounds.height));
                     shell.request_redraw();
                     shell.capture_event();
                     return;
@@ -533,9 +732,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     if let Some(addr) = addr_at(
                         p,
                         bounds,
-                        state.scroll_offset,
+                        state.scroll_offset.get(),
+                        state.scroll_x.get(),
                         self.bytes_per_row,
                         total_len,
+                        self.addr_col_width(),
                     ) {
                         if let Some(cb) = &self.on_extend_to {
                             shell.publish(cb(addr));
@@ -551,6 +752,10 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     state.dragging_scrollbar = false;
                     consumed = true;
                 }
+                if state.dragging_scrollbar_x {
+                    state.dragging_scrollbar_x = false;
+                    consumed = true;
+                }
                 if state.selecting {
                     state.selecting = false;
                     consumed = true;
@@ -558,6 +763,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 if consumed {
                     shell.capture_event();
                 }
+            }
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                state.shift_pressed.set(modifiers.shift());
             }
             Event::Keyboard(keyboard::Event::KeyPressed {
                 key,
@@ -611,6 +819,28 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "e")
                 {
                     if let Some(cb) = &self.on_create_pattern {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Ctrl+G opens the goto dialog.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "g")
+                {
+                    if let Some(cb) = &self.on_open_goto {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Ctrl+F opens the search overlay.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "f")
+                {
+                    if let Some(cb) = &self.on_open_search {
                         shell.publish(cb());
                         shell.capture_event();
                         return;
@@ -697,14 +927,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         _theme: &Theme,
         _defaults: &renderer::Style,
         layout: Layout<'_>,
-        _cursor: mouse::Cursor,
+        cursor: mouse::Cursor,
         viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
         let clip = bounds.intersection(viewport).unwrap_or(bounds);
 
-        // Background.
+        // Background (full bounds — fill everything).
         renderer.fill_quad(
             renderer::Quad {
                 bounds: clip,
@@ -715,6 +945,23 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
             Background::Color(color!(0x14110f)),
         );
 
+        // Clip content rendering to exclude scrollbar areas.
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
+        let clip = Rectangle {
+            x: clip.x,
+            y: clip.y,
+            width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
+            height: viewport_h.min(clip.height),
+        };
+
+        // Further clip hex/ASCII content to exclude the address gutter.
+        let cell_clip = Rectangle {
+            x: clip.x.max(bounds.x + self.addr_col_width()),
+            y: clip.y,
+            width: (clip.x + clip.width - clip.x.max(bounds.x + self.addr_col_width())).max(0.0),
+            height: clip.height,
+        };
+
         let total_rows = self.total_rows();
         if total_rows == 0 {
             return;
@@ -722,9 +969,34 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
 
         let bpr = self.bytes_per_row as usize;
         let total_h = self.total_height();
-        let scroll = clamp_scroll(state.scroll_offset, total_h, bounds.height);
+        let bpr64 = bpr as u64;
 
-        let visible = visible_row_range(scroll, bounds.height, ROW_HEIGHT, total_rows, OVERSCAN);
+        let scroll = if total_h <= viewport_h {
+            // Content fits — no scrolling needed.
+            0.0
+        } else {
+            let cursor = self.selection.cursor;
+            let cursor_row = cursor / bpr64;
+            let last = state.last_cursor_row.get();
+
+            if last != Some(cursor_row) {
+                state.last_cursor_row.set(Some(cursor_row));
+                ensure_visible(
+                    state.scroll_offset.get(),
+                    cursor,
+                    bpr64,
+                    viewport_h,
+                    total_h,
+                )
+            } else {
+                state.scroll_offset.get()
+            }
+        };
+        state.scroll_offset.set(scroll);
+
+        let scroll_x = state.scroll_x.get();
+
+        let visible = visible_row_range(scroll, viewport_h, ROW_HEIGHT, total_rows, OVERSCAN);
 
         let font = Font::MONOSPACE;
         let addr_color = color!(0x7a6f64);
@@ -743,27 +1015,49 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
 
-        let hex_start_x = bounds.x + ADDR_COL_WIDTH;
-        let ascii_start_x = self.ascii_start_x(bounds.x);
+        let hex_start_x = bounds.x + self.addr_col_width() - scroll_x;
+        let ascii_start_x = self.ascii_start_x(bounds.x) - scroll_x;
         let sel_range = self.selection.range();
         let cursor_addr = self.selection.cursor;
         let edit_addr = self.edit.map(|e| e.addr);
+
+        // Address-gutter background — covers any hex/ASCII content that may
+        // have scrolled underneath when scroll_x > 0.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x,
+                    y: bounds.y,
+                    width: self.addr_col_width(),
+                    height: viewport_h,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x14110f)),
+        );
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
             let y = bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
-            // Address gutter.
-            let addr_str = format!("{:08X}", base_addr);
+            // Address gutter — right-aligned.
+            let addr_str = if self.show_decimal {
+                format!("{}", base_addr)
+            } else {
+                format!("{:08X}", base_addr)
+            };
+            let text_w = addr_str.len() as f32 * 9.0;
             draw_glyph_string(
                 renderer,
                 &self.cache,
                 &addr_str,
                 font,
                 Rectangle {
-                    x: bounds.x + 8.0,
+                    x: bounds.x + self.addr_col_width() - 8.0 - text_w,
                     y,
-                    width: ADDR_COL_WIDTH - 16.0,
+                    width: text_w,
                     height: ROW_HEIGHT,
                 },
                 addr_color,
@@ -788,7 +1082,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
 
                 // Background priority: edit > selection-cursor > selection >
                 // pattern > dirty (this session) > diff (cumulative vs vanilla).
-                let bg = if is_editing {
+                let base_bg = if is_editing {
                     Some(edit_bg)
                 } else if in_sel {
                     Some(if addr == cursor_addr {
@@ -805,10 +1099,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                 } else {
                     None
                 };
-                if let Some(bg) = bg {
-                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, bg, clip);
-                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, bg, clip);
-                }
 
                 let text_color = if is_editing {
                     edit_text
@@ -839,6 +1129,32 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                     ascii_color
                 };
 
+                // Search-match overlay (overrides bg/fg when applicable).
+                let in_search = self.search_match_set.contains(&addr);
+                let in_current_match = self
+                    .search_current_addr
+                    .map(|cur| addr >= cur && addr < cur + self.search_query_len)
+                    .unwrap_or(false);
+                let bg = if in_current_match {
+                    Some(color!(0x4a6a2a))
+                } else if in_search {
+                    Some(color!(0x2a4a2a))
+                } else {
+                    base_bg
+                };
+                let text_color = if in_current_match {
+                    color!(0xfff8ee)
+                } else if in_search {
+                    color!(0xfff4e0)
+                } else {
+                    text_color
+                };
+
+                if let Some(c) = bg {
+                    fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, cell_clip);
+                    fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, cell_clip);
+                }
+
                 if is_editing {
                     // Render the in-flight draft instead of the underlying
                     // byte. Empty draft → show a thin caret block where the
@@ -855,8 +1171,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         .unwrap_or(HEX_DIGITS[(b & 0x0F) as usize]);
                     let hi_p = shape_glyph(&self.cache, hi, font);
                     let lo_p = shape_glyph(&self.cache, lo, font);
-                    paint_glyph(renderer, &hi_p, cell_x, y, text_color, clip);
-                    paint_glyph(renderer, &lo_p, cell_x + 8.0, y, text_color, clip);
+                    paint_glyph(renderer, &hi_p, cell_x, y, text_color, cell_clip);
+                    paint_glyph(renderer, &lo_p, cell_x + 8.0, y, text_color, cell_clip);
 
                     // Caret over the next nibble slot.
                     let caret_off = match chars.len() {
@@ -870,7 +1186,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         y + ROW_HEIGHT - 2.0,
                         7.0,
                         caret_color,
-                        clip,
+                        cell_clip,
                     );
 
                     // ASCII column shows the would-be byte.
@@ -882,15 +1198,15 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         _ => "·",
                     };
                     let ascii = shape_glyph(&self.cache, ascii_glyph, font);
-                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
                 } else {
                     let hi = shape_glyph(&self.cache, HEX_DIGITS[(b >> 4) as usize], font);
                     let lo = shape_glyph(&self.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
-                    paint_glyph(renderer, &hi, cell_x, y, text_color, clip);
-                    paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, clip);
+                    paint_glyph(renderer, &hi, cell_x, y, text_color, cell_clip);
+                    paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, cell_clip);
 
                     let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
-                    paint_glyph(renderer, &ascii, ax, y, ascii_col, clip);
+                    paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
                 }
             }
         }
@@ -905,7 +1221,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
                         x,
                         y: bounds.y,
                         width: 1.0,
-                        height: bounds.height,
+                        height: viewport_h,
                     },
                     border: Border::default(),
                     shadow: Shadow::default(),
@@ -915,9 +1231,45 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'_, Me
             );
         }
 
-        // Scrollbar (vertical only in v1).
-        if total_h > bounds.height {
-            draw_scrollbar(renderer, bounds, scroll, total_h, state.dragging_scrollbar);
+        // Scrollbar with search-match and cursor-position markers.
+        let total_len = self.bytes.len() as u64;
+        let needs_vscroll = total_h > viewport_h;
+        if needs_vscroll {
+            let hovering = cursor
+                .position_over(bounds)
+                .map(|p| scrollbar_track(bounds, viewport_h).contains(p))
+                .unwrap_or(false);
+            draw_vscrollbar(
+                renderer,
+                bounds,
+                scroll,
+                total_h,
+                viewport_h,
+                state.dragging_scrollbar || hovering,
+                self.search_match_starts,
+                self.selection.cursor,
+                total_len,
+            );
+        }
+
+        // Horizontal scrollbar at the bottom.
+        let content_w = self.total_content_width();
+        let avail_w = bounds.width - SCROLLBAR_THICKNESS;
+        let needs_hscroll = content_w > avail_w;
+        if needs_hscroll {
+            let htrack = hscrollbar_track(bounds);
+            let hovering = cursor
+                .position_over(bounds)
+                .map(|p| htrack.contains(p))
+                .unwrap_or(false);
+            draw_hscrollbar(
+                renderer,
+                htrack,
+                scroll_x,
+                content_w,
+                avail_w,
+                state.dragging_scrollbar_x || hovering,
+            );
         }
     }
 }
@@ -952,7 +1304,7 @@ pub fn first_hex_char(t: &str) -> Option<char> {
     t.chars().find(|c| c.is_ascii_hexdigit())
 }
 
-impl<Message> HexMatrix<'_, Message> {
+impl<'a, Message> HexMatrix<'a, Message> {
     fn publish_nav(
         &self,
         state: &mut State,
@@ -971,22 +1323,23 @@ impl<Message> HexMatrix<'_, Message> {
         // frame instead of waiting for the next message round-trip.
         let bpr = self.bytes_per_row as u64;
         let max_addr = (self.bytes.len() as u64).saturating_sub(1);
+        let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
         let target = crate::editors::hex_editor::selection::nav_target(
             self.selection.cursor,
             dir,
             bpr,
-            page_rows(bounds.height),
+            page_rows(viewport_h),
             max_addr,
         );
         let new_scroll = ensure_visible(
-            state.scroll_offset,
+            state.scroll_offset.get(),
             target,
             bpr,
-            bounds.height,
+            viewport_h,
             self.total_height(),
         );
-        if (new_scroll - state.scroll_offset).abs() > f32::EPSILON {
-            state.scroll_offset = new_scroll;
+        if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
+            state.scroll_offset.set(new_scroll);
         }
         shell.request_redraw();
     }
@@ -1086,17 +1439,34 @@ fn draw_glyph_string(
     <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
 }
 
-fn scrollbar_track(bounds: Rectangle) -> Rectangle {
+fn scrollbar_track(bounds: Rectangle, viewport_h: f32) -> Rectangle {
     Rectangle {
         x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
         y: bounds.y,
         width: SCROLLBAR_THICKNESS,
-        height: bounds.height,
+        height: viewport_h,
+    }
+}
+
+fn hscrollbar_track(bounds: Rectangle) -> Rectangle {
+    Rectangle {
+        x: bounds.x,
+        y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
+        width: bounds.width - SCROLLBAR_THICKNESS,
+        height: SCROLLBAR_THICKNESS,
     }
 }
 
 fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
     (track.height / total_h * track.height).max(20.0)
+}
+
+/// Y position of a file address on the scrollbar track, as a fraction 0..1.
+fn scrollbar_y_frac(addr: u64, total_len: u64, track: Rectangle) -> f32 {
+    if total_len <= 1 {
+        return track.y;
+    }
+    track.y + (addr as f32 / (total_len - 1) as f32) * track.height
 }
 
 fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
@@ -1111,15 +1481,42 @@ fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
     }
 }
 
-fn draw_scrollbar(
+fn hthumb_len(track: Rectangle, content_w: f32, _avail_w: f32) -> f32 {
+    (track.width / content_w * track.width).max(20.0)
+}
+
+fn hscrollbar_thumb(track: Rectangle, scroll_x: f32, content_w: f32, avail_w: f32) -> Rectangle {
+    let w = hthumb_len(track, content_w, avail_w);
+    let max_off = (content_w - avail_w).max(1.0);
+    let x = track.x + (scroll_x / max_off) * (track.width - w);
+    Rectangle {
+        x,
+        y: track.y + 1.0,
+        width: w,
+        height: track.height - 2.0,
+    }
+}
+
+/// Marker dot size in pixels.
+const MARKER_SIZE: f32 = 4.0;
+
+/// Draw the vertical scrollbar (no fattening — simple color change on hover).
+#[allow(clippy::too_many_arguments)]
+fn draw_vscrollbar(
     renderer: &mut iced::Renderer,
     bounds: Rectangle,
     scroll: f32,
     total_h: f32,
+    viewport_h: f32,
     active: bool,
+    search_match_starts: &[u64],
+    cursor_addr: u64,
+    total_len: u64,
 ) {
-    let track = scrollbar_track(bounds);
+    let track = scrollbar_track(bounds, viewport_h);
     let thumb = scrollbar_thumb(track, scroll, total_h);
+
+    // Track background.
     renderer.fill_quad(
         renderer::Quad {
             bounds: track,
@@ -1129,11 +1526,92 @@ fn draw_scrollbar(
         },
         Background::Color(color!(0x141210)),
     );
+
     let thumb_color = if active {
         color!(0xB97024)
     } else {
         color!(0x5d4037)
     };
+
+    // Search-match markers (small green dots).
+    for &match_start in search_match_starts {
+        let my = scrollbar_y_frac(match_start, total_len, track);
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: track.x + (track.width - MARKER_SIZE) / 2.0,
+                    y: my - MARKER_SIZE / 2.0,
+                    width: MARKER_SIZE,
+                    height: MARKER_SIZE,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x4a7a2a)),
+        );
+    }
+
+    // Cursor-position marker (amber dot).
+    let cy = scrollbar_y_frac(cursor_addr, total_len, track);
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: Rectangle {
+                x: track.x + (track.width - MARKER_SIZE) / 2.0,
+                y: cy - MARKER_SIZE / 2.0,
+                width: MARKER_SIZE,
+                height: MARKER_SIZE,
+            },
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
+        Background::Color(color!(0xB97024)),
+    );
+
+    // Thumb.
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: thumb,
+            border: Border {
+                color: thumb_color,
+                width: 0.5,
+                radius: 0.into(),
+            },
+            shadow: Shadow::default(),
+            snap: true,
+        },
+        Background::Color(thumb_color),
+    );
+}
+
+/// Draw the horizontal scrollbar.
+fn draw_hscrollbar(
+    renderer: &mut iced::Renderer,
+    track: Rectangle,
+    scroll_x: f32,
+    content_w: f32,
+    avail_w: f32,
+    active: bool,
+) {
+    let thumb = hscrollbar_thumb(track, scroll_x, content_w, avail_w);
+
+    renderer.fill_quad(
+        renderer::Quad {
+            bounds: track,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
+        Background::Color(color!(0x141210)),
+    );
+
+    let thumb_color = if active {
+        color!(0xB97024)
+    } else {
+        color!(0x5d4037)
+    };
+
     renderer.fill_quad(
         renderer::Quad {
             bounds: thumb,
@@ -1163,6 +1641,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TEST_ADDR_COL_WIDTH: f32 = 88.0;
 
     fn make_bounds() -> Rectangle {
         Rectangle {
@@ -1242,13 +1722,13 @@ mod tests {
     #[test]
     fn ensure_visible_scrolls_down_when_target_below() {
         let scroll = ensure_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
-        assert_eq!(scroll, 1296.0);
+        assert_eq!(scroll, 1448.0);
     }
 
     #[test]
     fn ensure_visible_scrolls_up_when_target_above() {
         let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
-        assert_eq!(scroll, 80.0);
+        assert_eq!(scroll, 0.0);
     }
 
     #[test]
@@ -1261,7 +1741,7 @@ mod tests {
     fn addr_at_hex_column_first_byte() {
         let bounds = make_bounds();
         let p = Point::new(89.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 0);
     }
 
@@ -1269,40 +1749,40 @@ mod tests {
     fn addr_at_hex_column_with_scroll() {
         let bounds = make_bounds();
         let p = Point::new(89.0, 4.0);
-        let addr = addr_at(p, bounds, 32.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 32.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 32);
     }
 
     #[test]
     fn addr_at_ascii_column() {
         let bounds = make_bounds();
-        let ascii_start = ADDR_COL_WIDTH
+        let ascii_start = TEST_ADDR_COL_WIDTH
             + 16.0 * HEX_CELL_WIDTH
             + group_count(16) as f32 * GROUP_GAP
             + COLUMN_GAP;
         let p = Point::new(ascii_start + 2.0 * ASCII_CELL_WIDTH + 1.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 16, 1024).unwrap();
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 2);
     }
 
     #[test]
     fn addr_at_outside_columns_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 16, 1024).is_none());
+        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).is_none());
     }
 
     #[test]
     fn addr_at_clamps_past_end_of_file() {
         let bounds = make_bounds();
-        let p = Point::new(ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
-        let addr = addr_at(p, bounds, 0.0, 16, 5).unwrap();
+        let p = Point::new(TEST_ADDR_COL_WIDTH + 15.0 * HEX_CELL_WIDTH + 5.0, 4.0);
+        let addr = addr_at(p, bounds, 0.0, 0.0, 16, 5, TEST_ADDR_COL_WIDTH).unwrap();
         assert_eq!(addr, 4);
     }
 
     #[test]
     fn addr_at_empty_file_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 16, 0).is_none());
+        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 0.0, 16, 0, TEST_ADDR_COL_WIDTH).is_none());
     }
 
     #[test]

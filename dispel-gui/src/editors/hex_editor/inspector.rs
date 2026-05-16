@@ -7,6 +7,8 @@
 //! The codebase is little-endian-only (every parser uses `from_le_bytes`),
 //! so we don't expose an endianness toggle.
 
+use dispel_core::references::enums::ItemTypeId;
+
 /// Encode a user-typed value back into bytes, or report a human-readable error.
 pub type EncodeFn = fn(&str) -> Result<Vec<u8>, String>;
 
@@ -17,6 +19,10 @@ pub struct InspectorEntry {
     pub decode: fn(&[u8]) -> String,
     /// `Some` if this row is editable through the inspector modal.
     pub encode: Option<EncodeFn>,
+    /// Category label for grouping rows (e.g. "Integer", "Float", "Game Type").
+    pub category: &'static str,
+    /// Short description shown as a tooltip on hover.
+    pub description: &'static str,
 }
 
 /// All built-in inspector rows, in display order.
@@ -26,90 +32,129 @@ pub const ENTRIES: &[InspectorEntry] = &[
         min_size: 1,
         decode: dec_u8,
         encode: Some(enc_u8),
+        category: "Integer",
+        description: "Unsigned 8-bit integer (byte)",
     },
     InspectorEntry {
         name: "i8",
         min_size: 1,
         decode: dec_i8,
         encode: Some(enc_i8),
+        category: "Integer",
+        description: "Signed 8-bit integer",
     },
     InspectorEntry {
         name: "u16",
         min_size: 2,
         decode: dec_u16,
         encode: Some(enc_u16),
+        category: "Integer",
+        description: "Unsigned 16-bit integer (LE)",
     },
     InspectorEntry {
         name: "i16",
         min_size: 2,
         decode: dec_i16,
         encode: Some(enc_i16),
+        category: "Integer",
+        description: "Signed 16-bit integer (LE)",
     },
     InspectorEntry {
         name: "u32",
         min_size: 4,
         decode: dec_u32,
         encode: Some(enc_u32),
+        category: "Integer",
+        description: "Unsigned 32-bit integer (LE)",
     },
     InspectorEntry {
         name: "i32",
         min_size: 4,
         decode: dec_i32,
         encode: Some(enc_i32),
+        category: "Integer",
+        description: "Signed 32-bit integer (LE)",
     },
     InspectorEntry {
         name: "u64",
         min_size: 8,
         decode: dec_u64,
         encode: Some(enc_u64),
+        category: "Integer",
+        description: "Unsigned 64-bit integer (LE)",
     },
     InspectorEntry {
         name: "i64",
         min_size: 8,
         decode: dec_i64,
         encode: Some(enc_i64),
+        category: "Integer",
+        description: "Signed 64-bit integer (LE)",
     },
     InspectorEntry {
         name: "f32",
         min_size: 4,
         decode: dec_f32,
         encode: Some(enc_f32),
+        category: "Float",
+        description: "32-bit floating point (LE)",
     },
     InspectorEntry {
         name: "f64",
         min_size: 8,
         decode: dec_f64,
         encode: Some(enc_f64),
+        category: "Float",
+        description: "64-bit floating point (LE)",
     },
     InspectorEntry {
         name: "ascii",
         min_size: 1,
         decode: dec_ascii,
         encode: None,
+        category: "Text",
+        description: "ASCII character (0x20–0x7E)",
     },
     InspectorEntry {
         name: "utf8",
         min_size: 1,
         decode: dec_utf8,
         encode: None,
+        category: "Text",
+        description: "UTF-8 character (1–4 bytes)",
     },
     InspectorEntry {
         name: "rgb565",
         min_size: 2,
         decode: dec_rgb565,
         encode: None,
+        category: "Color",
+        description: "16-bit RGB565 pixel (LE)",
     },
     InspectorEntry {
         name: "cstr",
         min_size: 1,
         decode: dec_cstr,
         encode: None,
+        category: "Text",
+        description: "Null-terminated C string (up to 64 chars)",
     },
     InspectorEntry {
         name: "hex",
         min_size: 1,
         decode: dec_hex,
         encode: None,
+        category: "Binary",
+        description: "Raw hex dump (up to 16 bytes)",
+    },
+    // Game-specific decoders
+    InspectorEntry {
+        name: "item_type",
+        min_size: 1,
+        decode: dec_item_type_id,
+        encode: None,
+        category: "Game Type",
+        description: "DISPEL item type ID (Weapon/Healing/Edit/Event/Misc)",
     },
 ];
 
@@ -211,6 +256,14 @@ fn dec_cstr(b: &[u8]) -> String {
         "\"\"".to_string()
     } else {
         format!("\"{}\"", lossy.escape_debug())
+    }
+}
+
+fn dec_item_type_id(b: &[u8]) -> String {
+    let v = b[0];
+    match ItemTypeId::from_u8(v) {
+        Some(ty) => format!("{} (0x{:02X})", ty, v),
+        None => format!("Unknown (0x{:02X})", v),
     }
 }
 
