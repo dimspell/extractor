@@ -237,17 +237,21 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         EventScrEditorMessage::ActionDeleted(index) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if index < script.actions.len() {
-                    script.actions.remove(index);
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
+                    if let Some((start, end)) =
+                        delete_range_with_cascade(&mut script.actions, index)
+                    {
+                        let count = end - start + 1;
+                        state.act_folded.retain(|&f| f < start || f > end);
+                        state.act_folded = state
+                            .act_folded
+                            .iter()
+                            .map(|&i| if i > end { i - count } else { i })
+                            .collect();
+                        state.modified = true;
+                        state.act_parse_errors = validate_script(script);
+                    }
                 }
             }
-            state.act_folded.remove(&index);
-            state.act_folded = state
-                .act_folded
-                .iter()
-                .map(|&i| if i > index { i - 1 } else { i })
-                .collect();
             Task::none()
         }
         EventScrEditorMessage::LoadScript(path) => load_from_path(path),
@@ -398,7 +402,10 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::InsertPickedFunction(name, param_count) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                let pos = state.pending_block_insert.take().unwrap_or(script.actions.len());
+                let pos = state
+                    .pending_block_insert
+                    .take()
+                    .unwrap_or(script.actions.len());
                 script.actions.insert(
                     pos,
                     ActionFunction {
@@ -683,6 +690,123 @@ pub fn save_to_path(path: std::path::PathBuf, script: EventScript) -> Task<Messa
             ))
         },
     )
+}
+
+// ── Cascading delete helpers ─────────────────────────────────────────────────
+
+fn find_matching_close(actions: &[ActionFunction], open_idx: usize) -> Option<usize> {
+    if actions.get(open_idx).and_then(|a| a.raw_content.as_deref()) != Some("{") {
+        return None;
+    }
+    let mut depth = 1u32;
+    for (offset, action) in actions[open_idx + 1..].iter().enumerate() {
+        match action.raw_content.as_deref() {
+            Some("{") => depth += 1,
+            Some("}") => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(open_idx + 1 + offset);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn find_matching_open(actions: &[ActionFunction], close_idx: usize) -> Option<usize> {
+    if actions
+        .get(close_idx)
+        .and_then(|a| a.raw_content.as_deref())
+        != Some("}")
+    {
+        return None;
+    }
+    let mut depth = 1u32;
+    for (offset, action) in actions[..close_idx].iter().enumerate().rev() {
+        match action.raw_content.as_deref() {
+            Some("}") => depth += 1,
+            Some("{") => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(offset);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Delete an action, cascading to remove entire blocks when a structural
+/// element (`{`, `}`, `if(…)`, `else`) is the target. Returns the inclusive
+/// range of indices that were removed, or `None` if nothing was deleted.
+fn delete_range_with_cascade(
+    actions: &mut Vec<ActionFunction>,
+    index: usize,
+) -> Option<(usize, usize)> {
+    let raw = actions.get(index)?.raw_content.clone();
+
+    match raw.as_deref() {
+        // Deleting `{` — remove the entire block (including leader if any)
+        Some("{") => {
+            if let Some(close_idx) = find_matching_close(actions, index) {
+                let start = if index > 0 {
+                    match actions[index - 1].raw_content.as_deref() {
+                        Some(s) if s.starts_with("if(") || s == "else" => index - 1,
+                        _ => index,
+                    }
+                } else {
+                    index
+                };
+                let end = close_idx;
+                actions.drain(start..=end);
+                Some((start, end))
+            } else {
+                actions.remove(index);
+                Some((index, index))
+            }
+        }
+        // Deleting `}` — remove the entire block (including leader if any)
+        Some("}") => {
+            if let Some(open_idx) = find_matching_open(actions, index) {
+                let start = if open_idx > 0 {
+                    match actions[open_idx - 1].raw_content.as_deref() {
+                        Some(s) if s.starts_with("if(") || s == "else" => open_idx - 1,
+                        _ => open_idx,
+                    }
+                } else {
+                    open_idx
+                };
+                let end = index;
+                actions.drain(start..=end);
+                Some((start, end))
+            } else {
+                actions.remove(index);
+                Some((index, index))
+            }
+        }
+        // Deleting `if(…)` or `else` — remove self + following block if any
+        Some(s) if s.starts_with("if(") || s == "else" => {
+            if let Some(close_idx) = actions
+                .get(index + 1)
+                .and_then(|a| a.raw_content.as_deref())
+                .filter(|&s| s == "{")
+                .and_then(|_| find_matching_close(actions, index + 1))
+            {
+                actions.drain(index..=close_idx);
+                Some((index, close_idx))
+            } else {
+                actions.remove(index);
+                Some((index, index))
+            }
+        }
+        // Default: just remove the single action
+        _ => {
+            actions.remove(index);
+            Some((index, index))
+        }
+    }
 }
 
 #[cfg(test)]

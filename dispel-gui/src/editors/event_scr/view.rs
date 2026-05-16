@@ -68,12 +68,6 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                     .into(),
             };
 
-            let picker: Option<Element<'static, EventScrEditorMessage>> = if state.picker_open {
-                Some(view_function_picker(state))
-            } else {
-                None
-            };
-
             let act_toolbar = row![
                 button("+ Add Action")
                     .on_press(EventScrEditorMessage::ActionAdded)
@@ -103,12 +97,12 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
 
             // ACT section — always visible, permanently expanded
             page_content.push(
-                text("Action Functions").size(16).style(style::section_header).into(),
+                text("Action Functions")
+                    .size(16)
+                    .style(style::section_header)
+                    .into(),
             );
             page_content.push(index_info);
-            if let Some(picker_view) = picker {
-                page_content.push(picker_view);
-            }
             page_content.push(act_toolbar.into());
             page_content.push(column(tree_elements).spacing(2).into());
 
@@ -243,6 +237,22 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         LoadingState::Idle | LoadingState::Loading => empty_editor(),
     };
 
+    let base: Element<'_, EventScrEditorMessage> = if state.picker_open {
+        let picker_content: Element<'_, EventScrEditorMessage> =
+            container(view_function_picker(state))
+                .style(style::modal_container)
+                .max_width(520)
+                .into();
+        crate::components::modal::modal(
+            base,
+            picker_content,
+            || EventScrEditorMessage::ToggleFunctionPicker,
+            0.3,
+        )
+    } else {
+        base
+    };
+
     if matches!(state.index_state, FunctionIndexState::Indexing { .. }) {
         let modal_content = index_progress_modal(state);
         crate::components::modal::modal(
@@ -285,15 +295,11 @@ fn collapsible_panel<'a>(
         );
     }
 
-    let header = button(
-        row(header_children)
-            .spacing(8)
-            .align_y(Alignment::Center),
-    )
-    .on_press(EventScrEditorMessage::TogglePanel(tab))
-    .style(style::tab_button)
-    .padding([4, 8])
-    .width(Length::Fill);
+    let header = button(row(header_children).spacing(8).align_y(Alignment::Center))
+        .on_press(EventScrEditorMessage::TogglePanel(tab))
+        .style(style::tab_button)
+        .padding([4, 8])
+        .width(Length::Fill);
 
     if let Some(body_content) = body {
         container(
@@ -538,7 +544,10 @@ fn render_action_row<'a>(
             .width(Length::Fill)
             .into();
         }
-        if let Some(val) = raw.strip_prefix("return(").and_then(|s| s.strip_suffix(')')) {
+        if let Some(val) = raw
+            .strip_prefix("return(")
+            .and_then(|s| s.strip_suffix(')'))
+        {
             return container(
                 row![
                     Space::new().width(Length::Fixed(left)),
@@ -572,26 +581,26 @@ fn render_action_row<'a>(
                 badge("TEXT"),
                 text_input("", raw)
                     .on_input(move |s| EventScrEditorMessage::ActionRawContentChanged(index, s))
-                .width(Length::Fill),
-            button(text("↑").size(12))
-                .on_press(EventScrEditorMessage::MoveActionUp(index))
-                .style(style::move_button)
-                .padding([1, 3]),
-            button(text("↓").size(12))
-                .on_press(EventScrEditorMessage::MoveActionDown(index))
-                .style(style::move_button)
-                .padding([1, 3]),
-            button("Del")
-                .on_press(EventScrEditorMessage::ActionDeleted(index))
-                .style(style::normal_row_button),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 8])
-    .width(Length::Fill)
-    .into()
-}
+                    .width(Length::Fill),
+                button(text("↑").size(12))
+                    .on_press(EventScrEditorMessage::MoveActionUp(index))
+                    .style(style::move_button)
+                    .padding([1, 3]),
+                button(text("↓").size(12))
+                    .on_press(EventScrEditorMessage::MoveActionDown(index))
+                    .style(style::move_button)
+                    .padding([1, 3]),
+                button("Del")
+                    .on_press(EventScrEditorMessage::ActionDeleted(index))
+                    .style(style::normal_row_button),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 8])
+        .width(Length::Fill)
+        .into();
+    }
 
     let params_str = act.parameters.join(", ");
     container(
