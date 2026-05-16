@@ -10,6 +10,7 @@ pub fn view(state: &GotoState) -> Element<'_, Message> {
     let title = text("Go to address").size(13).font(Font::MONOSPACE);
 
     let input = text_input("0x100, 255, +10, -5", &state.draft)
+        .id(crate::editors::hex_editor::goto::GotoState::input_id())
         .on_input(|s| Message::hex_editor(HexEditorMessage::SetGotoDraft(s)))
         .on_submit(Message::hex_editor(HexEditorMessage::CommitGoto))
         .padding(6)

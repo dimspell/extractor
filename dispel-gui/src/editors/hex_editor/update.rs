@@ -266,6 +266,7 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
         // ── Goto address ───────────────────────────────────────────────
         HexEditorMessage::OpenGotoDialog => {
             editor.goto = Some(GotoState::new());
+            return iced::widget::operation::focus(GotoState::input_id());
         }
         HexEditorMessage::SetGotoDraft(s) => {
             if let Some(ref mut g) = editor.goto {

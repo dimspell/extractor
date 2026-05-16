@@ -3,6 +3,8 @@
 //! Accepts hex (`0xFF`), decimal (`255`), or relative (`+10`, `-5`) expressions
 //! and clamps to `[0, max_addr]`.
 
+use iced::widget::Id;
+
 #[derive(Debug, Clone, Default)]
 pub struct GotoState {
     pub draft: String,
@@ -10,6 +12,10 @@ pub struct GotoState {
 }
 
 impl GotoState {
+    pub fn input_id() -> Id {
+        Id::new("hex_goto_input")
+    }
+
     pub fn new() -> Self {
         Self {
             draft: String::new(),
