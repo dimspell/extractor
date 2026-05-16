@@ -7,7 +7,6 @@ use crate::app::App;
 use crate::editors::hex_editor::editing::{EditState, InspectorEditState};
 use crate::editors::hex_editor::goto::GotoState;
 use crate::editors::hex_editor::inspector::ENTRIES;
-use crate::editors::hex_editor::search::{parse_hex_query, SearchMode};
 use crate::editors::hex_editor::selection::nav_target;
 use crate::editors::hex_editor::HexEditorMessage;
 use crate::editors::hex_editor::HexProvider;
@@ -259,59 +258,6 @@ pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::
             if let Some(addr) = editor.search.current_addr() {
                 editor.selection.select(addr.min(max_addr), max_addr);
             }
-        }
-        HexEditorMessage::ReplaceOne(replace_str) => {
-            if let Some((start, _end)) = editor.search.current_range() {
-                let bytes = match editor.search.mode {
-                    SearchMode::Hex => parse_hex_query(&replace_str).unwrap_or_default(),
-                    SearchMode::Ascii => replace_str.as_bytes().to_vec(),
-                };
-                if !bytes.is_empty() {
-                    editor.provider.write(start, &bytes);
-                    editor.recompute_vanilla_diff();
-                    editor.search.execute(editor.provider.as_slice());
-                    editor.search.next_match();
-                    if let Some(addr) = editor.search.current_addr() {
-                        editor.selection.select(addr.min(max_addr), max_addr);
-                    }
-                }
-            }
-        }
-        HexEditorMessage::SetReplaceQuery(replace_str) => {
-            editor.search.replace_query = replace_str;
-        }
-        HexEditorMessage::ShowReplaceConfirm(replace_str) => {
-            editor.search.replace_query = replace_str;
-            editor.search.show_replace_confirm = true;
-        }
-        HexEditorMessage::CommitReplaceAll => {
-            editor.search.show_replace_confirm = false;
-            let replace_str = editor.search.replace_query.clone();
-            if replace_str.is_empty() || !editor.search.has_results() {
-                return Task::none();
-            }
-            // Work from bottom to top so addresses stay valid.
-            let replacement = match editor.search.mode {
-                SearchMode::Hex => parse_hex_query(&replace_str).unwrap_or_default(),
-                SearchMode::Ascii => replace_str.as_bytes().to_vec(),
-            };
-            if replacement.is_empty() {
-                return Task::none();
-            }
-            // Collect matches in reverse order.
-            let mut matches = editor.search.results.clone();
-            matches.reverse();
-            for &start in &matches {
-                editor.provider.write(start, &replacement);
-            }
-            editor.recompute_vanilla_diff();
-            let count = matches.len();
-            editor.search.clear();
-            editor.status_msg = format!("Replaced {count} occurrence(s)");
-        }
-        HexEditorMessage::CancelReplaceAll => {
-            editor.search.show_replace_confirm = false;
-            editor.search.replace_query.clear();
         }
         HexEditorMessage::CloseSearch => {
             editor.search.clear();

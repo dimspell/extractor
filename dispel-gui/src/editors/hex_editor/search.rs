@@ -37,9 +37,6 @@ pub struct SearchState {
     pub current_match: Option<usize>,
     /// Pre-computed set of all addresses covered by matches (for rendering).
     pub match_set: BTreeSet<u64>,
-    pub replace_query: String,
-    /// Whether the replace-all confirmation is showing.
-    pub show_replace_confirm: bool,
 }
 
 impl SearchState {
@@ -52,8 +49,6 @@ impl SearchState {
             query_len: 0,
             current_match: None,
             match_set: BTreeSet::new(),
-            replace_query: String::new(),
-            show_replace_confirm: false,
         }
     }
 
@@ -192,8 +187,6 @@ impl SearchState {
         self.match_set.clear();
         self.current_match = None;
         self.query_len = 0;
-        self.replace_query.clear();
-        self.show_replace_confirm = false;
     }
 }
 

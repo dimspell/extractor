@@ -76,7 +76,7 @@ pub enum HexEditorMessage {
     /// Dismiss the dialog.
     CloseGotoDialog,
 
-    // ── Search & Find/Replace ───────────────────────────────────────────
+    // ── Search ──────────────────────────────────────────────────────────
     /// Open the search overlay.
     OpenSearch,
     /// Trigger a search with the given query string.
@@ -87,16 +87,6 @@ pub enum HexEditorMessage {
     SearchNext,
     /// Navigate to the previous match.
     SearchPrev,
-    /// Replace the current match with the given replacement bytes.
-    ReplaceOne(String),
-    /// Show the replace-all confirmation dialog.
-    ShowReplaceConfirm(String),
-    /// Set the replace query (for live input without triggering replace).
-    SetReplaceQuery(String),
-    /// Confirm replace-all.
-    CommitReplaceAll,
-    /// Dismiss replace-all confirmation.
-    CancelReplaceAll,
     /// Close the search overlay.
     CloseSearch,
 
