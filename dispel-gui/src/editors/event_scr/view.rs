@@ -460,14 +460,14 @@ fn render_act_tree<'a>(
                 children,
             } => {
                 let folded = state.act_folded.contains(open_index);
-                elements.push(render_open_row(*open_index, *depth, folded));
+                elements.push(render_open_row(*open_index, *close_index, *depth, folded));
                 if folded {
                     let hidden = count_hidden(children);
                     elements.push(render_folded_hint(*depth + 1, hidden));
                 } else {
                     elements.extend(render_act_tree(children, actions, state));
                     if *close_index != usize::MAX {
-                        elements.push(render_close_row(*depth));
+                        elements.push(render_close_row(*depth, *close_index));
                     }
                 }
             }
@@ -494,6 +494,14 @@ fn render_action_row<'a>(
                     text_input("condition", cond)
                         .on_input(move |s| EventScrEditorMessage::IfConditionChanged(index, s))
                         .width(Length::Fill),
+                    button(text("↑").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionUp(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
+                    button(text("↓").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionDown(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
                     button("Del")
                         .on_press(EventScrEditorMessage::ActionDeleted(index))
                         .style(style::normal_row_button),
@@ -511,6 +519,14 @@ fn render_action_row<'a>(
                     Space::new().width(Length::Fixed(left)),
                     badge("ELSE"),
                     Space::new().width(Length::Fill),
+                    button(text("↑").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionUp(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
+                    button(text("↓").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionDown(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
                     button("Del")
                         .on_press(EventScrEditorMessage::ActionDeleted(index))
                         .style(style::normal_row_button),
@@ -531,6 +547,14 @@ fn render_action_row<'a>(
                     text_input("value", val)
                         .on_input(move |s| EventScrEditorMessage::ReturnValueChanged(index, s))
                         .width(Length::Fill),
+                    button(text("↑").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionUp(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
+                    button(text("↓").size(12))
+                        .on_press(EventScrEditorMessage::MoveActionDown(index))
+                        .style(style::move_button)
+                        .padding([1, 3]),
                     button("Del")
                         .on_press(EventScrEditorMessage::ActionDeleted(index))
                         .style(style::normal_row_button),
@@ -548,18 +572,26 @@ fn render_action_row<'a>(
                 badge("TEXT"),
                 text_input("", raw)
                     .on_input(move |s| EventScrEditorMessage::ActionRawContentChanged(index, s))
-                    .width(Length::Fill),
-                button("Del")
-                    .on_press(EventScrEditorMessage::ActionDeleted(index))
-                    .style(style::normal_row_button),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        )
-        .padding([2, 8])
-        .width(Length::Fill)
-        .into();
-    }
+                .width(Length::Fill),
+            button(text("↑").size(12))
+                .on_press(EventScrEditorMessage::MoveActionUp(index))
+                .style(style::move_button)
+                .padding([1, 3]),
+            button(text("↓").size(12))
+                .on_press(EventScrEditorMessage::MoveActionDown(index))
+                .style(style::move_button)
+                .padding([1, 3]),
+            button("Del")
+                .on_press(EventScrEditorMessage::ActionDeleted(index))
+                .style(style::normal_row_button),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    )
+    .padding([2, 8])
+    .width(Length::Fill)
+    .into()
+}
 
     let params_str = act.parameters.join(", ");
     container(
@@ -575,6 +607,14 @@ fn render_action_row<'a>(
             text_input("params", &params_str)
                 .on_input(move |s| EventScrEditorMessage::ActionParamsChanged(index, s))
                 .width(Length::FillPortion(2)),
+            button(text("↑").size(12))
+                .on_press(EventScrEditorMessage::MoveActionUp(index))
+                .style(style::move_button)
+                .padding([1, 3]),
+            button(text("↓").size(12))
+                .on_press(EventScrEditorMessage::MoveActionDown(index))
+                .style(style::move_button)
+                .padding([1, 3]),
             button("Del")
                 .on_press(EventScrEditorMessage::ActionDeleted(index))
                 .style(style::normal_row_button),
@@ -589,6 +629,7 @@ fn render_action_row<'a>(
 
 fn render_open_row<'a>(
     index: usize,
+    close_index: usize,
     depth: usize,
     folded: bool,
 ) -> Element<'a, EventScrEditorMessage> {
@@ -604,9 +645,17 @@ fn render_open_row<'a>(
             text("{").size(13).style(style::subtle_text),
             Space::new().width(Length::Fill),
             button(text("+").size(13))
-                .on_press(EventScrEditorMessage::InsertActionAt(index + 1))
+                .on_press(EventScrEditorMessage::InsertWithPickerAt(close_index))
                 .style(style::chip)
                 .padding([1, 7]),
+            button(text("↑").size(12))
+                .on_press(EventScrEditorMessage::MoveActionUp(index))
+                .style(style::move_button)
+                .padding([1, 3]),
+            button(text("↓").size(12))
+                .on_press(EventScrEditorMessage::MoveActionDown(index))
+                .style(style::move_button)
+                .padding([1, 3]),
         ]
         .spacing(4)
         .align_y(Alignment::Center),
@@ -616,12 +665,21 @@ fn render_open_row<'a>(
     .into()
 }
 
-fn render_close_row<'a>(depth: usize) -> Element<'a, EventScrEditorMessage> {
+fn render_close_row<'a>(depth: usize, index: usize) -> Element<'a, EventScrEditorMessage> {
     let left = 8.0 + depth as f32 * 24.0;
     container(
         row![
             Space::new().width(Length::Fixed(left)),
             text("}").size(13).style(style::subtle_text),
+            Space::new().width(Length::Fill),
+            button(text("↑").size(12))
+                .on_press(EventScrEditorMessage::MoveActionUp(index))
+                .style(style::move_button)
+                .padding([1, 3]),
+            button(text("↓").size(12))
+                .on_press(EventScrEditorMessage::MoveActionDown(index))
+                .style(style::move_button)
+                .padding([1, 3]),
         ]
         .spacing(8)
         .align_y(Alignment::Center),

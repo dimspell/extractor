@@ -179,50 +179,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
-        EventScrEditorMessage::InsertActionAt(index) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                let pos = index.min(script.actions.len());
-                script.actions.insert(
-                    pos,
-                    ActionFunction {
-                        prefix: None,
-                        function_name: String::new(),
-                        parameters: Vec::new(),
-                        raw_content: None,
-                    },
-                );
-                state.modified = true;
-                state.act_parse_errors = validate_script(script);
-                state.act_folded = state
-                    .act_folded
-                    .iter()
-                    .map(|&i| if i >= pos { i + 1 } else { i })
-                    .collect();
-            }
-            Task::none()
-        }
-        EventScrEditorMessage::InsertRawAt(index) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                let pos = index.min(script.actions.len());
-                script.actions.insert(
-                    pos,
-                    ActionFunction {
-                        prefix: None,
-                        function_name: String::new(),
-                        parameters: Vec::new(),
-                        raw_content: Some(String::new()),
-                    },
-                );
-                state.modified = true;
-                state.act_parse_errors = validate_script(script);
-                state.act_folded = state
-                    .act_folded
-                    .iter()
-                    .map(|&i| if i >= pos { i + 1 } else { i })
-                    .collect();
-            }
-            Task::none()
-        }
+
         EventScrEditorMessage::ActionRawContentChanged(index, content) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
@@ -432,6 +389,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             if !state.picker_open {
                 state.picker_filter.clear();
             }
+            state.pending_block_insert = None;
             Task::none()
         }
         EventScrEditorMessage::PickerFilterChanged(filter) => {
@@ -440,16 +398,71 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::InsertPickedFunction(name, param_count) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                script.actions.push(ActionFunction {
-                    prefix: None,
-                    function_name: name,
-                    parameters: vec![String::new(); param_count],
-                    raw_content: None,
-                });
+                let pos = state.pending_block_insert.take().unwrap_or(script.actions.len());
+                script.actions.insert(
+                    pos,
+                    ActionFunction {
+                        prefix: None,
+                        function_name: name,
+                        parameters: vec![String::new(); param_count],
+                        raw_content: None,
+                    },
+                );
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
+                state.act_folded = state
+                    .act_folded
+                    .iter()
+                    .map(|&i| if i >= pos { i + 1 } else { i })
+                    .collect();
                 state.picker_open = false;
                 state.picker_filter.clear();
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::InsertWithPickerAt(pos) => {
+            state.pending_block_insert = Some(pos);
+            state.picker_open = true;
+            state.picker_filter.clear();
+            Task::none()
+        }
+        EventScrEditorMessage::MoveActionUp(index) => {
+            if index == 0 {
+                return Task::none();
+            }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                let prev = index - 1;
+                script.actions.swap(index, prev);
+                let had_prev = state.act_folded.remove(&prev);
+                let had_index = state.act_folded.remove(&index);
+                if had_prev {
+                    state.act_folded.insert(index);
+                }
+                if had_index {
+                    state.act_folded.insert(prev);
+                }
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::MoveActionDown(index) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                if index + 1 >= script.actions.len() {
+                    return Task::none();
+                }
+                let next = index + 1;
+                script.actions.swap(index, next);
+                let had_index = state.act_folded.remove(&index);
+                let had_next = state.act_folded.remove(&next);
+                if had_index {
+                    state.act_folded.insert(next);
+                }
+                if had_next {
+                    state.act_folded.insert(index);
+                }
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }

@@ -1314,6 +1314,27 @@ pub fn badge_container(_theme: &Theme) -> container::Style {
     }
 }
 
+pub fn move_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(Color::TRANSPARENT)),
+        text_color: color!(0x8d6e63),
+        border: Border {
+            color: Color::TRANSPARENT,
+            width: 0.0,
+            radius: 2.into(),
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            text_color: color!(0xd7ccc8),
+            background: Some(Background::Color(color!(0x3d2b1f, 0.5))),
+            ..base
+        },
+        _ => base,
+    }
+}
+
 pub fn fold_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),
