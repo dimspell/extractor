@@ -9,9 +9,9 @@ mod tests;
 
 use std::slice;
 
+use iced::advanced::overlay as iced_overlay;
 use iced::advanced::widget::tree;
 use iced::advanced::{layout, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::advanced::overlay as iced_overlay;
 use iced::{mouse, Element, Event, Point, Rectangle, Vector};
 
 pub use entry::Entry;
@@ -180,10 +180,7 @@ where
                 }
 
                 state.status = Status::Open {
-                    position: Point::new(
-                        position.x + self.offset.x,
-                        position.y + self.offset.y,
-                    ),
+                    position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
                 };
                 shell.capture_event();
                 shell.request_redraw();

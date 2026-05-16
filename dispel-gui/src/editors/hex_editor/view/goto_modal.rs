@@ -41,19 +41,17 @@ pub fn view(state: &GotoState) -> Element<'_, Message> {
     ]
     .spacing(8);
 
-    container(
-        column![title, input, hint, error, buttons].spacing(10),
-    )
-    .padding(16)
-    .width(Length::Fixed(360.0))
-    .style(|_| container::Style {
-        background: Some(color!(0x201b18).into()),
-        border: iced::Border {
-            color: color!(0x4a3f35),
-            width: 1.0,
-            radius: 6.0.into(),
-        },
-        ..container::Style::default()
-    })
-    .into()
+    container(column![title, input, hint, error, buttons].spacing(10))
+        .padding(16)
+        .width(Length::Fixed(360.0))
+        .style(|_| container::Style {
+            background: Some(color!(0x201b18).into()),
+            border: iced::Border {
+                color: color!(0x4a3f35),
+                width: 1.0,
+                radius: 6.0.into(),
+            },
+            ..container::Style::default()
+        })
+        .into()
 }

@@ -67,10 +67,7 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
             // Only show "Open as Hex" for file-backed tabs (not tool tabs)
             if tab.path.is_some() {
                 context_entries.push(Entry::separator());
-                context_entries.push(Entry::item(
-                    "Open as Hex",
-                    TabBarMessage::OpenAsHex(idx),
-                ));
+                context_entries.push(Entry::item("Open as Hex", TabBarMessage::OpenAsHex(idx)));
             }
 
             ContextMenu::new(btn, context_entries).into()

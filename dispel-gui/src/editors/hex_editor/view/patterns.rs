@@ -76,9 +76,7 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, Message> {
     let end = text(format!("0x{:08X}", pat.end))
         .size(10)
         .font(Font::MONOSPACE);
-    let size = text(pat.len().to_string())
-        .size(10)
-        .font(Font::MONOSPACE);
+    let size = text(pat.len().to_string()).size(10).font(Font::MONOSPACE);
 
     let remove_btn = button(text("✕").size(9).font(Font::MONOSPACE))
         .padding([1, 4])

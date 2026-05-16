@@ -61,9 +61,11 @@ impl GotoState {
         }
 
         // Contains hex letters (a-f, A-F) → hex.
-        if s.chars().any(|c| c.is_ascii_hexdigit() && !c.is_ascii_digit()) {
-            let addr = u64::from_str_radix(s, 16)
-                .map_err(|_| format!("not a valid hex address: {s}"))?;
+        if s.chars()
+            .any(|c| c.is_ascii_hexdigit() && !c.is_ascii_digit())
+        {
+            let addr =
+                u64::from_str_radix(s, 16).map_err(|_| format!("not a valid hex address: {s}"))?;
             return Ok(addr.min(max_addr));
         }
 
@@ -91,67 +93,100 @@ mod tests {
 
     #[test]
     fn goto_hex_with_prefix() {
-        let gs = GotoState { draft: "0xFF".into(), error: None };
+        let gs = GotoState {
+            draft: "0xFF".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 1000), Ok(255));
     }
 
     #[test]
     fn goto_hex_without_prefix() {
-        let gs = GotoState { draft: "FF".into(), error: None };
+        let gs = GotoState {
+            draft: "FF".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 1000), Ok(255));
     }
 
     #[test]
     fn goto_hex_with_letters_parsed_as_hex() {
-        let gs = GotoState { draft: "A0".into(), error: None };
+        let gs = GotoState {
+            draft: "A0".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 1000), Ok(160));
     }
 
     #[test]
     fn goto_decimal() {
-        let gs = GotoState { draft: "255".into(), error: None };
+        let gs = GotoState {
+            draft: "255".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 1000), Ok(255));
     }
 
     #[test]
     fn goto_relative_forward() {
-        let gs = GotoState { draft: "+10".into(), error: None };
+        let gs = GotoState {
+            draft: "+10".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(100, 1000), Ok(110));
     }
 
     #[test]
     fn goto_relative_backward() {
-        let gs = GotoState { draft: "-5".into(), error: None };
+        let gs = GotoState {
+            draft: "-5".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(100, 1000), Ok(95));
     }
 
     #[test]
     fn goto_relative_saturates_at_zero() {
-        let gs = GotoState { draft: "-5".into(), error: None };
+        let gs = GotoState {
+            draft: "-5".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(3, 1000), Ok(0));
     }
 
     #[test]
     fn goto_clamps_to_max() {
-        let gs = GotoState { draft: "0xFFFF".into(), error: None };
+        let gs = GotoState {
+            draft: "0xFFFF".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 255), Ok(255));
     }
 
     #[test]
     fn goto_empty_returns_error() {
-        let gs = GotoState { draft: "".into(), error: None };
+        let gs = GotoState {
+            draft: "".into(),
+            error: None,
+        };
         assert!(gs.parse(0, 1000).is_err());
     }
 
     #[test]
     fn goto_garbage_returns_error() {
-        let gs = GotoState { draft: "xyz".into(), error: None };
+        let gs = GotoState {
+            draft: "xyz".into(),
+            error: None,
+        };
         assert!(gs.parse(0, 1000).is_err());
     }
 
     #[test]
     fn goto_hex_plus_offset() {
-        let gs = GotoState { draft: "0x10".into(), error: None };
+        let gs = GotoState {
+            draft: "0x10".into(),
+            error: None,
+        };
         assert_eq!(gs.parse(0, 1000), Ok(16));
     }
 }

@@ -91,11 +91,7 @@ where
 /// Walk the layout tree to find which menu entry the cursor is over.
 ///
 /// The menu layout is: Container → Column → [items].
-fn find_hovered_entry(
-    layout: Layout<'_>,
-    cursor_pos: Point,
-    entry_count: usize,
-) -> Option<usize> {
+fn find_hovered_entry(layout: Layout<'_>, cursor_pos: Point, entry_count: usize) -> Option<usize> {
     let column = layout.children().next()?;
     for (idx, child) in column.children().enumerate() {
         if idx >= entry_count {
@@ -117,8 +113,7 @@ pub(crate) struct MenuOverlay<'a, Message> {
     pub(crate) position: Point,
 }
 
-impl<Message> overlay::Overlay<Message, iced::Theme, iced::Renderer>
-    for MenuOverlay<'_, Message>
+impl<Message> overlay::Overlay<Message, iced::Theme, iced::Renderer> for MenuOverlay<'_, Message>
 where
     Message: Clone + 'static,
 {

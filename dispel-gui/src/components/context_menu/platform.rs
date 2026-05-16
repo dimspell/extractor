@@ -82,7 +82,7 @@ pub(crate) fn try_show_native_menu<Message: Clone>(
 fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     use objc2::rc::Retained;
     use objc2::{sel, MainThreadMarker, MainThreadOnly};
-    use objc2_app_kit::{NSMenu, NSMenuItem, NSEvent};
+    use objc2_app_kit::{NSEvent, NSMenu, NSMenuItem};
     use objc2_foundation::NSString;
 
     let mtm = match MainThreadMarker::new() {
@@ -91,8 +91,7 @@ fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     };
 
     let empty = NSString::from_str("");
-    let menu: Retained<NSMenu> =
-        NSMenu::initWithTitle(NSMenu::alloc(mtm), &empty);
+    let menu: Retained<NSMenu> = NSMenu::initWithTitle(NSMenu::alloc(mtm), &empty);
 
     // Prevent AppKit from auto-disabling items with no valid responder target
     menu.setAutoenablesItems(false);
@@ -155,12 +154,7 @@ fn windows_show_menu(items: &[MenuItem]) -> NativeResult {
 
     extern "system" {
         fn CreatePopupMenu() -> HMENU;
-        fn AppendMenuW(
-            hmenu: HMENU,
-            flags: UINT,
-            id_new_item: usize,
-            new_item: *const u16,
-        ) -> i32;
+        fn AppendMenuW(hmenu: HMENU, flags: UINT, id_new_item: usize, new_item: *const u16) -> i32;
         fn TrackPopupMenu(
             hmenu: HMENU,
             flags: UINT,

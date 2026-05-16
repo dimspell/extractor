@@ -117,9 +117,7 @@ impl Command {
                 label: "Hex editor: Search (Find)",
                 shortcut: Some("Ctrl+F"),
                 action: || {
-                    Message::hex_editor(
-                        crate::editors::hex_editor::HexEditorMessage::OpenSearch,
-                    )
+                    Message::hex_editor(crate::editors::hex_editor::HexEditorMessage::OpenSearch)
                 },
             },
             Command {

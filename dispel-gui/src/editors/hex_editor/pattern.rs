@@ -12,7 +12,12 @@ pub struct Pattern {
 
 impl Pattern {
     pub fn new(id: usize, start: u64, end: u64, color_idx: u8) -> Self {
-        Self { id, start, end, color_idx }
+        Self {
+            id,
+            start,
+            end,
+            color_idx,
+        }
     }
 
     pub fn len(&self) -> u64 {

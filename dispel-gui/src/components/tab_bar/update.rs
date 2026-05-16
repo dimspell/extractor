@@ -101,7 +101,12 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         TabBarMessage::OpenAsHex(tab_index) => {
-            let path = app.state.workspace.tabs.get(tab_index).and_then(|t| t.path.clone());
+            let path = app
+                .state
+                .workspace
+                .tabs
+                .get(tab_index)
+                .and_then(|t| t.path.clone());
             if let Some(path) = path {
                 return app.open_file_in_workspace_as_hex(&path);
             }

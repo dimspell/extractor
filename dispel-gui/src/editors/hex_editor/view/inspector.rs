@@ -88,10 +88,11 @@ fn inspector_row<'a>(
     };
     let copy_btn = button(text("c").size(10).font(Font::MONOSPACE))
         .padding([0, 4])
-        .on_press(Message::hex_editor(HexEditorMessage::CopyInspectorValue(idx)));
+        .on_press(Message::hex_editor(HexEditorMessage::CopyInspectorValue(
+            idx,
+        )));
     row![
-        container(text(name.to_string()).size(10).font(Font::MONOSPACE))
-            .width(Length::Fixed(60.0)),
+        container(text(name.to_string()).size(10).font(Font::MONOSPACE)).width(Length::Fixed(60.0)),
         container(text(value.to_string()).size(11).font(Font::MONOSPACE)).width(Fill),
         copy_btn,
         edit_btn,

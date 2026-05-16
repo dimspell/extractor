@@ -1768,7 +1768,16 @@ mod tests {
     #[test]
     fn addr_at_outside_columns_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(20.0, 4.0), bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).is_none());
+        assert!(addr_at(
+            Point::new(20.0, 4.0),
+            bounds,
+            0.0,
+            0.0,
+            16,
+            1024,
+            TEST_ADDR_COL_WIDTH
+        )
+        .is_none());
     }
 
     #[test]
@@ -1782,7 +1791,16 @@ mod tests {
     #[test]
     fn addr_at_empty_file_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(Point::new(100.0, 4.0), bounds, 0.0, 0.0, 16, 0, TEST_ADDR_COL_WIDTH).is_none());
+        assert!(addr_at(
+            Point::new(100.0, 4.0),
+            bounds,
+            0.0,
+            0.0,
+            16,
+            0,
+            TEST_ADDR_COL_WIDTH
+        )
+        .is_none());
     }
 
     #[test]
