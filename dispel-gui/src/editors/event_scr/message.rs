@@ -24,7 +24,7 @@ pub enum EventScrEditorMessage {
     // Action function actions
     ActionAdded,
     ActionRawAdded,
-    ActionPrefixChanged(usize, String),
+    ActionPrefixPicked(usize, Option<String>),
     ActionFunctionChanged(usize, String),
     ActionParamsChanged(usize, String),
     ActionRawContentChanged(usize, String),
@@ -54,8 +54,21 @@ pub enum EventScrEditorMessage {
     ToggleFunctionPicker,
     PickerFilterChanged(String),
     InsertPickedFunction(String, usize),
+    // Inline function suggestions
+    SuggestionSelect(usize, String),
+    SuggestionDismiss,
     // Insert helpers
     InsertIfBlock,
     InsertElseBlock,
     InsertReturnBlock,
+    // Keyboard shortcuts
+    KeyboardShortcut(KeyboardShortcut),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyboardShortcut {
+    InsertActionBelow,
+    TogglePicker,
+    MoveActionUp,
+    MoveActionDown,
 }

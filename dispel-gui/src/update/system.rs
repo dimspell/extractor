@@ -287,14 +287,12 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 match tab.editor_type {
                     EditorType::MapEditor => {
                         let tab_id = tab.id;
-                        return Task::done(Message::map_editor(
-                            MapEditorMessage::SaveEntities(tab_id),
-                        ));
+                        return Task::done(Message::map_editor(MapEditorMessage::SaveEntities(
+                            tab_id,
+                        )));
                     }
                     EditorType::EventScrEditor => {
-                        return Task::done(Message::event_scr(
-                            EventScrEditorMessage::SaveScript,
-                        ));
+                        return Task::done(Message::event_scr(EventScrEditorMessage::SaveScript));
                     }
                     _ => {}
                 }

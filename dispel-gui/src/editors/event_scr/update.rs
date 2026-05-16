@@ -193,14 +193,10 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
-        EventScrEditorMessage::ActionPrefixChanged(index, prefix) => {
+        EventScrEditorMessage::ActionPrefixPicked(index, opt_prefix) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
-                    act.prefix = if prefix.is_empty() {
-                        None
-                    } else {
-                        Some(prefix)
-                    };
+                    act.prefix = opt_prefix;
                     act.raw_content = None;
                     state.modified = true;
                     state.act_parse_errors = validate_script(script);
@@ -209,6 +205,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionFunctionChanged(index, func_name) => {
+            let show_suggestions = func_name.len() >= 2;
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.function_name = func_name;
@@ -216,6 +213,13 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     state.modified = true;
                     state.act_parse_errors = validate_script(script);
                 }
+            }
+            if show_suggestions {
+                state.suggestion_visible = true;
+                state.suggestion_active_index = Some(index);
+            } else {
+                state.suggestion_visible = false;
+                state.suggestion_active_index = None;
             }
             Task::none()
         }
@@ -431,6 +435,61 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             state.pending_block_insert = Some(pos);
             state.picker_open = true;
             state.picker_filter.clear();
+            Task::none()
+        }
+        // ── Inline suggestions ────────────────────────────────────────────
+        EventScrEditorMessage::SuggestionSelect(index, func_name) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.function_name = func_name;
+                    act.raw_content = None;
+                    state.modified = true;
+                    state.act_parse_errors = validate_script(script);
+                }
+            }
+            state.suggestion_visible = false;
+            state.suggestion_active_index = None;
+            Task::none()
+        }
+        EventScrEditorMessage::SuggestionDismiss => {
+            state.suggestion_visible = false;
+            state.suggestion_active_index = None;
+            Task::none()
+        }
+        // ── Keyboard shortcuts ────────────────────────────────────────────
+        EventScrEditorMessage::KeyboardShortcut(shortcut) => {
+            match shortcut {
+                crate::editors::event_scr::KeyboardShortcut::InsertActionBelow => {
+                    if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                        script.actions.push(ActionFunction {
+                            prefix: None,
+                            function_name: String::new(),
+                            parameters: Vec::new(),
+                            raw_content: None,
+                        });
+                        state.modified = true;
+                        state.act_parse_errors = validate_script(script);
+                    }
+                }
+                crate::editors::event_scr::KeyboardShortcut::TogglePicker => {
+                    return handle(EventScrEditorMessage::ToggleFunctionPicker, app);
+                }
+                crate::editors::event_scr::KeyboardShortcut::MoveActionUp => {
+                    if let LoadingState::Loaded(_) = state.script_loading {
+                        if let Some(idx) = state.suggestion_active_index.or(Some(0)) {
+                            let up_idx = idx.saturating_sub(1);
+                            return handle(EventScrEditorMessage::MoveActionUp(up_idx), app);
+                        }
+                    }
+                }
+                crate::editors::event_scr::KeyboardShortcut::MoveActionDown => {
+                    if let LoadingState::Loaded(_) = state.script_loading {
+                        if let Some(idx) = state.suggestion_active_index {
+                            return handle(EventScrEditorMessage::MoveActionDown(idx), app);
+                        }
+                    }
+                }
+            }
             Task::none()
         }
         EventScrEditorMessage::MoveActionUp(index) => {

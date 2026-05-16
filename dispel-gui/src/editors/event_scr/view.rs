@@ -4,13 +4,15 @@ use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_rule as hr;
 use crate::editors::event_scr::act_tree::{build_act_tree, ScriptNode};
+use crate::editors::event_scr::functions::{EventScriptFunctionIndex, IndexedFunction};
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::style;
 use iced::widget::{
-    button, column, container, progress_bar, row, scrollable, text, text_input, Space,
+    button, column, container, pick_list, progress_bar, row, rule, scrollable, text, text_input,
+    Space,
 };
-use iced::{Alignment, Color, Element, Length};
+use iced::{Alignment, Color, Element, Font, Length};
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.event_scr_editor;
@@ -91,20 +93,32 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
             .spacing(10);
 
             let tree_nodes = build_act_tree(&script.actions);
-            let tree_elements = render_act_tree(&tree_nodes, &script.actions, state);
+            let tree_elements = render_act_tree(&tree_nodes, &script.actions, script, state);
 
             let mut page_content: Vec<Element<EventScrEditorMessage>> = Vec::new();
 
             // ACT section — always visible, permanently expanded
             page_content.push(
-                text("Action Functions")
-                    .size(16)
-                    .style(style::section_header)
-                    .into(),
+                container(
+                    column![
+                        row![
+                            text("Action Functions")
+                                .size(16)
+                                .style(style::section_header),
+                            Space::new().width(Length::Fill),
+                            act_toolbar,
+                        ]
+                        .align_y(Alignment::Center),
+                        index_info,
+                    ]
+                    .spacing(6),
+                )
+                .style(style::panel_container)
+                .padding([6, 10])
+                .width(Length::Fill)
+                .into(),
             );
-            page_content.push(index_info);
-            page_content.push(act_toolbar.into());
-            page_content.push(column(tree_elements).spacing(2).into());
+            page_content.push(column(tree_elements).spacing(1).into());
 
             // Collapsible panels (all non-ACT sections)
             // Header
@@ -443,11 +457,128 @@ fn body_spr(
     rows
 }
 
+// ── Row building helpers ────────────────────────────────────────────────────
+
+fn indent_guides<'a>(depth: usize) -> Element<'a, EventScrEditorMessage> {
+    if depth == 0 {
+        return Space::new().width(Length::Fixed(0.0)).into();
+    }
+    row((0..depth)
+        .map(|_| rule::vertical(1).into())
+        .collect::<Vec<Element<EventScrEditorMessage>>>())
+    .spacing(0)
+    .width(Length::Shrink)
+    .into()
+}
+
+fn move_buttons(index: usize) -> Element<'static, EventScrEditorMessage> {
+    row![
+        button(text("↑").size(12))
+            .on_press(EventScrEditorMessage::MoveActionUp(index))
+            .style(style::move_button)
+            .padding([1, 3]),
+        button(text("↓").size(12))
+            .on_press(EventScrEditorMessage::MoveActionDown(index))
+            .style(style::move_button)
+            .padding([1, 3]),
+    ]
+    .spacing(0)
+    .into()
+}
+
+fn del_button(index: usize) -> Element<'static, EventScrEditorMessage> {
+    button("Del")
+        .on_press(EventScrEditorMessage::ActionDeleted(index))
+        .style(style::normal_row_button)
+        .into()
+}
+
+fn render_error_aware<'a>(
+    _index: usize,
+    is_error: bool,
+    row: impl Into<Element<'a, EventScrEditorMessage>>,
+) -> Element<'a, EventScrEditorMessage> {
+    if is_error {
+        container(row)
+            .style(style::error_row_border)
+            .padding([2, 6])
+            .width(Length::Fill)
+            .into()
+    } else {
+        container(row).padding([2, 6]).width(Length::Fill).into()
+    }
+}
+
+fn build_prefix_options(
+    script: &dispel_core::references::event_scr::EventScript,
+    act: &dispel_core::references::event_scr::ActionFunction,
+) -> Vec<String> {
+    let mut aliases: Vec<String> = script
+        .spr_content
+        .iter()
+        .map(|s| s.sprite_alias.clone())
+        .collect();
+    aliases.sort();
+    aliases.dedup();
+
+    let current = act.prefix.clone().unwrap_or_else(|| "(none)".to_string());
+    if current != "(none)" && !aliases.contains(&current) {
+        aliases.insert(0, current);
+    }
+    aliases.push("(none)".to_string());
+    aliases
+}
+
+fn render_inline_suggestions<'a>(
+    action_index: usize,
+    filter: &str,
+    index_data: &'a EventScriptFunctionIndex,
+) -> Element<'a, EventScrEditorMessage> {
+    let filtered: Vec<&IndexedFunction> = index_data
+        .functions
+        .iter()
+        .filter(|f| filter.is_empty() || f.name.to_lowercase().contains(&filter.to_lowercase()))
+        .take(8)
+        .collect();
+
+    if filtered.is_empty() {
+        return container(text("No matches").size(11).style(style::subtle_text))
+            .padding([2, 12])
+            .into();
+    }
+
+    let items: Vec<Element<EventScrEditorMessage>> = filtered
+        .into_iter()
+        .map(|f| {
+            let label = format!(
+                "{} ({} param{})",
+                f.name,
+                f.param_count,
+                if f.param_count == 1 { "" } else { "s" }
+            );
+            let name = f.name.clone();
+            button(text(label).size(11).font(Font::MONOSPACE))
+                .on_press(EventScrEditorMessage::SuggestionSelect(action_index, name))
+                .width(Length::Fill)
+                .padding([2, 8])
+                .style(style::chip)
+                .into()
+        })
+        .collect();
+
+    container(column(items).spacing(1))
+        .style(style::modal_container)
+        .padding([4, 8])
+        .max_width(400)
+        .into()
+}
+
 // ── Tree rendering ──────────────────────────────────────────────────────────
 
 fn render_act_tree<'a>(
     nodes: &[ScriptNode],
     actions: &'a [dispel_core::references::event_scr::ActionFunction],
+    script: &'a dispel_core::references::event_scr::EventScript,
     state: &'a EventScriptEditorState,
 ) -> Vec<Element<'a, EventScrEditorMessage>> {
     let mut elements = Vec::new();
@@ -457,7 +588,13 @@ fn render_act_tree<'a>(
                 action_index,
                 depth,
             } => {
-                elements.push(render_action_row(*action_index, *depth, actions));
+                elements.push(render_action_row(
+                    *action_index,
+                    *depth,
+                    actions,
+                    script,
+                    state,
+                ));
             }
             ScriptNode::Block {
                 open_index,
@@ -471,7 +608,7 @@ fn render_act_tree<'a>(
                     let hidden = count_hidden(children);
                     elements.push(render_folded_hint(*depth + 1, hidden));
                 } else {
-                    elements.extend(render_act_tree(children, actions, state));
+                    elements.extend(render_act_tree(children, actions, script, state));
                     if *close_index != usize::MAX {
                         elements.push(render_close_row(*depth, *close_index));
                     }
@@ -486,154 +623,150 @@ fn render_action_row<'a>(
     index: usize,
     depth: usize,
     actions: &'a [dispel_core::references::event_scr::ActionFunction],
+    script: &'a dispel_core::references::event_scr::EventScript,
+    state: &'a EventScriptEditorState,
 ) -> Element<'a, EventScrEditorMessage> {
     let act = &actions[index];
-    let left = 8.0 + depth as f32 * 24.0;
 
-    if let Some(ref raw) = act.raw_content {
+    let is_error = state.act_parse_errors.iter().any(|(idx, _)| *idx == index);
+
+    let content: Element<EventScrEditorMessage> = if let Some(ref raw) = act.raw_content {
         if let Some(cond) = raw.strip_prefix("if(").and_then(|s| s.strip_suffix(')')) {
-            return container(
+            render_error_aware(
+                index,
+                is_error,
                 row![
-                    Space::new().width(Length::Fixed(left)),
-                    badge("IF"),
+                    indent_guides(depth),
+                    badge("IF", "if"),
                     text("Cond:").size(12).style(style::subtle_text),
                     text_input("condition", cond)
                         .on_input(move |s| EventScrEditorMessage::IfConditionChanged(index, s))
-                        .width(Length::Fill),
-                    button(text("↑").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionUp(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button(text("↓").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionDown(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button("Del")
-                        .on_press(EventScrEditorMessage::ActionDeleted(index))
-                        .style(style::normal_row_button),
+                        .width(Length::Fill)
+                        .font(Font::MONOSPACE),
+                    move_buttons(index),
+                    del_button(index),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
             )
-            .padding([2, 8])
-            .width(Length::Fill)
-            .into();
-        }
-        if raw == "else" {
-            return container(
+        } else if raw == "else" {
+            render_error_aware(
+                index,
+                is_error,
                 row![
-                    Space::new().width(Length::Fixed(left)),
-                    badge("ELSE"),
+                    indent_guides(depth),
+                    badge("ELSE", "else"),
                     Space::new().width(Length::Fill),
-                    button(text("↑").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionUp(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button(text("↓").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionDown(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button("Del")
-                        .on_press(EventScrEditorMessage::ActionDeleted(index))
-                        .style(style::normal_row_button),
+                    move_buttons(index),
+                    del_button(index),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
             )
-            .padding([2, 8])
-            .width(Length::Fill)
-            .into();
-        }
-        if let Some(val) = raw
+        } else if let Some(val) = raw
             .strip_prefix("return(")
             .and_then(|s| s.strip_suffix(')'))
         {
-            return container(
+            render_error_aware(
+                index,
+                is_error,
                 row![
-                    Space::new().width(Length::Fixed(left)),
-                    badge("RET"),
+                    indent_guides(depth),
+                    badge("RET", "ret"),
                     text("Val:").size(12).style(style::subtle_text),
                     text_input("value", val)
                         .on_input(move |s| EventScrEditorMessage::ReturnValueChanged(index, s))
-                        .width(Length::Fill),
-                    button(text("↑").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionUp(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button(text("↓").size(12))
-                        .on_press(EventScrEditorMessage::MoveActionDown(index))
-                        .style(style::move_button)
-                        .padding([1, 3]),
-                    button("Del")
-                        .on_press(EventScrEditorMessage::ActionDeleted(index))
-                        .style(style::normal_row_button),
+                        .width(Length::Fill)
+                        .font(Font::MONOSPACE),
+                    move_buttons(index),
+                    del_button(index),
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center),
             )
-            .padding([2, 8])
+        } else {
+            render_error_aware(
+                index,
+                is_error,
+                row![
+                    indent_guides(depth),
+                    badge("TEXT", "text"),
+                    text_input("", raw)
+                        .on_input(move |s| {
+                            EventScrEditorMessage::ActionRawContentChanged(index, s)
+                        })
+                        .width(Length::Fill)
+                        .font(Font::MONOSPACE),
+                    move_buttons(index),
+                    del_button(index),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            )
+        }
+    } else {
+        let params_str = act.parameters.join(", ");
+        let prefix_options = build_prefix_options(script, act);
+        let current_prefix = act.prefix.clone().unwrap_or_else(|| "(none)".to_string());
+
+        let suggestion_row = if state.suggestion_visible
+            && state.suggestion_active_index == Some(index)
+            && !act.function_name.is_empty()
+        {
+            if let FunctionIndexState::Loaded(ref index_data) = state.index_state {
+                let picker = render_inline_suggestions(index, &act.function_name, index_data);
+                Some(picker)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        let mut func_row = column![render_error_aware(
+            index,
+            is_error,
+            row![
+                indent_guides(depth),
+                badge("FUNC", "func"),
+                pick_list(prefix_options, Some(current_prefix.clone()), move |v| {
+                    let opt = if v == "(none)" { None } else { Some(v) };
+                    EventScrEditorMessage::ActionPrefixPicked(index, opt)
+                },)
+                .text_size(12)
+                .padding([2, 6]),
+                text("~").size(13).style(style::subtle_text),
+                text_input("function", &act.function_name)
+                    .on_input(move |s| { EventScrEditorMessage::ActionFunctionChanged(index, s) })
+                    .width(Length::FillPortion(3))
+                    .font(Font::MONOSPACE),
+                text("(").size(13).style(style::subtle_text),
+                text_input("params", &params_str)
+                    .on_input(move |s| { EventScrEditorMessage::ActionParamsChanged(index, s) })
+                    .width(Length::FillPortion(2))
+                    .font(Font::MONOSPACE),
+                text(")").size(13).style(style::subtle_text),
+                move_buttons(index),
+                del_button(index),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
+        ),];
+
+        if let Some(sugg) = suggestion_row {
+            func_row = func_row.push(sugg);
+        }
+
+        return container(func_row)
+            .padding([3, 8])
             .width(Length::Fill)
             .into();
-        }
-        return container(
-            row![
-                Space::new().width(Length::Fixed(left)),
-                badge("TEXT"),
-                text_input("", raw)
-                    .on_input(move |s| EventScrEditorMessage::ActionRawContentChanged(index, s))
-                    .width(Length::Fill),
-                button(text("↑").size(12))
-                    .on_press(EventScrEditorMessage::MoveActionUp(index))
-                    .style(style::move_button)
-                    .padding([1, 3]),
-                button(text("↓").size(12))
-                    .on_press(EventScrEditorMessage::MoveActionDown(index))
-                    .style(style::move_button)
-                    .padding([1, 3]),
-                button("Del")
-                    .on_press(EventScrEditorMessage::ActionDeleted(index))
-                    .style(style::normal_row_button),
-            ]
-            .spacing(8)
-            .align_y(Alignment::Center),
-        )
-        .padding([2, 8])
-        .width(Length::Fill)
-        .into();
-    }
+    };
 
-    let params_str = act.parameters.join(", ");
-    container(
-        row![
-            Space::new().width(Length::Fixed(left)),
-            badge("FUNC"),
-            text_input("prefix", act.prefix.as_deref().unwrap_or(""))
-                .on_input(move |s| EventScrEditorMessage::ActionPrefixChanged(index, s))
-                .width(Length::FillPortion(1)),
-            text_input("function", &act.function_name)
-                .on_input(move |s| EventScrEditorMessage::ActionFunctionChanged(index, s))
-                .width(Length::FillPortion(3)),
-            text_input("params", &params_str)
-                .on_input(move |s| EventScrEditorMessage::ActionParamsChanged(index, s))
-                .width(Length::FillPortion(2)),
-            button(text("↑").size(12))
-                .on_press(EventScrEditorMessage::MoveActionUp(index))
-                .style(style::move_button)
-                .padding([1, 3]),
-            button(text("↓").size(12))
-                .on_press(EventScrEditorMessage::MoveActionDown(index))
-                .style(style::move_button)
-                .padding([1, 3]),
-            button("Del")
-                .on_press(EventScrEditorMessage::ActionDeleted(index))
-                .style(style::normal_row_button),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center),
-    )
-    .padding([2, 8])
-    .width(Length::Fill)
-    .into()
+    container(content)
+        .padding([3, 8])
+        .width(Length::Fill)
+        .into()
 }
 
 fn render_open_row<'a>(
@@ -642,11 +775,10 @@ fn render_open_row<'a>(
     depth: usize,
     folded: bool,
 ) -> Element<'a, EventScrEditorMessage> {
-    let left = 8.0 + depth as f32 * 24.0;
     let arrow = if folded { "▶" } else { "▼" };
     container(
         row![
-            Space::new().width(Length::Fixed(left)),
+            indent_guides(depth),
             button(text(arrow).size(11))
                 .on_press(EventScrEditorMessage::ToggleFold(index))
                 .style(style::fold_button)
@@ -669,16 +801,15 @@ fn render_open_row<'a>(
         .spacing(4)
         .align_y(Alignment::Center),
     )
-    .padding([2, 8])
+    .padding([3, 8])
     .width(Length::Fill)
     .into()
 }
 
 fn render_close_row<'a>(depth: usize, index: usize) -> Element<'a, EventScrEditorMessage> {
-    let left = 8.0 + depth as f32 * 24.0;
     container(
         row![
-            Space::new().width(Length::Fixed(left)),
+            indent_guides(depth),
             text("}").size(13).style(style::subtle_text),
             Space::new().width(Length::Fill),
             button(text("↑").size(12))
@@ -693,13 +824,12 @@ fn render_close_row<'a>(depth: usize, index: usize) -> Element<'a, EventScrEdito
         .spacing(8)
         .align_y(Alignment::Center),
     )
-    .padding([2, 8])
+    .padding([3, 8])
     .width(Length::Fill)
     .into()
 }
 
 fn render_folded_hint<'a>(depth: usize, count: usize) -> Element<'a, EventScrEditorMessage> {
-    let left = 8.0 + depth as f32 * 24.0;
     let label = if count == 1 {
         "… 1 action …"
     } else {
@@ -707,7 +837,7 @@ fn render_folded_hint<'a>(depth: usize, count: usize) -> Element<'a, EventScrEdi
     };
     container(
         row![
-            Space::new().width(Length::Fixed(left)),
+            indent_guides(depth),
             text(label).size(11).style(style::subtle_text),
         ]
         .spacing(8)
@@ -732,10 +862,18 @@ fn count_hidden(nodes: &[ScriptNode]) -> usize {
     count
 }
 
-fn badge<'a>(label: &'static str) -> Element<'a, EventScrEditorMessage> {
+fn badge<'a>(label: &'static str, kind: &str) -> Element<'a, EventScrEditorMessage> {
+    let s = match kind {
+        "if" => style::badge_if_container,
+        "else" => style::badge_else_container,
+        "ret" => style::badge_ret_container,
+        "func" => style::badge_func_container,
+        "text" => style::badge_text_container,
+        _ => style::badge_container,
+    };
     container(text(label).size(11))
         .padding([1, 5])
-        .style(style::badge_container)
+        .style(s)
         .into()
 }
 

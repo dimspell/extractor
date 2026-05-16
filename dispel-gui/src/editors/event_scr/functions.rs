@@ -82,9 +82,7 @@ pub fn build_index(
             if ext.as_deref() != Some("scr") {
                 continue;
             }
-            let stem = path
-                .file_stem()
-                .and_then(|s| s.to_str());
+            let stem = path.file_stem().and_then(|s| s.to_str());
             if stem.is_some_and(|s| s.to_lowercase().starts_with("event")) {
                 files.push(path);
             }

@@ -5,12 +5,12 @@ use iced::Task;
 
 use crate::app::App;
 use crate::editors::hex_editor::editing::{EditState, InspectorEditState};
-use crate::editors::mod_packager::recording::decide_op;
 use crate::editors::hex_editor::goto::GotoState;
 use crate::editors::hex_editor::inspector::ENTRIES;
 use crate::editors::hex_editor::selection::nav_target;
 use crate::editors::hex_editor::HexEditorMessage;
 use crate::editors::hex_editor::HexProvider;
+use crate::editors::mod_packager::recording::decide_op;
 use crate::message::{Message, MessageExt};
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height

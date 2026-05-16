@@ -412,10 +412,9 @@ impl App {
             self.state.event_scr_editor.index_state,
             crate::editors::event_scr::FunctionIndexState::Indexing { .. }
         ) {
-            let index_tick = iced::time::every(std::time::Duration::from_millis(100))
-                .map(|_| Message::event_scr(
-                    crate::editors::event_scr::EventScrEditorMessage::IndexTick,
-                ));
+            let index_tick = iced::time::every(std::time::Duration::from_millis(100)).map(|_| {
+                Message::event_scr(crate::editors::event_scr::EventScrEditorMessage::IndexTick)
+            });
             subscriptions.push(index_tick);
         }
 
@@ -456,6 +455,54 @@ impl App {
                     subscriptions.push(ss_sub);
                 }
             }
+        }
+
+        // Event Script Editor keyboard shortcuts.
+        if !palette_open
+            && !search_open
+            && active_et == Some(crate::workspace::EditorType::EventScrEditor)
+        {
+            use crate::editors::event_scr::{EventScrEditorMessage, KeyboardShortcut};
+            let esc_sub = keyboard::listen().filter_map(|event| {
+                if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                    if modifiers.control() || modifiers.command() {
+                        return match key.as_ref() {
+                            Key::Character("enter") => {
+                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::InsertActionBelow,
+                                )))
+                            }
+                            Key::Character(" ") => {
+                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::TogglePicker,
+                                )))
+                            }
+                            _ => None,
+                        };
+                    }
+                    if let Key::Named(named) = key.as_ref() {
+                        match named {
+                            Named::ArrowUp => {
+                                return Some(Message::event_scr(
+                                    EventScrEditorMessage::KeyboardShortcut(
+                                        KeyboardShortcut::MoveActionUp,
+                                    ),
+                                ))
+                            }
+                            Named::ArrowDown => {
+                                return Some(Message::event_scr(
+                                    EventScrEditorMessage::KeyboardShortcut(
+                                        KeyboardShortcut::MoveActionDown,
+                                    ),
+                                ))
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                None
+            });
+            subscriptions.push(esc_sub);
         }
 
         Subscription::batch(subscriptions)

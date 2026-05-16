@@ -10,7 +10,7 @@ pub mod view;
 // Re-exports
 pub use act_tree::ScriptNode;
 pub use functions::EventScriptFunctionIndex;
-pub use message::EventScrEditorMessage;
+pub use message::{EventScrEditorMessage, KeyboardShortcut};
 pub use state::{EventScriptEditorState, FunctionIndexState};
 pub use update::handle;
 pub use view::view;

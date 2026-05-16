@@ -60,6 +60,8 @@ pub struct EventScriptEditorState {
     pub picker_open: bool,
     pub picker_filter: String,
     pub pending_block_insert: Option<usize>,
+    pub suggestion_visible: bool,
+    pub suggestion_active_index: Option<usize>,
 }
 
 impl EventScriptEditorState {

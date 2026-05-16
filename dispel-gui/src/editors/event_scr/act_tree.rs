@@ -130,7 +130,9 @@ mod tests {
                 assert_eq!(*depth, 0);
                 assert_eq!(children.len(), 1);
                 if let ScriptNode::Statement {
-                    action_index, depth, ..
+                    action_index,
+                    depth,
+                    ..
                 } = &children[0]
                 {
                     assert_eq!(*action_index, 1);
@@ -156,7 +158,10 @@ mod tests {
         assert_eq!(tree.len(), 1);
         if let ScriptNode::Block { children, .. } = &tree[0] {
             assert_eq!(children.len(), 1);
-            if let ScriptNode::Block { children: inner, .. } = &children[0] {
+            if let ScriptNode::Block {
+                children: inner, ..
+            } = &children[0]
+            {
                 assert_eq!(inner.len(), 1);
             } else {
                 panic!("Expected inner Block");
@@ -189,10 +194,7 @@ mod tests {
         let actions = vec![act(Some("}"))];
         let tree = build_act_tree(&actions);
         assert_eq!(tree.len(), 1);
-        if let ScriptNode::Statement {
-            action_index, ..
-        } = &tree[0]
-        {
+        if let ScriptNode::Statement { action_index, .. } = &tree[0] {
             assert_eq!(*action_index, 0);
         } else {
             panic!("Expected Statement");
@@ -216,10 +218,7 @@ mod tests {
         ];
         let tree = build_act_tree(&actions);
         assert_eq!(tree.len(), 2);
-        if let ScriptNode::Statement {
-            action_index, ..
-        } = &tree[0]
-        {
+        if let ScriptNode::Statement { action_index, .. } = &tree[0] {
             assert_eq!(*action_index, 0);
         } else {
             panic!("Expected Statement for if");
