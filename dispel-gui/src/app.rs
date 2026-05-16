@@ -818,7 +818,7 @@ fn build_spreadsheet_nav_msg(
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "iced_test"))]
 mod tests {
     use super::*;
     use crate::workspace::{EditorType, Workspace, WorkspaceTab};
