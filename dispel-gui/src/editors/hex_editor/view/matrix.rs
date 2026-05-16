@@ -1042,21 +1042,22 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             let base_addr = row_idx * bpr as u64;
             let y = bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
-            // Address gutter.
+            // Address gutter — right-aligned.
             let addr_str = if self.show_decimal {
                 format!("{}", base_addr)
             } else {
                 format!("{:08X}", base_addr)
             };
+            let text_w = addr_str.len() as f32 * 9.0;
             draw_glyph_string(
                 renderer,
                 &self.cache,
                 &addr_str,
                 font,
                 Rectangle {
-                    x: bounds.x + 8.0,
+                    x: bounds.x + self.addr_col_width() - 8.0 - text_w,
                     y,
-                    width: self.addr_col_width() - 16.0,
+                    width: text_w,
                     height: ROW_HEIGHT,
                 },
                 addr_color,
