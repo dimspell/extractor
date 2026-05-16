@@ -29,6 +29,10 @@ pub enum EventScrEditorMessage {
     ActionParamsChanged(usize, String),
     ActionRawContentChanged(usize, String),
     ActionDeleted(usize),
+    // Tree view
+    ToggleFold(usize),
+    IfConditionChanged(usize, String),
+    ReturnValueChanged(usize, String),
     // File operations
     LoadScript(PathBuf),
     ScriptLoaded(EventScript),

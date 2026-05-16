@@ -3,6 +3,7 @@ use std::sync::atomic::Ordering;
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_rule as hr;
+use crate::editors::event_scr::act_tree::{build_act_tree, ScriptNode};
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::style;
@@ -294,7 +295,6 @@ fn view_act_section<'a>(
     script: &'a dispel_core::references::event_scr::EventScript,
     state: &'a EventScriptEditorState,
 ) -> Element<'a, EventScrEditorMessage> {
-    // ── Index status / picker toolbar ────────────────────────────────────
     let index_info: Element<'a, EventScrEditorMessage> = match &state.index_state {
         FunctionIndexState::Loaded(index) => {
             let count = index.functions.len();
@@ -328,78 +328,14 @@ fn view_act_section<'a>(
             .into(),
     };
 
-    // ── Function picker ──────────────────────────────────────────────────
     let picker: Option<Element<'static, EventScrEditorMessage>> = if state.picker_open {
         Some(view_function_picker(state))
     } else {
         None
     };
 
-    // ── Action rows ──────────────────────────────────────────────────────
-    let header = row![
-        text("Type")
-            .style(style::section_header)
-            .width(Length::FillPortion(1)),
-        text("Prefix")
-            .style(style::section_header)
-            .width(Length::FillPortion(1)),
-        text("Function/Content")
-            .style(style::section_header)
-            .width(Length::FillPortion(3)),
-        text("Params")
-            .style(style::section_header)
-            .width(Length::FillPortion(2)),
-        text("Actions")
-            .style(style::section_header)
-            .width(Length::FillPortion(1)),
-    ]
-    .spacing(10);
-
-    let rows: Vec<Element<EventScrEditorMessage>> = script
-        .actions
-        .iter()
-        .enumerate()
-        .map(|(i, act)| {
-            if let Some(ref raw) = act.raw_content {
-                // Raw control flow content (if/{/} etc.) - editable
-                row![
-                    text("Ctrl").width(Length::FillPortion(1)),
-                    text("-").width(Length::FillPortion(1)),
-                    text_input("", raw)
-                        .on_input(move |s| EventScrEditorMessage::ActionRawContentChanged(i, s))
-                        .width(Length::FillPortion(3)),
-                    text("-").width(Length::FillPortion(2)),
-                    button("Delete")
-                        .on_press(EventScrEditorMessage::ActionDeleted(i))
-                        .width(Length::FillPortion(1))
-                        .style(style::normal_row_button),
-                ]
-                .spacing(10)
-                .into()
-            } else {
-                // Structured action function
-                let params_str = act.parameters.join(", ");
-                row![
-                    text("Func").width(Length::FillPortion(1)),
-                    text_input("", act.prefix.as_deref().unwrap_or(""))
-                        .on_input(move |s| EventScrEditorMessage::ActionPrefixChanged(i, s))
-                        .width(Length::FillPortion(1)),
-                    text_input("", &act.function_name)
-                        .on_input(move |s| EventScrEditorMessage::ActionFunctionChanged(i, s))
-                        .width(Length::FillPortion(3)),
-                    text_input("", &params_str)
-                        .on_input(move |s| EventScrEditorMessage::ActionParamsChanged(i, s))
-                        .width(Length::FillPortion(2)),
-                    button("Delete")
-                        .on_press(EventScrEditorMessage::ActionDeleted(i))
-                        .width(Length::FillPortion(1))
-                        .style(style::normal_row_button),
-                ]
-                .spacing(10)
-                .into()
-            }
-        })
-        .collect();
+    let tree_nodes = build_act_tree(&script.actions);
+    let tree_elements = render_act_tree(&tree_nodes, &script.actions, state);
 
     let mut act_content: Vec<Element<EventScrEditorMessage>> = Vec::new();
 
@@ -432,14 +368,243 @@ fn view_act_section<'a>(
         .into(),
     );
 
-    act_content.push(header.into());
     act_content.push(
-        scrollable(column(rows).spacing(5))
+        scrollable(column(tree_elements).spacing(2))
             .height(Length::Fill)
             .into(),
     );
 
     column(act_content).spacing(10).into()
+}
+
+// ── Tree rendering ──────────────────────────────────────────────────────────
+
+fn render_act_tree<'a>(
+    nodes: &[ScriptNode],
+    actions: &'a [dispel_core::references::event_scr::ActionFunction],
+    state: &'a EventScriptEditorState,
+) -> Vec<Element<'a, EventScrEditorMessage>> {
+    let mut elements = Vec::new();
+    for node in nodes {
+        match node {
+            ScriptNode::Statement {
+                action_index,
+                depth,
+            } => {
+                elements.push(render_action_row(*action_index, *depth, actions));
+            }
+            ScriptNode::Block {
+                open_index,
+                close_index,
+                depth,
+                children,
+            } => {
+                let folded = state.act_folded.contains(open_index);
+                elements.push(render_open_row(*open_index, *depth, folded));
+                if folded {
+                    let hidden = count_hidden(children);
+                    elements.push(render_folded_hint(*depth + 1, hidden));
+                } else {
+                    elements.extend(render_act_tree(children, actions, state));
+                    if *close_index != usize::MAX {
+                        elements.push(render_close_row(*depth));
+                    }
+                }
+            }
+        }
+    }
+    elements
+}
+
+fn render_action_row<'a>(
+    index: usize,
+    depth: usize,
+    actions: &'a [dispel_core::references::event_scr::ActionFunction],
+) -> Element<'a, EventScrEditorMessage> {
+    let act = &actions[index];
+    let left = 8.0 + depth as f32 * 24.0;
+
+    if let Some(ref raw) = act.raw_content {
+        if let Some(cond) = raw.strip_prefix("if(").and_then(|s| s.strip_suffix(')')) {
+            return container(
+                row![
+                    Space::new().width(Length::Fixed(left)),
+                    badge("IF"),
+                    text("Cond:").size(12).style(style::subtle_text),
+                    text_input("condition", cond)
+                        .on_input(move |s| EventScrEditorMessage::IfConditionChanged(index, s))
+                        .width(Length::Fill),
+                    button("Del")
+                        .on_press(EventScrEditorMessage::ActionDeleted(index))
+                        .style(style::normal_row_button),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            )
+            .padding([2, 8])
+            .width(Length::Fill)
+            .into();
+        }
+        if raw == "else" {
+            return container(
+                row![
+                    Space::new().width(Length::Fixed(left)),
+                    badge("ELSE"),
+                    Space::new().width(Length::Fill),
+                    button("Del")
+                        .on_press(EventScrEditorMessage::ActionDeleted(index))
+                        .style(style::normal_row_button),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            )
+            .padding([2, 8])
+            .width(Length::Fill)
+            .into();
+        }
+        if let Some(val) = raw.strip_prefix("return(").and_then(|s| s.strip_suffix(')')) {
+            return container(
+                row![
+                    Space::new().width(Length::Fixed(left)),
+                    badge("RET"),
+                    text("Val:").size(12).style(style::subtle_text),
+                    text_input("value", val)
+                        .on_input(move |s| EventScrEditorMessage::ReturnValueChanged(index, s))
+                        .width(Length::Fill),
+                    button("Del")
+                        .on_press(EventScrEditorMessage::ActionDeleted(index))
+                        .style(style::normal_row_button),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center),
+            )
+            .padding([2, 8])
+            .width(Length::Fill)
+            .into();
+        }
+        return container(
+            row![
+                Space::new().width(Length::Fixed(left)),
+                badge("TEXT"),
+                text_input("", raw)
+                    .on_input(move |s| EventScrEditorMessage::ActionRawContentChanged(index, s))
+                    .width(Length::Fill),
+                button("Del")
+                    .on_press(EventScrEditorMessage::ActionDeleted(index))
+                    .style(style::normal_row_button),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        )
+        .padding([2, 8])
+        .width(Length::Fill)
+        .into();
+    }
+
+    let params_str = act.parameters.join(", ");
+    container(
+        row![
+            Space::new().width(Length::Fixed(left)),
+            badge("FUNC"),
+            text_input("prefix", act.prefix.as_deref().unwrap_or(""))
+                .on_input(move |s| EventScrEditorMessage::ActionPrefixChanged(index, s))
+                .width(Length::FillPortion(1)),
+            text_input("function", &act.function_name)
+                .on_input(move |s| EventScrEditorMessage::ActionFunctionChanged(index, s))
+                .width(Length::FillPortion(3)),
+            text_input("params", &params_str)
+                .on_input(move |s| EventScrEditorMessage::ActionParamsChanged(index, s))
+                .width(Length::FillPortion(2)),
+            button("Del")
+                .on_press(EventScrEditorMessage::ActionDeleted(index))
+                .style(style::normal_row_button),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    )
+    .padding([2, 8])
+    .width(Length::Fill)
+    .into()
+}
+
+fn render_open_row<'a>(
+    index: usize,
+    depth: usize,
+    folded: bool,
+) -> Element<'a, EventScrEditorMessage> {
+    let left = 8.0 + depth as f32 * 24.0;
+    let arrow = if folded { "▶" } else { "▼" };
+    container(
+        row![
+            Space::new().width(Length::Fixed(left)),
+            button(text(arrow).size(11))
+                .on_press(EventScrEditorMessage::ToggleFold(index))
+                .style(style::fold_button)
+                .padding([1, 3]),
+            text("{").size(13).style(style::subtle_text),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center),
+    )
+    .padding([2, 8])
+    .width(Length::Fill)
+    .into()
+}
+
+fn render_close_row<'a>(depth: usize) -> Element<'a, EventScrEditorMessage> {
+    let left = 8.0 + depth as f32 * 24.0;
+    container(
+        row![
+            Space::new().width(Length::Fixed(left)),
+            text("}").size(13).style(style::subtle_text),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    )
+    .padding([2, 8])
+    .width(Length::Fill)
+    .into()
+}
+
+fn render_folded_hint<'a>(depth: usize, count: usize) -> Element<'a, EventScrEditorMessage> {
+    let left = 8.0 + depth as f32 * 24.0;
+    let label = if count == 1 {
+        "… 1 action …"
+    } else {
+        "… actions …"
+    };
+    container(
+        row![
+            Space::new().width(Length::Fixed(left)),
+            text(label).size(11).style(style::subtle_text),
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
+    )
+    .padding([2, 8])
+    .width(Length::Fill)
+    .into()
+}
+
+fn count_hidden(nodes: &[ScriptNode]) -> usize {
+    let mut count = 0;
+    for node in nodes {
+        match node {
+            ScriptNode::Statement { .. } => count += 1,
+            ScriptNode::Block { children, .. } => {
+                count += count_hidden(children);
+                count += 1;
+            }
+        }
+    }
+    count
+}
+
+fn badge<'a>(label: &'static str) -> Element<'a, EventScrEditorMessage> {
+    container(text(label).size(11))
+        .padding([1, 5])
+        .style(style::badge_container)
+        .into()
 }
 
 fn view_status_bar(state: &EventScriptEditorState) -> Element<'static, EventScrEditorMessage> {

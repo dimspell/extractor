@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -67,6 +68,7 @@ pub struct EventScriptEditorState {
     pub modified: bool,
     pub save_error: Option<String>,
     pub act_parse_errors: Vec<(usize, String)>,
+    pub act_folded: HashSet<usize>,
     pub index_state: FunctionIndexState,
     pub picker_open: bool,
     pub picker_filter: String,

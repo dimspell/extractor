@@ -239,6 +239,12 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     state.act_parse_errors = validate_script(script);
                 }
             }
+            state.act_folded.remove(&index);
+            state.act_folded = state
+                .act_folded
+                .iter()
+                .map(|&i| if i > index { i - 1 } else { i })
+                .collect();
             Task::none()
         }
         EventScrEditorMessage::LoadScript(path) => load_from_path(path),
@@ -246,6 +252,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             state.script_loading = LoadingState::Loaded(script);
             state.modified = false;
             state.save_error = None;
+            state.act_folded.clear();
             // Auto-index if not already loaded/indexing
             let should_index = matches!(state.index_state, FunctionIndexState::Idle);
             if should_index && !app.state.shared_game_path.is_empty() {
@@ -395,6 +402,39 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                 state.act_parse_errors = validate_script(script);
                 state.picker_open = false;
                 state.picker_filter.clear();
+            }
+            Task::none()
+        }
+        // ── Tree view ────────────────────────────────────────────────────
+        EventScrEditorMessage::ToggleFold(index) => {
+            if !state.act_folded.remove(&index) {
+                state.act_folded.insert(index);
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::IfConditionChanged(index, cond) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.raw_content = Some(format!("if({})", cond));
+                    act.prefix = None;
+                    act.function_name = String::new();
+                    act.parameters = Vec::new();
+                    state.modified = true;
+                    state.act_parse_errors = validate_script(script);
+                }
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::ReturnValueChanged(index, val) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                if let Some(act) = script.actions.get_mut(index) {
+                    act.raw_content = Some(format!("return({})", val));
+                    act.prefix = None;
+                    act.function_name = String::new();
+                    act.parameters = Vec::new();
+                    state.modified = true;
+                    state.act_parse_errors = validate_script(script);
+                }
             }
             Task::none()
         }
