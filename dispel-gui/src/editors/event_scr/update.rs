@@ -179,6 +179,50 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        EventScrEditorMessage::InsertActionAt(index) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                let pos = index.min(script.actions.len());
+                script.actions.insert(
+                    pos,
+                    ActionFunction {
+                        prefix: None,
+                        function_name: String::new(),
+                        parameters: Vec::new(),
+                        raw_content: None,
+                    },
+                );
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+                state.act_folded = state
+                    .act_folded
+                    .iter()
+                    .map(|&i| if i >= pos { i + 1 } else { i })
+                    .collect();
+            }
+            Task::none()
+        }
+        EventScrEditorMessage::InsertRawAt(index) => {
+            if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                let pos = index.min(script.actions.len());
+                script.actions.insert(
+                    pos,
+                    ActionFunction {
+                        prefix: None,
+                        function_name: String::new(),
+                        parameters: Vec::new(),
+                        raw_content: Some(String::new()),
+                    },
+                );
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
+                state.act_folded = state
+                    .act_folded
+                    .iter()
+                    .map(|&i| if i >= pos { i + 1 } else { i })
+                    .collect();
+            }
+            Task::none()
+        }
         EventScrEditorMessage::ActionRawContentChanged(index, content) => {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {

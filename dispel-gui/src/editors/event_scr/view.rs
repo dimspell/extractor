@@ -602,6 +602,11 @@ fn render_open_row<'a>(
                 .style(style::fold_button)
                 .padding([1, 3]),
             text("{").size(13).style(style::subtle_text),
+            Space::new().width(Length::Fill),
+            button(text("+").size(13))
+                .on_press(EventScrEditorMessage::InsertActionAt(index + 1))
+                .style(style::chip)
+                .padding([1, 7]),
         ]
         .spacing(4)
         .align_y(Alignment::Center),

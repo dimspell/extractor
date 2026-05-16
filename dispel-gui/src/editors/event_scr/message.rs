@@ -33,6 +33,9 @@ pub enum EventScrEditorMessage {
     ToggleFold(usize),
     IfConditionChanged(usize, String),
     ReturnValueChanged(usize, String),
+    // Insert at specific position (inside blocks)
+    InsertActionAt(usize),
+    InsertRawAt(usize),
     // File operations
     LoadScript(PathBuf),
     ScriptLoaded(EventScript),
