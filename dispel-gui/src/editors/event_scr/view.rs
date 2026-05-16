@@ -10,7 +10,7 @@ use crate::style;
 use iced::widget::{
     button, column, container, progress_bar, row, scrollable, text, text_input, Space,
 };
-use iced::{Alignment, Color, Element, Font, Length};
+use iced::{Alignment, Color, Element, Length};
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.event_scr_editor;
@@ -18,37 +18,8 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let base = match &state.script_loading {
         LoadingState::Loaded(script) => {
             let script_id = script.id;
-            let active_tab = state.active_section;
-
-            // Tab bar
-            let tabs = row![
-                tab_button(SectionTab::Header, active_tab),
-                tab_button(SectionTab::Var, active_tab),
-                tab_button(SectionTab::Map, active_tab),
-                tab_button(SectionTab::Chr, active_tab),
-                tab_button(SectionTab::Npc, active_tab),
-                tab_button(SectionTab::Spr, active_tab),
-                tab_button(SectionTab::Wav, active_tab),
-                tab_button(SectionTab::Act, active_tab),
-            ]
-            .spacing(5)
-            .wrap();
-
-            // Section content
-            let content: Element<EventScrEditorMessage> = match active_tab {
-                SectionTab::Header => view_header(script),
-                SectionTab::Var => view_var_section(script),
-                SectionTab::Map => view_line_section(script, SectionTab::Map),
-                SectionTab::Chr => view_line_section(script, SectionTab::Chr),
-                SectionTab::Npc => view_line_section(script, SectionTab::Npc),
-                SectionTab::Spr => view_spr_section(script),
-                SectionTab::Wav => view_line_section(script, SectionTab::Wav),
-                SectionTab::Act => view_act_section(script, state),
-            };
-
             let modified_indicator = if state.modified { " ●" } else { "" };
 
-            // Save button and errors
             let save_button = button("Save")
                 .on_press(EventScrEditorMessage::SaveScript)
                 .style(if state.modified {
@@ -64,6 +35,182 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 text("").into()
             };
 
+            let index_info: Element<EventScrEditorMessage> = match &state.index_state {
+                FunctionIndexState::Loaded(index) => {
+                    let count = index.functions.len();
+                    row![
+                        text(format!("{} function(s) indexed", count))
+                            .size(12)
+                            .style(style::subtle_text),
+                        button("Refresh Index")
+                            .on_press(EventScrEditorMessage::BuildFunctionIndex)
+                            .padding([4, 10]),
+                    ]
+                    .spacing(10)
+                    .align_y(Alignment::Center)
+                    .into()
+                }
+                FunctionIndexState::Failed(e) => row![
+                    text("Index: ")
+                        .size(12)
+                        .color(Color::from_rgb(0.8, 0.3, 0.3)),
+                    text(e).size(12).color(Color::from_rgb(0.8, 0.3, 0.3)),
+                    button("Retry")
+                        .on_press(EventScrEditorMessage::BuildFunctionIndex)
+                        .padding([4, 10]),
+                ]
+                .spacing(8)
+                .align_y(Alignment::Center)
+                .into(),
+                _ => button("Build Index")
+                    .on_press(EventScrEditorMessage::BuildFunctionIndex)
+                    .padding([4, 10])
+                    .into(),
+            };
+
+            let picker: Option<Element<'static, EventScrEditorMessage>> = if state.picker_open {
+                Some(view_function_picker(state))
+            } else {
+                None
+            };
+
+            let act_toolbar = row![
+                button("+ Add Action")
+                    .on_press(EventScrEditorMessage::ActionAdded)
+                    .style(style::browse_button),
+                button("+ Raw Text")
+                    .on_press(EventScrEditorMessage::ActionRawAdded)
+                    .style(style::browse_button),
+                button("IF")
+                    .on_press(EventScrEditorMessage::InsertIfBlock)
+                    .style(style::chip),
+                button("ELSE")
+                    .on_press(EventScrEditorMessage::InsertElseBlock)
+                    .style(style::chip),
+                button("RET")
+                    .on_press(EventScrEditorMessage::InsertReturnBlock)
+                    .style(style::chip),
+                button("Pick")
+                    .on_press(EventScrEditorMessage::ToggleFunctionPicker)
+                    .style(style::chip),
+            ]
+            .spacing(10);
+
+            let tree_nodes = build_act_tree(&script.actions);
+            let tree_elements = render_act_tree(&tree_nodes, &script.actions, state);
+
+            let mut page_content: Vec<Element<EventScrEditorMessage>> = Vec::new();
+
+            // ACT section — always visible, permanently expanded
+            page_content.push(
+                text("Action Functions").size(16).style(style::section_header).into(),
+            );
+            page_content.push(index_info);
+            if let Some(picker_view) = picker {
+                page_content.push(picker_view);
+            }
+            page_content.push(act_toolbar.into());
+            page_content.push(column(tree_elements).spacing(2).into());
+
+            // Collapsible panels (all non-ACT sections)
+            // Header
+            page_content.push(collapsible_panel(
+                SectionTab::Header,
+                "Header",
+                script.header_comments.len(),
+                state,
+                None,
+                if state.panels_expanded.contains(&SectionTab::Header) {
+                    Some(body_header(script))
+                } else {
+                    None
+                },
+            ));
+
+            // Variables
+            page_content.push(collapsible_panel(
+                SectionTab::Var,
+                "Variables",
+                script.variables.len(),
+                state,
+                Some(EventScrEditorMessage::VariableAdded),
+                if state.panels_expanded.contains(&SectionTab::Var) {
+                    Some(body_var(script))
+                } else {
+                    None
+                },
+            ));
+
+            // Map
+            page_content.push(collapsible_panel(
+                SectionTab::Map,
+                "Map",
+                script.map_content.len(),
+                state,
+                Some(EventScrEditorMessage::LineAdded(SectionTab::Map)),
+                if state.panels_expanded.contains(&SectionTab::Map) {
+                    Some(body_line(script, SectionTab::Map))
+                } else {
+                    None
+                },
+            ));
+
+            // Chr
+            page_content.push(collapsible_panel(
+                SectionTab::Chr,
+                "Chr",
+                script.chr_content.len(),
+                state,
+                Some(EventScrEditorMessage::LineAdded(SectionTab::Chr)),
+                if state.panels_expanded.contains(&SectionTab::Chr) {
+                    Some(body_line(script, SectionTab::Chr))
+                } else {
+                    None
+                },
+            ));
+
+            // Npc
+            page_content.push(collapsible_panel(
+                SectionTab::Npc,
+                "Npc",
+                script.npc_content.len(),
+                state,
+                Some(EventScrEditorMessage::LineAdded(SectionTab::Npc)),
+                if state.panels_expanded.contains(&SectionTab::Npc) {
+                    Some(body_line(script, SectionTab::Npc))
+                } else {
+                    None
+                },
+            ));
+
+            // Sprites
+            page_content.push(collapsible_panel(
+                SectionTab::Spr,
+                "Sprites",
+                script.spr_content.len(),
+                state,
+                Some(EventScrEditorMessage::SpriteAdded),
+                if state.panels_expanded.contains(&SectionTab::Spr) {
+                    Some(body_spr(script))
+                } else {
+                    None
+                },
+            ));
+
+            // Wav
+            page_content.push(collapsible_panel(
+                SectionTab::Wav,
+                "Wav",
+                script.wav_content.len(),
+                state,
+                Some(EventScrEditorMessage::LineAdded(SectionTab::Wav)),
+                if state.panels_expanded.contains(&SectionTab::Wav) {
+                    Some(body_line(script, SectionTab::Wav))
+                } else {
+                    None
+                },
+            ));
+
             column![
                 row![
                     text(format!("EventScript [{}]", script_id)).size(20),
@@ -73,9 +220,8 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                     Space::new().width(Length::Fill),
                     save_button,
                 ]
-                .align_y(iced::Alignment::Center),
-                tabs,
-                content,
+                .align_y(Alignment::Center),
+                scrollable(column(page_content).spacing(10)).height(Length::Fill),
                 save_error,
                 hr(1),
                 view_status_bar(state),
@@ -97,7 +243,6 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         LoadingState::Idle | LoadingState::Loading => empty_editor(),
     };
 
-    // Wrap in indexing progress modal when scanning is active.
     if matches!(state.index_state, FunctionIndexState::Indexing { .. }) {
         let modal_content = index_progress_modal(state);
         crate::components::modal::modal(
@@ -111,48 +256,79 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     }
 }
 
-fn tab_button(tab: SectionTab, active: SectionTab) -> Element<'static, EventScrEditorMessage> {
-    let is_active = tab == active;
-    let label = if is_active {
-        text(tab.label()).font(Font {
-            weight: iced::font::Weight::Bold,
-            ..Font::DEFAULT
-        })
-    } else {
-        text(tab.label())
-    };
-    button(label)
-        .on_press(EventScrEditorMessage::SectionChanged(tab))
-        .style(if is_active {
-            style::active_tab_button
-        } else {
-            style::tab_button
-        })
+fn collapsible_panel<'a>(
+    tab: SectionTab,
+    label: &'a str,
+    count: usize,
+    state: &EventScriptEditorState,
+    add_msg: Option<EventScrEditorMessage>,
+    body: Option<Vec<Element<'a, EventScrEditorMessage>>>,
+) -> Element<'a, EventScrEditorMessage> {
+    let expanded = state.panels_expanded.contains(&tab);
+    let arrow = if expanded { "▼" } else { "▶" };
+    let count_str = format!(" ({})", count);
+
+    let mut header_children: Vec<Element<EventScrEditorMessage>> = vec![
+        text(arrow).size(13).into(),
+        text(label).size(14).style(style::section_header).into(),
+        text(count_str).size(12).style(style::subtle_text).into(),
+        Space::new().width(Length::Fill).into(),
+    ];
+
+    if let Some(msg) = add_msg {
+        header_children.push(
+            button(text("+").size(14))
+                .on_press(msg)
+                .style(style::chip)
+                .padding([1, 8])
+                .into(),
+        );
+    }
+
+    let header = button(
+        row(header_children)
+            .spacing(8)
+            .align_y(Alignment::Center),
+    )
+    .on_press(EventScrEditorMessage::TogglePanel(tab))
+    .style(style::tab_button)
+    .padding([4, 8])
+    .width(Length::Fill);
+
+    if let Some(body_content) = body {
+        container(
+            column![
+                header,
+                container(column(body_content).spacing(4))
+                    .padding([4, 12])
+                    .width(Length::Fill),
+            ]
+            .spacing(0),
+        )
+        .style(style::panel_container)
+        .width(Length::Fill)
         .into()
+    } else {
+        container(header)
+            .style(style::panel_container)
+            .width(Length::Fill)
+            .into()
+    }
 }
 
-fn view_header(
+fn body_header(
     script: &dispel_core::references::event_scr::EventScript,
-) -> Element<'static, EventScrEditorMessage> {
-    let comments: Vec<Element<EventScrEditorMessage>> = script
+) -> Vec<Element<'static, EventScrEditorMessage>> {
+    script
         .header_comments
         .iter()
         .map(|line| text(line.clone()).into())
-        .collect();
-
-    column![
-        text("Header Comments")
-            .size(16)
-            .style(style::section_header),
-        column(comments).spacing(5),
-    ]
-    .spacing(10)
-    .into()
+        .collect()
 }
 
-fn view_var_section(
+fn body_var(
     script: &dispel_core::references::event_scr::EventScript,
-) -> Element<'static, EventScrEditorMessage> {
+) -> Vec<Element<'static, EventScrEditorMessage>> {
     let header = row![
         text("Name")
             .style(style::section_header)
@@ -166,11 +342,10 @@ fn view_var_section(
     ]
     .spacing(10);
 
-    let rows: Vec<Element<EventScrEditorMessage>> = script
-        .variables
-        .iter()
-        .enumerate()
-        .map(|(i, var)| {
+    let mut rows: Vec<Element<EventScrEditorMessage>> = vec![header.into()];
+
+    for (i, var) in script.variables.iter().enumerate() {
+        rows.push(
             row![
                 text_input("", &var.name)
                     .on_input(move |s| EventScrEditorMessage::VariableNameChanged(i, s))
@@ -184,35 +359,26 @@ fn view_var_section(
                     .style(style::normal_row_button),
             ]
             .spacing(10)
-            .into()
-        })
-        .collect();
+            .into(),
+        );
+    }
 
-    column![
-        text("Variables").size(16).style(style::section_header),
-        header,
-        scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Variable")
-            .on_press(EventScrEditorMessage::VariableAdded)
-            .style(style::browse_button),
-    ]
-    .spacing(10)
-    .into()
+    rows
 }
 
-fn view_line_section(
+fn body_line(
     script: &dispel_core::references::event_scr::EventScript,
     section: SectionTab,
-) -> Element<'static, EventScrEditorMessage> {
+) -> Vec<Element<'static, EventScrEditorMessage>> {
     let lines: &Vec<String> = match section {
         SectionTab::Map => &script.map_content,
         SectionTab::Chr => &script.chr_content,
         SectionTab::Npc => &script.npc_content,
         SectionTab::Wav => &script.wav_content,
-        _ => return text("Invalid section").into(),
+        _ => return vec![text("Invalid section").into()],
     };
 
-    let rows: Vec<Element<EventScrEditorMessage>> = lines
+    lines
         .iter()
         .enumerate()
         .map(|(i, line)| {
@@ -228,22 +394,12 @@ fn view_line_section(
             .spacing(10)
             .into()
         })
-        .collect();
-
-    column![
-        text(section.label()).size(16).style(style::section_header),
-        scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Line")
-            .on_press(EventScrEditorMessage::LineAdded(section))
-            .style(style::browse_button),
-    ]
-    .spacing(10)
-    .into()
+        .collect()
 }
 
-fn view_spr_section(
+fn body_spr(
     script: &dispel_core::references::event_scr::EventScript,
-) -> Element<'static, EventScrEditorMessage> {
+) -> Vec<Element<'static, EventScrEditorMessage>> {
     let header = row![
         text("Alias")
             .style(style::section_header)
@@ -257,11 +413,10 @@ fn view_spr_section(
     ]
     .spacing(10);
 
-    let rows: Vec<Element<EventScrEditorMessage>> = script
-        .spr_content
-        .iter()
-        .enumerate()
-        .map(|(i, spr)| {
+    let mut rows: Vec<Element<EventScrEditorMessage>> = vec![header.into()];
+
+    for (i, spr) in script.spr_content.iter().enumerate() {
+        rows.push(
             row![
                 text_input("", &spr.sprite_alias)
                     .on_input(move |s| EventScrEditorMessage::SpriteAliasChanged(i, s))
@@ -275,115 +430,11 @@ fn view_spr_section(
                     .style(style::normal_row_button),
             ]
             .spacing(10)
-            .into()
-        })
-        .collect();
-
-    column![
-        text("Sprites").size(16).style(style::section_header),
-        header,
-        scrollable(column(rows).spacing(5)).height(Length::Fill),
-        button("+ Add Sprite")
-            .on_press(EventScrEditorMessage::SpriteAdded)
-            .style(style::browse_button),
-    ]
-    .spacing(10)
-    .into()
-}
-
-fn view_act_section<'a>(
-    script: &'a dispel_core::references::event_scr::EventScript,
-    state: &'a EventScriptEditorState,
-) -> Element<'a, EventScrEditorMessage> {
-    let index_info: Element<'a, EventScrEditorMessage> = match &state.index_state {
-        FunctionIndexState::Loaded(index) => {
-            let count = index.functions.len();
-            row![
-                text(format!("{} function(s) indexed", count))
-                    .size(12)
-                    .style(style::subtle_text),
-                button("Refresh Index")
-                    .on_press(EventScrEditorMessage::BuildFunctionIndex)
-                    .padding([4, 10]),
-            ]
-            .spacing(10)
-            .align_y(Alignment::Center)
-            .into()
-        }
-        FunctionIndexState::Failed(e) => row![
-            text("Index: ")
-                .size(12)
-                .color(Color::from_rgb(0.8, 0.3, 0.3)),
-            text(e).size(12).color(Color::from_rgb(0.8, 0.3, 0.3)),
-            button("Retry")
-                .on_press(EventScrEditorMessage::BuildFunctionIndex)
-                .padding([4, 10]),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center)
-        .into(),
-        _ => button("Build Index")
-            .on_press(EventScrEditorMessage::BuildFunctionIndex)
-            .padding([4, 10])
             .into(),
-    };
-
-    let picker: Option<Element<'static, EventScrEditorMessage>> = if state.picker_open {
-        Some(view_function_picker(state))
-    } else {
-        None
-    };
-
-    let tree_nodes = build_act_tree(&script.actions);
-    let tree_elements = render_act_tree(&tree_nodes, &script.actions, state);
-
-    let mut act_content: Vec<Element<EventScrEditorMessage>> = Vec::new();
-
-    act_content.push(
-        text("Action Functions")
-            .size(16)
-            .style(style::section_header)
-            .into(),
-    );
-
-    act_content.push(index_info);
-
-    if let Some(picker_view) = picker {
-        act_content.push(picker_view);
+        );
     }
 
-    act_content.push(
-        row![
-            button("+ Add Action")
-                .on_press(EventScrEditorMessage::ActionAdded)
-                .style(style::browse_button),
-            button("+ Raw Text")
-                .on_press(EventScrEditorMessage::ActionRawAdded)
-                .style(style::browse_button),
-            button("IF")
-                .on_press(EventScrEditorMessage::InsertIfBlock)
-                .style(style::chip),
-            button("ELSE")
-                .on_press(EventScrEditorMessage::InsertElseBlock)
-                .style(style::chip),
-            button("RET")
-                .on_press(EventScrEditorMessage::InsertReturnBlock)
-                .style(style::chip),
-            button("Pick")
-                .on_press(EventScrEditorMessage::ToggleFunctionPicker)
-                .style(style::chip),
-        ]
-        .spacing(10)
-        .into(),
-    );
-
-    act_content.push(
-        scrollable(column(tree_elements).spacing(2))
-            .height(Length::Fill)
-            .into(),
-    );
-
-    column(act_content).spacing(10).into()
+    rows
 }
 
 // ── Tree rendering ──────────────────────────────────────────────────────────

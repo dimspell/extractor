@@ -1285,6 +1285,20 @@ pub fn inspector_container(_theme: &Theme) -> container::Style {
     }
 }
 
+// ── Event Script Editor collapsible panel ────────────────────────────────────
+
+pub fn panel_container(_theme: &Theme) -> container::Style {
+    container::Style {
+        background: Some(Background::Color(color!(0x1e1b17))),
+        border: Border {
+            color: color!(0x3d2b1f),
+            width: 1.0,
+            radius: 4.into(),
+        },
+        ..Default::default()
+    }
+}
+
 // ── Event Script Editor tree view styles ────────────────────────────────────
 
 pub fn badge_container(_theme: &Theme) -> container::Style {

@@ -7,7 +7,7 @@ use dispel_core::references::event_scr::EventScript;
 
 use super::functions::{EventScriptFunctionIndex, IndexProgress};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum SectionTab {
     #[default]
     Header,
@@ -24,27 +24,14 @@ impl SectionTab {
     pub fn label(&self) -> &'static str {
         match self {
             SectionTab::Header => "Header",
-            SectionTab::Var => "VAR",
-            SectionTab::Map => "MAP",
-            SectionTab::Chr => "CHR",
-            SectionTab::Npc => "NPC",
-            SectionTab::Spr => "SPR",
-            SectionTab::Wav => "WAV",
+            SectionTab::Var => "Variables",
+            SectionTab::Map => "Map",
+            SectionTab::Chr => "Character",
+            SectionTab::Npc => "NPCs",
+            SectionTab::Spr => "Sprites",
+            SectionTab::Wav => "Sounds",
             SectionTab::Act => "ACT",
         }
-    }
-
-    pub fn all() -> Vec<SectionTab> {
-        vec![
-            SectionTab::Header,
-            SectionTab::Var,
-            SectionTab::Map,
-            SectionTab::Chr,
-            SectionTab::Npc,
-            SectionTab::Spr,
-            SectionTab::Wav,
-            SectionTab::Act,
-        ]
     }
 }
 
@@ -64,7 +51,7 @@ pub enum FunctionIndexState {
 pub struct EventScriptEditorState {
     pub script_loading: LoadingState<EventScript>,
     pub file_path: Option<PathBuf>,
-    pub active_section: SectionTab,
+    pub panels_expanded: HashSet<SectionTab>,
     pub modified: bool,
     pub save_error: Option<String>,
     pub act_parse_errors: Vec<(usize, String)>,

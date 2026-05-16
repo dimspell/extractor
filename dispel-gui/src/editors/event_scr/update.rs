@@ -12,8 +12,10 @@ use iced::Task;
 pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
     let state: &mut EventScriptEditorState = &mut app.state.event_scr_editor;
     match message {
-        EventScrEditorMessage::SectionChanged(tab) => {
-            state.active_section = tab;
+        EventScrEditorMessage::TogglePanel(section) => {
+            if !state.panels_expanded.remove(&section) {
+                state.panels_expanded.insert(section);
+            }
             Task::none()
         }
         EventScrEditorMessage::VariableAdded => {
@@ -253,6 +255,8 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             state.modified = false;
             state.save_error = None;
             state.act_folded.clear();
+            state.panels_expanded.clear();
+            state.panels_expanded.insert(SectionTab::Var);
             // Auto-index if not already loaded/indexing
             let should_index = matches!(state.index_state, FunctionIndexState::Idle);
             if should_index && !app.state.shared_game_path.is_empty() {

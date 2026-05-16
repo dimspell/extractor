@@ -5,8 +5,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub enum EventScrEditorMessage {
-    // Section switching
-    SectionChanged(SectionTab),
+    // Panel toggling
+    TogglePanel(SectionTab),
     // Variable actions
     VariableAdded,
     VariableNameChanged(usize, String),
