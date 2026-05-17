@@ -44,6 +44,9 @@ pub(crate) struct State {
     /// cached `viewport_height` stays fresh — programmatic scroll-to math
     /// (arrow nav, highlight jumps) depends on it.
     pub(crate) last_body_height: Option<f32>,
+    /// Shift modifier state — held while scrolling redirects vertical wheel
+    /// delta to horizontal scroll.
+    pub(crate) shift_pressed: bool,
 }
 
 /// Sub-region of a header cell. Used for hit-testing clicks and for hover

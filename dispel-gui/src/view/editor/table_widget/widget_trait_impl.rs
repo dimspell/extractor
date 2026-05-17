@@ -69,14 +69,21 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 }
                 let (dx, dy) = match delta {
                     mouse::ScrollDelta::Lines { x, y } => {
-                        (-x * self.row_height, -y * self.row_height)
+                        (-x * self.row_height * 3.0, -y * self.row_height * 3.0)
                     }
                     mouse::ScrollDelta::Pixels { x, y } => (-x, -y),
                 };
-                let new_x = state.scroll_offset.x + dx;
-                let new_y = state.scroll_offset.y + dy;
-                if self.apply_scroll(state, bounds, new_x, new_y, shell) {
-                    shell.capture_event();
+                if state.shift_pressed {
+                    let new_x = state.scroll_offset.x + dy;
+                    if self.apply_scroll(state, bounds, new_x, state.scroll_offset.y, shell) {
+                        shell.capture_event();
+                    }
+                } else {
+                    let new_x = state.scroll_offset.x + dx;
+                    let new_y = state.scroll_offset.y + dy;
+                    if self.apply_scroll(state, bounds, new_x, new_y, shell) {
+                        shell.capture_event();
+                    }
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
@@ -238,6 +245,9 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 state.dragging = None;
                 shell.capture_event();
                 shell.request_redraw();
+            }
+            Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
+                state.shift_pressed = modifiers.shift();
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
                 let Some(p) = cursor.position_over(bounds) else {
