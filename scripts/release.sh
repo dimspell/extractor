@@ -41,34 +41,36 @@ fi
 # --- Pre-release checks ---
 
 echo "Checking code formatting..."
-cargo fmt --all --check
-if [ $? -ne 0 ]; then
+if ! cargo fmt --all --check; then
     echo "Code is not formatted. Run 'cargo fmt --all' to fix."
     exit 1
 fi
 
 echo "Running tests..."
-cargo test --workspace --all-features
-if [ $? -ne 0 ]; then
+if ! cargo test --workspace --all-features; then
     echo "Tests failed. Fix before releasing."
     exit 1
 fi
 
 # --- Bump versions ---
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-
 echo "Bumping version to v${NEW_VERSION}..."
 
-# Update root Cargo.toml (only in [package] section)
-sed -i '' '/^\[package\]/,/^\[/ s/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$ROOT_DIR/Cargo.toml"
+# Discover workspace packages dynamically via cargo metadata
+MANIFESTS=$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[].manifest_path')
 
-# Update dispel-gui/Cargo.toml (only in [package] section)
-sed -i '' '/^\[package\]/,/^\[/ s/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$ROOT_DIR/dispel-gui/Cargo.toml"
+if [[ -z "$MANIFESTS" ]]; then
+    echo "Error: No packages found in workspace"
+    exit 1
+fi
 
-# Update dispel-macros/Cargo.toml (only in [package] section)
-sed -i '' '/^\[package\]/,/^\[/ s/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$ROOT_DIR/dispel-macros/Cargo.toml"
+CHANGED_FILES=()
+
+while IFS= read -r manifest; do
+    echo "* Updating $(basename "$(dirname "$manifest")")/Cargo.toml..."
+    sed -i '' '/^\[package\]/,/^\[/ s/^version = "[^"]*"/version = "'"$NEW_VERSION"'"/' "$manifest"
+    CHANGED_FILES+=("$manifest")
+done <<< "$MANIFESTS"
 
 # Regenerate Cargo.lock
 echo "Regenerating Cargo.lock..."
@@ -79,7 +81,7 @@ cargo check --workspace --quiet
 COMMIT_MSG="🚀 Version v${NEW_VERSION}"
 echo "Creating commit: ${COMMIT_MSG}"
 
-git add Cargo.toml dispel-gui/Cargo.toml dispel-macros/Cargo.toml Cargo.lock
+git add "${CHANGED_FILES[@]}" Cargo.lock
 git commit -m "$COMMIT_MSG"
 
 # --- Tag ---
