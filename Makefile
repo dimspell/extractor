@@ -190,5 +190,14 @@ run-custom-context-menu:
 help:
 	cargo run -- --help
 
+fmt:
+	cargo fmt --all
+
+cargo_test:
+	cargo test --workspace --all-features
+
 iced_test:
     cargo test -p dispel-gui --features "iced_test app::tests"
+
+clippy:
+	cargo clippy --workspace
