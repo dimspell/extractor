@@ -13,6 +13,7 @@ pub enum EditAction {
     },
     RecordAdd {
         record_idx: usize,
+        data: String,
     },
     RecordRemove {
         record_idx: usize,
@@ -25,15 +26,29 @@ impl EditAction {
         match self {
             EditAction::FieldChange {
                 field, new_value, ..
-            } => {
-                format!("Changed {} to \"{}\"", field, new_value)
-            }
-            EditAction::RecordAdd { record_idx } => {
+            } => format!("Changed {} to \"{}\"", field, new_value),
+            EditAction::RecordAdd { record_idx, .. } => {
                 format!("Added record #{}", record_idx)
             }
             EditAction::RecordRemove { record_idx, .. } => {
                 format!("Removed record #{}", record_idx)
             }
+        }
+    }
+
+    pub fn record_idx(&self) -> usize {
+        match self {
+            EditAction::FieldChange { record_idx, .. }
+            | EditAction::RecordAdd { record_idx, .. }
+            | EditAction::RecordRemove { record_idx, .. } => *record_idx,
+        }
+    }
+
+    pub fn set_record_idx(&mut self, new_idx: usize) {
+        match self {
+            EditAction::FieldChange { record_idx, .. }
+            | EditAction::RecordAdd { record_idx, .. }
+            | EditAction::RecordRemove { record_idx, .. } => *record_idx = new_idx,
         }
     }
 }
@@ -97,6 +112,43 @@ impl EditHistory {
         self.undo_stack.clear();
         self.redo_stack.clear();
     }
+
+    /// Adjust all `record_idx` values after removing record at `removed_idx`.
+    /// Actions referencing the removed record are dropped; actions referencing
+    /// records after it have their index decremented.
+    pub fn adjust_for_removal(&mut self, removed_idx: usize) {
+        self.undo_stack.retain(|a| a.record_idx() != removed_idx);
+        self.redo_stack.retain(|a| a.record_idx() != removed_idx);
+        for action in self.undo_stack.iter_mut() {
+            let idx = action.record_idx();
+            if idx > removed_idx {
+                action.set_record_idx(idx - 1);
+            }
+        }
+        for action in self.redo_stack.iter_mut() {
+            let idx = action.record_idx();
+            if idx > removed_idx {
+                action.set_record_idx(idx - 1);
+            }
+        }
+    }
+
+    /// Adjust all `record_idx` values after adding a record at `added_idx`.
+    /// Actions referencing records at or after the added index are incremented.
+    pub fn adjust_for_addition(&mut self, added_idx: usize) {
+        for action in self.undo_stack.iter_mut() {
+            let idx = action.record_idx();
+            if idx >= added_idx {
+                action.set_record_idx(idx + 1);
+            }
+        }
+        for action in self.redo_stack.iter_mut() {
+            let idx = action.record_idx();
+            if idx >= added_idx {
+                action.set_record_idx(idx + 1);
+            }
+        }
+    }
 }
 
 impl EditAction {
@@ -113,14 +165,12 @@ impl EditAction {
                 old_value: new_value,
                 new_value: old_value,
             },
-            EditAction::RecordAdd { record_idx } => EditAction::RecordRemove {
-                record_idx,
-                data: String::new(),
-            },
-            EditAction::RecordRemove {
-                record_idx,
-                data: _,
-            } => EditAction::RecordAdd { record_idx },
+            EditAction::RecordAdd { record_idx, data } => {
+                EditAction::RecordRemove { record_idx, data }
+            }
+            EditAction::RecordRemove { record_idx, data } => {
+                EditAction::RecordAdd { record_idx, data }
+            }
         }
     }
 }

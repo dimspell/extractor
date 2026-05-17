@@ -61,26 +61,19 @@ macro_rules! define_standard_editor {
                         ::iced::Task::none()
                     }
                     [<$Name EditorMessage>]::FieldChanged(idx, field, value) => {
-                        // Capture the value already in the editor BEFORE the
-                        // edit so recording sees the true `old`.
-                        let old_value = app
+                        // idx is the catalog index — search filtered by matching it.
+                        let (old_value, orig_idx_u32) = app
                             .state
                             .$field
                             .state
                             .filtered
-                            .get(idx)
-                            .map(|(_, r)| {
+                            .iter()
+                            .find(|(i, _)| *i == idx)
+                            .map(|(i, r)| {
                                 use $crate::components::editable::EditableRecord;
-                                r.get_field(&field)
+                                (r.get_field(&field), *i as u32)
                             })
                             .unwrap_or_default();
-                        let orig_idx = app
-                            .state
-                            .$field
-                            .state
-                            .filtered
-                            .get(idx)
-                            .map(|(i, _)| *i as u32);
                         let new_value = value.clone();
                         let task = $crate::components::standard::update::handle(
                             [<$Name EditorMessage>]::FieldChanged(idx, field.clone(), value),
@@ -91,14 +84,10 @@ macro_rules! define_standard_editor {
                         );
                         // Only record if the edit actually changed the value
                         // (avoids no-op observations).
-                        let observe = if let Some(rid) = orig_idx {
-                            if old_value != new_value {
-                                $crate::editors::mod_packager::recording::observe_field_change(
-                                    app, $file, rid, &field, old_value, new_value,
-                                )
-                            } else {
-                                ::iced::Task::none()
-                            }
+                        let observe = if old_value != new_value {
+                            $crate::editors::mod_packager::recording::observe_field_change(
+                                app, $file, orig_idx_u32, &field, old_value, new_value,
+                            )
                         } else {
                             ::iced::Task::none()
                         };
