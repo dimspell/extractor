@@ -36,11 +36,13 @@ use crate::message::{system::SystemMessage, Message};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dirs;
+use dispel_core::Extractor;
 use dispel_core::WeaponItem;
 use iced::{
     widget::pane_grid::{self, Pane},
     Task,
 };
+use serde::Serialize;
 use std::collections::HashMap;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -186,10 +188,38 @@ impl AppState {
         }
     }
 
-    /// Extract file to JSON format
-    pub fn extract_file_to_json(&self, path: &Path) {
-        // TODO: Implement actual extraction logic
-        println!("Extracting {} to JSON", path.display());
+    /// Extract file to JSON format with a save dialog
+    pub fn extract_file_to_json(&mut self, path: &Path) {
+        let suggested_name = path
+            .file_stem()
+            .map(|s| format!("{}.json", s.to_string_lossy()))
+            .unwrap_or_else(|| "export.json".to_string());
+
+        let output_path = match rfd::FileDialog::new()
+            .set_file_name(&suggested_name)
+            .add_filter("JSON", &["json"])
+            .save_file()
+        {
+            Some(p) => p,
+            None => return,
+        };
+
+        let editor_type = crate::workspace::EditorType::from_path(path);
+        let result = extract_file(path, editor_type);
+
+        match result {
+            Ok(json_str) => match std::fs::write(&output_path, json_str.as_bytes()) {
+                Ok(_) => {
+                    self.status_msg = format!("Exported JSON to {}", output_path.display());
+                }
+                Err(e) => {
+                    self.status_msg = format!("Failed to write JSON: {}", e);
+                }
+            },
+            Err(e) => {
+                self.status_msg = format!("JSON export failed: {}", e);
+            }
+        }
     }
 
     /// Validate file
@@ -409,6 +439,129 @@ impl Default for AppState {
             recording: None,
         }
     }
+}
+
+// ===========================================================================
+// JSON extraction helpers for "Extract to JSON" in the file tree
+// ===========================================================================
+
+/// Dispatch file extraction to the correct parser based on [`EditorType`].
+fn extract_file(path: &Path, editor_type: crate::workspace::EditorType) -> Result<String, String> {
+    use crate::workspace::EditorType;
+
+    let value = match editor_type {
+        EditorType::WeaponEditor => extract_std::<dispel_core::WeaponItem>(path, "weapons")?,
+        EditorType::MonsterEditor => extract_std::<dispel_core::Monster>(path, "monsters")?,
+        EditorType::MonsterIniEditor => {
+            extract_std::<dispel_core::MonsterIni>(path, "monster_ini")?
+        }
+        EditorType::HealItemEditor => extract_std::<dispel_core::HealItem>(path, "heal_item")?,
+        EditorType::MiscItemEditor => extract_std::<dispel_core::MiscItem>(path, "misc_item")?,
+        EditorType::EditItemEditor => extract_std::<dispel_core::EditItem>(path, "edit_item")?,
+        EditorType::EventItemEditor => extract_std::<dispel_core::EventItem>(path, "event_item")?,
+        EditorType::MagicEditor => extract_std::<dispel_core::MagicSpell>(path, "magic")?,
+        EditorType::StoreEditor => extract_std::<dispel_core::Store>(path, "store")?,
+        EditorType::ChDataEditor => extract_std::<dispel_core::ChData>(path, "chdata")?,
+        EditorType::PartyLevelDbEditor => {
+            extract_std::<dispel_core::PartyLevelNpc>(path, "party_level")?
+        }
+        EditorType::DialogueScriptEditor => {
+            extract_std::<dispel_core::DialogueScript>(path, "dialog")?
+        }
+        EditorType::DialogueTextEditor => {
+            extract_std::<dispel_core::DialogueParagraph>(path, "dialog_text")?
+        }
+        EditorType::DrawItemEditor => extract_std::<dispel_core::DrawItem>(path, "draw_item")?,
+        EditorType::EventIniEditor => extract_std::<dispel_core::Event>(path, "event_ini")?,
+        EditorType::EventNpcRefEditor => {
+            extract_std::<dispel_core::EventNpcRef>(path, "event_npc_ref")?
+        }
+        EditorType::ExtraIniEditor => extract_std::<dispel_core::Extra>(path, "extra_ini")?,
+        EditorType::ExtraRefEditor => extract_std::<dispel_core::ExtraRef>(path, "extra_ref")?,
+        EditorType::MapIniEditor => extract_std::<dispel_core::MapIni>(path, "map_ini")?,
+        EditorType::MessageScrEditor => extract_std::<dispel_core::Message>(path, "message")?,
+        EditorType::MonsterRefEditor => {
+            extract_std::<dispel_core::MonsterRef>(path, "monster_ref")?
+        }
+        EditorType::NpcIniEditor => extract_std::<dispel_core::NpcIni>(path, "npc_ini")?,
+        EditorType::NpcRefEditor => extract_std::<dispel_core::NPC>(path, "npc_ref")?,
+        EditorType::PartyRefEditor => extract_std::<dispel_core::PartyRef>(path, "party_ref")?,
+        EditorType::PartyIniEditor => extract_std::<dispel_core::PartyIniNpc>(path, "party_ini")?,
+        EditorType::QuestScrEditor => extract_std::<dispel_core::Quest>(path, "quest")?,
+        EditorType::EventScrEditor => extract_std::<dispel_core::EventScript>(path, "event_scr")?,
+        EditorType::WaveIniEditor => extract_std::<dispel_core::WaveIni>(path, "wave_ini")?,
+        EditorType::AllMapIniEditor => extract_std::<dispel_core::Map>(path, "all_maps")?,
+        EditorType::MapEditor => extract_map_file_json(path)?,
+        EditorType::TilesetEditor => extract_tileset_file_json(path)?,
+        EditorType::SpriteViewer => extract_sprite_file_json(path)?,
+        _ => return Err("JSON export not supported for this file type".to_string()),
+    };
+
+    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
+}
+
+/// Generic extraction for types that implement [`Extractor`] + [`Serialize`].
+fn extract_std<T: Extractor + Serialize>(
+    path: &Path,
+    type_key: &str,
+) -> Result<serde_json::Value, String> {
+    let records = T::read_file(path).map_err(|e| format!("Failed to read {}: {}", type_key, e))?;
+    let data =
+        serde_json::to_value(&records).map_err(|e| format!("Serialization failed: {}", e))?;
+    Ok(serde_json::json!({
+        "_meta": { "file_type": type_key, "record_count": records.len() },
+        "data": data,
+    }))
+}
+
+/// Extract a `.map` file to JSON.
+fn extract_map_file_json(path: &Path) -> Result<serde_json::Value, String> {
+    use std::fs::File;
+    use std::io::BufReader;
+
+    let file = File::open(path).map_err(|e| format!("Failed to open map file: {}", e))?;
+    let mut reader = BufReader::new(file);
+    let map_data = dispel_core::map::read_map_data(&mut reader)
+        .map_err(|e| format!("Failed to parse map: {}", e))?;
+    let json = map_data.to_json();
+    let data = serde_json::to_value(&json).map_err(|e| format!("Serialization failed: {}", e))?;
+    Ok(serde_json::json!({
+        "_meta": { "file_type": "map_file", "record_count": 1 },
+        "data": data,
+    }))
+}
+
+/// Extract a `.gtl`/`.btl` tileset file to JSON (metadata only, no pixel data).
+fn extract_tileset_file_json(path: &Path) -> Result<serde_json::Value, String> {
+    let tiles = dispel_core::map::tileset::extract(path)
+        .map_err(|e| format!("Failed to read tileset: {}", e))?;
+    let tile_entries: Vec<serde_json::Value> = tiles
+        .iter()
+        .enumerate()
+        .map(|(i, _)| serde_json::json!({ "index": i, "pixels": null }))
+        .collect();
+    Ok(serde_json::json!({
+        "_meta": { "file_type": "tileset", "record_count": tiles.len() },
+        "data": {
+            "tile_count": tiles.len(),
+            "tile_width": 32,
+            "tile_height": 32,
+            "color_format": "RGB565",
+            "tiles": tile_entries,
+            "note": "Pixel data omitted. Use 'map tiles' command to extract individual tile images.",
+        }
+    }))
+}
+
+/// Extract a `.spr` sprite file info to JSON.
+fn extract_sprite_file_json(path: &Path) -> Result<serde_json::Value, String> {
+    let info = dispel_core::sprite::get_sprite_info(path)
+        .map_err(|e| format!("Failed to read sprite info: {}", e))?;
+    let data = serde_json::to_value(&info).map_err(|e| format!("Serialization failed: {}", e))?;
+    Ok(serde_json::json!({
+        "_meta": { "file_type": "sprite", "record_count": 1 },
+        "data": data,
+    }))
 }
 
 #[derive(Debug, Clone)]
