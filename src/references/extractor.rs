@@ -8,7 +8,7 @@ use encoding_rs::WINDOWS_1250;
 pub trait Extractor: Sized {
     fn parse<R: Read + Seek>(reader: &mut R, len: u64) -> std::io::Result<Vec<Self>>;
 
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()>;
+    fn to_writer<W: Write + Seek>(records: &[Self], writer: &mut W) -> std::io::Result<()>;
 
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;
