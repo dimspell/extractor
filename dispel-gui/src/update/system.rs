@@ -78,27 +78,32 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 EditorType::StoreEditor => app.state.store_editor.undo(),
                 EditorType::MonsterRefEditor => app
                     .state
-                    .monster_ref_editors
+                    .monster_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.undo()),
                 EditorType::NpcRefEditor => app
                     .state
-                    .npc_ref_editors
+                    .npc_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.undo()),
                 EditorType::ExtraRefEditor => app
                     .state
-                    .extra_ref_editors
+                    .extra_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.undo()),
                 EditorType::DialogueScriptEditor => app
                     .state
-                    .dialogue_script_editors
+                    .dialogue_script_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.undo()),
                 EditorType::DialogueTextEditor => app
                     .state
-                    .dialogue_paragraphs_editors
+                    .dialogue_paragraph_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.undo()),
                 _ => None,
@@ -108,8 +113,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 match editor_type {
                     EditorType::MonsterRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.monster_ref_editors.get(&tab_id),
-                            app.state.monster_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.monster_ref_editor.editors.get(&tab_id),
+                            app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -118,8 +123,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::NpcRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.npc_ref_editors.get(&tab_id),
-                            app.state.npc_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.npc_ref_editor.editors.get(&tab_id),
+                            app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -128,8 +133,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::ExtraRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.extra_ref_editors.get(&tab_id),
-                            app.state.extra_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.extra_ref_editor.editors.get(&tab_id),
+                            app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -138,8 +143,11 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::DialogueScriptEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_script_editors.get(&tab_id),
-                            app.state.dialogue_script_spreadsheets.get_mut(&tab_id),
+                            app.state.dialogue_script_editor.editors.get(&tab_id),
+                            app.state
+                                .dialogue_script_editor
+                                .spreadsheets
+                                .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -148,8 +156,11 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::DialogueTextEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_paragraphs_editors.get(&tab_id),
-                            app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id),
+                            app.state.dialogue_paragraph_editor.editors.get(&tab_id),
+                            app.state
+                                .dialogue_paragraph_editor
+                                .spreadsheets
+                                .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -198,27 +209,32 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 EditorType::StoreEditor => app.state.store_editor.redo(),
                 EditorType::MonsterRefEditor => app
                     .state
-                    .monster_ref_editors
+                    .monster_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.redo()),
                 EditorType::NpcRefEditor => app
                     .state
-                    .npc_ref_editors
+                    .npc_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.redo()),
                 EditorType::ExtraRefEditor => app
                     .state
-                    .extra_ref_editors
+                    .extra_ref_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.redo()),
                 EditorType::DialogueScriptEditor => app
                     .state
-                    .dialogue_script_editors
+                    .dialogue_script_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.redo()),
                 EditorType::DialogueTextEditor => app
                     .state
-                    .dialogue_paragraphs_editors
+                    .dialogue_paragraph_editor
+                    .editors
                     .get_mut(&tab_id)
                     .and_then(|e| e.redo()),
                 _ => None,
@@ -228,8 +244,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 match editor_type {
                     EditorType::MonsterRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.monster_ref_editors.get(&tab_id),
-                            app.state.monster_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.monster_ref_editor.editors.get(&tab_id),
+                            app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -238,8 +254,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::NpcRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.npc_ref_editors.get(&tab_id),
-                            app.state.npc_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.npc_ref_editor.editors.get(&tab_id),
+                            app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -248,8 +264,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::ExtraRefEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.extra_ref_editors.get(&tab_id),
-                            app.state.extra_ref_spreadsheets.get_mut(&tab_id),
+                            app.state.extra_ref_editor.editors.get(&tab_id),
+                            app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -258,8 +274,11 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::DialogueScriptEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_script_editors.get(&tab_id),
-                            app.state.dialogue_script_spreadsheets.get_mut(&tab_id),
+                            app.state.dialogue_script_editor.editors.get(&tab_id),
+                            app.state
+                                .dialogue_script_editor
+                                .spreadsheets
+                                .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);
@@ -268,8 +287,11 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                     EditorType::DialogueTextEditor => {
                         if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_paragraphs_editors.get(&tab_id),
-                            app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id),
+                            app.state.dialogue_paragraph_editor.editors.get(&tab_id),
+                            app.state
+                                .dialogue_paragraph_editor
+                                .spreadsheets
+                                .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
                                 spreadsheet.compute_all_caches(catalog);

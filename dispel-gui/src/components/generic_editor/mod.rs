@@ -2,6 +2,7 @@ use crate::components::edit_history::EditHistory;
 use crate::components::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
 use crate::view::editor::spreadsheet::ColumnFilterOption;
+use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::Pane;
@@ -541,6 +542,68 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
         } else {
             Err("No catalog loaded".to_string())
         }
+    }
+}
+
+// ===========================================================================
+// Tabbed editor helper — bundles a per-tab editor map + spreadsheet map
+// ===========================================================================
+
+/// Bundles a per-tab `MultiFileEditorState<T>` map with a parallel
+/// `SpreadsheetState` map. Replaces five repetitive pairs of `HashMap` fields
+/// in `AppState`.
+#[derive(Clone, Debug)]
+pub struct TabbedEditor<T: EditableRecord> {
+    pub editors: HashMap<usize, MultiFileEditorState<T>>,
+    pub spreadsheets: HashMap<usize, SpreadsheetState>,
+}
+
+impl<T: EditableRecord> Default for TabbedEditor<T> {
+    fn default() -> Self {
+        Self {
+            editors: HashMap::new(),
+            spreadsheets: HashMap::new(),
+        }
+    }
+}
+
+impl<T: EditableRecord> TabbedEditor<T> {
+    pub fn get_editor(&self, id: &usize) -> Option<&MultiFileEditorState<T>> {
+        self.editors.get(id)
+    }
+
+    pub fn get_editor_mut(&mut self, id: &usize) -> Option<&mut MultiFileEditorState<T>> {
+        self.editors.get_mut(id)
+    }
+
+    pub fn get_spreadsheet(&self, id: &usize) -> Option<&SpreadsheetState> {
+        self.spreadsheets.get(id)
+    }
+
+    pub fn get_spreadsheet_mut(&mut self, id: &usize) -> Option<&mut SpreadsheetState> {
+        self.spreadsheets.get_mut(id)
+    }
+
+    pub fn contains_key(&self, id: &usize) -> bool {
+        self.editors.contains_key(id)
+    }
+
+    pub fn remove(&mut self, id: &usize) {
+        self.editors.remove(id);
+        self.spreadsheets.remove(id);
+    }
+
+    pub fn clear(&mut self) {
+        self.editors.clear();
+        self.spreadsheets.clear();
+    }
+
+    pub fn len(&self) -> usize {
+        self.editors.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.editors.is_empty()
     }
 }
 

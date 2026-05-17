@@ -180,7 +180,8 @@ impl App {
                 EditorType::MonsterRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .monster_ref_editors
+                        .monster_ref_editor
+                        .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -188,7 +189,8 @@ impl App {
                 EditorType::ExtraRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .extra_ref_editors
+                        .extra_ref_editor
+                        .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -196,7 +198,8 @@ impl App {
                 EditorType::NpcRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .npc_ref_editors
+                        .npc_ref_editor
+                        .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -204,7 +207,8 @@ impl App {
                 EditorType::DialogueScriptEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialogue_script_editors
+                        .dialogue_script_editor
+                        .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -212,7 +216,8 @@ impl App {
                 EditorType::DialogueTextEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialogue_paragraphs_editors
+                        .dialogue_paragraph_editor
+                        .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
@@ -483,7 +488,7 @@ impl App {
                     return Task::none();
                 };
                 let path_buf = path.to_path_buf();
-                self.state.dialogue_script_editors.insert(
+                self.state.dialogue_script_editor.editors.insert(
                     tab_id,
                     crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
@@ -491,7 +496,8 @@ impl App {
                     },
                 );
                 self.state
-                    .dialogue_script_spreadsheets
+                    .dialogue_script_editor
+                    .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
                     async move {
@@ -510,7 +516,7 @@ impl App {
                     return Task::none();
                 };
                 let path_buf = path.to_path_buf();
-                self.state.dialogue_paragraphs_editors.insert(
+                self.state.dialogue_paragraph_editor.editors.insert(
                     tab_id,
                     crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
@@ -518,7 +524,8 @@ impl App {
                     },
                 );
                 self.state
-                    .dialogue_paragraph_spreadsheets
+                    .dialogue_paragraph_editor
+                    .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
                     async move {

@@ -15,8 +15,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.extra_ref_editors.get(&tab_id),
-        app.state.extra_ref_spreadsheets.get(&tab_id),
+        app.state.extra_ref_editor.editors.get(&tab_id),
+        app.state.extra_ref_editor.spreadsheets.get(&tab_id),
     ) else {
         return container(
             text("Extra ref file not loaded")

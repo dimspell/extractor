@@ -1,27 +1,23 @@
 use crate::components::file_tree::FileTree;
+use crate::components::generic_editor::TabbedEditor;
 use crate::components::global_search::GlobalSearch;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
 use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
-use crate::editors::dialogue_paragraph::DialogueParagraphEditorState;
-use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
-use crate::editors::extra_ref::ExtraRefEditorState;
 use crate::editors::hex_editor::HexEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
 use crate::editors::message_scr::MessageScrEditorState;
 use crate::editors::monster_ini::MonsterIniEditorState;
-use crate::editors::monster_ref::MonsterRefEditorState;
 use crate::editors::npc_ini::NpcIniEditorState;
-use crate::editors::npc_ref::NpcRefEditorState;
 use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
@@ -33,11 +29,11 @@ use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::message::{system::SystemMessage, Message};
-use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dirs;
-use dispel_core::Extractor;
-use dispel_core::WeaponItem;
+use dispel_core::{
+    DialogueParagraph, DialogueScript, ExtraRef, Extractor, MonsterRef, WeaponItem, NPC,
+};
 use iced::{
     widget::pane_grid::{self, Pane},
     Task,
@@ -67,24 +63,19 @@ pub struct AppState {
     pub store_editor: Box<StoreEditorState>,
     pub party_ref_editor: Box<StandardEditor<dispel_core::PartyRef>>,
     pub party_ini_editor: Box<PartyIniEditorState>,
-    pub monster_ref_editors: HashMap<usize, MonsterRefEditorState>,
-    pub monster_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub monster_ref_editor: TabbedEditor<MonsterRef>,
     pub sprite_viewers: HashMap<usize, SpriteViewerState>,
     pub all_map_ini_editor: Box<AllMapIniEditorState>,
-    pub dialogue_script_editors: HashMap<usize, DialogueScriptEditorState>,
-    pub dialogue_script_spreadsheets: HashMap<usize, SpreadsheetState>,
-    pub dialogue_paragraphs_editors: HashMap<usize, DialogueParagraphEditorState>,
-    pub dialogue_paragraph_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub dialogue_script_editor: TabbedEditor<DialogueScript>,
+    pub dialogue_paragraph_editor: TabbedEditor<DialogueParagraph>,
     pub draw_item_editor: Box<DrawItemEditorState>,
     pub event_ini_editor: Box<EventIniEditorState>,
     pub event_npc_ref_editor: Box<EventNpcRefEditorState>,
     pub extra_ini_editor: Box<ExtraIniEditorState>,
-    pub extra_ref_editors: HashMap<usize, ExtraRefEditorState>,
-    pub extra_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub extra_ref_editor: TabbedEditor<ExtraRef>,
     pub map_ini_editor: Box<MapIniEditorState>,
     pub message_scr_editor: Box<MessageScrEditorState>,
-    pub npc_ref_editors: HashMap<usize, NpcRefEditorState>,
-    pub npc_ref_spreadsheets: HashMap<usize, SpreadsheetState>,
+    pub npc_ref_editor: TabbedEditor<NPC>,
     pub party_level_db_editor: Box<PartyLevelDbEditorState>,
     pub party_level_db_level_editor: Box<StandardEditor<dispel_core::PartyLevelRecord>>,
     pub quest_scr_editor: Box<QuestScrEditorState>,
@@ -336,15 +327,11 @@ impl AppState {
         // Clear all HashMap-based editor states
         self.sprite_viewers.clear();
         self.tileset_editors.clear();
-        self.dialogue_script_editors.clear();
-        self.dialogue_script_spreadsheets.clear();
-        self.dialogue_paragraphs_editors.clear();
-        self.dialogue_paragraph_spreadsheets.clear();
-        self.monster_ref_editors.clear();
-        self.monster_ref_spreadsheets.clear();
-        self.extra_ref_editors.clear();
-        self.npc_ref_editors.clear();
-        self.npc_ref_spreadsheets.clear();
+        self.dialogue_script_editor.clear();
+        self.dialogue_paragraph_editor.clear();
+        self.monster_ref_editor.clear();
+        self.extra_ref_editor.clear();
+        self.npc_ref_editor.clear();
         self.map_editors.clear();
         self.snf_editors.clear();
         self.hex_editors.clear();
@@ -399,24 +386,19 @@ impl Default for AppState {
             store_editor: Box::default(),
             party_ref_editor: Box::default(),
             party_ini_editor: Box::default(),
-            monster_ref_editors: HashMap::new(),
-            monster_ref_spreadsheets: HashMap::new(),
+            monster_ref_editor: TabbedEditor::default(),
             sprite_viewers: HashMap::new(),
             all_map_ini_editor: Box::default(),
-            dialogue_script_editors: HashMap::new(),
-            dialogue_script_spreadsheets: HashMap::new(),
-            dialogue_paragraphs_editors: HashMap::new(),
-            dialogue_paragraph_spreadsheets: HashMap::new(),
+            dialogue_script_editor: TabbedEditor::default(),
+            dialogue_paragraph_editor: TabbedEditor::default(),
             draw_item_editor: Box::default(),
             event_ini_editor: Box::default(),
             event_npc_ref_editor: Box::default(),
             extra_ini_editor: Box::default(),
-            extra_ref_editors: HashMap::new(),
+            extra_ref_editor: TabbedEditor::default(),
             map_ini_editor: Box::default(),
             message_scr_editor: Box::default(),
-            npc_ref_editors: HashMap::new(),
-            npc_ref_spreadsheets: HashMap::new(),
-            extra_ref_spreadsheets: HashMap::new(),
+            npc_ref_editor: TabbedEditor::default(),
             party_level_db_editor: Box::default(),
             party_level_db_level_editor: Box::default(),
             quest_scr_editor: Box::default(),

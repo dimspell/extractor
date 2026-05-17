@@ -376,13 +376,14 @@ macro_rules! handle_spreadsheet_messages {
 /// Macro to handle spreadsheet messages for tab-based editors (NpcRef, MonsterRef, etc.)
 #[macro_export]
 macro_rules! handle_spreadsheet_messages_tab {
-    ($app:ident, $spreadsheets:ident, $editors:ident, $tab_id:expr, $field_changed_msg:expr, $msg:ident) => {
+    ($app:ident, $tabbed_editor:ident, $tab_id:expr, $field_changed_msg:expr, $msg:ident) => {
         use $crate::view::editor::SpreadsheetMessage as SM;
         match $msg {
             other => {
-                let ss = $app.state.$spreadsheets.get_mut($tab_id);
-                let ed = $app.state.$editors.get_mut($tab_id);
-                if let (Some(ss), Some(ed)) = (ss, ed) {
+                if let (Some(ed), Some(ss)) = (
+                    $app.state.$tabbed_editor.editors.get_mut($tab_id),
+                    $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id),
+                ) {
                     match other {
                         SM::ToggleActive => {
                             ss.toggle_active();
@@ -495,8 +496,8 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
                                 let msg = $field_changed_msg(orig_idx, field, new_text);
                                 let task = $app.update(msg);
-                                let ss2 = $app.state.$spreadsheets.get_mut($tab_id);
-                                let ed2 = $app.state.$editors.get_mut($tab_id);
+                                let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id);
+                                let ed2 = $app.state.$tabbed_editor.editors.get_mut($tab_id);
                                 if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
                                     if let Some(catalog) = &ed2.editor.catalog {
                                         let catalog = catalog.clone();
@@ -509,8 +510,8 @@ macro_rules! handle_spreadsheet_messages_tab {
                         SM::InspectorFieldChanged(orig_idx, field, value) => {
                             let msg = $field_changed_msg(orig_idx, field, value);
                             let task = $app.update(msg);
-                            let ss2 = $app.state.$spreadsheets.get_mut($tab_id);
-                            let ed2 = $app.state.$editors.get_mut($tab_id);
+                            let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id);
+                            let ed2 = $app.state.$tabbed_editor.editors.get_mut($tab_id);
                             if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
                                 if let Some(catalog) = &ed2.editor.catalog {
                                     let catalog = catalog.clone();

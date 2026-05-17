@@ -16,7 +16,7 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
 
     match msg {
         DialogueScriptEditorMessage::LoadCatalog => {
-            if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
+            if let Some(editor) = app.state.dialogue_script_editor.editors.get_mut(&tab_id) {
                 if let Some(path) = editor.current_file.clone() {
                     editor.editor.loading_state = LoadingState::Loading;
                     return Task::perform(
@@ -32,7 +32,7 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
             Task::none()
         }
         DialogueScriptEditorMessage::CatalogLoaded(result) => {
-            if let Some(editor) = app.state.dialogue_script_editors.get_mut(&tab_id) {
+            if let Some(editor) = app.state.dialogue_script_editor.editors.get_mut(&tab_id) {
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
@@ -40,8 +40,11 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
                             format!("DialogueScript catalog loaded: {} entries", catalog.len());
                         editor.editor.catalog = Some(catalog);
                         editor.editor.refresh();
-                        if let Some(spreadsheet) =
-                            app.state.dialogue_script_spreadsheets.get_mut(&tab_id)
+                        if let Some(spreadsheet) = app
+                            .state
+                            .dialogue_script_editor
+                            .spreadsheets
+                            .get_mut(&tab_id)
                         {
                             spreadsheet.active = true;
                             spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
@@ -58,18 +61,18 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
             Task::none()
         }
         DialogueScriptEditorMessage::Select(index) => {
-            tab::select(&mut app.state.dialogue_script_editors, tab_id, index)
+            tab::select(&mut app.state.dialogue_script_editor, tab_id, index)
         }
         DialogueScriptEditorMessage::FieldChanged(index, field, value) => {
             let captured = capture_field_recording_context(
-                app.state.dialogue_script_editors.get(&tab_id),
+                app.state.dialogue_script_editor.editors.get(&tab_id),
                 index,
                 &field,
                 &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(
-                &mut app.state.dialogue_script_editors,
+                &mut app.state.dialogue_script_editor,
                 tab_id,
                 index,
                 field.clone(),
@@ -86,7 +89,7 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
             }
         }
         DialogueScriptEditorMessage::Save => tab::save(
-            &mut app.state.dialogue_script_editors,
+            &mut app.state.dialogue_script_editor,
             tab_id,
             "DialogueScripts saved successfully.",
             "Error saving dialogue scripts",
@@ -95,8 +98,7 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
         DialogueScriptEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages_tab!(
                 app,
-                dialogue_script_spreadsheets,
-                dialogue_script_editors,
+                dialogue_script_editor,
                 &tab_id,
                 |index, field, value| crate::message::Message::dialogue_script(
                     DialogueScriptEditorMessage::FieldChanged(index, field, value)
@@ -105,14 +107,11 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<crate::me
             );
             Task::none()
         }
-        DialogueScriptEditorMessage::PaneResized(event) => tab::pane_resized(
-            &mut app.state.dialogue_script_editors,
-            &mut app.state.dialogue_script_spreadsheets,
-            tab_id,
-            event,
-        ),
+        DialogueScriptEditorMessage::PaneResized(event) => {
+            tab::pane_resized(&mut app.state.dialogue_script_editor, tab_id, event)
+        }
         DialogueScriptEditorMessage::PaneClicked(pane) => {
-            tab::pane_clicked(&mut app.state.dialogue_script_editors, tab_id, pane)
+            tab::pane_clicked(&mut app.state.dialogue_script_editor, tab_id, pane)
         }
     }
 }

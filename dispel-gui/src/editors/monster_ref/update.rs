@@ -17,18 +17,18 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<crate::messag
 
     match msg {
         MonsterRefEditorMessage::SelectEntry(index) => {
-            tab::select(&mut app.state.monster_ref_editors, tab_id, index)
+            tab::select(&mut app.state.monster_ref_editor, tab_id, index)
         }
         MonsterRefEditorMessage::FieldChanged(index, field, value) => {
             let captured = capture_field_recording_context(
-                app.state.monster_ref_editors.get(&tab_id),
+                app.state.monster_ref_editor.editors.get(&tab_id),
                 index,
                 &field,
                 &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(
-                &mut app.state.monster_ref_editors,
+                &mut app.state.monster_ref_editor,
                 tab_id,
                 index,
                 field.clone(),
@@ -45,22 +45,21 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<crate::messag
             }
         }
         MonsterRefEditorMessage::Save => tab::save(
-            &mut app.state.monster_ref_editors,
+            &mut app.state.monster_ref_editor,
             tab_id,
             "Monster ref saved successfully.",
             "Error saving monster ref",
         ),
         MonsterRefEditorMessage::AddEntry => {
-            tab::add_entry(&mut app.state.monster_ref_editors, tab_id)
+            tab::add_entry(&mut app.state.monster_ref_editor, tab_id)
         }
         MonsterRefEditorMessage::RemoveEntry(index) => {
-            tab::remove_entry(&mut app.state.monster_ref_editors, tab_id, index)
+            tab::remove_entry(&mut app.state.monster_ref_editor, tab_id, index)
         }
         MonsterRefEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages_tab!(
                 app,
-                monster_ref_spreadsheets,
-                monster_ref_editors,
+                monster_ref_editor,
                 &tab_id,
                 |index, field, value| crate::message::Message::monster_ref(
                     MonsterRefEditorMessage::FieldChanged(index, field, value)
@@ -69,22 +68,14 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<crate::messag
             );
             Task::none()
         }
-        MonsterRefEditorMessage::PaneResized(event) => tab::pane_resized(
-            &mut app.state.monster_ref_editors,
-            &mut app.state.monster_ref_spreadsheets,
-            tab_id,
-            event,
-        ),
+        MonsterRefEditorMessage::PaneResized(event) => {
+            tab::pane_resized(&mut app.state.monster_ref_editor, tab_id, event)
+        }
         MonsterRefEditorMessage::PaneClicked(pane) => {
-            tab::pane_clicked(&mut app.state.monster_ref_editors, tab_id, pane)
+            tab::pane_clicked(&mut app.state.monster_ref_editor, tab_id, pane)
         }
         MonsterRefEditorMessage::LoadCatalog(path) => {
-            tab::load_catalog_sync(
-                path,
-                &mut app.state.monster_ref_editors,
-                &mut app.state.monster_ref_spreadsheets,
-                tab_id,
-            );
+            tab::load_catalog_sync(path, &mut app.state.monster_ref_editor, tab_id);
             if !app.state.lookups.contains_key("monster_names") {
                 return Task::done(crate::message::Message::monster_ref(
                     MonsterRefEditorMessage::LoadMonsterNames,

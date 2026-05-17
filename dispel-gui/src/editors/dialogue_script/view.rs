@@ -15,8 +15,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.dialogue_script_editors.get(&tab_id),
-        app.state.dialogue_script_spreadsheets.get(&tab_id),
+        app.state.dialogue_script_editor.editors.get(&tab_id),
+        app.state.dialogue_script_editor.spreadsheets.get(&tab_id),
     ) else {
         return container(
             text("DialogueScript file not loaded")

@@ -16,12 +16,7 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
 
     match msg {
         ExtraRefEditorMessage::LoadCatalog(path) => {
-            tab::load_catalog_sync(
-                path.clone(),
-                &mut app.state.extra_ref_editors,
-                &mut app.state.extra_ref_spreadsheets,
-                tab_id,
-            );
+            tab::load_catalog_sync(path.clone(), &mut app.state.extra_ref_editor, tab_id);
             Task::perform(
                 async move {
                     dispel_core::ExtraRef::read_file(&path)
@@ -37,14 +32,14 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             )
         }
         ExtraRefEditorMessage::CatalogLoaded(id, result) => {
-            if let Some(editor) = app.state.extra_ref_editors.get_mut(&id) {
+            if let Some(editor) = app.state.extra_ref_editor.editors.get_mut(&id) {
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
                         editor.editor.status_msg =
                             format!("Extra ref catalog loaded: {} entries", catalog.len());
                         editor.editor.catalog = Some(catalog.clone());
-                        if let Some(ss) = app.state.extra_ref_spreadsheets.get_mut(&id) {
+                        if let Some(ss) = app.state.extra_ref_editor.spreadsheets.get_mut(&id) {
                             ss.apply_filter(&catalog);
                             ss.compute_all_caches(&catalog);
                             ss.init_pane_state();
@@ -59,18 +54,18 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             Task::none()
         }
         ExtraRefEditorMessage::Select(index) => {
-            tab::select(&mut app.state.extra_ref_editors, tab_id, index)
+            tab::select(&mut app.state.extra_ref_editor, tab_id, index)
         }
         ExtraRefEditorMessage::FieldChanged(index, field, value) => {
             let captured = capture_field_recording_context(
-                app.state.extra_ref_editors.get(&tab_id),
+                app.state.extra_ref_editor.editors.get(&tab_id),
                 index,
                 &field,
                 &app.state.shared_game_path,
             );
             let new_value = value.clone();
             let task = tab::field_changed(
-                &mut app.state.extra_ref_editors,
+                &mut app.state.extra_ref_editor,
                 tab_id,
                 index,
                 field.clone(),
@@ -87,7 +82,7 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             }
         }
         ExtraRefEditorMessage::Save => tab::save(
-            &mut app.state.extra_ref_editors,
+            &mut app.state.extra_ref_editor,
             tab_id,
             "Extra refs saved successfully.",
             "Error saving extra refs",
@@ -95,8 +90,7 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
         ExtraRefEditorMessage::Spreadsheet(msg) => {
             handle_spreadsheet_messages_tab!(
                 app,
-                extra_ref_spreadsheets,
-                extra_ref_editors,
+                extra_ref_editor,
                 &tab_id,
                 |index, field, value| crate::message::Message::extra_ref(
                     ExtraRefEditorMessage::FieldChanged(index, field, value)
@@ -105,14 +99,11 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             );
             Task::none()
         }
-        ExtraRefEditorMessage::PaneResized(event) => tab::pane_resized(
-            &mut app.state.extra_ref_editors,
-            &mut app.state.extra_ref_spreadsheets,
-            tab_id,
-            event,
-        ),
+        ExtraRefEditorMessage::PaneResized(event) => {
+            tab::pane_resized(&mut app.state.extra_ref_editor, tab_id, event)
+        }
         ExtraRefEditorMessage::PaneClicked(pane) => {
-            tab::pane_clicked(&mut app.state.extra_ref_editors, tab_id, pane)
+            tab::pane_clicked(&mut app.state.extra_ref_editor, tab_id, pane)
         }
     }
 }

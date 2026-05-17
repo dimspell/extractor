@@ -18,11 +18,11 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             if app.state.workspace.tabs.len() > tab_index {
                 let tab_id = app.state.workspace.tabs[tab_index].id;
                 app.state.sprite_viewers.remove(&tab_id);
-                app.state.extra_ref_editors.remove(&tab_id);
-                app.state.npc_ref_editors.remove(&tab_id);
-                app.state.monster_ref_editors.remove(&tab_id);
-                app.state.dialogue_script_editors.remove(&tab_id);
-                app.state.dialogue_paragraphs_editors.remove(&tab_id);
+                app.state.extra_ref_editor.remove(&tab_id);
+                app.state.npc_ref_editor.remove(&tab_id);
+                app.state.monster_ref_editor.remove(&tab_id);
+                app.state.dialogue_script_editor.remove(&tab_id);
+                app.state.dialogue_paragraph_editor.remove(&tab_id);
                 app.state.snf_editors.remove(&tab_id);
                 app.state.workspace.tabs.remove(tab_index);
                 if let Some(active) = app.state.workspace.active_tab {
@@ -46,11 +46,11 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                 if !app.state.workspace.tabs.is_empty() {
                     let tab_id = app.state.workspace.tabs[active_tab].id;
                     app.state.sprite_viewers.remove(&tab_id);
-                    app.state.extra_ref_editors.remove(&tab_id);
-                    app.state.npc_ref_editors.remove(&tab_id);
-                    app.state.monster_ref_editors.remove(&tab_id);
-                    app.state.dialogue_script_editors.remove(&tab_id);
-                    app.state.dialogue_paragraphs_editors.remove(&tab_id);
+                    app.state.extra_ref_editor.remove(&tab_id);
+                    app.state.npc_ref_editor.remove(&tab_id);
+                    app.state.monster_ref_editor.remove(&tab_id);
+                    app.state.dialogue_script_editor.remove(&tab_id);
+                    app.state.dialogue_paragraph_editor.remove(&tab_id);
                     app.state.snf_editors.remove(&tab_id);
                     app.state.workspace.tabs.remove(active_tab);
                     if app.state.workspace.tabs.is_empty() {
@@ -76,11 +76,11 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                     .collect();
                 for id in tabs_to_close {
                     app.state.sprite_viewers.remove(&id);
-                    app.state.extra_ref_editors.remove(&id);
-                    app.state.npc_ref_editors.remove(&id);
-                    app.state.monster_ref_editors.remove(&id);
-                    app.state.dialogue_script_editors.remove(&id);
-                    app.state.dialogue_paragraphs_editors.remove(&id);
+                    app.state.extra_ref_editor.remove(&id);
+                    app.state.npc_ref_editor.remove(&id);
+                    app.state.monster_ref_editor.remove(&id);
+                    app.state.dialogue_script_editor.remove(&id);
+                    app.state.dialogue_paragraph_editor.remove(&id);
                     app.state.snf_editors.remove(&id);
                 }
                 app.state.workspace.tabs.retain(|tab| tab.id == tab_id);
@@ -92,11 +92,11 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.workspace.tabs.clear();
             app.state.workspace.active_tab = None;
             app.state.sprite_viewers.clear();
-            app.state.extra_ref_editors.clear();
-            app.state.npc_ref_editors.clear();
-            app.state.monster_ref_editors.clear();
-            app.state.dialogue_script_editors.clear();
-            app.state.dialogue_paragraphs_editors.clear();
+            app.state.extra_ref_editor.clear();
+            app.state.npc_ref_editor.clear();
+            app.state.monster_ref_editor.clear();
+            app.state.dialogue_script_editor.clear();
+            app.state.dialogue_paragraph_editor.clear();
             app.state.snf_editors.clear();
             Task::none()
         }

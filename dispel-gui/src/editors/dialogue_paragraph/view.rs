@@ -15,8 +15,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.dialogue_paragraphs_editors.get(&tab_id),
-        app.state.dialogue_paragraph_spreadsheets.get(&tab_id),
+        app.state.dialogue_paragraph_editor.editors.get(&tab_id),
+        app.state
+            .dialogue_paragraph_editor
+            .spreadsheets
+            .get(&tab_id),
     ) else {
         return container(
             text("Dialogue Paragraph file not loaded")

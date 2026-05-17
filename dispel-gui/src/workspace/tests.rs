@@ -748,7 +748,7 @@ fn test_clear_editor_states() {
     state.clear_editor_states();
 
     assert_eq!(state.map_editors.len(), 0);
-    assert_eq!(state.dialogue_script_editors.len(), 0);
+    assert_eq!(state.dialogue_script_editor.len(), 0);
     assert_eq!(state.sprite_viewers.len(), 0);
     assert_eq!(state.lookups.len(), 0);
 

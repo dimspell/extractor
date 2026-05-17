@@ -1,52 +1,50 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::components::editable::EditableRecord;
-use dispel_core::Extractor;
-use iced::widget::pane_grid;
-use iced::Task;
-
-use crate::components::generic_editor::MultiFileEditorState;
+use crate::components::generic_editor::{MultiFileEditorState, TabbedEditor};
 use crate::components::loading_state::LoadingState;
 use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
+use dispel_core::Extractor;
+use iced::widget::pane_grid;
+use iced::Task;
 
 pub fn get_tab_id(workspace: &Workspace) -> usize {
     workspace.active().map(|t| t.id).unwrap_or(usize::MAX)
 }
 
 pub fn select<T: EditableRecord + Extractor>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     index: usize,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.select(index);
     }
     Task::none()
 }
 
 pub fn field_changed<T: EditableRecord + Extractor>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     index: usize,
     field: String,
     value: String,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.update_field(index, &field, value);
     }
     Task::none()
 }
 
 pub fn save<T: EditableRecord + Extractor>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     success_msg: &str,
     error_label: &str,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.editor.loading_state = LoadingState::Loading;
         let result = editor.save();
         editor.editor.loading_state = LoadingState::Loaded(());
@@ -59,38 +57,37 @@ pub fn save<T: EditableRecord + Extractor>(
 }
 
 pub fn add_entry<T: EditableRecord + Extractor>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.add_record();
     }
     Task::none()
 }
 
 pub fn remove_entry<T: EditableRecord + Extractor>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     index: usize,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.remove_record(index);
     }
     Task::none()
 }
 
 pub fn pane_resized<T: EditableRecord>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
-    spreadsheets: &mut HashMap<usize, SpreadsheetState>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     event: pane_grid::ResizeEvent,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         if let Some(ref mut ps) = editor.editor.pane_state {
             ps.resize(event.split, event.ratio);
         }
     }
-    if let Some(ss) = spreadsheets.get_mut(&tab_id) {
+    if let Some(ss) = tabbed_editor.spreadsheets.get_mut(&tab_id) {
         if let Some(ref mut ps) = ss.pane_state {
             ps.resize(event.split, event.ratio);
         }
@@ -99,11 +96,11 @@ pub fn pane_resized<T: EditableRecord>(
 }
 
 pub fn pane_clicked<T: EditableRecord>(
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
     pane: pane_grid::Pane,
 ) -> Task<Message> {
-    if let Some(editor) = editors.get_mut(&tab_id) {
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
         editor.editor.pane_focus = Some(pane);
     }
     Task::none()
@@ -111,8 +108,7 @@ pub fn pane_clicked<T: EditableRecord>(
 
 pub fn load_catalog_sync<T: EditableRecord + Extractor>(
     path: PathBuf,
-    editors: &mut HashMap<usize, MultiFileEditorState<T>>,
-    spreadsheets: &mut HashMap<usize, SpreadsheetState>,
+    tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
 ) {
     let mut editor_state = MultiFileEditorState::<T>::default();
@@ -125,6 +121,6 @@ pub fn load_catalog_sync<T: EditableRecord + Extractor>(
         ss.init_pane_state();
     }
 
-    editors.insert(tab_id, editor_state);
-    spreadsheets.insert(tab_id, ss);
+    tabbed_editor.editors.insert(tab_id, editor_state);
+    tabbed_editor.spreadsheets.insert(tab_id, ss);
 }
