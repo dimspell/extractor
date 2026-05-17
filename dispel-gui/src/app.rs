@@ -466,19 +466,21 @@ impl App {
             let esc_sub = keyboard::listen().filter_map(|event| {
                 if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
                     if modifiers.control() || modifiers.command() {
-                        return match key.as_ref() {
-                            Key::Character("enter") => {
-                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                        if let Key::Named(Named::Enter) = key.as_ref() {
+                            return Some(Message::event_scr(
+                                EventScrEditorMessage::KeyboardShortcut(
                                     KeyboardShortcut::InsertActionBelow,
-                                )))
-                            }
-                            Key::Character(" ") => {
-                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                                ),
+                            ));
+                        }
+                        if let Key::Named(Named::Space) = key.as_ref() {
+                            return Some(Message::event_scr(
+                                EventScrEditorMessage::KeyboardShortcut(
                                     KeyboardShortcut::TogglePicker,
-                                )))
-                            }
-                            _ => None,
-                        };
+                                ),
+                            ));
+                        }
+                        return None;
                     }
                     if let Key::Named(named) = key.as_ref() {
                         match named {
