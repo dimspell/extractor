@@ -238,67 +238,6 @@ impl App {
         &self.empty_edit_history
     }
 
-    /// Build a `Message` that delivers `sm` to the spreadsheet of whichever
-    /// editor is currently active in the workspace.  Returns `None` when the
-    /// active tab has no associated spreadsheet (e.g. map editor, DB viewer).
-    pub fn spreadsheet_nav_msg(
-        &self,
-        sm: crate::view::editor::SpreadsheetMessage,
-    ) -> Option<Message> {
-        use crate::editors::*;
-        use crate::workspace::EditorType::*;
-        let et = self.state.workspace.active()?.editor_type;
-        Some(match et {
-            WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
-            MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
-            MonsterIniEditor => {
-                Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
-            }
-            HealItemEditor => Message::heal_item(heal_item::HealItemEditorMessage::Spreadsheet(sm)),
-            MiscItemEditor => Message::misc_item(misc_item::MiscItemEditorMessage::Spreadsheet(sm)),
-            EditItemEditor => Message::edit_item(edit_item::EditItemEditorMessage::Spreadsheet(sm)),
-            EventItemEditor => {
-                Message::event_item(event_item::EventItemEditorMessage::Spreadsheet(sm))
-            }
-            MagicEditor => Message::magic(magic::MagicEditorMessage::Spreadsheet(sm)),
-            StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
-            NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
-            NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
-            MonsterRefEditor => {
-                Message::monster_ref(monster_ref::MonsterRefEditorMessage::Spreadsheet(sm))
-            }
-            PartyRefEditor => Message::party_ref(party_ref::PartyRefEditorMessage::Spreadsheet(sm)),
-            PartyIniEditor => Message::party_ini(party_ini::PartyIniEditorMessage::Spreadsheet(sm)),
-            AllMapIniEditor => {
-                Message::all_map_ini(all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm))
-            }
-            MapIniEditor => Message::map_ini(map_ini::MapIniEditorMessage::Spreadsheet(sm)),
-            ExtraIniEditor => Message::extra_ini(extra_ini::ExtraIniEditorMessage::Spreadsheet(sm)),
-            ExtraRefEditor => Message::extra_ref(extra_ref::ExtraRefEditorMessage::Spreadsheet(sm)),
-            EventIniEditor => Message::event_ini(event_ini::EventIniEditorMessage::Spreadsheet(sm)),
-            EventNpcRefEditor => {
-                Message::event_npc_ref(event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm))
-            }
-            WaveIniEditor => Message::wave_ini(wave_ini::WaveIniEditorMessage::Spreadsheet(sm)),
-            DrawItemEditor => Message::draw_item(draw_item::DrawItemEditorMessage::Spreadsheet(sm)),
-            MessageScrEditor => {
-                Message::message_scr(message_scr::MessageScrEditorMessage::Spreadsheet(sm))
-            }
-            QuestScrEditor => Message::quest_scr(quest_scr::QuestScrEditorMessage::Spreadsheet(sm)),
-            DialogueScriptEditor => Message::dialogue_script(
-                dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
-            ),
-            DialogueTextEditor => Message::dialogue_paragraph(
-                dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
-            ),
-            ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
-            PartyLevelDbEditor => {
-                Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
-            }
-            _ => return None,
-        })
-    }
-
     pub fn subscription(&self) -> Subscription<Message> {
         use iced::keyboard::{self, key::Named, Key};
         use iced::window;
@@ -429,7 +368,7 @@ impl App {
             if let Some(et) = active_et {
                 use crate::view::editor::SpreadsheetMessage as SM;
                 // Probe whether this editor type has a spreadsheet.
-                if build_spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
+                if spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
                     // Pass `et` via `.with()` so the closure itself is zero-sized
                     // (iced 0.14 requires filter_map closures to be non-capturing).
                     let ss_sub = keyboard::listen().with(et).filter_map(|(et, event)| {
@@ -447,7 +386,7 @@ impl App {
                                     Named::Escape => SM::CancelEdit,
                                     _ => return None,
                                 };
-                                return build_spreadsheet_nav_msg(et, sm);
+                                return spreadsheet_nav_msg(et, sm);
                             }
                         }
                         None
@@ -834,7 +773,7 @@ fn load_catalog_task(et: EditorType) -> Option<Task<Message>> {
 /// Map `(EditorType, SpreadsheetMessage)` to the correct `Message` variant.
 /// Returns `None` for editor types that have no spreadsheet (map editor, sprite
 /// viewer, etc.) so callers can use this as a capability check.
-fn build_spreadsheet_nav_msg(
+fn spreadsheet_nav_msg(
     et: crate::workspace::EditorType,
     sm: crate::view::editor::SpreadsheetMessage,
 ) -> Option<crate::message::Message> {
