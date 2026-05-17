@@ -74,7 +74,6 @@ fn build_table_content_widget<'a>(
         ROW_HEIGHT,
         spreadsheet.paragraph_cache.clone(),
     )
-    .shift_pressed(spreadsheet.shift_pressed)
     .external_offset(
         spreadsheet.horizontal_scroll_offset,
         spreadsheet.vertical_scroll_offset,

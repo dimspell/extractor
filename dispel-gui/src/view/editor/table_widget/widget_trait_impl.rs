@@ -73,7 +73,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     mouse::ScrollDelta::Pixels { x, y } => (-x, -y),
                 };
-                if self.shift_pressed || state.shift_pressed {
+                if state.shift_pressed {
                     let horiz = if dx != 0.0 { dx } else { dy };
                     let new_x = state.scroll_offset.x + horiz;
                     if self.apply_scroll(state, bounds, new_x, state.scroll_offset.y, shell) {

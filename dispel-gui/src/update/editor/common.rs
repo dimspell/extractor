@@ -369,9 +369,6 @@ macro_rules! handle_spreadsheet_messages {
                     $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
                 }
             }
-            SM::ModifiersChanged(pressed) => {
-                $app.state.$field.spreadsheet.shift_pressed = pressed;
-            }
         }
     };
 }
@@ -667,9 +664,6 @@ macro_rules! handle_spreadsheet_messages_tab {
                                 ss.apply_sort(catalog);
                                 ss.record_target_offset(0.0, 0.0);
                             }
-                        }
-                        SM::ModifiersChanged(pressed) => {
-                            ss.shift_pressed = pressed;
                         }
                     }
                 }

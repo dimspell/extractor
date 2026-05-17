@@ -39,7 +39,6 @@ pub struct TableWidget<'a, Message> {
     pub(crate) on_prev_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
     pub(crate) on_escape: Option<Box<dyn Fn() -> Message + 'a>>,
     pub(crate) on_quick_filter: Option<Box<dyn Fn(usize, String) -> Message + 'a>>,
-    pub(crate) shift_pressed: bool,
 }
 
 impl<'a, Message> TableWidget<'a, Message> {
@@ -77,7 +76,6 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_prev_highlight: None,
             on_escape: None,
             on_quick_filter: None,
-            shift_pressed: false,
         }
     }
 
@@ -133,11 +131,6 @@ impl<'a, Message> TableWidget<'a, Message> {
 
     pub fn on_quick_filter(mut self, f: impl Fn(usize, String) -> Message + 'a) -> Self {
         self.on_quick_filter = Some(Box::new(f));
-        self
-    }
-
-    pub fn shift_pressed(mut self, pressed: bool) -> Self {
-        self.shift_pressed = pressed;
         self
     }
 
