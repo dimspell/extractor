@@ -30,6 +30,7 @@ define_message_ext! {
     npc_ref:        NpcRef(crate::editors::npc_ref::NpcRefEditorMessage),
     party_level_db: PartyLevelDb(crate::editors::party_level_db::PartyLevelDbEditorMessage),
     quest_scr:      QuestScr(crate::editors::quest_scr::QuestScrEditorMessage),
+    event_scr:      EventScr(crate::editors::event_scr::EventScrEditorMessage),
     wave_ini:       WaveIni(crate::editors::wave_ini::WaveIniEditorMessage),
     chdata:         ChData(crate::editors::chdata::ChDataEditorMessage),
     map_editor:     MapEditor(crate::editors::map_editor::MapEditorMessage),

@@ -116,7 +116,7 @@ pub struct SpriteDefinition {
 
 impl SpriteDefinition {
     /// Parse a sprite definition line like "Pope(PopeBlessing.spr)"
-    pub(crate) fn parse(line: &str) -> Self {
+    pub fn parse(line: &str) -> Self {
         let trimmed = line.trim();
         // Check if the line has the format: alias(filename)
         if let Some(start) = trimmed.find('(') {
@@ -161,7 +161,7 @@ pub struct ActionFunction {
 
 impl ActionFunction {
     /// Parse a line into an ActionFunction
-    pub(crate) fn parse(line: &str) -> Self {
+    pub fn parse(line: &str) -> Self {
         let trimmed = line.trim();
 
         // Handle control flow and braces (if, else, {, }, etc.)

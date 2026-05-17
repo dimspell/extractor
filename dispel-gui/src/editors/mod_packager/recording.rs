@@ -10,7 +10,7 @@
 //! When no session is active, `observe_field_change` is a no-op returning
 //! `Task::none()` — callers pay only an `Option::is_some()` check.
 
-use dispel_core::modding::Value;
+use dispel_core::modding::{make_delta, ChangeAction, ChangeOp, Value, Workspace};
 use iced::Task;
 
 use crate::app::App;
@@ -22,6 +22,52 @@ use crate::state::RecordingKey;
 
 /// Idle time after the last keystroke before a pending edit is persisted.
 pub const DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(800);
+
+/// If the bsdiff delta is at least this fraction of the full file size, we
+/// emit `FileReplace` instead of `BinaryDelta` — the patch is no longer a
+/// space win and a full replace is simpler to inspect.
+const DELTA_KEEP_THRESHOLD: f64 = 0.7;
+
+/// Decide between [`ChangeOp::BinaryDelta`] and [`ChangeOp::FileReplace`]
+/// based on the relative size of the qbsdiff patch.
+pub fn decide_op(vanilla: &[u8], current: &[u8]) -> Result<ChangeOp, String> {
+    let delta = make_delta(vanilla, current).map_err(|e| e.to_string())?;
+    let keep_delta =
+        !current.is_empty() && (delta.len() as f64) < (current.len() as f64) * DELTA_KEEP_THRESHOLD;
+    if keep_delta {
+        Ok(ChangeOp::BinaryDelta { patch_bytes: delta })
+    } else {
+        Ok(ChangeOp::FileReplace {
+            content: current.to_vec(),
+        })
+    }
+}
+
+/// Record a file replacement into the active mod session.
+///
+/// Ensures a vanilla snapshot exists (reads original from disk), computes a
+/// binary delta or full replace, and appends the [`ChangeAction`] to the
+/// workspace changelog. Does **not** write `new_bytes` to disk — callers
+/// should do that separately after this succeeds.
+pub fn record_file_replace(
+    workspace_root: &std::path::Path,
+    game_dir: &std::path::Path,
+    mod_slug: &str,
+    relative_path: &str,
+    new_bytes: &[u8],
+) -> Result<(), String> {
+    let ws = Workspace::open(workspace_root.to_path_buf()).map_err(|e| e.to_string())?;
+    let vanilla_bytes = ws
+        .vanilla()
+        .ensure_snapshot(game_dir, relative_path)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Vanilla file not present on disk; cannot diff.".to_string())?;
+
+    let op = decide_op(&vanilla_bytes, new_bytes)?;
+    let action = ChangeAction::new(relative_path, op);
+    ws.append_action(mod_slug, action)
+        .map_err(|e| e.to_string())
+}
 
 /// Observe one successful field-edit. Called from the editor macro after the
 /// underlying edit committed; old/new are the string values from the

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use dispel_core::modding::{make_delta, ChangeAction, ChangeOp, Workspace};
+use dispel_core::modding::{ChangeAction, ChangeOp, Workspace};
 use iced::Task;
 
 use crate::app::App;
@@ -10,16 +10,12 @@ use crate::editors::hex_editor::inspector::ENTRIES;
 use crate::editors::hex_editor::selection::nav_target;
 use crate::editors::hex_editor::HexEditorMessage;
 use crate::editors::hex_editor::HexProvider;
+use crate::editors::mod_packager::recording::decide_op;
 use crate::message::{Message, MessageExt};
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height
 /// up here, so PageUp/PageDown approximate a screenful.
 const PAGE_ROWS: u64 = 24;
-
-/// If the bsdiff delta is at least this fraction of the full file size, we
-/// emit `FileReplace` instead of `BinaryDelta` — the patch is no longer a
-/// space win and a full replace is simpler to inspect.
-const DELTA_KEEP_THRESHOLD: f64 = 0.7;
 
 pub fn handle(message: HexEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = app
@@ -434,21 +430,6 @@ fn build_and_append_action(
     ws.append_action(mod_slug, action)
         .map_err(|e| e.to_string())?;
     Ok(summary)
-}
-
-/// Decide between [`ChangeOp::BinaryDelta`] and [`ChangeOp::FileReplace`]
-/// based on the relative size of the qbsdiff patch.
-pub fn decide_op(vanilla: &[u8], current: &[u8]) -> Result<ChangeOp, String> {
-    let delta = make_delta(vanilla, current).map_err(|e| e.to_string())?;
-    let keep_delta =
-        !current.is_empty() && (delta.len() as f64) < (current.len() as f64) * DELTA_KEEP_THRESHOLD;
-    if keep_delta {
-        Ok(ChangeOp::BinaryDelta { patch_bytes: delta })
-    } else {
-        Ok(ChangeOp::FileReplace {
-            content: current.to_vec(),
-        })
-    }
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@ use crate::editors::dialogue_script::DialogueScriptEditorState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
+use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
 use crate::editors::extra_ref::ExtraRefEditorState;
 use crate::editors::hex_editor::HexEditorState;
@@ -85,6 +86,7 @@ pub struct AppState {
     pub party_level_db_editor: Box<PartyLevelDbEditorState>,
     pub party_level_db_level_editor: Box<StandardEditor<dispel_core::PartyLevelRecord>>,
     pub quest_scr_editor: Box<QuestScrEditorState>,
+    pub event_scr_editor: Box<EventScriptEditorState>,
     pub wave_ini_editor: Box<WaveIniEditorState>,
     pub chdata_editor: Box<ChDataEditorState>,
     pub map_editors: HashMap<usize, MapEditorState>,
@@ -339,6 +341,7 @@ impl AppState {
         *self.quest_scr_editor = Default::default();
         *self.wave_ini_editor = Default::default();
         *self.chdata_editor = Default::default();
+        *self.event_scr_editor = Default::default();
 
         // Clear lookups that might reference old workspace data
         self.lookups.clear();
@@ -387,6 +390,7 @@ impl Default for AppState {
             party_level_db_editor: Box::default(),
             party_level_db_level_editor: Box::default(),
             quest_scr_editor: Box::default(),
+            event_scr_editor: Box::default(),
             wave_ini_editor: Box::default(),
             chdata_editor: Box::default(),
             map_editors: HashMap::new(),

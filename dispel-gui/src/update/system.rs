@@ -4,6 +4,7 @@ use crate::app::App;
 use crate::components::generic_editor::UndoRedo;
 use crate::components::utils::browse_folder;
 use crate::components::FileTree;
+use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::map_editor::MapEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
 use crate::message::{system::SystemMessage, Message, MessageExt};
@@ -283,9 +284,17 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         }
         SystemMessage::Save => {
             if let Some(tab) = app.state.workspace.active() {
-                if tab.editor_type == EditorType::MapEditor {
-                    let tab_id = tab.id;
-                    return Task::done(Message::map_editor(MapEditorMessage::SaveEntities(tab_id)));
+                match tab.editor_type {
+                    EditorType::MapEditor => {
+                        let tab_id = tab.id;
+                        return Task::done(Message::map_editor(MapEditorMessage::SaveEntities(
+                            tab_id,
+                        )));
+                    }
+                    EditorType::EventScrEditor => {
+                        return Task::done(Message::event_scr(EventScrEditorMessage::SaveScript));
+                    }
+                    _ => {}
                 }
             }
             Task::none()

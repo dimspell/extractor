@@ -2,7 +2,7 @@
 use crate::app::App;
 use crate::editors::{
     all_map_ini, chdata, chest, dialogue_paragraph, dialogue_script, draw_item, edit_item,
-    event_ini, event_item, event_npc_ref, extra_ini, extra_ref, heal_item, hex_editor,
+    event_ini, event_item, event_npc_ref, event_scr, extra_ini, extra_ref, heal_item, hex_editor,
     localization_manager, magic, map_editor, map_ini, message_scr, misc_item, mod_packager,
     monster, monster_ini, monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref,
     quest_scr, snf_editor, sprite_browser, store, tileset, wave_ini, weapon,
@@ -39,6 +39,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::NpcRef(msg) => npc_ref::handle(msg, app),
         EditorMessage::PartyLevelDb(msg) => party_level_db::handle(msg, app),
         EditorMessage::QuestScr(msg) => quest_scr::handle(msg, app),
+        EditorMessage::EventScr(msg) => event_scr::handle(msg, app),
         EditorMessage::WaveIni(msg) => wave_ini::handle(msg, app),
         EditorMessage::ChData(msg) => chdata::handle(msg, app),
         EditorMessage::Chest(msg) => chest::handle(msg, app),

@@ -13,6 +13,7 @@ use crate::editors::edit_item::EditItemEditorMessage;
 use crate::editors::event_ini::EventIniEditorMessage;
 use crate::editors::event_item::EventItemEditorMessage;
 use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
+use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
@@ -70,6 +71,7 @@ pub enum EditorMessage {
     NpcRef(NpcRefEditorMessage),
     PartyLevelDb(PartyLevelDbEditorMessage),
     QuestScr(QuestScrEditorMessage),
+    EventScr(EventScrEditorMessage),
     WaveIni(WaveIniEditorMessage),
     ChData(ChDataEditorMessage),
     MapEditor(MapEditorMessage),

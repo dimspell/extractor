@@ -231,6 +231,7 @@ impl App {
                 EditorType::PartyRefEditor => self.state.party_ref_editor.edit_history(),
                 EditorType::PartyIniEditor => self.state.party_ini_editor.edit_history(),
                 EditorType::StoreEditor => self.state.store_editor.edit_history(),
+                EditorType::EventScrEditor => &self.empty_edit_history,
                 _ => &self.empty_edit_history,
             };
         }
@@ -406,6 +407,17 @@ impl App {
             subscriptions.push(snf_tick);
         }
 
+        // Poll for event script indexing progress.
+        if matches!(
+            self.state.event_scr_editor.index_state,
+            crate::editors::event_scr::FunctionIndexState::Indexing { .. }
+        ) {
+            let index_tick = iced::time::every(std::time::Duration::from_millis(100)).map(|_| {
+                Message::event_scr(crate::editors::event_scr::EventScrEditorMessage::IndexTick)
+            });
+            subscriptions.push(index_tick);
+        }
+
         // Spreadsheet row navigation (Arrow / Home / End keys).
         // Only active when a spreadsheet editor is in the foreground and no
         // overlay is consuming keys.
@@ -443,6 +455,54 @@ impl App {
                     subscriptions.push(ss_sub);
                 }
             }
+        }
+
+        // Event Script Editor keyboard shortcuts.
+        if !palette_open
+            && !search_open
+            && active_et == Some(crate::workspace::EditorType::EventScrEditor)
+        {
+            use crate::editors::event_scr::{EventScrEditorMessage, KeyboardShortcut};
+            let esc_sub = keyboard::listen().filter_map(|event| {
+                if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                    if modifiers.control() || modifiers.command() {
+                        return match key.as_ref() {
+                            Key::Character("enter") => {
+                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::InsertActionBelow,
+                                )))
+                            }
+                            Key::Character(" ") => {
+                                Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::TogglePicker,
+                                )))
+                            }
+                            _ => None,
+                        };
+                    }
+                    if let Key::Named(named) = key.as_ref() {
+                        match named {
+                            Named::ArrowUp => {
+                                return Some(Message::event_scr(
+                                    EventScrEditorMessage::KeyboardShortcut(
+                                        KeyboardShortcut::MoveActionUp,
+                                    ),
+                                ))
+                            }
+                            Named::ArrowDown => {
+                                return Some(Message::event_scr(
+                                    EventScrEditorMessage::KeyboardShortcut(
+                                        KeyboardShortcut::MoveActionDown,
+                                    ),
+                                ))
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                None
+            });
+            subscriptions.push(esc_sub);
         }
 
         Subscription::batch(subscriptions)
@@ -584,6 +644,17 @@ impl App {
                 };
                 Task::done(Message::map_editor(
                     crate::editors::map_editor::MapEditorMessage::Open(tab_id, path.to_path_buf()),
+                ))
+            }
+            EditorType::EventScrEditor => {
+                let path_buf = path.to_path_buf();
+                self.state.event_scr_editor.file_path = Some(path_buf.clone());
+                Task::done(Message::Editor(
+                    crate::message::editor::EditorMessage::EventScr(
+                        crate::editors::event_scr::message::EventScrEditorMessage::LoadScript(
+                            path_buf,
+                        ),
+                    ),
                 ))
             }
             et => load_catalog_task(et).unwrap_or(Task::none()),
