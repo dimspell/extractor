@@ -102,6 +102,62 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     .and_then(|e| e.undo()),
                 _ => None,
             };
+            // Refresh spreadsheet caches for tab-based editors after undo
+            if result.is_some() {
+                match editor_type {
+                    EditorType::MonsterRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.monster_ref_editors.get(&tab_id),
+                            app.state.monster_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::NpcRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.npc_ref_editors.get(&tab_id),
+                            app.state.npc_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::ExtraRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.extra_ref_editors.get(&tab_id),
+                            app.state.extra_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::DialogueScriptEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.dialogue_script_editors.get(&tab_id),
+                            app.state.dialogue_script_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::DialogueTextEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.dialogue_paragraphs_editors.get(&tab_id),
+                            app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
             Task::none()
         }
@@ -166,6 +222,62 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     .and_then(|e| e.redo()),
                 _ => None,
             };
+            // Refresh spreadsheet caches for tab-based editors after redo
+            if result.is_some() {
+                match editor_type {
+                    EditorType::MonsterRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.monster_ref_editors.get(&tab_id),
+                            app.state.monster_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::NpcRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.npc_ref_editors.get(&tab_id),
+                            app.state.npc_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::ExtraRefEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.extra_ref_editors.get(&tab_id),
+                            app.state.extra_ref_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::DialogueScriptEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.dialogue_script_editors.get(&tab_id),
+                            app.state.dialogue_script_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    EditorType::DialogueTextEditor => {
+                        if let (Some(editor), Some(spreadsheet)) = (
+                            app.state.dialogue_paragraphs_editors.get(&tab_id),
+                            app.state.dialogue_paragraph_spreadsheets.get_mut(&tab_id),
+                        ) {
+                            if let Some(ref catalog) = editor.editor.catalog {
+                                spreadsheet.compute_all_caches(catalog);
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
             Task::none()
         }

@@ -82,8 +82,12 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
 
     /// Update a field value in the edit buffer, the filtered record, and the original catalog.
     /// Returns true if the field was valid and updated, false if validation failed.
+    ///
+    /// `idx` is the **catalog index** (not a filtered-list position). The method
+    /// looks up the record by matching catalog indices in `filtered`, which is
+    /// the same approach used by `undo` and `redo`.
     pub fn update_field(&mut self, idx: usize, field: &str, value: String) -> bool {
-        if let Some((orig_idx, record)) = self.filtered.get_mut(idx) {
+        if let Some((_, record)) = self.filtered.iter_mut().find(|(i, _)| *i == idx) {
             let old_value = record.get_field(field);
             if old_value == value {
                 return true;
@@ -97,7 +101,7 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                 // Record the change in history
                 self.edit_history
                     .push(crate::components::edit_history::EditAction::FieldChange {
-                        record_idx: *orig_idx,
+                        record_idx: idx,
                         field: field.to_string(),
                         old_value,
                         new_value: value.clone(),
@@ -109,9 +113,8 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                     }
                 }
                 // Sync back to the original catalog entry
-                let orig = *orig_idx;
                 if let Some(catalog) = &mut self.catalog {
-                    if let Some(catalog_record) = catalog.get_mut(orig) {
+                    if let Some(catalog_record) = catalog.get_mut(idx) {
                         *catalog_record = record.clone();
                     }
                 }
@@ -154,7 +157,22 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                     }
                     None
                 }
-                _ => Some("Undo: complex actions not yet supported".to_string()),
+                crate::components::edit_history::EditAction::RecordRemove { record_idx, data } => {
+                    if let Ok(record) = serde_json::from_str::<R>(&data) {
+                        if let Some(catalog) = &mut self.catalog {
+                            if record_idx <= catalog.len() {
+                                catalog.insert(record_idx, record);
+                                self.refresh();
+                                self.edit_history.adjust_for_addition(record_idx);
+                                self.edit_buffers.clear();
+                                self.selected_idx = None;
+                                return Some(format!("Undo: restored record #{}", record_idx));
+                            }
+                        }
+                    }
+                    None
+                }
+                _ => Some("Undo: unsupported action".to_string()),
             }
         } else {
             None
@@ -195,7 +213,23 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                     }
                     None
                 }
-                _ => Some("Redo: complex actions not yet supported".to_string()),
+                crate::components::edit_history::EditAction::RecordAdd {
+                    record_idx,
+                    data: _,
+                } => {
+                    if let Some(catalog) = &mut self.catalog {
+                        if record_idx < catalog.len() {
+                            catalog.remove(record_idx);
+                            self.refresh();
+                            self.edit_history.adjust_for_removal(record_idx);
+                            self.edit_buffers.clear();
+                            self.selected_idx = None;
+                            return Some(format!("Redo: removed record #{}", record_idx));
+                        }
+                    }
+                    None
+                }
+                _ => Some("Redo: unsupported action".to_string()),
             }
         } else {
             None
@@ -438,14 +472,26 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
 
     /// Remove a record by its filtered index.
     pub fn remove_record(&mut self, idx: usize) {
-        if let Some(catalog) = &mut self.editor.catalog {
-            if let Some((orig_idx, _)) = self.editor.filtered.get(idx) {
-                let orig = *orig_idx;
-                if orig < catalog.len() {
-                    catalog.remove(orig);
-                    // Rebuild filtered list since indices shifted
+        if let Some((orig_idx, record)) = self.editor.filtered.get(idx).cloned() {
+            // Serialize the removed record so undo can restore it
+            let data = serde_json::to_string(&record).unwrap_or_default();
+
+            // Fix up stale indices in existing history BEFORE pushing the
+            // removal action — adjust_for_removal drops actions whose
+            // record_idx == removed_idx, so the new RecordRemove must come
+            // after the adjustment.
+            self.editor.edit_history.adjust_for_removal(orig_idx);
+            self.editor.edit_history.push(
+                crate::components::edit_history::EditAction::RecordRemove {
+                    record_idx: orig_idx,
+                    data,
+                },
+            );
+
+            if let Some(catalog) = &mut self.editor.catalog {
+                if orig_idx < catalog.len() {
+                    catalog.remove(orig_idx);
                     self.editor.refresh();
-                    // Clear selection
                     self.editor.selected_idx = None;
                     self.editor.edit_buffers.clear();
                 }
@@ -536,6 +582,7 @@ fn glob_match(name: &str, pattern: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::edit_history::EditAction;
     use crate::components::editable::EditableRecord;
     use dispel_core::{EditItem, EventItem, HealItem, MiscItem, Monster, PartyRef, WeaponItem};
 
@@ -712,5 +759,230 @@ mod tests {
         // Test valid string field update
         let result = editor.update_field(0, "name", "Valid Name".to_string());
         assert!(result, "Valid string field should be accepted");
+    }
+
+    #[test]
+    fn test_update_field_by_catalog_index() {
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let mut catalog = Vec::new();
+        for i in 0..5 {
+            let mut w = WeaponItem::default();
+            w.name = format!("Weapon {}", i);
+            catalog.push(w);
+        }
+        editor.catalog = Some(catalog);
+        editor.refresh();
+
+        // filtered has [(0, W0), (1, W1), (2, W2), (3, W3), (4, W4)].
+        // Update using catalog index 3 directly.
+        let r = editor.update_field(3, "name", "Updated".to_string());
+        assert!(r);
+        assert_eq!(editor.catalog.as_ref().unwrap()[3].name, "Updated");
+        assert_eq!(
+            editor
+                .filtered
+                .iter()
+                .find(|(i, _)| *i == 3)
+                .unwrap()
+                .1
+                .name,
+            "Updated"
+        );
+        assert!(editor.edit_history.can_undo());
+    }
+
+    #[test]
+    fn test_update_field_works_despite_non_matching_filtered_position() {
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let mut catalog = Vec::new();
+        for i in 0..5 {
+            let mut w = WeaponItem::default();
+            w.name = format!("Weapon {}", i);
+            catalog.push(w);
+        }
+        editor.catalog = Some(catalog);
+        editor.refresh();
+
+        // Remove the first element from `filtered` to simulate a filter
+        // where the visible set differs from catalog indices.
+        editor.filtered.remove(0);
+        // filtered now has [(1, W1), (2, W2), (3, W3), (4, W4)].
+
+        // Catalog index 3 (Weapon 3) is still present in filtered at
+        // filtered position 2. update_field should find it by catalog
+        // index, NOT by filtered position.
+        let r = editor.update_field(3, "name", "Patched".to_string());
+        assert!(r);
+        assert_eq!(editor.catalog.as_ref().unwrap()[3].name, "Patched");
+
+        // Editing filtered position 2 should correctly map to catalog index 3
+        let r2 = editor.update_field(3, "name", "Again".to_string());
+        assert!(r2);
+        assert_eq!(editor.catalog.as_ref().unwrap()[3].name, "Again");
+    }
+
+    #[test]
+    fn test_undo_redo_remove_record() {
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let mut catalog = Vec::new();
+        for i in 0..3 {
+            let mut w = WeaponItem::default();
+            w.name = format!("Weapon {}", i);
+            catalog.push(w);
+        }
+        editor.catalog = Some(catalog);
+        editor.refresh();
+
+        // Simulate removing record at catalog index 1
+        let record = editor
+            .filtered
+            .iter()
+            .find(|(i, _)| *i == 1)
+            .unwrap()
+            .1
+            .clone();
+        let data = serde_json::to_string(&record).unwrap();
+        // Must adjust BEFORE push (adjust_for_removal drops actions at removed_idx)
+        editor.edit_history.adjust_for_removal(1);
+        editor.edit_history.push(EditAction::RecordRemove {
+            record_idx: 1,
+            data,
+        });
+        editor.catalog.as_mut().unwrap().remove(1);
+        editor.refresh();
+
+        assert_eq!(editor.catalog.as_ref().unwrap().len(), 2);
+        assert_eq!(editor.catalog.as_ref().unwrap()[1].name, "Weapon 2");
+
+        // Undo: should restore the removed record
+        let msg = editor.undo();
+        let msg = msg.expect("undo should return Some message");
+        assert!(msg.starts_with("Undo: restored"));
+        assert_eq!(editor.catalog.as_ref().unwrap().len(), 3);
+        assert_eq!(editor.catalog.as_ref().unwrap()[1].name, "Weapon 1");
+
+        // Redo: should remove it again
+        let msg = editor.redo();
+        assert!(msg.unwrap().starts_with("Redo: removed"));
+        assert_eq!(editor.catalog.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_undo_adjusts_history_after_remove() {
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let mut catalog = Vec::new();
+        for i in 0..4 {
+            let mut w = WeaponItem::default();
+            w.name = format!("Weapon {}", i);
+            catalog.push(w);
+        }
+        editor.catalog = Some(catalog);
+        editor.refresh();
+
+        // Edit record at catalog index 3 (Weapon 3)
+        editor.update_field(3, "name", "Edited".to_string());
+        assert!(editor.edit_history.can_undo());
+
+        // Simulate removing record at catalog index 1
+        let record = editor
+            .filtered
+            .iter()
+            .find(|(i, _)| *i == 1)
+            .unwrap()
+            .1
+            .clone();
+        let data = serde_json::to_string(&record).unwrap();
+        editor.edit_history.adjust_for_removal(1);
+        editor.edit_history.push(EditAction::RecordRemove {
+            record_idx: 1,
+            data,
+        });
+        editor.catalog.as_mut().unwrap().remove(1);
+        editor.refresh();
+
+        // The FieldChange for Weapon 3 should have its record_idx
+        // decremented from 3 to 2 by adjust_for_removal(1).
+        // The RecordRemove is at the front (most recent action).
+        let stack = editor.edit_history.undo_stack();
+        assert_eq!(stack.len(), 2, "should have RecordRemove + FieldChange");
+        match &stack[1] {
+            EditAction::FieldChange {
+                record_idx, field, ..
+            } => {
+                assert_eq!(*record_idx, 2, "index should be decremented after removal");
+                assert_eq!(field, "name");
+            }
+            _ => panic!("expected FieldChange at back of stack"),
+        }
+        match &stack[0] {
+            EditAction::RecordRemove { record_idx, .. } => {
+                assert_eq!(*record_idx, 1);
+            }
+            _ => panic!("expected RecordRemove at front of stack"),
+        }
+    }
+
+    #[test]
+    fn test_edit_history_adjust_for_addition() {
+        let mut history = EditHistory::new();
+        history.push(EditAction::FieldChange {
+            record_idx: 0,
+            field: "f".into(),
+            old_value: "a".into(),
+            new_value: "b".into(),
+        });
+        history.push(EditAction::FieldChange {
+            record_idx: 2,
+            field: "f".into(),
+            old_value: "c".into(),
+            new_value: "d".into(),
+        });
+        history.push(EditAction::FieldChange {
+            record_idx: 5,
+            field: "f".into(),
+            old_value: "e".into(),
+            new_value: "f".into(),
+        });
+
+        history.adjust_for_addition(2);
+
+        let stack = history.undo_stack();
+        // After addition at index 2: indices >= 2 incremented
+        assert_eq!(stack[0].record_idx(), 6); // 5 → 6
+        assert_eq!(stack[1].record_idx(), 3); // 2 → 3
+        assert_eq!(stack[2].record_idx(), 0); // 0 unchanged
+    }
+
+    #[test]
+    fn test_edit_history_adjust_for_removal_drops_matching() {
+        let mut history = EditHistory::new();
+        history.push(EditAction::FieldChange {
+            record_idx: 0,
+            field: "f".into(),
+            old_value: "a".into(),
+            new_value: "b".into(),
+        });
+        history.push(EditAction::RecordRemove {
+            record_idx: 2,
+            data: "{}".into(),
+        });
+        history.push(EditAction::FieldChange {
+            record_idx: 5,
+            field: "f".into(),
+            old_value: "c".into(),
+            new_value: "d".into(),
+        });
+
+        history.adjust_for_removal(2);
+
+        let stack = history.undo_stack();
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack[0].record_idx(), 4); // 5 → 4
+        assert_eq!(stack[1].record_idx(), 0); // 0 unchanged
+                                              // RecordRemove at idx 2 was dropped
     }
 }
