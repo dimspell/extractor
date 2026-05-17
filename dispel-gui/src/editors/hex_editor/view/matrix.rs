@@ -508,7 +508,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                             let content_w = self.total_content_width();
                             let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                             let sx = state.scroll_x.get();
-                            let nsx = clamp_scroll_x(sx - y * ROW_HEIGHT * 3.0, content_w, avail_w);
+                            let horiz = if *x != 0.0 { *x } else { *y };
+                            let nsx =
+                                clamp_scroll_x(sx - horiz * ROW_HEIGHT * 3.0, content_w, avail_w);
                             if (nsx - sx).abs() > f32::EPSILON {
                                 state.scroll_x.set(nsx);
                                 shell.request_redraw();
@@ -539,7 +541,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                             let content_w = self.total_content_width();
                             let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                             let sx = state.scroll_x.get();
-                            let nsx = clamp_scroll_x(sx - y, content_w, avail_w);
+                            let horiz = if *x != 0.0 { *x } else { *y };
+                            let nsx = clamp_scroll_x(sx - horiz, content_w, avail_w);
                             if (nsx - sx).abs() > f32::EPSILON {
                                 state.scroll_x.set(nsx);
                                 shell.request_redraw();
