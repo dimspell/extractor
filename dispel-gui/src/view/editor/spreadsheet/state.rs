@@ -150,6 +150,11 @@ pub struct SpreadsheetState {
     /// Process-wide cache of pre-shaped paragraphs. Shared by every cell
     /// the table widget paints; cheap to clone (Arc).
     pub paragraph_cache: ParagraphCache,
+
+    /// Whether the Shift key is currently held. Updated via
+    /// `ModifiersChanged` message from the app-level keyboard
+    /// subscription.
+    pub shift_pressed: bool,
 }
 
 impl Default for SpreadsheetState {
@@ -184,6 +189,7 @@ impl Default for SpreadsheetState {
             column_filter_search: String::new(),
             inspector_textarea_contents: HashMap::new(),
             paragraph_cache: ParagraphCache::default(),
+            shift_pressed: false,
         }
     }
 }

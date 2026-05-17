@@ -86,4 +86,10 @@ pub enum SpreadsheetMessage {
     ClearAllColumnFilter(usize),
     /// Close the column filter modal.
     CloseColumnFilterModal,
+
+    // ── Keyboard modifier tracking ──────────────────────────────────────
+    /// Shift modifier state changed. Fired by the app-level keyboard
+    /// subscription; used by `TableWidget` to redirect scroll-wheel
+    /// deltas horizontally.
+    ModifiersChanged(bool),
 }

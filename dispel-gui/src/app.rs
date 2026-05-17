@@ -420,26 +420,40 @@ impl App {
                 if build_spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
                     // Pass `et` via `.with()` so the closure itself is zero-sized
                     // (iced 0.14 requires filter_map closures to be non-capturing).
-                    let ss_sub = keyboard::listen().with(et).filter_map(|(et, event)| {
-                        if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
-                            if modifiers.control() || modifiers.command() || modifiers.shift() {
-                                return None;
-                            }
-                            if let Key::Named(named) = key.as_ref() {
-                                use crate::view::editor::SpreadsheetMessage as SM;
-                                let sm = match named {
-                                    Named::ArrowUp => SM::NavigateUp,
-                                    Named::ArrowDown => SM::NavigateDown,
-                                    Named::Home => SM::NavigateTop,
-                                    Named::End => SM::NavigateBottom,
-                                    Named::Escape => SM::CancelEdit,
-                                    _ => return None,
-                                };
-                                return build_spreadsheet_nav_msg(et, sm);
-                            }
-                        }
-                        None
-                    });
+                    let ss_sub =
+                        keyboard::listen()
+                            .with(et)
+                            .filter_map(|(et, event)| match event {
+                                keyboard::Event::KeyPressed { key, modifiers, .. } => {
+                                    if modifiers.control()
+                                        || modifiers.command()
+                                        || modifiers.shift()
+                                    {
+                                        return None;
+                                    }
+                                    if let Key::Named(named) = key.as_ref() {
+                                        use crate::view::editor::SpreadsheetMessage as SM;
+                                        let sm = match named {
+                                            Named::ArrowUp => SM::NavigateUp,
+                                            Named::ArrowDown => SM::NavigateDown,
+                                            Named::Home => SM::NavigateTop,
+                                            Named::End => SM::NavigateBottom,
+                                            Named::Escape => SM::CancelEdit,
+                                            _ => return None,
+                                        };
+                                        return build_spreadsheet_nav_msg(et, sm);
+                                    }
+                                    None
+                                }
+                                keyboard::Event::ModifiersChanged(modifiers) => {
+                                    use crate::view::editor::SpreadsheetMessage as SM;
+                                    build_spreadsheet_nav_msg(
+                                        et,
+                                        SM::ModifiersChanged(modifiers.shift()),
+                                    )
+                                }
+                                _ => None,
+                            });
                     subscriptions.push(ss_sub);
                 }
             }
