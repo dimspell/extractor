@@ -62,6 +62,7 @@ pub struct EventScriptEditorState {
     pub pending_block_insert: Option<usize>,
     pub suggestion_visible: bool,
     pub suggestion_active_index: Option<usize>,
+    pub focused_action_index: Option<usize>,
 }
 
 impl EventScriptEditorState {

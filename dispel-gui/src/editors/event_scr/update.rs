@@ -161,6 +161,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     parameters: Vec::new(),
                     raw_content: None,
                 });
+                state.focused_action_index = Some(script.actions.len() - 1);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
             }
@@ -174,6 +175,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     parameters: Vec::new(),
                     raw_content: Some(String::new()),
                 });
+                state.focused_action_index = Some(script.actions.len() - 1);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
             }
@@ -181,6 +183,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         EventScrEditorMessage::ActionRawContentChanged(index, content) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.raw_content = Some(content);
@@ -194,6 +197,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionPrefixPicked(index, opt_prefix) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.prefix = opt_prefix;
@@ -205,6 +209,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionFunctionChanged(index, func_name) => {
+            state.focused_action_index = Some(index);
             let show_suggestions = func_name.len() >= 2;
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
@@ -224,6 +229,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionParamsChanged(index, params_str) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.parameters = params_str
@@ -239,6 +245,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ActionDeleted(index) => {
+            state.focused_action_index = None;
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if index < script.actions.len() {
                     if let Some((start, end)) =
@@ -419,6 +426,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                         raw_content: None,
                     },
                 );
+                state.focused_action_index = Some(pos);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
                 state.act_folded = state
@@ -439,6 +447,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         // ── Inline suggestions ────────────────────────────────────────────
         EventScrEditorMessage::SuggestionSelect(index, func_name) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.function_name = func_name;
@@ -457,41 +466,37 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         // ── Keyboard shortcuts ────────────────────────────────────────────
-        EventScrEditorMessage::KeyboardShortcut(shortcut) => {
-            match shortcut {
-                crate::editors::event_scr::KeyboardShortcut::InsertActionBelow => {
-                    if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                        script.actions.push(ActionFunction {
-                            prefix: None,
-                            function_name: String::new(),
-                            parameters: Vec::new(),
-                            raw_content: None,
-                        });
-                        state.modified = true;
-                        state.act_parse_errors = validate_script(script);
-                    }
+        EventScrEditorMessage::KeyboardShortcut(shortcut) => match shortcut {
+            crate::editors::event_scr::KeyboardShortcut::InsertActionBelow => {
+                if let LoadingState::Loaded(ref mut script) = state.script_loading {
+                    script.actions.push(ActionFunction {
+                        prefix: None,
+                        function_name: String::new(),
+                        parameters: Vec::new(),
+                        raw_content: None,
+                    });
+                    state.focused_action_index = Some(script.actions.len() - 1);
+                    state.modified = true;
+                    state.act_parse_errors = validate_script(script);
                 }
-                crate::editors::event_scr::KeyboardShortcut::TogglePicker => {
-                    return handle(EventScrEditorMessage::ToggleFunctionPicker, app);
-                }
-                crate::editors::event_scr::KeyboardShortcut::MoveActionUp => {
-                    if let LoadingState::Loaded(_) = state.script_loading {
-                        if let Some(idx) = state.suggestion_active_index.or(Some(0)) {
-                            let up_idx = idx.saturating_sub(1);
-                            return handle(EventScrEditorMessage::MoveActionUp(up_idx), app);
-                        }
-                    }
-                }
-                crate::editors::event_scr::KeyboardShortcut::MoveActionDown => {
-                    if let LoadingState::Loaded(_) = state.script_loading {
-                        if let Some(idx) = state.suggestion_active_index {
-                            return handle(EventScrEditorMessage::MoveActionDown(idx), app);
-                        }
-                    }
-                }
+                Task::none()
             }
-            Task::none()
-        }
+            crate::editors::event_scr::KeyboardShortcut::TogglePicker => {
+                handle(EventScrEditorMessage::ToggleFunctionPicker, app)
+            }
+            crate::editors::event_scr::KeyboardShortcut::MoveActionUp => {
+                if let Some(idx) = state.focused_action_index {
+                    return handle(EventScrEditorMessage::MoveActionUp(idx), app);
+                }
+                Task::none()
+            }
+            crate::editors::event_scr::KeyboardShortcut::MoveActionDown => {
+                if let Some(idx) = state.focused_action_index {
+                    return handle(EventScrEditorMessage::MoveActionDown(idx), app);
+                }
+                Task::none()
+            }
+        },
         EventScrEditorMessage::MoveActionUp(index) => {
             if index == 0 {
                 return Task::none();
@@ -499,6 +504,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 let prev = index - 1;
                 script.actions.swap(index, prev);
+                state.focused_action_index = Some(prev);
                 let had_prev = state.act_folded.remove(&prev);
                 let had_index = state.act_folded.remove(&index);
                 if had_prev {
@@ -519,6 +525,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                 }
                 let next = index + 1;
                 script.actions.swap(index, next);
+                state.focused_action_index = Some(next);
                 let had_index = state.act_folded.remove(&index);
                 let had_next = state.act_folded.remove(&next);
                 if had_index {
@@ -553,6 +560,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     parameters: Vec::new(),
                     raw_content: Some("}".to_string()),
                 });
+                state.focused_action_index = Some(script.actions.len() - 3);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
             }
@@ -578,6 +586,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     parameters: Vec::new(),
                     raw_content: Some("}".to_string()),
                 });
+                state.focused_action_index = Some(script.actions.len() - 3);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
             }
@@ -591,6 +600,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                     parameters: Vec::new(),
                     raw_content: Some("return()".to_string()),
                 });
+                state.focused_action_index = Some(script.actions.len() - 1);
                 state.modified = true;
                 state.act_parse_errors = validate_script(script);
             }
@@ -604,6 +614,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::IfConditionChanged(index, cond) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.raw_content = Some(format!("if({})", cond));
@@ -617,6 +628,7 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::ReturnValueChanged(index, val) => {
+            state.focused_action_index = Some(index);
             if let LoadingState::Loaded(ref mut script) = state.script_loading {
                 if let Some(act) = script.actions.get_mut(index) {
                     act.raw_content = Some(format!("return({})", val));
