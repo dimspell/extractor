@@ -143,15 +143,33 @@ pub fn set_u8_enum<T>(field: &mut T, value: String, from_u8: impl Fn(u8) -> Opti
 }
 
 /// Set an enum field by parsing the string as `i32` then calling `from_i32`.
+///
+/// Fallback: if the value is not a valid integer, try matching it against the
+/// Debug output of all known variants (e.g. `"Light"` → `MapLighting::Light`).
+/// This handles the inspector pick-list which sends display names.
 #[inline]
-pub fn set_i32_enum<T>(field: &mut T, value: String, from_i32: impl Fn(i32) -> Option<T>) -> bool {
-    match value.parse::<i32>().ok().and_then(from_i32) {
-        Some(v) => {
+pub fn set_i32_enum<T: std::fmt::Debug>(
+    field: &mut T,
+    value: String,
+    from_i32: impl Fn(i32) -> Option<T>,
+) -> bool {
+    // Fast path: direct integer parse (handles "0", "1", etc.)
+    if let Ok(n) = value.parse::<i32>() {
+        if let Some(v) = from_i32(n) {
             *field = v;
-            true
+            return true;
         }
-        None => false,
     }
+    // Fallback: match against Debug output of known enum variants
+    for i in 0..=255i32 {
+        if let Some(v) = from_i32(i) {
+            if format!("{:?}", v) == value {
+                *field = v;
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Set an `Option<String>` field; empty string sets to `None`.
@@ -179,8 +197,12 @@ pub fn set_opt_int<T: std::str::FromStr>(field: &mut Option<T>, value: String) -
 }
 
 /// Set an `Option<T>` enum by parsing as `i32` then calling `from_i32`.
+///
+/// Fallback: if the value is not a valid integer, try matching it against the
+/// Debug output of all known variants (e.g. `"Light"` → `MapLighting::Light`).
+/// This handles the inspector pick-list which sends display names.
 #[inline]
-pub fn set_opt_i32_enum<T>(
+pub fn set_opt_i32_enum<T: std::fmt::Debug>(
     field: &mut Option<T>,
     value: String,
     from_i32: impl Fn(i32) -> Option<T>,
@@ -189,13 +211,23 @@ pub fn set_opt_i32_enum<T>(
         *field = None;
         true
     } else {
-        match value.parse::<i32>().ok().and_then(from_i32) {
-            Some(v) => {
+        // Fast path: direct integer parse
+        if let Ok(n) = value.parse::<i32>() {
+            if let Some(v) = from_i32(n) {
                 *field = Some(v);
-                true
+                return true;
             }
-            None => false,
         }
+        // Fallback: match against Debug output of known enum variants
+        for i in 0..=255i32 {
+            if let Some(v) = from_i32(i) {
+                if format!("{:?}", v) == value {
+                    *field = Some(v);
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
