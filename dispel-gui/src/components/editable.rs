@@ -311,6 +311,12 @@ macro_rules! __er_kind {
         $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
     };
     (DispEnum, [$ty:ty, Shared($expr:expr)]) => { $expr };
+    (HexArray, [$n:literal]) => { $crate::components::editable::FieldKind::String };
+    (Opti32Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
+        $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
+    };
+    (FlagBool, [$ty:ty]) => { $crate::components::editable::FieldKind::Boolean };
+    (ReprEnum, [$ty:ty]) => { $crate::components::editable::FieldKind::Integer };
 }
 
 /// Helper: generate get-field expression from kind + args (bracket-delimited).
@@ -353,6 +359,18 @@ macro_rules! __er_get {
     };
     (DispEnum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
         $this.$field.to_string()
+    };
+    (HexArray, [$n:literal], $this:ident, $field:ident) => {
+        $crate::components::editable::hex_string(&$this.$field)
+    };
+    (Opti32Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
+        $crate::components::editable::get_opt_val($this.$field, |v| v.value().to_string())
+    };
+    (FlagBool, [$ty:ty], $this:ident, $field:ident) => {
+        ($this.$field == <$ty>::Present).to_string()
+    };
+    (ReprEnum, [$ty:ty], $this:ident, $field:ident) => {
+        $this.$field.value().to_string()
     };
 }
 
@@ -405,6 +423,31 @@ macro_rules! __er_set {
     };
     (DispEnum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::set_enum(&mut $this.$field, $value, <$ty>::from_name)
+    };
+    (HexArray, [$n:literal], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::parse_hex_array::<$n>(&$value).is_some_and(|arr| {
+            $this.$field = arr;
+            true
+        })
+    };
+    (Opti32Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_opt_i32_enum(&mut $this.$field, $value, <$ty>::from_i32)
+    };
+    (FlagBool, [$ty:ty], $this:ident, $field:ident, $value:ident) => {
+        match $value.as_str() {
+            "true" | "1" => {
+                $this.$field = <$ty>::Present;
+                true
+            }
+            "false" | "0" => {
+                $this.$field = <$ty>::Absent;
+                true
+            }
+            _ => false,
+        }
+    };
+    (ReprEnum, [$ty:ty], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_i32_enum(&mut $this.$field, $value, <$ty>::from_i32)
     };
 }
 

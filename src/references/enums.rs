@@ -108,6 +108,20 @@ impl MonsterAiType {
     }
 }
 
+impl std::fmt::Display for MonsterAiType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MonsterAiType::Passive => write!(f, "Passive"),
+            MonsterAiType::Aggressive => write!(f, "Aggressive"),
+            MonsterAiType::Defensive => write!(f, "Defensive"),
+            MonsterAiType::Ranged => write!(f, "Ranged"),
+            MonsterAiType::Boss => write!(f, "Boss"),
+            MonsterAiType::Special => write!(f, "Special"),
+            MonsterAiType::Custom => write!(f, "Custom"),
+        }
+    }
+}
+
 impl TryFrom<i32> for MonsterAiType {
     type Error = &'static str;
 
@@ -1763,6 +1777,14 @@ impl GhostFaceId {
     /// Get the numeric value
     pub fn value(&self) -> i32 {
         *self as i32
+    }
+}
+
+impl std::fmt::Display for GhostFaceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GhostFaceId::None => write!(f, "None"),
+        }
     }
 }
 
