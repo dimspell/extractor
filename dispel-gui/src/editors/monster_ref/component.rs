@@ -1,212 +1,40 @@
-use crate::components::editable::{
-    fmt_enum, set_enum, set_int, EditableRecord, FieldDescriptor, FieldKind,
-};
+use crate::components::editable::{EditableRecord, FieldKind};
 use dispel_core::{ItemTypeId, MonsterRef};
+
+use crate::editable_record_fields;
 
 const LOOT_TYPES: FieldKind = FieldKind::Enum {
     variants: &["Weapon", "Healing", "Edit", "Event", "Misc", "Other"],
 };
 
+editable_record_fields!(MonsterRef, {
+    { file_id = Integer / "File ID:" },
+    { mon_id = Lookup("monster_names") / "Monster ID:" },
+    { pos_x = Integer / "Position X:" },
+    { pos_y = Integer / "Position Y:" },
+    { padding1 = Integer / "Flag 1:" },
+    { padding2 = Integer / "Flag 2:" },
+    { padding3 = Integer / "Flag 3 (0):" },
+    { padding4 = Integer / "Flag 4:" },
+    { event_id = Integer / "Event ID:" },
+    { loot1_item_id = Integer / "Loot 1 Item ID:" },
+    { loot1_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 1 Type:" },
+    { padding6 = Integer / "Padding 6:" },
+    { padding7 = Integer / "Padding 7:" },
+    { loot2_item_id = Integer / "Loot 2 Item ID:" },
+    { loot2_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 2 Type:" },
+    { padding8 = Integer / "Padding 8:" },
+    { padding9 = Integer / "Padding 9:" },
+    { loot3_item_id = Integer / "Loot 3 Item ID:" },
+    { loot3_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 3 Type:" },
+    { padding10 = Integer / "Padding 10:" },
+    { padding11 = Integer / "Padding 11:" },
+    { padding12 = Integer / "Padding 12:" },
+    { padding13 = Integer / "Padding 13:" },
+});
+
 impl EditableRecord for MonsterRef {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "file_id",
-                label: "File ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "mon_id",
-                label: "Monster ID:",
-                kind: FieldKind::Lookup("monster_names"),
-            },
-            FieldDescriptor {
-                name: "pos_x",
-                label: "Position X:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "pos_y",
-                label: "Position Y:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "padding1",
-                label: "Flag 1:",
-                kind: FieldKind::Enum {
-                    variants: &["False", "True"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding2",
-                label: "Flag 2:",
-                kind: FieldKind::Enum {
-                    variants: &["False", "True"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding3",
-                label: "Flag 3 (0):",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "padding4",
-                label: "Flag 4:",
-                kind: FieldKind::Enum {
-                    variants: &["-1", "0", "1"],
-                },
-            },
-            FieldDescriptor {
-                name: "event_id",
-                label: "Event ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "loot1_item_id",
-                label: "Loot 1 Item ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "loot1_item_type",
-                label: "Loot 1 Type:",
-                kind: LOOT_TYPES,
-            },
-            FieldDescriptor {
-                name: "padding6",
-                label: "Padding 6:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding7",
-                label: "Padding 7:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "loot2_item_id",
-                label: "Loot 2 Item ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "loot2_item_type",
-                label: "Loot 2 Type:",
-                kind: LOOT_TYPES,
-            },
-            FieldDescriptor {
-                name: "padding8",
-                label: "Padding 8:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding9",
-                label: "Padding 9:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "loot3_item_id",
-                label: "Loot 3 Item ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "loot3_item_type",
-                label: "Loot 3 Type:",
-                kind: LOOT_TYPES,
-            },
-            FieldDescriptor {
-                name: "padding10",
-                label: "Padding 10:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding11",
-                label: "Padding 11:",
-                kind: FieldKind::Enum {
-                    variants: &["0", "255"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding12",
-                label: "Padding 12:",
-                kind: FieldKind::Enum {
-                    variants: &["-1", "0", "1"],
-                },
-            },
-            FieldDescriptor {
-                name: "padding13",
-                label: "Padding 13:",
-                kind: FieldKind::Enum {
-                    variants: &["False", "True"],
-                },
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "file_id" => self.file_id.to_string(),
-            "mon_id" => self.mon_id.to_string(),
-            "pos_x" => self.pos_x.to_string(),
-            "pos_y" => self.pos_y.to_string(),
-            "padding1" => self.padding1.to_string(),
-            "padding2" => self.padding2.to_string(),
-            "padding3" => self.padding3.to_string(),
-            "padding4" => self.padding4.to_string(),
-            "event_id" => self.event_id.to_string(),
-            "loot1_item_id" => self.loot1_item_id.to_string(),
-            "loot1_item_type" => fmt_enum(&self.loot1_item_type),
-            "padding6" => self.padding6.to_string(),
-            "padding7" => self.padding7.to_string(),
-            "loot2_item_id" => self.loot2_item_id.to_string(),
-            "loot2_item_type" => fmt_enum(&self.loot2_item_type),
-            "padding8" => self.padding8.to_string(),
-            "padding9" => self.padding9.to_string(),
-            "loot3_item_id" => self.loot3_item_id.to_string(),
-            "loot3_item_type" => fmt_enum(&self.loot3_item_type),
-            "padding10" => self.padding10.to_string(),
-            "padding11" => self.padding11.to_string(),
-            "padding12" => self.padding12.to_string(),
-            "padding13" => self.padding13.to_string(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "file_id" => set_int(&mut self.file_id, value),
-            "mon_id" => set_int(&mut self.mon_id, value),
-            "pos_x" => set_int(&mut self.pos_x, value),
-            "pos_y" => set_int(&mut self.pos_y, value),
-            "padding1" => set_int(&mut self.padding1, value),
-            "padding2" => set_int(&mut self.padding2, value),
-            "padding3" => set_int(&mut self.padding3, value),
-            "padding4" => set_int(&mut self.padding4, value),
-            "event_id" => set_int(&mut self.event_id, value),
-            "loot1_item_id" => set_int(&mut self.loot1_item_id, value),
-            "loot1_item_type" => set_enum(&mut self.loot1_item_type, value, ItemTypeId::from_name),
-            "padding6" => set_int(&mut self.padding6, value),
-            "padding7" => set_int(&mut self.padding7, value),
-            "loot2_item_id" => set_int(&mut self.loot2_item_id, value),
-            "loot2_item_type" => set_enum(&mut self.loot2_item_type, value, ItemTypeId::from_name),
-            "padding8" => set_int(&mut self.padding8, value),
-            "padding9" => set_int(&mut self.padding9, value),
-            "loot3_item_id" => set_int(&mut self.loot3_item_id, value),
-            "loot3_item_type" => set_enum(&mut self.loot3_item_type, value, ItemTypeId::from_name),
-            "padding10" => set_int(&mut self.padding10, value),
-            "padding11" => set_int(&mut self.padding11, value),
-            "padding12" => set_int(&mut self.padding12, value),
-            "padding13" => set_int(&mut self.padding13, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!(

@@ -1,44 +1,16 @@
-use crate::components::editable::{set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::EditableRecord;
 use dispel_core::EventNpcRef;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(EventNpcRef, {
+    { id = Integer / "ID:" },
+    { event_id = Integer / "Event ID:" },
+    { name = String / "Name:" },
+});
+
 impl EditableRecord for EventNpcRef {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "id",
-                label: "ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "event_id",
-                label: "Event ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "name",
-                label: "Name:",
-                kind: FieldKind::String,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "id" => self.id.to_string(),
-            "event_id" => self.event_id.to_string(),
-            "name" => self.name.clone(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "id" => set_int(&mut self.id, value),
-            "event_id" => set_int(&mut self.event_id, value),
-            "name" => set_str(&mut self.name, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!("[{}] {} (Event: {})", self.id, self.name, self.event_id)

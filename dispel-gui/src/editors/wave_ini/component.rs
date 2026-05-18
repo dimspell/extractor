@@ -1,46 +1,16 @@
-use crate::components::editable::{
-    set_int, set_opt_str, EditableRecord, FieldDescriptor, FieldKind,
-};
+use crate::components::editable::EditableRecord;
 use dispel_core::WaveIni;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(WaveIni, {
+    { id = Integer / "ID:" },
+    { snf_filename = OptStr / "SNF Filename:" },
+    { unknown_flag = OptStr / "Flag:" },
+});
+
 impl EditableRecord for WaveIni {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "id",
-                label: "ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "snf_filename",
-                label: "SNF Filename:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "unknown_flag",
-                label: "Flag:",
-                kind: FieldKind::String,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "id" => self.id.to_string(),
-            "snf_filename" => self.snf_filename.clone().unwrap_or_default(),
-            "unknown_flag" => self.unknown_flag.clone().unwrap_or_default(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "id" => set_int(&mut self.id, value),
-            "snf_filename" => set_opt_str(&mut self.snf_filename, value),
-            "unknown_flag" => set_opt_str(&mut self.unknown_flag, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!(

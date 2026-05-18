@@ -1,58 +1,18 @@
-use crate::components::editable::{set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::EditableRecord;
 use dispel_core::DialogueParagraph;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(DialogueParagraph, {
+    { id = Integer / "ID:" },
+    { text = TextArea / "Text:" },
+    { comment = TextArea / "Comment:" },
+    { param1 = Integer / "Param 1:" },
+    { wave_ini_entry_id = Integer / "Wave ID:" },
+});
+
 impl EditableRecord for DialogueParagraph {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "id",
-                label: "ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "text",
-                label: "Text:",
-                kind: FieldKind::TextArea,
-            },
-            FieldDescriptor {
-                name: "comment",
-                label: "Comment:",
-                kind: FieldKind::TextArea,
-            },
-            FieldDescriptor {
-                name: "param1",
-                label: "Param 1:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "wave_ini_entry_id",
-                label: "Wave ID:",
-                kind: FieldKind::Integer,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "id" => self.id.to_string(),
-            "text" => self.text.clone(),
-            "comment" => self.comment.clone(),
-            "param1" => self.param1.to_string(),
-            "wave_ini_entry_id" => self.wave_ini_entry_id.to_string(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "id" => set_int(&mut self.id, value),
-            "text" => set_str(&mut self.text, value),
-            "comment" => set_str(&mut self.comment, value),
-            "param1" => set_int(&mut self.param1, value),
-            "wave_ini_entry_id" => set_int(&mut self.wave_ini_entry_id, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!("[{}] {}", self.id, self.text)

@@ -1,53 +1,17 @@
-use crate::components::editable::{
-    set_int, set_opt_str, EditableRecord, FieldDescriptor, FieldKind,
-};
+use crate::components::editable::EditableRecord;
 use dispel_core::Extra;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(Extra, {
+    { id = Integer / "ID:" },
+    { sprite_filename = OptStr / "Sprite:" },
+    { unknown = Integer / "Unknown:" },
+    { description = OptStr / "Description:" },
+});
+
 impl EditableRecord for Extra {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "id",
-                label: "ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "sprite_filename",
-                label: "Sprite:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "unknown",
-                label: "Unknown:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "description",
-                label: "Description:",
-                kind: FieldKind::TextArea,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "id" => self.id.to_string(),
-            "sprite_filename" => self.sprite_filename.clone().unwrap_or_default(),
-            "unknown" => self.unknown.to_string(),
-            "description" => self.description.clone().unwrap_or_default(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "id" => set_int(&mut self.id, value),
-            "sprite_filename" => set_opt_str(&mut self.sprite_filename, value),
-            "unknown" => set_int(&mut self.unknown, value),
-            "description" => set_opt_str(&mut self.description, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!(

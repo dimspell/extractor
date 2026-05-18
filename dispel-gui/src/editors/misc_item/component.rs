@@ -1,51 +1,17 @@
-use crate::components::editable::{set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::EditableRecord;
 use dispel_core::MiscItem;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(MiscItem, {
+    { name = String / "Name:" },
+    { description = TextArea / "Description:" },
+    { base_price = Integer / "Base Price:" },
+    { padding = String / "Padding:" },
+});
+
 impl EditableRecord for MiscItem {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "name",
-                label: "Name:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "description",
-                label: "Description:",
-                kind: FieldKind::TextArea,
-            },
-            FieldDescriptor {
-                name: "base_price",
-                label: "Base Price:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "padding",
-                label: "Padding:",
-                kind: FieldKind::String,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "name" => self.name.clone(),
-            "description" => self.description.clone(),
-            "base_price" => self.base_price.to_string(),
-            "padding" => self.padding.clone(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "name" => set_str(&mut self.name, value),
-            "description" => set_str(&mut self.description, value),
-            "base_price" => set_int(&mut self.base_price, value),
-            "padding" => set_str(&mut self.padding, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!("[{}] {} - {}g", self.id, self.name, self.base_price)

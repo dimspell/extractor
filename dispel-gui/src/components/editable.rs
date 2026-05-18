@@ -431,9 +431,8 @@ pub trait EditableRecordGenerated {
 /// ```
 #[macro_export]
 macro_rules! editable_record_fields {
-    // Rule 1: kinds WITH args in (parens) — e.g. Enum(Type, [..]), Lookup("key")
     ($type:ty, {
-        $( { $name:ident = $kind:ident ($($kind_args:tt)*) / $label:expr } ),* $(,)?
+        $( { $name:ident = $kind:ident $( ($($kind_args:tt)*) )? / $label:expr } ),* $(,)?
     }) => {
         impl $crate::components::editable::EditableRecordGenerated for $type {
             fn __editable_fields() -> &'static [$crate::components::editable::FieldDescriptor] {
@@ -441,7 +440,7 @@ macro_rules! editable_record_fields {
                     $crate::components::editable::FieldDescriptor {
                         name: stringify!($name),
                         label: $label,
-                        kind: $crate::__er_kind!($kind, [$($kind_args)*]),
+                        kind: $crate::__er_kind!($kind, [ $($($kind_args)*)? ]),
                     },
                 )*]
             }
@@ -449,7 +448,7 @@ macro_rules! editable_record_fields {
             fn __editable_get(&self, f: &str) -> String {
                 match f {
                     $(
-                        stringify!($name) => $crate::__er_get!($kind, [$($kind_args)*], self, $name),
+                        stringify!($name) => $crate::__er_get!($kind, [ $($($kind_args)*)? ], self, $name),
                     )*
                     _ => String::new(),
                 }
@@ -458,21 +457,12 @@ macro_rules! editable_record_fields {
             fn __editable_set(&mut self, f: &str, v: String) -> bool {
                 match f {
                     $(
-                        stringify!($name) => $crate::__er_set!($kind, [$($kind_args)*], self, $name, v),
+                        stringify!($name) => $crate::__er_set!($kind, [ $($($kind_args)*)? ], self, $name, v),
                     )*
                     _ => false,
                 }
             }
         }
-    };
-
-    // Rule 2: simple kinds (no parens) — Integer, String, TextArea, etc.
-    ($type:ty, {
-        $( { $name:ident = $kind:ident / $label:expr } ),* $(,)?
-    }) => {
-        editable_record_fields!($type, {
-            $( { $name = $kind () / $label } ),*
-        });
     };
 }
 

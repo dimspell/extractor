@@ -1,72 +1,20 @@
-use crate::components::editable::{set_int, set_str, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::EditableRecord;
 use dispel_core::Store;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(Store, {
+    { index = Integer / "Index:" },
+    { store_name = String / "Store Name:" },
+    { inn_night_cost = Integer / "Inn Cost:" },
+    { some_unknown_number = Integer / "Unknown Number:" },
+    { invitation = String / "Invitation:" },
+    { haggle_success = String / "Haggle Success:" },
+    { haggle_fail = String / "Haggle Fail:" },
+});
+
 impl EditableRecord for Store {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "index",
-                label: "Index:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "store_name",
-                label: "Store Name:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "inn_night_cost",
-                label: "Inn Cost:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "some_unknown_number",
-                label: "Unknown Number:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "invitation",
-                label: "Invitation:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "haggle_success",
-                label: "Haggle Success:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "haggle_fail",
-                label: "Haggle Fail:",
-                kind: FieldKind::String,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "index" => self.index.to_string(),
-            "store_name" => self.store_name.clone(),
-            "inn_night_cost" => self.inn_night_cost.to_string(),
-            "some_unknown_number" => self.some_unknown_number.to_string(),
-            "invitation" => self.invitation.clone(),
-            "haggle_success" => self.haggle_success.clone(),
-            "haggle_fail" => self.haggle_fail.clone(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "index" => set_int(&mut self.index, value),
-            "store_name" => set_str(&mut self.store_name, value),
-            "inn_night_cost" => set_int(&mut self.inn_night_cost, value),
-            "some_unknown_number" => set_int(&mut self.some_unknown_number, value),
-            "invitation" => set_str(&mut self.invitation, value),
-            "haggle_success" => set_str(&mut self.haggle_success, value),
-            "haggle_fail" => set_str(&mut self.haggle_fail, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!("[{}] {}", self.index, self.store_name)

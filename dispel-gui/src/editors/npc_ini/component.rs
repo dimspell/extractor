@@ -1,46 +1,16 @@
-use crate::components::editable::{
-    set_int, set_opt_str, set_str, EditableRecord, FieldDescriptor, FieldKind,
-};
+use crate::components::editable::EditableRecord;
 use dispel_core::NpcIni;
 
+use crate::editable_record_fields;
+
+editable_record_fields!(NpcIni, {
+    { id = Integer / "ID:" },
+    { sprite_filename = OptStr / "Sprite:" },
+    { description = TextArea / "Description:" },
+});
+
 impl EditableRecord for NpcIni {
-    fn field_descriptors() -> &'static [FieldDescriptor] {
-        &[
-            FieldDescriptor {
-                name: "id",
-                label: "ID:",
-                kind: FieldKind::Integer,
-            },
-            FieldDescriptor {
-                name: "sprite_filename",
-                label: "Sprite:",
-                kind: FieldKind::String,
-            },
-            FieldDescriptor {
-                name: "description",
-                label: "Description:",
-                kind: FieldKind::TextArea,
-            },
-        ]
-    }
-
-    fn get_field(&self, field: &str) -> String {
-        match field {
-            "id" => self.id.to_string(),
-            "sprite_filename" => self.sprite_filename.clone().unwrap_or_default(),
-            "description" => self.description.clone(),
-            _ => String::new(),
-        }
-    }
-
-    fn set_field(&mut self, field: &str, value: String) -> bool {
-        match field {
-            "id" => set_int(&mut self.id, value),
-            "sprite_filename" => set_opt_str(&mut self.sprite_filename, value),
-            "description" => set_str(&mut self.description, value),
-            _ => false,
-        }
-    }
+    crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
         format!("[{}] {}", self.id, self.description)
