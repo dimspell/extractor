@@ -307,6 +307,10 @@ macro_rules! __er_kind {
     (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
         $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
     };
+    (DispEnum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
+        $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
+    };
+    (DispEnum, [$ty:ty, Shared($expr:expr)]) => { $expr };
 }
 
 /// Helper: generate get-field expression from kind + args (bracket-delimited).
@@ -345,6 +349,9 @@ macro_rules! __er_get {
         $crate::components::editable::fmt_enum(&$this.$field)
     };
     (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]], $this:ident, $field:ident) => {
+        $this.$field.to_string()
+    };
+    (DispEnum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
         $this.$field.to_string()
     };
 }
@@ -395,6 +402,9 @@ macro_rules! __er_set {
     };
     (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::set_i32_enum(&mut $this.$field, $value, <$ty>::from_i32)
+    };
+    (DispEnum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_enum(&mut $this.$field, $value, <$ty>::from_name)
     };
 }
 
