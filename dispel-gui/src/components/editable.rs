@@ -250,3 +250,262 @@ pub fn get_opt_int<T: ToString>(v: Option<T>) -> String {
 pub fn get_opt_val<T, F: Fn(T) -> String>(v: Option<T>, f: F) -> String {
     v.map_or_else(String::new, f)
 }
+
+/// Format a byte slice as a space-separated hex string.
+#[inline]
+pub fn hex_string(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Parse a space-separated hex string into `Vec<u8>`.
+#[inline]
+pub fn parse_hex_string(s: &str) -> Option<Vec<u8>> {
+    s.split_whitespace()
+        .map(|part| u8::from_str_radix(part, 16).ok())
+        .collect()
+}
+
+/// Parse a space-separated hex string into a fixed-size array `[u8; N]`.
+/// Returns `None` if the number of bytes does not match `N`.
+#[inline]
+pub fn parse_hex_array<const N: usize>(s: &str) -> Option<[u8; N]> {
+    let bytes: Vec<u8> = s
+        .split_whitespace()
+        .map(|part| u8::from_str_radix(part, 16).ok())
+        .collect::<Option<_>>()?;
+    if bytes.len() == N {
+        let mut arr = [0u8; N];
+        arr.copy_from_slice(&bytes);
+        Some(arr)
+    } else {
+        None
+    }
+}
+
+// ── editable_record_fields! macro ─────────────────────────────────────────────
+
+/// Helper: generate descriptor-kind from kind + args (bracket-delimited).
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __er_kind {
+    (String, []) => { $crate::components::editable::FieldKind::String };
+    (TextArea, []) => { $crate::components::editable::FieldKind::TextArea };
+    (Integer, []) => { $crate::components::editable::FieldKind::Integer };
+    (Boolean, []) => { $crate::components::editable::FieldKind::Boolean };
+    (OptStr, []) => { $crate::components::editable::FieldKind::String };
+    (OptInt, []) => { $crate::components::editable::FieldKind::Integer };
+    (HexString, []) => { $crate::components::editable::FieldKind::String };
+    (Lookup, [$key:expr]) => { $crate::components::editable::FieldKind::Lookup($key) };
+    (Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
+        $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
+    };
+    (Enum, [$ty:ty, Shared($expr:expr)]) => { $expr };
+    (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
+        $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
+    };
+}
+
+/// Helper: generate get-field expression from kind + args (bracket-delimited).
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __er_get {
+    (String, [], $this:ident, $field:ident) => {
+        $this.$field.clone()
+    };
+    (TextArea, [], $this:ident, $field:ident) => {
+        $this.$field.clone()
+    };
+    (Integer, [], $this:ident, $field:ident) => {
+        $this.$field.to_string()
+    };
+    (Boolean, [], $this:ident, $field:ident) => {
+        if $this.$field != 0 {
+            "true".into()
+        } else {
+            "false".into()
+        }
+    };
+    (OptStr, [], $this:ident, $field:ident) => {
+        $this.$field.clone().unwrap_or_default()
+    };
+    (OptInt, [], $this:ident, $field:ident) => {
+        $crate::components::editable::get_opt_int($this.$field)
+    };
+    (HexString, [], $this:ident, $field:ident) => {
+        $crate::components::editable::hex_string(&$this.$field)
+    };
+    (Lookup, [$key:expr], $this:ident, $field:ident) => {
+        $this.$field.to_string()
+    };
+    (Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
+        $crate::components::editable::fmt_enum(&$this.$field)
+    };
+    (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]], $this:ident, $field:ident) => {
+        $this.$field.to_string()
+    };
+}
+
+/// Helper: generate set-field expression from kind + args (bracket-delimited).
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __er_set {
+    (String, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_str(&mut $this.$field, $value)
+    };
+    (TextArea, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_str(&mut $this.$field, $value)
+    };
+    (Integer, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_int(&mut $this.$field, $value)
+    };
+    (Boolean, [], $this:ident, $field:ident, $value:ident) => {
+        match $value.as_str() {
+            "true" | "1" => {
+                $this.$field = 1;
+                true
+            }
+            "false" | "0" => {
+                $this.$field = 0;
+                true
+            }
+            _ => false,
+        }
+    };
+    (OptStr, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_opt_str(&mut $this.$field, $value)
+    };
+    (OptInt, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_opt_int(&mut $this.$field, $value)
+    };
+    (HexString, [], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::parse_hex_string(&$value).is_some_and(|v| {
+            $this.$field = v;
+            true
+        })
+    };
+    (Lookup, [$key:expr], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_int(&mut $this.$field, $value)
+    };
+    (Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_enum(&mut $this.$field, $value, <$ty>::from_name)
+    };
+    (i32Enum, [$ty:ty, [$($v:literal),* $(,)?]], $this:ident, $field:ident, $value:ident) => {
+        $crate::components::editable::set_i32_enum(&mut $this.$field, $value, <$ty>::from_i32)
+    };
+}
+
+/// Helper trait that the `editable_record_fields!` macro implements.
+/// Generates the triple of `field_descriptors`/`get_field`/`set_field`.
+/// `impl_editable_record!` then implements `EditableRecord` delegating to this.
+#[doc(hidden)]
+pub trait EditableRecordGenerated {
+    fn __editable_fields() -> &'static [FieldDescriptor];
+    fn __editable_get(&self, f: &str) -> String;
+    fn __editable_set(&mut self, f: &str, v: String) -> bool;
+}
+
+/// Implement `EditableRecordGenerated` for `$type` — the "data" part of the
+/// trait (field_descriptors, get_field, set_field). Pair with `impl_editable_record!`
+/// which generates the full `EditableRecord` impl.
+///
+/// # Syntax
+///
+/// ```ignore
+/// editable_record_fields!(TypeName, {
+///     { field = String / "Label:" },
+///     { field = TextArea / "Label:" },
+///     { field = Integer / "Label:" },
+///     { field = Boolean / "Label:" },
+///     { field = OptStr / "Label:" },
+///     { field = OptInt / "Label:" },
+///     { field = HexString / "Label:" },
+///     { field = Lookup("key") / "Label:" },
+///     { field = Enum(Type, ["v1", "v2"]) / "Label:" },
+///     { field = Enum(Type, Shared(CONST)) / "Label:" },
+///     { field = i32Enum(Type, ["v1", "v2"]) / "Label:" },
+/// });
+/// ```
+#[macro_export]
+macro_rules! editable_record_fields {
+    // Rule 1: kinds WITH args in (parens) — e.g. Enum(Type, [..]), Lookup("key")
+    ($type:ty, {
+        $( { $name:ident = $kind:ident ($($kind_args:tt)*) / $label:expr } ),* $(,)?
+    }) => {
+        impl $crate::components::editable::EditableRecordGenerated for $type {
+            fn __editable_fields() -> &'static [$crate::components::editable::FieldDescriptor] {
+                &[$(
+                    $crate::components::editable::FieldDescriptor {
+                        name: stringify!($name),
+                        label: $label,
+                        kind: $crate::__er_kind!($kind, [$($kind_args)*]),
+                    },
+                )*]
+            }
+
+            fn __editable_get(&self, f: &str) -> String {
+                match f {
+                    $(
+                        stringify!($name) => $crate::__er_get!($kind, [$($kind_args)*], self, $name),
+                    )*
+                    _ => String::new(),
+                }
+            }
+
+            fn __editable_set(&mut self, f: &str, v: String) -> bool {
+                match f {
+                    $(
+                        stringify!($name) => $crate::__er_set!($kind, [$($kind_args)*], self, $name, v),
+                    )*
+                    _ => false,
+                }
+            }
+        }
+    };
+
+    // Rule 2: simple kinds (no parens) — Integer, String, TextArea, etc.
+    ($type:ty, {
+        $( { $name:ident = $kind:ident / $label:expr } ),* $(,)?
+    }) => {
+        editable_record_fields!($type, {
+            $( { $name = $kind () / $label } ),*
+        });
+    };
+}
+
+/// Generate delegation for `field_descriptors()` / `get_field()` / `set_field()`
+/// inside a manual `impl EditableRecord` block, delegating to `EditableRecordGenerated`.
+///
+/// # Usage
+///
+/// ```ignore
+/// editable_record_fields!(WeaponItem, { …fields… });
+///
+/// impl EditableRecord for WeaponItem {
+///     crate::editable_record_delegate!();
+///     fn list_label(&self) -> String { format!(…) }
+///     fn detail_title() -> &'static str { "Weapon Details" }
+///     fn empty_selection_text() -> &'static str { "No weapon selected" }
+///     fn save_button_label() -> &'static str { "Save Weapons" }
+///     fn detail_width() -> f32 { 280.0 }
+/// }
+/// ```
+#[macro_export]
+macro_rules! editable_record_delegate {
+    () => {
+        fn field_descriptors() -> &'static [$crate::components::editable::FieldDescriptor] {
+            <Self as $crate::components::editable::EditableRecordGenerated>::__editable_fields()
+        }
+        fn get_field(&self, f: &str) -> String {
+            <Self as $crate::components::editable::EditableRecordGenerated>::__editable_get(self, f)
+        }
+        fn set_field(&mut self, f: &str, v: String) -> bool {
+            <Self as $crate::components::editable::EditableRecordGenerated>::__editable_set(
+                self, f, v,
+            )
+        }
+    };
+}
