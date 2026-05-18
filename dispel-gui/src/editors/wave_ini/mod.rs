@@ -1,11 +1,11 @@
 mod component;
 
 use crate::app::App;
-use crate::components::loading_state::LoadingState;
+use crate::components::standard::message::StandardEditorMessage;
 use crate::components::standard::StandardEditor;
 use crate::handle_spreadsheet_messages;
 use crate::message::MessageExt;
-use dispel_core::{Extractor, WaveIni};
+use dispel_core::WaveIni;
 use iced::Task;
 
 pub type WaveIniEditorState = StandardEditor<WaveIni>;
@@ -25,49 +25,46 @@ pub enum WaveIniEditorMessage {
     ExportedWav(Result<String, String>),
 }
 
+fn into_std(msg: WaveIniEditorMessage) -> StandardEditorMessage<WaveIni> {
+    match msg {
+        WaveIniEditorMessage::LoadCatalog => StandardEditorMessage::LoadCatalog,
+        WaveIniEditorMessage::CatalogLoaded(r) => StandardEditorMessage::CatalogLoaded(r),
+        WaveIniEditorMessage::Select(i) => StandardEditorMessage::Select(i),
+        WaveIniEditorMessage::Save => StandardEditorMessage::Save,
+        WaveIniEditorMessage::Saved(r) => StandardEditorMessage::Saved(r),
+        WaveIniEditorMessage::PaneResized(e) => StandardEditorMessage::PaneResized(e),
+        WaveIniEditorMessage::PaneClicked(p) => StandardEditorMessage::PaneClicked(p),
+        _ => unreachable!(),
+    }
+}
+
+fn wrap_std(msg: StandardEditorMessage<WaveIni>) -> crate::message::Message {
+    crate::message::Message::wave_ini(match msg {
+        StandardEditorMessage::LoadCatalog => WaveIniEditorMessage::LoadCatalog,
+        StandardEditorMessage::CatalogLoaded(r) => WaveIniEditorMessage::CatalogLoaded(r),
+        StandardEditorMessage::Select(i) => WaveIniEditorMessage::Select(i),
+        StandardEditorMessage::FieldChanged(i, f, v) => WaveIniEditorMessage::FieldChanged(i, f, v),
+        StandardEditorMessage::Spreadsheet(s) => WaveIniEditorMessage::Spreadsheet(s),
+        StandardEditorMessage::PaneResized(e) => WaveIniEditorMessage::PaneResized(e),
+        StandardEditorMessage::PaneClicked(p) => WaveIniEditorMessage::PaneClicked(p),
+        StandardEditorMessage::Save => WaveIniEditorMessage::Save,
+        StandardEditorMessage::Saved(r) => WaveIniEditorMessage::Saved(r),
+    })
+}
+
 pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
-        WaveIniEditorMessage::LoadCatalog => {
-            if app.state.shared_game_path.is_empty() {
-                app.state.wave_ini_editor.status_msg = "Please select game path first.".into();
-                return Task::none();
-            }
-            app.state.wave_ini_editor.loading_state = LoadingState::Loading;
-            app.state.wave_ini_editor.spreadsheet.is_loading = true;
-            let path = std::path::PathBuf::from(&app.state.shared_game_path).join("Wave.ini");
-            Task::perform(
-                async move { WaveIni::read_file(&path).map_err(|e: std::io::Error| e.to_string()) },
-                move |result| {
-                    crate::message::Message::wave_ini(WaveIniEditorMessage::CatalogLoaded(result))
+        WaveIniEditorMessage::Spreadsheet(msg) => {
+            handle_spreadsheet_messages!(
+                app,
+                wave_ini_editor,
+                |index, field, value| {
+                    crate::message::Message::wave_ini(WaveIniEditorMessage::FieldChanged(
+                        index, field, value,
+                    ))
                 },
-            )
-        }
-        WaveIniEditorMessage::CatalogLoaded(result) => {
-            app.state.wave_ini_editor.loading_state = LoadingState::Loaded(());
-            match result {
-                Ok(catalog) => {
-                    app.state.wave_ini_editor.catalog = Some(catalog.clone());
-                    app.state.wave_ini_editor.status_msg =
-                        format!("Wave catalog loaded: {} entries", catalog.len());
-                    app.state.wave_ini_editor.refresh();
-                    app.state.wave_ini_editor.init_pane_state();
-                    app.state.wave_ini_editor.spreadsheet.apply_filter(&catalog);
-                    app.state
-                        .wave_ini_editor
-                        .spreadsheet
-                        .compute_all_caches(&catalog);
-                    app.state.wave_ini_editor.spreadsheet.is_loading = false;
-                }
-                Err(e) => {
-                    app.state.wave_ini_editor.status_msg =
-                        format!("Error loading wave catalog: {}", e);
-                    app.state.wave_ini_editor.spreadsheet.is_loading = false;
-                }
-            }
-            Task::none()
-        }
-        WaveIniEditorMessage::Select(index) => {
-            app.state.wave_ini_editor.select(index);
+                msg
+            );
             Task::none()
         }
         WaveIniEditorMessage::FieldChanged(index, field, value) => {
@@ -97,45 +94,6 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                 Task::none()
             }
         }
-        WaveIniEditorMessage::Save => {
-            if app.state.shared_game_path.is_empty() {
-                app.state.wave_ini_editor.status_msg = "Please select game path first.".into();
-                return Task::none();
-            }
-            app.state.wave_ini_editor.loading_state = LoadingState::Loading;
-            let result = app
-                .state
-                .wave_ini_editor
-                .save(&app.state.shared_game_path, "Wave.ini");
-            Task::perform(async { result }, |result| {
-                crate::message::Message::wave_ini(WaveIniEditorMessage::Saved(result))
-            })
-        }
-        WaveIniEditorMessage::Saved(result) => {
-            app.state.wave_ini_editor.loading_state = LoadingState::Loaded(());
-            match result {
-                Ok(_) => {
-                    app.state.wave_ini_editor.status_msg = "Wave ini saved successfully.".into()
-                }
-                Err(e) => {
-                    app.state.wave_ini_editor.status_msg = format!("Error saving wave ini: {}", e)
-                }
-            }
-            Task::none()
-        }
-        WaveIniEditorMessage::Spreadsheet(msg) => {
-            handle_spreadsheet_messages!(
-                app,
-                wave_ini_editor,
-                |index, field, value| {
-                    crate::message::Message::wave_ini(WaveIniEditorMessage::FieldChanged(
-                        index, field, value,
-                    ))
-                },
-                msg
-            );
-            Task::none()
-        }
         WaveIniEditorMessage::ExportWav(index) => {
             if app.state.shared_game_path.is_empty() {
                 app.state.wave_ini_editor.status_msg = "Please select game path first.".into();
@@ -155,7 +113,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_else(|| format!("wave_{}", wave.id));
                 let game_path = app.state.shared_game_path.clone();
-                app.state.wave_ini_editor.loading_state = LoadingState::Loading;
+                app.state.wave_ini_editor.loading_state =
+                    crate::components::loading_state::LoadingState::Loading;
                 return Task::perform(
                     async move {
                         let handle = rfd::AsyncFileDialog::new()
@@ -177,7 +136,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                             None => Err("Export cancelled".into()),
                         }
                     },
-                    move |result: Result<String, String>| {
+                    move |result| {
                         crate::message::Message::Editor(
                             crate::message::editor::EditorMessage::WaveIni(
                                 WaveIniEditorMessage::ExportedWav(result),
@@ -189,26 +148,21 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             Task::none()
         }
         WaveIniEditorMessage::ExportedWav(result) => {
-            app.state.wave_ini_editor.loading_state = LoadingState::Loaded(());
+            app.state.wave_ini_editor.loading_state =
+                crate::components::loading_state::LoadingState::Loaded(());
             match result {
                 Ok(p) => app.state.wave_ini_editor.status_msg = format!("Exported to {}", p),
                 Err(e) => app.state.wave_ini_editor.status_msg = format!("Export failed: {}", e),
             }
             Task::none()
         }
-        WaveIniEditorMessage::PaneResized(event) => {
-            if let Some(ref mut ps) = app.state.wave_ini_editor.pane_state {
-                ps.resize(event.split, event.ratio);
-            }
-            if let Some(ref mut ps) = app.state.wave_ini_editor.spreadsheet.pane_state {
-                ps.resize(event.split, event.ratio);
-            }
-            Task::none()
-        }
-        WaveIniEditorMessage::PaneClicked(pane) => {
-            app.state.wave_ini_editor.pane_focus = Some(pane);
-            Task::none()
-        }
+        msg => crate::components::standard::update::handle(
+            into_std(msg),
+            &mut app.state.wave_ini_editor,
+            &app.state.shared_game_path.clone(),
+            "Wave.ini",
+            wrap_std,
+        ),
     }
 }
 
