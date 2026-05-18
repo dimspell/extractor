@@ -1,5 +1,6 @@
 pub mod command_palette;
 pub mod context_menu;
+pub mod define_tab_editor;
 pub mod edit_history;
 pub mod editable;
 #[cfg(test)]

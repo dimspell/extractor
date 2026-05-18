@@ -36,7 +36,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             editor.current_file.clone().unwrap_or_default(),
         )),
         Message::monster_ref(MonsterRefEditorMessage::Save),
-        |idx| Message::monster_ref(MonsterRefEditorMessage::SelectEntry(idx)),
+        |idx| Message::monster_ref(MonsterRefEditorMessage::Select(idx)),
         |idx, field, val| {
             Message::monster_ref(MonsterRefEditorMessage::FieldChanged(idx, field, val))
         },
