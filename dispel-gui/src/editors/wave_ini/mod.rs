@@ -80,8 +80,14 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                 })
                 .unwrap_or_default();
             let new_value = value.clone();
-            app.state.wave_ini_editor.update_field(index, &field, value);
-            if old_value != new_value {
+            let task = crate::components::standard::update::handle(
+                StandardEditorMessage::FieldChanged(index, field.clone(), value),
+                &mut app.state.wave_ini_editor,
+                &app.state.shared_game_path.clone(),
+                "Wave.ini",
+                wrap_std,
+            );
+            let observe = if old_value != new_value {
                 crate::editors::mod_packager::recording::observe_field_change(
                     app,
                     "Wave.ini",
@@ -92,7 +98,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                 )
             } else {
                 Task::none()
-            }
+            };
+            observe.chain(task)
         }
         WaveIniEditorMessage::ExportWav(index) => {
             if app.state.shared_game_path.is_empty() {
