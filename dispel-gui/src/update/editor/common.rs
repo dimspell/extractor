@@ -3,209 +3,189 @@
 //! Provides macros and helper functions to handle common editor operations
 //! with good user feedback and clear error handling.
 
-/// Macro to handle spreadsheet messages generically
-/// Reduces ~80-100 lines of repetitive code to ~10 lines per editor
+// ===========================================================================
+// Consolidated spreadsheet handler — single implementation, two entry points
+// ===========================================================================
+//
+// The two public macros (`handle_spreadsheet_messages!` and
+// `handle_spreadsheet_messages_tab!`) are ~95% identical.  Rather than
+// duplicating the entire match body, they delegate to an internal macro
+// `handle_spreadsheet_messages_inner!` which takes all access paths as
+// parameters.
+//
+// Differences between the two callers:
+//
+// | Aspect            | Non-tab                     | Tab-editor                         |
+// |-------------------|-----------------------------|------------------------------------|
+// | ss (Spreadsheet)  | `$app.state.$field.spreadsheet`     | `ss` (local binding from `get_mut`)       |
+// | catalog (Option)  | `&$app.state.$field.state.catalog` | `&ed.editor.catalog`                 |
+// | make_inspector    | `$app.state.$field.make_inspector_textarea_contents(orig_idx)` | `ed.editor.make_inspector_textarea_contents(orig_idx)` |
+// | unique_values     | `$app.state.$field.unique_values_for_column(col)` | `ed.editor.unique_values_for_column(col)` |
+// | status_msg        | `&mut $app.state.$field.status_msg` | `&mut ed.editor.status_msg`          |
+// | toggle_inspector  | populates textarea_contents  | (none)                              |
+// | compute_caches    | direct field access          | re-borrow from hashmap (NLL-safe)   |
+
+// ──────────────────────────────────────────────
+// Internal implementation — all differences parameterized
+// ──────────────────────────────────────────────
 #[macro_export]
-macro_rules! handle_spreadsheet_messages {
-    ($app:ident, $field:ident, $field_changed_msg:expr, $msg:ident) => {
+#[doc(hidden)]
+macro_rules! handle_spreadsheet_messages_inner {
+    (
+        app: $app:ident,
+        ss: $ss:expr,
+        catalog: $catalog_provider:expr,
+        make_inspector: $make_inspector:expr,
+        unique_values: $unique_values:expr,
+        status_msg: $status_msg:expr,
+        compute_caches: $compute_caches:block,
+        toggle_inspector_extra: $toggle_inspector_extra:block,
+        field_changed_msg: $field_changed_msg:expr,
+        msg: $msg:ident,
+    ) => {
         use $crate::view::editor::SpreadsheetMessage as SM;
         match $msg {
             SM::ToggleActive => {
-                $app.state.$field.spreadsheet.toggle_active();
-                if $app.state.$field.spreadsheet.active {
-                    if let Some(catalog) = &$app.state.$field.state.catalog {
-                        $app.state.$field.spreadsheet.init_filter(catalog);
-                        $app.state.$field.spreadsheet.compute_all_caches(catalog);
-                        $app.state.$field.spreadsheet.init_pane_state();
+                $ss.toggle_active();
+                if $ss.active {
+                    if let Some(catalog) = $catalog_provider() {
+                        $ss.init_filter(catalog);
+                        $ss.compute_all_caches(catalog);
+                        $ss.init_pane_state();
                     }
                 }
             }
             SM::SortColumn(col) => {
-                $app.state.$field.spreadsheet.toggle_sort(col);
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
+                $ss.toggle_sort(col);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_sort(catalog);
                 }
             }
             SM::FilterChanged(query) => {
-                $app.state.$field.spreadsheet.filter_query = query;
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                $ss.filter_query = query;
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearFilter => {
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.clear_filter(catalog);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.clear_filter(catalog);
                 }
             }
             SM::SetFilterMode(mode) => {
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.set_filter_mode(mode, catalog);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.set_filter_mode(mode, catalog);
                 }
             }
             SM::NavigateNextHighlight => {
-                $app.state.$field.spreadsheet.navigate_next_highlight();
-                if let Some(orig_idx) = $app.state.$field.spreadsheet.current_highlight_orig_idx() {
-                    if let Some(fidx) = $app
-                        .state
-                        .$field
-                        .spreadsheet
-                        .filtered_indices
-                        .iter()
-                        .position(|&i| i == orig_idx)
-                    {
-                        $app.state.$field.spreadsheet.set_selection(fidx);
-                        let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
-                        let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                        $app.state.$field.spreadsheet.record_target_offset(x, y);
+                $ss.navigate_next_highlight();
+                if let Some(orig_idx) = $ss.current_highlight_orig_idx() {
+                    if let Some(fidx) = $ss.filtered_indices.iter().position(|&i| i == orig_idx) {
+                        $ss.set_selection(fidx);
+                        let y = $ss.scroll_y_for_row(fidx);
+                        let x = $ss.horizontal_scroll_offset;
+                        $ss.record_target_offset(x, y);
                     }
                 }
             }
             SM::NavigatePrevHighlight => {
-                $app.state.$field.spreadsheet.navigate_prev_highlight();
-                if let Some(orig_idx) = $app.state.$field.spreadsheet.current_highlight_orig_idx() {
-                    if let Some(fidx) = $app
-                        .state
-                        .$field
-                        .spreadsheet
-                        .filtered_indices
-                        .iter()
-                        .position(|&i| i == orig_idx)
-                    {
-                        $app.state.$field.spreadsheet.set_selection(fidx);
-                        let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
-                        let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                        $app.state.$field.spreadsheet.record_target_offset(x, y);
+                $ss.navigate_prev_highlight();
+                if let Some(orig_idx) = $ss.current_highlight_orig_idx() {
+                    if let Some(fidx) = $ss.filtered_indices.iter().position(|&i| i == orig_idx) {
+                        $ss.set_selection(fidx);
+                        let y = $ss.scroll_y_for_row(fidx);
+                        let x = $ss.horizontal_scroll_offset;
+                        $ss.record_target_offset(x, y);
                     }
                 }
             }
             SM::NavigateUp => {
-                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_up() {
-                    if let Some(&orig_idx) =
-                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
-                    {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $ss.navigate_up() {
+                    if let Some(&orig_idx) = $ss.filtered_indices.get(fidx) {
+                        $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
-                    let y = $app.state.$field.spreadsheet.ensure_row_visible_y(fidx);
-                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                    $app.state.$field.spreadsheet.record_target_offset(x, y);
+                    let y = $ss.ensure_row_visible_y(fidx);
+                    let x = $ss.horizontal_scroll_offset;
+                    $ss.record_target_offset(x, y);
                 }
             }
             SM::NavigateDown => {
-                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_down() {
-                    if let Some(&orig_idx) =
-                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
-                    {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $ss.navigate_down() {
+                    if let Some(&orig_idx) = $ss.filtered_indices.get(fidx) {
+                        $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
-                    let y = $app.state.$field.spreadsheet.ensure_row_visible_y(fidx);
-                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                    $app.state.$field.spreadsheet.record_target_offset(x, y);
+                    let y = $ss.ensure_row_visible_y(fidx);
+                    let x = $ss.horizontal_scroll_offset;
+                    $ss.record_target_offset(x, y);
                 }
             }
             SM::NavigateTop => {
-                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_top() {
-                    if let Some(&orig_idx) =
-                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
-                    {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $ss.navigate_top() {
+                    if let Some(&orig_idx) = $ss.filtered_indices.get(fidx) {
+                        $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
-                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                    $app.state.$field.spreadsheet.record_target_offset(x, 0.0);
+                    let x = $ss.horizontal_scroll_offset;
+                    $ss.record_target_offset(x, 0.0);
                 }
             }
             SM::NavigateBottom => {
-                if let Some(fidx) = $app.state.$field.spreadsheet.navigate_bottom() {
-                    if let Some(&orig_idx) =
-                        $app.state.$field.spreadsheet.filtered_indices.get(fidx)
-                    {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                if let Some(fidx) = $ss.navigate_bottom() {
+                    if let Some(&orig_idx) = $ss.filtered_indices.get(fidx) {
+                        $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
-                    let y = $app.state.$field.spreadsheet.scroll_y_for_row(fidx);
-                    let x = $app.state.$field.spreadsheet.horizontal_scroll_offset;
-                    $app.state.$field.spreadsheet.record_target_offset(x, y);
+                    let y = $ss.scroll_y_for_row(fidx);
+                    let x = $ss.horizontal_scroll_offset;
+                    $ss.record_target_offset(x, y);
                 }
             }
             SM::SelectRow(filtered_idx) => {
-                $app.state.$field.spreadsheet.select_row(filtered_idx);
-                $app.state.$field.spreadsheet.ensure_inspector_pane();
-                if let Some(&orig_idx) = $app
-                    .state
-                    .$field
-                    .spreadsheet
-                    .filtered_indices
-                    .get(filtered_idx)
-                {
-                    $app.state.$field.spreadsheet.inspector_textarea_contents =
-                        $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                $ss.select_row(filtered_idx);
+                $ss.ensure_inspector_pane();
+                if let Some(&orig_idx) = $ss.filtered_indices.get(filtered_idx) {
+                    $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                 } else {
-                    $app.state
-                        .$field
-                        .spreadsheet
-                        .inspector_textarea_contents
-                        .clear();
+                    $ss.inspector_textarea_contents.clear();
                 }
             }
             SM::TextAreaChanged(orig_idx, field, action) => {
-                if let Some(tc) = $app
-                    .state
-                    .$field
-                    .spreadsheet
-                    .inspector_textarea_contents
-                    .get_mut(&field)
-                {
+                if let Some(tc) = $ss.inspector_textarea_contents.get_mut(&field) {
                     tc.0.perform(action);
                     let raw = tc.0.text();
                     let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
                     let msg = $field_changed_msg(orig_idx, field, new_text);
                     let task = $app.update(msg);
-                    if let Some(catalog) = &$app.state.$field.state.catalog {
-                        let catalog = catalog.clone();
-                        $app.state.$field.spreadsheet.compute_all_caches(&catalog);
-                    }
+                    $compute_caches
                     return task;
                 }
             }
             SM::InspectorFieldChanged(orig_idx, field, value) => {
                 let msg = $field_changed_msg(orig_idx, field, value);
                 let task = $app.update(msg);
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    let catalog = catalog.clone();
-                    $app.state.$field.spreadsheet.compute_all_caches(&catalog);
-                }
+                $compute_caches
                 return task;
             }
             SM::CachesComputed(data) => {
-                $app.state.$field.spreadsheet.install_caches(data);
-                $app.state.$field.spreadsheet.is_loading = false;
+                $ss.install_caches(data);
+                $ss.is_loading = false;
             }
             SM::CancelEdit => {
-                if $app.state.$field.spreadsheet.resizing_column.is_some() {
-                    $app.state.$field.spreadsheet.end_column_resize();
+                if $ss.resizing_column.is_some() {
+                    $ss.end_column_resize();
                 }
             }
             SM::ToggleInspector => {
-                $app.state.$field.spreadsheet.toggle_inspector();
-                $app.state.$field.spreadsheet.ensure_inspector_pane();
-                // Populate textarea contents now that the inspector is becoming visible.
-                if $app.state.$field.spreadsheet.show_inspector {
-                    if let Some(orig_idx) = $app.state.$field.spreadsheet.selected_orig {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
-                    }
-                }
+                $ss.toggle_inspector();
+                $ss.ensure_inspector_pane();
+                $toggle_inspector_extra
             }
             SM::CloseInspector => {
-                $app.state.$field.spreadsheet.show_inspector = false;
-                $app.state.$field.spreadsheet.ensure_inspector_pane();
+                $ss.show_inspector = false;
+                $ss.ensure_inspector_pane();
             }
             SM::ExportCsv => {
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    match $app.state.$field.spreadsheet.to_csv_bytes(catalog) {
+                if let Some(catalog) = $catalog_provider() {
+                    match $ss.to_csv_bytes(catalog) {
                         Ok(bytes) => {
                             if let Some(path) = rfd::FileDialog::new()
                                 .set_file_name("export.csv")
@@ -214,458 +194,205 @@ macro_rules! handle_spreadsheet_messages {
                             {
                                 match std::fs::write(&path, &bytes) {
                                     Ok(_) => {
-                                        $app.state.$field.status_msg =
+                                        *$status_msg =
                                             format!("Exported CSV to {}", path.display());
                                     }
                                     Err(e) => {
-                                        $app.state.$field.status_msg =
+                                        *$status_msg =
                                             format!("CSV export failed: {}", e);
                                     }
                                 }
                             }
                         }
                         Err(e) => {
-                            $app.state.$field.status_msg = format!("CSV export failed: {}", e);
+                            *$status_msg = format!("CSV export failed: {}", e);
                         }
                     }
                 }
             }
             SM::CsvExported(result) => match result {
                 Ok(path) => {
-                    $app.state.$field.status_msg = format!("Exported CSV to {}", path.display());
+                    *$status_msg = format!("Exported CSV to {}", path.display());
                 }
                 Err(e) if e == "cancelled" => {}
                 Err(e) => {
-                    $app.state.$field.status_msg = format!("CSV export failed: {}", e);
+                    *$status_msg = format!("CSV export failed: {}", e);
                 }
             },
             SM::BodyScrolled(offset, viewport_height) => {
-                $app.state
-                    .$field
-                    .spreadsheet
-                    .record_scroll(offset.x, offset.y, viewport_height);
+                $ss.record_scroll(offset.x, offset.y, viewport_height);
             }
             SM::StartResizeColumn(col) => {
-                if $app.state.$field.spreadsheet.try_begin_column_resize(col) {
-                    if let Some(catalog) = &$app.state.$field.state.catalog {
-                        $app.state.$field.spreadsheet.auto_size_column(col, catalog);
+                if $ss.try_begin_column_resize(col) {
+                    if let Some(catalog) = $catalog_provider() {
+                        $ss.auto_size_column(col, catalog);
                     }
                 }
             }
-            SM::ResizeColumnCursor(x) => {
-                $app.state.$field.spreadsheet.update_column_resize(x);
-            }
-            SM::EndResizeColumn => {
-                $app.state.$field.spreadsheet.end_column_resize();
-            }
+            SM::ResizeColumnCursor(x) => $ss.update_column_resize(x),
+            SM::EndResizeColumn => $ss.end_column_resize(),
             SM::ResetColumnWidth(col) => {
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.auto_size_column(col, catalog);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.auto_size_column(col, catalog);
                 }
             }
             SM::OpenColumnFilter(col) => {
-                // Toggle: second click on the same column closes the dropdown.
-                if $app.state.$field.spreadsheet.active_column_filter == Some(col) {
-                    $app.state.$field.spreadsheet.active_column_filter = None;
-                    $app.state.$field.spreadsheet.column_filter_search.clear();
+                if $ss.active_column_filter == Some(col) {
+                    $ss.active_column_filter = None;
+                    $ss.column_filter_search.clear();
                 } else {
-                    $app.state.$field.spreadsheet.column_filter_options =
-                        $app.state.$field.unique_values_for_column(col);
-                    $app.state.$field.spreadsheet.active_column_filter = Some(col);
-                    $app.state.$field.spreadsheet.column_filter_search.clear();
+                    $ss.column_filter_options = $unique_values(col);
+                    $ss.active_column_filter = Some(col);
+                    $ss.column_filter_search.clear();
                 }
             }
             SM::CloseColumnFilterModal => {
-                $app.state.$field.spreadsheet.active_column_filter = None;
-                $app.state.$field.spreadsheet.column_filter_search.clear();
+                $ss.active_column_filter = None;
+                $ss.column_filter_search.clear();
             }
             SM::ApplyColumnFilter(col, value) => {
                 let mut set = std::collections::HashSet::new();
                 set.insert(value);
-                $app.state
-                    .$field
-                    .spreadsheet
-                    .column_filters
-                    .insert(col, set);
-                $app.state.$field.spreadsheet.active_column_filter = None;
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                $ss.column_filters.insert(col, set);
+                $ss.active_column_filter = None;
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearColumnFilter(col) => {
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state
-                        .$field
-                        .spreadsheet
-                        .clear_column_filter(col, catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.clear_column_filter(col, catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::QuickFilter(col, value) => {
                 let mut set = std::collections::HashSet::new();
                 set.insert(value);
-                $app.state
-                    .$field
-                    .spreadsheet
-                    .column_filters
-                    .insert(col, set);
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                $ss.column_filters.insert(col, set);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ColumnFilterSearch(query) => {
-                $app.state.$field.spreadsheet.column_filter_search = query;
+                $ss.column_filter_search = query;
             }
             SM::ToggleColumnFilterValue(col, value) => {
-                let entry = $app
-                    .state
-                    .$field
-                    .spreadsheet
-                    .column_filters
-                    .entry(col)
-                    .or_default();
+                let entry = $ss.column_filters.entry(col).or_default();
                 if entry.contains(&value) {
                     entry.remove(&value);
                 } else {
                     entry.insert(value);
                 }
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::SelectAllColumnFilter(col) => {
-                let all_values: std::collections::HashSet<String> = $app
-                    .state
-                    .$field
-                    .spreadsheet
+                let all_values: std::collections::HashSet<String> = $ss
                     .column_filter_options
                     .iter()
                     .map(|opt| opt.value.clone())
                     .collect();
-                $app.state
-                    .$field
-                    .spreadsheet
-                    .column_filters
-                    .insert(col, all_values);
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                $ss.column_filters.insert(col, all_values);
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
             SM::ClearAllColumnFilter(col) => {
-                $app.state.$field.spreadsheet.column_filters.remove(&col);
-                $app.state.$field.spreadsheet.column_filter_search.clear();
-                if let Some(catalog) = &$app.state.$field.state.catalog {
-                    $app.state.$field.spreadsheet.apply_filter(catalog);
-                    $app.state.$field.spreadsheet.apply_sort(catalog);
-                    $app.state.$field.spreadsheet.record_target_offset(0.0, 0.0);
+                $ss.column_filters.remove(&col);
+                $ss.column_filter_search.clear();
+                if let Some(catalog) = $catalog_provider() {
+                    $ss.apply_filter(catalog);
+                    $ss.apply_sort(catalog);
+                    $ss.record_target_offset(0.0, 0.0);
                 }
             }
         }
     };
 }
 
-/// Macro to handle spreadsheet messages for tab-based editors (NpcRef, MonsterRef, etc.)
+// ──────────────────────────────────────────────
+// Thin wrapper for single-file editors (StandardEditor<T>)
+// ──────────────────────────────────────────────
+/// Macro to handle spreadsheet messages for single-file editors.
+///
+/// The `$field` ident is the field on `AppState` (e.g. `weapon_editor`, `wave_ini_editor`).
+/// Delegates to [`handle_spreadsheet_messages_inner!`].
+#[macro_export]
+macro_rules! handle_spreadsheet_messages {
+    ($app:ident, $field:ident, $field_changed_msg:expr, $msg:ident) => {
+        $crate::handle_spreadsheet_messages_inner! {
+            app: $app,
+            ss: $app.state.$field.spreadsheet,
+            catalog: || &$app.state.$field.state.catalog,
+            make_inspector: |idx| $app.state.$field.make_inspector_textarea_contents(idx),
+            unique_values: |col| $app.state.$field.unique_values_for_column(col),
+            status_msg: &mut $app.state.$field.status_msg,
+            compute_caches: {
+                if let Some(c) = &$app.state.$field.state.catalog {
+                    let c = c.clone();
+                    $app.state.$field.spreadsheet.compute_all_caches(&c);
+                }
+            },
+            toggle_inspector_extra: {
+                if $app.state.$field.spreadsheet.show_inspector {
+                    if let Some(orig_idx) = $app.state.$field.spreadsheet.selected_orig {
+                        $app.state.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                    }
+                }
+            },
+            field_changed_msg: $field_changed_msg,
+            msg: $msg,
+        }
+    };
+}
+
+// ──────────────────────────────────────────────
+// Thin wrapper for tab-based editors (TabbedEditor<T>)
+// ──────────────────────────────────────────────
+/// Macro to handle spreadsheet messages for tab-based editors (NpcRef, MonsterRef, etc.).
+///
+/// The `$tabbed_editor` ident is a field on `AppState` of type [`TabbedEditor<T>`].
+/// Delegates to [`handle_spreadsheet_messages_inner!`].
 #[macro_export]
 macro_rules! handle_spreadsheet_messages_tab {
     ($app:ident, $tabbed_editor:ident, $tab_id:expr, $field_changed_msg:expr, $msg:ident) => {
-        use $crate::view::editor::SpreadsheetMessage as SM;
         match $msg {
             other => {
                 if let (Some(ed), Some(ss)) = (
-                    $app.state.$tabbed_editor.editors.get_mut($tab_id),
-                    $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id),
+                    $app.state.$tabbed_editor.editors.get_mut(&$tab_id),
+                    $app.state.$tabbed_editor.spreadsheets.get_mut(&$tab_id),
                 ) {
-                    match other {
-                        SM::ToggleActive => {
-                            ss.toggle_active();
-                            if ss.active {
-                                if let Some(c) = &ed.editor.catalog {
-                                    ss.init_filter(c);
-                                    ss.compute_all_caches(c);
-                                    ss.init_pane_state();
-                                }
-                            }
-                        }
-                        SM::SortColumn(col) => {
-                            ss.toggle_sort(col);
-                            if let Some(c) = &ed.editor.catalog {
-                                ss.apply_sort(c);
-                            }
-                        }
-                        SM::FilterChanged(query) => {
-                            ss.filter_query = query;
-                            if let Some(c) = &ed.editor.catalog {
-                                ss.apply_filter(c);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::ClearFilter => {
-                            if let Some(c) = &ed.editor.catalog {
-                                ss.clear_filter(c);
-                            }
-                        }
-                        SM::SetFilterMode(mode) => {
-                            if let Some(c) = &ed.editor.catalog {
-                                ss.set_filter_mode(mode, c);
-                            }
-                        }
-                        SM::NavigateNextHighlight => {
-                            ss.navigate_next_highlight();
-                            if let Some(orig_idx) = ss.current_highlight_orig_idx() {
-                                if let Some(fidx) =
-                                    ss.filtered_indices.iter().position(|&i| i == orig_idx)
-                                {
-                                    ss.set_selection(fidx);
-                                    let y = ss.scroll_y_for_row(fidx);
-                                    let x = ss.horizontal_scroll_offset;
-                                    ss.record_target_offset(x, y);
-                                }
-                            }
-                        }
-                        SM::NavigatePrevHighlight => {
-                            ss.navigate_prev_highlight();
-                            if let Some(orig_idx) = ss.current_highlight_orig_idx() {
-                                if let Some(fidx) =
-                                    ss.filtered_indices.iter().position(|&i| i == orig_idx)
-                                {
-                                    ss.set_selection(fidx);
-                                    let y = ss.scroll_y_for_row(fidx);
-                                    let x = ss.horizontal_scroll_offset;
-                                    ss.record_target_offset(x, y);
-                                }
-                            }
-                        }
-                        SM::NavigateUp => {
-                            if let Some(fidx) = ss.navigate_up() {
-                                if let Some(&orig_idx) = ss.filtered_indices.get(fidx) {
-                                    ss.inspector_textarea_contents =
-                                        ed.editor.make_inspector_textarea_contents(orig_idx);
-                                }
-                                let y = ss.ensure_row_visible_y(fidx);
-                                let x = ss.horizontal_scroll_offset;
-                                ss.record_target_offset(x, y);
-                            }
-                        }
-                        SM::NavigateDown => {
-                            if let Some(fidx) = ss.navigate_down() {
-                                if let Some(&orig_idx) = ss.filtered_indices.get(fidx) {
-                                    ss.inspector_textarea_contents =
-                                        ed.editor.make_inspector_textarea_contents(orig_idx);
-                                }
-                                let y = ss.ensure_row_visible_y(fidx);
-                                let x = ss.horizontal_scroll_offset;
-                                ss.record_target_offset(x, y);
-                            }
-                        }
-                        SM::NavigateTop => {
-                            if ss.navigate_top().is_some() {
-                                let x = ss.horizontal_scroll_offset;
-                                ss.record_target_offset(x, 0.0);
-                            }
-                        }
-                        SM::NavigateBottom => {
-                            if let Some(fidx) = ss.navigate_bottom() {
-                                let y = ss.scroll_y_for_row(fidx);
-                                let x = ss.horizontal_scroll_offset;
-                                ss.record_target_offset(x, y);
-                            }
-                        }
-                        SM::SelectRow(filtered_idx) => {
-                            ss.select_row(filtered_idx);
-                            ss.ensure_inspector_pane();
-                            if let Some(&orig_idx) = ss.filtered_indices.get(filtered_idx) {
-                                ss.inspector_textarea_contents =
-                                    ed.editor.make_inspector_textarea_contents(orig_idx);
-                            } else {
-                                ss.inspector_textarea_contents.clear();
-                            }
-                        }
-                        SM::TextAreaChanged(orig_idx, field, action) => {
-                            if let Some(tc) = ss.inspector_textarea_contents.get_mut(&field) {
-                                tc.0.perform(action);
-                                let raw = tc.0.text();
-                                let new_text = raw.strip_suffix('\n').unwrap_or(&raw).to_string();
-                                let msg = $field_changed_msg(orig_idx, field, new_text);
-                                let task = $app.update(msg);
-                                let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id);
-                                let ed2 = $app.state.$tabbed_editor.editors.get_mut($tab_id);
-                                if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
-                                    if let Some(catalog) = &ed2.editor.catalog {
-                                        let catalog = catalog.clone();
-                                        ss2.compute_all_caches(&catalog);
-                                    }
-                                }
-                                return task;
-                            }
-                        }
-                        SM::InspectorFieldChanged(orig_idx, field, value) => {
-                            let msg = $field_changed_msg(orig_idx, field, value);
-                            let task = $app.update(msg);
-                            let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut($tab_id);
-                            let ed2 = $app.state.$tabbed_editor.editors.get_mut($tab_id);
+                    $crate::handle_spreadsheet_messages_inner! {
+                        app: $app,
+                        ss: ss,
+                        catalog: || &ed.editor.catalog,
+                        make_inspector: |idx| ed.editor.make_inspector_textarea_contents(idx),
+                        unique_values: |col| ed.editor.unique_values_for_column(col),
+                        status_msg: &mut ed.editor.status_msg,
+                        compute_caches: {
+                            let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut(&$tab_id);
+                            let ed2 = $app.state.$tabbed_editor.editors.get_mut(&$tab_id);
                             if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
-                                if let Some(catalog) = &ed2.editor.catalog {
-                                    let catalog = catalog.clone();
-                                    ss2.compute_all_caches(&catalog);
+                                if let Some(c) = &ed2.editor.catalog {
+                                    let c = c.clone();
+                                    ss2.compute_all_caches(&c);
                                 }
-                            }
-                            return task;
-                        }
-                        SM::CachesComputed(data) => {
-                            ss.install_caches(data);
-                            ss.is_loading = false;
-                        }
-                        SM::CancelEdit => {
-                            if ss.resizing_column.is_some() {
-                                ss.end_column_resize();
-                            }
-                        }
-                        SM::ToggleInspector => {
-                            ss.toggle_inspector();
-                            ss.ensure_inspector_pane();
-                        }
-                        SM::CloseInspector => {
-                            ss.show_inspector = false;
-                            ss.ensure_inspector_pane();
-                        }
-                        SM::ExportCsv => {
-                            if let Some(c) = &ed.editor.catalog {
-                                if let Ok(bytes) = ss.to_csv_bytes(c) {
-                                    // Best-effort: spawn a blocking write in a detached task.
-                                    // Tab editors don't yet route back CsvExported; use a
-                                    // synchronous save dialog instead.
-                                    if let Some(path) = rfd::FileDialog::new()
-                                        .set_file_name("export.csv")
-                                        .add_filter("CSV", &["csv"])
-                                        .save_file()
-                                    {
-                                        if let Err(e) = std::fs::write(&path, &bytes) {
-                                            ed.editor.status_msg =
-                                                format!("CSV export failed: {}", e);
-                                        } else {
-                                            ed.editor.status_msg =
-                                                format!("Exported CSV to {}", path.display());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        SM::CsvExported(result) => match result {
-                            Ok(path) => {
-                                ed.editor.status_msg =
-                                    format!("Exported CSV to {}", path.display());
-                            }
-                            Err(e) if e == "cancelled" => {}
-                            Err(e) => {
-                                ed.editor.status_msg = format!("CSV export failed: {}", e);
                             }
                         },
-                        SM::BodyScrolled(offset, viewport_height) => {
-                            ss.record_scroll(offset.x, offset.y, viewport_height);
-                        }
-                        SM::StartResizeColumn(col) => {
-                            if ss.try_begin_column_resize(col) {
-                                if let Some(catalog) = &ed.editor.catalog {
-                                    ss.auto_size_column(col, catalog);
-                                }
-                            }
-                        }
-                        SM::ResizeColumnCursor(x) => ss.update_column_resize(x),
-                        SM::EndResizeColumn => ss.end_column_resize(),
-                        SM::ResetColumnWidth(col) => {
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.auto_size_column(col, catalog);
-                            }
-                        }
-                        SM::OpenColumnFilter(col) => {
-                            if ss.active_column_filter == Some(col) {
-                                ss.active_column_filter = None;
-                                ss.column_filter_search.clear();
-                            } else {
-                                ss.column_filter_options = ed.editor.unique_values_for_column(col);
-                                ss.active_column_filter = Some(col);
-                                ss.column_filter_search.clear();
-                            }
-                        }
-                        SM::CloseColumnFilterModal => {
-                            ss.active_column_filter = None;
-                            ss.column_filter_search.clear();
-                        }
-                        SM::ApplyColumnFilter(col, value) => {
-                            let mut set = std::collections::HashSet::new();
-                            set.insert(value);
-                            ss.column_filters.insert(col, set);
-                            ss.active_column_filter = None;
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.apply_filter(catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::ClearColumnFilter(col) => {
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.clear_column_filter(col, catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::QuickFilter(col, value) => {
-                            let mut set = std::collections::HashSet::new();
-                            set.insert(value);
-                            ss.column_filters.insert(col, set);
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.apply_filter(catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::ColumnFilterSearch(query) => {
-                            ss.column_filter_search = query;
-                        }
-                        SM::ToggleColumnFilterValue(col, value) => {
-                            let entry = ss.column_filters.entry(col).or_default();
-                            if entry.contains(&value) {
-                                entry.remove(&value);
-                            } else {
-                                entry.insert(value);
-                            }
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.apply_filter(catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::SelectAllColumnFilter(col) => {
-                            let all_values: std::collections::HashSet<String> = ss
-                                .column_filter_options
-                                .iter()
-                                .map(|opt| opt.value.clone())
-                                .collect();
-                            ss.column_filters.insert(col, all_values);
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.apply_filter(catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
-                        SM::ClearAllColumnFilter(col) => {
-                            ss.column_filters.remove(&col);
-                            ss.column_filter_search.clear();
-                            if let Some(catalog) = &ed.editor.catalog {
-                                ss.apply_filter(catalog);
-                                ss.apply_sort(catalog);
-                                ss.record_target_offset(0.0, 0.0);
-                            }
-                        }
+                        toggle_inspector_extra: {},
+                        field_changed_msg: $field_changed_msg,
+                        msg: other,
                     }
                 }
             }
