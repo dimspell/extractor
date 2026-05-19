@@ -4,11 +4,11 @@ use super::state::{SpriteExportDialogState, SpriteExportStatus};
 use crate::app::App;
 use crate::components::editable::{EditableRecord, FieldKind};
 use crate::components::loading_state::LoadingState;
-use crate::components::modal::modal;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::{Message, MessageExt};
 use crate::style;
 use dispel_core::{ExtraRef, MonsterRef, NPC};
+use gui_widgets::components::modal::modal;
 use iced::widget::{
     button, canvas, column, container, pick_list, progress_bar, row, scrollable, stack, text,
     text_input, toggler,

@@ -1,5 +1,4 @@
 use crate::app::{App, AppMode};
-use crate::components::modal::modal;
 use crate::components::tab_bar::view as tab_bar;
 use crate::components::utils::{truncate_path, vertical_space};
 use crate::message::{
@@ -10,6 +9,7 @@ use crate::state::PaneContent;
 use crate::style;
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
+use gui_widgets::components::modal::modal;
 use iced::widget::pane_grid;
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill, Font, Length};

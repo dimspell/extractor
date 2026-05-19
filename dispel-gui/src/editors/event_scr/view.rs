@@ -257,7 +257,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 .style(style::modal_container)
                 .max_width(520)
                 .into();
-        crate::components::modal::modal(
+        gui_widgets::components::modal::modal(
             base,
             picker_content,
             || EventScrEditorMessage::ToggleFunctionPicker,
@@ -269,7 +269,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
 
     if matches!(state.index_state, FunctionIndexState::Indexing { .. }) {
         let modal_content = index_progress_modal(state);
-        crate::components::modal::modal(
+        gui_widgets::components::modal::modal(
             base,
             modal_content,
             || EventScrEditorMessage::CancelIndexing,

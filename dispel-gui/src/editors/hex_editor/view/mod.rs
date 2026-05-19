@@ -11,11 +11,11 @@ use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::app::App;
-use crate::components::context_menu::{ContextMenu, Entry as MenuEntry};
-use crate::components::modal::modal;
 use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
 use crate::message::{Message, MessageExt};
-use crate::view::editor::ParagraphCache;
+use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
+use gui_widgets::components::modal::modal;
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use self::matrix::{EditView, HexMatrix};
 

@@ -56,7 +56,6 @@ impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
     }
 }
 
-// TODO: The order of `impl` members differs from the trait
 impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
     for Modal<'_, Message, Theme, Renderer>
 where
@@ -205,7 +204,6 @@ struct ModalOverlay<'a, 'b, Message, Theme, Renderer> {
     viewport: Rectangle,
 }
 
-// TODO: The order of `impl` members differs from the trait
 impl<Message, Theme, Renderer> overlay::Overlay<Message, Theme, Renderer>
     for ModalOverlay<'_, '_, Message, Theme, Renderer>
 where
@@ -343,5 +341,36 @@ where
             &self.viewport,
             Vector::ZERO,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use iced::widget::container;
+
+    use super::*;
+
+    #[test]
+    fn test_modal_creation() {
+        let base = container("Base content");
+        let modal_content = container("Modal content");
+        let result = modal(base, modal_content, || "blur", 0.5);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    }
+
+    #[test]
+    fn test_modal_zero_backdrop() {
+        let base = container("Base");
+        let modal_content = container("Modal");
+        let result = modal(base, modal_content, || "blur", 0.0);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    }
+
+    #[test]
+    fn test_modal_full_backdrop() {
+        let base = container("Base");
+        let modal_content = container("Modal");
+        let result = modal(base, modal_content, || "blur", 1.0);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
     }
 }

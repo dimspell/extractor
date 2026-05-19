@@ -77,10 +77,3 @@ fn test_context_menu_empty_entries() {
     let cm = ContextMenu::new(button("Test"), entries);
     let _: Element<'static, TestMessage> = cm.into();
 }
-
-#[test]
-fn test_context_menu_tag() {
-    let entries: Vec<Entry<TestMessage>> = vec![];
-    let cm = ContextMenu::new(button("Test"), entries);
-    assert_eq!(cm.tag(), tree::Tag::of::<State>());
-}

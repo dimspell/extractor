@@ -1,4 +1,4 @@
-use crate::components::context_menu::{ContextMenu, Entry};
+use gui_widgets::components::context_menu::{ContextMenu, Entry};
 use iced::widget::{button, container, row, scrollable, text};
 use iced::{Element, Length};
 

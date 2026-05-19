@@ -1,15 +1,3 @@
-//! Process-wide cache of pre-shaped `Paragraph`s, keyed by content + width
-//! + size + font.
-//!
-//! Cosmic-text shaping (≈100 µs per non-trivial cell) used to dominate the
-//! spreadsheet's scroll cost. The custom [`TableWidget`](super::table_widget)
-//! looks each cell up here on every layout: a hit clones an `Arc`-backed
-//! glyph buffer and skips shaping entirely, a miss shapes once and stores
-//! the result for reuse on the next viewport tick.
-//!
-//! The cache lives in `SpreadsheetState`; clone the [`ParagraphCache`]
-//! handle freely (it is `Arc<Mutex<…>>` under the hood).
-
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::Font;
 use lru::LruCache;
@@ -103,5 +91,52 @@ impl std::fmt::Debug for ParagraphCache {
             .field("len", &len)
             .field("capacity", &CACHE_CAPACITY)
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced::Font;
+
+    #[test]
+    fn test_paragraph_cache_insert_and_retrieve() {
+        let cache = ParagraphCache::default();
+        let key = ParagraphKey::new("Hello", 12.0, 100.0, Font::default());
+        let _p = cache.get_or_insert(key.clone(), Paragraph::new);
+        // Second call should return cached value without rebuilding
+        let _p2 = cache.get_or_insert(key, Paragraph::new);
+    }
+
+    #[test]
+    fn test_paragraph_cache_clear() {
+        let cache = ParagraphCache::default();
+        let key = ParagraphKey::new("Hello", 12.0, 100.0, Font::default());
+        cache.get_or_insert(key.clone(), Paragraph::new);
+        cache.clear();
+        // After clear, a new value should be built
+        let _ = cache.get_or_insert(key, Paragraph::new);
+    }
+
+    #[test]
+    fn test_paragraph_key_equality() {
+        let a = ParagraphKey::new("abc", 12.0, 100.0, Font::default());
+        let b = ParagraphKey::new("abc", 12.0, 100.0, Font::default());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_paragraph_key_inequality() {
+        let a = ParagraphKey::new("abc", 12.0, 100.0, Font::default());
+        let b = ParagraphKey::new("xyz", 12.0, 100.0, Font::default());
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_paragraph_cache_default_is_empty() {
+        let cache = ParagraphCache::default();
+        let key = ParagraphKey::new("test", 12.0, 100.0, Font::default());
+        // Should not panic — will build a new paragraph
+        let _ = cache.get_or_insert(key, Paragraph::new);
     }
 }

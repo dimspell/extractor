@@ -11,7 +11,7 @@ use crate::style;
 use super::filter::FileTreeResult;
 use super::filter::{fuzzy_match, FileTreeError, FileTreeFilter};
 use super::message::FileTreeMessage;
-use crate::components::context_menu::{ContextMenu, Entry};
+use gui_widgets::components::context_menu::{ContextMenu, Entry};
 
 /// File tree data structure (pure data representation).
 #[derive(Debug, Clone, Default)]

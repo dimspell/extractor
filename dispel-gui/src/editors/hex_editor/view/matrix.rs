@@ -23,7 +23,7 @@ use iced::{
 
 use crate::editors::hex_editor::pattern::{pattern_bg, pattern_fg};
 use crate::editors::hex_editor::selection::{NavDir, Selection};
-use crate::view::editor::paragraph_cache::{ParagraphCache, ParagraphKey};
+use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 type Paragraph = GraphicsParagraph;
 

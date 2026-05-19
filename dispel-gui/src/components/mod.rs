@@ -1,5 +1,4 @@
 pub mod command_palette;
-pub mod context_menu;
 pub mod define_tab_editor;
 pub mod edit_history;
 pub mod editable;
@@ -9,7 +8,6 @@ pub mod file_tree;
 pub mod generic_editor;
 pub mod global_search;
 pub mod loading_state;
-pub mod modal;
 pub mod standard;
 pub mod tab_bar;
 pub mod textarea;

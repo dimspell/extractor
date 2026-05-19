@@ -1,8 +1,7 @@
+pub mod entry;
 pub mod platform;
-
-mod entry;
-mod popup;
-mod state;
+pub mod popup;
+pub mod state;
 
 #[cfg(test)]
 mod tests;
