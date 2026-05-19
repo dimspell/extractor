@@ -7,7 +7,10 @@ use crate::HexEditorMessage;
 
 /// Modal body shown when an inspector "Edit" button is pressed.
 pub fn view(state: &InspectorEditState) -> Element<'_, HexEditorMessage> {
-    let entry_name = ENTRIES.get(state.entry_idx).map(|e| e.name).unwrap_or("?");
+    let entry_name = ENTRIES
+        .get(state.entry_idx)
+        .map(|e| e.name.as_str())
+        .unwrap_or("?");
     let title = format!("Edit {entry_name} at 0x{:X}", state.addr);
 
     let input = text_input("value", &state.draft)

@@ -17,7 +17,6 @@ use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
-use hexedit::HexEditorMessage;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::editors::magic::MagicEditorMessage;
 use crate::editors::map_editor::MapEditorMessage;
@@ -40,6 +39,7 @@ use crate::editors::store::StoreEditorMessage;
 use crate::editors::tileset::TilesetEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::editors::weapon::WeaponEditorMessage;
+use hexedit::HexEditorMessage;
 
 #[derive(Debug, Clone)]
 pub enum EditorMessage {

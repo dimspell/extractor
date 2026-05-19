@@ -116,19 +116,13 @@ impl Command {
                 id: "hex-search",
                 label: "Hex editor: Search (Find)",
                 shortcut: Some("Ctrl+F"),
-                action: || {
-                    Message::hex_editor(hexedit::HexEditorMessage::OpenSearch)
-                },
+                action: || Message::hex_editor(hexedit::HexEditorMessage::OpenSearch),
             },
             Command {
                 id: "hex-goto",
                 label: "Hex editor: Go to address",
                 shortcut: Some("Ctrl+G"),
-                action: || {
-                    Message::hex_editor(
-                        hexedit::HexEditorMessage::OpenGotoDialog,
-                    )
-                },
+                action: || Message::hex_editor(hexedit::HexEditorMessage::OpenGotoDialog),
             },
             Command {
                 id: "browse-game-path",

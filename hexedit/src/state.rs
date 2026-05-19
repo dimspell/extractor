@@ -5,6 +5,7 @@ use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
+use super::lua_engine::LuaScriptEngine;
 use super::pattern::Pattern;
 use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
@@ -54,6 +55,8 @@ pub struct HexEditorState {
     /// Shared paragraph cache shared across frames so shaped glyphs survive
     /// between render cycles (cheaply cloned into the widget each frame).
     pub cache: ParagraphCache,
+    /// Lua scripting engine for custom inspector decoders.
+    pub lua_engine: LuaScriptEngine,
 }
 
 impl HexEditorState {
@@ -65,13 +68,12 @@ impl HexEditorState {
             .to_string();
 
         let (provider, vanilla, error) = match std::fs::read(path) {
-            Ok(bytes) => (
-                BufferProvider::from_bytes(bytes.clone()),
-                Some(bytes),
-                None,
-            ),
+            Ok(bytes) => (BufferProvider::from_bytes(bytes.clone()), Some(bytes), None),
             Err(e) => (BufferProvider::default(), None, Some(e.to_string())),
         };
+
+        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
+        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
 
         Self {
             path: path.to_path_buf(),
@@ -94,6 +96,7 @@ impl HexEditorState {
             status_msg: String::new(),
             error,
             cache: ParagraphCache::default(),
+            lua_engine,
         }
     }
 
@@ -152,5 +155,33 @@ impl HexEditorState {
     /// Return the pattern with the given id, if it exists.
     pub fn pattern_by_id(&self, id: usize) -> Option<&Pattern> {
         self.patterns.iter().find(|p| p.id == id)
+    }
+
+    /// Load all `.lua` scripts from a directory into the Lua engine.
+    /// Errors are collected and returned; successfully loaded decoders are
+    /// available via `lua_engine.entries()`.
+    pub fn load_lua_scripts(&mut self, dir: &Path) -> Vec<String> {
+        let mut errors = Vec::new();
+        if !dir.is_dir() {
+            return errors;
+        }
+        let mut entries: Vec<_> = match std::fs::read_dir(dir) {
+            Ok(rd) => rd
+                .filter_map(|e| e.ok())
+                .map(|e| e.path())
+                .filter(|p| p.extension().is_some_and(|ext| ext == "lua"))
+                .collect(),
+            Err(e) => {
+                errors.push(format!("cannot read scripts dir '{}': {e}", dir.display()));
+                return errors;
+            }
+        };
+        entries.sort();
+        for script_path in entries {
+            if let Err(e) = self.lua_engine.load_script(&script_path) {
+                errors.push(e);
+            }
+        }
+        errors
     }
 }

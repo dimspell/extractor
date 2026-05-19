@@ -129,7 +129,10 @@ impl App {
                                 crate::editors::localization_manager::view(self)
                             }
                             Some(EditorType::HexEditor) => {
-                                let tab_id = self.state.workspace.active()
+                                let tab_id = self
+                                    .state
+                                    .workspace
+                                    .active()
                                     .map(|t| t.id)
                                     .unwrap_or(usize::MAX);
                                 match self.state.hex_editors.get(&tab_id) {
@@ -139,8 +142,7 @@ impl App {
                                             &self.state.workspace.game_path,
                                             state,
                                         );
-                                        hexedit::view(state, &config)
-                                            .map(Message::hex_editor)
+                                        hexedit::view(state, &config).map(Message::hex_editor)
                                     }
                                     None => container(text("Hex editor not loaded").size(14))
                                         .width(Fill)

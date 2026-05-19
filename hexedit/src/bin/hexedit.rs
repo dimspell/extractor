@@ -138,9 +138,7 @@ impl HexApp {
         ]
         .spacing(8);
 
-        let status = text(&self.status)
-            .size(11)
-            .font(Font::MONOSPACE);
+        let status = text(&self.status).size(11).font(Font::MONOSPACE);
 
         let content: Element<'_, AppMessage> = match &self.state {
             Some(state) => {
@@ -154,8 +152,7 @@ impl HexApp {
                     save_hint: String::new(),
                     extra_entries: Vec::new(),
                 };
-                hexedit::view(state, &config)
-                    .map(AppMessage::Hex)
+                hexedit::view(state, &config).map(AppMessage::Hex)
             }
             None => container(
                 container(

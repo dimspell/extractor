@@ -5,7 +5,6 @@ use crate::components::tab_bar::TabBarMessage;
 use crate::editors::chest::ChestEditorMessage;
 use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
-use hexedit::{HexEditorConfig, HexEditorState};
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -13,6 +12,7 @@ use crate::message::{Message, MessageExt, SystemMessage, ViewerMessage, Workspac
 use crate::state::AppState;
 use crate::workspace::EditorType;
 use dispel_core::Extractor;
+use hexedit::{HexEditorConfig, HexEditorState};
 use iced::{Subscription, Task};
 use std::path::{Path, PathBuf};
 
@@ -70,14 +70,11 @@ pub fn build_hex_config(
         String::new()
     };
     HexEditorConfig {
-        on_save: crate::editors::mod_packager::hex_save::build_save_callback(
-            recording,
-            game_path,
-        ),
+        on_save: crate::editors::mod_packager::hex_save::build_save_callback(recording, game_path),
         save_label,
         can_save,
         save_hint,
-        extra_entries: Vec::new(),
+        extra_entries: state.lua_engine.entries(),
     }
 }
 
@@ -620,11 +617,24 @@ impl App {
                 Task::none()
             }
             EditorType::HexEditor => {
+                let scripts_dir = self
+                    .state
+                    .workspace
+                    .game_path
+                    .as_ref()
+                    .map(|gp| gp.join("hexedit_scripts"));
                 if let Some(tab_id) = self.active_tab_id() {
-                    self.state
+                    let state = self
+                        .state
                         .hex_editors
                         .entry(tab_id)
                         .or_insert_with(|| HexEditorState::load_from_path(path));
+                    if let Some(ref dir) = scripts_dir {
+                        let errors = state.load_lua_scripts(dir);
+                        for e in &errors {
+                            log::warn!("hexedit script: {e}");
+                        }
+                    }
                 }
                 Task::none()
             }
@@ -666,11 +676,24 @@ impl App {
         self.track_recent_file(path);
         self.save_workspace();
 
+        let scripts_dir = self
+            .state
+            .workspace
+            .game_path
+            .as_ref()
+            .map(|gp| gp.join("hexedit_scripts"));
         if let Some(tab_id) = self.active_tab_id() {
-            self.state
+            let state = self
+                .state
                 .hex_editors
                 .entry(tab_id)
                 .or_insert_with(|| HexEditorState::load_from_path(path));
+            if let Some(ref dir) = scripts_dir {
+                let errors = state.load_lua_scripts(dir);
+                for e in &errors {
+                    log::warn!("hexedit script: {e}");
+                }
+            }
         }
         Task::none()
     }

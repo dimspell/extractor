@@ -189,7 +189,7 @@ pub fn update(
                 state.inspector_edit = None;
                 return Task::none();
             };
-            let Some(encode) = entry.encode else {
+            let Some(ref encode) = entry.encode else {
                 state.inspector_edit = None;
                 return Task::none();
             };

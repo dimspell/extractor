@@ -1,151 +1,162 @@
-//! Data inspector decoders and encoders.
-//!
-//! Pure functions consumed by the inspector view. Each entry knows how many
-//! bytes it needs, how to render the slice as a string, and (optionally)
-//! how to encode a user-typed string back into bytes.
-//!
-//! The codebase is little-endian-only (every parser uses `from_le_bytes`),
-//! so we don't expose an endianness toggle.
+use once_cell::sync::Lazy;
 
-/// Encode a user-typed value back into bytes, or report a human-readable error.
-pub type EncodeFn = fn(&str) -> Result<Vec<u8>, String>;
+pub type DecodeFn = Box<dyn Fn(&[u8]) -> String + Send + Sync>;
+pub type EncodeFn = Box<dyn Fn(&str) -> Result<Vec<u8>, String> + Send + Sync>;
 
-/// One inspector row.
 pub struct InspectorEntry {
-    pub name: &'static str,
+    pub name: String,
     pub min_size: usize,
-    pub decode: fn(&[u8]) -> String,
-    /// `Some` if this row is editable through the inspector modal.
+    pub decode: DecodeFn,
     pub encode: Option<EncodeFn>,
-    /// Category label for grouping rows (e.g. "Integer", "Float", "Game Type").
-    pub category: &'static str,
-    /// Short description shown as a tooltip on hover.
-    pub description: &'static str,
+    pub category: String,
+    pub description: String,
 }
 
-/// All built-in inspector rows, in display order.
-pub const ENTRIES: &[InspectorEntry] = &[
+pub static ENTRIES: Lazy<Vec<InspectorEntry>> = Lazy::new(|| {
+    vec![
+        entry(
+            "u8",
+            1,
+            dec_u8,
+            Some(enc_u8 as EncodeFnPtr),
+            "Integer",
+            "Unsigned 8-bit integer (byte)",
+        ),
+        entry(
+            "i8",
+            1,
+            dec_i8,
+            Some(enc_i8 as EncodeFnPtr),
+            "Integer",
+            "Signed 8-bit integer",
+        ),
+        entry(
+            "u16",
+            2,
+            dec_u16,
+            Some(enc_u16 as EncodeFnPtr),
+            "Integer",
+            "Unsigned 16-bit integer (LE)",
+        ),
+        entry(
+            "i16",
+            2,
+            dec_i16,
+            Some(enc_i16 as EncodeFnPtr),
+            "Integer",
+            "Signed 16-bit integer (LE)",
+        ),
+        entry(
+            "u32",
+            4,
+            dec_u32,
+            Some(enc_u32 as EncodeFnPtr),
+            "Integer",
+            "Unsigned 32-bit integer (LE)",
+        ),
+        entry(
+            "i32",
+            4,
+            dec_i32,
+            Some(enc_i32 as EncodeFnPtr),
+            "Integer",
+            "Signed 32-bit integer (LE)",
+        ),
+        entry(
+            "u64",
+            8,
+            dec_u64,
+            Some(enc_u64 as EncodeFnPtr),
+            "Integer",
+            "Unsigned 64-bit integer (LE)",
+        ),
+        entry(
+            "i64",
+            8,
+            dec_i64,
+            Some(enc_i64 as EncodeFnPtr),
+            "Integer",
+            "Signed 64-bit integer (LE)",
+        ),
+        entry(
+            "f32",
+            4,
+            dec_f32,
+            Some(enc_f32 as EncodeFnPtr),
+            "Float",
+            "32-bit floating point (LE)",
+        ),
+        entry(
+            "f64",
+            8,
+            dec_f64,
+            Some(enc_f64 as EncodeFnPtr),
+            "Float",
+            "64-bit floating point (LE)",
+        ),
+        entry(
+            "ascii",
+            1,
+            dec_ascii,
+            None,
+            "Text",
+            "ASCII character (0x20–0x7E)",
+        ),
+        entry(
+            "utf8",
+            1,
+            dec_utf8,
+            None,
+            "Text",
+            "UTF-8 character (1–4 bytes)",
+        ),
+        entry(
+            "rgb565",
+            2,
+            dec_rgb565,
+            None,
+            "Color",
+            "16-bit RGB565 pixel (LE)",
+        ),
+        entry(
+            "cstr",
+            1,
+            dec_cstr,
+            None,
+            "Text",
+            "Null-terminated C string (up to 64 chars)",
+        ),
+        entry(
+            "hex",
+            1,
+            dec_hex,
+            None,
+            "Binary",
+            "Raw hex dump (up to 16 bytes)",
+        ),
+    ]
+});
+
+type DecodeFnPtr = fn(&[u8]) -> String;
+type EncodeFnPtr = fn(&str) -> Result<Vec<u8>, String>;
+
+fn entry(
+    name: &str,
+    min_size: usize,
+    decode: DecodeFnPtr,
+    encode: Option<EncodeFnPtr>,
+    category: &str,
+    description: &str,
+) -> InspectorEntry {
     InspectorEntry {
-        name: "u8",
-        min_size: 1,
-        decode: dec_u8,
-        encode: Some(enc_u8),
-        category: "Integer",
-        description: "Unsigned 8-bit integer (byte)",
-    },
-    InspectorEntry {
-        name: "i8",
-        min_size: 1,
-        decode: dec_i8,
-        encode: Some(enc_i8),
-        category: "Integer",
-        description: "Signed 8-bit integer",
-    },
-    InspectorEntry {
-        name: "u16",
-        min_size: 2,
-        decode: dec_u16,
-        encode: Some(enc_u16),
-        category: "Integer",
-        description: "Unsigned 16-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "i16",
-        min_size: 2,
-        decode: dec_i16,
-        encode: Some(enc_i16),
-        category: "Integer",
-        description: "Signed 16-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "u32",
-        min_size: 4,
-        decode: dec_u32,
-        encode: Some(enc_u32),
-        category: "Integer",
-        description: "Unsigned 32-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "i32",
-        min_size: 4,
-        decode: dec_i32,
-        encode: Some(enc_i32),
-        category: "Integer",
-        description: "Signed 32-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "u64",
-        min_size: 8,
-        decode: dec_u64,
-        encode: Some(enc_u64),
-        category: "Integer",
-        description: "Unsigned 64-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "i64",
-        min_size: 8,
-        decode: dec_i64,
-        encode: Some(enc_i64),
-        category: "Integer",
-        description: "Signed 64-bit integer (LE)",
-    },
-    InspectorEntry {
-        name: "f32",
-        min_size: 4,
-        decode: dec_f32,
-        encode: Some(enc_f32),
-        category: "Float",
-        description: "32-bit floating point (LE)",
-    },
-    InspectorEntry {
-        name: "f64",
-        min_size: 8,
-        decode: dec_f64,
-        encode: Some(enc_f64),
-        category: "Float",
-        description: "64-bit floating point (LE)",
-    },
-    InspectorEntry {
-        name: "ascii",
-        min_size: 1,
-        decode: dec_ascii,
-        encode: None,
-        category: "Text",
-        description: "ASCII character (0x20–0x7E)",
-    },
-    InspectorEntry {
-        name: "utf8",
-        min_size: 1,
-        decode: dec_utf8,
-        encode: None,
-        category: "Text",
-        description: "UTF-8 character (1–4 bytes)",
-    },
-    InspectorEntry {
-        name: "rgb565",
-        min_size: 2,
-        decode: dec_rgb565,
-        encode: None,
-        category: "Color",
-        description: "16-bit RGB565 pixel (LE)",
-    },
-    InspectorEntry {
-        name: "cstr",
-        min_size: 1,
-        decode: dec_cstr,
-        encode: None,
-        category: "Text",
-        description: "Null-terminated C string (up to 64 chars)",
-    },
-    InspectorEntry {
-        name: "hex",
-        min_size: 1,
-        decode: dec_hex,
-        encode: None,
-        category: "Binary",
-        description: "Raw hex dump (up to 16 bytes)",
-    },
-];
+        name: name.to_string(),
+        min_size,
+        decode: Box::new(decode),
+        encode: encode.map(|f| Box::new(f) as EncodeFn),
+        category: category.to_string(),
+        description: description.to_string(),
+    }
+}
 
 const MAX_CSTR_LEN: usize = 64;
 const MAX_HEX_LEN: usize = 16;
@@ -209,7 +220,6 @@ fn dec_ascii(b: &[u8]) -> String {
 }
 
 fn dec_utf8(b: &[u8]) -> String {
-    // Try the longest valid prefix that decodes to one char (1..=4 bytes).
     for n in 1..=b.len().min(4) {
         if let Ok(s) = std::str::from_utf8(&b[..n]) {
             if let Some(c) = s.chars().next() {
@@ -383,87 +393,91 @@ mod num_parse {
 }
 
 #[cfg(test)]
+impl InspectorEntry {
+    fn call_decode(&self, bytes: &[u8]) -> String {
+        (self.decode)(bytes)
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn u8_displays_decimal_and_hex() {
-        assert_eq!(dec_u8(&[0xAB]), "171 (0xAB)");
+        assert_eq!(ENTRIES[0].call_decode(&[0xAB]), "171 (0xAB)");
     }
 
     #[test]
     fn i8_displays_signed() {
-        assert_eq!(dec_i8(&[0xFF]), "-1");
-        assert_eq!(dec_i8(&[0x7F]), "127");
+        assert_eq!(ENTRIES[1].call_decode(&[0xFF]), "-1");
+        assert_eq!(ENTRIES[1].call_decode(&[0x7F]), "127");
     }
 
     #[test]
     fn u32_le_decodes_correctly() {
-        // 0x12345678 in LE: 78 56 34 12
-        assert_eq!(dec_u32(&[0x78, 0x56, 0x34, 0x12]), "305419896 (0x12345678)");
+        assert_eq!(
+            ENTRIES[4].call_decode(&[0x78, 0x56, 0x34, 0x12]),
+            "305419896 (0x12345678)"
+        );
     }
 
     #[test]
     fn i32_le_decodes_negative() {
-        assert_eq!(dec_i32(&[0xFF, 0xFF, 0xFF, 0xFF]), "-1");
+        assert_eq!(ENTRIES[5].call_decode(&[0xFF, 0xFF, 0xFF, 0xFF]), "-1");
     }
 
     #[test]
     fn u64_le_decodes_correctly() {
         let v: u64 = 0x0123_4567_89AB_CDEF;
         let b = v.to_le_bytes();
-        assert!(dec_u64(&b).starts_with("81985529216486895"));
+        assert!(ENTRIES[6].call_decode(&b).starts_with("81985529216486895"));
     }
 
     #[test]
     fn f32_le_decodes_one() {
         let b = 1.0f32.to_le_bytes();
-        assert_eq!(dec_f32(&b), "1");
+        assert_eq!(ENTRIES[8].call_decode(&b), "1");
     }
 
     #[test]
     fn ascii_printable_and_control() {
-        assert_eq!(dec_ascii(b"A"), "'A'");
-        assert_eq!(dec_ascii(&[0x00]), "\\x00");
-        assert_eq!(dec_ascii(&[0x7F]), "\\x7F");
+        assert_eq!(ENTRIES[10].call_decode(b"A"), "'A'");
+        assert_eq!(ENTRIES[10].call_decode(&[0x00]), "\\x00");
+        assert_eq!(ENTRIES[10].call_decode(&[0x7F]), "\\x7F");
     }
 
     #[test]
     fn rgb565_white_and_black() {
-        // White: all bits set in each channel: R=0x1F<<3=0xF8, G=0x3F<<2=0xFC, B=0x1F<<3=0xF8
-        // Pixel value = 0xFFFF.
-        let s = dec_rgb565(&[0xFF, 0xFF]);
+        let s = ENTRIES[12].call_decode(&[0xFF, 0xFF]);
         assert!(s.contains("#F8FCF8"));
-        // Black: 0x0000 → #000000
-        let s = dec_rgb565(&[0x00, 0x00]);
+        let s = ENTRIES[12].call_decode(&[0x00, 0x00]);
         assert!(s.contains("#000000"));
     }
 
     #[test]
     fn cstr_terminates_at_nul() {
-        assert_eq!(dec_cstr(b"hello\0world"), "\"hello\"");
+        assert_eq!(ENTRIES[13].call_decode(b"hello\0world"), "\"hello\"");
     }
 
     #[test]
     fn cstr_handles_no_terminator_within_max() {
-        // No NUL → take all (up to MAX_CSTR_LEN).
-        let s = dec_cstr(b"abcdef");
+        let s = ENTRIES[13].call_decode(b"abcdef");
         assert_eq!(s, "\"abcdef\"");
     }
 
     #[test]
     fn hex_lists_bytes_with_spaces_and_truncates() {
-        let s = dec_hex(&[0xDE, 0xAD, 0xBE, 0xEF]);
+        let s = ENTRIES[14].call_decode(&[0xDE, 0xAD, 0xBE, 0xEF]);
         assert_eq!(s, "DE AD BE EF");
         let twenty = vec![0x55u8; 20];
-        let s = dec_hex(&twenty);
+        let s = ENTRIES[14].call_decode(&twenty);
         assert!(s.ends_with(" …"));
     }
 
     #[test]
     fn entries_have_increasing_or_equal_min_sizes_for_widening_ints() {
-        // Sanity: u8 first, then u16/i16, etc.
-        let names: Vec<&str> = ENTRIES.iter().map(|e| e.name).collect();
+        let names: Vec<&str> = ENTRIES.iter().map(|e| e.name.as_str()).collect();
         assert_eq!(names[0], "u8");
         assert_eq!(names[2], "u16");
         assert_eq!(names[4], "u32");
@@ -471,39 +485,48 @@ mod tests {
 
     #[test]
     fn enc_u8_accepts_decimal_and_hex() {
-        assert_eq!(enc_u8("42").unwrap(), vec![42]);
-        assert_eq!(enc_u8("0xFF").unwrap(), vec![0xFF]);
-        assert_eq!(enc_u8(" 7 ").unwrap(), vec![7]);
+        assert_eq!(ENTRIES[0].encode.as_ref().unwrap()("42").unwrap(), vec![42]);
+        assert_eq!(
+            ENTRIES[0].encode.as_ref().unwrap()("0xFF").unwrap(),
+            vec![0xFF]
+        );
+        assert_eq!(ENTRIES[0].encode.as_ref().unwrap()(" 7 ").unwrap(), vec![7]);
     }
 
     #[test]
     fn enc_u8_rejects_overflow_and_garbage() {
-        assert!(enc_u8("256").is_err());
-        assert!(enc_u8("nope").is_err());
-        assert!(enc_u8("").is_err());
+        assert!(ENTRIES[0].encode.as_ref().unwrap()("256").is_err());
+        assert!(ENTRIES[0].encode.as_ref().unwrap()("nope").is_err());
+        assert!(ENTRIES[0].encode.as_ref().unwrap()("").is_err());
     }
 
     #[test]
     fn enc_i32_signed_decimal_only() {
-        assert_eq!(enc_i32("-1").unwrap(), vec![0xFF, 0xFF, 0xFF, 0xFF]);
-        assert_eq!(enc_i32("0").unwrap(), vec![0, 0, 0, 0]);
-        assert!(enc_i32("0xFF").is_err());
+        assert_eq!(
+            ENTRIES[5].encode.as_ref().unwrap()("-1").unwrap(),
+            vec![0xFF, 0xFF, 0xFF, 0xFF]
+        );
+        assert_eq!(
+            ENTRIES[5].encode.as_ref().unwrap()("0").unwrap(),
+            vec![0, 0, 0, 0]
+        );
+        assert!(ENTRIES[5].encode.as_ref().unwrap()("0xFF").is_err());
     }
 
     #[test]
     fn enc_u32_le_round_trip() {
-        let bytes = enc_u32("305419896").unwrap();
+        let bytes = ENTRIES[4].encode.as_ref().unwrap()("305419896").unwrap();
         assert_eq!(bytes, vec![0x78, 0x56, 0x34, 0x12]);
     }
 
     #[test]
     fn enc_f64_round_trip() {
-        let bytes = enc_f64("1.5").unwrap();
+        let bytes = ENTRIES[9].encode.as_ref().unwrap()("1.5").unwrap();
         let v = f64::from_le_bytes([
             bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
         ]);
         assert_eq!(v, 1.5);
-        assert!(enc_f64("not a number").is_err());
+        assert!(ENTRIES[9].encode.as_ref().unwrap()("not a number").is_err());
     }
 
     #[test]
@@ -511,7 +534,7 @@ mod tests {
         let editable: Vec<&str> = ENTRIES
             .iter()
             .filter(|e| e.encode.is_some())
-            .map(|e| e.name)
+            .map(|e| e.name.as_str())
             .collect();
         assert_eq!(
             editable,

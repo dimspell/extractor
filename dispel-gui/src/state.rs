@@ -11,7 +11,6 @@ use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
-use hexedit::HexEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;
@@ -34,6 +33,7 @@ use dirs;
 use dispel_core::{
     DialogueParagraph, DialogueScript, ExtraRef, Extractor, MonsterRef, WeaponItem, NPC,
 };
+use hexedit::HexEditorState;
 use iced::{
     widget::pane_grid::{self, Pane},
     Task,

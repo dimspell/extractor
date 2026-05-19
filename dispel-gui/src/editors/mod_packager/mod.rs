@@ -1,7 +1,7 @@
 // mod_packager editor module
 
-mod message;
 pub mod hex_save;
+mod message;
 pub mod recording;
 pub mod state;
 mod update;

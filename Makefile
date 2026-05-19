@@ -201,3 +201,6 @@ iced_test:
 
 clippy:
 	cargo clippy --workspace
+
+hexedit:
+    cargo run -p hexedit --bin hexedit-bin -- file.bin --script-dir ./scripts

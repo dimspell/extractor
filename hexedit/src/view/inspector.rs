@@ -31,9 +31,9 @@ pub fn view<'a>(
         let mut last_category: Option<&str> = None;
 
         for (idx, entry) in ENTRIES.iter().enumerate() {
-            if last_category != Some(entry.category) {
-                last_category = Some(entry.category);
-                col = col.push(category_header(entry.category));
+            if last_category != Some(entry.category.as_str()) {
+                last_category = Some(entry.category.as_str());
+                col = col.push(category_header(&entry.category));
             }
             let value = if avail >= entry.min_size {
                 (entry.decode)(bytes)
@@ -42,11 +42,11 @@ pub fn view<'a>(
             };
             let editable = entry.encode.is_some() && avail >= entry.min_size;
             col = col.push(inspector_row(
-                entry.name,
+                &entry.name,
                 &value,
                 idx,
                 editable,
-                entry.description,
+                &entry.description,
             ));
         }
 
@@ -54,8 +54,8 @@ pub fn view<'a>(
             col = col.push(category_header("Custom"));
             for (i, entry) in config.extra_entries.iter().enumerate() {
                 let idx = ENTRIES.len() + i;
-                if last_category != Some(entry.category) {
-                    last_category = Some(entry.category);
+                if last_category != Some(entry.category.as_str()) {
+                    last_category = Some(entry.category.as_str());
                 }
                 let value = if avail >= entry.min_size {
                     (entry.decode)(bytes)
@@ -64,11 +64,11 @@ pub fn view<'a>(
                 };
                 let editable = entry.encode.is_some() && avail >= entry.min_size;
                 col = col.push(inspector_row(
-                    entry.name,
+                    &entry.name,
                     &value,
                     idx,
                     editable,
-                    entry.description,
+                    &entry.description,
                 ));
             }
         }
@@ -82,7 +82,7 @@ pub fn view<'a>(
         .into()
 }
 
-fn category_header(category: &str) -> Element<'_, HexEditorMessage> {
+fn category_header(category: &str) -> Element<'static, HexEditorMessage> {
     container(
         text(format!("── {category} ──"))
             .size(9)
@@ -93,14 +93,14 @@ fn category_header(category: &str) -> Element<'_, HexEditorMessage> {
     .into()
 }
 
-fn inspector_row<'a>(
-    name: &'a str,
+fn inspector_row(
+    name: &str,
     value: &str,
     idx: usize,
     editable: bool,
-    _description: &'a str,
-) -> Element<'a, HexEditorMessage> {
-    let edit_btn: Element<'a, HexEditorMessage> = if editable {
+    _description: &str,
+) -> Element<'static, HexEditorMessage> {
+    let edit_btn: Element<'static, HexEditorMessage> = if editable {
         button(text("✎").size(10).font(Font::MONOSPACE))
             .padding([0, 4])
             .on_press(HexEditorMessage::BeginInspectorEdit(idx))
