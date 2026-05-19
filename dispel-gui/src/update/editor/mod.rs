@@ -2,7 +2,7 @@
 use crate::app::App;
 use crate::editors::{
     all_map_ini, chdata, chest, dialogue_paragraph, dialogue_script, draw_item, edit_item,
-    event_ini, event_item, event_npc_ref, event_scr, extra_ini, extra_ref, heal_item, hex_editor,
+    event_ini, event_item, event_npc_ref, event_scr, extra_ini, extra_ref, heal_item,
     localization_manager, magic, map_editor, map_ini, message_scr, misc_item, mod_packager,
     monster, monster_ini, monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref,
     quest_scr, snf_editor, sprite_browser, store, tileset, wave_ini, weapon,
@@ -85,8 +85,8 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
             } else {
                 String::new()
             };
-            let config = crate::editors::hex_editor::HexEditorConfig {
-                on_save: crate::editors::hex_editor::dispel_save::build_save_callback(
+            let config = hexedit::HexEditorConfig {
+                on_save: crate::editors::mod_packager::hex_save::build_save_callback(
                     &app.state.recording,
                     &app.state.workspace.game_path,
                 ),
@@ -95,7 +95,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
                 save_hint,
                 extra_entries: Vec::new(),
             };
-            hex_editor::update(state, &config, msg).map(Message::hex_editor)
+            hexedit::update(state, &config, msg).map(Message::hex_editor)
         }
     }
 }

@@ -157,8 +157,8 @@ impl App {
                                         } else {
                                             String::new()
                                         };
-                                        let config = crate::editors::hex_editor::HexEditorConfig {
-                                            on_save: crate::editors::hex_editor::dispel_save::build_save_callback(
+                                        let config = hexedit::HexEditorConfig {
+                                            on_save: crate::editors::mod_packager::hex_save::build_save_callback(
                                                 &self.state.recording,
                                                 &self.state.workspace.game_path,
                                             ),
@@ -167,7 +167,7 @@ impl App {
                                             save_hint,
                                             extra_entries: Vec::new(),
                                         };
-                                        crate::editors::hex_editor::view(state, &config)
+                                        hexedit::view(state, &config)
                                             .map(Message::hex_editor)
                                     }
                                     None => container(text("Hex editor not loaded").size(14))

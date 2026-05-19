@@ -2,9 +2,9 @@ use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
-use crate::editors::hex_editor::config::HexEditorConfig;
-use crate::editors::hex_editor::inspector::ENTRIES;
-use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
+use crate::config::HexEditorConfig;
+use crate::inspector::ENTRIES;
+use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 const PANEL_WIDTH: f32 = 280.0;
 

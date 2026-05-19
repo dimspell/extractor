@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "dispel-gui", "dispel-macros", "gui-widgets"]
+members = [".", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
 resolver = "2"
 
 [workspace.dependencies]

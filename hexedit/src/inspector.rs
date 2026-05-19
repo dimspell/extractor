@@ -7,8 +7,6 @@
 //! The codebase is little-endian-only (every parser uses `from_le_bytes`),
 //! so we don't expose an endianness toggle.
 
-use dispel_core::references::enums::ItemTypeId;
-
 /// Encode a user-typed value back into bytes, or report a human-readable error.
 pub type EncodeFn = fn(&str) -> Result<Vec<u8>, String>;
 
@@ -147,15 +145,6 @@ pub const ENTRIES: &[InspectorEntry] = &[
         category: "Binary",
         description: "Raw hex dump (up to 16 bytes)",
     },
-    // Game-specific decoders
-    InspectorEntry {
-        name: "item_type",
-        min_size: 1,
-        decode: dec_item_type_id,
-        encode: None,
-        category: "Game Type",
-        description: "DISPEL item type ID (Weapon/Healing/Edit/Event/Misc)",
-    },
 ];
 
 const MAX_CSTR_LEN: usize = 64;
@@ -256,14 +245,6 @@ fn dec_cstr(b: &[u8]) -> String {
         "\"\"".to_string()
     } else {
         format!("\"{}\"", lossy.escape_debug())
-    }
-}
-
-fn dec_item_type_id(b: &[u8]) -> String {
-    let v = b[0];
-    match ItemTypeId::from_u8(v) {
-        Some(ty) => format!("{} (0x{:02X})", ty, v),
-        None => format!("Unknown (0x{:02X})", v),
     }
 }
 

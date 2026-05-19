@@ -22,7 +22,6 @@ pub mod event_scr;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod heal_item;
-pub mod hex_editor;
 pub mod localization_manager;
 pub mod magic;
 pub mod map_editor;

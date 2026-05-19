@@ -1,9 +1,20 @@
-// Hex editor — universal fallback editor for any binary file the dedicated
-// editors don't claim.
+//! A standalone, embeddable hex editor widget for Iced.
+//!
+//! # Usage
+//!
+//! ```rust,ignore
+//! use hexedit::{HexEditorState, HexEditorConfig, HexEditorMessage};
+//! use hexedit::{update, view};
+//!
+//! // In your app's update:
+//! update(&mut state, &config, msg);
+//!
+//! // In your app's view:
+//! view(&state, &config);
+//! ```
 
 pub mod coloring;
 pub mod config;
-pub mod dispel_save;
 pub mod editing;
 pub mod goto;
 pub mod inspector;
@@ -19,13 +30,13 @@ pub mod vanilla_diff;
 mod view;
 
 pub use coloring::CellColorProvider;
-pub use config::HexEditorConfig;
+pub use config::{HexEditorConfig, OnSaveFn};
 pub use editing::{EditState, InspectorEditState};
 pub use message::HexEditorMessage;
 pub use pattern::Pattern;
 pub use provider::{BufferProvider, HexProvider};
-pub use search::SearchState;
-pub use selection::Selection;
+pub use search::{SearchMode, SearchState};
+pub use selection::{NavDir, Selection};
 pub use state::{HexEditorState, DEFAULT_BYTES_PER_ROW};
 pub use update::update;
 pub use view::view;

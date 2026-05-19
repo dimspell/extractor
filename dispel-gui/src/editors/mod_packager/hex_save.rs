@@ -2,11 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dispel_core::modding::{ChangeAction, ChangeOp, Workspace};
+use hexedit::{HexEditorMessage, HexEditorState, OnSaveFn};
 use iced::Task;
-
-use super::config::OnSaveFn;
-use super::message::HexEditorMessage;
-use super::state::HexEditorState;
 
 /// Build an optional save callback for the hex editor config.
 ///
@@ -92,7 +89,7 @@ fn build_and_append_action(
     Ok(summary)
 }
 
-pub use crate::editors::mod_packager::recording::decide_op;
+pub use super::recording::decide_op;
 
 #[cfg(test)]
 mod tests {

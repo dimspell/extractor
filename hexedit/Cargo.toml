@@ -1,0 +1,24 @@
+[package]
+name = "hexedit"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+iced = { version = "0.14", default-features = false, features = ["advanced", "thread-pool", "wgpu", "canvas", "lazy"] }
+gui-widgets = { path = "../gui-widgets" }
+lru = "0.12"
+tokio = { version = "1", features = ["fs"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = [
+    "std",
+    "block2",
+    "NSApplication",
+    "NSMenu",
+    "NSMenuItem",
+    "NSEvent",
+    "NSView",
+    "NSResponder",
+] }
+objc2-foundation = { version = "0.3", features = ["std", "NSString", "NSGeometry", "objc2-core-foundation"] }

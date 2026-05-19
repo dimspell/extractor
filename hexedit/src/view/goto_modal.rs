@@ -1,15 +1,15 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{color, Element, Font, Length};
 
-use crate::editors::hex_editor::goto::GotoState;
-use crate::editors::hex_editor::HexEditorMessage;
+use crate::goto::GotoState;
+use crate::HexEditorMessage;
 
 /// Modal body shown when Ctrl+G is pressed.
 pub fn view(state: &GotoState) -> Element<'_, HexEditorMessage> {
     let title = text("Go to address").size(13).font(Font::MONOSPACE);
 
     let input = text_input("0x100, 255, +10, -5", &state.draft)
-        .id(crate::editors::hex_editor::goto::GotoState::input_id())
+        .id(crate::goto::GotoState::input_id())
         .on_input(HexEditorMessage::SetGotoDraft)
         .on_submit(HexEditorMessage::CommitGoto)
         .padding(6)

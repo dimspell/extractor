@@ -11,7 +11,7 @@ use crate::editors::event_ini::EventIniEditorState;
 use crate::editors::event_npc_ref::EventNpcRefEditorState;
 use crate::editors::event_scr::EventScriptEditorState;
 use crate::editors::extra_ini::ExtraIniEditorState;
-use crate::editors::hex_editor::HexEditorState;
+use hexedit::HexEditorState;
 use crate::editors::magic::MagicEditorState;
 use crate::editors::map_editor::MapEditorState;
 use crate::editors::map_ini::MapIniEditorState;

@@ -17,7 +17,7 @@ use crate::editors::event_scr::EventScrEditorMessage;
 use crate::editors::extra_ini::ExtraIniEditorMessage;
 use crate::editors::extra_ref::ExtraRefEditorMessage;
 use crate::editors::heal_item::HealItemEditorMessage;
-use crate::editors::hex_editor::HexEditorMessage;
+use hexedit::HexEditorMessage;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::editors::magic::MagicEditorMessage;
 use crate::editors::map_editor::MapEditorMessage;

@@ -21,8 +21,8 @@ use iced::{
     Rectangle, Shadow, Size,
 };
 
-use crate::editors::hex_editor::pattern::{pattern_bg, pattern_fg};
-use crate::editors::hex_editor::selection::{NavDir, Selection};
+use crate::pattern::{pattern_bg, pattern_fg};
+use crate::selection::{NavDir, Selection};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 type Paragraph = GraphicsParagraph;
@@ -1327,7 +1327,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         let bpr = self.bytes_per_row as u64;
         let max_addr = (self.bytes.len() as u64).saturating_sub(1);
         let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
-        let target = crate::editors::hex_editor::selection::nav_target(
+        let target = crate::selection::nav_target(
             self.selection.cursor,
             dir,
             bpr,

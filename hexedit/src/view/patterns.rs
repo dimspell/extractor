@@ -2,8 +2,8 @@ use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
-use crate::editors::hex_editor::pattern::{pattern_bg, pattern_fg};
-use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, Pattern};
+use crate::pattern::{pattern_bg, pattern_fg};
+use crate::{HexEditorMessage, HexEditorState, Pattern};
 
 pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let count = editor.patterns.len();

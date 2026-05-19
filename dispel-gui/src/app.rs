@@ -5,7 +5,7 @@ use crate::components::tab_bar::TabBarMessage;
 use crate::editors::chest::ChestEditorMessage;
 use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
-use crate::editors::hex_editor::HexEditorState;
+use hexedit::HexEditorState;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_browser::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;

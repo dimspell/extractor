@@ -13,8 +13,8 @@ use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
-use crate::editors::hex_editor::config::HexEditorConfig;
-use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
+use crate::config::HexEditorConfig;
+use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 use self::matrix::{EditView, HexMatrix};
 

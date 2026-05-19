@@ -1,8 +1,8 @@
 use iced::widget::{container, text};
 use iced::{Element, Fill, Font};
 
-use crate::editors::hex_editor::selection::Selection;
-use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
+use crate::selection::Selection;
+use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     container(text(format_footer(editor)).size(11).font(Font::MONOSPACE))
