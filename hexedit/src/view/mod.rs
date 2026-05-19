@@ -8,7 +8,6 @@ pub mod search_overlay;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use gui_widgets::components::modal::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
@@ -50,7 +49,7 @@ pub fn view<'a>(
 
     let toolbar = build_toolbar(state, config);
 
-    let cache = ParagraphCache::default();
+    let cache = state.cache.clone();
     let edit = state.edit_mode.as_ref().map(|e| EditView {
         addr: e.addr,
         draft: e.draft.as_str(),

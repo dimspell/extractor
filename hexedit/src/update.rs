@@ -12,6 +12,11 @@ use super::HexProvider;
 /// up here, so PageUp/PageDown approximate a screenful.
 const PAGE_ROWS: u64 = 24;
 
+/// How many bytes to read from the cursor position when decoding an inspector
+/// value for copy-to-clipboard. 64 bytes covers every built-in inspector
+/// entry (largest is u128 + string at 18 bytes) with plenty of headroom.
+const INSPECTOR_READ_LIMIT: u64 = 64;
+
 pub fn update(
     state: &mut super::HexEditorState,
     config: &HexEditorConfig,
@@ -119,7 +124,7 @@ pub fn update(
         HexEditorMessage::CopyInspectorValue(idx) => {
             let cursor = state.selection.cursor;
             let len = state.provider.len();
-            let read_end = (cursor + 64).min(len);
+            let read_end = (cursor + INSPECTOR_READ_LIMIT).min(len);
             let bytes = state.provider.read(cursor..read_end);
             let entry = if idx < ENTRIES.len() {
                 ENTRIES.get(idx)

@@ -1,6 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use gui_widgets::components::paragraph_cache::ParagraphCache;
+
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
 use super::pattern::Pattern;
@@ -49,6 +51,9 @@ pub struct HexEditorState {
     pub show_decimal: bool,
     pub status_msg: String,
     pub error: Option<String>,
+    /// Shared paragraph cache shared across frames so shaped glyphs survive
+    /// between render cycles (cheaply cloned into the widget each frame).
+    pub cache: ParagraphCache,
 }
 
 impl HexEditorState {
@@ -59,55 +64,36 @@ impl HexEditorState {
             .unwrap_or("Unknown")
             .to_string();
 
-        match std::fs::read(path) {
-            Ok(bytes) => {
-                // No external vanilla yet → the on-disk content IS the
-                // baseline. The save-into-recording path can still upgrade
-                // this to a real workspace snapshot later.
-                let vanilla = Some(bytes.clone());
-                Self {
-                    path: path.to_path_buf(),
-                    name,
-                    provider: BufferProvider::from_bytes(bytes),
-                    bytes_per_row: DEFAULT_BYTES_PER_ROW,
-                    selection: Selection::default(),
-                    edit_mode: None,
-                    inspector_edit: None,
-                    vanilla,
-                    vanilla_diff: BTreeSet::new(),
-                    patterns: Vec::new(),
-                    pattern_by_addr: BTreeMap::new(),
-                    show_pattern_list: false,
-                    next_pattern_id: 0,
-                    context_menu_addr: None,
-                    goto: None,
-                    search: SearchState::new(),
-                    show_decimal: false,
-                    status_msg: String::new(),
-                    error: None,
-                }
-            }
-            Err(e) => Self {
-                path: path.to_path_buf(),
-                name,
-                provider: BufferProvider::default(),
-                bytes_per_row: DEFAULT_BYTES_PER_ROW,
-                selection: Selection::default(),
-                edit_mode: None,
-                inspector_edit: None,
-                vanilla: None,
-                vanilla_diff: BTreeSet::new(),
-                patterns: Vec::new(),
-                pattern_by_addr: BTreeMap::new(),
-                show_pattern_list: false,
-                next_pattern_id: 0,
-                context_menu_addr: None,
-                goto: None,
-                search: SearchState::new(),
-                show_decimal: false,
-                status_msg: String::new(),
-                error: Some(e.to_string()),
-            },
+        let (provider, vanilla, error) = match std::fs::read(path) {
+            Ok(bytes) => (
+                BufferProvider::from_bytes(bytes.clone()),
+                Some(bytes),
+                None,
+            ),
+            Err(e) => (BufferProvider::default(), None, Some(e.to_string())),
+        };
+
+        Self {
+            path: path.to_path_buf(),
+            name,
+            provider,
+            bytes_per_row: DEFAULT_BYTES_PER_ROW,
+            selection: Selection::default(),
+            edit_mode: None,
+            inspector_edit: None,
+            vanilla,
+            vanilla_diff: BTreeSet::new(),
+            patterns: Vec::new(),
+            pattern_by_addr: BTreeMap::new(),
+            show_pattern_list: false,
+            next_pattern_id: 0,
+            context_menu_addr: None,
+            goto: None,
+            search: SearchState::new(),
+            show_decimal: false,
+            status_msg: String::new(),
+            error,
+            cache: ParagraphCache::default(),
         }
     }
 

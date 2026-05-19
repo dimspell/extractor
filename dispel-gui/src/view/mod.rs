@@ -134,39 +134,11 @@ impl App {
                                     .unwrap_or(usize::MAX);
                                 match self.state.hex_editors.get(&tab_id) {
                                     Some(state) => {
-                                        let has_dirty = state.provider.dirty_count() > 0;
-                                        let has_session = self.state.recording.is_some();
-                                        let has_game = self.state.workspace.game_path.is_some();
-                                        let in_game_dir = self.state.workspace.game_path
-                                            .as_ref()
-                                            .map(|gp| state.path.starts_with(gp))
-                                            .unwrap_or(false);
-                                        let can_save = has_dirty && has_session && has_game && in_game_dir;
-                                        let save_label = match &self.state.recording {
-                                            Some(s) => format!("Save into `{}`", s.mod_slug),
-                                            None => "Save into recording".to_string(),
-                                        };
-                                        let save_hint = if !has_session {
-                                            "  ·  no recording active".to_string()
-                                        } else if !has_game {
-                                            "  ·  set a game directory".to_string()
-                                        } else if !in_game_dir {
-                                            "  ·  file is outside the game directory".to_string()
-                                        } else if !has_dirty {
-                                            "  ·  no edits to save".to_string()
-                                        } else {
-                                            String::new()
-                                        };
-                                        let config = hexedit::HexEditorConfig {
-                                            on_save: crate::editors::mod_packager::hex_save::build_save_callback(
-                                                &self.state.recording,
-                                                &self.state.workspace.game_path,
-                                            ),
-                                            save_label,
-                                            can_save,
-                                            save_hint,
-                                            extra_entries: Vec::new(),
-                                        };
+                                        let config = crate::app::build_hex_config(
+                                            &self.state.recording,
+                                            &self.state.workspace.game_path,
+                                            state,
+                                        );
                                         hexedit::view(state, &config)
                                             .map(Message::hex_editor)
                                     }
