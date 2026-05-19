@@ -188,5 +188,7 @@ pub fn view(app: &App) -> iced::Element<'_, crate::message::Message> {
         &app.state.lookups,
         |event| crate::message::Message::wave_ini(WaveIniEditorMessage::PaneResized(event)),
         |pane| crate::message::Message::wave_ini(WaveIniEditorMessage::PaneClicked(pane)),
+        None,
+        None,
     )
 }

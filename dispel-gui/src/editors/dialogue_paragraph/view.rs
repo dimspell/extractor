@@ -49,5 +49,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         &app.state.lookups,
         |event| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneResized(event)),
         |pane| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneClicked(pane)),
+        None,
+        None,
     )
 }

@@ -16,6 +16,8 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
     spreadsheet: &'a SpreadsheetState,
     scan_msg: Message,
     spreadsheet_msg: fn(SpreadsheetMessage) -> Message,
+    add_msg: Option<Message>,
+    remove_msg: Option<fn(usize) -> Message>,
 ) -> Element<'a, Message> {
     let total = editor.catalog.as_ref().map(|c| c.len()).unwrap_or(0);
     let visible = spreadsheet.filtered_indices.len();
@@ -101,6 +103,22 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
         }
     };
 
+    let add_btn: Element<'a, Message> = match add_msg {
+        Some(msg) => button(text("+").size(14))
+            .on_press(msg)
+            .style(style::browse_button)
+            .into(),
+        None => horizontal_space().width(0).into(),
+    };
+
+    let remove_btn: Element<'a, Message> = match (editor.selected_idx, remove_msg) {
+        (Some(idx), Some(f)) => button(text("−").size(14))
+            .on_press(f(idx))
+            .style(style::browse_button)
+            .into(),
+        _ => horizontal_space().width(0).into(),
+    };
+
     row![
         text("Filter:").size(12).style(style::subtle_text),
         mode_toggle,
@@ -109,6 +127,8 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
         horizontal_space(),
         status_area,
         horizontal_space().width(12),
+        add_btn,
+        remove_btn,
         button(text("CSV").size(11))
             .on_press(spreadsheet_msg(SpreadsheetMessage::ExportCsv))
             .style(style::export_button),

@@ -57,6 +57,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             &app.state.lookups,
             |msg| Message::party_level_db(PartyLevelDbEditorMessage::PaneResized(msg)),
             |pane| Message::party_level_db(PartyLevelDbEditorMessage::PaneClicked(pane)),
+            None,
+            None,
         )
     } else {
         container(

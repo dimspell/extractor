@@ -44,5 +44,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         &app.state.lookups,
         |event| Message::monster_ref(MonsterRefEditorMessage::PaneResized(event)),
         |pane| Message::monster_ref(MonsterRefEditorMessage::PaneClicked(pane)),
+        Some(Message::monster_ref(MonsterRefEditorMessage::AddEntry)),
+        Some(|idx| Message::monster_ref(MonsterRefEditorMessage::RemoveEntry(idx))),
     )
 }

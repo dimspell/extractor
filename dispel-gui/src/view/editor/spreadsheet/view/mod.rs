@@ -31,11 +31,20 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
     lookups: &'a HashMap<String, Vec<(String, String)>>,
     pane_resized_msg: fn(pane_grid::ResizeEvent) -> Message,
     pane_clicked_msg: fn(Pane) -> Message,
+    add_msg: Option<Message>,
+    remove_msg: Option<fn(usize) -> Message>,
 ) -> Element<'a, Message> {
     let descriptors = R::field_descriptors();
 
     let status_row = status_bar::build_status_bar(editor, spreadsheet, save_msg, spreadsheet_msg);
-    let filter_bar = filter_bar::build_filter_bar(editor, spreadsheet, scan_msg, spreadsheet_msg);
+    let filter_bar = filter_bar::build_filter_bar(
+        editor,
+        spreadsheet,
+        scan_msg,
+        spreadsheet_msg,
+        add_msg,
+        remove_msg,
+    );
 
     let catalog = editor.catalog.as_ref();
 

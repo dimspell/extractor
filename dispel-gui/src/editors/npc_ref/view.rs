@@ -42,5 +42,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         &app.state.lookups,
         |event| Message::npc_ref(NpcRefEditorMessage::PaneResized(event)),
         |pane| Message::npc_ref(NpcRefEditorMessage::PaneClicked(pane)),
+        Some(Message::npc_ref(NpcRefEditorMessage::AddEntry)),
+        Some(|idx| Message::npc_ref(NpcRefEditorMessage::RemoveEntry(idx))),
     )
 }

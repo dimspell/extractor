@@ -42,5 +42,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         &app.state.lookups,
         |event| Message::dialogue_script(DialogueScriptEditorMessage::PaneResized(event)),
         |pane| Message::dialogue_script(DialogueScriptEditorMessage::PaneClicked(pane)),
+        None,
+        None,
     )
 }

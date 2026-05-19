@@ -120,6 +120,8 @@ macro_rules! define_standard_editor {
                     &app.state.lookups,
                     |event| $crate::message::Message::$name([<$Name EditorMessage>]::PaneResized(event)),
                     |pane| $crate::message::Message::$name([<$Name EditorMessage>]::PaneClicked(pane)),
+                    None,
+                    None,
                 )
             }
         }
