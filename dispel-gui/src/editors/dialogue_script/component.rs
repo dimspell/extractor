@@ -6,7 +6,7 @@ crate::editable_record_fields!(DialogueScript, {
     { required_event_id = OptInt / "Requires Event ID:" },
     { next_dialog_to_check = OptInt / "Next Dialog:" },
     { dialog_type = Opti32Enum(DialogType, ["Normal", "Choice"]) / "Type:" },
-    { dialog_owner = Opti32Enum(DialogOwner, ["Player", "NPC"]) / "Owner:" },
+    { dialog_owner = Opti32Enum(DialogOwner, ["Player", "Npc"]) / "Owner:" },
     { dialog_id = OptInt / "Dialog ID:" },
     { next_dialog_id1 = OptInt / "Next conversation option 1:" },
     { next_dialog_id2 = OptInt / "Next conversation option 2:" },

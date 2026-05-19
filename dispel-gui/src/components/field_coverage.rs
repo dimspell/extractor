@@ -116,8 +116,9 @@ macro_rules! check_record {
 
 use dispel_core::{
     ChData, DialogueParagraph, DialogueScript, DrawItem, EditItem, Event, EventItem, EventNpcRef,
-    Extra, ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterRef, NpcIni,
-    PartyIniNpc, PartyLevelNpc, PartyRef, Quest, Store, WaveIni, WeaponItem, NPC,
+    Extra, ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterIni, MonsterRef,
+    NpcIni, PartyIniNpc, PartyLevelNpc, PartyLevelRecord, PartyRef, Quest, Store, WaveIni,
+    WeaponItem, NPC,
 };
 // `Message` is the ScrMessage type in dispel_core.
 use dispel_core::Message as ScrMessage;
@@ -246,8 +247,109 @@ check_record!(
     struct "MagicSpell",
     virtual_desc [],
     skip_fields [
-        "id"        // positional index
+        "id"       // positional index
     ]
+);
+
+// ── Field round-trip tests ─────────────────────────────────────────────────────
+//
+// Verify that every `EditableRecord` can round-trip each field value:
+//   (1) get_field -> set_field (same value) -> returns true
+//   (2) For Enum/DispEnum fields, every variant name from the descriptor
+//       must be accepted by set_field.
+//
+// This catches mismatches between Debug/Display output and from_name
+// (e.g., BooleanFlag::from_name accepting "No"/"Yes" while Debug produced
+//  "False"/"True" — the Waypoint Filled dropdown bug).
+
+use crate::components::editable::FieldKind;
+
+macro_rules! check_field_roundtrip {
+    (
+        fn $test_name:ident,
+        type $T:ty,
+        skip_fields [$($skip:literal),*]
+    ) => {
+        #[test]
+        fn $test_name() {
+            let skip: &[&str] = &[$($skip),*];
+            let mut record = <$T as Default>::default();
+            let descs = <$T as EditableRecord>::field_descriptors();
+
+            for desc in descs {
+                if skip.contains(&desc.name) {
+                    continue;
+                }
+
+                // invariant 1: current value round-trips
+                let v = record.get_field(desc.name);
+                assert!(
+                    record.set_field(desc.name, v.clone()),
+                    "{}: set_field('{}') refused its own get_field output '{}'",
+                    stringify!($T),
+                    desc.name,
+                    v,
+                );
+
+                // invariant 2: every Enum variant name is accepted
+                if let FieldKind::Enum { variants } = desc.kind {
+                    for variant in variants {
+                        assert!(
+                            record.set_field(desc.name, variant.to_string()),
+                            "{}: set_field('{}') refused Enum variant '{}'",
+                            stringify!($T),
+                            desc.name,
+                            variant,
+                        );
+                    }
+                }
+            }
+        }
+    };
+    (
+        fn $test_name:ident,
+        type $T:ty
+    ) => {
+        check_field_roundtrip!(
+            fn $test_name,
+            type $T,
+            skip_fields []
+        );
+    };
+}
+
+check_field_roundtrip!(fn chdata_roundtrip, type ChData);
+check_field_roundtrip!(fn store_roundtrip, type Store);
+check_field_roundtrip!(fn party_ini_roundtrip, type PartyIniNpc);
+check_field_roundtrip!(fn party_level_record_roundtrip, type PartyLevelRecord);
+check_field_roundtrip!(fn event_npc_ref_roundtrip, type EventNpcRef);
+check_field_roundtrip!(fn misc_item_roundtrip, type MiscItem);
+check_field_roundtrip!(fn monster_ini_roundtrip, type MonsterIni);
+check_field_roundtrip!(fn map_ini_roundtrip, type MapIni);
+check_field_roundtrip!(fn npc_ini_roundtrip, type NpcIni);
+check_field_roundtrip!(fn wave_ini_roundtrip, type WaveIni);
+check_field_roundtrip!(fn quest_roundtrip, type Quest);
+check_field_roundtrip!(fn extra_roundtrip, type Extra);
+check_field_roundtrip!(fn message_scr_roundtrip, type ScrMessage);
+check_field_roundtrip!(fn edit_item_roundtrip, type EditItem);
+check_field_roundtrip!(fn draw_item_roundtrip, type DrawItem);
+check_field_roundtrip!(fn all_map_ini_roundtrip, type Map);
+check_field_roundtrip!(fn event_ini_roundtrip, type Event);
+check_field_roundtrip!(fn magic_spell_roundtrip, type MagicSpell);
+check_field_roundtrip!(fn heal_item_roundtrip, type HealItem);
+check_field_roundtrip!(fn monster_ref_roundtrip, type MonsterRef);
+check_field_roundtrip!(fn dialogue_paragraph_roundtrip, type DialogueParagraph);
+check_field_roundtrip!(fn npc_ref_roundtrip, type NPC);
+check_field_roundtrip!(fn extra_ref_roundtrip, type ExtraRef);
+check_field_roundtrip!(fn weapon_item_roundtrip, type WeaponItem);
+check_field_roundtrip!(fn monster_roundtrip, type Monster);
+check_field_roundtrip!(fn party_ref_roundtrip, type PartyRef);
+check_field_roundtrip!(fn event_item_roundtrip, type EventItem);
+check_field_roundtrip!(fn dialogue_script_roundtrip, type DialogueScript);
+check_field_roundtrip!(
+    fn party_level_npc_roundtrip,
+    type PartyLevelNpc,
+    skip_fields ["records_count"]
 );
 
 check_record!(

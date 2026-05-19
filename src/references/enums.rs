@@ -806,8 +806,8 @@ impl BooleanFlag {
 
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
-            "No" => Some(BooleanFlag::False),
-            "Yes" => Some(BooleanFlag::True),
+            "False" => Some(BooleanFlag::False),
+            "True" => Some(BooleanFlag::True),
             _ => None,
         }
     }
