@@ -4,9 +4,8 @@ use iced::{Element, Fill, Font, Length};
 
 use crate::editors::hex_editor::pattern::{pattern_bg, pattern_fg};
 use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, Pattern};
-use crate::message::{Message, MessageExt};
 
-pub fn view(editor: &HexEditorState) -> Element<'_, Message> {
+pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let count = editor.patterns.len();
 
     let header = row![
@@ -16,7 +15,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, Message> {
         Space::default().width(Fill),
         button(text("✕").size(10).font(Font::MONOSPACE))
             .padding([2, 6])
-            .on_press(Message::hex_editor(HexEditorMessage::TogglePatternList)),
+            .on_press(HexEditorMessage::TogglePatternList),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);
@@ -32,7 +31,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, Message> {
         .into();
     }
 
-    let body: Element<'_, Message> = {
+    let body: Element<'_, HexEditorMessage> = {
         let mut col = column![].spacing(1).padding([2, 12]);
         for pat in &editor.patterns {
             col = col.push(pattern_row(pat));
@@ -54,7 +53,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, Message> {
         .into()
 }
 
-fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, Message> {
+fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, HexEditorMessage> {
     let (bg, fg) = (pattern_bg(pat.color_idx), pattern_fg(pat.color_idx));
 
     let swatch = container(text("  ").size(8))
@@ -80,7 +79,7 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, Message> {
 
     let remove_btn = button(text("✕").size(9).font(Font::MONOSPACE))
         .padding([1, 4])
-        .on_press(Message::hex_editor(HexEditorMessage::RemovePattern(pat.id)));
+        .on_press(HexEditorMessage::RemovePattern(pat.id));
 
     let inner = row![
         swatch,
@@ -93,9 +92,7 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, Message> {
     .align_y(iced::Alignment::Center);
 
     button(inner)
-        .on_press(Message::hex_editor(HexEditorMessage::NavigateToPattern(
-            pat.id,
-        )))
+        .on_press(HexEditorMessage::NavigateToPattern(pat.id))
         .padding([3, 6])
         .width(Fill)
         .style(button::text)

@@ -6,36 +6,23 @@ pub mod matrix;
 pub mod patterns;
 pub mod search_overlay;
 
+use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
+use gui_widgets::components::modal::modal;
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font};
 
-use crate::app::App;
+use crate::editors::hex_editor::config::HexEditorConfig;
 use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
-use crate::message::{Message, MessageExt};
-use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
-use gui_widgets::components::modal::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use self::matrix::{EditView, HexMatrix};
 
-pub fn view(app: &App) -> Element<'_, Message> {
-    let tab_id = app
-        .state
-        .workspace
-        .active()
-        .map(|t| t.id)
-        .unwrap_or(usize::MAX);
-
-    let Some(editor) = app.state.hex_editors.get(&tab_id) else {
-        return container(text("Hex editor not loaded").size(14))
-            .width(Fill)
-            .height(Fill)
-            .padding(16)
-            .into();
-    };
-
-    if let Some(ref err) = editor.error {
+pub fn view<'a>(
+    state: &'a HexEditorState,
+    config: &HexEditorConfig,
+) -> Element<'a, HexEditorMessage> {
+    if let Some(ref err) = state.error {
         return container(
             column![
                 text("Failed to load file").size(14),
@@ -49,11 +36,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .into();
     }
 
-    let total = editor.provider.len();
+    let total = state.provider.len();
     let header = container(
         text(format!(
             "{}  ·  {} bytes  ·  {} bytes/row",
-            editor.name, total, editor.bytes_per_row
+            state.name, total, state.bytes_per_row
         ))
         .size(11)
         .font(Font::MONOSPACE),
@@ -61,71 +48,71 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .padding([6, 12])
     .width(Fill);
 
-    let toolbar = build_toolbar(app, editor);
+    let toolbar = build_toolbar(state, config);
 
     let cache = ParagraphCache::default();
-    let edit = editor.edit_mode.as_ref().map(|e| EditView {
+    let edit = state.edit_mode.as_ref().map(|e| EditView {
         addr: e.addr,
         draft: e.draft.as_str(),
     });
-    let matrix: Element<'_, Message> = HexMatrix::new(
-        editor.provider.as_slice(),
-        editor.bytes_per_row,
-        editor.selection,
+    let matrix: Element<'a, HexEditorMessage> = HexMatrix::new(
+        state.provider.as_slice(),
+        state.bytes_per_row,
+        state.selection,
         edit,
-        editor.provider.dirty(),
-        &editor.vanilla_diff,
-        &editor.pattern_by_addr,
-        &editor.search.match_set,
-        editor.search.query_len,
-        editor.search.current_addr(),
-        &editor.search.results,
+        state.provider.dirty(),
+        &state.vanilla_diff,
+        &state.pattern_by_addr,
+        &state.search.match_set,
+        state.search.query_len,
+        state.search.current_addr(),
+        &state.search.results,
         cache,
     )
-    .on_select_at(|addr| Message::hex_editor(HexEditorMessage::SelectAt(addr)))
-    .on_extend_to(|addr| Message::hex_editor(HexEditorMessage::ExtendTo(addr)))
-    .on_nav(|dir, extend| Message::hex_editor(HexEditorMessage::Nav { dir, extend }))
-    .on_begin_edit(|addr| Message::hex_editor(HexEditorMessage::BeginEdit(addr)))
-    .on_edit_type(|c| Message::hex_editor(HexEditorMessage::EditTypeChar(c)))
-    .on_edit_backspace(|| Message::hex_editor(HexEditorMessage::EditBackspace))
-    .on_edit_cancel(|| Message::hex_editor(HexEditorMessage::EditCancel))
-    .on_edit_commit(|advance| Message::hex_editor(HexEditorMessage::EditCommit { advance }))
-    .on_right_click(|addr| Message::hex_editor(HexEditorMessage::RightClickAt(addr)))
-    .on_create_pattern(|| Message::hex_editor(HexEditorMessage::CreatePattern))
-    .on_open_goto(|| Message::hex_editor(HexEditorMessage::OpenGotoDialog))
-    .on_open_search(|| Message::hex_editor(HexEditorMessage::OpenSearch))
-    .show_decimal(editor.show_decimal)
-    .on_toggle_addr_format(|| Message::hex_editor(HexEditorMessage::ToggleAddrFormat))
+    .on_select_at(HexEditorMessage::SelectAt)
+    .on_extend_to(HexEditorMessage::ExtendTo)
+    .on_nav(|dir, extend| HexEditorMessage::Nav { dir, extend })
+    .on_begin_edit(HexEditorMessage::BeginEdit)
+    .on_edit_type(HexEditorMessage::EditTypeChar)
+    .on_edit_backspace(|| HexEditorMessage::EditBackspace)
+    .on_edit_cancel(|| HexEditorMessage::EditCancel)
+    .on_edit_commit(|advance| HexEditorMessage::EditCommit { advance })
+    .on_right_click(HexEditorMessage::RightClickAt)
+    .on_create_pattern(|| HexEditorMessage::CreatePattern)
+    .on_open_goto(|| HexEditorMessage::OpenGotoDialog)
+    .on_open_search(|| HexEditorMessage::OpenSearch)
+    .show_decimal(state.show_decimal)
+    .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .into();
 
-    let has_selection_range = !editor.selection.is_single();
-    let clicked_on_pattern = editor
+    let has_selection_range = !state.selection.is_single();
+    let clicked_on_pattern = state
         .context_menu_addr
-        .map(|addr| editor.pattern_id_at(addr).is_some())
+        .map(|addr| state.pattern_id_at(addr).is_some())
         .unwrap_or(false);
-    let has_patterns = !editor.patterns.is_empty();
+    let has_patterns = !state.patterns.is_empty();
 
-    let mut pattern_menu_entries: Vec<MenuEntry<Message>> = Vec::new();
+    let mut pattern_menu_entries: Vec<MenuEntry<HexEditorMessage>> = Vec::new();
     if has_selection_range {
         pattern_menu_entries.push(MenuEntry::item(
             "Create Pattern",
-            Message::hex_editor(HexEditorMessage::CreatePattern),
+            HexEditorMessage::CreatePattern,
         ));
     } else {
         pattern_menu_entries.push(MenuEntry::disabled("Create Pattern"));
     }
     if clicked_on_pattern {
-        if let Some(addr) = editor.context_menu_addr {
+        if let Some(addr) = state.context_menu_addr {
             pattern_menu_entries.push(MenuEntry::item(
                 "Remove Pattern",
-                Message::hex_editor(HexEditorMessage::RemovePatternAt(addr)),
+                HexEditorMessage::RemovePatternAt(addr),
             ));
         }
     }
     if has_patterns {
         pattern_menu_entries.push(MenuEntry::item(
             "Clear All Patterns",
-            Message::hex_editor(HexEditorMessage::ClearAllPatterns),
+            HexEditorMessage::ClearAllPatterns,
         ));
     } else {
         pattern_menu_entries.push(MenuEntry::disabled("Clear All Patterns"));
@@ -135,51 +122,51 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let body = row![
         container(matrix).width(Fill).height(Fill),
-        inspector::view(editor),
+        inspector::view(state, config),
     ]
     .spacing(0);
 
-    let pattern_section: Element<'_, Message> = if editor.show_pattern_list {
-        patterns::view(editor)
+    let pattern_section: Element<'a, HexEditorMessage> = if state.show_pattern_list {
+        patterns::view(state)
     } else {
         Space::default().height(0).into()
     };
 
-    let search_section: Element<'_, Message> = if editor.search.is_visible() {
-        search_overlay::view(&editor.search)
+    let search_section: Element<'a, HexEditorMessage> = if state.search.is_visible() {
+        search_overlay::view(&state.search)
     } else {
         Space::default().height(0).into()
     };
 
-    let base: Element<'_, Message> = column![
+    let base: Element<'a, HexEditorMessage> = column![
         toolbar,
         search_section,
         header,
         pattern_section,
         container(body).width(Fill).height(Fill),
-        footer::view(editor),
+        footer::view(state),
     ]
     .spacing(0)
     .width(Fill)
     .height(Fill)
     .into();
 
-    let base = if let Some(ref ie) = editor.inspector_edit {
+    let base = if let Some(ref ie) = state.inspector_edit {
         modal(
             base,
             inspector_modal::view(ie),
-            || Message::hex_editor(HexEditorMessage::CloseInspectorEdit),
+            || HexEditorMessage::CloseInspectorEdit,
             0.4,
         )
     } else {
         base
     };
 
-    if let Some(ref g) = editor.goto {
+    if let Some(ref g) = state.goto {
         modal(
             base,
             goto_modal::view(g),
-            || Message::hex_editor(HexEditorMessage::CloseGotoDialog),
+            || HexEditorMessage::CloseGotoDialog,
             0.3,
         )
     } else {
@@ -187,40 +174,19 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
 }
 
-fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Message> {
-    let recording = app.state.recording.as_ref();
-    let has_dirty = editor.provider.dirty_count() > 0;
-    let has_session = recording.is_some();
-    let has_game = app.state.workspace.game_path.is_some();
-    let in_game_dir = app
-        .state
-        .workspace
-        .game_path
-        .as_ref()
-        .map(|gp| editor.path.starts_with(gp))
-        .unwrap_or(false);
-    let can_save = has_dirty && has_session && has_game && in_game_dir;
+fn build_toolbar<'a>(
+    editor: &'a HexEditorState,
+    config: &HexEditorConfig,
+) -> Element<'a, HexEditorMessage> {
+    let can_save = config.can_save_now(editor);
 
-    let label = match recording {
-        Some(s) => format!("Save into `{}`", s.mod_slug),
-        None => "Save into recording".to_string(),
-    };
-    let mut save_btn = button(text(label).size(11).font(Font::MONOSPACE)).padding([3, 10]);
+    let save_label = config.save_label().to_string();
+    let mut save_btn = button(text(save_label).size(11).font(Font::MONOSPACE)).padding([3, 10]);
     if can_save {
-        save_btn = save_btn.on_press(Message::hex_editor(HexEditorMessage::SaveIntoRecording));
+        save_btn = save_btn.on_press(HexEditorMessage::SaveIntoRecording);
     }
 
-    let hint = if !has_session {
-        "  ·  no recording active"
-    } else if !has_game {
-        "  ·  set a game directory"
-    } else if !in_game_dir {
-        "  ·  file is outside the game directory"
-    } else if !has_dirty {
-        "  ·  no edits to save"
-    } else {
-        ""
-    };
+    let hint = config.save_hint.clone();
 
     let patterns_label = if editor.show_pattern_list {
         "Hide Patterns"
@@ -229,12 +195,12 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
     };
     let patterns_btn = button(text(patterns_label).size(11).font(Font::MONOSPACE))
         .padding([3, 10])
-        .on_press(Message::hex_editor(HexEditorMessage::TogglePatternList));
+        .on_press(HexEditorMessage::TogglePatternList);
 
     // Bytes-per-row toggle group.
     let goto_btn = button(text("Go to...").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
-        .on_press(Message::hex_editor(HexEditorMessage::OpenGotoDialog));
+        .on_press(HexEditorMessage::OpenGotoDialog);
 
     let bpr = editor.bytes_per_row;
     let bpr_btn = |n: u8| {
@@ -244,10 +210,10 @@ fn build_toolbar<'a>(app: &'a App, editor: &'a HexEditorState) -> Element<'a, Me
         if !active {
             btn = btn.style(button::text);
         }
-        btn.on_press(Message::hex_editor(HexEditorMessage::SetBytesPerRow(n)))
+        btn.on_press(HexEditorMessage::SetBytesPerRow(n))
     };
 
-    let status: Element<'a, Message> = if editor.status_msg.is_empty() {
+    let status: Element<'a, HexEditorMessage> = if editor.status_msg.is_empty() {
         text("").size(11).into()
     } else {
         text(editor.status_msg.clone())

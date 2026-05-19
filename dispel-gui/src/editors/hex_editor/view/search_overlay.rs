@@ -1,23 +1,22 @@
 use iced::widget::{button, container, row, text, text_input};
 use iced::{color, Element, Fill, Font, Length};
 
-use crate::editors::hex_editor::search::SearchState;
+use crate::editors::hex_editor::search::{SearchMode, SearchState};
 use crate::editors::hex_editor::HexEditorMessage;
-use crate::message::{Message, MessageExt};
 
 /// Search overlay bar rendered above the hex matrix.
-pub fn view(state: &SearchState) -> Element<'_, Message> {
+pub fn view(state: &SearchState) -> Element<'_, HexEditorMessage> {
     let mode_label = match state.mode {
-        crate::editors::hex_editor::search::SearchMode::Hex => "HEX",
-        crate::editors::hex_editor::search::SearchMode::Ascii => "TXT",
+        SearchMode::Hex => "HEX",
+        SearchMode::Ascii => "TXT",
     };
 
     let mode_btn = button(text(mode_label).size(10).font(Font::MONOSPACE))
         .padding([2, 6])
-        .on_press(Message::hex_editor(HexEditorMessage::ToggleSearchMode));
+        .on_press(HexEditorMessage::ToggleSearchMode);
 
     let search_input = text_input("Find...", &state.query)
-        .on_input(|s| Message::hex_editor(HexEditorMessage::Search(s)))
+        .on_input(HexEditorMessage::Search)
         .padding(4)
         .size(11)
         .width(Length::Fixed(160.0));
@@ -39,15 +38,15 @@ pub fn view(state: &SearchState) -> Element<'_, Message> {
 
     let prev_btn = button(text("<").size(10).font(Font::MONOSPACE))
         .padding([2, 6])
-        .on_press(Message::hex_editor(HexEditorMessage::SearchPrev));
+        .on_press(HexEditorMessage::SearchPrev);
 
     let next_btn = button(text(">").size(10).font(Font::MONOSPACE))
         .padding([2, 6])
-        .on_press(Message::hex_editor(HexEditorMessage::SearchNext));
+        .on_press(HexEditorMessage::SearchNext);
 
     let close_btn = button(text("✕").size(10).font(Font::MONOSPACE))
         .padding([2, 6])
-        .on_press(Message::hex_editor(HexEditorMessage::CloseSearch));
+        .on_press(HexEditorMessage::CloseSearch);
 
     let content = row![
         mode_btn,

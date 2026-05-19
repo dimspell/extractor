@@ -2,11 +2,9 @@ use iced::widget::{container, text};
 use iced::{Element, Fill, Font};
 
 use crate::editors::hex_editor::selection::Selection;
-use crate::editors::hex_editor::HexEditorState;
-use crate::editors::hex_editor::HexProvider;
-use crate::message::Message;
+use crate::editors::hex_editor::{HexEditorMessage, HexEditorState, HexProvider};
 
-pub fn view(editor: &HexEditorState) -> Element<'_, Message> {
+pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     container(text(format_footer(editor)).size(11).font(Font::MONOSPACE))
         .padding([4, 12])
         .width(Fill)
