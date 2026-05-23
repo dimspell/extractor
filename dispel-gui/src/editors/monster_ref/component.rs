@@ -1,5 +1,5 @@
 use crate::components::editable::{EditableRecord, FieldKind};
-use dispel_core::{ItemTypeId, MonsterRef};
+use dispel_core::{ItemTypeId, MonsterRef, BooleanFlag};
 
 use crate::editable_record_fields;
 
@@ -12,8 +12,8 @@ editable_record_fields!(MonsterRef, {
     { mon_id = Lookup("monster_names") / "Monster ID:" },
     { pos_x = Integer / "Position X:" },
     { pos_y = Integer / "Position Y:" },
-    { padding1 = Integer / "Flag 1:" },
-    { padding2 = Integer / "Flag 2:" },
+    { padding1 = DispEnum(BooleanFlag, ["True", "False"]) / "Flag 1:" },
+    { padding2 = DispEnum(BooleanFlag, ["True", "False"]) / "Flag 2:" },
     { padding3 = Integer / "Flag 3 (0):" },
     { padding4 = Integer / "Flag 4:" },
     { event_id = Integer / "Event ID:" },
@@ -30,7 +30,7 @@ editable_record_fields!(MonsterRef, {
     { padding10 = Integer / "Padding 10:" },
     { padding11 = Integer / "Padding 11:" },
     { padding12 = Integer / "Padding 12:" },
-    { padding13 = Integer / "Padding 13:" },
+    { padding13 = DispEnum(BooleanFlag, ["True", "False"]) / "Padding 13:" },
 });
 
 impl EditableRecord for MonsterRef {
