@@ -1,6 +1,6 @@
 use crate::components::editable::{EditableRecord, FieldKind};
 use dispel_core::{
-    ExtraObjectType, ExtraRef, ItemTypeId, SmallRange0to3, Special9999Flag, SpecialPatternFlag,
+    ExtraObjectType, ExtraRef, ItemTypeId, SmallRange0to3, Special9999Flag, SpecialPatternFlag, BooleanFlag,
     VisibilityType,
 };
 
@@ -21,7 +21,7 @@ editable_record_fields!(ExtraRef, {
     { rotation = Integer / "Rotation:" },
     { unknown2 = HexString / "Unknown 2:" },
     { unknown3 = Integer / "Unknown 3:" },
-    { closed = Integer / "Closed:" },
+    { closed = DispEnum(BooleanFlag, ["True", "False"]) / "Closed:" },
     { required_item_id = Integer / "Required Item:" },
     { required_item_type_id = Enum(ItemTypeId, Shared(ITEM_TYPES)) / "Required Type:" },
     { unknown4 = Integer / "Unknown 4:" },
@@ -38,7 +38,7 @@ editable_record_fields!(ExtraRef, {
     { unknown10 = Integer / "Unknown 10:" },
     { item_count = Integer / "Item Count:" },
     { unknown11 = DispEnum(SpecialPatternFlag, ["0", "28", "84", "258", "9999"]) / "Unknown 11:" },
-    { unknown12 = Integer / "Unknown 12:" },
+    { unknown12 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 12:" },
     { unknown13 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 13:" },
     { unknown14 = HexString / "Unknown 14:" },
     { event_id = Integer / "Event ID:" },
@@ -48,16 +48,16 @@ editable_record_fields!(ExtraRef, {
     { unknown17 = Integer / "Unknown 17:" },
     { interactive_element_type = Integer / "Interactive Type:" },
     { unknown18 = HexString / "Unknown 18:" },
-    { is_quest_element = Integer / "Quest Element:" },
-    { unknown20 = Integer / "Unknown 20:" },
-    { unknown21 = Integer / "Unknown 21:" },
+    { is_quest_element = DispEnum(BooleanFlag, ["True", "False"]) / "Quest Element:" },
+    { unknown20 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 20:" },
+    { unknown21 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 21:" },
     { unknown22 = Integer / "Unknown 22:" },
-    { unknown23 = Integer / "Unknown 23:" },
+    { unknown23 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 23:" },
     { visibility = Enum(VisibilityType, ["Visible0", "Visible10"]) / "Visibility:" },
-    { unknown24 = Integer / "Unknown 24:" },
+    { unknown24 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 24:" },
     { unknown25 = Integer / "Unknown 25:" },
-    { unknown26 = Integer / "Unknown 26:" },
-    { unknown27 = Integer / "Unknown 27:" },
+    { unknown26 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 26:" },
+    { unknown27 = DispEnum(BooleanFlag, ["True", "False"]) / "Unknown 27:" },
 });
 
 impl EditableRecord for ExtraRef {
