@@ -7,7 +7,7 @@ use dispel_core::{
 use crate::editable_record_fields;
 
 const ITEM_TYPES: FieldKind = FieldKind::Enum {
-    variants: &["Weapon", "Healing", "Edit", "Event", "Misc"],
+    variants: &["Weapon", "Healing", "Edit", "Event", "Misc", "Other"],
 };
 
 editable_record_fields!(ExtraRef, {
