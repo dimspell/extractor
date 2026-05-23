@@ -58,8 +58,8 @@ impl RecordPatcher for QuestPatcher {
                 },
                 _ => return Err(wrong_type(Self::RECORD_NAME, field, "i32", new)),
             },
-            "title" => rec.title = parse_optional_string(field, new)?,
-            "description" => rec.description = parse_optional_string(field, new)?,
+            // "title" => rec.title = parse_optional_string(field, new)?,
+            // "description" => rec.description = parse_optional_string(field, new)?,
             other => return Err(unknown_field(Self::RECORD_NAME, other)),
         }
 

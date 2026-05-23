@@ -6,15 +6,16 @@ use crate::editable_record_fields;
 editable_record_fields!(Quest, {
     { id = Integer / "ID:" },
     { type_id = Integer / "Type:" },
-    { title = OptStr / "Title:" },
-    { description = OptStr / "Description:" },
+    { title = TextArea / "Title:" },
+    { description = TextArea / "Description:" },
 });
 
 impl EditableRecord for Quest {
     crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
-        let title = self.title.as_deref().unwrap_or("???");
+        // let title = self.title.as_deref().unwrap_or("???");
+        let title = self.title.as_str();
         format!(
             "[{}] {}",
             self.id,
