@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Wave.ini - Audio/Sound References
 ///
 /// Maps sound IDs to SNF audio files with playback
-/// behavior flags. Used for audio system initialization
-/// and sound effect management.
+/// behavior flags.
 ///
 /// Reads file: `Wave.ini`
 ///
@@ -37,22 +36,6 @@ use serde::{Deserialize, Serialize};
 /// - `snf_filename`: SNF audio file (or "null")
 /// - `unknown_flag`: Playback behavior flag (or "null")
 ///
-/// # Sound Categories
-///
-/// - `1-50`: Background music tracks
-/// - `51-100`: Ambient sounds
-/// - `101-200`: Combat sound effects
-/// - `201-300`: UI/interface sounds
-/// - `301-400`: Character voice effects
-/// - `401-500`: Environmental sounds
-///
-/// # Unknown Flag Values
-///
-/// - `"loop"`: Looping playback
-/// - `"once"`: Play once
-/// - `"3d"`: Positional audio
-/// - `"stream"`: Stream from disk
-/// - `"null"`: Default behavior
 ///
 /// # Special Values
 ///
