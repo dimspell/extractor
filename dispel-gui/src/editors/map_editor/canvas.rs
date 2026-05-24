@@ -690,25 +690,35 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
 
         let mut cursor_frame = Frame::new(renderer, bounds.size());
 
-        // Cursor tile highlight
-        if cursor_cx.is_finite() && cursor_cy.is_finite() {
-            let world_x = (cursor_cx - pan_x) / zoom;
-            let world_y = (cursor_cy - pan_y) / zoom;
-            let a = world_x / 32.0;
-            let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
-            let tile_x = ((a - b) / 2.0).round() as i32;
-            let tile_y = ((a + b) / 2.0).round() as i32;
-            let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
-            let w = TILE_W * zoom;
-            let h = TILE_H * zoom;
-            // Brighter green when hovering over a clickable entity.
-            let alpha = if hovered_entity.is_some() { 0.40 } else { 0.15 };
-            cursor_frame.fill_rectangle(
-                Point::new(px, py),
-                Size::new(w, h),
-                Color::from_rgba(0.2, 0.9, 0.3, alpha),
-            );
-        }
+            // Cursor tile highlight
+            if cursor_cx.is_finite() && cursor_cy.is_finite() {
+                let world_x = (cursor_cx - pan_x) / zoom;
+                let world_y = (cursor_cy - pan_y) / zoom;
+                let a = world_x / 32.0;
+                let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
+                let tile_x = ((a - b) / 2.0).round() as i32;
+                let tile_y = ((a + b) / 2.0).round() as i32;
+                let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
+                let w = TILE_W * zoom;
+                let h = TILE_H * zoom;
+                // Brighter green when hovering over a clickable entity.
+                let alpha = if hovered_entity.is_some() { 0.40 } else { 0.15 };
+                // Draw diamond instead of rectangle
+                let cx = px + w * 0.5; // Center x
+                let cy = py + h * 0.5; // Center y
+                let dx = w * 0.5; // Half width
+                let dy = h * 0.5; // Half height
+                cursor_frame.fill(
+                    &canvas::Path::new(|b| {
+                        b.move_to(Point::new(cx, cy - dy)); // Top
+                        b.line_to(Point::new(cx + dx, cy)); // Right
+                        b.line_to(Point::new(cx, cy + dy)); // Bottom
+                        b.line_to(Point::new(cx - dx, cy)); // Left
+                        b.close();
+                    }),
+                    Color::from_rgba(0.2, 0.9, 0.3, alpha),
+                );
+            }
 
         // Hover ring (only when not already the selected entity)
         if let Some(hov) = hovered_entity {
