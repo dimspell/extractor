@@ -756,6 +756,22 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                     }),
                                     color,
                                 );
+
+                                let label_cx = sx + TILE_W * zoom * 0.5;
+                                let label_cy = sy + TILE_H * zoom * 0.5 - 14.0 * zoom;
+                                let label_size = (11.0 * zoom).max(6.0);
+                                frame.fill_text(CanvasText {
+                                    content: (j + 1).to_string(),
+                                    position: Point::new(label_cx, label_cy),
+                                    color: Color::WHITE,
+                                    size: iced::Pixels(label_size),
+                                    font: Font::DEFAULT,
+                                    align_x: TextAlignment::Center,
+                                    align_y: alignment::Vertical::Bottom,
+                                    shaping: iced::widget::text::Shaping::Basic,
+                                    line_height: iced::widget::text::LineHeight::default(),
+                                    max_width: f32::INFINITY,
+                                });
                             }
                         }
                     }
