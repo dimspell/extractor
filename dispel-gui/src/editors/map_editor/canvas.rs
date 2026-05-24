@@ -618,9 +618,19 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             if !is_visible(px, py, w, h, bounds) {
                                 continue;
                             }
-                            frame.fill_rectangle(
-                                Point::new(px, py),
-                                Size::new(w, h),
+                            // Draw diamond instead of rectangle
+                            let cx = px + w * 0.5; // Center x
+                            let cy = py + h * 0.5; // Center y
+                            let dx = w * 0.5; // Half width
+                            let dy = h * 0.5; // Half height
+                            frame.fill(
+                                &canvas::Path::new(|b| {
+                                    b.move_to(Point::new(cx, cy - dy)); // Top
+                                    b.line_to(Point::new(cx + dx, cy)); // Right
+                                    b.line_to(Point::new(cx, cy + dy)); // Bottom
+                                    b.line_to(Point::new(cx - dx, cy)); // Left
+                                    b.close();
+                                }),
                                 Color::from_rgba(0.8, 0.1, 0.1, 0.3),
                             );
                         }
