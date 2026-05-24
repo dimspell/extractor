@@ -656,6 +656,97 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                         }
                     }
 
+                    // NPC waypoint arrows overlay
+                    if self.state.view.show_npcs {
+                        const ARROW_COLORS: [Color; 4] = [
+                            Color::from_rgb(0.2, 0.8, 0.2),
+                            Color::from_rgb(0.2, 0.2, 0.8),
+                            Color::from_rgb(0.8, 0.2, 0.2),
+                            Color::from_rgb(0.8, 0.8, 0.2),
+                        ];
+
+                        for npc in &self.state.data.npcs {
+                            let waypoints = [
+                                (npc.goto1_x, npc.goto1_y),
+                                (npc.goto2_x, npc.goto2_y),
+                                (npc.goto3_x, npc.goto3_y),
+                                (npc.goto4_x, npc.goto4_y),
+                            ]
+                            .into_iter()
+                            .filter(|&(x, y)| x != 0 || y != 0)
+                            .collect::<Vec<(i32, i32)>>();
+
+                            if waypoints.len() < 2 {
+                                continue;
+                            }
+
+                            for j in 0..waypoints.len() {
+                                let (sx, sy) = tile_to_screen(
+                                    waypoints[j].0,
+                                    waypoints[j].1,
+                                    diagonal,
+                                    pan_x,
+                                    pan_y,
+                                    zoom,
+                                );
+                                let (ex, ey) = tile_to_screen(
+                                    waypoints[(j + 1) % waypoints.len()].0,
+                                    waypoints[(j + 1) % waypoints.len()].1,
+                                    diagonal,
+                                    pan_x,
+                                    pan_y,
+                                    zoom,
+                                );
+
+                                if !is_visible(sx, sy, TILE_W * zoom, TILE_H * zoom, bounds)
+                                    && !is_visible(ex, ey, TILE_W * zoom, TILE_H * zoom, bounds)
+                                {
+                                    continue;
+                                }
+
+                                let dx = ex - sx;
+                                let dy = ey - sy;
+                                let length = (dx * dx + dy * dy).sqrt();
+                                if length < 1.0 {
+                                    continue;
+                                }
+
+                                let nx = dx / length;
+                                let ny = dy / length;
+                                let head_length = 8.0 * zoom;
+                                let head_width = 4.0 * zoom;
+                                let color = ARROW_COLORS[j % ARROW_COLORS.len()];
+
+                                let line_end_x = ex - head_length * nx;
+                                let line_end_y = ey - head_length * ny;
+
+                                frame.stroke(
+                                    &canvas::Path::new(|b| {
+                                        b.move_to(Point::new(sx, sy));
+                                        b.line_to(Point::new(line_end_x, line_end_y));
+                                    }),
+                                    canvas::Stroke::default()
+                                        .with_color(color)
+                                        .with_width(2.0 * zoom),
+                                );
+
+                                frame.fill(
+                                    &canvas::Path::new(|b| {
+                                        let hx1 = line_end_x + head_width * ny;
+                                        let hy1 = line_end_y - head_width * nx;
+                                        let hx2 = line_end_x - head_width * ny;
+                                        let hy2 = line_end_y + head_width * nx;
+                                        b.move_to(Point::new(ex, ey));
+                                        b.line_to(Point::new(hx1, hy1));
+                                        b.line_to(Point::new(hx2, hy2));
+                                        b.close();
+                                    }),
+                                    color,
+                                );
+                            }
+                        }
+                    }
+
                     // Selection ring
                     if let Some(sel) = self.state.view.selected_entity {
                         if let Some((stx, sty)) = entity_tile(sel, self.state) {
