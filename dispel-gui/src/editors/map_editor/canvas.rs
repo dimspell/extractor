@@ -653,6 +653,19 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 &canvas::Path::circle(Point::new(ecx, ecy), r),
                                 Color::from_rgb(0.8, 0.1, 0.8),
                             );
+                            let label_size = (11.0 * zoom).max(6.0);
+                            frame.fill_text(CanvasText {
+                                content: event.event_id.to_string(),
+                                position: Point::new(ecx, ecy - 10.0 * zoom),
+                                color: Color::WHITE,
+                                size: iced::Pixels(label_size),
+                                font: Font::DEFAULT,
+                                align_x: TextAlignment::Center,
+                                align_y: alignment::Vertical::Bottom,
+                                shaping: iced::widget::text::Shaping::Basic,
+                                line_height: iced::widget::text::LineHeight::default(),
+                                max_width: f32::INFINITY,
+                            });
                         }
                     }
 
