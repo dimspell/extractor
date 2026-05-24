@@ -441,7 +441,7 @@ fn build_record_fields<'a, R: EditableRecord>(
             desc.label, desc.name, &desc.kind, &value, tab_id, sel,
         ));
     }
-    scrollable(col).into()
+    scrollable(col).spacing(6).into()
 }
 
 /// Render a single labeled field row for the map editor inspector.
@@ -504,6 +504,7 @@ fn inspector_field_row<'a>(
                         v.to_string(),
                     ))
                 })
+                .width(Fill)
                 .padding(4)
                 .text_size(11),
             ]
