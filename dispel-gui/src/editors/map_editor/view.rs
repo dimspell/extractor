@@ -184,6 +184,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     Some(state.data.npcs.len())
                 ),
                 layer_toggle(
+                    "Waypoints",
+                    state.view.show_npc_waypoints,
+                    tab_id,
+                    MapLayer::NpcWaypoints,
+                    None
+                ),
+                layer_toggle(
                     "Objects",
                     state.view.show_objects,
                     tab_id,

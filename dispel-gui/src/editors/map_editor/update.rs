@@ -315,6 +315,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     MapLayer::Events => state.view.show_events = !state.view.show_events,
                     MapLayer::Monsters => state.view.show_monsters = !state.view.show_monsters,
                     MapLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
+                    MapLayer::NpcWaypoints => {
+                        state.view.show_npc_waypoints = !state.view.show_npc_waypoints
+                    }
                     MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
                 }
                 // Tile canvas renders entities and tile layers; overlay renders

@@ -166,6 +166,7 @@ pub enum MapLayer {
     Events,
     Monsters,
     Npcs,
+    NpcWaypoints,
     Objects,
 }
 

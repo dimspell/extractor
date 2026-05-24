@@ -670,7 +670,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                     }
 
                     // NPC waypoint arrows overlay
-                    if self.state.view.show_npcs {
+                    if self.state.view.show_npc_waypoints {
                         const ARROW_COLORS: [Color; 4] = [
                             Color::from_rgb(0.2, 0.8, 0.2),
                             Color::from_rgb(0.2, 0.2, 0.8),
