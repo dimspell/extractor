@@ -50,6 +50,10 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<Message> 
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
+                        crate::components::item_catalog::ensure_item_lookups(
+                            &app.state.shared_game_path,
+                            &mut app.state.lookups,
+                        );
                         editor.editor.status_msg =
                             format!("DialogueScript catalog loaded: {} entries", catalog.len());
                         editor.editor.catalog = Some(catalog);
@@ -62,7 +66,10 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<Message> 
                         {
                             spreadsheet.active = true;
                             spreadsheet.init_filter(editor.editor.catalog.as_ref().unwrap());
-                            spreadsheet.compute_all_caches(editor.editor.catalog.as_ref().unwrap());
+                            spreadsheet.compute_all_caches(
+                                editor.editor.catalog.as_ref().unwrap(),
+                                &app.state.lookups,
+                            );
                             spreadsheet.init_pane_state();
                         }
                     }

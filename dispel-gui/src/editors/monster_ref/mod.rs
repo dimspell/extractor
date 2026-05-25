@@ -32,7 +32,16 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<Message> {
 
     match msg {
         MonsterRefEditorMessage::LoadCatalog(path) => {
-            tab::load_catalog_sync(path, &mut app.state.monster_ref_editor, tab_id);
+            crate::components::item_catalog::ensure_item_lookups(
+                &app.state.shared_game_path,
+                &mut app.state.lookups,
+            );
+            tab::load_catalog_sync(
+                path,
+                &mut app.state.monster_ref_editor,
+                tab_id,
+                &app.state.lookups,
+            );
             if !app.state.lookups.contains_key("monster_names") {
                 return Task::done(Message::monster_ref(
                     MonsterRefEditorMessage::LoadMonsterNames,

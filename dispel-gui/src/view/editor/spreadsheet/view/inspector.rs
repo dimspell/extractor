@@ -1,6 +1,14 @@
 //! Right-hand inspector pane — one input widget per field of the
 //! currently-selected record.
 
+use std::collections::HashMap;
+
+use iced::widget::{
+    button, column, container, pick_list, row, scrollable, text, text_input, Column,
+};
+use iced::{Element, Fill, Length};
+
+use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::textarea::{self, TextAreaContent};
@@ -9,11 +17,6 @@ use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
-use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Column,
-};
-use iced::{Element, Fill, Length};
-use std::collections::HashMap;
 
 pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
@@ -41,20 +44,29 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
+    // Collect CompositeItem id_field names so we can skip them.
+    let composite_id_fields: Vec<&'static str> = descriptors
+        .iter()
+        .filter_map(|d| match &d.kind {
+            FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
+            _ => None,
+        })
+        .collect();
+
     if let Some(orig_idx) = spreadsheet.selected_orig {
         if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
             for desc in descriptors.iter() {
+                // Skip fields that are id_field companions of a CompositeItem
+                if composite_id_fields.contains(&desc.name) {
+                    continue;
+                }
                 let value = record.get_field(desc.name);
-                let lookup_data = match &desc.kind {
-                    FieldKind::Lookup(key) => lookups.get(*key).cloned(),
-                    _ => None,
-                };
                 let validation_error = record.validate_field(desc.name, &value);
                 fields = fields.push(build_inspector_field(
                     desc,
                     value,
                     orig_idx,
-                    lookup_data,
+                    lookups,
                     validation_error,
                     field_changed_msg,
                     &spreadsheet.inspector_textarea_contents,
@@ -84,7 +96,7 @@ fn build_inspector_field<'a>(
     descriptor: &'a FieldDescriptor,
     value: String,
     orig_idx: usize,
-    lookups: Option<Vec<(String, String)>>,
+    lookups: &'a HashMap<String, Vec<(String, String)>>,
     validation_error: Option<String>,
     field_changed_msg: fn(usize, String, String) -> Message,
     textarea_contents: &'a HashMap<String, TextAreaContent>,
@@ -112,8 +124,8 @@ fn build_inspector_field<'a>(
                     .into()
             }
         }
-        FieldKind::Lookup(_) => {
-            if let Some(options) = lookups {
+        FieldKind::Lookup(key) => {
+            if let Some(options) = lookups.get(*key) {
                 let field_name = descriptor.name.to_string();
                 let selected = options
                     .iter()
@@ -123,8 +135,10 @@ fn build_inspector_field<'a>(
                 let options_vec: Vec<String> =
                     options.iter().map(|(_, name)| name.clone()).collect();
 
+                // Clone for the closure — small, one-time cost
+                let options_owned = options.clone();
                 pick_list(options_vec, selected, move |selected_name| {
-                    let selected_id = options
+                    let selected_id = options_owned
                         .iter()
                         .find(|(_, name)| name == &selected_name)
                         .map(|(id, _)| id.clone())
@@ -157,6 +171,20 @@ fn build_inspector_field<'a>(
             })
             .width(Length::Fill)
             .into()
+        }
+        FieldKind::CompositeItem {
+            lookup_key,
+            id_field,
+        } => {
+            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
+            let field_name = descriptor.name.to_string();
+            composite_item_picker(descriptor.label, &value, id_field, entries, move |v| {
+                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                    orig_idx,
+                    field_name.clone(),
+                    v,
+                ))
+            })
         }
         _ => {
             let field_name = descriptor.name.to_string();

@@ -53,28 +53,39 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
             let result = match editor_type {
-                EditorType::WeaponEditor => app.state.weapon_editor.undo(),
-                EditorType::HealItemEditor => app.state.heal_item_editor.undo(),
-                EditorType::MiscItemEditor => app.state.misc_item_editor.undo(),
-                EditorType::EditItemEditor => app.state.edit_item_editor.undo(),
-                EditorType::EventItemEditor => app.state.event_item_editor.undo(),
-                EditorType::MonsterEditor => app.state.monster_editor.undo(),
-                EditorType::MonsterIniEditor => app.state.monster_ini_editor.undo(),
-                EditorType::NpcIniEditor => app.state.npc_ini_editor.undo(),
-                EditorType::MagicEditor => app.state.magic_editor.undo(),
-                EditorType::PartyRefEditor => app.state.party_ref_editor.undo(),
-                EditorType::PartyIniEditor => app.state.party_ini_editor.undo(),
-                EditorType::AllMapIniEditor => app.state.all_map_ini_editor.undo(),
-                EditorType::DrawItemEditor => app.state.draw_item_editor.undo(),
-                EditorType::EventIniEditor => app.state.event_ini_editor.undo(),
-                EditorType::EventNpcRefEditor => app.state.event_npc_ref_editor.undo(),
-                EditorType::ExtraIniEditor => app.state.extra_ini_editor.undo(),
-                EditorType::MapIniEditor => app.state.map_ini_editor.undo(),
-                EditorType::MessageScrEditor => app.state.message_scr_editor.undo(),
-                EditorType::QuestScrEditor => app.state.quest_scr_editor.undo(),
-                EditorType::WaveIniEditor => app.state.wave_ini_editor.undo(),
-                EditorType::ChDataEditor => app.state.chdata_editor.undo(),
-                EditorType::PartyLevelDbEditor => app.state.party_level_db_level_editor.undo(),
+                EditorType::WeaponEditor => app.state.weapon_editor.undo(&app.state.lookups),
+                EditorType::HealItemEditor => app.state.heal_item_editor.undo(&app.state.lookups),
+                EditorType::MiscItemEditor => app.state.misc_item_editor.undo(&app.state.lookups),
+                EditorType::EditItemEditor => app.state.edit_item_editor.undo(&app.state.lookups),
+                EditorType::EventItemEditor => app.state.event_item_editor.undo(&app.state.lookups),
+                EditorType::MonsterEditor => app.state.monster_editor.undo(&app.state.lookups),
+                EditorType::MonsterIniEditor => {
+                    app.state.monster_ini_editor.undo(&app.state.lookups)
+                }
+                EditorType::NpcIniEditor => app.state.npc_ini_editor.undo(&app.state.lookups),
+                EditorType::MagicEditor => app.state.magic_editor.undo(&app.state.lookups),
+                EditorType::PartyRefEditor => app.state.party_ref_editor.undo(&app.state.lookups),
+                EditorType::PartyIniEditor => app.state.party_ini_editor.undo(&app.state.lookups),
+                EditorType::AllMapIniEditor => {
+                    app.state.all_map_ini_editor.undo(&app.state.lookups)
+                }
+                EditorType::DrawItemEditor => app.state.draw_item_editor.undo(&app.state.lookups),
+                EditorType::EventIniEditor => app.state.event_ini_editor.undo(&app.state.lookups),
+                EditorType::EventNpcRefEditor => {
+                    app.state.event_npc_ref_editor.undo(&app.state.lookups)
+                }
+                EditorType::ExtraIniEditor => app.state.extra_ini_editor.undo(&app.state.lookups),
+                EditorType::MapIniEditor => app.state.map_ini_editor.undo(&app.state.lookups),
+                EditorType::MessageScrEditor => {
+                    app.state.message_scr_editor.undo(&app.state.lookups)
+                }
+                EditorType::QuestScrEditor => app.state.quest_scr_editor.undo(&app.state.lookups),
+                EditorType::WaveIniEditor => app.state.wave_ini_editor.undo(&app.state.lookups),
+                EditorType::ChDataEditor => app.state.chdata_editor.undo(&app.state.lookups),
+                EditorType::PartyLevelDbEditor => app
+                    .state
+                    .party_level_db_level_editor
+                    .undo(&app.state.lookups),
                 EditorType::StoreEditor => app.state.store_editor.undo(),
                 EditorType::MonsterRefEditor => app
                     .state
@@ -117,7 +128,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -127,7 +138,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -137,7 +148,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -150,7 +161,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                                 .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -163,7 +174,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                                 .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -184,28 +195,39 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
             let result = match editor_type {
-                EditorType::WeaponEditor => app.state.weapon_editor.redo(),
-                EditorType::HealItemEditor => app.state.heal_item_editor.redo(),
-                EditorType::MiscItemEditor => app.state.misc_item_editor.redo(),
-                EditorType::EditItemEditor => app.state.edit_item_editor.redo(),
-                EditorType::EventItemEditor => app.state.event_item_editor.redo(),
-                EditorType::MonsterEditor => app.state.monster_editor.redo(),
-                EditorType::MonsterIniEditor => app.state.monster_ini_editor.redo(),
-                EditorType::NpcIniEditor => app.state.npc_ini_editor.redo(),
-                EditorType::MagicEditor => app.state.magic_editor.redo(),
-                EditorType::PartyRefEditor => app.state.party_ref_editor.redo(),
-                EditorType::PartyIniEditor => app.state.party_ini_editor.redo(),
-                EditorType::AllMapIniEditor => app.state.all_map_ini_editor.redo(),
-                EditorType::DrawItemEditor => app.state.draw_item_editor.redo(),
-                EditorType::EventIniEditor => app.state.event_ini_editor.redo(),
-                EditorType::EventNpcRefEditor => app.state.event_npc_ref_editor.redo(),
-                EditorType::ExtraIniEditor => app.state.extra_ini_editor.redo(),
-                EditorType::MapIniEditor => app.state.map_ini_editor.redo(),
-                EditorType::MessageScrEditor => app.state.message_scr_editor.redo(),
-                EditorType::QuestScrEditor => app.state.quest_scr_editor.redo(),
-                EditorType::WaveIniEditor => app.state.wave_ini_editor.redo(),
-                EditorType::ChDataEditor => app.state.chdata_editor.redo(),
-                EditorType::PartyLevelDbEditor => app.state.party_level_db_level_editor.redo(),
+                EditorType::WeaponEditor => app.state.weapon_editor.redo(&app.state.lookups),
+                EditorType::HealItemEditor => app.state.heal_item_editor.redo(&app.state.lookups),
+                EditorType::MiscItemEditor => app.state.misc_item_editor.redo(&app.state.lookups),
+                EditorType::EditItemEditor => app.state.edit_item_editor.redo(&app.state.lookups),
+                EditorType::EventItemEditor => app.state.event_item_editor.redo(&app.state.lookups),
+                EditorType::MonsterEditor => app.state.monster_editor.redo(&app.state.lookups),
+                EditorType::MonsterIniEditor => {
+                    app.state.monster_ini_editor.redo(&app.state.lookups)
+                }
+                EditorType::NpcIniEditor => app.state.npc_ini_editor.redo(&app.state.lookups),
+                EditorType::MagicEditor => app.state.magic_editor.redo(&app.state.lookups),
+                EditorType::PartyRefEditor => app.state.party_ref_editor.redo(&app.state.lookups),
+                EditorType::PartyIniEditor => app.state.party_ini_editor.redo(&app.state.lookups),
+                EditorType::AllMapIniEditor => {
+                    app.state.all_map_ini_editor.redo(&app.state.lookups)
+                }
+                EditorType::DrawItemEditor => app.state.draw_item_editor.redo(&app.state.lookups),
+                EditorType::EventIniEditor => app.state.event_ini_editor.redo(&app.state.lookups),
+                EditorType::EventNpcRefEditor => {
+                    app.state.event_npc_ref_editor.redo(&app.state.lookups)
+                }
+                EditorType::ExtraIniEditor => app.state.extra_ini_editor.redo(&app.state.lookups),
+                EditorType::MapIniEditor => app.state.map_ini_editor.redo(&app.state.lookups),
+                EditorType::MessageScrEditor => {
+                    app.state.message_scr_editor.redo(&app.state.lookups)
+                }
+                EditorType::QuestScrEditor => app.state.quest_scr_editor.redo(&app.state.lookups),
+                EditorType::WaveIniEditor => app.state.wave_ini_editor.redo(&app.state.lookups),
+                EditorType::ChDataEditor => app.state.chdata_editor.redo(&app.state.lookups),
+                EditorType::PartyLevelDbEditor => app
+                    .state
+                    .party_level_db_level_editor
+                    .redo(&app.state.lookups),
                 EditorType::StoreEditor => app.state.store_editor.redo(),
                 EditorType::MonsterRefEditor => app
                     .state
@@ -248,7 +270,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -258,7 +280,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -268,7 +290,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -281,7 +303,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                                 .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }
@@ -294,7 +316,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                                 .get_mut(&tab_id),
                         ) {
                             if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog);
+                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
                             }
                         }
                     }

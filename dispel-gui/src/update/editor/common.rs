@@ -50,7 +50,8 @@ macro_rules! handle_spreadsheet_messages_inner {
                 if $ss.active {
                     if let Some(catalog) = $catalog_provider() {
                         $ss.init_filter(catalog);
-                        $ss.compute_all_caches(catalog);
+                        let lookups = &$app.state.lookups;
+                        $ss.compute_all_caches(catalog, lookups);
                         $ss.init_pane_state();
                     }
                 }
@@ -340,7 +341,8 @@ macro_rules! handle_spreadsheet_messages {
             compute_caches: {
                 if let Some(c) = &$app.state.$field.state.catalog {
                     let c = c.clone();
-                    $app.state.$field.spreadsheet.compute_all_caches(&c);
+                    let lookups = &$app.state.lookups;
+                    $app.state.$field.spreadsheet.compute_all_caches(&c, lookups);
                 }
             },
             toggle_inspector_extra: {
@@ -386,7 +388,8 @@ macro_rules! handle_spreadsheet_messages_tab {
                             if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
                                 if let Some(c) = &ed2.editor.catalog {
                                     let c = c.clone();
-                                    ss2.compute_all_caches(&c);
+                                    let lookups = &$app.state.lookups;
+                                    ss2.compute_all_caches(&c, lookups);
                                 }
                             }
                         },

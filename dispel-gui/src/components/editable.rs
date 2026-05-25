@@ -27,6 +27,20 @@ pub enum FieldKind {
     /// Dropdown populated from a lookup map at runtime.
     /// The string is a key into the lookups map passed to the view.
     Lookup(&'static str),
+    /// Composite item-type + item-id dropdown.
+    ///
+    /// Renders as a cascading picker: select item type, then select item ID.
+    /// Values are stored in the lookup map as `(composite_key, display_name)` where
+    /// `composite_key = "{type_byte}:{item_id}"`.
+    ///
+    /// The type field is this descriptor's own `name`; `id_field` is the companion
+    /// field holding the numeric item ID.
+    CompositeItem {
+        /// Key into the lookups map (`HashMap<String, Vec<(String, String)>>`).
+        lookup_key: &'static str,
+        /// Name of the companion field holding the numeric item ID (e.g. `"item_id"`).
+        id_field: &'static str,
+    },
 }
 
 /// A record type that can be edited in the GUI through a generic editor.
@@ -300,6 +314,12 @@ macro_rules! __er_kind {
     (OptInt, []) => { $crate::components::editable::FieldKind::Integer };
     (HexString, []) => { $crate::components::editable::FieldKind::String };
     (Lookup, [$key:expr]) => { $crate::components::editable::FieldKind::Lookup($key) };
+    (CompositeItem, [$lookup:expr, $id:ident]) => {
+        $crate::components::editable::FieldKind::CompositeItem {
+            lookup_key: $lookup,
+            id_field: stringify!($id),
+        }
+    };
     (Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
         $crate::components::editable::FieldKind::Enum { variants: &[$($v),*] }
     };
@@ -350,6 +370,9 @@ macro_rules! __er_get {
     };
     (Lookup, [$key:expr], $this:ident, $field:ident) => {
         $this.$field.to_string()
+    };
+    (CompositeItem, [$lookup:expr, $id:ident], $this:ident, $field:ident) => {
+        format!("{}:{}", u8::from($this.$field), $this.$id)
     };
     (Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
         $crate::components::editable::fmt_enum(&$this.$field)
@@ -415,6 +438,31 @@ macro_rules! __er_set {
     (Lookup, [$key:expr], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::set_int(&mut $this.$field, $value)
     };
+    (CompositeItem, [$lookup:expr, $id:ident], $this:ident, $field:ident, $value:ident) => {{
+        let parts: Vec<&str> = $value.split(':').collect();
+        if parts.len() == 2 {
+            // Composite key "type:id" — set both
+            if let Ok(type_val) = parts[0].parse::<u8>() {
+                if let Some(item_type) = dispel_core::ItemTypeId::from_u8(type_val) {
+                    $this.$field = item_type;
+                }
+            }
+            // Use set_int for forward-compatibility with any numeric field type
+            let _ = $crate::components::editable::set_int(&mut $this.$id, parts[1].to_string());
+            true
+        } else if parts.len() == 1 {
+            // Bare type value — set type, reset id to 0
+            if let Ok(type_val) = parts[0].parse::<u8>() {
+                if let Some(item_type) = dispel_core::ItemTypeId::from_u8(type_val) {
+                    $this.$field = item_type;
+                }
+            }
+            let _ = $crate::components::editable::set_int(&mut $this.$id, "0".to_string());
+            true
+        } else {
+            false
+        }
+    }};
     (Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::set_enum(&mut $this.$field, $value, <$ty>::from_name)
     };
@@ -477,6 +525,7 @@ pub trait EditableRecordGenerated {
 ///     { field = OptInt / "Label:" },
 ///     { field = HexString / "Label:" },
 ///     { field = Lookup("key") / "Label:" },
+///     { field = CompositeItem("items", item_id) / "Item:" },
 ///     { field = Enum(Type, ["v1", "v2"]) / "Label:" },
 ///     { field = Enum(Type, Shared(CONST)) / "Label:" },
 ///     { field = i32Enum(Type, ["v1", "v2"]) / "Label:" },

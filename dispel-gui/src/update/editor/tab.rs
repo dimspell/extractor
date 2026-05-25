@@ -110,6 +110,7 @@ pub fn load_catalog_sync<T: EditableRecord + Extractor>(
     path: PathBuf,
     tabbed_editor: &mut TabbedEditor<T>,
     tab_id: usize,
+    lookups: &std::collections::HashMap<String, Vec<(String, String)>>,
 ) {
     let mut editor_state = MultiFileEditorState::<T>::default();
     editor_state.select_file(path);
@@ -117,7 +118,7 @@ pub fn load_catalog_sync<T: EditableRecord + Extractor>(
     let mut ss = SpreadsheetState::new();
     if let Some(catalog) = editor_state.editor.catalog.as_ref() {
         ss.apply_filter(catalog);
-        ss.compute_all_caches(catalog);
+        ss.compute_all_caches(catalog, lookups);
         ss.init_pane_state();
     }
 

@@ -1,6 +1,6 @@
 use crate::components::editable::EditableRecord;
 use dispel_core::references::enums::{
-    BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
+    BooleanFlag, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
 };
 use dispel_core::NPC;
 
@@ -44,8 +44,7 @@ editable_record_fields!(NPC, {
     { unknown_16 = Integer / "Unknown 16:" },
     { unknown_17 = DispEnum(Unknown012, ["0", "1", "2"]) / "Unknown 17:" },
     { unknown_18 = Integer / "Unknown 18:" },
-    { unknown_item_id = Integer / "Unknown Item ID:" },
-    { unknown_item_type = Enum(ItemTypeId, ["Weapon", "Healing", "Edit", "Event", "Misc", "Other"]) / "Unknown Item Type:" },
+    { unknown_item_type = CompositeItem("items", unknown_item_id) / "Unknown Item:" },
     { unknown_19 = DispEnum(Unknown0110, ["0", "1", "10"]) / "Unknown 19:" },
     { dialog_id = Integer / "Dialog ID:" },
     { dialogue_face_sprite_id = Integer / "Face Sprite ID:" },

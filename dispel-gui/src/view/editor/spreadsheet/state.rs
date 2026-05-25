@@ -7,7 +7,7 @@
 
 use super::caches::{compute_caches, ComputedCaches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
-use crate::components::editable::EditableRecord;
+use crate::components::editable::{EditableRecord, FieldKind};
 use crate::components::textarea::TextAreaContent;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
@@ -582,8 +582,30 @@ impl SpreadsheetState {
     /// Synchronous — blocks the UI thread while running. Prefer
     /// `compute_caches` + `install_caches` from a `spawn_blocking` task for
     /// large catalogs.
-    pub fn compute_all_caches<R: EditableRecord>(&mut self, catalog: &[R]) {
-        self.install_caches(compute_caches(catalog));
+    pub fn compute_all_caches<R: EditableRecord>(
+        &mut self,
+        catalog: &[R],
+        lookups: &HashMap<String, Vec<(String, String)>>,
+    ) {
+        let mut data = compute_caches(catalog);
+        // Resolve CompositeItem raw keys to display names
+        let descriptors = R::field_descriptors();
+        for row in data.display_cache.iter_mut() {
+            for (col, val) in row.iter_mut().enumerate() {
+                if let Some(FieldKind::CompositeItem { lookup_key, .. }) =
+                    descriptors.get(col).map(|d| &d.kind)
+                {
+                    if let Some(entries) = lookups.get(*lookup_key) {
+                        if let Some((_, display_name)) = entries.iter().find(|(k, _)| k == val) {
+                            *val = display_name.clone();
+                        } else if val.starts_with("255:") {
+                            *val = "[-]".to_string();
+                        }
+                    }
+                }
+            }
+        }
+        self.install_caches(data);
     }
 
     /// Install pre-computed caches. The expensive work happens in

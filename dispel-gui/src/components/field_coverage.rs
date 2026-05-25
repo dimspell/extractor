@@ -224,8 +224,10 @@ check_record!(
     struct "ExtraRef",
     virtual_desc [],
     skip_fields [
-        // Positional / internal metadata
-        "number_in_file"
+        "number_in_file",
+        "required_item_id",
+        "required_item_id2",
+        "item_id"
     ]
 );
 
@@ -397,7 +399,10 @@ check_record!(
     struct "MonsterRef",
     virtual_desc [],
     skip_fields [
-        "index" // auto-incremented position in file, not user-editable
+        "index",
+        "loot1_item_id",
+        "loot2_item_id",
+        "loot3_item_id"
     ]
 );
 
@@ -417,7 +422,8 @@ check_record!(
     struct "NPC",
     virtual_desc [],
     skip_fields [
-        "index"        // auto-incremented position in file
+        "index",
+        "unknown_item_id"
     ]
 );
 

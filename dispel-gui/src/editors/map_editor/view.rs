@@ -1,7 +1,10 @@
 use super::canvas::{MapCanvasOverlaysLayer, MapCanvasTilesLayer};
 use super::message::{MapEditorMessage, MapLayer, MapViewMode, SelectedEntity};
 use super::state::{SpriteExportDialogState, SpriteExportStatus};
+use std::collections::HashMap;
+
 use crate::app::App;
+use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldKind};
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::{horizontal_rule, horizontal_space};
@@ -351,7 +354,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             let body: Element<'_, Message> = match state.view.view_mode {
                 MapViewMode::Map => match state.view.selected_entity {
                     Some(sel) => {
-                        let inspector = build_inspector(state, tab_id, sel);
+                        let inspector = build_inspector(state, tab_id, sel, &app.state.lookups);
                         row![canvas_with_overlay, inspector]
                             .width(Fill)
                             .height(Fill)
@@ -377,13 +380,14 @@ fn build_inspector<'a>(
     state: &'a crate::editors::map_editor::state::MapEditorState,
     tab_id: usize,
     sel: SelectedEntity,
+    lookups: &'a HashMap<String, Vec<(String, String)>>,
 ) -> Element<'a, Message> {
     let close_msg = Message::map_editor(MapEditorMessage::Deselect(tab_id));
 
     let (title, width, body): (&'static str, f32, Element<'a, Message>) = match sel {
         SelectedEntity::Monster(i) => {
             let body = if let Some(record) = state.data.monsters.get(i) {
-                build_record_fields::<MonsterRef>(record, tab_id, sel)
+                build_record_fields::<MonsterRef>(record, tab_id, sel, lookups)
             } else {
                 text("Monster not found").size(12).into()
             };
@@ -391,7 +395,7 @@ fn build_inspector<'a>(
         }
         SelectedEntity::Npc(i) => {
             let body = if let Some(record) = state.data.npcs.get(i) {
-                build_record_fields::<NPC>(record, tab_id, sel)
+                build_record_fields::<NPC>(record, tab_id, sel, lookups)
             } else {
                 text("NPC not found").size(12).into()
             };
@@ -399,7 +403,7 @@ fn build_inspector<'a>(
         }
         SelectedEntity::Extra(i) => {
             let body = if let Some(record) = state.data.extra_refs.get(i) {
-                build_record_fields::<ExtraRef>(record, tab_id, sel)
+                build_record_fields::<ExtraRef>(record, tab_id, sel, lookups)
             } else {
                 text("Object not found").size(12).into()
             };
@@ -440,12 +444,24 @@ fn build_record_fields<'a, R: EditableRecord>(
     record: &R,
     tab_id: usize,
     sel: SelectedEntity,
+    lookups: &'a HashMap<String, Vec<(String, String)>>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
+    let composite_id_fields: Vec<&'static str> = R::field_descriptors()
+        .iter()
+        .filter_map(|d| match &d.kind {
+            FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
+            _ => None,
+        })
+        .collect();
+
     for desc in R::field_descriptors() {
+        if composite_id_fields.contains(&desc.name) {
+            continue;
+        }
         let value = record.get_field(desc.name);
         col = col.push(inspector_field_row(
-            desc.label, desc.name, &desc.kind, &value, tab_id, sel,
+            desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
         ));
     }
     scrollable(col).spacing(6).into()
@@ -463,6 +479,7 @@ fn inspector_field_row<'a>(
     value: &str,
     tab_id: usize,
     sel: SelectedEntity,
+    lookups: &'a HashMap<String, Vec<(String, String)>>,
 ) -> Element<'a, Message> {
     const LABEL_W: f32 = 140.0;
     match kind {
@@ -518,6 +535,21 @@ fn inspector_field_row<'a>(
             .spacing(6)
             .align_y(iced::Alignment::Center)
             .into()
+        }
+
+        FieldKind::CompositeItem {
+            lookup_key,
+            id_field,
+        } => {
+            let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
+            composite_item_picker(label, value, id_field, entries, move |v| {
+                Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                    tab_id,
+                    sel,
+                    name.to_string(),
+                    v,
+                ))
+            })
         }
     }
 }

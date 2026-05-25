@@ -41,11 +41,11 @@ dispel-extractor/
 ### Item Type Enum
 | Value | Type | Database |
 |-------|------|----------|
-| 0/1 | Weapon/Armor | WeaponItem.db |
+| 1 | Weapon | WeaponItem.db |
 | 2 | Heal | HealItem.db |
-| 3 | Misc | MiscItem.db |
-| 4 | Edit | EditItem.db |
-| 5 | Event | EventItem.db |
+| 3 | Edit | EditItem.db |
+| 4 | Event | EventItem.db |
+| 5 | Misc | MiscItem.db |
 
 ### File Dependencies
 - **AllMap.ini** → Map.ini (per-map config) → Map.map (geometry, sprites, events)

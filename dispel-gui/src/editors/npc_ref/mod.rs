@@ -31,7 +31,16 @@ pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<Message> {
 
     match msg {
         NpcRefEditorMessage::LoadCatalog(path) => {
-            tab::load_catalog_sync(path, &mut app.state.npc_ref_editor, tab_id);
+            crate::components::item_catalog::ensure_item_lookups(
+                &app.state.shared_game_path,
+                &mut app.state.lookups,
+            );
+            tab::load_catalog_sync(
+                path,
+                &mut app.state.npc_ref_editor,
+                tab_id,
+                &app.state.lookups,
+            );
             if !app.state.lookups.contains_key("NPC") {
                 let game_path = app.state.shared_game_path.clone();
                 return Task::perform(

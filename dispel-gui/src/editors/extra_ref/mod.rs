@@ -30,7 +30,16 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
 
     match msg {
         ExtraRefEditorMessage::LoadCatalog(path) => {
-            tab::load_catalog_sync(path.clone(), &mut app.state.extra_ref_editor, tab_id);
+            crate::components::item_catalog::ensure_item_lookups(
+                &app.state.shared_game_path,
+                &mut app.state.lookups,
+            );
+            tab::load_catalog_sync(
+                path.clone(),
+                &mut app.state.extra_ref_editor,
+                tab_id,
+                &app.state.lookups,
+            );
             Task::perform(
                 async move {
                     <ExtraRef as Extractor>::read_file(&path)
@@ -53,7 +62,8 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
                         editor.editor.catalog = Some(catalog.clone());
                         if let Some(ss) = app.state.extra_ref_editor.spreadsheets.get_mut(&id) {
                             ss.apply_filter(&catalog);
-                            ss.compute_all_caches(&catalog);
+                            let lookups = &app.state.lookups;
+                            ss.compute_all_caches(&catalog, lookups);
                             ss.init_pane_state();
                         }
                     }

@@ -1,14 +1,10 @@
-use crate::components::editable::{EditableRecord, FieldKind};
+use crate::components::editable::EditableRecord;
 use dispel_core::{
-    ExtraObjectType, ExtraRef, ItemTypeId, SmallRange0to3, Special9999Flag, SpecialPatternFlag, BooleanFlag,
+    BooleanFlag, ExtraObjectType, ExtraRef, SmallRange0to3, Special9999Flag, SpecialPatternFlag,
     VisibilityType,
 };
 
 use crate::editable_record_fields;
-
-const ITEM_TYPES: FieldKind = FieldKind::Enum {
-    variants: &["Weapon", "Healing", "Edit", "Event", "Misc", "Other"],
-};
 
 editable_record_fields!(ExtraRef, {
     { id = Integer / "ID:" },
@@ -22,19 +18,16 @@ editable_record_fields!(ExtraRef, {
     { unknown2 = HexString / "Unknown 2:" },
     { unknown3 = Integer / "Unknown 3:" },
     { closed = DispEnum(BooleanFlag, ["True", "False"]) / "Closed:" },
-    { required_item_id = Integer / "Required Item:" },
-    { required_item_type_id = Enum(ItemTypeId, Shared(ITEM_TYPES)) / "Required Type:" },
+    { required_item_type_id = CompositeItem("items", required_item_id) / "Required Item:" },
     { unknown4 = Integer / "Unknown 4:" },
-    { required_item_id2 = Integer / "Required Item 2:" },
-    { required_item_type_id2 = Enum(ItemTypeId, Shared(ITEM_TYPES)) / "Required Type 2:" },
+    { required_item_type_id2 = CompositeItem("items", required_item_id2) / "Required Item 2:" },
     { unknown5 = Integer / "Unknown 5:" },
     { unknown6 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 6:" },
     { unknown7 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 7:" },
     { unknown8 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 8:" },
     { unknown9 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 9:" },
     { gold_amount = Integer / "Gold:" },
-    { item_id = Integer / "Item ID:" },
-    { item_type_id = Enum(ItemTypeId, Shared(ITEM_TYPES)) / "Item Type:" },
+    { item_type_id = CompositeItem("items", item_id) / "Item:" },
     { unknown10 = Integer / "Unknown 10:" },
     { item_count = Integer / "Item Count:" },
     { unknown11 = DispEnum(SpecialPatternFlag, ["0", "28", "84", "258", "9999"]) / "Unknown 11:" },

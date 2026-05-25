@@ -89,7 +89,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             app.state
                 .party_level_db_level_editor
                 .spreadsheet
-                .compute_all_caches(&records);
+                .compute_all_caches(&records, &app.state.lookups);
             app.state
                 .party_level_db_level_editor
                 .spreadsheet
@@ -151,7 +151,7 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 app.state
                     .party_level_db_level_editor
                     .spreadsheet
-                    .compute_all_caches(&catalog);
+                    .compute_all_caches(&catalog, &app.state.lookups);
             }
 
             // Observe for recording. PartyLevelDbPatcher packs the address

@@ -1,11 +1,7 @@
-use crate::components::editable::{EditableRecord, FieldKind};
-use dispel_core::{ItemTypeId, MonsterRef, BooleanFlag};
+use crate::components::editable::EditableRecord;
+use dispel_core::{BooleanFlag, MonsterRef};
 
 use crate::editable_record_fields;
-
-const LOOT_TYPES: FieldKind = FieldKind::Enum {
-    variants: &["Weapon", "Healing", "Edit", "Event", "Misc", "Other"],
-};
 
 editable_record_fields!(MonsterRef, {
     { file_id = Integer / "File ID:" },
@@ -17,16 +13,13 @@ editable_record_fields!(MonsterRef, {
     { padding3 = Integer / "Flag 3 (0):" },
     { padding4 = Integer / "Flag 4:" },
     { event_id = Integer / "Event ID:" },
-    { loot1_item_id = Integer / "Loot 1 Item ID:" },
-    { loot1_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 1 Type:" },
+    { loot1_item_type = CompositeItem("items", loot1_item_id) / "Loot 1:" },
     { padding6 = Integer / "Padding 6:" },
     { padding7 = Integer / "Padding 7:" },
-    { loot2_item_id = Integer / "Loot 2 Item ID:" },
-    { loot2_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 2 Type:" },
+    { loot2_item_type = CompositeItem("items", loot2_item_id) / "Loot 2:" },
     { padding8 = Integer / "Padding 8:" },
     { padding9 = Integer / "Padding 9:" },
-    { loot3_item_id = Integer / "Loot 3 Item ID:" },
-    { loot3_item_type = Enum(ItemTypeId, Shared(LOOT_TYPES)) / "Loot 3 Type:" },
+    { loot3_item_type = CompositeItem("items", loot3_item_id) / "Loot 3:" },
     { padding10 = Integer / "Padding 10:" },
     { padding11 = Integer / "Padding 11:" },
     { padding12 = Integer / "Padding 12:" },
