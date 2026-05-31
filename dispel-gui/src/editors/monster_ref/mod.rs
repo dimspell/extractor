@@ -72,6 +72,24 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<Message> {
             match result {
                 Ok(names) => {
                     app.state.lookups.insert("monster_names".to_string(), names);
+                    // Rebuild display caches for all open tabs now that lookups
+                    // are available, so the spreadsheet shows resolved names.
+                    let tab_ids: Vec<usize> = app
+                        .state
+                        .monster_ref_editor
+                        .spreadsheets
+                        .keys()
+                        .copied()
+                        .collect();
+                    for tab_id in tab_ids {
+                        let ss = app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id);
+                        let ed = app.state.monster_ref_editor.editors.get(&tab_id);
+                        if let (Some(ss), Some(ed)) = (ss, ed) {
+                            if let Some(catalog) = ed.editor.catalog.as_ref() {
+                                ss.compute_all_caches(catalog, &app.state.lookups);
+                            }
+                        }
+                    }
                 }
                 Err(e) => {
                     eprintln!("Failed to load monster names: {}", e);
