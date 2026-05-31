@@ -20,6 +20,13 @@ const STATUS_DISMISS_SECS: u64 = 3;
 pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
     match message {
         MapEditorMessage::Open(tab_id, path) => {
+            // Ensure item lookups are loaded for composite-item pickers in the
+            // entity-inspector panels (MonsterRef, NPC, ExtraRef).
+            crate::components::item_catalog::ensure_item_lookups(
+                &app.state.shared_game_path,
+                &mut app.state.lookups,
+            );
+
             let state = app.state.map_editors.entry(tab_id).or_default();
             state.data.map_path = Some(path.clone());
             state.data.loading_state = LoadingState::Loading;

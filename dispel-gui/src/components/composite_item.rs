@@ -27,7 +27,7 @@ pub fn composite_item_picker(
         .and_then(|s| s.parse().ok())
         .unwrap_or(255);
     let current_type = ItemTypeId::from_u8(current_type_byte).unwrap_or(ItemTypeId::Other);
-    let current_id = value.split(':').nth(1).unwrap_or("0");
+    let current_id = value.split(':').nth(1).unwrap_or("0").to_string();
 
     let on_change: Rc<dyn Fn(String) -> Message> = Rc::new(on_change);
 
@@ -95,6 +95,7 @@ pub fn composite_item_picker(
 
     let type_picker: Element<'static, Message> = {
         let oc = on_change.clone();
+        let current_id = current_id.clone();
         pick_list(
             type_labels,
             Some(current_type_label),
@@ -105,7 +106,10 @@ pub fn composite_item_picker(
                     .and_then(|i| item_types.get(i))
                     .map(|t| u8::from(*t))
                     .unwrap_or(255);
-                oc(type_byte.to_string())
+                // Preserve the item ID when switching type so the user doesn't
+                // lose their selection. The setter macro receives the full
+                // composite key and updates both fields.
+                oc(format!("{}:{}", type_byte, current_id))
             },
         )
         .width(Length::Fill)

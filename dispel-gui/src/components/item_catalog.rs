@@ -9,9 +9,7 @@ use dispel_core::{EditItem, EventItem, Extractor, HealItem, ItemTypeId, MiscItem
 pub fn ensure_item_lookups(game_path: &str, lookups: &mut HashMap<String, Vec<(String, String)>>) {
     if !game_path.is_empty() && !lookups.contains_key("items") {
         let path = PathBuf::from(game_path);
-        if let Err(e) = populate_item_lookups(&path, lookups) {
-            eprintln!("Failed to load item catalog: {}", e);
-        }
+        populate_item_lookups(&path, lookups);
     }
 }
 
@@ -22,85 +20,97 @@ pub fn ensure_item_lookups(game_path: &str, lookups: &mut HashMap<String, Vec<(S
 /// and `display_name = "[Type] ItemName"`.
 ///
 /// Also adds `"255:15"` → `"[-]"` for the "unset" sentinel value.
+///
+/// Missing DB files are silently skipped — each one is loaded independently.
 pub fn populate_item_lookups(
     game_path: &Path,
     lookups: &mut HashMap<String, Vec<(String, String)>>,
-) -> Result<(), String> {
+) {
     let char_path = game_path.join("CharacterInGame");
 
-    let load_db = |file_name: &str| -> Result<std::path::PathBuf, String> {
+    let find_db = |file_name: &str| -> Option<std::path::PathBuf> {
         let exact = char_path.join(file_name);
         if exact.exists() {
-            return Ok(exact);
+            return Some(exact);
         }
-        // macOS case-insensitive fallback
-        if let Ok(entries) = std::fs::read_dir(&char_path) {
-            let target = file_name.to_lowercase();
-            for entry in entries.filter_map(Result::ok) {
-                if let Some(name) = entry.file_name().to_str() {
-                    if name.to_lowercase() == target {
-                        return Ok(entry.path());
+        // macOS case-insensitive fallback (skipped on case-sensitive systems)
+        if cfg!(target_os = "macos") {
+            if let Ok(entries) = std::fs::read_dir(&char_path) {
+                let target = file_name.to_lowercase();
+                for entry in entries.filter_map(Result::ok) {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if name.to_lowercase() == target {
+                            return Some(entry.path());
+                        }
                     }
                 }
             }
         }
-        Err(format!(
-            "Missing file: {} in {}",
-            file_name,
-            char_path.display()
-        ))
+        None
     };
 
     let mut entries: Vec<(String, String)> = Vec::new();
 
+    // Each DB is loaded independently — a missing/corrupt file only skips
+    // that item type instead of failing the entire catalog.
+
     // Weapon (type 1)
-    if let Ok(items) = WeaponItem::read_file(&load_db("weaponItem.db")?).map_err(|e| e.to_string())
-    {
-        for item in items.iter() {
-            entries.push((
-                format!("{}:{}", ItemTypeId::Weapon.value(), item.id),
-                format!("[Weapon] {}", item.name),
-            ));
+    if let Some(path) = find_db("weaponItem.db") {
+        if let Ok(items) = WeaponItem::read_file(&path) {
+            for item in items.iter() {
+                entries.push((
+                    format!("{}:{}", ItemTypeId::Weapon.value(), item.id),
+                    format!("[Weapon] {}", item.name),
+                ));
+            }
         }
     }
 
     // Healing (type 2)
-    if let Ok(items) = HealItem::read_file(&load_db("HealItem.db")?).map_err(|e| e.to_string()) {
-        for item in items.iter() {
-            entries.push((
-                format!("{}:{}", ItemTypeId::Healing.value(), item.id),
-                format!("[Healing] {}", item.name),
-            ));
+    if let Some(path) = find_db("HealItem.db") {
+        if let Ok(items) = HealItem::read_file(&path) {
+            for item in items.iter() {
+                entries.push((
+                    format!("{}:{}", ItemTypeId::Healing.value(), item.id),
+                    format!("[Healing] {}", item.name),
+                ));
+            }
         }
     }
 
     // Edit (type 3)
-    if let Ok(items) = EditItem::read_file(&load_db("EditItem.db")?).map_err(|e| e.to_string()) {
-        for item in items.iter() {
-            entries.push((
-                format!("{}:{}", ItemTypeId::Edit.value(), item.index),
-                format!("[Edit] {}", item.name),
-            ));
+    if let Some(path) = find_db("EditItem.db") {
+        if let Ok(items) = EditItem::read_file(&path) {
+            for item in items.iter() {
+                entries.push((
+                    format!("{}:{}", ItemTypeId::Edit.value(), item.index),
+                    format!("[Edit] {}", item.name),
+                ));
+            }
         }
     }
 
     // Event (type 4)
-    if let Ok(items) = EventItem::read_file(&load_db("EventItem.db")?).map_err(|e| e.to_string()) {
-        for item in items.iter() {
-            entries.push((
-                format!("{}:{}", ItemTypeId::Event.value(), item.id),
-                format!("[Event] {}", item.name),
-            ));
+    if let Some(path) = find_db("EventItem.db") {
+        if let Ok(items) = EventItem::read_file(&path) {
+            for item in items.iter() {
+                entries.push((
+                    format!("{}:{}", ItemTypeId::Event.value(), item.id),
+                    format!("[Event] {}", item.name),
+                ));
+            }
         }
     }
 
     // Misc (type 5)
-    if let Ok(items) = MiscItem::read_file(&load_db("MiscItem.db")?).map_err(|e| e.to_string()) {
-        for item in items.iter() {
-            entries.push((
-                format!("{}:{}", ItemTypeId::Misc.value(), item.id),
-                format!("[Misc] {}", item.name),
-            ));
+    if let Some(path) = find_db("MiscItem.db") {
+        if let Ok(items) = MiscItem::read_file(&path) {
+            for item in items.iter() {
+                entries.push((
+                    format!("{}:{}", ItemTypeId::Misc.value(), item.id),
+                    format!("[Misc] {}", item.name),
+                ));
+            }
         }
     }
 
@@ -134,5 +144,4 @@ pub fn populate_item_lookups(
     });
 
     lookups.insert("items".to_string(), entries);
-    Ok(())
 }

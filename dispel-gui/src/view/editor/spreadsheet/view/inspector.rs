@@ -1,7 +1,7 @@
 //! Right-hand inspector pane — one input widget per field of the
 //! currently-selected record.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use iced::widget::{
     button, column, container, pick_list, row, scrollable, text, text_input, Column,
@@ -45,7 +45,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
     // Collect CompositeItem id_field names so we can skip them.
-    let composite_id_fields: Vec<&'static str> = descriptors
+    let composite_id_fields: HashSet<&'static str> = descriptors
         .iter()
         .filter_map(|d| match &d.kind {
             FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
@@ -135,13 +135,15 @@ fn build_inspector_field<'a>(
                 let options_vec: Vec<String> =
                     options.iter().map(|(_, name)| name.clone()).collect();
 
-                // Clone for the closure — small, one-time cost
-                let options_owned = options.clone();
+                // Build name→id lookup for the closure
+                let name_to_id: HashMap<String, String> = options
+                    .iter()
+                    .map(|(id, name)| (name.clone(), id.clone()))
+                    .collect();
                 pick_list(options_vec, selected, move |selected_name| {
-                    let selected_id = options_owned
-                        .iter()
-                        .find(|(_, name)| name == &selected_name)
-                        .map(|(id, _)| id.clone())
+                    let selected_id = name_to_id
+                        .get(selected_name.as_str())
+                        .cloned()
                         .unwrap_or_default();
                     spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                         orig_idx,

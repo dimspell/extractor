@@ -447,8 +447,10 @@ macro_rules! __er_set {
                     $this.$field = item_type;
                 }
             }
-            // Use set_int for forward-compatibility with any numeric field type
-            let _ = $crate::components::editable::set_int(&mut $this.$id, parts[1].to_string());
+            // Parse item id; reset to 0 if unparseable
+            if !$crate::components::editable::set_int(&mut $this.$id, parts[1].to_string()) {
+                $this.$id = Default::default();
+            }
             true
         } else if parts.len() == 1 {
             // Bare type value — set type, reset id to 0
@@ -457,7 +459,7 @@ macro_rules! __er_set {
                     $this.$field = item_type;
                 }
             }
-            let _ = $crate::components::editable::set_int(&mut $this.$id, "0".to_string());
+            $this.$id = Default::default();
             true
         } else {
             false

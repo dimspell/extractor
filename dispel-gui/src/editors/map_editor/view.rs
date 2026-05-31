@@ -3,6 +3,8 @@ use super::message::{MapEditorMessage, MapLayer, MapViewMode, SelectedEntity};
 use super::state::{SpriteExportDialogState, SpriteExportStatus};
 use std::collections::HashMap;
 
+use std::collections::HashSet;
+
 use crate::app::App;
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldKind};
@@ -447,7 +449,7 @@ fn build_record_fields<'a, R: EditableRecord>(
     lookups: &'a HashMap<String, Vec<(String, String)>>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
-    let composite_id_fields: Vec<&'static str> = R::field_descriptors()
+    let composite_id_fields: HashSet<&'static str> = R::field_descriptors()
         .iter()
         .filter_map(|d| match &d.kind {
             FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
