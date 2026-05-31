@@ -488,8 +488,7 @@ fn inspector_field_row<'a>(
         FieldKind::String
         | FieldKind::TextArea
         | FieldKind::Integer
-        | FieldKind::Boolean
-        | FieldKind::Lookup(_) => row![
+        | FieldKind::Boolean => row![
             text(label)
                 .size(11)
                 .width(LABEL_W)
@@ -509,6 +508,63 @@ fn inspector_field_row<'a>(
         .spacing(6)
         .align_y(iced::Alignment::Center)
         .into(),
+
+        FieldKind::Lookup(lookup_key) => {
+            // Clone entries so the move closures own their data.
+            let entries: Vec<(String, String)> = lookups
+                .get(*lookup_key)
+                .cloned()
+                .unwrap_or_default();
+            let options: Vec<String> = entries.iter().map(|(_, d)| d.clone()).collect();
+            let selected = entries
+                .iter()
+                .find(|(id, _)| id == value)
+                .map(|(_, display)| display.clone());
+
+            let field_widget: Element<'a, Message> = if !options.is_empty() {
+                pick_list(options, selected, move |v: String| {
+                    let id = entries
+                        .iter()
+                        .find(|(_, d)| d == &v)
+                        .map(|(id, _)| id.clone())
+                        .unwrap_or_default();
+                    Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                        tab_id,
+                        sel,
+                        name.to_string(),
+                        id,
+                    ))
+                })
+                .width(Fill)
+                .padding(4)
+                .text_size(11)
+                .into()
+            } else {
+                text_input("", value)
+                    .on_input(move |v| {
+                        Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                            tab_id,
+                            sel,
+                            name.to_string(),
+                            v,
+                        ))
+                    })
+                    .padding(4)
+                    .size(11)
+                    .into()
+            };
+
+            row![
+                text(label)
+                    .size(11)
+                    .width(LABEL_W)
+                    .style(style::subtle_text),
+                field_widget,
+            ]
+            .spacing(6)
+            .align_y(iced::Alignment::Center)
+            .into()
+        }
 
         FieldKind::Enum { variants } => {
             let options: Vec<&'static str> = variants.to_vec();

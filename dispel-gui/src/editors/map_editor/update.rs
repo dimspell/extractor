@@ -26,6 +26,21 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 &app.state.shared_game_path,
                 &mut app.state.lookups,
             );
+            // Ensure monster-name lookups are loaded for the `mon_id` field's
+            // pick_list in the Monster inspector.
+            if !app.state.shared_game_path.is_empty()
+                && !app.state.lookups.contains_key("monster_names")
+            {
+                if let Ok(monsters) = dispel_core::references::monster_ini::MonsterIni::read_file(
+                    &std::path::PathBuf::from(&app.state.shared_game_path).join("Monster.ini"),
+                ) {
+                    let names: Vec<(String, String)> = monsters
+                        .iter()
+                        .map(|m| (m.id.to_string(), m.name.clone().unwrap_or_default()))
+                        .collect();
+                    app.state.lookups.insert("monster_names".to_string(), names);
+                }
+            }
 
             let state = app.state.map_editors.entry(tab_id).or_default();
             state.data.map_path = Some(path.clone());
