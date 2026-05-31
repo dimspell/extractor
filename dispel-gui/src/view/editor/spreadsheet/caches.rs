@@ -8,8 +8,10 @@
 //! * [`SpreadsheetState::install_caches`](super::SpreadsheetState::install_caches)
 //!   is the cheap UI-thread mutation that swaps the result in.
 
-use crate::components::editable::EditableRecord;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+
+use crate::components::editable::{EditableRecord, FieldKind};
 
 /// Pre-computed display data for an entire catalog.
 ///
@@ -55,5 +57,31 @@ pub fn compute_caches<R: EditableRecord>(catalog: &[R]) -> ComputedCaches {
         row_hashes,
         display_cache,
         validation_cache,
+    }
+}
+
+/// Resolve `CompositeItem` raw keys (e.g. `"1:42"`) to display names
+/// (e.g. `"[Weapon] Sword"`) in-place on pre-computed caches.
+///
+/// Safe to call from a background thread — all data is owned.
+pub fn resolve_composite_displays<R: EditableRecord>(
+    data: &mut ComputedCaches,
+    lookups: &HashMap<String, Vec<(String, String)>>,
+) {
+    let descriptors = R::field_descriptors();
+    for row in data.display_cache.iter_mut() {
+        for (col, val) in row.iter_mut().enumerate() {
+            if let Some(FieldKind::CompositeItem { lookup_key, .. }) =
+                descriptors.get(col).map(|d| &d.kind)
+            {
+                if let Some(entries) = lookups.get(*lookup_key) {
+                    if let Some((_, display_name)) = entries.iter().find(|(k, _)| k == val) {
+                        *val = display_name.clone();
+                    } else if val.starts_with("255:") {
+                        *val = "[-]".to_string();
+                    }
+                }
+            }
+        }
     }
 }

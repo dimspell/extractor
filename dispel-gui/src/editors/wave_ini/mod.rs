@@ -84,6 +84,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                 StandardEditorMessage::FieldChanged(index, field.clone(), value),
                 &mut app.state.wave_ini_editor,
                 &app.state.shared_game_path.clone(),
+                &app.state.lookups,
                 "Wave.ini",
                 wrap_std,
             );
@@ -167,6 +168,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             into_std(msg),
             &mut app.state.wave_ini_editor,
             &app.state.shared_game_path.clone(),
+            &app.state.lookups,
             "Wave.ini",
             wrap_std,
         ),

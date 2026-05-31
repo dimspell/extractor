@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::components::editable::EditableRecord;
 use crate::components::loading_state::LoadingState;
 use crate::components::standard::message::StandardEditorMessage;
@@ -17,6 +19,7 @@ pub fn handle<T, F>(
     msg: StandardEditorMessage<T>,
     bundle: &mut StandardEditor<T>,
     game_path: &str,
+    lookups: &HashMap<String, Vec<(String, String)>>,
     file_path: &'static str,
     wrap: F,
 ) -> Task<Message>
@@ -56,11 +59,19 @@ where
                     // spreadsheet keeps `is_loading = true` until the result
                     // arrives so the UI shows the progress indicator.
                     let cat_for_caches = catalog;
+                    let lookups_for_caches = lookups.clone();
                     let wrap_caches = wrap.clone();
                     Task::perform(
                         async move {
                             tokio::task::spawn_blocking(move || {
-                                crate::view::editor::compute_caches(&cat_for_caches)
+                                let mut data =
+                                    crate::view::editor::compute_caches(&cat_for_caches);
+                                crate::view::editor::spreadsheet::caches::
+                                    resolve_composite_displays::<T>(
+                                        &mut data,
+                                        &lookups_for_caches,
+                                    );
+                                data
                             })
                             .await
                             .unwrap_or_default()

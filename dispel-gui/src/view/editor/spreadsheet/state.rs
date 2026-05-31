@@ -7,7 +7,7 @@
 
 use super::caches::{compute_caches, ComputedCaches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
-use crate::components::editable::{EditableRecord, FieldKind};
+use crate::components::editable::EditableRecord;
 use crate::components::textarea::TextAreaContent;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
@@ -588,23 +588,7 @@ impl SpreadsheetState {
         lookups: &HashMap<String, Vec<(String, String)>>,
     ) {
         let mut data = compute_caches(catalog);
-        // Resolve CompositeItem raw keys to display names
-        let descriptors = R::field_descriptors();
-        for row in data.display_cache.iter_mut() {
-            for (col, val) in row.iter_mut().enumerate() {
-                if let Some(FieldKind::CompositeItem { lookup_key, .. }) =
-                    descriptors.get(col).map(|d| &d.kind)
-                {
-                    if let Some(entries) = lookups.get(*lookup_key) {
-                        if let Some((_, display_name)) = entries.iter().find(|(k, _)| k == val) {
-                            *val = display_name.clone();
-                        } else if val.starts_with("255:") {
-                            *val = "[-]".to_string();
-                        }
-                    }
-                }
-            }
-        }
+        super::caches::resolve_composite_displays::<R>(&mut data, lookups);
         self.install_caches(data);
     }
 

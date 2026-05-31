@@ -79,6 +79,7 @@ macro_rules! define_standard_editor {
                             [<$Name EditorMessage>]::FieldChanged(idx, field.clone(), value),
                             &mut app.state.$field,
                             &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
                             $file,
                             $crate::message::Message::$name,
                         );
@@ -104,6 +105,7 @@ macro_rules! define_standard_editor {
                             msg,
                             &mut app.state.$field,
                             &app.state.shared_game_path.clone(),
+                            &app.state.lookups,
                             $file,
                             $crate::message::Message::$name,
                         )
@@ -112,6 +114,7 @@ macro_rules! define_standard_editor {
                         msg,
                         &mut app.state.$field,
                         &app.state.shared_game_path.clone(),
+                        &app.state.lookups,
                         $file,
                         $crate::message::Message::$name,
                     ),
