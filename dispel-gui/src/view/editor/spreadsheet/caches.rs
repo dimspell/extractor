@@ -60,6 +60,28 @@ pub fn compute_caches<R: EditableRecord>(catalog: &[R]) -> ComputedCaches {
     }
 }
 
+/// Resolve `Lookup` field values (e.g. raw id `"1"`) to mapped display names
+/// using the pattern `"Name (id)"` — e.g. `"Goblin (1)"`.
+///
+/// Safe to call from a background thread — all data is owned.
+pub fn resolve_lookup_displays<R: EditableRecord>(
+    data: &mut ComputedCaches,
+    lookups: &HashMap<String, Vec<(String, String)>>,
+) {
+    let descriptors = R::field_descriptors();
+    for row in data.display_cache.iter_mut() {
+        for (col, val) in row.iter_mut().enumerate() {
+            if let Some(FieldKind::Lookup(lookup_key)) = descriptors.get(col).map(|d| &d.kind) {
+                if let Some(entries) = lookups.get(*lookup_key) {
+                    if let Some((_, name)) = entries.iter().find(|(k, _)| k == val) {
+                        *val = format!("{} ({})", name, val);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Resolve `CompositeItem` raw keys (e.g. `"1:42"`) to display names
 /// (e.g. `"[Weapon] Sword"`) in-place on pre-computed caches.
 ///

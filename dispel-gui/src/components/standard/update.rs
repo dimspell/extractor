@@ -71,6 +71,11 @@ where
                                         &mut data,
                                         &lookups_for_caches,
                                     );
+                                crate::view::editor::spreadsheet::caches::
+                                    resolve_lookup_displays::<T>(
+                                        &mut data,
+                                        &lookups_for_caches,
+                                    );
                                 data
                             })
                             .await

@@ -589,6 +589,7 @@ impl SpreadsheetState {
     ) {
         let mut data = compute_caches(catalog);
         super::caches::resolve_composite_displays::<R>(&mut data, lookups);
+        super::caches::resolve_lookup_displays::<R>(&mut data, lookups);
         self.install_caches(data);
     }
 

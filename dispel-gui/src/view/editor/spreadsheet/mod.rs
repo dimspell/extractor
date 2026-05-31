@@ -27,7 +27,7 @@ pub mod message;
 pub mod state;
 pub mod view;
 
-pub use caches::{compute_caches, ComputedCaches};
+pub use caches::{compute_caches, resolve_lookup_displays, ComputedCaches};
 pub use export::export_csv_task;
 pub use message::SpreadsheetMessage;
 pub use state::{
