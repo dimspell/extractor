@@ -71,6 +71,9 @@ pub struct EntityBundle {
     pub monster_ref_path: Option<PathBuf>,
     pub npc_ref_path: Option<PathBuf>,
     pub extra_ref_path: Option<PathBuf>,
+    /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
+    /// when the looking_direction field changes.
+    pub npc_id_to_sprite: HashMap<i32, String>,
 }
 
 impl std::fmt::Debug for EntityBundle {

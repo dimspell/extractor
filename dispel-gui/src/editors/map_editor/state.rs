@@ -173,6 +173,9 @@ pub struct MapDataState {
     pub monster_sprites: Vec<Option<EntitySpriteHandle>>,
     pub npc_sprites: Vec<Option<EntitySpriteHandle>>,
     pub extra_sprites: Vec<Option<EntitySpriteHandle>>,
+    /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
+    /// when the looking_direction field changes.
+    pub npc_id_to_sprite: HashMap<i32, String>,
     /// Resolved paths to entity .ref files (for save-back).
     pub monster_ref_path: Option<PathBuf>,
     pub npc_ref_path: Option<PathBuf>,
@@ -211,6 +214,7 @@ impl Default for MapDataState {
             monster_sprites: Vec::new(),
             npc_sprites: Vec::new(),
             extra_sprites: Vec::new(),
+            npc_id_to_sprite: HashMap::new(),
             monster_ref_path: None,
             npc_ref_path: None,
             extra_ref_path: None,
@@ -230,6 +234,60 @@ impl Default for MapDataState {
 impl MapDataState {
     pub fn map_data(&self) -> Option<&MapDataHandle> {
         self.loading_state.data()
+    }
+
+    /// Recompute the sprite for NPC at `idx` based on its current `looking_direction`.
+    ///
+    /// Called after a direction field change so the canvas displays the new
+    /// orientation without requiring a full entity reload.
+    pub fn recompute_npc_sprite(&mut self, idx: usize, game_path: &std::path::Path) {
+        use dispel_core::map::sprite_loader::load_sprite_frames;
+
+        let Some(npc) = self.npcs.get(idx) else { return };
+        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_id) else { return };
+
+        // Direction → (sequence_index, flip) — same logic as load_entities().
+        let dir = i32::from(npc.looking_direction);
+        let (seq, flip) = if dir > 4 {
+            ((8 - dir) as usize, true)
+        } else {
+            (dir as usize, false)
+        };
+
+        // Case-insensitive file resolution (mirrors the `resolve` closure in load_entities).
+        let sub_dir = game_path.join("NpcInGame");
+        let spr_path = [sprite_name.clone(), sprite_name.to_ascii_uppercase(), sprite_name.to_ascii_lowercase()]
+            .into_iter()
+            .find_map(|n| {
+                let p = sub_dir.join(&n);
+                p.exists().then_some(p)
+            })
+            .unwrap_or_else(|| sub_dir.join(sprite_name));
+
+        let sprite_handle = load_sprite_frames(&spr_path)
+            .and_then(|frames| {
+                frames
+                    .get(seq)
+                    .or_else(|| frames.first())
+                    .map(|frame| {
+                        let w = frame.image.width();
+                        let h = frame.image.height();
+                        EntitySpriteHandle {
+                            handle: Handle::from_rgba(
+                                w, h, frame.image.as_raw().to_vec(),
+                            ),
+                            width: w,
+                            height: h,
+                            origin_x: frame.origin_x,
+                            origin_y: frame.origin_y,
+                            flip,
+                        }
+                    })
+            });
+
+        if let Some(handle) = sprite_handle {
+            self.npc_sprites[idx] = Some(handle);
+        }
     }
 }
 

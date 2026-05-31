@@ -230,6 +230,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 state.data.monster_ref_path = bundle.monster_ref_path;
                 state.data.npc_ref_path = bundle.npc_ref_path;
                 state.data.extra_ref_path = bundle.extra_ref_path;
+                state.data.npc_id_to_sprite = bundle.npc_id_to_sprite;
 
                 state.data.monster_sprites = bundle
                     .monster_sprites
@@ -415,10 +416,21 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if old_value != value {
                 state.push_undo(MapEditAction {
                     entity,
-                    field,
+                    field: field.clone(),
                     old_value,
                     new_value: value,
                 });
+
+                // When an NPC's looking_direction changes, re-resolve its sprite
+                // so the map canvas reflects the new direction immediately.
+                if field == "looking_direction" {
+                    if let SelectedEntity::Npc(i) = entity {
+                        if let Some(ref game_path) = app.state.workspace.game_path {
+                            state.data.recompute_npc_sprite(i, game_path);
+                        }
+                    }
+                }
+
                 // Entity positions live on the tile canvas; selection ring on the overlay.
                 state.view.tile_layer_cache.clear();
                 state.view.overlay_cache.clear();
@@ -433,6 +445,16 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 None => return Task::none(),
             };
             if let Some(action) = state.pop_undo() {
+                // Capture NPC index before the field value is moved.
+                let npc_idx = if action.field == "looking_direction" {
+                    match action.entity {
+                        SelectedEntity::Npc(i) => Some(i),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+
                 match action.entity {
                     SelectedEntity::Monster(i) => {
                         if let Some(m) = state.data.monsters.get_mut(i) {
@@ -450,6 +472,14 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         }
                     }
                 }
+
+                // Recompute NPC sprite if looking_direction was reverted.
+                if let Some(idx) = npc_idx {
+                    if let Some(ref game_path) = app.state.workspace.game_path {
+                        state.data.recompute_npc_sprite(idx, game_path);
+                    }
+                }
+
                 state.view.tile_layer_cache.clear();
                 state.view.overlay_cache.clear();
                 let still_dirty = !state.data.undo_stack.is_empty();
@@ -464,6 +494,16 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 None => return Task::none(),
             };
             if let Some(action) = state.pop_redo() {
+                // Capture NPC index before the field value is moved.
+                let npc_idx = if action.field == "looking_direction" {
+                    match action.entity {
+                        SelectedEntity::Npc(i) => Some(i),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
+
                 match action.entity {
                     SelectedEntity::Monster(i) => {
                         if let Some(m) = state.data.monsters.get_mut(i) {
@@ -481,6 +521,14 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         }
                     }
                 }
+
+                // Recompute NPC sprite if looking_direction was re-applied.
+                if let Some(idx) = npc_idx {
+                    if let Some(ref game_path) = app.state.workspace.game_path {
+                        state.data.recompute_npc_sprite(idx, game_path);
+                    }
+                }
+
                 state.view.tile_layer_cache.clear();
                 state.view.overlay_cache.clear();
                 set_tab_modified(app, tab_id, true);
@@ -1043,6 +1091,7 @@ pub fn load_entities(
         monster_ref_path,
         npc_ref_path,
         extra_ref_path,
+        npc_id_to_sprite,
     }
 }
 
