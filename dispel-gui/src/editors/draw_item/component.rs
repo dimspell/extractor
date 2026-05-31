@@ -1,5 +1,5 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::{references::enums::ItemTypeId, DrawItem};
+use dispel_core::DrawItem;
 
 use crate::editable_record_fields;
 
@@ -7,8 +7,7 @@ editable_record_fields!(DrawItem, {
     { map_id = Integer / "Map ID:" },
     { x_coord = Integer / "X:" },
     { y_coord = Integer / "Y:" },
-    { item_id = Integer / "Item ID:" },
-    { item_type = Enum(ItemTypeId, ["Weapon", "Healing", "Edit", "Event", "Misc", "Other"]) / "Item Type:" },
+    { item_type = CompositeItem("items", item_id) / "Item:" },
 });
 
 impl EditableRecord for DrawItem {

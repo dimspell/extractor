@@ -93,6 +93,21 @@ macro_rules! define_standard_editor {
                         };
                         observe.chain(task)
                     }
+                    [<$Name EditorMessage>]::LoadCatalog => {
+                        // Ensure item lookups are populated for CompositeItem
+                        // fields used in some standard editors.
+                        $crate::components::item_catalog::ensure_item_lookups(
+                            &app.state.shared_game_path,
+                            &mut app.state.lookups,
+                        );
+                        $crate::components::standard::update::handle(
+                            msg,
+                            &mut app.state.$field,
+                            &app.state.shared_game_path.clone(),
+                            $file,
+                            $crate::message::Message::$name,
+                        )
+                    }
                     msg => $crate::components::standard::update::handle(
                         msg,
                         &mut app.state.$field,

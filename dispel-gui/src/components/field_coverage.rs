@@ -165,7 +165,9 @@ check_record!(
     src "src/references/draw_item.rs",
     struct "DrawItem",
     virtual_desc [],
-    skip_fields []
+    skip_fields [
+        "item_id"    // paired with CompositeItem("items", item_id)
+    ]
 );
 
 check_record!(
