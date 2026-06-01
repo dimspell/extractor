@@ -49,10 +49,12 @@ fn main() {
             dlg_path,
             pgp_path,
             npc_ref_path,
+            database_path,
         }) => DialogCommand {
             dlg_path: dlg_path.display().to_string(),
             pgp_path: pgp_path.as_ref().map(|p| p.display().to_string()),
             npc_ref_path: npc_ref_path.as_ref().map(|p| p.display().to_string()),
+            database_path: database_path.as_ref().map(|p| p.display().to_string()),
         }
         .execute(),
         Some(Commands::Map(map_args)) => {

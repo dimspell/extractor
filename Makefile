@@ -142,6 +142,9 @@ database-import:
 	cargo run -- database import "fixtures/Dispel" "database.sqlite"
 
 dialogs:
+	# With database
+	cargo run -- dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref --database-path database.sqlite
+
 	# Show dialog flow (without text content)
 	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg
 
@@ -152,7 +155,8 @@ dialogs:
 	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg -n fixtures/Dispel/NpcInGame/Npc$(map_id).ref
 
 	# Full usage with all options
-	cargo run -- dialog fixtures/Dispel/NpcInGame/Dlg$(map_id).dlg -p fixtures/Dispel/NpcInGame/Pgp$(map_id).pgp -n fixtures/Dispel/NpcInGame/Npc$(map_id).ref
+	# cargo run -- dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref
+
 
 extracts-help:
 	cargo run -- extract --help

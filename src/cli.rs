@@ -124,7 +124,7 @@ pub enum Commands {
     /// Dialog flow visualization
     #[command(
         about = "Print dialog flow from DLG and PGP files",
-        long_about = "Reads a DLG (dialog configuration) file and optionally a PGP (dialog text) file, then prints the complete dialog flow as a tree.\n\nUsage Examples:\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref"
+        long_about = "Reads a DLG (dialog configuration) file and optionally a PGP (dialog text) file, then prints the complete dialog flow as a tree.\n\nUsage Examples:\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref\n  dispel-extractor dialog fixtures/Dispel/NpcInGame/Dlgcat1.dlg -p fixtures/Dispel/NpcInGame/Pgpcat1.pgp -n fixtures/Dispel/NpcInGame/Npccat1.ref --database database.sqlite"
     )]
     Dialog {
         /// Path to the DLG file (dialog configuration)
@@ -136,6 +136,9 @@ pub enum Commands {
         /// Path to the NPC ref file (for linking NPC names to dialogs)
         #[arg(short = 'n', long = "npc-ref", value_name = "NPC_REF_FILE")]
         npc_ref_path: Option<PathBuf>,
+        /// Path to SQLite database for event information
+        #[arg(short = 'd', long, value_name = "DATABASE_FILE")]
+        database_path: Option<PathBuf>,
     },
 
     /// Test command
