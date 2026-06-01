@@ -58,28 +58,22 @@ impl RecordPatcher for QuestPatcher {
                 },
                 _ => return Err(wrong_type(Self::RECORD_NAME, field, "i32", new)),
             },
-            // "title" => rec.title = parse_optional_string(field, new)?,
-            // "description" => rec.description = parse_optional_string(field, new)?,
+            "title" => match new {
+                Value::String(s) => rec.title = s.clone(),
+                Value::Null => rec.title = "null".to_string(),
+                _ => return Err(wrong_type(Self::RECORD_NAME, field, "string", new)),
+            },
+            "description" => match new {
+                Value::String(s) => rec.description = s.clone(),
+                Value::Null => rec.description = "null".to_string(),
+                _ => return Err(wrong_type(Self::RECORD_NAME, field, "string", new)),
+            },
             other => return Err(unknown_field(Self::RECORD_NAME, other)),
         }
 
         let mut out = Vec::new();
         Quest::to_writer(&quests, &mut out)?;
         Ok(out)
-    }
-}
-
-fn parse_optional_string(field: &str, new: &Value) -> Result<Option<String>> {
-    match new {
-        Value::Null => Ok(None),
-        Value::String(s) if s == "null" => Ok(None),
-        Value::String(s) => Ok(Some(s.clone())),
-        _ => Err(wrong_type(
-            QuestPatcher::RECORD_NAME,
-            field,
-            "string|null",
-            new,
-        )),
     }
 }
 
@@ -101,8 +95,8 @@ mod tests {
         let out = p
             .apply_field(&blob(), 0, "title", &Value::String("New Title".into()))
             .unwrap();
-        assert_eq!(parse_back(&out)[0].title.as_deref(), Some("New Title"));
-        assert_eq!(parse_back(&out)[1].title, None); // row 1 untouched
+        assert_eq!(parse_back(&out)[0].title, "New Title");
+        assert_eq!(parse_back(&out)[1].title, "null"); // row 1 untouched
     }
 
     #[test]
@@ -111,7 +105,7 @@ mod tests {
         let out = p
             .apply_field(&blob(), 0, "description", &Value::String("null".into()))
             .unwrap();
-        assert_eq!(parse_back(&out)[0].description, None);
+        assert_eq!(parse_back(&out)[0].description, "null");
     }
 
     #[test]
@@ -120,7 +114,7 @@ mod tests {
         let out = p
             .apply_field(&blob(), 0, "description", &Value::Null)
             .unwrap();
-        assert_eq!(parse_back(&out)[0].description, None);
+        assert_eq!(parse_back(&out)[0].description, "null");
     }
 
     #[test]
