@@ -210,10 +210,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
             // ── Action buttons row ─────────────────────────────────────────
             let can_undo = !state.data.undo_stack.is_empty();
             let can_redo = !state.data.redo_stack.is_empty();
-            let has_entity_files = state.data.monster_ref_path.is_some()
-                || state.data.npc_ref_path.is_some()
-                || state.data.extra_ref_path.is_some();
-
             let save_label = if state.data.is_saving {
                 "Saving…"
             } else if state.data.dirty {
@@ -222,9 +218,9 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 "Save"
             };
             let mut save_btn = button(text(save_label).size(11)).padding([3, 8]);
-            if state.data.dirty && has_entity_files && !state.data.is_saving {
+            if state.data.dirty && !state.data.is_saving {
                 save_btn =
-                    save_btn.on_press(Message::map_editor(MapEditorMessage::SaveEntities(tab_id)));
+                    save_btn.on_press(Message::map_editor(MapEditorMessage::SaveMap(tab_id)));
             }
 
             let mut undo_btn = button(text("↩ Undo").size(11)).padding([3, 8]);
@@ -411,6 +407,108 @@ fn build_inspector<'a>(
             };
             (ExtraRef::detail_title(), ExtraRef::detail_width(), body)
         }
+        SelectedEntity::CollisionTile(tx, ty) => {
+            let body = column![
+                text(format!("Collision at ({}, {})", tx, ty)).size(12),
+                horizontal_rule(1),
+                row![text("Click the tile again to toggle collision.")
+                    .size(11)
+                    .style(style::subtle_text),]
+                .padding(4),
+            ]
+            .spacing(8)
+            .into();
+            ("Collision Tile", 220.0, body)
+        }
+        SelectedEntity::EventTile(tx, ty) => {
+            let body = if let Some(map_handle) = state.map_data() {
+                let map_data = &map_handle.0;
+                if let Some(event) = map_data.events.get(&(tx, ty)) {
+                    let x_str = event.x.to_string();
+                    let y_str = event.y.to_string();
+                    let event_id_val = event.event_id.to_string();
+
+                    container(
+                        column![
+                            text(format!("Event at ({}, {})", tx, ty)).size(12),
+                            horizontal_rule(1),
+                            // event_id (editable)
+                            row![
+                                text("event_id")
+                                    .size(11)
+                                    .width(140.0)
+                                    .style(style::subtle_text),
+                                text_input("0", &event_id_val)
+                                    .on_input(move |v| {
+                                        Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                                            tab_id,
+                                            SelectedEntity::EventTile(tx, ty),
+                                            "event_id".to_string(),
+                                            v,
+                                        ))
+                                    })
+                                    .padding(4)
+                                    .size(11),
+                            ]
+                            .spacing(6)
+                            .align_y(iced::Alignment::Center),
+                            // x (read-only)
+                            row![
+                                text("x").size(11).width(140.0).style(style::subtle_text),
+                                text(x_str).size(11),
+                            ]
+                            .spacing(6)
+                            .align_y(iced::Alignment::Center),
+                            // y (read-only)
+                            row![
+                                text("y").size(11).width(140.0).style(style::subtle_text),
+                                text(y_str).size(11),
+                            ]
+                            .spacing(6)
+                            .align_y(iced::Alignment::Center),
+                            // Remove event button
+                            button(text("Remove Event").size(11))
+                                .on_press(Message::map_editor(
+                                    MapEditorMessage::EntityFieldChanged(
+                                        tab_id,
+                                        SelectedEntity::EventTile(tx, ty),
+                                        "event_id".to_string(),
+                                        "0".to_string(),
+                                    )
+                                ))
+                                .padding([4, 10])
+                                .style(style::browse_button),
+                        ]
+                        .spacing(8),
+                    )
+                    .into()
+                } else {
+                    // Tile has no event — offer to create one
+                    container(
+                        column![
+                            text("No event on this tile")
+                                .size(11)
+                                .style(style::subtle_text),
+                            button(text("Create Event").size(11))
+                                .on_press(Message::map_editor(
+                                    MapEditorMessage::EntityFieldChanged(
+                                        tab_id,
+                                        SelectedEntity::EventTile(tx, ty),
+                                        "event_id".to_string(),
+                                        "0".to_string(),
+                                    )
+                                ))
+                                .padding([4, 10]),
+                        ]
+                        .spacing(8),
+                    )
+                    .into()
+                }
+            } else {
+                text("Map data not loaded").size(11).into()
+            };
+            ("Event Inspector", 240.0, body)
+        }
     };
 
     let header = row![
@@ -485,10 +583,7 @@ fn inspector_field_row<'a>(
 ) -> Element<'a, Message> {
     const LABEL_W: f32 = 140.0;
     match kind {
-        FieldKind::String
-        | FieldKind::TextArea
-        | FieldKind::Integer
-        | FieldKind::Boolean => row![
+        FieldKind::String | FieldKind::TextArea | FieldKind::Integer | FieldKind::Boolean => row![
             text(label)
                 .size(11)
                 .width(LABEL_W)
@@ -511,10 +606,8 @@ fn inspector_field_row<'a>(
 
         FieldKind::Lookup(lookup_key) => {
             // Clone entries so the move closures own their data.
-            let entries: Vec<(String, String)> = lookups
-                .get(*lookup_key)
-                .cloned()
-                .unwrap_or_default();
+            let entries: Vec<(String, String)> =
+                lookups.get(*lookup_key).cloned().unwrap_or_default();
             let options: Vec<String> = entries.iter().map(|(_, d)| d.clone()).collect();
             let selected = entries
                 .iter()

@@ -91,6 +91,7 @@ pub mod render;
 pub mod sprite_loader;
 pub mod tileset;
 pub mod types;
+pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
 pub use database::render_from_database;

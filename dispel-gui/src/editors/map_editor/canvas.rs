@@ -223,9 +223,9 @@ impl<'a> canvas::Program<Message> for MapCanvas<'a> {
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 impl<'a> MapCanvas<'a> {
-    /// Find the entity (if any) within hover range of the given canvas-local point.
+    /// Find the element (entity / collision tile / event tile) under the cursor.
     fn find_hovered_entity(&self, cx: f32, cy: f32) -> Option<SelectedEntity> {
-        find_hovered_entity_impl(self.state, cx, cy)
+        find_hovered_element(self.state, cx, cy)
     }
 }
 
@@ -802,8 +802,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             .map(|p| (p.x, p.y))
             .unwrap_or((f32::NAN, f32::NAN));
 
-        let hovered_entity = if cursor_cx.is_finite() && cursor_cy.is_finite() {
-            find_hovered_entity_impl(self.state, cursor_cx, cursor_cy)
+        let hovered_element = if cursor_cx.is_finite() && cursor_cy.is_finite() {
+            find_hovered_element(self.state, cursor_cx, cursor_cy)
         } else {
             None
         };
@@ -821,8 +821,12 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
             let w = TILE_W * zoom;
             let h = TILE_H * zoom;
-            // Brighter green when hovering over a clickable entity.
-            let alpha = if hovered_entity.is_some() { 0.40 } else { 0.15 };
+            // Brighter green when hovering over a clickable element.
+            let alpha = if hovered_element.is_some() {
+                0.40
+            } else {
+                0.15
+            };
             // Draw diamond instead of rectangle
             let cx = px + w * 0.5; // Center x
             let cy = py + h * 0.5; // Center y
@@ -840,10 +844,18 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             );
         }
 
-        // Hover ring (only when not already the selected entity)
-        if let Some(hov) = hovered_entity {
-            if hov != self.state.view.selected_entity.unwrap_or(hov) {
-                if let Some((htx, hty)) = entity_tile(hov, self.state) {
+        // Extract selected entity tile coords for comparison below
+        let (selected_tile_x, selected_tile_y) = self
+            .state
+            .view
+            .selected_entity
+            .and_then(|sel| entity_tile(sel, self.state))
+            .unwrap_or((i32::MAX, i32::MAX));
+
+        // Hover ring for entities (monsters/NPCs/extras only — shown with a yellow ring)
+        if let Some(hov) = &hovered_element {
+            if *hov != self.state.view.selected_entity.unwrap_or(*hov) {
+                if let Some((htx, hty)) = entity_tile(*hov, self.state) {
                     let (px, py) = tile_to_screen(htx, hty, diagonal, pan_x, pan_y, zoom);
                     let r = 14.0 * zoom;
                     let hcx = px + TILE_W * zoom * 0.5;
@@ -855,6 +867,38 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             .with_width(2.0 * zoom),
                     );
                 }
+            }
+        }
+
+        // Hover highlight for collision tiles (red circle)
+        if let Some(SelectedEntity::CollisionTile(ctx, cty)) = hovered_element {
+            if ctx != selected_tile_x || cty != selected_tile_y {
+                let (cpx, cpy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
+                let ccx = cpx + TILE_W * zoom * 0.5;
+                let ccy = cpy + TILE_H * zoom * 0.5;
+                let r = 14.0 * zoom;
+                cursor_frame.stroke(
+                    &canvas::Path::circle(Point::new(ccx, ccy), r),
+                    canvas::Stroke::default()
+                        .with_color(Color::from_rgba(0.8, 0.1, 0.1, 0.6))
+                        .with_width(2.0 * zoom),
+                );
+            }
+        }
+
+        // Hover highlight for event tiles (magenta circle)
+        if let Some(SelectedEntity::EventTile(ctx, cty)) = hovered_element {
+            if ctx != selected_tile_x || cty != selected_tile_y {
+                let (epx, epy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
+                let ecx = epx + TILE_W * zoom * 0.5;
+                let ecy = epy + TILE_H * zoom * 0.5;
+                let r = 14.0 * zoom;
+                cursor_frame.stroke(
+                    &canvas::Path::circle(Point::new(ecx, ecy), r),
+                    canvas::Stroke::default()
+                        .with_color(Color::from_rgba(0.8, 0.1, 0.8, 0.6))
+                        .with_width(2.0 * zoom),
+                );
             }
         }
 
@@ -906,7 +950,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             // Recompute hover directly rather than reading interaction.hovered_entity,
             // which belongs to the overlay layer's own State instance and may lag
             // one frame behind the tile layer's instance.
-            if find_hovered_entity_impl(self.state, pos.x, pos.y).is_some() {
+            if find_hovered_element(self.state, pos.x, pos.y).is_some() {
                 mouse::Interaction::Pointer
             } else {
                 mouse::Interaction::Grab
@@ -926,6 +970,7 @@ fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, i32)
             (x, y)
         }),
         SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.x_pos, e.y_pos)),
+        SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
     }
 }
 
@@ -954,6 +999,130 @@ fn tile_world_center(tx: i32, ty: i32, diagonal: i32) -> (f32, f32) {
 #[inline]
 fn tile_center(px: f32, py: f32, zoom: f32) -> (f32, f32) {
     (px + TILE_W * zoom * 0.5, py + TILE_H * zoom * 0.5)
+}
+
+/// Returns true if the point (px, py) in canvas-local coords is inside the
+/// isometric diamond of the tile at screen position (tile_screen_x, tile_screen_y).
+fn point_in_tile_diamond(
+    px: f32,
+    py: f32,
+    tile_screen_x: f32,
+    tile_screen_y: f32,
+    zoom: f32,
+) -> bool {
+    let cx = tile_screen_x + TILE_W * zoom * 0.5;
+    let cy = tile_screen_y + TILE_H * zoom * 0.5;
+    let dx = (px - cx).abs() / (TILE_W * zoom * 0.5);
+    let dy = (py - cy).abs() / (TILE_H * zoom * 0.5);
+    dx + dy <= 1.0
+}
+
+/// Find the collision tile under the cursor (if any).  Returns `(tx, ty)`.
+fn find_hovered_collision_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(i32, i32)> {
+    let map_handle = state.map_data()?;
+    let map_data = &map_handle.0;
+    let model = &map_data.model;
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+    let pan_x = state.view.pan_x;
+    let pan_y = state.view.pan_y;
+    let zoom = state.view.zoom;
+
+    let world_x = (cx - pan_x) / zoom;
+    let world_y = (cy - pan_y) / zoom;
+    let a = world_x / 32.0;
+    let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
+    let tile_x = ((a - b) / 2.0).round() as i32;
+    let tile_y = ((a + b) / 2.0).round() as i32;
+
+    // Check bounds
+    if tile_x < 0
+        || tile_x >= model.tiled_map_width
+        || tile_y < 0
+        || tile_y >= model.tiled_map_height
+    {
+        return None;
+    }
+
+    // Check diamond hit-test
+    let (sx, sy) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
+    if !point_in_tile_diamond(cx, cy, sx, sy, zoom) {
+        return None;
+    }
+
+    // Only return tiles that have a collision
+    if !map_data
+        .collisions
+        .get(&(tile_x, tile_y))
+        .copied()
+        .unwrap_or(false)
+    {
+        return None;
+    }
+
+    Some((tile_x, tile_y))
+}
+
+/// Find the event tile under the cursor (if any).  Returns `(tx, ty)`.
+fn find_hovered_event_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(i32, i32)> {
+    let map_handle = state.map_data()?;
+    let map_data = &map_handle.0;
+    let model = &map_data.model;
+    let diagonal = model.tiled_map_width + model.tiled_map_height;
+    let pan_x = state.view.pan_x;
+    let pan_y = state.view.pan_y;
+    let zoom = state.view.zoom;
+
+    let world_x = (cx - pan_x) / zoom;
+    let world_y = (cy - pan_y) / zoom;
+    let a = world_x / 32.0;
+    let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
+    let tile_x = ((a - b) / 2.0).round() as i32;
+    let tile_y = ((a + b) / 2.0).round() as i32;
+
+    if tile_x < 0
+        || tile_x >= model.tiled_map_width
+        || tile_y < 0
+        || tile_y >= model.tiled_map_height
+    {
+        return None;
+    }
+
+    let (sx, sy) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
+    if !point_in_tile_diamond(cx, cy, sx, sy, zoom) {
+        return None;
+    }
+
+    // Only return tiles that have a non-zero event_id
+    if map_data
+        .events
+        .get(&(tile_x, tile_y))
+        .is_none_or(|e| e.event_id == 0)
+    {
+        return None;
+    }
+
+    Some((tile_x, tile_y))
+}
+
+/// Find what's under the cursor, with priority: entity > collision tile > event tile.
+pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<SelectedEntity> {
+    // 1. Try entities (existing logic)
+    if let Some(entity) = find_hovered_entity_impl(state, cx, cy) {
+        return Some(entity);
+    }
+    // 2. Try collision tiles (only when collision layer is visible)
+    if state.view.show_collisions {
+        if let Some((tx, ty)) = find_hovered_collision_tile(state, cx, cy) {
+            return Some(SelectedEntity::CollisionTile(tx, ty));
+        }
+    }
+    // 3. Try event tiles (only when event layer is visible)
+    if state.view.show_events {
+        if let Some((tx, ty)) = find_hovered_event_tile(state, cx, cy) {
+            return Some(SelectedEntity::EventTile(tx, ty));
+        }
+    }
+    None
 }
 
 // ── Shared draw helpers ───────────────────────────────────────────────────────

@@ -243,8 +243,12 @@ impl MapDataState {
     pub fn recompute_npc_sprite(&mut self, idx: usize, game_path: &std::path::Path) {
         use dispel_core::map::sprite_loader::load_sprite_frames;
 
-        let Some(npc) = self.npcs.get(idx) else { return };
-        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_id) else { return };
+        let Some(npc) = self.npcs.get(idx) else {
+            return;
+        };
+        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_id) else {
+            return;
+        };
 
         // Direction → (sequence_index, flip) — same logic as load_entities().
         let dir = i32::from(npc.looking_direction);
@@ -256,34 +260,32 @@ impl MapDataState {
 
         // Case-insensitive file resolution (mirrors the `resolve` closure in load_entities).
         let sub_dir = game_path.join("NpcInGame");
-        let spr_path = [sprite_name.clone(), sprite_name.to_ascii_uppercase(), sprite_name.to_ascii_lowercase()]
-            .into_iter()
-            .find_map(|n| {
-                let p = sub_dir.join(&n);
-                p.exists().then_some(p)
-            })
-            .unwrap_or_else(|| sub_dir.join(sprite_name));
+        let spr_path = [
+            sprite_name.clone(),
+            sprite_name.to_ascii_uppercase(),
+            sprite_name.to_ascii_lowercase(),
+        ]
+        .into_iter()
+        .find_map(|n| {
+            let p = sub_dir.join(&n);
+            p.exists().then_some(p)
+        })
+        .unwrap_or_else(|| sub_dir.join(sprite_name));
 
-        let sprite_handle = load_sprite_frames(&spr_path)
-            .and_then(|frames| {
-                frames
-                    .get(seq)
-                    .or_else(|| frames.first())
-                    .map(|frame| {
-                        let w = frame.image.width();
-                        let h = frame.image.height();
-                        EntitySpriteHandle {
-                            handle: Handle::from_rgba(
-                                w, h, frame.image.as_raw().to_vec(),
-                            ),
-                            width: w,
-                            height: h,
-                            origin_x: frame.origin_x,
-                            origin_y: frame.origin_y,
-                            flip,
-                        }
-                    })
-            });
+        let sprite_handle = load_sprite_frames(&spr_path).and_then(|frames| {
+            frames.get(seq).or_else(|| frames.first()).map(|frame| {
+                let w = frame.image.width();
+                let h = frame.image.height();
+                EntitySpriteHandle {
+                    handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
+                    width: w,
+                    height: h,
+                    origin_x: frame.origin_x,
+                    origin_y: frame.origin_y,
+                    flip,
+                }
+            })
+        });
 
         if let Some(handle) = sprite_handle {
             self.npc_sprites[idx] = Some(handle);

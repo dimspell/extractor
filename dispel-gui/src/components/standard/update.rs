@@ -64,18 +64,15 @@ where
                     Task::perform(
                         async move {
                             tokio::task::spawn_blocking(move || {
-                                let mut data =
-                                    crate::view::editor::compute_caches(&cat_for_caches);
+                                let mut data = crate::view::editor::compute_caches(&cat_for_caches);
                                 crate::view::editor::spreadsheet::caches::
                                     resolve_composite_displays::<T>(
                                         &mut data,
                                         &lookups_for_caches,
                                     );
-                                crate::view::editor::spreadsheet::caches::
-                                    resolve_lookup_displays::<T>(
-                                        &mut data,
-                                        &lookups_for_caches,
-                                    );
+                                crate::view::editor::spreadsheet::caches::resolve_lookup_displays::<
+                                    T,
+                                >(&mut data, &lookups_for_caches);
                                 data
                             })
                             .await

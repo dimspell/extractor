@@ -6,7 +6,7 @@ use std::io::{BufReader, Result};
 use super::types::{TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF};
 
 /// Computed geometry of a map, used to drive rendering and tile coordinate maths.
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MapModel {
     /// Number of tiles along the X axis of the tiled grid.
     pub tiled_map_width: i32,

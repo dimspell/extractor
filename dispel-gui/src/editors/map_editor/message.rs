@@ -149,14 +149,22 @@ pub enum MapEditorMessage {
     ConfirmSpriteExport(usize),
     /// Async sprite export completed.
     SpriteExportDone(usize, Result<String, String>),
+    /// Save all map changes: .ref files + .map binary (collisions/events).
+    SaveMap(usize),
+    /// Async .map save completed. Ok carries a status message; Err the error text.
+    MapSaved(usize, Result<String, String>),
 }
 
-/// Which entity is currently selected in the map editor inspector.
+/// Which entity or tile is currently selected in the map editor inspector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectedEntity {
     Monster(usize),
     Npc(usize),
     Extra(usize),
+    /// A collision tile coordinate — carries (tx, ty).
+    CollisionTile(i32, i32),
+    /// An event tile coordinate — carries (tx, ty).
+    EventTile(i32, i32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

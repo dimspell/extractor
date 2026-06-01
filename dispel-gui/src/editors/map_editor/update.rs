@@ -1,7 +1,7 @@
 use crate::app::App;
 use crate::components::editable::EditableRecord;
 use crate::components::loading_state::LoadingState;
-use crate::editors::map_editor::canvas::{decode_tileset_file, find_hovered_entity_impl};
+use crate::editors::map_editor::canvas::{decode_tileset_file, find_hovered_element};
 use crate::editors::map_editor::{
     DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle, InternalSpriteHandle,
     MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode, SelectedEntity,
@@ -13,6 +13,8 @@ use iced::widget::image::Handle;
 use iced::Task;
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use dispel_core::map::writer::write_map_to_path;
 
 /// Duration before a status message is automatically cleared.
 const STATUS_DISMISS_SECS: u64 = 3;
@@ -377,9 +379,32 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         MapEditorMessage::CanvasClicked(tab_id, cx, cy) => {
             if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
-                // Reuse the same hit-test as the hover highlight — single source of truth.
-                state.view.selected_entity = find_hovered_entity_impl(state, cx, cy);
-                state.view.overlay_cache.clear();
+                // Use find_hovered_element which also detects collision and event tiles.
+                let clicked = find_hovered_element(state, cx, cy);
+                match clicked {
+                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
+                        // Toggle collision immediately on click.
+                        if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let old = map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
+                            map_data.collisions.insert((tx, ty), !old);
+                            state.push_undo(MapEditAction {
+                                entity: SelectedEntity::CollisionTile(tx, ty),
+                                field: "collision".into(),
+                                old_value: old.to_string(),
+                                new_value: (!old).to_string(),
+                            });
+                            state.view.selected_entity = None;
+                            state.view.overlay_cache.clear();
+                            set_tab_modified(app, tab_id, true);
+                        }
+                    }
+                    _ => {
+                        state.view.selected_entity = clicked;
+                        state.view.overlay_cache.clear();
+                    }
+                }
             }
             Task::none()
         }
@@ -409,6 +434,12 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     .get(i)
                     .map(|e| e.get_field(&field))
                     .unwrap_or_default(),
+                SelectedEntity::EventTile(tx, ty) => state
+                    .map_data()
+                    .and_then(|h| h.0.events.get(&(tx, ty)))
+                    .map(|e| e.event_id.to_string())
+                    .unwrap_or_default(),
+                SelectedEntity::CollisionTile(_, _) => String::new(),
             };
             // Apply the change.
             match entity {
@@ -427,6 +458,18 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         e.set_field(&field, value.clone());
                     }
                 }
+                SelectedEntity::EventTile(tx, ty) => {
+                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                        if let Some(ev) = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference")
+                            .events
+                            .get_mut(&(tx, ty))
+                        {
+                            ev.event_id = value.parse::<i16>().unwrap_or(0);
+                        }
+                    }
+                }
+                SelectedEntity::CollisionTile(_, _) => {}
             }
             if old_value != value {
                 state.push_undo(MapEditAction {
@@ -486,6 +529,24 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                             e.set_field(&action.field, action.old_value);
                         }
                     }
+                    SelectedEntity::CollisionTile(tx, ty) => {
+                        if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let val = action.old_value.parse::<bool>().unwrap_or(false);
+                            map_data.collisions.insert((tx, ty), val);
+                        }
+                    }
+                    SelectedEntity::EventTile(tx, ty) => {
+                        if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let val = action.old_value.parse::<i16>().unwrap_or(0);
+                            if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
+                                ev.event_id = val;
+                            }
+                        }
+                    }
                 }
 
                 // Recompute NPC sprite if looking_direction was reverted.
@@ -533,6 +594,24 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     SelectedEntity::Extra(i) => {
                         if let Some(e) = state.data.extra_refs.get_mut(i) {
                             e.set_field(&action.field, action.new_value);
+                        }
+                    }
+                    SelectedEntity::CollisionTile(tx, ty) => {
+                        if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let val = action.new_value.parse::<bool>().unwrap_or(false);
+                            map_data.collisions.insert((tx, ty), val);
+                        }
+                    }
+                    SelectedEntity::EventTile(tx, ty) => {
+                        if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                            let map_data = Arc::get_mut(&mut handle.0)
+                                .expect("MapData Arc has unexpected shared reference");
+                            let val = action.new_value.parse::<i16>().unwrap_or(0);
+                            if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
+                                ev.event_id = val;
+                            }
                         }
                     }
                 }
@@ -606,6 +685,114 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 },
                 move |result| Message::map_editor(MapEditorMessage::SaveComplete(tab_id, result)),
             )
+        }
+
+        MapEditorMessage::SaveMap(tab_id) => {
+            let state = match app.state.map_editors.get_mut(&tab_id) {
+                Some(s) => s,
+                None => return Task::none(),
+            };
+            if state.data.is_saving {
+                return Task::none();
+            }
+            state.data.is_saving = true;
+
+            // Capture everything needed for save.
+            let map_path = match state.data.map_path.clone() {
+                Some(p) => p,
+                None => return Task::none(),
+            };
+            let map_handle = match state.map_data() {
+                Some(h) => h.clone(),
+                None => return Task::none(),
+            };
+            let monsters = state.data.monsters.clone();
+            let npcs = state.data.npcs.clone();
+            let extra_refs = state.data.extra_refs.clone();
+            let monster_path = state.data.monster_ref_path.clone();
+            let npc_path = state.data.npc_ref_path.clone();
+            let extra_path = state.data.extra_ref_path.clone();
+
+            Task::perform(
+                async move {
+                    let mut saved: Vec<String> = Vec::new();
+                    let mut errors: Vec<String> = Vec::new();
+
+                    // Save entity .ref files.
+                    macro_rules! save_type {
+                        ($T:ty, $records:expr, $path:expr) => {
+                            if let Some(p) = $path {
+                                match <$T>::save_file($records, &p) {
+                                    Ok(()) => saved.push(
+                                        p.file_name()
+                                            .map(|n| n.to_string_lossy().to_string())
+                                            .unwrap_or_else(|| p.display().to_string()),
+                                    ),
+                                    Err(e) => errors.push(format!(
+                                        "{}: {}",
+                                        p.file_name()
+                                            .map(|n| n.to_string_lossy().to_string())
+                                            .unwrap_or_default(),
+                                        e
+                                    )),
+                                }
+                            }
+                        };
+                    }
+                    save_type!(dispel_core::MonsterRef, &monsters, monster_path);
+                    save_type!(dispel_core::NPC, &npcs, npc_path);
+                    save_type!(dispel_core::ExtraRef, &extra_refs, extra_path);
+
+                    // Save .map binary (collisions + events).
+                    match write_map_to_path(&map_path, &map_handle.0) {
+                        Ok(()) => saved.push(
+                            map_path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_else(|| "map".to_string()),
+                        ),
+                        Err(e) => errors.push(format!(
+                            "{}: {}",
+                            map_path
+                                .file_name()
+                                .map(|n| n.to_string_lossy().to_string())
+                                .unwrap_or_default(),
+                            e
+                        )),
+                    }
+
+                    if !errors.is_empty() {
+                        Err(errors.join("; "))
+                    } else if saved.is_empty() {
+                        Err("Nothing to save".to_string())
+                    } else {
+                        Ok(format!("Saved: {}", saved.join(", ")))
+                    }
+                },
+                move |result| Message::map_editor(MapEditorMessage::MapSaved(tab_id, result)),
+            )
+        }
+
+        MapEditorMessage::MapSaved(tab_id, result) => {
+            let success = result.is_ok();
+            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+                state.data.is_saving = false;
+                match result {
+                    Ok(msg) => {
+                        state.data.dirty = false;
+                        state.data.status_msg = Some(msg);
+                    }
+                    Err(e) => {
+                        state.data.status_msg = Some(format!("Save failed: {e}"));
+                    }
+                }
+            }
+            if success {
+                set_tab_modified(app, tab_id, false);
+                dismiss_status_after(tab_id)
+            } else {
+                Task::none()
+            }
         }
 
         MapEditorMessage::SaveComplete(tab_id, result) => {
