@@ -381,6 +381,18 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
                 // Use find_hovered_element which also detects collision and event tiles.
                 let clicked = find_hovered_element(state, cx, cy);
+                state.data.status_msg = Some(match clicked {
+                    Some(SelectedEntity::CollisionTile(tx, ty)) => {
+                        format!("Collision tile ({},{}) detected!", tx, ty)
+                    }
+                    Some(SelectedEntity::EventTile(tx, ty)) => {
+                        format!("Event tile ({},{}) detected!", tx, ty)
+                    }
+                    Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
+                    Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
+                    Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
+                    None => format!("Clicked at ({:.0},{:.0}) — no tile detected", cx, cy),
+                });
                 match clicked {
                     Some(SelectedEntity::CollisionTile(tx, ty)) => {
                         // Toggle collision immediately on click.

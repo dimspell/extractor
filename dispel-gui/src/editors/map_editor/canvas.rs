@@ -810,38 +810,44 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
 
         let mut cursor_frame = Frame::new(renderer, bounds.size());
 
-        // Cursor tile highlight
+        // Cursor tile highlight (uses screen_to_tile so the diamond is always
+        // drawn at the tile whose diamond actually contains the cursor).
         if cursor_cx.is_finite() && cursor_cy.is_finite() {
-            let world_x = (cursor_cx - pan_x) / zoom;
-            let world_y = (cursor_cy - pan_y) / zoom;
-            let a = world_x / 32.0;
-            let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
-            let tile_x = ((a - b) / 2.0).round() as i32;
-            let tile_y = ((a + b) / 2.0).round() as i32;
-            let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
-            let w = TILE_W * zoom;
-            let h = TILE_H * zoom;
-            // Brighter green when hovering over a clickable element.
-            let alpha = if hovered_element.is_some() {
-                0.40
-            } else {
-                0.15
-            };
-            // Draw diamond instead of rectangle
-            let cx = px + w * 0.5; // Center x
-            let cy = py + h * 0.5; // Center y
-            let dx = w * 0.5; // Half width
-            let dy = h * 0.5; // Half height
-            cursor_frame.fill(
-                &canvas::Path::new(|b| {
-                    b.move_to(Point::new(cx, cy - dy)); // Top
-                    b.line_to(Point::new(cx + dx, cy)); // Right
-                    b.line_to(Point::new(cx, cy + dy)); // Bottom
-                    b.line_to(Point::new(cx - dx, cy)); // Left
-                    b.close();
-                }),
-                Color::from_rgba(0.2, 0.9, 0.3, alpha),
-            );
+            if let Some((tile_x, tile_y)) = screen_to_tile(
+                cursor_cx,
+                cursor_cy,
+                diagonal,
+                pan_x,
+                pan_y,
+                zoom,
+                model.tiled_map_width,
+                model.tiled_map_height,
+            ) {
+                let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
+                let w = TILE_W * zoom;
+                let h = TILE_H * zoom;
+                // Brighter green when hovering over a clickable element.
+                let alpha = if hovered_element.is_some() {
+                    0.40
+                } else {
+                    0.15
+                };
+                // Draw diamond instead of rectangle
+                let cx = px + w * 0.5; // Center x
+                let cy = py + h * 0.5; // Center y
+                let dx = w * 0.5; // Half width
+                let dy = h * 0.5; // Half height
+                cursor_frame.fill(
+                    &canvas::Path::new(|b| {
+                        b.move_to(Point::new(cx, cy - dy)); // Top
+                        b.line_to(Point::new(cx + dx, cy)); // Right
+                        b.line_to(Point::new(cx, cy + dy)); // Bottom
+                        b.line_to(Point::new(cx - dx, cy)); // Left
+                        b.close();
+                    }),
+                    Color::from_rgba(0.2, 0.9, 0.3, alpha),
+                );
+            }
         }
 
         // Extract selected entity tile coords for comparison below
@@ -902,14 +908,31 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             }
         }
 
-        // Tile-coordinate label (top-left corner)
+        // Tile-coordinate label (top-left corner).
+        // Use screen_to_tile for accuracy when over a diamond; fall back to the
+        // approximate rounding when between tiles (cursor outside any diamond).
         if cursor_cx.is_finite() && cursor_cy.is_finite() {
-            let world_x = (cursor_cx - pan_x) / zoom;
-            let world_y = (cursor_cy - pan_y) / zoom;
-            let a = world_x / 32.0;
-            let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
-            let tile_x = ((a - b) / 2.0).round() as i32;
-            let tile_y = ((a + b) / 2.0).round() as i32;
+            let (tile_x, tile_y) = screen_to_tile(
+                cursor_cx,
+                cursor_cy,
+                diagonal,
+                pan_x,
+                pan_y,
+                zoom,
+                model.tiled_map_width,
+                model.tiled_map_height,
+            )
+            .unwrap_or_else(|| {
+                // Fallback: approximate rounding (may be off between tiles).
+                let world_x = (cursor_cx - pan_x) / zoom;
+                let world_y = (cursor_cy - pan_y) / zoom;
+                let a = world_x / 32.0;
+                let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
+                (
+                    ((a - b) / 2.0).round() as i32,
+                    ((a + b) / 2.0).round() as i32,
+                )
+            });
             let label = format!("X: {}  Y: {}", tile_x, tile_y);
             cursor_frame.fill_text(CanvasText {
                 content: label.clone(),
@@ -1017,37 +1040,65 @@ fn point_in_tile_diamond(
     dx + dy <= 1.0
 }
 
+/// Convert canvas-local cursor coords to tile coords by checking the diamond
+/// hit-test against the approximate tile and its 8 neighbours.
+///
+/// The raw inverse formula `(tx,ty) = f(world_x, world_y)` gives the tile whose
+/// *top-left corner* is closest to the cursor.  Because the diamond centre sits
+/// at `(+31, +16)` from the top-left but the isometric grid step is `(32, 16)`,
+/// rounding alone systematically picks the wrong tile for most points inside the
+/// diamond.  Checking neighbours with the diamond test fixes this.
+#[allow(clippy::too_many_arguments)]
+fn screen_to_tile(
+    cx: f32,
+    cy: f32,
+    diagonal: i32,
+    pan_x: f32,
+    pan_y: f32,
+    zoom: f32,
+    model_w: i32,
+    model_h: i32,
+) -> Option<(i32, i32)> {
+    let world_x = (cx - pan_x) / zoom;
+    let world_y = (cy - pan_y) / zoom;
+    let a = world_x / 32.0;
+    let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
+    let approx_tx = ((a - b) / 2.0).round() as i32;
+    let approx_ty = ((a + b) / 2.0).round() as i32;
+
+    for dy in -1..=1i32 {
+        for dx in -1..=1i32 {
+            let test_tx = approx_tx + dx;
+            let test_ty = approx_ty + dy;
+            if test_tx < 0 || test_tx >= model_w || test_ty < 0 || test_ty >= model_h {
+                continue;
+            }
+            let (sx, sy) = tile_to_screen(test_tx, test_ty, diagonal, pan_x, pan_y, zoom);
+            if point_in_tile_diamond(cx, cy, sx, sy, zoom) {
+                return Some((test_tx, test_ty));
+            }
+        }
+    }
+    None
+}
+
 /// Find the collision tile under the cursor (if any).  Returns `(tx, ty)`.
 fn find_hovered_collision_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(i32, i32)> {
     let map_handle = state.map_data()?;
     let map_data = &map_handle.0;
     let model = &map_data.model;
     let diagonal = model.tiled_map_width + model.tiled_map_height;
-    let pan_x = state.view.pan_x;
-    let pan_y = state.view.pan_y;
-    let zoom = state.view.zoom;
 
-    let world_x = (cx - pan_x) / zoom;
-    let world_y = (cy - pan_y) / zoom;
-    let a = world_x / 32.0;
-    let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
-    let tile_x = ((a - b) / 2.0).round() as i32;
-    let tile_y = ((a + b) / 2.0).round() as i32;
-
-    // Check bounds
-    if tile_x < 0
-        || tile_x >= model.tiled_map_width
-        || tile_y < 0
-        || tile_y >= model.tiled_map_height
-    {
-        return None;
-    }
-
-    // Check diamond hit-test
-    let (sx, sy) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
-    if !point_in_tile_diamond(cx, cy, sx, sy, zoom) {
-        return None;
-    }
+    let (tile_x, tile_y) = screen_to_tile(
+        cx,
+        cy,
+        diagonal,
+        state.view.pan_x,
+        state.view.pan_y,
+        state.view.zoom,
+        model.tiled_map_width,
+        model.tiled_map_height,
+    )?;
 
     // Only return tiles that have a collision
     if !map_data
@@ -1068,29 +1119,17 @@ fn find_hovered_event_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(
     let map_data = &map_handle.0;
     let model = &map_data.model;
     let diagonal = model.tiled_map_width + model.tiled_map_height;
-    let pan_x = state.view.pan_x;
-    let pan_y = state.view.pan_y;
-    let zoom = state.view.zoom;
 
-    let world_x = (cx - pan_x) / zoom;
-    let world_y = (cy - pan_y) / zoom;
-    let a = world_x / 32.0;
-    let b = (world_y - (diagonal as f32 / 2.0 * 16.0)) / 16.0;
-    let tile_x = ((a - b) / 2.0).round() as i32;
-    let tile_y = ((a + b) / 2.0).round() as i32;
-
-    if tile_x < 0
-        || tile_x >= model.tiled_map_width
-        || tile_y < 0
-        || tile_y >= model.tiled_map_height
-    {
-        return None;
-    }
-
-    let (sx, sy) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
-    if !point_in_tile_diamond(cx, cy, sx, sy, zoom) {
-        return None;
-    }
+    let (tile_x, tile_y) = screen_to_tile(
+        cx,
+        cy,
+        diagonal,
+        state.view.pan_x,
+        state.view.pan_y,
+        state.view.zoom,
+        model.tiled_map_width,
+        model.tiled_map_height,
+    )?;
 
     // Only return tiles that have a non-zero event_id
     if map_data
