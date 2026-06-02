@@ -15,6 +15,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use dispel_core::map::writer::write_map_to_path;
+use dispel_core::map::EventBlock;
 
 /// Duration before a status message is automatically cleared.
 const STATUS_DISMISS_SECS: u64 = 3;
@@ -472,13 +473,15 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 }
                 SelectedEntity::EventTile(tx, ty) => {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                        if let Some(ev) = Arc::get_mut(&mut handle.0)
-                            .expect("MapData Arc has unexpected shared reference")
-                            .events
-                            .get_mut(&(tx, ty))
-                        {
-                            ev.event_id = value.parse::<i16>().unwrap_or(0);
-                        }
+                        let map_data = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference");
+                        let ev = map_data.events.entry((tx, ty)).or_insert(EventBlock {
+                            x: tx,
+                            y: ty,
+                            _unknown_value: 0,
+                            event_id: 0,
+                        });
+                        ev.event_id = value.parse::<i16>().unwrap_or(0);
                     }
                 }
                 SelectedEntity::CollisionTile(_, _) => {}

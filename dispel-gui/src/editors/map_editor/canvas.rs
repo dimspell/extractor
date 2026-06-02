@@ -1100,16 +1100,9 @@ fn find_hovered_collision_tile(state: &MapEditorState, cx: f32, cy: f32) -> Opti
         model.tiled_map_height,
     )?;
 
-    // Only return tiles that have a collision
-    if !map_data
-        .collisions
-        .get(&(tile_x, tile_y))
-        .copied()
-        .unwrap_or(false)
-    {
-        return None;
-    }
-
+    // When the collision layer is visible, every tile is paintable.
+    // Return the tile even if it doesn't have a collision yet — the
+    // click handler will toggle it (false → true).
     Some((tile_x, tile_y))
 }
 
@@ -1131,15 +1124,9 @@ fn find_hovered_event_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(
         model.tiled_map_height,
     )?;
 
-    // Only return tiles that have a non-zero event_id
-    if map_data
-        .events
-        .get(&(tile_x, tile_y))
-        .is_none_or(|e| e.event_id == 0)
-    {
-        return None;
-    }
-
+    // When the event layer is visible, every tile is a potential event target.
+    // Return the tile regardless of whether it already has an event — the
+    // inspector will show either the event editor or a "Create Event" button.
     Some((tile_x, tile_y))
 }
 

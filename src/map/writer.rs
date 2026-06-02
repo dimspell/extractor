@@ -87,7 +87,10 @@ mod tests {
     /// Create a minimal synthetic .map file, write + read back, verify 3 blocks match.
     #[test]
     fn round_trip_3x3_map() {
-        let fixture = std::path::Path::new("../fixtures/Dispel/Map/cat1.map");
+        let fixture = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/Dispel/Map/cat1.map"
+        ));
         if !fixture.exists() {
             eprintln!("Skipping round_trip test: fixture not found");
             return;
