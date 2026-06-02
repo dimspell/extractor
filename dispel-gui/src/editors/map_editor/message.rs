@@ -153,6 +153,22 @@ pub enum MapEditorMessage {
     SaveMap(usize),
     /// Async .map save completed. Ok carries a status message; Err the error text.
     MapSaved(usize, Result<String, String>),
+    /// Open dialog preview for an NPC (spawns async load of .dlg/.pgp).
+    ShowDialogPreview(usize, usize),
+    /// Async dialog preview loaded.
+    DialogPreviewLoaded(
+        usize,
+        Result<
+            (
+                usize,
+                Vec<dispel_core::references::dialogue_script::DialogueScript>,
+                Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+            ),
+            String,
+        >,
+    ),
+    /// Close the dialog preview modal.
+    HideDialogPreview(usize),
 }
 
 /// Which entity or tile is currently selected in the map editor inspector.

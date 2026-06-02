@@ -68,6 +68,15 @@ pub struct MapEditAction {
     pub new_value: String,
 }
 
+// ── Dialog preview state ───────────────────────────────────────────────────────
+
+/// Loaded dialog data for the NPC dialog preview modal.
+pub struct DialogPreviewState {
+    pub npc_index: usize,
+    pub dialog_scripts: Vec<dispel_core::references::dialogue_script::DialogueScript>,
+    pub dialog_paragraphs: Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+}
+
 // ── MapViewState ──────────────────────────────────────────────────────────────
 
 /// Viewport, layer-visibility, and cursor state for the map canvas.
@@ -114,6 +123,8 @@ pub struct MapViewState {
     /// the collision/event geometry.  Clear on pan, zoom, layer toggle, or
     /// selection change — but NOT on `MouseMoved`.
     pub overlay_cache: canvas::Cache,
+    /// NPC dialog preview modal state (None = closed).
+    pub dialog_preview: Option<DialogPreviewState>,
 }
 
 impl Default for MapViewState {
@@ -141,6 +152,7 @@ impl Default for MapViewState {
             selected_entity: None,
             tile_layer_cache: canvas::Cache::new(),
             overlay_cache: canvas::Cache::new(),
+            dialog_preview: None,
         }
     }
 }

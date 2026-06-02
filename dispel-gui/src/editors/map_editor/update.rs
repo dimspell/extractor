@@ -3,9 +3,10 @@ use crate::components::editable::EditableRecord;
 use crate::components::loading_state::LoadingState;
 use crate::editors::map_editor::canvas::{decode_tileset_file, find_hovered_element};
 use crate::editors::map_editor::{
-    DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle, InternalSpriteHandle,
-    MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode, SelectedEntity,
-    SpriteExportDialogState, SpriteExportStatus, SpriteSequenceHandle, TilePixelData,
+    DecodedEntitySprite, DecodedMapSprite, DialogPreviewState, EntityBundle, EntitySpriteHandle,
+    InternalSpriteHandle, MapDataHandle, MapEditAction, MapEditorMessage, MapLayer, MapViewMode,
+    SelectedEntity, SpriteExportDialogState, SpriteExportStatus, SpriteSequenceHandle,
+    TilePixelData,
 };
 use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
@@ -934,6 +935,86 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             } else {
                 Task::none()
             }
+        }
+
+        MapEditorMessage::ShowDialogPreview(tab_id, npc_idx) => {
+            let state = match app.state.map_editors.get(&tab_id) {
+                Some(s) => s,
+                None => return Task::none(),
+            };
+            let game_path = match &app.state.workspace.game_path {
+                Some(p) => p.clone(),
+                None => return Task::none(),
+            };
+            let map_path = match &state.data.map_path {
+                Some(p) => p.clone(),
+                None => return Task::none(),
+            };
+            let map_stem = map_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+            let gp = game_path.clone();
+
+            Task::perform(
+                async move {
+                    use dispel_core::references::all_map_ini::Map as AllMapI;
+                    use dispel_core::references::dialogue_paragraph::DialogueParagraph;
+                    use dispel_core::references::dialogue_script::DialogueScript;
+
+                    let all_maps = AllMapI::read_file(&gp.join("AllMap.ini"))
+                        .map_err(|e| format!("AllMap.ini: {e}"))?;
+                    let entry = all_maps
+                        .into_iter()
+                        .find(|m| m.map_filename.to_lowercase() == map_stem)
+                        .ok_or_else(|| format!("Map '{map_stem}' not in AllMap.ini"))?;
+
+                    let dlg_name = entry
+                        .dlg_filename
+                        .as_deref()
+                        .ok_or_else(|| "No .dlg for this map".to_string())?;
+                    let pgp_name = entry
+                        .pgp_filename
+                        .as_deref()
+                        .ok_or_else(|| "No .pgp for this map".to_string())?;
+
+                    let scripts = DialogueScript::read_file(&gp.join("NpcInGame").join(dlg_name))
+                        .map_err(|e| format!("{dlg_name}: {e}"))?;
+                    let paragraphs =
+                        DialogueParagraph::read_file(&gp.join("NpcInGame").join(pgp_name))
+                            .map_err(|e| format!("{pgp_name}: {e}"))?;
+
+                    Ok((npc_idx, scripts, paragraphs))
+                },
+                move |result| {
+                    Message::map_editor(MapEditorMessage::DialogPreviewLoaded(tab_id, result))
+                },
+            )
+        }
+
+        MapEditorMessage::DialogPreviewLoaded(tab_id, result) => {
+            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+                match result {
+                    Ok((npc_idx, scripts, paragraphs)) => {
+                        state.view.dialog_preview = Some(DialogPreviewState {
+                            npc_index: npc_idx,
+                            dialog_scripts: scripts,
+                            dialog_paragraphs: paragraphs,
+                        });
+                    }
+                    Err(err) => {
+                        state.data.status_msg = Some(format!("Dialog preview: {err}"));
+                    }
+                }
+            }
+            Task::none()
+        }
+
+        MapEditorMessage::HideDialogPreview(tab_id) => {
+            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+                state.view.dialog_preview = None;
+            }
+            Task::none()
         }
 
         MapEditorMessage::ClearStatus(tab_id) => {
