@@ -1,7 +1,6 @@
 // System message handlers
 
 use crate::app::App;
-use crate::components::generic_editor::UndoRedo;
 use crate::components::utils::browse_folder;
 use crate::components::FileTree;
 use crate::editors::event_scr::EventScrEditorMessage;
@@ -52,134 +51,10 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             if editor_type == EditorType::MapEditor {
                 return Task::done(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
-            let result = match editor_type {
-                EditorType::WeaponEditor => app.state.weapon_editor.undo(&app.state.lookups),
-                EditorType::HealItemEditor => app.state.heal_item_editor.undo(&app.state.lookups),
-                EditorType::MiscItemEditor => app.state.misc_item_editor.undo(&app.state.lookups),
-                EditorType::EditItemEditor => app.state.edit_item_editor.undo(&app.state.lookups),
-                EditorType::EventItemEditor => app.state.event_item_editor.undo(&app.state.lookups),
-                EditorType::MonsterEditor => app.state.monster_editor.undo(&app.state.lookups),
-                EditorType::MonsterIniEditor => {
-                    app.state.monster_ini_editor.undo(&app.state.lookups)
-                }
-                EditorType::NpcIniEditor => app.state.npc_ini_editor.undo(&app.state.lookups),
-                EditorType::MagicEditor => app.state.magic_editor.undo(&app.state.lookups),
-                EditorType::PartyRefEditor => app.state.party_ref_editor.undo(&app.state.lookups),
-                EditorType::PartyIniEditor => app.state.party_ini_editor.undo(&app.state.lookups),
-                EditorType::AllMapIniEditor => {
-                    app.state.all_map_ini_editor.undo(&app.state.lookups)
-                }
-                EditorType::DrawItemEditor => app.state.draw_item_editor.undo(&app.state.lookups),
-                EditorType::EventIniEditor => app.state.event_ini_editor.undo(&app.state.lookups),
-                EditorType::EventNpcRefEditor => {
-                    app.state.event_npc_ref_editor.undo(&app.state.lookups)
-                }
-                EditorType::ExtraIniEditor => app.state.extra_ini_editor.undo(&app.state.lookups),
-                EditorType::MapIniEditor => app.state.map_ini_editor.undo(&app.state.lookups),
-                EditorType::MessageScrEditor => {
-                    app.state.message_scr_editor.undo(&app.state.lookups)
-                }
-                EditorType::QuestScrEditor => app.state.quest_scr_editor.undo(&app.state.lookups),
-                EditorType::WaveIniEditor => app.state.wave_ini_editor.undo(&app.state.lookups),
-                EditorType::ChDataEditor => app.state.chdata_editor.undo(&app.state.lookups),
-                EditorType::PartyLevelDbEditor => app
-                    .state
-                    .party_level_db_level_editor
-                    .undo(&app.state.lookups),
-                EditorType::StoreEditor => app.state.store_editor.undo(),
-                EditorType::MonsterRefEditor => app
-                    .state
-                    .monster_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.undo()),
-                EditorType::NpcRefEditor => app
-                    .state
-                    .npc_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.undo()),
-                EditorType::ExtraRefEditor => app
-                    .state
-                    .extra_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.undo()),
-                EditorType::DialogueScriptEditor => app
-                    .state
-                    .dialogue_script_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.undo()),
-                EditorType::DialogueTextEditor => app
-                    .state
-                    .dialogue_paragraph_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.undo()),
-                _ => None,
-            };
-            // Refresh spreadsheet caches for tab-based editors after undo
+            let result = app.state.undo_active(editor_type, tab_id);
             if result.is_some() {
-                match editor_type {
-                    EditorType::MonsterRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.monster_ref_editor.editors.get(&tab_id),
-                            app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::NpcRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.npc_ref_editor.editors.get(&tab_id),
-                            app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::ExtraRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.extra_ref_editor.editors.get(&tab_id),
-                            app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::DialogueScriptEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_script_editor.editors.get(&tab_id),
-                            app.state
-                                .dialogue_script_editor
-                                .spreadsheets
-                                .get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::DialogueTextEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_paragraph_editor.editors.get(&tab_id),
-                            app.state
-                                .dialogue_paragraph_editor
-                                .spreadsheets
-                                .get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    _ => {}
-                }
+                app.state
+                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
             }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to undo".to_string());
             Task::none()
@@ -194,134 +69,10 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             if editor_type == EditorType::MapEditor {
                 return Task::done(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
-            let result = match editor_type {
-                EditorType::WeaponEditor => app.state.weapon_editor.redo(&app.state.lookups),
-                EditorType::HealItemEditor => app.state.heal_item_editor.redo(&app.state.lookups),
-                EditorType::MiscItemEditor => app.state.misc_item_editor.redo(&app.state.lookups),
-                EditorType::EditItemEditor => app.state.edit_item_editor.redo(&app.state.lookups),
-                EditorType::EventItemEditor => app.state.event_item_editor.redo(&app.state.lookups),
-                EditorType::MonsterEditor => app.state.monster_editor.redo(&app.state.lookups),
-                EditorType::MonsterIniEditor => {
-                    app.state.monster_ini_editor.redo(&app.state.lookups)
-                }
-                EditorType::NpcIniEditor => app.state.npc_ini_editor.redo(&app.state.lookups),
-                EditorType::MagicEditor => app.state.magic_editor.redo(&app.state.lookups),
-                EditorType::PartyRefEditor => app.state.party_ref_editor.redo(&app.state.lookups),
-                EditorType::PartyIniEditor => app.state.party_ini_editor.redo(&app.state.lookups),
-                EditorType::AllMapIniEditor => {
-                    app.state.all_map_ini_editor.redo(&app.state.lookups)
-                }
-                EditorType::DrawItemEditor => app.state.draw_item_editor.redo(&app.state.lookups),
-                EditorType::EventIniEditor => app.state.event_ini_editor.redo(&app.state.lookups),
-                EditorType::EventNpcRefEditor => {
-                    app.state.event_npc_ref_editor.redo(&app.state.lookups)
-                }
-                EditorType::ExtraIniEditor => app.state.extra_ini_editor.redo(&app.state.lookups),
-                EditorType::MapIniEditor => app.state.map_ini_editor.redo(&app.state.lookups),
-                EditorType::MessageScrEditor => {
-                    app.state.message_scr_editor.redo(&app.state.lookups)
-                }
-                EditorType::QuestScrEditor => app.state.quest_scr_editor.redo(&app.state.lookups),
-                EditorType::WaveIniEditor => app.state.wave_ini_editor.redo(&app.state.lookups),
-                EditorType::ChDataEditor => app.state.chdata_editor.redo(&app.state.lookups),
-                EditorType::PartyLevelDbEditor => app
-                    .state
-                    .party_level_db_level_editor
-                    .redo(&app.state.lookups),
-                EditorType::StoreEditor => app.state.store_editor.redo(),
-                EditorType::MonsterRefEditor => app
-                    .state
-                    .monster_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.redo()),
-                EditorType::NpcRefEditor => app
-                    .state
-                    .npc_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.redo()),
-                EditorType::ExtraRefEditor => app
-                    .state
-                    .extra_ref_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.redo()),
-                EditorType::DialogueScriptEditor => app
-                    .state
-                    .dialogue_script_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.redo()),
-                EditorType::DialogueTextEditor => app
-                    .state
-                    .dialogue_paragraph_editor
-                    .editors
-                    .get_mut(&tab_id)
-                    .and_then(|e| e.redo()),
-                _ => None,
-            };
-            // Refresh spreadsheet caches for tab-based editors after redo
+            let result = app.state.redo_active(editor_type, tab_id);
             if result.is_some() {
-                match editor_type {
-                    EditorType::MonsterRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.monster_ref_editor.editors.get(&tab_id),
-                            app.state.monster_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::NpcRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.npc_ref_editor.editors.get(&tab_id),
-                            app.state.npc_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::ExtraRefEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.extra_ref_editor.editors.get(&tab_id),
-                            app.state.extra_ref_editor.spreadsheets.get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::DialogueScriptEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_script_editor.editors.get(&tab_id),
-                            app.state
-                                .dialogue_script_editor
-                                .spreadsheets
-                                .get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    EditorType::DialogueTextEditor => {
-                        if let (Some(editor), Some(spreadsheet)) = (
-                            app.state.dialogue_paragraph_editor.editors.get(&tab_id),
-                            app.state
-                                .dialogue_paragraph_editor
-                                .spreadsheets
-                                .get_mut(&tab_id),
-                        ) {
-                            if let Some(ref catalog) = editor.editor.catalog {
-                                spreadsheet.compute_all_caches(catalog, &app.state.lookups);
-                            }
-                        }
-                    }
-                    _ => {}
-                }
+                app.state
+                    .refresh_spreadsheet_after_undo_redo(editor_type, tab_id);
             }
             app.state.status_msg = result.unwrap_or_else(|| "Nothing to redo".to_string());
             Task::none()
