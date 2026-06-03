@@ -85,13 +85,20 @@ pub enum FileTreeError {
 /// Result type for file tree operations
 pub type FileTreeResult<T> = Result<T, FileTreeError>;
 
+use std::cell::RefCell;
+use nucleo_matcher::{Config, Matcher, Utf32Str};
+
+thread_local! {
+    static FUZZY_MATCHER: RefCell<Matcher> = RefCell::new(Matcher::new(Config::DEFAULT));
+}
+
 /// Fuzzy subsequence match: every character in `query` must appear in `text`
 /// in order (case-insensitive). Returns the matched byte-char indices on success.
 ///
 /// Improved to handle file extensions better:
 /// - If query starts with a dot (e.g., ".db"), match it against the filename extension
 /// - If query looks like an extension (short, no path separator), try matching as extension first
-/// - Otherwise, use standard subsequence matching
+/// - Otherwise, use standard subsequence matching via nucleo-matcher
 pub fn fuzzy_match(query: &str, text: &str) -> Option<Vec<usize>> {
     if query.is_empty() {
         return Some(vec![]);
@@ -144,25 +151,25 @@ pub fn fuzzy_match(query: &str, text: &str) -> Option<Vec<usize>> {
         }
     }
 
-    // Standard subsequence matching
-    let text_chars: Vec<char> = text.chars().collect();
-    let query_chars: Vec<char> = query_lower.chars().collect();
+    // Fast fuzzy matching via nucleo-matcher (O(n) greedy fallback for long inputs)
+    FUZZY_MATCHER.with(|m| {
+        let mut matcher = m.borrow_mut();
+        let mut char_buf = Vec::new();
+        let mut needle_buf = Vec::new();
+        let mut indices_buf = Vec::new();
 
-    let mut matched_indices = Vec::with_capacity(query_chars.len());
-    let mut qi = 0;
+        let haystack = Utf32Str::new(&text_lower, &mut char_buf);
+        let needle = Utf32Str::new(&query_lower, &mut needle_buf);
 
-    for (ti, tc) in text_chars.iter().enumerate() {
-        if qi < query_chars.len() && tc.to_lowercase().next() == Some(query_chars[qi]) {
-            matched_indices.push(ti);
-            qi += 1;
+        if matcher
+            .fuzzy_indices(haystack, needle, &mut indices_buf)
+            .is_some()
+        {
+            Some(indices_buf.into_iter().map(|i| i as usize).collect())
+        } else {
+            None
         }
-    }
-
-    if qi == query_chars.len() {
-        Some(matched_indices)
-    } else {
-        None
-    }
+    })
 }
 
 impl FileTreeError {

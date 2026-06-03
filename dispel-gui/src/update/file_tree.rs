@@ -13,19 +13,6 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
         FileTreeMessage::OpenFile(file_path) => app.open_file_in_workspace(&file_path),
         FileTreeMessage::OpenAsHex(file_path) => app.open_file_in_workspace_as_hex(&file_path),
         FileTreeMessage::Search(query) => {
-            // Use cache-aware search when query changes
-            let cache_manager = app.state.file_index_cache_manager.clone();
-            if let Some(ref manager) = cache_manager {
-                if let Ok(Some(cache)) = manager.load_cache() {
-                    if app.file_tree.should_use_cache(&Some(cache.clone())) {
-                        app.file_tree = crate::components::file_tree::FileTree::build_from_cache(
-                            &cache, &query,
-                        );
-                        app.file_tree.data.cache_manager = cache_manager;
-                        return Task::none();
-                    }
-                }
-            }
             app.file_tree.state.search_query = query.clone();
             app.file_tree.state.tree_filter =
                 crate::components::file_tree::FileTreeFilter::new().with_search_query(query);
