@@ -116,22 +116,40 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     let pathbuf = PathBuf::from(&s);
                     app.state.workspace.game_path = Some(pathbuf.clone());
                     app.state.shared_game_path = s.clone();
-                    // Pass cache manager for cache-aware search
-                    let cache_mgr = app.state.file_index_cache_manager.clone();
-                    app.file_tree = crate::components::file_tree::FileTree::scan_with_cache(
-                        &pathbuf, &cache_mgr,
-                    );
                     app.save_workspace();
                     // Clear old index and trigger re-index
                     app.search_index.clear();
                     app.search_index.game_path = Some(s.clone());
-                    let gp = pathbuf.clone();
-                    return Task::perform(
-                        async move { crate::indexation::search_index::build_index(&gp).await },
-                        |index| {
-                            crate::message::Message::System(SystemMessage::IndexLoaded(Ok(index)))
+
+                    // Async file tree scan (off UI thread)
+                    let cache_mgr = app.state.file_index_cache_manager.clone();
+                    app.file_tree.set_loading(true);
+                    let ft_path = pathbuf.clone();
+                    let file_tree_task = Task::perform(
+                        async move {
+                            crate::components::file_tree::FileTree::scan_with_cache(
+                                &ft_path, &cache_mgr,
+                            )
+                        },
+                        |tree| {
+                            crate::message::Message::System(
+                                SystemMessage::FileTreeScanned(tree),
+                            )
                         },
                     );
+
+                    // Async search index build
+                    let gp = pathbuf.clone();
+                    let index_task = Task::perform(
+                        async move { crate::indexation::search_index::build_index(&gp).await },
+                        |index| {
+                            crate::message::Message::System(SystemMessage::IndexLoaded(
+                                Ok(index),
+                            ))
+                        },
+                    );
+
+                    return Task::batch([file_tree_task, index_task]);
                 }
                 "viewer_db" => app.state.viewer.db_path = s,
                 "chest_game_path" => app.state.shared_game_path = s,
@@ -143,6 +161,10 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         SystemMessage::BrowseSharedGamePath => browse_folder("workspace_game_path"),
+        SystemMessage::FileTreeScanned(tree) => {
+            app.file_tree = tree;
+            Task::none()
+        }
         SystemMessage::RebuildIndex => {
             // TODO: Write information what it does
             if let Some(ref gp) = app.state.workspace.game_path {

@@ -1,3 +1,4 @@
+use crate::components::FileTree;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,7 @@ pub enum SystemMessage {
     RebuildIndex,
     ClearWorkspace,
     BrowseSharedGamePath,
+    FileTreeScanned(FileTree),
     FileSelected {
         field: String,
         path: Option<PathBuf>,
