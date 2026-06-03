@@ -45,15 +45,13 @@ impl IndexProgress {
     }
 }
 
-/// Path where the function index JSON is persisted (relative to the workspace
-/// directory that contains `workspace.json`).
+/// Path where the function index JSON is persisted under the dispel-gui config
+/// directory (alongside `workspace.json`).
 pub fn index_file_path() -> std::path::PathBuf {
-    let mut path = dirs::config_dir().unwrap_or_else(|| std::path::PathBuf::from("../.."));
-    path.push("..");
-    path.push("indexes");
-    std::fs::create_dir_all(&path).ok();
-    path.push("event_scr_functions.json");
-    path
+    let base = dirs::config_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+    let dir = base.join("dispel-gui").join("indexes");
+    std::fs::create_dir_all(&dir).ok();
+    dir.join("event_scr_functions.json")
 }
 
 /// Scan all `Event*.scr` files under `game_path/Ref/` and build a

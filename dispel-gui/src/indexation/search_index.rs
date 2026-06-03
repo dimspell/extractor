@@ -77,12 +77,10 @@ impl SearchIndex {
         serde_json::from_str(&json).map_err(|e| e.to_string())
     }
 
-    /// Get the config directory path for the index file.
+    /// Get the config directory path for the index file (under dispel-gui config).
     pub fn index_path() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("../../.."));
-        path.push("../..");
-        path.push("search_index.json");
-        path
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        base.join("dispel-gui").join("search_index.json")
     }
 
     /// Clear the index and reset state.

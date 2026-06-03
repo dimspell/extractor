@@ -315,10 +315,8 @@ impl AppState {
     }
 
     fn workspace_path() -> PathBuf {
-        let mut path = dirs::config_dir().unwrap_or_else(|| PathBuf::from("../.."));
-        path.push("..");
-        path.push("workspace.json");
-        path
+        let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+        base.join("dispel-gui").join("workspace.json")
     }
 
     /// Clear all editor states when workspace changes
