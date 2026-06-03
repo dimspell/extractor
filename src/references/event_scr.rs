@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Read, Seek, Write};
+use std::io::{BufRead, BufReader, Cursor, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
@@ -76,12 +76,25 @@ use serde::{Deserialize, Serialize};
 /// Used for quests, cutscenes, NPC interactions, and game
 /// state changes. Events are triggered by map interactions
 /// or quest progression.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventScript {
     /// Event script identifier (from filename).
     pub id: i32,
     /// Header comments from the file.
     pub header_comments: Vec<String>,
+    /// Whether the original file's last line had a trailing CRLF.
+    /// Set during `read_file` by inspecting raw bytes; defaults to `true`
+    /// for files parsed from bytes (e.g. Cursor) where detection is unavailable.
+    pub trailing_newline: bool,
+    /// Raw ACT section lines as they appeared in the original file (before
+    /// trimming).  When present, `to_writer` uses these verbatim instead of
+    /// reconstructing from `actions`, guaranteeing lossless round-trip even
+    /// for minor formatting differences (trailing whitespace, etc.).
+    ///
+    /// Set only during `read_file`.  The GUI clears this after modifying
+    /// `actions`, so the writer falls back to the structured representation.
+    #[serde(skip)]
+    pub act_raw_lines: Option<Vec<String>>,
     /// Variables defined in the [VAR] section.
     pub variables: Vec<Variable>,
     /// Map content from the [MAP] section (can be "map(null)" or other values).
@@ -133,6 +146,24 @@ impl SpriteDefinition {
         SpriteDefinition {
             sprite_alias: trimmed.to_string(),
             sprite_file: String::new(),
+        }
+    }
+}
+
+impl Default for EventScript {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            header_comments: Vec::new(),
+            trailing_newline: true,
+            act_raw_lines: None,
+            variables: Vec::new(),
+            map_content: Vec::new(),
+            chr_content: Vec::new(),
+            npc_content: Vec::new(),
+            spr_content: Vec::new(),
+            wav_content: Vec::new(),
+            actions: Vec::new(),
         }
     }
 }
@@ -280,8 +311,9 @@ impl Extractor for EventScript {
                 continue;
             }
 
-            // Skip comments (only in non-header context)
-            if trimmed.starts_with(';') {
+            // Skip comments in non-ACT sections (in ACT they're inline
+            // commented-out function calls that must be preserved).
+            if trimmed.starts_with(';') && current_section != "ACT" {
                 continue;
             }
 
@@ -331,9 +363,32 @@ impl Extractor for EventScript {
     fn read_file(path: &Path) -> std::io::Result<Vec<Self>> {
         let file = File::open(path)?;
         let len = file.metadata()?.len();
+
+        // Read raw bytes first so we can detect trailing newlines
+        // and extract raw ACT lines for lossless round-trip.
+        let mut raw = Vec::with_capacity(len as usize);
         let mut reader = std::io::BufReader::new(file);
-        let mut scripts = Self::parse(&mut reader, len)?;
+        reader.read_to_end(&mut raw)?;
+        let has_trailing_newline = raw.last() == Some(&b'\n');
+
+        // Extract raw ACT section lines (before decoding, so formatting
+        // like trailing whitespace is preserved byte-perfectly).
+        let raw_act_lines = extract_act_section(&raw);
+
+        let mut cursor = Cursor::new(&raw);
+        let mut scripts = Self::parse(&mut cursor, len)?;
         if let Some(script) = scripts.first_mut() {
+            script.trailing_newline = has_trailing_newline;
+            script.act_raw_lines = raw_act_lines.map(|lines| {
+                // Decode each raw line from EUC-KR
+                lines
+                    .iter()
+                    .map(|l| {
+                        let (cow, _, _) = EUC_KR.decode(l);
+                        cow.to_string()
+                    })
+                    .collect()
+            });
             if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                 let lower = stem.to_lowercase();
                 if lower.starts_with("event") {
@@ -356,67 +411,165 @@ impl Extractor for EventScript {
                 writer.write_all(b"\r\n")?;
             }
 
-            // Write the VAR section (always write, even if empty)
-            writer.write_all(b"[VAR]\r\n\r\n")?;
-            for var in &script.variables {
-                let line = format!("{}={}\r\n", var.name, var.value);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
-            }
+            // ── Section writer helper ──────────────────────────────────
+            // The original files follow this pattern:
+            //   Empty section: [SECTION]\r\n\r\n (blank line inside)
+            //   Filled section: [SECTION]\r\ncontent\r\n\r\n (blank line after content)
+            //   Last section (filled): [SECTION]\r\ncontent (no trailing blank line)
+
+            // Write the VAR section
+            write_euc_kr_line(writer, "[VAR]")?;
             if !script.variables.is_empty() {
+                for var in &script.variables {
+                    let line = format!("{}={}", var.name, var.value);
+                    write_euc_kr_line(writer, &line)?;
+                }
+                writer.write_all(b"\r\n")?; // trailing blank line
+            } else {
+                writer.write_all(b"\r\n")?; // blank line inside empty section
+            }
+
+            // Write MAP section
+            write_euc_kr_line(writer, "[MAP]")?;
+            if !script.map_content.is_empty() {
+                for line in &script.map_content {
+                    write_euc_kr_line(writer, line)?;
+                }
+                writer.write_all(b"\r\n")?;
+            } else {
                 writer.write_all(b"\r\n")?;
             }
 
-            // Write MAP section (always write, even if empty)
-            writer.write_all(b"[MAP]\r\n\r\n")?;
-            for content in &script.map_content {
-                let line = format!("{}\r\n", content);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
+            // Write CHR section
+            write_euc_kr_line(writer, "[CHR]")?;
+            if !script.chr_content.is_empty() {
+                for line in &script.chr_content {
+                    write_euc_kr_line(writer, line)?;
+                }
+                writer.write_all(b"\r\n")?;
+            } else {
+                writer.write_all(b"\r\n")?;
             }
 
-            // Write CHR section (always write, even if empty)
-            writer.write_all(b"[CHR]\r\n\r\n")?;
-            for content in &script.chr_content {
-                let line = format!("{}\r\n", content);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
+            // Write NPC section
+            write_euc_kr_line(writer, "[NPC]")?;
+            if !script.npc_content.is_empty() {
+                for line in &script.npc_content {
+                    write_euc_kr_line(writer, line)?;
+                }
+                writer.write_all(b"\r\n")?;
+            } else {
+                writer.write_all(b"\r\n")?;
             }
 
-            // Write NPC section (always write, even if empty)
-            writer.write_all(b"[NPC]\r\n\r\n")?;
-            for content in &script.npc_content {
-                let line = format!("{}\r\n", content);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
+            // Write the SPR section
+            write_euc_kr_line(writer, "[SPR]")?;
+            if !script.spr_content.is_empty() {
+                for sprite in &script.spr_content {
+                    write_euc_kr_line(writer, &sprite.to_string())?;
+                }
+                writer.write_all(b"\r\n")?;
+            } else {
+                writer.write_all(b"\r\n")?;
             }
 
-            // Write the SPR section (always write, even if empty)
-            writer.write_all(b"[SPR]\r\n\r\n")?;
-            for sprite in &script.spr_content {
-                let line = format!("{}\r\n", sprite);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
+            // Write WAV section
+            write_euc_kr_line(writer, "[WAV]")?;
+            if !script.wav_content.is_empty() {
+                for line in &script.wav_content {
+                    write_euc_kr_line(writer, line)?;
+                }
+                writer.write_all(b"\r\n")?;
+            } else {
+                writer.write_all(b"\r\n")?;
             }
 
-            // Write WAV section (always write, even if empty)
-            writer.write_all(b"[WAV]\r\n\r\n")?;
-            for content in &script.wav_content {
-                let line = format!("{}\r\n", content);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
-            }
-
-            // Write the ACT section
-            writer.write_all(b"[ACT]\r\n")?;
-            for action in &script.actions {
-                let line = format!("{}\r\n", action);
-                let (cow, _, _) = EUC_KR.encode(&line);
-                writer.write_all(&cow)?;
+            // Write the ACT section (last section — no trailing blank line)
+            write_euc_kr_line(writer, "[ACT]")?;
+            // Use raw lines when available (lossless round-trip), otherwise
+            // reconstruct from the structured `actions` vec.
+            if let Some(ref raw_lines) = script.act_raw_lines {
+                let last_idx = raw_lines.len().saturating_sub(1);
+                for (i, raw_line) in raw_lines.iter().enumerate() {
+                    let (cow, _, _) = EUC_KR.encode(raw_line);
+                    writer.write_all(&cow)?;
+                    if i != last_idx || script.trailing_newline {
+                        writer.write_all(b"\r\n")?;
+                    }
+                }
+            } else {
+                let last_idx = script.actions.len().saturating_sub(1);
+                for (i, action) in script.actions.iter().enumerate() {
+                    let encoded = format!("{}", action);
+                    let (cow, _, _) = EUC_KR.encode(&encoded);
+                    writer.write_all(&cow)?;
+                    // Write CRLF after every action line; the last line's CRLF
+                    // is only written if the original file had one.
+                    if i != last_idx || script.trailing_newline {
+                        writer.write_all(b"\r\n")?;
+                    }
+                }
             }
         }
 
         Ok(())
+    }
+}
+
+/// Write a line of text to the writer, encoded as EUC-KR, followed by CRLF.
+fn write_euc_kr_line<W: Write>(writer: &mut W, text: &str) -> std::io::Result<()> {
+    let (cow, _, _) = EUC_KR.encode(text);
+    writer.write_all(&cow)?;
+    writer.write_all(b"\r\n")
+}
+
+/// Extract the raw bytes of each line in the `[ACT]` section from a
+/// raw (undecoded) file.  These are stored verbatim for lossless
+/// round-trip, preserving any trailing whitespace the original had.
+fn extract_act_section(raw: &[u8]) -> Option<Vec<&[u8]>> {
+    // Normalise line endings: split on \n, strip trailing \r
+    let text = if raw.contains(&b'\r') {
+        // CRLF: split on \n, each line ends with \r before the \n
+        raw.split(|&b| b == b'\n')
+            .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+            .collect::<Vec<_>>()
+    } else {
+        raw.split(|&b| b == b'\n').collect::<Vec<_>>()
+    };
+
+    // Find [ACT] section header (case-insensitive)
+    let act_start = text.iter().position(|line| {
+        let trimmed = line.to_vec();
+        let trimmed = std::str::from_utf8(&trimmed)
+            .ok()
+            .map(|s| s.trim())
+            .unwrap_or("");
+        trimmed.eq_ignore_ascii_case("[act]")
+    })?;
+
+    // Collect lines after [ACT] until the next section or end of file.
+    let mut act_lines: Vec<&[u8]> = Vec::new();
+    for line in text.iter().skip(act_start + 1) {
+        let trimmed = line.to_vec();
+        let trimmed = std::str::from_utf8(&trimmed)
+            .ok()
+            .map(|s| s.trim())
+            .unwrap_or("");
+        // Stop at the next section header
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            break;
+        }
+        act_lines.push(line);
+    }
+    // Strip trailing empty lines that come from the file's final CRLF
+    while act_lines.last().is_some_and(|l| l.is_empty()) {
+        act_lines.pop();
+    }
+
+    if act_lines.is_empty() {
+        None
+    } else {
+        Some(act_lines)
     }
 }
 

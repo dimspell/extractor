@@ -22,6 +22,8 @@ mod event_ini;
 mod event_item_db;
 #[path = "round_trip/event_npc_ref.rs"]
 mod event_npc_ref;
+#[path = "round_trip/event_scr.rs"]
+mod event_scr;
 #[path = "round_trip/extra_ini.rs"]
 mod extra_ini;
 #[path = "round_trip/extra_ref.rs"]

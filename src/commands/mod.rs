@@ -4,6 +4,7 @@ pub mod database;
 pub mod dialog;
 pub mod list;
 pub mod map;
+pub mod pack;
 pub mod registry;
 pub mod schema;
 pub mod sound;

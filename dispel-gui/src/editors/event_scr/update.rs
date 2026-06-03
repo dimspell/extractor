@@ -889,6 +889,8 @@ mod tests {
         EventScript {
             id: 1,
             header_comments: vec![],
+            trailing_newline: true,
+            act_raw_lines: None,
             variables: vec![],
             map_content: vec![],
             chr_content: vec![],

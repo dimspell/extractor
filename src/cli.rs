@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 use crate::commands::list::ListArgs;
+use crate::commands::pack::ModPackArgs;
 use crate::commands::schema::SchemaArgs;
 use crate::commands::template::TemplateArgs;
 use crate::commands::unified::{ExtractArgs, PatchArgs};
@@ -140,6 +141,13 @@ pub enum Commands {
         #[arg(short = 'd', long, value_name = "DATABASE_FILE")]
         database_path: Option<PathBuf>,
     },
+
+    /// Export event scripts to JSON for use in Godot
+    #[command(
+        about = "Batch export event scripts (.scr) to JSON",
+        long_about = "Reads all Event*.scr files from a Dispel game directory's Ref/ folder and exports them as JSON for use in Godot (or other tools).\n\nUsage Examples:\n  dispel-extractor mod-pack --game-path fixtures/Dispel --output mod-pack/\n  dispel-extractor mod-pack -g fixtures/Dispel -o mod-pack/ --pretty\n  dispel-extractor mod-pack -g fixtures/Dispel -o mod-pack/ --single-file"
+    )]
+    ModPack(ModPackArgs),
 
     /// Test command
     #[command(

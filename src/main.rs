@@ -7,6 +7,7 @@ use commands::database::DatabaseCommand;
 use commands::dialog::DialogCommand;
 use commands::list::ListCommand;
 use commands::map::MapCommand;
+use commands::pack::ModPackCommand;
 use commands::schema::SchemaCommand;
 use commands::sound::SoundCommand;
 use commands::sprite::SpriteCommand;
@@ -78,6 +79,7 @@ fn main() {
                 Ok(())
             }
         }
+        Some(Commands::ModPack(args)) => ModPackCommand { args: args.clone() }.execute(),
         Some(Commands::Test { message }) => TestCommand {
             message: message.clone(),
         }
