@@ -6,9 +6,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
     match message {
         TabBarMessage::SelectTab(tab_index) => {
             // Stop SNF playback when switching away from a tab.
-            for editor in app.state.editors.snf_editors.values_mut() {
-                editor.playback = None;
-            }
+            app.state.editors.stop_snf_playback();
             if app.state.workspace.tabs.len() > tab_index {
                 app.state.workspace.active_tab = Some(tab_index);
             }
@@ -17,13 +15,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
         TabBarMessage::CloseTab(tab_index) => {
             if app.state.workspace.tabs.len() > tab_index {
                 let tab_id = app.state.workspace.tabs[tab_index].id;
-                app.state.editors.sprite_viewers.remove(&tab_id);
-                app.state.editors.extra_ref_editor.remove(&tab_id);
-                app.state.editors.npc_ref_editor.remove(&tab_id);
-                app.state.editors.monster_ref_editor.remove(&tab_id);
-                app.state.editors.dialogue_script_editor.remove(&tab_id);
-                app.state.editors.dialogue_paragraph_editor.remove(&tab_id);
-                app.state.editors.snf_editors.remove(&tab_id);
+                app.state.editors.remove_tab(tab_id);
                 app.state.workspace.tabs.remove(tab_index);
                 if let Some(active) = app.state.workspace.active_tab {
                     if app.state.workspace.tabs.is_empty() {
@@ -45,13 +37,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             if let Some(active_tab) = app.state.workspace.active_tab {
                 if !app.state.workspace.tabs.is_empty() {
                     let tab_id = app.state.workspace.tabs[active_tab].id;
-                    app.state.editors.sprite_viewers.remove(&tab_id);
-                    app.state.editors.extra_ref_editor.remove(&tab_id);
-                    app.state.editors.npc_ref_editor.remove(&tab_id);
-                    app.state.editors.monster_ref_editor.remove(&tab_id);
-                    app.state.editors.dialogue_script_editor.remove(&tab_id);
-                    app.state.editors.dialogue_paragraph_editor.remove(&tab_id);
-                    app.state.editors.snf_editors.remove(&tab_id);
+                    app.state.editors.remove_tab(tab_id);
                     app.state.workspace.tabs.remove(active_tab);
                     if app.state.workspace.tabs.is_empty() {
                         app.state.workspace.active_tab = None;
@@ -75,13 +61,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
                     .map(|(_, tab)| tab.id)
                     .collect();
                 for id in tabs_to_close {
-                    app.state.editors.sprite_viewers.remove(&id);
-                    app.state.editors.extra_ref_editor.remove(&id);
-                    app.state.editors.npc_ref_editor.remove(&id);
-                    app.state.editors.monster_ref_editor.remove(&id);
-                    app.state.editors.dialogue_script_editor.remove(&id);
-                    app.state.editors.dialogue_paragraph_editor.remove(&id);
-                    app.state.editors.snf_editors.remove(&id);
+                    app.state.editors.remove_tab(id);
                 }
                 app.state.workspace.tabs.retain(|tab| tab.id == tab_id);
                 app.state.workspace.active_tab = Some(0);
@@ -91,13 +71,7 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
         TabBarMessage::CloseAll => {
             app.state.workspace.tabs.clear();
             app.state.workspace.active_tab = None;
-            app.state.editors.sprite_viewers.clear();
-            app.state.editors.extra_ref_editor.clear();
-            app.state.editors.npc_ref_editor.clear();
-            app.state.editors.monster_ref_editor.clear();
-            app.state.editors.dialogue_script_editor.clear();
-            app.state.editors.dialogue_paragraph_editor.clear();
-            app.state.editors.snf_editors.clear();
+            app.state.editors.close_all_tabs();
             Task::none()
         }
         TabBarMessage::OpenAsHex(tab_index) => {

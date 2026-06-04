@@ -1,5 +1,4 @@
 use crate::components::file_tree::FileTree;
-use crate::components::generic_editor::UndoRedo;
 use crate::components::global_search::GlobalSearch;
 use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
@@ -76,79 +75,6 @@ pub struct PendingEdit {
     /// Generation of the most recent edit — only the timer carrying the
     /// matching generation is allowed to flush.
     pub generation: u64,
-}
-
-/// Macro: dispatch `undo` or `redo` to the correct editor field.
-/// Arms are defined once and reused for both operations via `$action`.
-macro_rules! undo_redo_dispatch {
-    ($self:ident, $editor_type:expr, $tab_id:expr, $action:ident) => {{
-        match $editor_type {
-            // Standard editors (StandardEditor<T> — undo/redo with lookups)
-            EditorType::WeaponEditor => $self.editors.weapon_editor.$action(&$self.lookups),
-            EditorType::HealItemEditor => $self.editors.heal_item_editor.$action(&$self.lookups),
-            EditorType::MiscItemEditor => $self.editors.misc_item_editor.$action(&$self.lookups),
-            EditorType::EditItemEditor => $self.editors.edit_item_editor.$action(&$self.lookups),
-            EditorType::EventItemEditor => $self.editors.event_item_editor.$action(&$self.lookups),
-            EditorType::MonsterEditor => $self.editors.monster_editor.$action(&$self.lookups),
-            EditorType::MonsterIniEditor => $self.editors.monster_ini_editor.$action(&$self.lookups),
-            EditorType::NpcIniEditor => $self.editors.npc_ini_editor.$action(&$self.lookups),
-            EditorType::MagicEditor => $self.editors.magic_editor.$action(&$self.lookups),
-            EditorType::PartyRefEditor => $self.editors.party_ref_editor.$action(&$self.lookups),
-            EditorType::PartyIniEditor => $self.editors.party_ini_editor.$action(&$self.lookups),
-            EditorType::AllMapIniEditor => $self.editors.all_map_ini_editor.$action(&$self.lookups),
-            EditorType::DrawItemEditor => $self.editors.draw_item_editor.$action(&$self.lookups),
-            EditorType::EventIniEditor => $self.editors.event_ini_editor.$action(&$self.lookups),
-            EditorType::EventNpcRefEditor => {
-                $self.editors.event_npc_ref_editor.$action(&$self.lookups)
-            }
-            EditorType::ExtraIniEditor => $self.editors.extra_ini_editor.$action(&$self.lookups),
-            EditorType::MapIniEditor => $self.editors.map_ini_editor.$action(&$self.lookups),
-            EditorType::MessageScrEditor => $self.editors.message_scr_editor.$action(&$self.lookups),
-            EditorType::QuestScrEditor => $self.editors.quest_scr_editor.$action(&$self.lookups),
-            EditorType::WaveIniEditor => $self.editors.wave_ini_editor.$action(&$self.lookups),
-            EditorType::ChDataEditor => $self.editors.chdata_editor.$action(&$self.lookups),
-            EditorType::PartyLevelDbEditor => {
-                $self.editors.party_level_db_level_editor.$action(&$self.lookups)
-            }
-
-            // Custom-layout editor (undo/redo without lookups)
-            EditorType::StoreEditor => $self.editors.store_editor.$action(),
-
-            // Tab-based editors (MultiFileEditorState via TabbedEditor)
-            EditorType::MonsterRefEditor => $self
-                .editors
-                .monster_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::NpcRefEditor => $self
-                .editors
-                .npc_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::ExtraRefEditor => $self
-                .editors
-                .extra_ref_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::DialogueScriptEditor => $self
-                .editors
-                .dialogue_script_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-            EditorType::DialogueTextEditor => $self
-                .editors
-                .dialogue_paragraph_editor
-                .editors
-                .get_mut(&$tab_id)
-                .and_then(|e| e.$action()),
-
-            _ => None,
-        }
-    }};
 }
 
 impl AppState {
@@ -338,69 +264,25 @@ impl AppState {
     /// Perform undo on the active editor.
     /// Returns a status message, or `None` if there's nothing to undo.
     pub fn undo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
-        undo_redo_dispatch!(self, editor_type, tab_id, undo)
+        self.editors
+            .undo_active(editor_type, tab_id, &self.lookups)
     }
 
     /// Perform redo on the active editor.
     /// Returns a status message, or `None` if there's nothing to redo.
     pub fn redo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
-        undo_redo_dispatch!(self, editor_type, tab_id, redo)
+        self.editors
+            .redo_active(editor_type, tab_id, &self.lookups)
     }
 
     /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    ///
-    /// `MultiFileEditorState::undo` / `redo` does not own the `SpreadsheetState`,
-    /// so caches go stale — refresh them here.
     pub fn refresh_spreadsheet_after_undo_redo(
         &mut self,
         editor_type: EditorType,
         tab_id: usize,
     ) {
-        let lookups = &self.lookups;
-        macro_rules! refresh_tab {
-            ($editors:expr, $spreadsheets:expr) => {
-                if let (Some(editor), Some(spreadsheet)) =
-                    ($editors.get(&tab_id), $spreadsheets.get_mut(&tab_id))
-                {
-                    if let Some(ref catalog) = editor.editor.catalog {
-                        spreadsheet.compute_all_caches(catalog, lookups);
-                    }
-                }
-            };
-        }
-        match editor_type {
-            EditorType::MonsterRefEditor => {
-                refresh_tab!(
-                    self.editors.monster_ref_editor.editors,
-                    self.editors.monster_ref_editor.spreadsheets
-                )
-            }
-            EditorType::NpcRefEditor => {
-                refresh_tab!(
-                    self.editors.npc_ref_editor.editors,
-                    self.editors.npc_ref_editor.spreadsheets
-                )
-            }
-            EditorType::ExtraRefEditor => {
-                refresh_tab!(
-                    self.editors.extra_ref_editor.editors,
-                    self.editors.extra_ref_editor.spreadsheets
-                )
-            }
-            EditorType::DialogueScriptEditor => {
-                refresh_tab!(
-                    self.editors.dialogue_script_editor.editors,
-                    self.editors.dialogue_script_editor.spreadsheets
-                )
-            }
-            EditorType::DialogueTextEditor => {
-                refresh_tab!(
-                    self.editors.dialogue_paragraph_editor.editors,
-                    self.editors.dialogue_paragraph_editor.spreadsheets
-                )
-            }
-            _ => {}
-        }
+        self.editors
+            .refresh_spreadsheet(editor_type, tab_id, &self.lookups);
     }
 }
 

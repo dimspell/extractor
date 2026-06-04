@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::components::generic_editor::UndoRedo;
 use crate::components::generic_editor::TabbedEditor;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
@@ -26,6 +27,7 @@ use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
+use crate::workspace::EditorType;
 use dispel_core::{
     DialogueParagraph, DialogueScript, EditItem, EventItem, ExtraRef, HealItem, MiscItem,
     Monster, MonsterRef, NPC, PartyLevelRecord, PartyRef, WeaponItem,
@@ -80,8 +82,205 @@ pub struct EditorRegistry {
     pub localization_manager: localization_manager::LocalizationManagerState,
 }
 
+/// Macro: dispatch `undo` or `redo` to the correct editor field.
+/// Arms are defined once and reused for both operations via `$action`.
+macro_rules! undo_redo_dispatch {
+    ($self:ident, $editor_type:expr, $tab_id:expr, $lookups:expr, $action:ident) => {{
+        use $crate::workspace::EditorType;
+        match $editor_type {
+            // Standard editors (StandardEditor<T> — undo/redo with lookups)
+            EditorType::WeaponEditor => $self.weapon_editor.$action($lookups),
+            EditorType::HealItemEditor => $self.heal_item_editor.$action($lookups),
+            EditorType::MiscItemEditor => $self.misc_item_editor.$action($lookups),
+            EditorType::EditItemEditor => $self.edit_item_editor.$action($lookups),
+            EditorType::EventItemEditor => $self.event_item_editor.$action($lookups),
+            EditorType::MonsterEditor => $self.monster_editor.$action($lookups),
+            EditorType::MonsterIniEditor => $self.monster_ini_editor.$action($lookups),
+            EditorType::NpcIniEditor => $self.npc_ini_editor.$action($lookups),
+            EditorType::MagicEditor => $self.magic_editor.$action($lookups),
+            EditorType::PartyRefEditor => $self.party_ref_editor.$action($lookups),
+            EditorType::PartyIniEditor => $self.party_ini_editor.$action($lookups),
+            EditorType::AllMapIniEditor => $self.all_map_ini_editor.$action($lookups),
+            EditorType::DrawItemEditor => $self.draw_item_editor.$action($lookups),
+            EditorType::EventIniEditor => $self.event_ini_editor.$action($lookups),
+            EditorType::EventNpcRefEditor => $self.event_npc_ref_editor.$action($lookups),
+            EditorType::ExtraIniEditor => $self.extra_ini_editor.$action($lookups),
+            EditorType::MapIniEditor => $self.map_ini_editor.$action($lookups),
+            EditorType::MessageScrEditor => $self.message_scr_editor.$action($lookups),
+            EditorType::QuestScrEditor => $self.quest_scr_editor.$action($lookups),
+            EditorType::WaveIniEditor => $self.wave_ini_editor.$action($lookups),
+            EditorType::ChDataEditor => $self.chdata_editor.$action($lookups),
+            EditorType::PartyLevelDbEditor => {
+                $self.party_level_db_level_editor.$action($lookups)
+            }
+
+            // Custom-layout editor (undo/redo without lookups)
+            EditorType::StoreEditor => $self.store_editor.$action(),
+
+            // Tab-based editors (MultiFileEditorState via TabbedEditor)
+            EditorType::MonsterRefEditor => $self
+                .monster_ref_editor
+                .editors
+                .get_mut(&$tab_id)
+                .and_then(|e| e.$action()),
+            EditorType::NpcRefEditor => $self
+                .npc_ref_editor
+                .editors
+                .get_mut(&$tab_id)
+                .and_then(|e| e.$action()),
+            EditorType::ExtraRefEditor => $self
+                .extra_ref_editor
+                .editors
+                .get_mut(&$tab_id)
+                .and_then(|e| e.$action()),
+            EditorType::DialogueScriptEditor => $self
+                .dialogue_script_editor
+                .editors
+                .get_mut(&$tab_id)
+                .and_then(|e| e.$action()),
+            EditorType::DialogueTextEditor => $self
+                .dialogue_paragraph_editor
+                .editors
+                .get_mut(&$tab_id)
+                .and_then(|e| e.$action()),
+
+            _ => None,
+        }
+    }};
+}
+
 impl EditorRegistry {
-    /// Reset every editor to its initial state.
+    // ─── Tab lifecycle ───────────────────────────────────────────────────────
+
+    /// Remove editor state for a single closed tab.
+    ///
+    /// Covers every HashMap / TabbedEditor that maps `tab_id → editor`.
+    /// (Previously each close handler duplicated this list by hand, and
+    /// `tileset_editors` / `map_editors` / `hex_editors` were forgotten.)
+    pub fn remove_tab(&mut self, tab_id: usize) {
+        self.sprite_viewers.remove(&tab_id);
+        self.extra_ref_editor.remove(&tab_id);
+        self.npc_ref_editor.remove(&tab_id);
+        self.monster_ref_editor.remove(&tab_id);
+        self.dialogue_script_editor.remove(&tab_id);
+        self.dialogue_paragraph_editor.remove(&tab_id);
+        self.snf_editors.remove(&tab_id);
+        self.tileset_editors.remove(&tab_id);
+        self.map_editors.remove(&tab_id);
+        self.hex_editors.remove(&tab_id);
+    }
+
+    /// Clear editors for every tab.  Use when the workspace is about to lose
+    /// all its tabs (CloseAll, workspace reset, …).
+    ///
+    /// This is **less aggressive** than [`clear_all`](Self::clear_all) in that
+    /// it does **not** reset single-instance Box editors (weapon_editor,
+    /// monster_editor, …) to their default state — only tab-indexed state is
+    /// dropped.
+    pub fn close_all_tabs(&mut self) {
+        self.sprite_viewers.clear();
+        self.extra_ref_editor.clear();
+        self.npc_ref_editor.clear();
+        self.monster_ref_editor.clear();
+        self.dialogue_script_editor.clear();
+        self.dialogue_paragraph_editor.clear();
+        self.snf_editors.clear();
+        self.tileset_editors.clear();
+        self.map_editors.clear();
+        self.hex_editors.clear();
+    }
+
+    /// Stop SNF audio playback on every open SNF editor.
+    pub fn stop_snf_playback(&mut self) {
+        for editor in self.snf_editors.values_mut() {
+            editor.playback = None;
+        }
+    }
+
+    // ─── Undo / Redo ────────────────────────────────────────────────────────
+
+    /// Perform undo on the editor identified by `editor_type` / `tab_id`.
+    /// Returns a status message, or `None` if there's nothing to undo.
+    pub fn undo_active(
+        &mut self,
+        editor_type: EditorType,
+        tab_id: usize,
+        lookups: &HashMap<String, Vec<(String, String)>>,
+    ) -> Option<String> {
+        undo_redo_dispatch!(self, editor_type, tab_id, lookups, undo)
+    }
+
+    /// Perform redo on the editor identified by `editor_type` / `tab_id`.
+    /// Returns a status message, or `None` if there's nothing to redo.
+    pub fn redo_active(
+        &mut self,
+        editor_type: EditorType,
+        tab_id: usize,
+        lookups: &HashMap<String, Vec<(String, String)>>,
+    ) -> Option<String> {
+        undo_redo_dispatch!(self, editor_type, tab_id, lookups, redo)
+    }
+
+    /// Refresh spreadsheet caches after undo/redo for tab-based editors.
+    ///
+    /// `MultiFileEditorState::undo` / `redo` does not own the
+    /// `SpreadsheetState`, so caches go stale — refresh them here.
+    pub fn refresh_spreadsheet(
+        &mut self,
+        editor_type: EditorType,
+        tab_id: usize,
+        lookups: &HashMap<String, Vec<(String, String)>>,
+    ) {
+        macro_rules! refresh_tab {
+            ($editors:expr, $spreadsheets:expr) => {
+                if let (Some(editor), Some(spreadsheet)) =
+                    ($editors.get(&tab_id), $spreadsheets.get_mut(&tab_id))
+                {
+                    if let Some(ref catalog) = editor.editor.catalog {
+                        spreadsheet.compute_all_caches(catalog, lookups);
+                    }
+                }
+            };
+        }
+        match editor_type {
+            EditorType::MonsterRefEditor => {
+                refresh_tab!(
+                    self.monster_ref_editor.editors,
+                    self.monster_ref_editor.spreadsheets
+                )
+            }
+            EditorType::NpcRefEditor => {
+                refresh_tab!(
+                    self.npc_ref_editor.editors,
+                    self.npc_ref_editor.spreadsheets
+                )
+            }
+            EditorType::ExtraRefEditor => {
+                refresh_tab!(
+                    self.extra_ref_editor.editors,
+                    self.extra_ref_editor.spreadsheets
+                )
+            }
+            EditorType::DialogueScriptEditor => {
+                refresh_tab!(
+                    self.dialogue_script_editor.editors,
+                    self.dialogue_script_editor.spreadsheets
+                )
+            }
+            EditorType::DialogueTextEditor => {
+                refresh_tab!(
+                    self.dialogue_paragraph_editor.editors,
+                    self.dialogue_paragraph_editor.spreadsheets
+                )
+            }
+            _ => {}
+        }
+    }
+
+    // ─── Full reset ─────────────────────────────────────────────────────────
+
+    /// Reset **every** editor to its initial state.  Use when the workspace
+    /// changes (game path switch, full workspace clear, …).
     pub fn clear_all(&mut self) {
         // HashMap-based editors
         self.sprite_viewers.clear();
