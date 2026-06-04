@@ -154,35 +154,6 @@ impl AppState {
         println!("Validating file: {}", path.display());
     }
 
-    /// Show file in OS file manager
-    pub fn show_in_file_manager(&self, path: &Path) {
-        #[cfg(target_os = "windows")]
-        {
-            use std::process::Command;
-            Command::new("explorer")
-                .arg("/select,")
-                .arg(path)
-                .spawn()
-                .ok();
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            use std::process::Command;
-            Command::new("open").arg("-R").arg(path).spawn().ok();
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            use std::process::Command;
-            if let Some(parent) = path.parent() {
-                Command::new("xdg-open").arg(parent).spawn().ok();
-            }
-        }
-
-        println!("Showing {} in file manager", path.display());
-    }
-
     /// Start background file indexation if needed
     pub fn start_file_indexation_if_needed(&self) -> Option<Task<Message>> {
         let game_path = self.workspace.game_path.as_ref()?.clone();

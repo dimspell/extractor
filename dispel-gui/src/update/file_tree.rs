@@ -53,7 +53,7 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
             Task::none()
         }
         FileTreeMessage::ShowInFileManager(file_path) => {
-            app.state.show_in_file_manager(&file_path);
+            crate::platform::open_in_file_manager(&file_path);
             Task::none()
         }
     }

@@ -8,7 +8,8 @@ pub mod editor_registry;
 pub mod editors;
 pub mod indexation;
 pub mod message;
-#[allow(clippy::module_inception)]
+
+pub mod platform;
 pub mod state;
 pub mod style;
 pub mod update;
