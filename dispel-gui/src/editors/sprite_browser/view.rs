@@ -22,7 +22,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|t| t.id)
         .unwrap_or(usize::MAX);
 
-    let Some(viewer) = app.state.sprite_viewers.get(&tab_id) else {
+    let Some(viewer) = app.state.editors.sprite_viewers.get(&tab_id) else {
         return container(text("Sprite not loaded").size(14))
             .width(Fill)
             .height(Fill)

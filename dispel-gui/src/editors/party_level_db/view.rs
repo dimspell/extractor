@@ -7,7 +7,7 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let editor = &app.state.party_level_db_editor;
+    let editor = &app.state.editors.party_level_db_editor;
 
     let npc_buttons: Vec<Element<Message>> = match &editor.catalog {
         None => vec![text("No catalog loaded")
@@ -45,8 +45,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let spreadsheet_area: Element<Message> = if editor.selected_npc_idx.is_some() {
         view_spreadsheet(
-            &app.state.party_level_db_level_editor,
-            &app.state.party_level_db_level_editor.spreadsheet,
+            &app.state.editors.party_level_db_level_editor,
+            &app.state.editors.party_level_db_level_editor.spreadsheet,
             Message::party_level_db(PartyLevelDbEditorMessage::LoadCatalog),
             Message::party_level_db(PartyLevelDbEditorMessage::Save),
             |_idx| Message::party_level_db(PartyLevelDbEditorMessage::LoadCatalog),

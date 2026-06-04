@@ -734,26 +734,26 @@ fn test_clear_editor_states() {
 
     let mut state = AppState::default();
 
-    state.map_editors.insert(1, MapEditorState::default());
-    state.map_editors.insert(2, MapEditorState::default());
+    state.editors.map_editors.insert(1, MapEditorState::default());
+    state.editors.map_editors.insert(2, MapEditorState::default());
 
     state.lookups.insert(
         "test_key".to_string(),
         vec![("field".to_string(), "value".to_string())],
     );
 
-    assert_eq!(state.map_editors.len(), 2);
+    assert_eq!(state.editors.map_editors.len(), 2);
     assert_eq!(state.lookups.len(), 1);
 
     state.clear_editor_states();
 
-    assert_eq!(state.map_editors.len(), 0);
-    assert_eq!(state.dialogue_script_editor.len(), 0);
-    assert_eq!(state.sprite_viewers.len(), 0);
+    assert_eq!(state.editors.map_editors.len(), 0);
+    assert_eq!(state.editors.dialogue_script_editor.len(), 0);
+    assert_eq!(state.editors.sprite_viewers.len(), 0);
     assert_eq!(state.lookups.len(), 0);
 
-    let _ = state.weapon_editor;
-    let _ = state.heal_item_editor;
+    let _ = state.editors.weapon_editor;
+    let _ = state.editors.heal_item_editor;
 }
 
 #[test]
@@ -766,5 +766,5 @@ fn test_clear_editor_states_idempotent() {
 
     state.clear_editor_states();
 
-    assert_eq!(state.map_editors.len(), 0);
+    assert_eq!(state.editors.map_editors.len(), 0);
 }

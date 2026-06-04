@@ -10,10 +10,10 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
     match message {
         ChestEditorMessage::ScanMaps => {
             if app.state.shared_game_path.is_empty() {
-                app.state.chest_editor.status_msg = "Please select game path first.".into();
+                app.state.editors.chest_editor.status_msg = "Please select game path first.".into();
                 return Task::none();
             }
-            app.state.chest_editor.loading_state = LoadingState::Loading;
+            app.state.editors.chest_editor.loading_state = LoadingState::Loading;
             let path = PathBuf::from(&app.state.shared_game_path).join("ExtraInGame");
             Task::perform(
                 async move {
@@ -42,23 +42,23 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             )
         }
         ChestEditorMessage::MapsScanned(res) => {
-            app.state.chest_editor.loading_state = LoadingState::Loaded(());
+            app.state.editors.chest_editor.loading_state = LoadingState::Loaded(());
             match res {
                 Ok(files) => {
-                    app.state.chest_editor.map_files =
+                    app.state.editors.chest_editor.map_files =
                         files.into_iter().map(PathBuf::from).collect();
-                    app.state.chest_editor.status_msg = format!(
+                    app.state.editors.chest_editor.status_msg = format!(
                         "Found {} map files.",
-                        app.state.chest_editor.map_files.len()
+                        app.state.editors.chest_editor.map_files.len()
                     );
                 }
-                Err(e) => app.state.chest_editor.status_msg = format!("Error scanning maps: {}", e),
+                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error scanning maps: {}", e),
             }
             // Also load the catalog for human-friendly item names
             if app.state.shared_game_path.is_empty() {
                 Task::none()
             } else {
-                app.state.chest_editor.loading_state = LoadingState::Loading;
+                app.state.editors.chest_editor.loading_state = LoadingState::Loading;
                 let path = PathBuf::from(&app.state.shared_game_path);
                 Task::perform(
                     async move { crate::editors::chest::state::ItemCatalog::load_from_folder(&path) },
@@ -74,10 +74,10 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
         }
         ChestEditorMessage::LoadCatalog => {
             if app.state.shared_game_path.is_empty() {
-                app.state.chest_editor.status_msg = "Please select game path first.".into();
+                app.state.editors.chest_editor.status_msg = "Please select game path first.".into();
                 return Task::none();
             }
-            app.state.chest_editor.loading_state = LoadingState::Loading;
+            app.state.editors.chest_editor.loading_state = LoadingState::Loading;
             let path = PathBuf::from(&app.state.shared_game_path);
             Task::perform(
                 async move { crate::editors::chest::state::ItemCatalog::load_from_folder(&path) },
@@ -89,69 +89,69 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             )
         }
         ChestEditorMessage::CatalogLoaded(res) => {
-            app.state.chest_editor.loading_state = LoadingState::Loaded(());
+            app.state.editors.chest_editor.loading_state = LoadingState::Loaded(());
             match res {
                 Ok(catalog) => {
-                    app.state.chest_editor.catalog = Some(catalog);
-                    app.state.chest_editor.status_msg = "Catalog loaded successfully.".into();
+                    app.state.editors.chest_editor.catalog = Some(catalog);
+                    app.state.editors.chest_editor.status_msg = "Catalog loaded successfully.".into();
                 }
                 Err(e) => {
-                    app.state.chest_editor.status_msg = format!("Error loading catalog: {}", e)
+                    app.state.editors.chest_editor.status_msg = format!("Error loading catalog: {}", e)
                 }
             }
             Task::none()
         }
         ChestEditorMessage::SelectMap => {
-            if app.state.chest_editor.current_map_file.is_empty() {
-                app.state.chest_editor.status_msg = "No map file selected.".into();
+            if app.state.editors.chest_editor.current_map_file.is_empty() {
+                app.state.editors.chest_editor.status_msg = "No map file selected.".into();
                 return Task::none();
             }
-            app.load_map_file(PathBuf::from(&app.state.chest_editor.current_map_file))
+            app.load_map_file(PathBuf::from(&app.state.editors.chest_editor.current_map_file))
         }
         ChestEditorMessage::SelectMapFromFile(path) => {
-            app.state.chest_editor.current_map_file = path.clone();
+            app.state.editors.chest_editor.current_map_file = path.clone();
             app.load_map_file(PathBuf::from(path))
         }
         ChestEditorMessage::MapLoaded(res) => {
-            app.state.chest_editor.loading_state = LoadingState::Loaded(());
+            app.state.editors.chest_editor.loading_state = LoadingState::Loaded(());
             match res {
                 Ok(records) => {
-                    app.state.chest_editor.all_records =
+                    app.state.editors.chest_editor.all_records =
                         records.into_iter().map(|(_, record)| record).collect();
-                    app.state.chest_editor.status_msg = "Map loaded successfully.".into();
+                    app.state.editors.chest_editor.status_msg = "Map loaded successfully.".into();
                     app.refresh_chests();
                 }
-                Err(e) => app.state.chest_editor.status_msg = format!("Error loading map: {}", e),
+                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error loading map: {}", e),
             }
             Task::none()
         }
         ChestEditorMessage::SelectChest(index) => {
-            app.state.chest_editor.selected_idx = Some(index);
-            if let Some((_, record)) = app.state.chest_editor.filtered_chests.get(index) {
-                app.state.chest_editor.edit_name = record.name.clone();
-                app.state.chest_editor.edit_x = record.x_pos.to_string();
-                app.state.chest_editor.edit_y = record.y_pos.to_string();
-                app.state.chest_editor.edit_gold = record.gold_amount.to_string();
-                app.state.chest_editor.edit_item_count = record.item_count.to_string();
-                app.state.chest_editor.edit_item_id = record.item_id.to_string();
-                app.state.chest_editor.edit_item_type = (u8::from(record.item_type_id)).to_string();
-                app.state.chest_editor.edit_closed = record.closed.to_string();
+            app.state.editors.chest_editor.selected_idx = Some(index);
+            if let Some((_, record)) = app.state.editors.chest_editor.filtered_chests.get(index) {
+                app.state.editors.chest_editor.edit_name = record.name.clone();
+                app.state.editors.chest_editor.edit_x = record.x_pos.to_string();
+                app.state.editors.chest_editor.edit_y = record.y_pos.to_string();
+                app.state.editors.chest_editor.edit_gold = record.gold_amount.to_string();
+                app.state.editors.chest_editor.edit_item_count = record.item_count.to_string();
+                app.state.editors.chest_editor.edit_item_id = record.item_id.to_string();
+                app.state.editors.chest_editor.edit_item_type = (u8::from(record.item_type_id)).to_string();
+                app.state.editors.chest_editor.edit_closed = record.closed.to_string();
             }
             Task::none()
         }
         ChestEditorMessage::FieldChanged(orig_idx, field, val) => {
             match field.as_str() {
-                "name" => app.state.chest_editor.edit_name = val.clone(),
-                "x" => app.state.chest_editor.edit_x = val.clone(),
-                "y" => app.state.chest_editor.edit_y = val.clone(),
-                "gold" => app.state.chest_editor.edit_gold = val.clone(),
-                "item_count" => app.state.chest_editor.edit_item_count = val.clone(),
-                "item_id" => app.state.chest_editor.edit_item_id = val.clone(),
-                "item_type" => app.state.chest_editor.edit_item_type = val.clone(),
-                "closed" => app.state.chest_editor.edit_closed = val.clone(),
+                "name" => app.state.editors.chest_editor.edit_name = val.clone(),
+                "x" => app.state.editors.chest_editor.edit_x = val.clone(),
+                "y" => app.state.editors.chest_editor.edit_y = val.clone(),
+                "gold" => app.state.editors.chest_editor.edit_gold = val.clone(),
+                "item_count" => app.state.editors.chest_editor.edit_item_count = val.clone(),
+                "item_id" => app.state.editors.chest_editor.edit_item_id = val.clone(),
+                "item_type" => app.state.editors.chest_editor.edit_item_type = val.clone(),
+                "closed" => app.state.editors.chest_editor.edit_closed = val.clone(),
                 _ => {}
             }
-            if let Some(record) = app.state.chest_editor.all_records.get_mut(orig_idx) {
+            if let Some(record) = app.state.editors.chest_editor.all_records.get_mut(orig_idx) {
                 match field.as_str() {
                     "name" => record.name = val,
                     "x" => {
@@ -196,14 +196,14 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             Task::none()
         }
         ChestEditorMessage::Save => {
-            if app.state.chest_editor.current_map_file.is_empty()
-                || app.state.chest_editor.all_records.is_empty()
+            if app.state.editors.chest_editor.current_map_file.is_empty()
+                || app.state.editors.chest_editor.all_records.is_empty()
             {
                 return Task::none();
             }
-            app.state.chest_editor.loading_state = LoadingState::Loading;
+            app.state.editors.chest_editor.loading_state = LoadingState::Loading;
 
-            let path = PathBuf::from(&app.state.chest_editor.current_map_file);
+            let path = PathBuf::from(&app.state.editors.chest_editor.current_map_file);
 
             // Copy the original file with a timestamp (before file extension) as a backup
             if path.exists() {
@@ -232,7 +232,7 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                 }
             }
 
-            let records = app.state.chest_editor.all_records.clone();
+            let records = app.state.editors.chest_editor.all_records.clone();
             Task::perform(
                 async move { dispel_core::ExtraRef::save_file(&records, &path) },
                 |res: Result<(), std::io::Error>| {
@@ -243,10 +243,10 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             )
         }
         ChestEditorMessage::Saved(res) => {
-            app.state.chest_editor.loading_state = LoadingState::Loaded(());
+            app.state.editors.chest_editor.loading_state = LoadingState::Loaded(());
             match res {
-                Ok(_) => app.state.chest_editor.status_msg = "Map saved successfully.".into(),
-                Err(e) => app.state.chest_editor.status_msg = format!("Error saving map: {}", e),
+                Ok(_) => app.state.editors.chest_editor.status_msg = "Map saved successfully.".into(),
+                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error saving map: {}", e),
             }
             Task::none()
         }

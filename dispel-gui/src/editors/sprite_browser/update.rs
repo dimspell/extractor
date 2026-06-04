@@ -17,7 +17,7 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
         .map(|t| t.id)
         .unwrap_or(usize::MAX);
 
-    let Some(viewer) = app.state.sprite_viewers.get_mut(&tab_id) else {
+    let Some(viewer) = app.state.editors.sprite_viewers.get_mut(&tab_id) else {
         return Task::none();
     };
 

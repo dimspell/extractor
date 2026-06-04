@@ -9,7 +9,7 @@ pub fn show_preview(
     tab_id: usize,
     npc_idx: usize,
 ) -> Task<Message> {
-    let state = match app.state.map_editors.get(&tab_id) {
+    let state = match app.state.editors.map_editors.get(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -76,7 +76,7 @@ pub fn preview_loaded(
         String,
     >,
 ) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         match result {
             Ok((npc_idx, scripts, paragraphs)) => {
                 state.view.dialog_preview = Some(DialogPreviewState {
@@ -94,7 +94,7 @@ pub fn preview_loaded(
 }
 
 pub fn hide_preview(app: &mut App, tab_id: usize) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.view.dialog_preview = None;
     }
     Task::none()

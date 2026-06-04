@@ -36,7 +36,7 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             );
             tab::load_catalog_sync(
                 path.clone(),
-                &mut app.state.extra_ref_editor,
+                &mut app.state.editors.extra_ref_editor,
                 tab_id,
                 &app.state.lookups,
             );
@@ -53,14 +53,14 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
             )
         }
         ExtraRefEditorMessage::CatalogLoaded(id, result) => {
-            if let Some(editor) = app.state.extra_ref_editor.editors.get_mut(&id) {
+            if let Some(editor) = app.state.editors.extra_ref_editor.editors.get_mut(&id) {
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
                         editor.editor.status_msg =
                             format!("Extra ref catalog loaded: {} entries", catalog.len());
                         editor.editor.catalog = Some(catalog.clone());
-                        if let Some(ss) = app.state.extra_ref_editor.spreadsheets.get_mut(&id) {
+                        if let Some(ss) = app.state.editors.extra_ref_editor.spreadsheets.get_mut(&id) {
                             ss.apply_filter(&catalog);
                             let lookups = &app.state.lookups;
                             ss.compute_all_caches(&catalog, lookups);

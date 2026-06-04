@@ -333,23 +333,23 @@ macro_rules! handle_spreadsheet_messages {
     ($app:ident, $field:ident, $field_changed_msg:expr, $msg:ident) => {
         $crate::handle_spreadsheet_messages_inner! {
             app: $app,
-            ss: $app.state.$field.spreadsheet,
-            catalog: || &$app.state.$field.state.catalog,
-            make_inspector: |idx| $app.state.$field.make_inspector_textarea_contents(idx),
-            unique_values: |col| $app.state.$field.unique_values_for_column(col),
-            status_msg: &mut $app.state.$field.status_msg,
+            ss: $app.state.editors.$field.spreadsheet,
+            catalog: || &$app.state.editors.$field.state.catalog,
+            make_inspector: |idx| $app.state.editors.$field.make_inspector_textarea_contents(idx),
+            unique_values: |col| $app.state.editors.$field.unique_values_for_column(col),
+            status_msg: &mut $app.state.editors.$field.status_msg,
             compute_caches: {
-                if let Some(c) = &$app.state.$field.state.catalog {
+                if let Some(c) = &$app.state.editors.$field.state.catalog {
                     let c = c.clone();
                     let lookups = &$app.state.lookups;
-                    $app.state.$field.spreadsheet.compute_all_caches(&c, lookups);
+                    $app.state.editors.$field.spreadsheet.compute_all_caches(&c, lookups);
                 }
             },
             toggle_inspector_extra: {
-                if $app.state.$field.spreadsheet.show_inspector {
-                    if let Some(orig_idx) = $app.state.$field.spreadsheet.selected_orig {
-                        $app.state.$field.spreadsheet.inspector_textarea_contents =
-                            $app.state.$field.make_inspector_textarea_contents(orig_idx);
+                if $app.state.editors.$field.spreadsheet.show_inspector {
+                    if let Some(orig_idx) = $app.state.editors.$field.spreadsheet.selected_orig {
+                        $app.state.editors.$field.spreadsheet.inspector_textarea_contents =
+                            $app.state.editors.$field.make_inspector_textarea_contents(orig_idx);
                     }
                 }
             },
@@ -372,8 +372,8 @@ macro_rules! handle_spreadsheet_messages_tab {
         match $msg {
             other => {
                 if let (Some(ed), Some(ss)) = (
-                    $app.state.$tabbed_editor.editors.get_mut(&$tab_id),
-                    $app.state.$tabbed_editor.spreadsheets.get_mut(&$tab_id),
+                    $app.state.editors.$tabbed_editor.editors.get_mut(&$tab_id),
+                    $app.state.editors.$tabbed_editor.spreadsheets.get_mut(&$tab_id),
                 ) {
                     $crate::handle_spreadsheet_messages_inner! {
                         app: $app,
@@ -383,8 +383,8 @@ macro_rules! handle_spreadsheet_messages_tab {
                         unique_values: |col| ed.editor.unique_values_for_column(col),
                         status_msg: &mut ed.editor.status_msg,
                         compute_caches: {
-                            let ss2 = $app.state.$tabbed_editor.spreadsheets.get_mut(&$tab_id);
-                            let ed2 = $app.state.$tabbed_editor.editors.get_mut(&$tab_id);
+                            let ss2 = $app.state.editors.$tabbed_editor.spreadsheets.get_mut(&$tab_id);
+                            let ed2 = $app.state.editors.$tabbed_editor.editors.get_mut(&$tab_id);
                             if let (Some(ss2), Some(ed2)) = (ss2, ed2) {
                                 if let Some(c) = &ed2.editor.catalog {
                                     let c = c.clone();

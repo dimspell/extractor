@@ -9,7 +9,7 @@ use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let state = &app.state.mod_packager_editor;
+    let state = &app.state.editors.mod_packager_editor;
 
     if state.workspace_root.is_none() {
         return container(text("Open a workspace to see conflicts.").size(12))

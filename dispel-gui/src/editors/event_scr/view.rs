@@ -15,7 +15,7 @@ use iced::widget::{
 use iced::{Alignment, Color, Element, Font, Length};
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
-    let state = &app.state.event_scr_editor;
+    let state = &app.state.editors.event_scr_editor;
 
     let base = match &state.script_loading {
         LoadingState::Loaded(script) => {

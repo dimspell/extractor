@@ -151,9 +151,9 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
 
                     return Task::batch([file_tree_task, index_task]);
                 }
-                "viewer_db" => app.state.viewer.db_path = s,
+                "viewer_db" => app.state.editors.viewer.db_path = s,
                 "chest_game_path" => app.state.shared_game_path = s,
-                "chest_map_file" => app.state.chest_editor.current_map_file = s,
+                "chest_map_file" => app.state.editors.chest_editor.current_map_file = s,
                 "extra_ref_map_file" => {}
                 "monster_ref_file" => {}
                 _ => {}
@@ -385,7 +385,7 @@ mod tests {
 
         // Add some editor states
         app.state
-            .map_editors
+            .editors.map_editors
             .insert(1, crate::editors::map_editor::MapEditorState::default());
         app.state.lookups.insert(
             "test".to_string(),
@@ -394,7 +394,7 @@ mod tests {
 
         // Verify initial state (after adding our test tab and editors)
         let initial_tab_count = app.state.workspace.tabs.len();
-        let initial_map_editor_count = app.state.map_editors.len();
+        let initial_map_editor_count = app.state.editors.map_editors.len();
         let initial_lookup_count = app.state.lookups.len();
         assert!(initial_tab_count > 0, "Should have some tabs initially");
         assert!(
@@ -419,7 +419,7 @@ mod tests {
             "Active tab should be cleared"
         );
         assert_eq!(
-            app.state.map_editors.len(),
+            app.state.editors.map_editors.len(),
             0,
             "Map editors should be cleared"
         );
@@ -439,7 +439,7 @@ mod tests {
 
         // Note: App is created with some default tabs, so we just verify the clear works
         let _initial_tab_count = app.state.workspace.tabs.len();
-        let _initial_map_editor_count = app.state.map_editors.len();
+        let _initial_map_editor_count = app.state.editors.map_editors.len();
         // len() always returns non-negative values, so these assertions are removed
         // as they were causing compiler warnings without providing meaningful checks
 
@@ -499,7 +499,7 @@ mod tests {
 
         // State should still be valid
         assert_eq!(app.state.workspace.tabs.len(), 0);
-        assert_eq!(app.state.map_editors.len(), 0);
+        assert_eq!(app.state.editors.map_editors.len(), 0);
     }
 
     fn push_weapon_tab(app: &mut App) {
@@ -566,21 +566,21 @@ mod tests {
         // Load a weapon into the editor
         let mut weapon = WeaponItem::default();
         weapon.name = "Iron Sword".to_string();
-        app.state.weapon_editor.catalog = Some(vec![weapon]);
-        app.state.weapon_editor.refresh();
-        app.state.weapon_editor.select(0);
+        app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.editors.weapon_editor.refresh();
+        app.state.editors.weapon_editor.select(0);
 
         // Make a change
         app.state
-            .weapon_editor
+            .editors.weapon_editor
             .update_field(0, "name", "Steel Sword".to_string());
-        assert!(app.state.weapon_editor.edit_history.can_undo());
+        assert!(app.state.editors.weapon_editor.edit_history.can_undo());
 
         // Undo via system message
         let _ = handle(SystemMessage::Undo, &mut app);
 
         assert_eq!(
-            app.state.weapon_editor.filtered[0].1.name, "Iron Sword",
+            app.state.editors.weapon_editor.filtered[0].1.name, "Iron Sword",
             "Field should revert after undo"
         );
         assert!(
@@ -598,20 +598,20 @@ mod tests {
 
         let mut weapon = WeaponItem::default();
         weapon.name = "Iron Sword".to_string();
-        app.state.weapon_editor.catalog = Some(vec![weapon]);
-        app.state.weapon_editor.refresh();
-        app.state.weapon_editor.select(0);
+        app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
+        app.state.editors.weapon_editor.refresh();
+        app.state.editors.weapon_editor.select(0);
 
         app.state
-            .weapon_editor
+            .editors.weapon_editor
             .update_field(0, "name", "Steel Sword".to_string());
 
         let _ = handle(SystemMessage::Undo, &mut app);
-        assert_eq!(app.state.weapon_editor.filtered[0].1.name, "Iron Sword");
+        assert_eq!(app.state.editors.weapon_editor.filtered[0].1.name, "Iron Sword");
 
         let _ = handle(SystemMessage::Redo, &mut app);
         assert_eq!(
-            app.state.weapon_editor.filtered[0].1.name, "Steel Sword",
+            app.state.editors.weapon_editor.filtered[0].1.name, "Steel Sword",
             "Field should re-apply after redo"
         );
         assert!(app.state.status_msg.starts_with("Redo:"));

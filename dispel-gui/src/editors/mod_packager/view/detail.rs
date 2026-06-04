@@ -10,7 +10,7 @@ use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let state = &app.state.mod_packager_editor;
+    let state = &app.state.editors.mod_packager_editor;
     let busy = matches!(state.loading_state, LoadingState::Loading);
 
     let Some(slug) = state.selected_slug.as_deref() else {

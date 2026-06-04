@@ -70,7 +70,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
         WaveIniEditorMessage::FieldChanged(index, field, value) => {
             let (old_value, orig_idx_u32) = app
                 .state
-                .wave_ini_editor
+                .editors.wave_ini_editor
                 .filtered
                 .iter()
                 .find(|(i, _)| *i == index)
@@ -82,7 +82,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             let new_value = value.clone();
             let task = crate::components::standard::update::handle(
                 StandardEditorMessage::FieldChanged(index, field.clone(), value),
-                &mut app.state.wave_ini_editor,
+                &mut app.state.editors.wave_ini_editor,
                 &app.state.shared_game_path.clone(),
                 &app.state.lookups,
                 "Wave.ini",
@@ -104,14 +104,14 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
         }
         WaveIniEditorMessage::ExportWav(index) => {
             if app.state.shared_game_path.is_empty() {
-                app.state.wave_ini_editor.status_msg = "Please select game path first.".into();
+                app.state.editors.wave_ini_editor.status_msg = "Please select game path first.".into();
                 return Task::none();
             }
-            if let Some((_, wave)) = app.state.wave_ini_editor.filtered.get(index) {
+            if let Some((_, wave)) = app.state.editors.wave_ini_editor.filtered.get(index) {
                 let snf_filename = match &wave.snf_filename {
                     Some(f) => f.clone(),
                     None => {
-                        app.state.wave_ini_editor.status_msg =
+                        app.state.editors.wave_ini_editor.status_msg =
                             "No SNF filename for this entry.".into();
                         return Task::none();
                     }
@@ -121,7 +121,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                     .map(|s| s.to_string_lossy().to_string())
                     .unwrap_or_else(|| format!("wave_{}", wave.id));
                 let game_path = app.state.shared_game_path.clone();
-                app.state.wave_ini_editor.loading_state =
+                app.state.editors.wave_ini_editor.loading_state =
                     crate::components::loading_state::LoadingState::Loading;
                 return Task::perform(
                     async move {
@@ -156,17 +156,17 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             Task::none()
         }
         WaveIniEditorMessage::ExportedWav(result) => {
-            app.state.wave_ini_editor.loading_state =
+            app.state.editors.wave_ini_editor.loading_state =
                 crate::components::loading_state::LoadingState::Loaded(());
             match result {
-                Ok(p) => app.state.wave_ini_editor.status_msg = format!("Exported to {}", p),
-                Err(e) => app.state.wave_ini_editor.status_msg = format!("Export failed: {}", e),
+                Ok(p) => app.state.editors.wave_ini_editor.status_msg = format!("Exported to {}", p),
+                Err(e) => app.state.editors.wave_ini_editor.status_msg = format!("Export failed: {}", e),
             }
             Task::none()
         }
         msg => crate::components::standard::update::handle(
             into_std(msg),
-            &mut app.state.wave_ini_editor,
+            &mut app.state.editors.wave_ini_editor,
             &app.state.shared_game_path.clone(),
             &app.state.lookups,
             "Wave.ini",
@@ -178,8 +178,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
 pub fn view(app: &App) -> iced::Element<'_, crate::message::Message> {
     use crate::message::MessageExt;
     crate::view::editor::view_spreadsheet(
-        &app.state.wave_ini_editor,
-        &app.state.wave_ini_editor.spreadsheet,
+        &app.state.editors.wave_ini_editor,
+        &app.state.editors.wave_ini_editor.spreadsheet,
         crate::message::Message::wave_ini(WaveIniEditorMessage::LoadCatalog),
         crate::message::Message::wave_ini(WaveIniEditorMessage::Save),
         |idx| crate::message::Message::wave_ini(WaveIniEditorMessage::Select(idx)),

@@ -24,7 +24,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|t| t.id)
         .unwrap_or(usize::MAX);
 
-    let Some(editor) = app.state.tileset_editors.get(&tab_id) else {
+    let Some(editor) = app.state.editors.tileset_editors.get(&tab_id) else {
         return container(text("Tileset not loaded").size(14))
             .width(Fill)
             .height(Fill)

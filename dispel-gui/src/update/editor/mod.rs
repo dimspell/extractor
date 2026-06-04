@@ -56,7 +56,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
                 .active()
                 .map(|t| t.id)
                 .unwrap_or(usize::MAX);
-            let Some(state) = app.state.hex_editors.get_mut(&tab_id) else {
+            let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
                 return Task::none();
             };
             let config = crate::app::build_hex_config(

@@ -69,7 +69,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
         // ── Inline handlers ───────────────────────────────────────────────────
         MapEditorMessage::PanChanged(tab_id, dx, dy) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.pan_x += dx;
                 state.view.pan_y += dy;
                 state.view.tile_layer_cache.clear();
@@ -79,7 +79,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::ZoomChanged(tab_id, factor, cx, cy) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 let old_zoom = state.view.zoom;
                 let new_zoom = (old_zoom * factor).clamp(0.05, 8.0);
                 let ratio = new_zoom / old_zoom;
@@ -97,7 +97,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::LayerToggled(tab_id, layer) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 match layer {
                     MapLayer::Ground => state.view.show_ground = !state.view.show_ground,
                     MapLayer::Buildings => {
@@ -127,7 +127,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::MouseMoved(tab_id, x, y, canvas_w, canvas_h) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.cursor_canvas_x = x;
                 state.view.cursor_canvas_y = y;
                 if canvas_w > 0.0 && canvas_h > 0.0 {
@@ -144,7 +144,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::Deselect(tab_id) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.selected_entity = None;
                 state.view.overlay_cache.clear();
             }
@@ -152,7 +152,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::CanvasClicked(tab_id, cx, cy) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 // Use find_hovered_element which also detects collision and event
                 // tiles.
                 let clicked = find_hovered_element(state, cx, cy);
@@ -200,14 +200,14 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::ClearStatus(tab_id) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.data.status_msg = None;
             }
             Task::none()
         }
 
         MapEditorMessage::SwitchViewMode(tab_id, mode) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.view_mode = mode;
                 state.view.selected_sprite_sequence = None;
             }
@@ -215,14 +215,14 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         }
 
         MapEditorMessage::SelectSpriteSequence(tab_id, idx) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 state.view.selected_sprite_sequence = idx;
             }
             Task::none()
         }
 
         MapEditorMessage::FitToWindow(tab_id) => {
-            if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+            if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 // Extract the map geometry before mutating view state to satisfy
                 // the borrow checker (map_data() borrows state via
                 // loading_state).

@@ -14,7 +14,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|t| t.id)
         .unwrap_or(usize::MAX);
 
-    let Some(editor) = app.state.snf_editors.get(&tab_id) else {
+    let Some(editor) = app.state.editors.snf_editors.get(&tab_id) else {
         return container(text("SNF not loaded").size(14))
             .width(Fill)
             .height(Fill)

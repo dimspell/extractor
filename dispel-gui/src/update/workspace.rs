@@ -333,7 +333,7 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 .open_tool(label.to_string(), editor_type);
             // B3: auto-scan when opening Localization Manager with game path set and no entries loaded
             if editor_type == EditorType::LocalizationManager
-                && app.state.localization_manager.entries.is_empty()
+                && app.state.editors.localization_manager.entries.is_empty()
                 && !app.state.shared_game_path.is_empty()
             {
                 return Task::done(crate::message::Message::localization(

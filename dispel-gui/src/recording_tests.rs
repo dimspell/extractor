@@ -71,12 +71,12 @@ fn observe_field_change_returns_task_when_session_active() {
 #[test]
 fn weapon_editor_records_when_session_active() {
     let mut app = app_with_recording();
-    app.state.weapon_editor.catalog = Some(vec![WeaponItem {
+    app.state.editors.weapon_editor.catalog = Some(vec![WeaponItem {
         name: "OldName".into(),
         ..Default::default()
     }]);
-    let record = app.state.weapon_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.weapon_editor.filtered = vec![(0, record)];
+    let record = app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].clone();
+    app.state.editors.weapon_editor.filtered = vec![(0, record)];
 
     let task = weapon::handle(
         WeaponEditorMessage::FieldChanged(0, "name".into(), "NewName".into()),
@@ -85,7 +85,7 @@ fn weapon_editor_records_when_session_active() {
 
     assert!(task.units() > 0, "should record when session is active");
     assert_eq!(
-        app.state.weapon_editor.catalog.as_ref().unwrap()[0].name,
+        app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].name,
         "NewName"
     );
 }
@@ -93,12 +93,12 @@ fn weapon_editor_records_when_session_active() {
 #[test]
 fn weapon_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
-    app.state.weapon_editor.catalog = Some(vec![WeaponItem {
+    app.state.editors.weapon_editor.catalog = Some(vec![WeaponItem {
         name: "OldName".into(),
         ..Default::default()
     }]);
-    let record = app.state.weapon_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.weapon_editor.filtered = vec![(0, record)];
+    let record = app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].clone();
+    app.state.editors.weapon_editor.filtered = vec![(0, record)];
 
     let task = weapon::handle(
         WeaponEditorMessage::FieldChanged(0, "name".into(), "NewName".into()),
@@ -107,7 +107,7 @@ fn weapon_editor_does_not_record_without_session() {
 
     assert_eq!(task.units(), 0, "should NOT record without session");
     assert_eq!(
-        app.state.weapon_editor.catalog.as_ref().unwrap()[0].name,
+        app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].name,
         "NewName"
     );
 }
@@ -115,12 +115,12 @@ fn weapon_editor_does_not_record_without_session() {
 #[test]
 fn weapon_editor_no_recording_when_value_unchanged() {
     let mut app = app_with_recording();
-    app.state.weapon_editor.catalog = Some(vec![WeaponItem {
+    app.state.editors.weapon_editor.catalog = Some(vec![WeaponItem {
         name: "SameName".into(),
         ..Default::default()
     }]);
-    let record = app.state.weapon_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.weapon_editor.filtered = vec![(0, record)];
+    let record = app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].clone();
+    app.state.editors.weapon_editor.filtered = vec![(0, record)];
 
     let task = weapon::handle(
         WeaponEditorMessage::FieldChanged(0, "name".into(), "SameName".into()),
@@ -137,13 +137,13 @@ fn weapon_editor_no_recording_when_value_unchanged() {
 #[test]
 fn wave_ini_editor_records_when_session_active() {
     let mut app = app_with_recording();
-    app.state.wave_ini_editor.catalog = Some(vec![WaveIni {
+    app.state.editors.wave_ini_editor.catalog = Some(vec![WaveIni {
         id: 1,
         snf_filename: Some("old.wav".into()),
         ..Default::default()
     }]);
-    let record = app.state.wave_ini_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.wave_ini_editor.filtered = vec![(0, record)];
+    let record = app.state.editors.wave_ini_editor.catalog.as_ref().unwrap()[0].clone();
+    app.state.editors.wave_ini_editor.filtered = vec![(0, record)];
 
     let task = wave_ini::handle(
         WaveIniEditorMessage::FieldChanged(0, "snf_filename".into(), "new.wav".into()),
@@ -159,13 +159,13 @@ fn wave_ini_editor_records_when_session_active() {
 #[test]
 fn wave_ini_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
-    app.state.wave_ini_editor.catalog = Some(vec![WaveIni {
+    app.state.editors.wave_ini_editor.catalog = Some(vec![WaveIni {
         id: 1,
         snf_filename: Some("old.wav".into()),
         ..Default::default()
     }]);
-    let record = app.state.wave_ini_editor.catalog.as_ref().unwrap()[0].clone();
-    app.state.wave_ini_editor.filtered = vec![(0, record)];
+    let record = app.state.editors.wave_ini_editor.catalog.as_ref().unwrap()[0].clone();
+    app.state.editors.wave_ini_editor.filtered = vec![(0, record)];
 
     let task = wave_ini::handle(
         WaveIniEditorMessage::FieldChanged(0, "snf_filename".into(), "new.wav".into()),
@@ -186,11 +186,11 @@ fn wave_ini_editor_does_not_record_without_session() {
 #[test]
 fn store_editor_records_when_session_active() {
     let mut app = app_with_recording();
-    app.state.store_editor.catalog = Some(vec![Store {
+    app.state.editors.store_editor.catalog = Some(vec![Store {
         store_name: "OldShop".into(),
         ..Default::default()
     }]);
-    app.state.store_editor.filtered_stores = vec![(
+    app.state.editors.store_editor.filtered_stores = vec![(
         0,
         Store {
             store_name: "OldShop".into(),
@@ -208,7 +208,7 @@ fn store_editor_records_when_session_active() {
         "store editor should record when session active"
     );
     assert_eq!(
-        app.state.store_editor.catalog.as_ref().unwrap()[0].store_name,
+        app.state.editors.store_editor.catalog.as_ref().unwrap()[0].store_name,
         "NewShop"
     );
 }
@@ -216,11 +216,11 @@ fn store_editor_records_when_session_active() {
 #[test]
 fn store_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
-    app.state.store_editor.catalog = Some(vec![Store {
+    app.state.editors.store_editor.catalog = Some(vec![Store {
         store_name: "OldShop".into(),
         ..Default::default()
     }]);
-    app.state.store_editor.filtered_stores = vec![(
+    app.state.editors.store_editor.filtered_stores = vec![(
         0,
         Store {
             store_name: "OldShop".into(),
@@ -239,7 +239,7 @@ fn store_editor_does_not_record_without_session() {
         "store editor should NOT record without session"
     );
     assert_eq!(
-        app.state.store_editor.catalog.as_ref().unwrap()[0].store_name,
+        app.state.editors.store_editor.catalog.as_ref().unwrap()[0].store_name,
         "NewShop"
     );
 }
@@ -253,7 +253,7 @@ fn npc_ref_editor_records_when_session_active() {
     let mut app = app_with_recording();
     let tab_id = usize::MAX; // Workspace has no active tab → get_tab_id returns MAX
 
-    app.state.npc_ref_editor.editors.insert(
+    app.state.editors.npc_ref_editor.editors.insert(
         tab_id,
         MultiFileEditorState {
             file_list: vec![],
@@ -275,7 +275,7 @@ fn npc_ref_editor_records_when_session_active() {
         },
     );
     app.state
-        .npc_ref_editor
+        .editors.npc_ref_editor
         .spreadsheets
         .insert(tab_id, SpreadsheetState::new());
     app.state.shared_game_path = "/game".into();
@@ -296,7 +296,7 @@ fn npc_ref_editor_does_not_record_without_session() {
     let mut app = app_without_recording();
     let tab_id = usize::MAX;
 
-    app.state.npc_ref_editor.editors.insert(
+    app.state.editors.npc_ref_editor.editors.insert(
         tab_id,
         MultiFileEditorState {
             file_list: vec![],
@@ -318,7 +318,7 @@ fn npc_ref_editor_does_not_record_without_session() {
         },
     );
     app.state
-        .npc_ref_editor
+        .editors.npc_ref_editor
         .spreadsheets
         .insert(tab_id, SpreadsheetState::new());
     app.state.shared_game_path = "/game".into();
@@ -359,7 +359,7 @@ fn npc_ref_editor_no_recording_when_captured_context_missing() {
 #[test]
 fn chest_editor_does_not_record() {
     let mut app = app_with_recording();
-    app.state.chest_editor.all_records = vec![ExtraRef {
+    app.state.editors.chest_editor.all_records = vec![ExtraRef {
         name: "OldChest".into(),
         ..Default::default()
     }];

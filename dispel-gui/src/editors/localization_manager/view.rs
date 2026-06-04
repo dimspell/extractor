@@ -32,7 +32,7 @@ impl std::fmt::Display for FileFilter {
 // ─── View ────────────────────────────────────────────────────────────────────
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let state = &app.state.localization_manager;
+    let state = &app.state.editors.localization_manager;
     let is_loading = matches!(state.loading_state, LoadingState::Loading);
     let has_entries = !state.entries.is_empty();
     let backup_exists = state.backup_exists(&app.state.shared_game_path);

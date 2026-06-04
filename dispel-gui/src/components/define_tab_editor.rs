@@ -68,17 +68,17 @@ macro_rules! define_tab_editor {
                 match msg {
                     [<$Name EditorMessage>]::Select(index) => {
                         $crate::update::editor::tab::select(
-                            &mut app.state.$field, tab_id, index,
+                            &mut app.state.editors.$field, tab_id, index,
                         )
                     }
                     [<$Name EditorMessage>]::FieldChanged(index, field, value) => {
                         let captured = $crate::editors::mod_packager::recording::capture_field_recording_context(
-                            app.state.$field.editors.get(&tab_id),
+                            app.state.editors.$field.editors.get(&tab_id),
                             index, &field, &app.state.shared_game_path,
                         );
                         let new_value = value.clone();
                         let task = $crate::update::editor::tab::field_changed(
-                            &mut app.state.$field, tab_id, index, field.clone(), value,
+                            &mut app.state.editors.$field, tab_id, index, field.clone(), value,
                         );
                         let observe = match captured {
                             Some((old_value, orig_idx, file_path)) if old_value != new_value => {
@@ -92,7 +92,7 @@ macro_rules! define_tab_editor {
                     }
                     [<$Name EditorMessage>]::Save => {
                         $crate::update::editor::tab::save(
-                            &mut app.state.$field, tab_id,
+                            &mut app.state.editors.$field, tab_id,
                             $save_success_msg, $save_error_msg,
                         )
                     }
@@ -110,22 +110,22 @@ macro_rules! define_tab_editor {
                     }
                     [<$Name EditorMessage>]::PaneResized(event) => {
                         $crate::update::editor::tab::pane_resized(
-                            &mut app.state.$field, tab_id, event,
+                            &mut app.state.editors.$field, tab_id, event,
                         )
                     }
                     [<$Name EditorMessage>]::PaneClicked(pane) => {
                         $crate::update::editor::tab::pane_clicked(
-                            &mut app.state.$field, tab_id, pane,
+                            &mut app.state.editors.$field, tab_id, pane,
                         )
                     }
                     [<$Name EditorMessage>]::AddEntry => {
                         $crate::update::editor::tab::add_entry(
-                            &mut app.state.$field, tab_id,
+                            &mut app.state.editors.$field, tab_id,
                         )
                     }
                     [<$Name EditorMessage>]::RemoveEntry(index) => {
                         $crate::update::editor::tab::remove_entry(
-                            &mut app.state.$field, tab_id, index,
+                            &mut app.state.editors.$field, tab_id, index,
                         )
                     }
                     [<$Name EditorMessage>]::Saved(_) => {

@@ -6,7 +6,7 @@ use dispel_core::references::extractor::Extractor;
 use iced::Task;
 
 pub fn save_entities(app: &mut App, tab_id: usize) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -63,7 +63,7 @@ pub fn save_entities(app: &mut App, tab_id: usize) -> Task<Message> {
 }
 
 pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -154,7 +154,7 @@ pub fn save_complete(
     result: Result<String, String>,
 ) -> Task<Message> {
     let success = result.is_ok();
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.is_saving = false;
         match result {
             Ok(msg) => {
@@ -180,7 +180,7 @@ pub fn map_saved(
     result: Result<String, String>,
 ) -> Task<Message> {
     let success = result.is_ok();
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.is_saving = false;
         match result {
             Ok(msg) => {
@@ -201,7 +201,7 @@ pub fn map_saved(
 }
 
 pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -296,7 +296,7 @@ pub fn export_complete(
     result: Result<String, String>,
 ) -> Task<Message> {
     let success = result.is_ok();
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.is_exporting = false;
         state.data.status_msg = Some(match result {
             Ok(msg) => msg,

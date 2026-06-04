@@ -64,6 +64,7 @@ macro_rules! define_standard_editor {
                         // idx is the catalog index — search filtered by matching it.
                         let (old_value, orig_idx_u32) = app
                             .state
+                            .editors
                             .$field
                             .state
                             .filtered
@@ -77,7 +78,7 @@ macro_rules! define_standard_editor {
                         let new_value = value.clone();
                         let task = $crate::components::standard::update::handle(
                             [<$Name EditorMessage>]::FieldChanged(idx, field.clone(), value),
-                            &mut app.state.$field,
+                            &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
@@ -103,7 +104,7 @@ macro_rules! define_standard_editor {
                         );
                         $crate::components::standard::update::handle(
                             msg,
-                            &mut app.state.$field,
+                            &mut app.state.editors.$field,
                             &app.state.shared_game_path.clone(),
                             &app.state.lookups,
                             $file,
@@ -112,7 +113,7 @@ macro_rules! define_standard_editor {
                     }
                     msg => $crate::components::standard::update::handle(
                         msg,
-                        &mut app.state.$field,
+                        &mut app.state.editors.$field,
                         &app.state.shared_game_path.clone(),
                         &app.state.lookups,
                         $file,
@@ -124,8 +125,8 @@ macro_rules! define_standard_editor {
             pub fn view(app: &$crate::app::App) -> ::iced::Element<'_, $crate::message::Message> {
                 use $crate::message::MessageExt;
                 $crate::view::editor::view_spreadsheet(
-                    &app.state.$field.state,
-                    &app.state.$field.spreadsheet,
+                    &app.state.editors.$field.state,
+                    &app.state.editors.$field.spreadsheet,
                     $crate::message::Message::$name([<$Name EditorMessage>]::LoadCatalog),
                     $crate::message::Message::$name([<$Name EditorMessage>]::Save),
                     |idx| $crate::message::Message::$name([<$Name EditorMessage>]::Select(idx)),

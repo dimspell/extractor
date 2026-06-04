@@ -37,7 +37,7 @@ pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<Message> {
             );
             tab::load_catalog_sync(
                 path,
-                &mut app.state.npc_ref_editor,
+                &mut app.state.editors.npc_ref_editor,
                 tab_id,
                 &app.state.lookups,
             );
@@ -60,7 +60,7 @@ pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<Message> {
         }
         NpcRefEditorMessage::NpcNamesLoaded(result) => {
             if let Ok(names) = result {
-                if app.state.npc_ref_editor.contains_key(&tab_id) {
+                if app.state.editors.npc_ref_editor.contains_key(&tab_id) {
                     app.state.lookups.insert("NPC".to_string(), names);
                 }
             }

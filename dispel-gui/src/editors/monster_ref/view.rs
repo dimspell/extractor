@@ -15,8 +15,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.monster_ref_editor.editors.get(&tab_id),
-        app.state.monster_ref_editor.spreadsheets.get(&tab_id),
+        app.state.editors.monster_ref_editor.editors.get(&tab_id),
+        app.state.editors.monster_ref_editor.spreadsheets.get(&tab_id),
     ) else {
         return container(
             text("Monster ref file not loaded")

@@ -210,16 +210,16 @@ impl App {
 
         if let Some(tab) = self.state.workspace.active() {
             return match tab.editor_type {
-                EditorType::HealItemEditor => self.state.heal_item_editor.edit_history(),
-                EditorType::MiscItemEditor => self.state.misc_item_editor.edit_history(),
-                EditorType::EditItemEditor => self.state.edit_item_editor.edit_history(),
-                EditorType::EventItemEditor => self.state.event_item_editor.edit_history(),
-                EditorType::MagicEditor => self.state.magic_editor.edit_history(),
-                EditorType::WeaponEditor => self.state.weapon_editor.edit_history(),
+                EditorType::HealItemEditor => self.state.editors.heal_item_editor.edit_history(),
+                EditorType::MiscItemEditor => self.state.editors.misc_item_editor.edit_history(),
+                EditorType::EditItemEditor => self.state.editors.edit_item_editor.edit_history(),
+                EditorType::EventItemEditor => self.state.editors.event_item_editor.edit_history(),
+                EditorType::MagicEditor => self.state.editors.magic_editor.edit_history(),
+                EditorType::WeaponEditor => self.state.editors.weapon_editor.edit_history(),
                 EditorType::MonsterRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .monster_ref_editor
+                        .editors.monster_ref_editor
                         .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
@@ -228,7 +228,7 @@ impl App {
                 EditorType::ExtraRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .extra_ref_editor
+                        .editors.extra_ref_editor
                         .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
@@ -237,7 +237,7 @@ impl App {
                 EditorType::NpcRefEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .npc_ref_editor
+                        .editors.npc_ref_editor
                         .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
@@ -246,7 +246,7 @@ impl App {
                 EditorType::DialogueScriptEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialogue_script_editor
+                        .editors.dialogue_script_editor
                         .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
@@ -255,26 +255,26 @@ impl App {
                 EditorType::DialogueTextEditor => {
                     let tab_id = tab.id;
                     self.state
-                        .dialogue_paragraph_editor
+                        .editors.dialogue_paragraph_editor
                         .editors
                         .get(&tab_id)
                         .map(|ed| ed.edit_history())
                         .unwrap_or(&self.empty_edit_history)
                 }
-                EditorType::DrawItemEditor => self.state.draw_item_editor.edit_history(),
-                EditorType::EventIniEditor => self.state.event_ini_editor.edit_history(),
-                EditorType::EventNpcRefEditor => self.state.event_npc_ref_editor.edit_history(),
-                EditorType::ExtraIniEditor => self.state.extra_ini_editor.edit_history(),
-                EditorType::MapIniEditor => self.state.map_ini_editor.edit_history(),
-                EditorType::MessageScrEditor => self.state.message_scr_editor.edit_history(),
-                EditorType::PartyLevelDbEditor => self.state.party_level_db_editor.edit_history(),
-                EditorType::QuestScrEditor => self.state.quest_scr_editor.edit_history(),
-                EditorType::WaveIniEditor => self.state.wave_ini_editor.edit_history(),
-                EditorType::AllMapIniEditor => self.state.all_map_ini_editor.edit_history(),
-                EditorType::ChDataEditor => self.state.chdata_editor.edit_history(),
-                EditorType::PartyRefEditor => self.state.party_ref_editor.edit_history(),
-                EditorType::PartyIniEditor => self.state.party_ini_editor.edit_history(),
-                EditorType::StoreEditor => self.state.store_editor.edit_history(),
+                EditorType::DrawItemEditor => self.state.editors.draw_item_editor.edit_history(),
+                EditorType::EventIniEditor => self.state.editors.event_ini_editor.edit_history(),
+                EditorType::EventNpcRefEditor => self.state.editors.event_npc_ref_editor.edit_history(),
+                EditorType::ExtraIniEditor => self.state.editors.extra_ini_editor.edit_history(),
+                EditorType::MapIniEditor => self.state.editors.map_ini_editor.edit_history(),
+                EditorType::MessageScrEditor => self.state.editors.message_scr_editor.edit_history(),
+                EditorType::PartyLevelDbEditor => self.state.editors.party_level_db_editor.edit_history(),
+                EditorType::QuestScrEditor => self.state.editors.quest_scr_editor.edit_history(),
+                EditorType::WaveIniEditor => self.state.editors.wave_ini_editor.edit_history(),
+                EditorType::AllMapIniEditor => self.state.editors.all_map_ini_editor.edit_history(),
+                EditorType::ChDataEditor => self.state.editors.chdata_editor.edit_history(),
+                EditorType::PartyRefEditor => self.state.editors.party_ref_editor.edit_history(),
+                EditorType::PartyIniEditor => self.state.editors.party_ini_editor.edit_history(),
+                EditorType::StoreEditor => self.state.editors.store_editor.edit_history(),
                 EditorType::EventScrEditor => &self.empty_edit_history,
                 _ => &self.empty_edit_history,
             };
@@ -370,7 +370,7 @@ impl App {
         }
 
         // Drive animation playback when any sprite viewer is playing.
-        if self.state.sprite_viewers.values().any(|v| v.is_playing) {
+        if self.state.editors.sprite_viewers.values().any(|v| v.is_playing) {
             use crate::editors::sprite_browser::SpriteViewerMessage;
             let anim = iced::time::every(std::time::Duration::from_millis(16))
                 .map(|_| Message::sprite_viewer(SpriteViewerMessage::Tick));
@@ -380,7 +380,7 @@ impl App {
         // Poll for SNF playback completion so the Play/Pause button stays in sync.
         if self
             .state
-            .snf_editors
+            .editors.snf_editors
             .values()
             .any(|e| e.playback.is_some())
         {
@@ -392,7 +392,7 @@ impl App {
 
         // Poll for event script indexing progress.
         if matches!(
-            self.state.event_scr_editor.index_state,
+            self.state.editors.event_scr_editor.index_state,
             crate::editors::event_scr::FunctionIndexState::Indexing { .. }
         ) {
             let index_tick = iced::time::every(std::time::Duration::from_millis(100)).map(|_| {
@@ -527,7 +527,7 @@ impl App {
                     return Task::none();
                 };
                 let path_buf = path.to_path_buf();
-                self.state.dialogue_script_editor.editors.insert(
+                self.state.editors.dialogue_script_editor.editors.insert(
                     tab_id,
                     crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
@@ -535,7 +535,7 @@ impl App {
                     },
                 );
                 self.state
-                    .dialogue_script_editor
+                    .editors.dialogue_script_editor
                     .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
@@ -555,7 +555,7 @@ impl App {
                     return Task::none();
                 };
                 let path_buf = path.to_path_buf();
-                self.state.dialogue_paragraph_editor.editors.insert(
+                self.state.editors.dialogue_paragraph_editor.editors.insert(
                     tab_id,
                     crate::components::generic_editor::MultiFileEditorState {
                         current_file: Some(path_buf.clone()),
@@ -563,7 +563,7 @@ impl App {
                     },
                 );
                 self.state
-                    .dialogue_paragraph_editor
+                    .editors.dialogue_paragraph_editor
                     .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
@@ -592,7 +592,7 @@ impl App {
             EditorType::TilesetEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .tileset_editors
+                        .editors.tileset_editors
                         .entry(tab_id)
                         .or_insert_with(|| TilesetEditorState::load(path));
                 }
@@ -601,7 +601,7 @@ impl App {
             EditorType::SpriteViewer => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .sprite_viewers
+                        .editors.sprite_viewers
                         .entry(tab_id)
                         .or_insert_with(|| SpriteViewerState::load_from_path(path));
                 }
@@ -610,7 +610,7 @@ impl App {
             EditorType::SnfEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .snf_editors
+                        .editors.snf_editors
                         .entry(tab_id)
                         .or_insert_with(|| SnfEditorState::load_from_path(path));
                 }
@@ -626,7 +626,7 @@ impl App {
                 if let Some(tab_id) = self.active_tab_id() {
                     let state = self
                         .state
-                        .hex_editors
+                        .editors.hex_editors
                         .entry(tab_id)
                         .or_insert_with(|| HexEditorState::load_from_path(path));
                     if let Some(ref dir) = scripts_dir {
@@ -648,7 +648,7 @@ impl App {
             }
             EditorType::EventScrEditor => {
                 let path_buf = path.to_path_buf();
-                self.state.event_scr_editor.file_path = Some(path_buf.clone());
+                self.state.editors.event_scr_editor.file_path = Some(path_buf.clone());
                 Task::done(Message::Editor(
                     crate::message::editor::EditorMessage::EventScr(
                         crate::editors::event_scr::message::EventScrEditorMessage::LoadScript(
@@ -685,7 +685,7 @@ impl App {
         if let Some(tab_id) = self.active_tab_id() {
             let state = self
                 .state
-                .hex_editors
+                .editors.hex_editors
                 .entry(tab_id)
                 .or_insert_with(|| HexEditorState::load_from_path(path));
             if let Some(ref dir) = scripts_dir {
@@ -704,7 +704,7 @@ impl App {
     }
 
     pub fn refresh_chests(&mut self) {
-        let editor = &mut self.state.chest_editor;
+        let editor = &mut self.state.editors.chest_editor;
         editor.filtered_chests = editor
             .all_records
             .iter()
@@ -715,7 +715,7 @@ impl App {
     }
 
     pub fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
-        self.state.chest_editor.loading_state =
+        self.state.editors.chest_editor.loading_state =
             crate::components::loading_state::LoadingState::Loading;
         Task::perform(
             async move { dispel_core::ExtraRef::read_file(&path) },
@@ -755,18 +755,18 @@ impl App {
 
     /// Fetch data using the built table query (filters + sorting).
     pub fn fetch_viewer_data(&mut self) -> Task<Message> {
-        let table = match &self.state.viewer.active_table {
+        let table = match &self.state.editors.viewer.active_table {
             Some(t) => t.clone(),
             None => return Task::none(),
         };
-        self.state.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
+        self.state.editors.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
 
         // First get column info, then build query
-        let path = self.state.viewer.db_path.clone();
-        let search = self.state.viewer.search.clone();
-        let sort_col = self.state.viewer.sort_col;
-        let sort_dir = self.state.viewer.sort_dir;
-        let page = self.state.viewer.page;
+        let path = self.state.editors.viewer.db_path.clone();
+        let search = self.state.editors.viewer.search.clone();
+        let sort_col = self.state.editors.viewer.sort_col;
+        let sort_dir = self.state.editors.viewer.sort_dir;
+        let page = self.state.editors.viewer.page;
 
         Task::perform(
             async move {
@@ -783,10 +783,10 @@ impl App {
 
     /// Fetch data using the custom SQL query.
     pub fn fetch_viewer_data_sql(&mut self) -> Task<Message> {
-        self.state.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
-        let path = self.state.viewer.db_path.clone();
-        let sql = self.state.viewer.sql_query.clone();
-        let page = self.state.viewer.page;
+        self.state.editors.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
+        let path = self.state.editors.viewer.db_path.clone();
+        let sql = self.state.editors.viewer.sql_query.clone();
+        let page = self.state.editors.viewer.page;
 
         Task::perform(
             async move { db::execute_query(&path, &sql, PAGE_SIZE, page * PAGE_SIZE) },

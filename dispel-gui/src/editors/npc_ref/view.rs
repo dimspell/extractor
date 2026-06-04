@@ -15,8 +15,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.npc_ref_editor.editors.get(&tab_id),
-        app.state.npc_ref_editor.spreadsheets.get(&tab_id),
+        app.state.editors.npc_ref_editor.editors.get(&tab_id),
+        app.state.editors.npc_ref_editor.spreadsheets.get(&tab_id),
     ) else {
         return container(
             text("NPC ref file not loaded")

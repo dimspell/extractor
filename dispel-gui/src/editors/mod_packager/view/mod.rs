@@ -13,7 +13,7 @@ mod detail;
 mod library;
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let state = &app.state.mod_packager_editor;
+    let state = &app.state.editors.mod_packager_editor;
 
     let header = build_header(
         state.tab,

@@ -19,7 +19,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         None => return text("No active tab").into(),
     };
 
-    let state = match app.state.map_editors.get(&tab_id) {
+    let state = match app.state.editors.map_editors.get(&tab_id) {
         Some(s) => s,
         None => {
             return container(

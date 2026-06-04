@@ -7,14 +7,14 @@ use iced::Task;
 use std::path::PathBuf;
 
 pub fn show_dialog(app: &mut App, tab_id: usize) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.sprite_export_dialog = Some(SpriteExportDialogState::default());
     }
     Task::none()
 }
 
 pub fn close_dialog(app: &mut App, tab_id: usize) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.sprite_export_dialog = None;
     }
     Task::none()
@@ -39,7 +39,7 @@ pub fn dir_chosen(
     tab_id: usize,
     path: Option<PathBuf>,
 ) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         if let Some(ref mut dlg) = state.data.sprite_export_dialog {
             dlg.export_dir = path;
             dlg.status = SpriteExportStatus::Idle;
@@ -49,7 +49,7 @@ pub fn dir_chosen(
 }
 
 pub fn confirm_export(app: &mut App, tab_id: usize) -> Task<Message> {
-    let Some(state) = app.state.map_editors.get_mut(&tab_id) else {
+    let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) else {
         return Task::none();
     };
     let Some(ref dlg) = state.data.sprite_export_dialog else {
@@ -85,7 +85,7 @@ pub fn export_done(
     tab_id: usize,
     result: Result<String, String>,
 ) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         if let Some(ref mut dlg) = state.data.sprite_export_dialog {
             dlg.status = match result {
                 Ok(msg) => SpriteExportStatus::Done(msg),

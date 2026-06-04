@@ -10,7 +10,7 @@ use dispel_core::references::event_scr::{ActionFunction, EventScript, SpriteDefi
 use iced::Task;
 
 pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
-    let state: &mut EventScriptEditorState = &mut app.state.event_scr_editor;
+    let state: &mut EventScriptEditorState = &mut app.state.editors.event_scr_editor;
     match message {
         EventScrEditorMessage::TogglePanel(section) => {
             if !state.panels_expanded.remove(&section) {

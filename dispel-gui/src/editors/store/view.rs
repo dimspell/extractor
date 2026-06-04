@@ -455,11 +455,11 @@ fn multiline_field<'a>(label: &'a str, input: Element<'a, Message>) -> Element<'
 // ── Main view ────────────────────────────────────────────────────────────────
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let editor = &app.state.store_editor;
-    let weapons = &app.state.weapon_editor.catalog;
-    let heals = &app.state.heal_item_editor.catalog;
-    let misc = &app.state.misc_item_editor.catalog;
-    let edit_items = &app.state.edit_item_editor.catalog;
+    let editor = &app.state.editors.store_editor;
+    let weapons = &app.state.editors.weapon_editor.catalog;
+    let heals = &app.state.editors.heal_item_editor.catalog;
+    let misc = &app.state.editors.misc_item_editor.catalog;
+    let edit_items = &app.state.editors.edit_item_editor.catalog;
 
     let header = row![
         text("Store Editor").size(20),

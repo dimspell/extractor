@@ -13,7 +13,7 @@ pub fn handle(message: TilesetEditorMessage, app: &mut App) -> Task<crate::messa
         .map(|t| t.id)
         .unwrap_or(usize::MAX);
 
-    let Some(editor) = app.state.tileset_editors.get_mut(&tab_id) else {
+    let Some(editor) = app.state.editors.tileset_editors.get_mut(&tab_id) else {
         return Task::none();
     };
 

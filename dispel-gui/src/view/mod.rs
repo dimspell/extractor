@@ -135,7 +135,7 @@ impl App {
                                     .active()
                                     .map(|t| t.id)
                                     .unwrap_or(usize::MAX);
-                                match self.state.hex_editors.get(&tab_id) {
+                                match self.state.editors.hex_editors.get(&tab_id) {
                                     Some(state) => {
                                         let config = crate::app::build_hex_config(
                                             &self.state.recording,

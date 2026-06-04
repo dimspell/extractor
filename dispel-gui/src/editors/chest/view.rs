@@ -8,7 +8,7 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font};
 
 pub fn view(app: &App) -> Element<'_, Message> {
-    let editor = &app.state.chest_editor;
+    let editor = &app.state.editors.chest_editor;
 
     // TODO: Events to remove:
     // ChestEditorMessage::SelectMap

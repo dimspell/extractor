@@ -23,12 +23,12 @@ mod tests {
         app.state.workspace.active_tab = Some(0);
         
         // Add some editor states
-        app.state.map_editors.insert(1, crate::state::map_editor::MapEditorState::default());
+        app.state.editors.map_editors.insert(1, crate::state::map_editor::MapEditorState::default());
         app.state.lookups.insert("test".to_string(), vec!["value".to_string()]);
         
         // Verify initial state
         assert_eq!(app.state.workspace.tabs.len(), 1);
-        assert_eq!(app.state.map_editors.len(), 1);
+        assert_eq!(app.state.editors.map_editors.len(), 1);
         assert_eq!(app.state.lookups.len(), 1);
         
         // Handle the ClearWorkspace message
@@ -40,7 +40,7 @@ mod tests {
         // Verify workspace was cleared
         assert_eq!(app.state.workspace.tabs.len(), 0);
         assert_eq!(app.state.workspace.active_tab, None);
-        assert_eq!(app.state.map_editors.len(), 0);
+        assert_eq!(app.state.editors.map_editors.len(), 0);
         assert_eq!(app.state.lookups.len(), 0);
         
         // Verify status message was set
@@ -54,7 +54,7 @@ mod tests {
         
         // Verify initial state
         assert_eq!(app.state.workspace.tabs.len(), 0);
-        assert_eq!(app.state.map_editors.len(), 0);
+        assert_eq!(app.state.editors.map_editors.len(), 0);
         
         // Handle the ClearWorkspace message (should not panic)
         let task = crate::update::system::handle(SystemMessage::ClearWorkspace, &mut app);

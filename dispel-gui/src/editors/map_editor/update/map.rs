@@ -41,7 +41,7 @@ pub fn open(app: &mut App, tab_id: usize, path: PathBuf) -> Task<Message> {
         }
     }
 
-    let state = app.state.map_editors.entry(tab_id).or_default();
+    let state = app.state.editors.map_editors.entry(tab_id).or_default();
     state.data.map_path = Some(path.clone());
     state.data.loading_state = LoadingState::Loading;
     state.data.tiles_ready = false;
@@ -73,7 +73,7 @@ pub fn map_loaded(
     tab_id: usize,
     result: Result<(MapDataHandle, Vec<DecodedMapSprite>), String>,
 ) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -185,7 +185,7 @@ pub fn tiles_decoded(
     tab_id: usize,
     result: Result<TilePixelData, String>,
 ) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -253,7 +253,7 @@ pub fn entities_loaded(
     tab_id: usize,
     bundle: EntityBundle,
 ) -> Task<Message> {
-    if let Some(state) = app.state.map_editors.get_mut(&tab_id) {
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.monsters = bundle.monsters;
         state.data.npcs = bundle.npcs;
         state.data.extra_refs = bundle.extra_refs;

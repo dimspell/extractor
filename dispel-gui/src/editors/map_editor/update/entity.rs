@@ -14,7 +14,7 @@ pub fn field_changed(
     field: String,
     value: String,
 ) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -107,7 +107,7 @@ pub fn field_changed(
 }
 
 pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };
@@ -174,7 +174,7 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
 }
 
 pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
-    let state = match app.state.map_editors.get_mut(&tab_id) {
+    let state = match app.state.editors.map_editors.get_mut(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
     };

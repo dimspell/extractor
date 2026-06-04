@@ -1,40 +1,13 @@
 use crate::components::file_tree::FileTree;
-use crate::components::generic_editor::{TabbedEditor, UndoRedo};
+use crate::components::generic_editor::UndoRedo;
 use crate::components::global_search::GlobalSearch;
-use crate::components::standard::StandardEditor;
-use crate::editors::all_map_ini::AllMapIniEditorState;
-use crate::editors::chdata::ChDataEditorState;
-use crate::editors::chest::ChestEditorState;
-use crate::editors::db_viewer::DbViewerState;
-use crate::editors::draw_item::DrawItemEditorState;
-use crate::editors::event_ini::EventIniEditorState;
-use crate::editors::event_npc_ref::EventNpcRefEditorState;
-use crate::editors::event_scr::EventScriptEditorState;
-use crate::editors::extra_ini::ExtraIniEditorState;
-use crate::editors::magic::MagicEditorState;
-use crate::editors::map_editor::MapEditorState;
-use crate::editors::map_ini::MapIniEditorState;
-use crate::editors::message_scr::MessageScrEditorState;
-use crate::editors::monster_ini::MonsterIniEditorState;
-use crate::editors::npc_ini::NpcIniEditorState;
-use crate::editors::party_ini::PartyIniEditorState;
-use crate::editors::party_level_db::PartyLevelDbEditorState;
-use crate::editors::quest_scr::QuestScrEditorState;
-use crate::editors::snf_editor::SnfEditorState;
-use crate::editors::sprite_browser::SpriteViewerState;
-use crate::editors::store::StoreEditorState;
-use crate::editors::tileset::TilesetEditorState;
-use crate::editors::wave_ini::WaveIniEditorState;
-use crate::editors::{localization_manager, mod_packager};
+use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::message::{system::SystemMessage, Message};
 use crate::workspace::Workspace;
 use crate::workspace::EditorType;
 use dirs;
-use dispel_core::{
-    DialogueParagraph, DialogueScript, ExtraRef, Extractor, MonsterRef, WeaponItem, NPC,
-};
-use hexedit::HexEditorState;
+use dispel_core::Extractor;
 use iced::{
     widget::pane_grid::{self, Pane},
     Task,
@@ -50,45 +23,7 @@ pub struct AppState {
     pub shared_game_path: String,
     pub log: String,
     pub is_running: bool,
-    pub viewer: Box<DbViewerState>,
-    pub chest_editor: Box<ChestEditorState>,
-    pub weapon_editor: Box<StandardEditor<WeaponItem>>,
-    pub heal_item_editor: Box<StandardEditor<dispel_core::HealItem>>,
-    pub misc_item_editor: Box<StandardEditor<dispel_core::MiscItem>>,
-    pub edit_item_editor: Box<StandardEditor<dispel_core::EditItem>>,
-    pub event_item_editor: Box<StandardEditor<dispel_core::EventItem>>,
-    pub monster_editor: Box<StandardEditor<dispel_core::Monster>>,
-    pub monster_ini_editor: Box<MonsterIniEditorState>,
-    pub npc_ini_editor: Box<NpcIniEditorState>,
-    pub magic_editor: Box<MagicEditorState>,
-    pub store_editor: Box<StoreEditorState>,
-    pub party_ref_editor: Box<StandardEditor<dispel_core::PartyRef>>,
-    pub party_ini_editor: Box<PartyIniEditorState>,
-    pub monster_ref_editor: TabbedEditor<MonsterRef>,
-    pub sprite_viewers: HashMap<usize, SpriteViewerState>,
-    pub all_map_ini_editor: Box<AllMapIniEditorState>,
-    pub dialogue_script_editor: TabbedEditor<DialogueScript>,
-    pub dialogue_paragraph_editor: TabbedEditor<DialogueParagraph>,
-    pub draw_item_editor: Box<DrawItemEditorState>,
-    pub event_ini_editor: Box<EventIniEditorState>,
-    pub event_npc_ref_editor: Box<EventNpcRefEditorState>,
-    pub extra_ini_editor: Box<ExtraIniEditorState>,
-    pub extra_ref_editor: TabbedEditor<ExtraRef>,
-    pub map_ini_editor: Box<MapIniEditorState>,
-    pub message_scr_editor: Box<MessageScrEditorState>,
-    pub npc_ref_editor: TabbedEditor<NPC>,
-    pub party_level_db_editor: Box<PartyLevelDbEditorState>,
-    pub party_level_db_level_editor: Box<StandardEditor<dispel_core::PartyLevelRecord>>,
-    pub quest_scr_editor: Box<QuestScrEditorState>,
-    pub event_scr_editor: Box<EventScriptEditorState>,
-    pub wave_ini_editor: Box<WaveIniEditorState>,
-    pub chdata_editor: Box<ChDataEditorState>,
-    pub map_editors: HashMap<usize, MapEditorState>,
-    pub tileset_editors: HashMap<usize, TilesetEditorState>,
-    pub snf_editors: HashMap<usize, SnfEditorState>,
-    pub hex_editors: HashMap<usize, HexEditorState>,
-    pub mod_packager_editor: mod_packager::ModPackagerState,
-    pub localization_manager: localization_manager::LocalizationManagerState,
+    pub editors: EditorRegistry,
     pub lookups: HashMap<String, Vec<(String, String)>>,
     pub workspace: Workspace,
     pub global_search: GlobalSearch,
@@ -149,58 +84,63 @@ macro_rules! undo_redo_dispatch {
     ($self:ident, $editor_type:expr, $tab_id:expr, $action:ident) => {{
         match $editor_type {
             // Standard editors (StandardEditor<T> — undo/redo with lookups)
-            EditorType::WeaponEditor => $self.weapon_editor.$action(&$self.lookups),
-            EditorType::HealItemEditor => $self.heal_item_editor.$action(&$self.lookups),
-            EditorType::MiscItemEditor => $self.misc_item_editor.$action(&$self.lookups),
-            EditorType::EditItemEditor => $self.edit_item_editor.$action(&$self.lookups),
-            EditorType::EventItemEditor => $self.event_item_editor.$action(&$self.lookups),
-            EditorType::MonsterEditor => $self.monster_editor.$action(&$self.lookups),
-            EditorType::MonsterIniEditor => $self.monster_ini_editor.$action(&$self.lookups),
-            EditorType::NpcIniEditor => $self.npc_ini_editor.$action(&$self.lookups),
-            EditorType::MagicEditor => $self.magic_editor.$action(&$self.lookups),
-            EditorType::PartyRefEditor => $self.party_ref_editor.$action(&$self.lookups),
-            EditorType::PartyIniEditor => $self.party_ini_editor.$action(&$self.lookups),
-            EditorType::AllMapIniEditor => $self.all_map_ini_editor.$action(&$self.lookups),
-            EditorType::DrawItemEditor => $self.draw_item_editor.$action(&$self.lookups),
-            EditorType::EventIniEditor => $self.event_ini_editor.$action(&$self.lookups),
+            EditorType::WeaponEditor => $self.editors.weapon_editor.$action(&$self.lookups),
+            EditorType::HealItemEditor => $self.editors.heal_item_editor.$action(&$self.lookups),
+            EditorType::MiscItemEditor => $self.editors.misc_item_editor.$action(&$self.lookups),
+            EditorType::EditItemEditor => $self.editors.edit_item_editor.$action(&$self.lookups),
+            EditorType::EventItemEditor => $self.editors.event_item_editor.$action(&$self.lookups),
+            EditorType::MonsterEditor => $self.editors.monster_editor.$action(&$self.lookups),
+            EditorType::MonsterIniEditor => $self.editors.monster_ini_editor.$action(&$self.lookups),
+            EditorType::NpcIniEditor => $self.editors.npc_ini_editor.$action(&$self.lookups),
+            EditorType::MagicEditor => $self.editors.magic_editor.$action(&$self.lookups),
+            EditorType::PartyRefEditor => $self.editors.party_ref_editor.$action(&$self.lookups),
+            EditorType::PartyIniEditor => $self.editors.party_ini_editor.$action(&$self.lookups),
+            EditorType::AllMapIniEditor => $self.editors.all_map_ini_editor.$action(&$self.lookups),
+            EditorType::DrawItemEditor => $self.editors.draw_item_editor.$action(&$self.lookups),
+            EditorType::EventIniEditor => $self.editors.event_ini_editor.$action(&$self.lookups),
             EditorType::EventNpcRefEditor => {
-                $self.event_npc_ref_editor.$action(&$self.lookups)
+                $self.editors.event_npc_ref_editor.$action(&$self.lookups)
             }
-            EditorType::ExtraIniEditor => $self.extra_ini_editor.$action(&$self.lookups),
-            EditorType::MapIniEditor => $self.map_ini_editor.$action(&$self.lookups),
-            EditorType::MessageScrEditor => $self.message_scr_editor.$action(&$self.lookups),
-            EditorType::QuestScrEditor => $self.quest_scr_editor.$action(&$self.lookups),
-            EditorType::WaveIniEditor => $self.wave_ini_editor.$action(&$self.lookups),
-            EditorType::ChDataEditor => $self.chdata_editor.$action(&$self.lookups),
+            EditorType::ExtraIniEditor => $self.editors.extra_ini_editor.$action(&$self.lookups),
+            EditorType::MapIniEditor => $self.editors.map_ini_editor.$action(&$self.lookups),
+            EditorType::MessageScrEditor => $self.editors.message_scr_editor.$action(&$self.lookups),
+            EditorType::QuestScrEditor => $self.editors.quest_scr_editor.$action(&$self.lookups),
+            EditorType::WaveIniEditor => $self.editors.wave_ini_editor.$action(&$self.lookups),
+            EditorType::ChDataEditor => $self.editors.chdata_editor.$action(&$self.lookups),
             EditorType::PartyLevelDbEditor => {
-                $self.party_level_db_level_editor.$action(&$self.lookups)
+                $self.editors.party_level_db_level_editor.$action(&$self.lookups)
             }
 
             // Custom-layout editor (undo/redo without lookups)
-            EditorType::StoreEditor => $self.store_editor.$action(),
+            EditorType::StoreEditor => $self.editors.store_editor.$action(),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
             EditorType::MonsterRefEditor => $self
+                .editors
                 .monster_ref_editor
                 .editors
                 .get_mut(&$tab_id)
                 .and_then(|e| e.$action()),
             EditorType::NpcRefEditor => $self
+                .editors
                 .npc_ref_editor
                 .editors
                 .get_mut(&$tab_id)
                 .and_then(|e| e.$action()),
             EditorType::ExtraRefEditor => $self
+                .editors
                 .extra_ref_editor
                 .editors
                 .get_mut(&$tab_id)
                 .and_then(|e| e.$action()),
             EditorType::DialogueScriptEditor => $self
+                .editors
                 .dialogue_script_editor
                 .editors
                 .get_mut(&$tab_id)
                 .and_then(|e| e.$action()),
             EditorType::DialogueTextEditor => $self
+                .editors
                 .dialogue_paragraph_editor
                 .editors
                 .get_mut(&$tab_id)
@@ -391,43 +331,7 @@ impl AppState {
     /// Clear all editor states when workspace changes
     /// This prevents stale editor states from referencing old workspace files
     pub fn clear_editor_states(&mut self) {
-        // Clear all HashMap-based editor states
-        self.sprite_viewers.clear();
-        self.tileset_editors.clear();
-        self.dialogue_script_editor.clear();
-        self.dialogue_paragraph_editor.clear();
-        self.monster_ref_editor.clear();
-        self.extra_ref_editor.clear();
-        self.npc_ref_editor.clear();
-        self.map_editors.clear();
-        self.snf_editors.clear();
-        self.hex_editors.clear();
-
-        // Reset boxed editors to default state
-        *self.weapon_editor = Default::default();
-        *self.heal_item_editor = Default::default();
-        *self.misc_item_editor = Default::default();
-        *self.edit_item_editor = Default::default();
-        *self.event_item_editor = Default::default();
-        *self.monster_editor = Default::default();
-        *self.npc_ini_editor = Default::default();
-        *self.magic_editor = Default::default();
-        *self.store_editor = Default::default();
-        *self.party_ref_editor = Default::default();
-        *self.party_ini_editor = Default::default();
-        *self.all_map_ini_editor = Default::default();
-        *self.draw_item_editor = Default::default();
-        *self.event_ini_editor = Default::default();
-        *self.event_npc_ref_editor = Default::default();
-        *self.extra_ini_editor = Default::default();
-        *self.map_ini_editor = Default::default();
-        *self.message_scr_editor = Default::default();
-        *self.quest_scr_editor = Default::default();
-        *self.wave_ini_editor = Default::default();
-        *self.chdata_editor = Default::default();
-        *self.event_scr_editor = Default::default();
-
-        // Clear lookups that might reference old workspace data
+        self.editors.clear_all();
         self.lookups.clear();
     }
 
@@ -467,32 +371,32 @@ impl AppState {
         match editor_type {
             EditorType::MonsterRefEditor => {
                 refresh_tab!(
-                    self.monster_ref_editor.editors,
-                    self.monster_ref_editor.spreadsheets
+                    self.editors.monster_ref_editor.editors,
+                    self.editors.monster_ref_editor.spreadsheets
                 )
             }
             EditorType::NpcRefEditor => {
                 refresh_tab!(
-                    self.npc_ref_editor.editors,
-                    self.npc_ref_editor.spreadsheets
+                    self.editors.npc_ref_editor.editors,
+                    self.editors.npc_ref_editor.spreadsheets
                 )
             }
             EditorType::ExtraRefEditor => {
                 refresh_tab!(
-                    self.extra_ref_editor.editors,
-                    self.extra_ref_editor.spreadsheets
+                    self.editors.extra_ref_editor.editors,
+                    self.editors.extra_ref_editor.spreadsheets
                 )
             }
             EditorType::DialogueScriptEditor => {
                 refresh_tab!(
-                    self.dialogue_script_editor.editors,
-                    self.dialogue_script_editor.spreadsheets
+                    self.editors.dialogue_script_editor.editors,
+                    self.editors.dialogue_script_editor.spreadsheets
                 )
             }
             EditorType::DialogueTextEditor => {
                 refresh_tab!(
-                    self.dialogue_paragraph_editor.editors,
-                    self.dialogue_paragraph_editor.spreadsheets
+                    self.editors.dialogue_paragraph_editor.editors,
+                    self.editors.dialogue_paragraph_editor.spreadsheets
                 )
             }
             _ => {}
@@ -507,45 +411,7 @@ impl Default for AppState {
             status_msg: String::new(),
             log: String::new(),
             is_running: false,
-            viewer: Box::default(),
-            chest_editor: Box::default(),
-            weapon_editor: Box::default(),
-            heal_item_editor: Box::default(),
-            misc_item_editor: Box::default(),
-            edit_item_editor: Box::default(),
-            event_item_editor: Box::default(),
-            monster_editor: Box::default(),
-            monster_ini_editor: Box::default(),
-            npc_ini_editor: Box::default(),
-            magic_editor: Box::default(),
-            store_editor: Box::default(),
-            party_ref_editor: Box::default(),
-            party_ini_editor: Box::default(),
-            monster_ref_editor: TabbedEditor::default(),
-            sprite_viewers: HashMap::new(),
-            all_map_ini_editor: Box::default(),
-            dialogue_script_editor: TabbedEditor::default(),
-            dialogue_paragraph_editor: TabbedEditor::default(),
-            draw_item_editor: Box::default(),
-            event_ini_editor: Box::default(),
-            event_npc_ref_editor: Box::default(),
-            extra_ini_editor: Box::default(),
-            extra_ref_editor: TabbedEditor::default(),
-            map_ini_editor: Box::default(),
-            message_scr_editor: Box::default(),
-            npc_ref_editor: TabbedEditor::default(),
-            party_level_db_editor: Box::default(),
-            party_level_db_level_editor: Box::default(),
-            quest_scr_editor: Box::default(),
-            event_scr_editor: Box::default(),
-            wave_ini_editor: Box::default(),
-            chdata_editor: Box::default(),
-            map_editors: HashMap::new(),
-            tileset_editors: HashMap::new(),
-            snf_editors: HashMap::new(),
-            hex_editors: HashMap::new(),
-            mod_packager_editor: mod_packager::ModPackagerState::default(),
-            localization_manager: localization_manager::LocalizationManagerState::default(),
+            editors: EditorRegistry::default(),
             lookups: HashMap::new(),
             workspace: Workspace::new(),
             global_search: GlobalSearch::new(),

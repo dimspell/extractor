@@ -4,6 +4,7 @@ use iced::Theme;
 pub mod app;
 pub mod auto_save;
 pub mod components;
+pub mod editor_registry;
 pub mod editors;
 pub mod indexation;
 pub mod message;

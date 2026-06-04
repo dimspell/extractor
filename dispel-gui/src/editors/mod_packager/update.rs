@@ -22,7 +22,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
     match message {
         // ----- Tabs -------------------------------------------------------
         ModPackagerMessage::TabSelected(tab) => {
-            app.state.mod_packager_editor.tab = tab;
+            app.state.editors.mod_packager_editor.tab = tab;
             Task::none()
         }
 
@@ -45,13 +45,13 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Some(root) => open_workspace(app, root),
         },
         ModPackagerMessage::Refresh => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             refresh_library(root)
         }
         ModPackagerMessage::Refreshed(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(snap) => {
                     let conflict_n = snap.conflicts.len();
@@ -76,8 +76,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Mod CRUD --------------------------------------------------
         ModPackagerMessage::CreateMod => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
-                app.state.mod_packager_editor.status_msg = "Open a workspace first.".into();
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
+                app.state.editors.mod_packager_editor.status_msg = "Open a workspace first.".into();
                 return Task::none();
             };
             Task::perform(
@@ -95,26 +95,26 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         }
         ModPackagerMessage::Created(result) => match result {
             Ok(slug) => {
-                app.state.mod_packager_editor.status_msg = format!("Created `{slug}`");
+                app.state.editors.mod_packager_editor.status_msg = format!("Created `{slug}`");
                 let select = Message::mod_packager(ModPackagerMessage::SelectMod(slug));
                 let refresh = Message::mod_packager(ModPackagerMessage::Refresh);
                 Task::done(refresh).chain(Task::done(select))
             }
             Err(e) => {
-                app.state.mod_packager_editor.status_msg = format!("Create failed: {e}");
+                app.state.editors.mod_packager_editor.status_msg = format!("Create failed: {e}");
                 Task::none()
             }
         },
 
         ModPackagerMessage::SelectMod(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
-            app.state.mod_packager_editor.tab = super::state::ModManagerTab::Detail;
+            app.state.editors.mod_packager_editor.tab = super::state::ModManagerTab::Detail;
             load_selected(root, slug)
         }
         ModPackagerMessage::Selected(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(SelectedMod {
                     slug,
@@ -139,7 +139,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         }
 
         ModPackagerMessage::DeleteMod(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             Task::perform(
@@ -155,7 +155,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             )
         }
         ModPackagerMessage::Deleted(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(()) => {
                     state.status_msg = "Mod deleted".into();
@@ -174,28 +174,28 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Manifest editor -------------------------------------------
         ModPackagerMessage::NameChanged(v) => {
-            app.state.mod_packager_editor.edit_name = v;
-            app.state.mod_packager_editor.edit_dirty = true;
+            app.state.editors.mod_packager_editor.edit_name = v;
+            app.state.editors.mod_packager_editor.edit_dirty = true;
             Task::none()
         }
         ModPackagerMessage::VersionChanged(v) => {
-            app.state.mod_packager_editor.edit_version = v;
-            app.state.mod_packager_editor.edit_dirty = true;
+            app.state.editors.mod_packager_editor.edit_version = v;
+            app.state.editors.mod_packager_editor.edit_dirty = true;
             Task::none()
         }
         ModPackagerMessage::AuthorChanged(v) => {
-            app.state.mod_packager_editor.edit_author = v;
-            app.state.mod_packager_editor.edit_dirty = true;
+            app.state.editors.mod_packager_editor.edit_author = v;
+            app.state.editors.mod_packager_editor.edit_dirty = true;
             Task::none()
         }
         ModPackagerMessage::DescriptionChanged(v) => {
-            app.state.mod_packager_editor.edit_description = v;
-            app.state.mod_packager_editor.edit_dirty = true;
+            app.state.editors.mod_packager_editor.edit_description = v;
+            app.state.editors.mod_packager_editor.edit_dirty = true;
             Task::none()
         }
         ModPackagerMessage::SaveManifest => save_manifest(app),
         ModPackagerMessage::Saved(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(()) => {
                     state.edit_dirty = false;
@@ -211,12 +211,12 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Library actions -------------------------------------------
         ModPackagerMessage::ToggleEnabled(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             let currently_enabled = app
                 .state
-                .mod_packager_editor
+                .editors.mod_packager_editor
                 .mods
                 .iter()
                 .find(|m| m.slug == slug)
@@ -228,13 +228,13 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             })
         }
         ModPackagerMessage::MoveUp(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             workspace_action(root, move |ws| ws.move_up(&slug).map_err(|e| e.to_string()))
         }
         ModPackagerMessage::MoveDown(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             workspace_action(root, move |ws| {
@@ -244,16 +244,16 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Apply / revert --------------------------------------------
         ModPackagerMessage::Apply => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             let Some(game_dir) = nonempty_path(&app.state.shared_game_path) else {
-                app.state.mod_packager_editor.status_msg =
+                app.state.editors.mod_packager_editor.status_msg =
                     "Set the game path before applying.".into();
                 return Task::none();
             };
-            app.state.mod_packager_editor.loading_state = LoadingState::Loading;
-            app.state.mod_packager_editor.status_msg = "Applying mods…".into();
+            app.state.editors.mod_packager_editor.loading_state = LoadingState::Loading;
+            app.state.editors.mod_packager_editor.status_msg = "Applying mods…".into();
             Task::perform(
                 async move {
                     tokio::task::spawn_blocking(move || {
@@ -273,7 +273,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             )
         }
         ModPackagerMessage::Applied(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(o) => {
                     state.status_msg = format!(
@@ -291,16 +291,16 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         }
 
         ModPackagerMessage::Revert => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             let Some(game_dir) = nonempty_path(&app.state.shared_game_path) else {
-                app.state.mod_packager_editor.status_msg =
+                app.state.editors.mod_packager_editor.status_msg =
                     "Set the game path before reverting.".into();
                 return Task::none();
             };
-            app.state.mod_packager_editor.loading_state = LoadingState::Loading;
-            app.state.mod_packager_editor.status_msg = "Reverting…".into();
+            app.state.editors.mod_packager_editor.loading_state = LoadingState::Loading;
+            app.state.editors.mod_packager_editor.status_msg = "Reverting…".into();
             Task::perform(
                 async move {
                     tokio::task::spawn_blocking(move || {
@@ -318,7 +318,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             )
         }
         ModPackagerMessage::Reverted(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(o) => {
                     state.status_msg = format!("Reverted {} file(s) to vanilla", o.restored);
@@ -334,13 +334,13 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Recording --------------------------------------------------
         ModPackagerMessage::StartRecording(slug) => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
-                app.state.mod_packager_editor.status_msg = "Open a workspace first.".into();
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
+                app.state.editors.mod_packager_editor.status_msg = "Open a workspace first.".into();
                 return Task::none();
             };
             let mod_name = app
                 .state
-                .mod_packager_editor
+                .editors.mod_packager_editor
                 .mods
                 .iter()
                 .find(|m| m.slug == slug)
@@ -357,7 +357,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
                 pending: std::collections::HashMap::new(),
                 next_generation: 0,
             });
-            app.state.mod_packager_editor.status_msg =
+            app.state.editors.mod_packager_editor.status_msg =
                 format!("Recording into `{mod_name}` — edits in any catalog editor are captured.");
             flush
         }
@@ -384,7 +384,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             app.state.recording = None;
             if !stopped_name.is_empty() {
                 let total = committed + pending;
-                app.state.mod_packager_editor.status_msg =
+                app.state.editors.mod_packager_editor.status_msg =
                     format!("Stopped recording `{stopped_name}` — {total} change(s) captured.");
             }
             flush.chain(Task::done(Message::mod_packager(
@@ -403,7 +403,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
                     }
                 }
                 Err(e) => {
-                    app.state.mod_packager_editor.status_msg =
+                    app.state.editors.mod_packager_editor.status_msg =
                         format!("Recording persist failed: {e}");
                 }
             }
@@ -412,7 +412,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
         // ----- Conflict resolution ---------------------------------------
         ModPackagerMessage::PinConflict { key, mod_slug } => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             workspace_action(root, move |ws| {
@@ -420,7 +420,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             })
         }
         ModPackagerMessage::UnpinConflict { key } => {
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             workspace_action(root, move |ws| {
@@ -443,8 +443,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             let Some(zip_path) = path else {
                 return Task::none();
             };
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
-                app.state.mod_packager_editor.status_msg =
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
+                app.state.editors.mod_packager_editor.status_msg =
                     "Open a workspace before importing.".into();
                 return Task::none();
             };
@@ -461,7 +461,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             )
         }
         ModPackagerMessage::Imported(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(slug) => {
                     state.status_msg = format!("Imported `{slug}`");
@@ -495,7 +495,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             let Some(dst) = path else {
                 return Task::none();
             };
-            let Some(root) = app.state.mod_packager_editor.workspace_root.clone() else {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
                 return Task::none();
             };
             Task::perform(
@@ -514,7 +514,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             )
         }
         ModPackagerMessage::Exported(result) => {
-            let state = &mut app.state.mod_packager_editor;
+            let state = &mut app.state.editors.mod_packager_editor;
             match result {
                 Ok(path) => {
                     state.status_msg = format!("Exported to {}", path.display());
@@ -536,12 +536,12 @@ fn open_workspace(app: &mut App, root: PathBuf) -> Task<Message> {
     // Workspace::open just creates a couple of directories; safe to run inline.
     match Workspace::open(root.clone()) {
         Ok(_) => {
-            app.state.mod_packager_editor.workspace_root = Some(root.clone());
-            app.state.mod_packager_editor.status_msg = format!("Workspace: {}", root.display());
+            app.state.editors.mod_packager_editor.workspace_root = Some(root.clone());
+            app.state.editors.mod_packager_editor.status_msg = format!("Workspace: {}", root.display());
             refresh_library(root)
         }
         Err(e) => {
-            app.state.mod_packager_editor.status_msg = format!("Open failed: {e}");
+            app.state.editors.mod_packager_editor.status_msg = format!("Open failed: {e}");
             Task::none()
         }
     }
@@ -603,7 +603,7 @@ fn load_selected(root: PathBuf, slug: String) -> Task<Message> {
 }
 
 fn save_manifest(app: &mut App) -> Task<Message> {
-    let state = &mut app.state.mod_packager_editor;
+    let state = &mut app.state.editors.mod_packager_editor;
     let Some(root) = state.workspace_root.clone() else {
         state.status_msg = "Open a workspace first.".into();
         return Task::none();
