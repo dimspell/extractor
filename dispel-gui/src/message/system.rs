@@ -14,7 +14,6 @@ pub enum SystemMessage {
     IndexSaveRequested,
     IndexComplete,
     IndexSaveComplete,
-    ClearLog,
     ToggleAutoSave,
     CheckDraftConflicts,
     ApplyDraft(String),

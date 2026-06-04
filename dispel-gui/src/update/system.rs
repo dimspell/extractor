@@ -253,10 +253,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             );
             Task::none()
         }
-        SystemMessage::ClearLog => {
-            app.state.log.clear();
-            Task::none()
-        }
         SystemMessage::CacheIndexationComplete(cache) => {
             eprintln!(
                 "DEBUG: CacheIndexationComplete - {} files",

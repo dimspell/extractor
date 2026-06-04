@@ -20,7 +20,6 @@ use std::path::{Path, PathBuf};
 pub struct AppState {
     pub status_msg: String,
     pub shared_game_path: String,
-    pub log: String,
     pub is_running: bool,
     pub editors: EditorRegistry,
     pub lookups: HashMap<String, Vec<(String, String)>>,
@@ -262,7 +261,6 @@ impl Default for AppState {
         Self {
             shared_game_path: String::new(),
             status_msg: String::new(),
-            log: String::new(),
             is_running: false,
             editors: EditorRegistry::default(),
             lookups: HashMap::new(),
