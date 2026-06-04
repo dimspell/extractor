@@ -72,7 +72,9 @@ pub fn remove_entry<T: EditableRecord + Extractor>(
     index: usize,
 ) -> Task<Message> {
     if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
-        editor.remove_record(index);
+        if let Err(msg) = editor.remove_record(index) {
+            eprintln!("{}", msg);
+        }
     }
     Task::none()
 }

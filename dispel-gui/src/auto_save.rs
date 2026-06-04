@@ -40,14 +40,17 @@ impl DraftManager {
     }
 
     /// Persist draft state to disk.
-    pub fn save_to_disk(&self) {
+    pub fn save_to_disk(&self) -> Result<(), String> {
         let path = Self::persist_path();
         if let Some(parent) = path.parent() {
-            let _ = fs::create_dir_all(parent);
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create drafts directory: {}", e))?;
         }
-        if let Ok(data) = serde_json::to_vec_pretty(self) {
-            let _ = fs::write(&path, data);
-        }
+        let data = serde_json::to_vec_pretty(self)
+            .map_err(|e| format!("Failed to serialize drafts: {}", e))?;
+        fs::write(&path, data)
+            .map_err(|e| format!("Failed to write drafts to disk: {}", e))?;
+        Ok(())
     }
 
     /// Default path: ~/.config/dispel-gui/drafts.json
@@ -79,7 +82,9 @@ impl DraftManager {
                 original_mtime,
             },
         );
-        self.save_to_disk();
+        if let Err(e) = self.save_to_disk() {
+            eprintln!("Warning: failed to persist drafts after save: {}", e);
+        }
     }
 
     pub fn has_draft(&self, file_path: &Path) -> bool {
@@ -130,7 +135,9 @@ impl DraftManager {
 
     pub fn discard_draft(&mut self, file_path: &Path) {
         self.clear_draft(file_path);
-        self.save_to_disk();
+        if let Err(e) = self.save_to_disk() {
+            eprintln!("Warning: failed to persist drafts after discard: {}", e);
+        }
     }
 
     pub fn draft_count(&self) -> usize {

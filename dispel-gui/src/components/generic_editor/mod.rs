@@ -472,10 +472,12 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
     }
 
     /// Remove a record by its filtered index.
-    pub fn remove_record(&mut self, idx: usize) {
+    /// Returns an error message if the record could not be serialized for undo.
+    pub fn remove_record(&mut self, idx: usize) -> Result<(), String> {
         if let Some((orig_idx, record)) = self.editor.filtered.get(idx).cloned() {
             // Serialize the removed record so undo can restore it
-            let data = serde_json::to_string(&record).unwrap_or_default();
+            let data = serde_json::to_string(&record)
+                .map_err(|e| format!("Failed to serialize record for undo: {}", e))?;
 
             // Fix up stale indices in existing history BEFORE pushing the
             // removal action — adjust_for_removal drops actions whose
@@ -498,6 +500,7 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
                 }
             }
         }
+        Ok(())
     }
 
     pub fn undo(&mut self) -> Option<String> {

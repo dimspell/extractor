@@ -154,8 +154,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 "viewer_db" => app.state.editors.viewer.db_path = s,
                 "chest_game_path" => app.state.shared_game_path = s,
                 "chest_map_file" => app.state.editors.chest_editor.current_map_file = s,
-                "extra_ref_map_file" => {}
-                "monster_ref_file" => {}
                 _ => {}
             }
             Task::none()

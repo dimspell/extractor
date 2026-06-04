@@ -102,7 +102,7 @@ impl App {
         let search_index = if let Some(ref gp) = game_path {
             match crate::indexation::search_index::SearchIndex::load(&index_path) {
                 Ok(idx) => {
-                    if idx.game_path.as_deref() == Some(gp.to_str().unwrap_or("")) {
+                    if idx.game_path.as_deref() == Some(gp.to_string_lossy().as_ref()) {
                         idx
                     } else {
                         let mut fresh = crate::indexation::search_index::SearchIndex::new();
