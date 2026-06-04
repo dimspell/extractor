@@ -205,81 +205,14 @@ impl App {
     }
 
     pub fn get_active_edit_history(&self) -> &EditHistory {
-        use crate::components::generic_editor::UndoRedo;
-        use crate::workspace::EditorType;
-
         if let Some(tab) = self.state.workspace.active() {
-            return match tab.editor_type {
-                EditorType::HealItemEditor => self.state.editors.heal_item_editor.edit_history(),
-                EditorType::MiscItemEditor => self.state.editors.misc_item_editor.edit_history(),
-                EditorType::EditItemEditor => self.state.editors.edit_item_editor.edit_history(),
-                EditorType::EventItemEditor => self.state.editors.event_item_editor.edit_history(),
-                EditorType::MagicEditor => self.state.editors.magic_editor.edit_history(),
-                EditorType::WeaponEditor => self.state.editors.weapon_editor.edit_history(),
-                EditorType::MonsterRefEditor => {
-                    let tab_id = tab.id;
-                    self.state
-                        .editors.monster_ref_editor
-                        .editors
-                        .get(&tab_id)
-                        .map(|ed| ed.edit_history())
-                        .unwrap_or(&self.empty_edit_history)
-                }
-                EditorType::ExtraRefEditor => {
-                    let tab_id = tab.id;
-                    self.state
-                        .editors.extra_ref_editor
-                        .editors
-                        .get(&tab_id)
-                        .map(|ed| ed.edit_history())
-                        .unwrap_or(&self.empty_edit_history)
-                }
-                EditorType::NpcRefEditor => {
-                    let tab_id = tab.id;
-                    self.state
-                        .editors.npc_ref_editor
-                        .editors
-                        .get(&tab_id)
-                        .map(|ed| ed.edit_history())
-                        .unwrap_or(&self.empty_edit_history)
-                }
-                EditorType::DialogueScriptEditor => {
-                    let tab_id = tab.id;
-                    self.state
-                        .editors.dialogue_script_editor
-                        .editors
-                        .get(&tab_id)
-                        .map(|ed| ed.edit_history())
-                        .unwrap_or(&self.empty_edit_history)
-                }
-                EditorType::DialogueTextEditor => {
-                    let tab_id = tab.id;
-                    self.state
-                        .editors.dialogue_paragraph_editor
-                        .editors
-                        .get(&tab_id)
-                        .map(|ed| ed.edit_history())
-                        .unwrap_or(&self.empty_edit_history)
-                }
-                EditorType::DrawItemEditor => self.state.editors.draw_item_editor.edit_history(),
-                EditorType::EventIniEditor => self.state.editors.event_ini_editor.edit_history(),
-                EditorType::EventNpcRefEditor => self.state.editors.event_npc_ref_editor.edit_history(),
-                EditorType::ExtraIniEditor => self.state.editors.extra_ini_editor.edit_history(),
-                EditorType::MapIniEditor => self.state.editors.map_ini_editor.edit_history(),
-                EditorType::MessageScrEditor => self.state.editors.message_scr_editor.edit_history(),
-                EditorType::PartyLevelDbEditor => self.state.editors.party_level_db_editor.edit_history(),
-                EditorType::QuestScrEditor => self.state.editors.quest_scr_editor.edit_history(),
-                EditorType::WaveIniEditor => self.state.editors.wave_ini_editor.edit_history(),
-                EditorType::AllMapIniEditor => self.state.editors.all_map_ini_editor.edit_history(),
-                EditorType::ChDataEditor => self.state.editors.chdata_editor.edit_history(),
-                EditorType::PartyRefEditor => self.state.editors.party_ref_editor.edit_history(),
-                EditorType::PartyIniEditor => self.state.editors.party_ini_editor.edit_history(),
-                EditorType::StoreEditor => self.state.editors.store_editor.edit_history(),
-                EditorType::EventScrEditor => &self.empty_edit_history,
-                _ => &self.empty_edit_history,
-            };
+            self.state
+                .editors
+                .get_active_edit_history(tab.editor_type, tab.id)
+                .unwrap_or(&self.empty_edit_history)
+        } else {
+            &self.empty_edit_history
         }
-        &self.empty_edit_history
     }
 
     pub fn subscription(&self) -> Subscription<Message> {

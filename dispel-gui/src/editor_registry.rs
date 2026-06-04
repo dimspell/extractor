@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::components::edit_history::EditHistory;
 use crate::components::generic_editor::UndoRedo;
 use crate::components::generic_editor::TabbedEditor;
 use crate::components::standard::StandardEditor;
@@ -274,6 +275,86 @@ impl EditorRegistry {
                 )
             }
             _ => {}
+        }
+    }
+
+    // ─── Edit-history lookup ────────────────────────────────────────────────
+
+    /// Return the active editor's [`EditHistory`], keyed by `editor_type` /
+    /// `tab_id`.  Returns `None` when the editor kind has no history or the
+    /// tab lookup fails.
+    pub fn get_active_edit_history(
+        &self,
+        editor_type: EditorType,
+        tab_id: usize,
+    ) -> Option<&EditHistory> {
+        use crate::components::generic_editor::UndoRedo;
+
+        match editor_type {
+            // Standard / Box editors — edit_history is always available
+            EditorType::HealItemEditor => Some(self.heal_item_editor.edit_history()),
+            EditorType::MiscItemEditor => Some(self.misc_item_editor.edit_history()),
+            EditorType::EditItemEditor => Some(self.edit_item_editor.edit_history()),
+            EditorType::EventItemEditor => Some(self.event_item_editor.edit_history()),
+            EditorType::MagicEditor => Some(self.magic_editor.edit_history()),
+            EditorType::WeaponEditor => Some(self.weapon_editor.edit_history()),
+            EditorType::DrawItemEditor => Some(self.draw_item_editor.edit_history()),
+            EditorType::EventIniEditor => Some(self.event_ini_editor.edit_history()),
+            EditorType::EventNpcRefEditor => Some(self.event_npc_ref_editor.edit_history()),
+            EditorType::ExtraIniEditor => Some(self.extra_ini_editor.edit_history()),
+            EditorType::MapIniEditor => Some(self.map_ini_editor.edit_history()),
+            EditorType::MessageScrEditor => Some(self.message_scr_editor.edit_history()),
+            EditorType::PartyLevelDbEditor => Some(self.party_level_db_editor.edit_history()),
+            EditorType::QuestScrEditor => Some(self.quest_scr_editor.edit_history()),
+            EditorType::WaveIniEditor => Some(self.wave_ini_editor.edit_history()),
+            EditorType::AllMapIniEditor => Some(self.all_map_ini_editor.edit_history()),
+            EditorType::ChDataEditor => Some(self.chdata_editor.edit_history()),
+            EditorType::PartyRefEditor => Some(self.party_ref_editor.edit_history()),
+            EditorType::PartyIniEditor => Some(self.party_ini_editor.edit_history()),
+            EditorType::StoreEditor => Some(self.store_editor.edit_history()),
+
+            // Tab-based editors — need a HashMap lookup
+            EditorType::MonsterRefEditor => self
+                .monster_ref_editor
+                .editors
+                .get(&tab_id)
+                .map(|ed| ed.edit_history()),
+            EditorType::ExtraRefEditor => self
+                .extra_ref_editor
+                .editors
+                .get(&tab_id)
+                .map(|ed| ed.edit_history()),
+            EditorType::NpcRefEditor => self
+                .npc_ref_editor
+                .editors
+                .get(&tab_id)
+                .map(|ed| ed.edit_history()),
+            EditorType::DialogueScriptEditor => self
+                .dialogue_script_editor
+                .editors
+                .get(&tab_id)
+                .map(|ed| ed.edit_history()),
+            EditorType::DialogueTextEditor => self
+                .dialogue_paragraph_editor
+                .editors
+                .get(&tab_id)
+                .map(|ed| ed.edit_history()),
+
+            // Editors without standard undo/redo
+            EditorType::EventScrEditor
+            | EditorType::MonsterEditor
+            | EditorType::MonsterIniEditor
+            | EditorType::NpcIniEditor
+            | EditorType::ChestEditor
+            | EditorType::SpriteViewer
+            | EditorType::SnfEditor
+            | EditorType::DbViewer
+            | EditorType::TilesetEditor
+            | EditorType::MapEditor
+            | EditorType::ModPackager
+            | EditorType::LocalizationManager
+            | EditorType::HexEditor
+            | EditorType::Unknown => None,
         }
     }
 
