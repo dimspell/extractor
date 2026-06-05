@@ -1,5 +1,3 @@
-use crate::components::file_tree::FileTree;
-use crate::components::global_search::GlobalSearch;
 use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::message::{system::SystemMessage, Message};
@@ -20,14 +18,11 @@ use std::path::{Path, PathBuf};
 pub struct AppState {
     pub status_msg: String,
     pub shared_game_path: String,
-    pub is_running: bool,
     pub editors: EditorRegistry,
     pub lookups: HashMap<String, Vec<(String, String)>>,
     pub workspace: Workspace,
-    pub global_search: GlobalSearch,
     pub pane_state: PaneState,
     pub file_index_cache_manager: Option<FileIndexCacheManager>,
-    pub file_tree: FileTree,
     /// Recent files tracking for workspace navigation
     pub recent_files: Vec<PathBuf>,
     /// Active mod-recording session, if any. While set, every successful
@@ -261,14 +256,11 @@ impl Default for AppState {
         Self {
             shared_game_path: String::new(),
             status_msg: String::new(),
-            is_running: false,
             editors: EditorRegistry::default(),
             lookups: HashMap::new(),
             workspace: Workspace::new(),
-            global_search: GlobalSearch::new(),
             pane_state: PaneState::default(),
             file_index_cache_manager: None,
-            file_tree: FileTree::default(),
             recent_files: Vec::new(),
             recording: None,
         }
