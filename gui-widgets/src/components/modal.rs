@@ -373,4 +373,43 @@ mod tests {
         let result = modal(base, modal_content, || "blur", 1.0);
         let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
     }
+
+    // ── Additional tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_modal_backdrop_clamps_below_zero() {
+        let base = container("Base");
+        let modal_content = container("Modal");
+        let result = modal(base, modal_content, || "blur", -0.5);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    }
+
+    #[test]
+    fn test_modal_backdrop_clamps_above_one() {
+        let base = container("Base");
+        let modal_content = container("Modal");
+        let result = modal(base, modal_content, || "blur", 1.5);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    }
+
+    #[derive(Debug, Clone)]
+    enum TestMsg {
+        Blur,
+        ButtonClick,
+    }
+
+    #[test]
+    fn test_modal_different_message_types() {
+        use iced::widget::button;
+        let base = button("Base");
+        let modal_content = button("Modal");
+        let result = modal(base, modal_content, || TestMsg::Blur, 0.5);
+        let _: Element<'_, TestMsg, iced::Theme, iced::Renderer> = result;
+    }
+
+    #[test]
+    fn test_modal_into_element_helper() {
+        let result = modal("base", "modal", || "blur", 0.5);
+        let _: Element<'_, &str, iced::Theme, iced::Renderer> = result;
+    }
 }

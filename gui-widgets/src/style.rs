@@ -81,3 +81,76 @@ pub fn menu_disabled_text(_theme: &Theme) -> text::Style {
         color: Some(Color::from_rgb(0.44, 0.41, 0.38)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use iced::widget::button;
+    use iced::{Color, Theme};
+
+    const THEME: Theme = Theme::Dark;
+
+    #[test]
+    fn test_context_menu_style_has_background() {
+        let style = context_menu(&THEME);
+        assert!(style.background.is_some(), "context menu should have background");
+    }
+
+    #[test]
+    fn test_menu_item_active_has_transparent_background() {
+        let style = menu_item(&THEME, button::Status::Active);
+        assert_eq!(
+            style.background,
+            Some(iced::Background::Color(Color::TRANSPARENT))
+        );
+    }
+
+    #[test]
+    fn test_menu_item_hovered_has_different_background() {
+        let active = menu_item(&THEME, button::Status::Active);
+        let hovered = menu_item(&THEME, button::Status::Hovered);
+        assert_ne!(
+            active.background, hovered.background,
+            "hovered should differ from active"
+        );
+    }
+
+    #[test]
+    fn test_menu_item_pressed_has_different_background() {
+        let hovered = menu_item(&THEME, button::Status::Hovered);
+        let pressed = menu_item(&THEME, button::Status::Pressed);
+        assert_ne!(
+            hovered.background, pressed.background,
+            "pressed should differ from hovered"
+        );
+    }
+
+    #[test]
+    fn test_menu_separator_has_background() {
+        let style = menu_separator(&THEME);
+        assert!(style.background.is_some(), "separator should have background");
+    }
+
+    #[test]
+    fn test_menu_disabled_item_style_is_independent_of_status() {
+        let active = menu_disabled_item(&THEME, button::Status::Active);
+        let hovered = menu_disabled_item(&THEME, button::Status::Hovered);
+        assert_eq!(
+            active.background, hovered.background,
+            "disabled should not change on hover"
+        );
+        assert_eq!(active.text_color, hovered.text_color);
+    }
+
+    #[test]
+    fn test_menu_disabled_text_has_color() {
+        let style = menu_disabled_text(&THEME);
+        assert!(style.color.is_some(), "disabled text should have a color");
+    }
+
+    #[test]
+    fn test_context_menu_style_border() {
+        let style = context_menu(&THEME);
+        assert!(style.border.width > 0.0, "context menu should have border");
+    }
+}

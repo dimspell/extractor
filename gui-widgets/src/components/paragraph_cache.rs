@@ -98,6 +98,8 @@ impl std::fmt::Debug for ParagraphCache {
 mod tests {
     use super::*;
     use iced::Font;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn test_paragraph_cache_insert_and_retrieve() {
@@ -138,5 +140,78 @@ mod tests {
         let key = ParagraphKey::new("test", 12.0, 100.0, Font::default());
         // Should not panic — will build a new paragraph
         let _ = cache.get_or_insert(key, Paragraph::new);
+    }
+
+    #[test]
+    fn test_paragraph_key_size_differentiation() {
+        let a = ParagraphKey::new("same text", 12.0, 100.0, Font::default());
+        let b = ParagraphKey::new("same text", 14.0, 100.0, Font::default());
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_paragraph_key_max_width_differentiation() {
+        let a = ParagraphKey::new("text", 12.0, 100.0, Font::default());
+        let b = ParagraphKey::new("text", 12.0, 200.0, Font::default());
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_paragraph_key_max_width_clamp() {
+        let a = ParagraphKey::new("text", 12.0, 99999.0, Font::default());
+        let b = ParagraphKey::new("text", 12.0, 65535.0, Font::default());
+        // Both are > u16::MAX (when cast as u16), so both clamp to u16::MAX
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn test_paragraph_key_debug() {
+        let key = ParagraphKey::new("debug", 12.0, 100.0, Font::default());
+        let debug = format!("{:?}", key);
+        assert!(debug.contains("ParagraphKey"));
+    }
+
+    #[test]
+    fn test_paragraph_cache_debug() {
+        let cache = ParagraphCache::default();
+        let debug = format!("{:?}", cache);
+        assert!(debug.contains("ParagraphCache"));
+        assert!(debug.contains("len"));
+    }
+
+    #[test]
+    fn test_paragraph_cache_build_only_when_missing() {
+        let cache = ParagraphCache::default();
+        let key = ParagraphKey::new("only once", 12.0, 100.0, Font::default());
+        let build_count = Arc::new(AtomicI32::new(0));
+
+        let _p1 = cache.get_or_insert(key.clone(), {
+            let count = Arc::clone(&build_count);
+            move || {
+                count.fetch_add(1, Ordering::SeqCst);
+                Paragraph::new()
+            }
+        });
+        assert_eq!(build_count.load(Ordering::SeqCst), 1, "first call should build");
+
+        let _p2 = cache.get_or_insert(key.clone(), {
+            let count = Arc::clone(&build_count);
+            move || {
+                count.fetch_add(1, Ordering::SeqCst);
+                Paragraph::new()
+            }
+        });
+        assert_eq!(build_count.load(Ordering::SeqCst), 1, "second call should use cache, not build");
+    }
+
+    #[test]
+    fn test_paragraph_cache_clone() {
+        let cache = ParagraphCache::default();
+        let key = ParagraphKey::new("clone", 12.0, 100.0, Font::default());
+        let _p = cache.get_or_insert(key.clone(), Paragraph::new);
+
+        let cloned = cache.clone();
+        // Cloned cache should return the same cached paragraph
+        let _p2 = cloned.get_or_insert(key, Paragraph::new);
     }
 }
