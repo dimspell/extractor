@@ -45,21 +45,29 @@ pub fn field_changed(
             .unwrap_or_default(),
         SelectedEntity::CollisionTile(_, _) => String::new(),
     };
-    // Apply the change.
+    // Apply the change; track whether the entity was actually found/mutated
+    // so we don't push an undo action for a no-op (out-of-bounds index).
+    let mut entity_mutated = true;
     match entity {
         SelectedEntity::Monster(i) => {
             if let Some(m) = state.data.monsters.get_mut(i) {
                 m.set_field(&field, value.clone());
+            } else {
+                entity_mutated = false;
             }
         }
         SelectedEntity::Npc(i) => {
             if let Some(n) = state.data.npcs.get_mut(i) {
                 n.set_field(&field, value.clone());
+            } else {
+                entity_mutated = false;
             }
         }
         SelectedEntity::Extra(i) => {
             if let Some(e) = state.data.extra_refs.get_mut(i) {
                 e.set_field(&field, value.clone());
+            } else {
+                entity_mutated = false;
             }
         }
         SelectedEntity::EventTile(tx, ty) => {
@@ -76,11 +84,13 @@ pub fn field_changed(
                         event_id: 0,
                     });
                 ev.event_id = value.parse::<i16>().unwrap_or(0);
+            } else {
+                entity_mutated = false;
             }
         }
         SelectedEntity::CollisionTile(_, _) => {}
     }
-    if old_value != value {
+    if entity_mutated && old_value != value {
         state.push_undo(MapEditAction {
             entity,
             field: field.clone(),

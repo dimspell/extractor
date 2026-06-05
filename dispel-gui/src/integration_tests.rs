@@ -1,13 +1,17 @@
 //! Integration tests for dispel-gui that verify:
-//! - All 39 EditorType variants render a view without panicking
+//! - All 38 EditorType variants render a view without panicking
 //! - open_file_in_workspace creates proper state for every file type
 //! - EditorRegistry lifecycle edge cases
 //! - Undo/Redo dispatch completeness
 //! - Save dispatch (only MapEditor and EventScrEditor save)
 //! - Message routing edge cases
+//! - Pane grid state transitions (sidebar, history, maximize, focus)
+//! - Map editor entity undo stack
 
 use crate::app::App;
 use crate::editor_registry::EditorRegistry;
+use crate::message::Message;
+use crate::message::workspace::WorkspaceMessage;
 use crate::workspace::{EditorType, Workspace, WorkspaceTab};
 use std::path::PathBuf;
 
@@ -770,6 +774,750 @@ mod message_routing_tests {
         assert_eq!(
             EditorType::from_path(PathBuf::from("file.btl").as_path()),
             EditorType::TilesetEditor
+        );
+    }
+}
+
+// ============================================================================
+// Pane grid state transitions
+// ============================================================================
+
+#[cfg(test)]
+mod pane_grid_tests {
+    use super::*;
+
+    #[test]
+    fn toggle_sidebar_hides_and_shows() {
+        let mut app = App::test_new(Workspace::new());
+        assert!(app.sidebar_visible, "sidebar visible by default");
+
+        // Hide sidebar
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert!(!app.sidebar_visible, "sidebar hidden");
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            1,
+            "one pane when sidebar hidden"
+        );
+
+        // Show sidebar again
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert!(app.sidebar_visible, "sidebar shown again");
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            2,
+            "two panes when sidebar visible"
+        );
+    }
+
+    #[test]
+    fn toggle_sidebar_twice_restores_original_state() {
+        let mut app = App::test_new(Workspace::new());
+        let panes_before = app.state.pane_state.state.len();
+
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+
+        assert!(app.sidebar_visible);
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            panes_before,
+            "same number of panes after double-toggle"
+        );
+    }
+
+    #[test]
+    fn toggle_history_panel_shows_and_hides() {
+        let mut app = App::test_new(Workspace::new());
+        assert!(!app.history_panel_visible, "history hidden by default");
+
+        // Show history panel
+        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        assert!(app.history_panel_visible);
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            3,
+            "three panes with history panel"
+        );
+
+        // Hide history panel
+        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        assert!(!app.history_panel_visible);
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            2,
+            "back to two panes"
+        );
+    }
+
+    #[test]
+    fn toggle_history_panel_with_hidden_sidebar() {
+        let mut app = App::test_new(Workspace::new());
+
+        // Hide sidebar first
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert_eq!(app.state.pane_state.state.len(), 1, "only main content");
+
+        // Show history panel (should split the single main pane)
+        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        assert!(app.history_panel_visible);
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            2,
+            "main + history with no sidebar"
+        );
+
+        // Show sidebar again (should rebuild with all three)
+        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert!(app.sidebar_visible);
+        assert_eq!(
+            app.state.pane_state.state.len(),
+            3,
+            "sidebar + main + history"
+        );
+    }
+
+    #[test]
+    fn toggle_maximize_pane_toggles_state() {
+        let mut app = App::test_new(Workspace::new());
+        assert!(app.state.pane_state.maximized.is_none(), "not maximized");
+
+        app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
+        assert!(
+            app.state.pane_state.maximized.is_some(),
+            "maximized after toggle"
+        );
+
+        app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
+        assert!(
+            app.state.pane_state.maximized.is_none(),
+            "restored after second toggle"
+        );
+    }
+
+    #[test]
+    fn pane_clicked_changes_focus() {
+        let mut app = App::test_new(Workspace::new());
+        let initial_focus = app.state.pane_state.focus;
+
+        // Get the other pane
+        let other_pane = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .find(|(id, _)| **id != initial_focus)
+            .map(|(id, _)| *id)
+            .expect("at least two panes in default layout");
+
+        app.update(Message::Workspace(WorkspaceMessage::PaneClicked(other_pane)));
+        assert_eq!(
+            app.state.pane_state.focus,
+            other_pane,
+            "focus changed to clicked pane"
+        );
+    }
+
+    #[test]
+    fn pane_resized_does_not_panic() {
+        let mut app = App::test_new(Workspace::new());
+
+        // Get the sidebar split from the default layout
+        let split = app.state.pane_state.sidebar_split.expect("has sidebar split");
+
+        use iced::widget::pane_grid::ResizeEvent;
+        let event = ResizeEvent { split, ratio: 0.3 };
+        app.update(Message::Workspace(WorkspaceMessage::PaneResized(event)));
+        // If we get here without panicking, the resize was handled
+    }
+
+    #[test]
+    fn pane_dragged_does_not_panic() {
+        let mut app = App::test_new(Workspace::new());
+
+        // Collect pane IDs
+        let panes: Vec<_> = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        assert!(panes.len() >= 2, "at least two panes");
+
+        use iced::widget::pane_grid::{DragEvent, Target};
+        app.update(Message::Workspace(WorkspaceMessage::PaneDragged(
+            DragEvent::Dropped {
+                pane: panes[1],
+                target: Target::Pane(panes[0], iced::widget::pane_grid::Region::Center),
+            },
+        )));
+        // If we get here without panicking, the drop was handled
+    }
+}
+
+// ============================================================================
+// Map editor entity undo stack
+// ============================================================================
+
+#[cfg(test)]
+mod map_editor_entity_tests {
+    use super::*;
+    use crate::editors::map_editor;
+    use crate::editors::map_editor::{MapEditAction, MapEditorState, MapEditorMessage, SelectedEntity};
+    use dispel_core::MonsterRef;
+
+    // ── MapEditorState undo stack unit tests ──────────────────────────────
+
+    #[test]
+    fn push_undo_adds_to_front_and_clears_redo() {
+        let mut state = MapEditorState::default();
+        let action = MapEditAction {
+            entity: SelectedEntity::Monster(0),
+            field: "name".into(),
+            old_value: "old".into(),
+            new_value: "new".into(),
+        };
+        state.push_undo(action);
+
+        assert_eq!(state.data.undo_stack.len(), 1);
+        assert!(state.data.redo_stack.is_empty(), "redo cleared");
+        assert!(state.data.dirty, "marked dirty");
+    }
+
+    #[test]
+    fn pop_undo_returns_action_and_pushes_inverted_to_redo() {
+        let mut state = MapEditorState::default();
+        state.push_undo(MapEditAction {
+            entity: SelectedEntity::Npc(0),
+            field: "name".into(),
+            old_value: "old".into(),
+            new_value: "new".into(),
+        });
+
+        let action = state.pop_undo().expect("undo action available");
+        assert_eq!(action.old_value, "old", "old_value preserved");
+        assert_eq!(action.new_value, "new", "new_value preserved");
+
+        // Redo should have the same action (not inverted)
+        assert_eq!(state.data.redo_stack.len(), 1);
+        let redo_action = state.data.redo_stack.front().unwrap();
+        assert_eq!(
+            redo_action.old_value, "old",
+            "redo old_value preserved"
+        );
+        assert_eq!(
+            redo_action.new_value, "new",
+            "redo new_value preserved"
+        );
+    }
+
+    #[test]
+    fn pop_redo_returns_action_and_pushes_back_to_undo() {
+        let mut state = MapEditorState::default();
+        state.push_undo(MapEditAction {
+            entity: SelectedEntity::Extra(0),
+            field: "name".into(),
+            old_value: "old".into(),
+            new_value: "new".into(),
+        });
+
+        // Undo once
+        let _ = state.pop_undo();
+        assert!(state.data.undo_stack.is_empty());
+        assert_eq!(state.data.redo_stack.len(), 1);
+
+        // Redo
+        let action = state.pop_redo().expect("redo action available");
+        assert_eq!(action.old_value, "old", "redo old_value preserved");
+        assert_eq!(action.new_value, "new", "redo new_value preserved");
+
+        assert_eq!(state.data.undo_stack.len(), 1, "pushed back to undo");
+        assert!(state.data.redo_stack.is_empty(), "redo consumed");
+    }
+
+    #[test]
+    fn pop_undo_empty_stack_returns_none() {
+        let mut state = MapEditorState::default();
+        assert!(state.pop_undo().is_none());
+    }
+
+    #[test]
+    fn pop_redo_empty_stack_returns_none() {
+        let mut state = MapEditorState::default();
+        assert!(state.pop_redo().is_none());
+    }
+
+    #[test]
+    fn push_undo_caps_at_max_history() {
+        let mut state = MapEditorState::default();
+        // MAX_MAP_HISTORY = 100
+        for i in 0..200 {
+            state.push_undo(MapEditAction {
+                entity: SelectedEntity::Monster(i),
+                field: "pos_x".into(),
+                old_value: format!("{i}"),
+                new_value: format!("{}", i + 1),
+            });
+        }
+        assert_eq!(
+            state.data.undo_stack.len(),
+            100,
+            "capped at MAX_MAP_HISTORY"
+        );
+        // Oldest entries are dropped
+        let first = state.data.undo_stack.back().unwrap();
+        assert_eq!(
+            first.entity,
+            SelectedEntity::Monster(100),
+            "oldest entry is index 100 (dropped 0-99)"
+        );
+    }
+
+    #[test]
+    fn push_undo_clears_redo_stack() {
+        let mut state = MapEditorState::default();
+        state.push_undo(MapEditAction {
+            entity: SelectedEntity::Monster(0),
+            field: "name".into(),
+            old_value: "old".into(),
+            new_value: "new".into(),
+        });
+        let _ = state.pop_undo();
+        assert_eq!(state.data.redo_stack.len(), 1);
+
+        // Push a new action — clears redo
+        state.push_undo(MapEditAction {
+            entity: SelectedEntity::Npc(0),
+            field: "name".into(),
+            old_value: "old2".into(),
+            new_value: "new2".into(),
+        });
+        assert!(state.data.redo_stack.is_empty(), "redo cleared on new edit");
+    }
+
+    #[test]
+    fn undo_redo_round_trip_preserves_values() {
+        let mut state = MapEditorState::default();
+        state.push_undo(MapEditAction {
+            entity: SelectedEntity::Monster(0),
+            field: "pos_x".into(),
+            old_value: "10".into(),
+            new_value: "20".into(),
+        });
+
+        let undo = state.pop_undo().unwrap();
+        assert_eq!(undo.old_value, "10");
+        assert_eq!(undo.new_value, "20");
+
+        let redo = state.pop_redo().unwrap();
+        // Values are not swapped — preserves original old/new throughout.
+        assert_eq!(redo.old_value, "10");
+        assert_eq!(redo.new_value, "20");
+    }
+
+    // ── Entity field_changed integration tests ────────────────────────────
+
+    fn app_with_map_editor() -> App {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 0;
+
+        // Push a workspace tab so set_tab_modified can find it
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "test.map".into(),
+            path: Some(PathBuf::from("test.map")),
+            editor_type: EditorType::MapEditor,
+            modified: false,
+            pinned: false,
+        });
+
+        // Insert a MapEditorState with one monster
+        let mut map_state = MapEditorState::default();
+        map_state.data.monsters = vec![MonsterRef {
+            index: 0,
+            mon_id: 1,
+            pos_x: 100,
+            pos_y: 200,
+            ..Default::default()
+        }];
+        app.state.editors.map_editors.insert(tab_id, map_state);
+
+        app
+    }
+
+    #[test]
+    fn entity_field_changed_monster_updates_value_and_undo_stack() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0, "EntityFieldChanged produces no task");
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            150,
+            "monster pos_x updated"
+        );
+        assert!(
+            !app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .is_empty(),
+            "undo stack has entry"
+        );
+        assert!(
+            app.state.workspace.tabs[0].modified,
+            "tab marked modified"
+        );
+    }
+
+    #[test]
+    fn entity_field_changed_nonexistent_tab_id_is_noop() {
+        let mut app = app_with_map_editor();
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                999,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0, "no-op for unknown tab_id");
+    }
+
+    #[test]
+    fn entity_field_changed_unchanged_value_does_not_push_undo() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        // Set same value — old_value (100) == new_value (100)
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "100".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0);
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .is_empty(),
+            "no undo for unchanged value"
+        );
+        assert!(
+            !app.state.workspace.tabs[0].modified,
+            "tab not marked modified"
+        );
+    }
+
+    #[test]
+    fn entity_field_changed_nonexistent_monster_index_does_not_panic() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        // Only monster 0 exists, use idx 5
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(5),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0);
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .is_empty(),
+            "no undo when entity index out of bounds"
+        );
+    }
+
+    #[test]
+    fn entity_undo_monster_reverts_field_and_pushes_redo() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        // Make an edit
+        map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+        assert!(
+            app.state.workspace.tabs[0].modified,
+            "tab dirty after edit"
+        );
+
+        // Undo
+        let task = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        assert_eq!(task.units(), 0);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            100,
+            "pos_x reverted to original"
+        );
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .is_empty(),
+            "undo stack consumed"
+        );
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .redo_stack
+                .len(),
+            1,
+            "redo stack has entry"
+        );
+    }
+
+    #[test]
+    fn entity_redo_restores_field() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        // Edit: pos_x 100 → 150
+        map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+
+        // Undo: 150 → 100
+        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            100
+        );
+
+        // Redo: 100 → 150
+        let task = map_editor::handle(MapEditorMessage::Redo(tab_id), &mut app);
+        assert_eq!(task.units(), 0);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            150,
+            "pos_x restored to edited value"
+        );
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .redo_stack
+                .is_empty(),
+            "redo stack consumed"
+        );
+    }
+
+    #[test]
+    fn entity_undo_empty_stack_does_not_panic() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        let task = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        assert_eq!(task.units(), 0);
+    }
+
+    #[test]
+    fn entity_undo_nonexistent_tab_id_does_not_panic() {
+        let mut app = app_with_map_editor();
+
+        let task = map_editor::handle(MapEditorMessage::Undo(999), &mut app);
+        assert_eq!(task.units(), 0);
+    }
+
+    #[test]
+    fn entity_redo_empty_stack_does_not_panic() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        let task = map_editor::handle(MapEditorMessage::Redo(tab_id), &mut app);
+        assert_eq!(task.units(), 0);
+    }
+
+    #[test]
+    fn entity_field_changed_works_for_npc_field() {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 0;
+
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "test.map".into(),
+            path: Some(PathBuf::from("test.map")),
+            editor_type: EditorType::MapEditor,
+            modified: false,
+            pinned: false,
+        });
+
+        let mut map_state = MapEditorState::default();
+        map_state.data.npcs = vec![dispel_core::NPC {
+            name: "Guard".into(),
+            ..Default::default()
+        }];
+        app.state.editors.map_editors.insert(tab_id, map_state);
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Npc(0),
+                "name".into(),
+                "Guard Captain".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .npcs[0]
+                .name,
+            "Guard Captain",
+            "NPC name updated"
+        );
+    }
+
+    #[test]
+    fn entity_field_changed_works_for_extra_field() {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 0;
+
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "test.map".into(),
+            path: Some(PathBuf::from("test.map")),
+            editor_type: EditorType::MapEditor,
+            modified: false,
+            pinned: false,
+        });
+
+        let mut map_state = MapEditorState::default();
+        map_state.data.extra_refs = vec![dispel_core::ExtraRef {
+            id: 1,
+            ..Default::default()
+        }];
+        app.state.editors.map_editors.insert(tab_id, map_state);
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Extra(0),
+                "id".into(),
+                "99".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .extra_refs[0]
+                .id,
+            99,
+            "ExtraRef id updated"
+        );
+    }
+
+    #[test]
+    fn entity_multiple_edits_produce_ordered_undo_stack() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        // Edit 1: pos_x 100 → 150
+        map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "150".into(),
+            ),
+            &mut app,
+        );
+
+        // Edit 2: pos_x 150 → 200
+        map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Monster(0),
+                "pos_x".into(),
+                "200".into(),
+            ),
+            &mut app,
+        );
+
+        // Undo 1: 200 → 150
+        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            150,
+            "first undo: 200 → 150"
+        );
+
+        // Undo 2: 150 → 100
+        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            100,
+            "second undo: 150 → 100"
+        );
+
+        // Redo 1: 100 → 150
+        let _ = map_editor::handle(MapEditorMessage::Redo(tab_id), &mut app);
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .monsters[0]
+                .pos_x,
+            150,
+            "first redo: 100 → 150"
         );
     }
 }

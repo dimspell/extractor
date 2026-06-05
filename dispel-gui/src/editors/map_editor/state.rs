@@ -339,26 +339,25 @@ impl MapEditorState {
     /// caller applies `old_value` to revert).
     pub fn pop_undo(&mut self) -> Option<MapEditAction> {
         let action = self.data.undo_stack.pop_front()?;
-        // Redo entry: reverses old/new so that redo re-applies the change.
         let redo_entry = MapEditAction {
             entity: action.entity,
             field: action.field.clone(),
-            old_value: action.new_value.clone(),
-            new_value: action.old_value.clone(),
+            old_value: action.old_value.clone(),
+            new_value: action.new_value.clone(),
         };
         self.data.redo_stack.push_front(redo_entry);
         Some(action)
     }
 
-    /// Pop the most-recent redo action. Pushes the inverted action back to undo.
+    /// Pop the most-recent redo action. Pushes the action back to undo.
     /// Returns the action; caller applies `new_value` to re-apply the change.
     pub fn pop_redo(&mut self) -> Option<MapEditAction> {
         let action = self.data.redo_stack.pop_front()?;
         let undo_entry = MapEditAction {
             entity: action.entity,
             field: action.field.clone(),
-            old_value: action.new_value.clone(),
-            new_value: action.old_value.clone(),
+            old_value: action.old_value.clone(),
+            new_value: action.new_value.clone(),
         };
         self.data.undo_stack.push_front(undo_entry);
         Some(action)
