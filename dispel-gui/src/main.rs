@@ -19,6 +19,9 @@ pub mod workspace;
 #[cfg(test)]
 mod recording_tests;
 
+#[cfg(test)]
+mod integration_tests;
+
 use crate::app::App;
 
 pub fn main() -> iced::Result {
