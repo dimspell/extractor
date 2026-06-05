@@ -2,8 +2,6 @@
 mod message_routing_tests {
     use crate::app::App;
     use crate::message::Message;
-    use crate::message::system::SystemMessage;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::{EditorType, Workspace};
     use std::path::PathBuf;
@@ -173,89 +171,4 @@ mod message_routing_tests {
         );
     }
 
-    #[test]
-    fn test_editor_type_from_path_round_trips_all_db_types() {
-        let cases = vec![
-            ("weaponItem.db", EditorType::WeaponEditor),
-            ("Monster.db", EditorType::MonsterEditor),
-            ("HealItem.db", EditorType::HealItemEditor),
-            ("MiscItem.db", EditorType::MiscItemEditor),
-            ("EditItem.db", EditorType::EditItemEditor),
-            ("EventItem.db", EditorType::EventItemEditor),
-            ("Store.db", EditorType::StoreEditor),
-            ("Magic.db", EditorType::MagicEditor),
-            ("ChData.db", EditorType::ChDataEditor),
-            ("PrtLevel.db", EditorType::PartyLevelDbEditor),
-            ("PrtIni.db", EditorType::PartyIniEditor),
-        ];
-        for (filename, expected) in cases {
-            let result = EditorType::from_path(PathBuf::from(filename).as_path());
-            assert_eq!(result, expected, "failed for {filename}");
-        }
-    }
-
-    #[test]
-    fn test_editor_type_from_path_round_trips_all_ini_types() {
-        let cases = vec![
-            ("AllMap.ini", EditorType::AllMapIniEditor),
-            ("Map.ini", EditorType::MapIniEditor),
-            ("Extra.ini", EditorType::ExtraIniEditor),
-            ("Event.ini", EditorType::EventIniEditor),
-            ("Monster.ini", EditorType::MonsterIniEditor),
-            ("Npc.ini", EditorType::NpcIniEditor),
-            ("Wave.ini", EditorType::WaveIniEditor),
-        ];
-        for (filename, expected) in cases {
-            let result = EditorType::from_path(PathBuf::from(filename).as_path());
-            assert_eq!(result, expected, "failed for {filename}");
-        }
-    }
-
-    #[test]
-    fn test_editor_type_from_path_round_trips_all_ref_types() {
-        let cases = vec![
-            ("PartyRef.ref", EditorType::PartyRefEditor),
-            ("DrawItem.ref", EditorType::DrawItemEditor),
-            ("EventNpc.ref", EditorType::EventNpcRefEditor),
-            ("Npc01.ref", EditorType::NpcRefEditor),
-            ("Mon01.ref", EditorType::MonsterRefEditor),
-            ("Ext01.ref", EditorType::ExtraRefEditor),
-        ];
-        for (filename, expected) in cases {
-            let result = EditorType::from_path(PathBuf::from(filename).as_path());
-            assert_eq!(result, expected, "failed for {filename}");
-        }
-    }
-
-    #[test]
-    fn test_editor_type_from_path_special_formats() {
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.spr").as_path()),
-            EditorType::SpriteViewer
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.snf").as_path()),
-            EditorType::SnfEditor
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.dlg").as_path()),
-            EditorType::DialogueScriptEditor
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.pgp").as_path()),
-            EditorType::DialogueTextEditor
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.map").as_path()),
-            EditorType::MapEditor
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.gtl").as_path()),
-            EditorType::TilesetEditor
-        );
-        assert_eq!(
-            EditorType::from_path(PathBuf::from("file.btl").as_path()),
-            EditorType::TilesetEditor
-        );
-    }
 }

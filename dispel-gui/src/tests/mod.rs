@@ -34,5 +34,6 @@ pub(crate) mod draft;
 pub(crate) mod workspace;
 pub(crate) mod indexation;
 pub(crate) mod clear_all;
+pub(crate) mod workspace_unit;
 pub(crate) mod generic_editor_edge;
 pub(crate) mod tabbed_editor;

@@ -1,5 +1,6 @@
-use super::*;
+use crate::workspace::{EditorType, Workspace, WorkspaceTab};
 use std::path::Path;
+use std::path::PathBuf;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Workspace Creation Tests

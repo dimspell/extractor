@@ -401,5 +401,3 @@ impl Workspace {
     }
 }
 
-#[cfg(test)]
-mod tests;
