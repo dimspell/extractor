@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 pub struct PlaybackHandle {
-    pub sink: Arc<rodio::Sink>,
+    pub player: Arc<rodio::Player>,
     stop_flag: Arc<AtomicBool>,
     pub loop_flag: Arc<AtomicBool>,
     _thread: std::thread::JoinHandle<()>,
@@ -12,13 +12,13 @@ pub struct PlaybackHandle {
 
 impl PlaybackHandle {
     pub fn new(
-        sink: Arc<rodio::Sink>,
+        player: Arc<rodio::Player>,
         stop_flag: Arc<AtomicBool>,
         loop_flag: Arc<AtomicBool>,
         thread: std::thread::JoinHandle<()>,
     ) -> Self {
         PlaybackHandle {
-            sink,
+            player,
             stop_flag,
             loop_flag,
             _thread: thread,
@@ -27,7 +27,7 @@ impl PlaybackHandle {
 
     pub fn stop(&self) {
         self.stop_flag.store(true, Ordering::Relaxed);
-        self.sink.stop();
+        self.player.stop();
     }
 
     pub fn set_looping(&self, v: bool) {

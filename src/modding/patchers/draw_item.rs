@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn out_of_range_record_id_errors() {
         let p = DrawItemPatcher;
-        let err = p
+        let _err = p
             .apply_field(&one_record_blob(), 0, "x_coord", &Value::I64(0))
             .ok();
         // record_id 0 should succeed; check 99 fails.

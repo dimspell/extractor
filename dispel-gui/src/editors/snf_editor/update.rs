@@ -23,7 +23,7 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             if editor
                 .playback
                 .as_ref()
-                .is_some_and(|p| !p.sink.is_paused() && !p.sink.empty())
+                .is_some_and(|p| !p.player.is_paused() && !p.player.empty())
             {
                 return Task::none();
             }
@@ -39,25 +39,27 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             let is_looping = editor.is_looping;
             let volume = editor.volume;
 
-            let (sink_tx, sink_rx) = mpsc::sync_channel::<Arc<rodio::Sink>>(1);
+            let (player_tx, player_rx) = mpsc::sync_channel::<Arc<rodio::Player>>(1);
             let stop_flag = Arc::new(AtomicBool::new(false));
             let loop_flag = Arc::new(AtomicBool::new(is_looping));
             let stop_flag_thread = Arc::clone(&stop_flag);
             let loop_flag_thread = Arc::clone(&loop_flag);
 
             let thread = std::thread::spawn(move || {
-                let stream_handle = match rodio::OutputStreamBuilder::open_default_stream() {
-                    Ok(h) => h,
-                    Err(e) => {
-                        eprintln!("SNF: failed to open audio output: {e}");
-                        return;
-                    }
-                };
+                let mut device_sink =
+                    match rodio::stream::DeviceSinkBuilder::open_default_sink() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            eprintln!("SNF: failed to open audio output: {e}");
+                            return;
+                        }
+                    };
+                device_sink.log_on_drop(false);
 
-                let sink = Arc::new(rodio::Sink::connect_new(&stream_handle.mixer().clone()));
-                sink.set_volume(volume);
+                let player = Arc::new(rodio::Player::connect_new(device_sink.mixer()));
+                player.set_volume(volume);
 
-                if sink_tx.send(Arc::clone(&sink)).is_err() {
+                if player_tx.send(Arc::clone(&player)).is_err() {
                     // Receiver dropped (timed out) — abort before playing anything.
                     return;
                 }
@@ -68,24 +70,26 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                     }
                     let cursor = Cursor::new(wav_bytes.clone());
                     match rodio::Decoder::new(cursor) {
-                        Ok(source) => sink.append(source),
+                        Ok(source) => player.append(source),
                         Err(e) => {
                             eprintln!("SNF: decoder error: {e}");
                             break;
                         }
                     }
-                    sink.sleep_until_end();
+                    player.sleep_until_end();
                     if !loop_flag_thread.load(Ordering::Relaxed)
                         || stop_flag_thread.load(Ordering::Relaxed)
                     {
                         break;
                     }
                 }
+                // device_sink kept alive for the entire loop; dropped here → audio stops.
             });
 
-            match sink_rx.recv_timeout(std::time::Duration::from_millis(500)) {
-                Ok(sink) => {
-                    editor.playback = Some(PlaybackHandle::new(sink, stop_flag, loop_flag, thread));
+            match player_rx.recv_timeout(std::time::Duration::from_millis(500)) {
+                Ok(player) => {
+                    editor.playback =
+                        Some(PlaybackHandle::new(player, stop_flag, loop_flag, thread));
                 }
                 Err(_) => {
                     eprintln!("SNF: timed out waiting for audio thread to start");
@@ -95,10 +99,10 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
 
         SnfEditorMessage::Pause => {
             if let Some(ref pb) = editor.playback {
-                if pb.sink.is_paused() {
-                    pb.sink.play();
+                if pb.player.is_paused() {
+                    pb.player.play();
                 } else {
-                    pb.sink.pause();
+                    pb.player.pause();
                 }
             }
         }
@@ -117,12 +121,12 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
         SnfEditorMessage::SetVolume(v) => {
             editor.volume = v.clamp(0.0, 1.0);
             if let Some(ref pb) = editor.playback {
-                pb.sink.set_volume(editor.volume);
+                pb.player.set_volume(editor.volume);
             }
         }
 
         SnfEditorMessage::Tick => {
-            if editor.playback.as_ref().is_some_and(|pb| pb.sink.empty()) {
+            if editor.playback.as_ref().is_some_and(|pb| pb.player.empty()) {
                 editor.playback = None;
             }
         }

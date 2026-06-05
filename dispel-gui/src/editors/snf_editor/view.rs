@@ -68,14 +68,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let is_playing = editor
         .playback
         .as_ref()
-        .is_some_and(|p| !p.sink.is_paused() && !p.sink.empty());
+        .is_some_and(|p| !p.player.is_paused() && !p.player.empty());
 
     // Timeline: position / total with a progress bar
     let duration = snf.duration_secs();
     let pos_secs = editor
         .playback
         .as_ref()
-        .map(|pb| pb.sink.get_pos().as_secs_f32())
+        .map(|pb| pb.player.get_pos().as_secs_f32())
         .unwrap_or(0.0);
     let progress = if duration > 0.0 {
         (pos_secs / duration).clamp(0.0, 1.0)

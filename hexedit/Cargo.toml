@@ -19,7 +19,7 @@ default = ["lua"]
 lua = ["dep:mlua"]
 
 [dependencies.mlua]
-version = "0.10"
+version = "0.11.6"
 optional = true
 default-features = false
 features = ["lua54", "send", "vendored"]
