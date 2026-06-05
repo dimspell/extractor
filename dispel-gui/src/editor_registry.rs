@@ -399,6 +399,13 @@ impl EditorRegistry {
         *self.chdata_editor = Default::default();
         *self.event_scr_editor = Default::default();
 
+        // Boxed editors that were missing from reset — bugs found by tests
+        *self.monster_ini_editor = Default::default();
+        *self.viewer = Default::default();
+        *self.chest_editor = Default::default();
+        *self.party_level_db_editor = Default::default();
+        *self.party_level_db_level_editor = Default::default();
+
         // Other owned editors
         self.mod_packager_editor = Default::default();
         self.localization_manager = Default::default();

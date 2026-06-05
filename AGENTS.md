@@ -581,7 +581,7 @@ Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, spr
 
 ```bash
 cargo build --workspace                              # Build all
-cargo test --workspace --all-features                # Test all
+cargo test --workspace --all-features --quiet        # Test all
 cargo clippy --workspace -- -D warnings              # Lint
 cargo fmt --all                                      # Format
 cargo check -p dispel-gui --message-format=short     # Fast GUI errors

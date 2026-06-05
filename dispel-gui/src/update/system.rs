@@ -3,13 +3,92 @@
 use crate::app::App;
 use crate::components::utils::browse_folder;
 use crate::components::FileTree;
+use crate::editors::chdata::ChDataEditorMessage;
+use crate::editors::chest::ChestEditorMessage;
+use crate::editors::draw_item::DrawItemEditorMessage;
+use crate::editors::edit_item::EditItemEditorMessage;
+use crate::editors::event_ini::EventIniEditorMessage;
+use crate::editors::event_item::EventItemEditorMessage;
+use crate::editors::event_npc_ref::EventNpcRefEditorMessage;
 use crate::editors::event_scr::EventScrEditorMessage;
+use crate::editors::extra_ini::ExtraIniEditorMessage;
+use crate::editors::heal_item::HealItemEditorMessage;
+use crate::editors::magic::MagicEditorMessage;
 use crate::editors::map_editor::MapEditorMessage;
+use crate::editors::map_ini::MapIniEditorMessage;
+use crate::editors::message_scr::MessageScrEditorMessage;
+use crate::editors::misc_item::MiscItemEditorMessage;
+use crate::editors::monster::MonsterEditorMessage;
+use crate::editors::monster_ini::MonsterIniEditorMessage;
+use crate::editors::npc_ini::NpcIniEditorMessage;
+use crate::editors::party_ini::PartyIniEditorMessage;
+use crate::editors::party_level_db::PartyLevelDbEditorMessage;
+use crate::editors::party_ref::PartyRefEditorMessage;
+use crate::editors::quest_scr::QuestScrEditorMessage;
+use crate::editors::store::StoreEditorMessage;
+use crate::editors::wave_ini::WaveIniEditorMessage;
+use crate::editors::weapon::WeaponEditorMessage;
+use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
 use crate::message::{system::SystemMessage, Message, MessageExt};
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
+
+/// Returns a `Task` that dispatches `Save` to the given editor type, or
+/// `None` if the editor type does not support saving via Ctrl+S.
+fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<crate::message::Message>> {
+    Some(Task::done(match editor_type {
+        // Standard editors (define_standard_editor! macro)
+        EditorType::WeaponEditor => Message::weapon(WeaponEditorMessage::Save),
+        EditorType::MonsterEditor => Message::monster(MonsterEditorMessage::Save),
+        EditorType::MonsterIniEditor => Message::monster_ini(MonsterIniEditorMessage::Save),
+        EditorType::HealItemEditor => Message::heal_item(HealItemEditorMessage::Save),
+        EditorType::MiscItemEditor => Message::misc_item(MiscItemEditorMessage::Save),
+        EditorType::EditItemEditor => Message::edit_item(EditItemEditorMessage::Save),
+        EditorType::EventItemEditor => Message::event_item(EventItemEditorMessage::Save),
+        EditorType::NpcIniEditor => Message::npc_ini(NpcIniEditorMessage::Save),
+        EditorType::MagicEditor => Message::magic(MagicEditorMessage::Save),
+        EditorType::PartyRefEditor => Message::party_ref(PartyRefEditorMessage::Save),
+        EditorType::PartyIniEditor => Message::party_ini(PartyIniEditorMessage::Save),
+        EditorType::AllMapIniEditor => Message::all_map_ini(AllMapIniEditorMessage::Save),
+        EditorType::DrawItemEditor => Message::draw_item(DrawItemEditorMessage::Save),
+        EditorType::EventIniEditor => Message::event_ini(EventIniEditorMessage::Save),
+        EditorType::EventNpcRefEditor => Message::event_npc_ref(EventNpcRefEditorMessage::Save),
+        EditorType::ExtraIniEditor => Message::extra_ini(ExtraIniEditorMessage::Save),
+        EditorType::MapIniEditor => Message::map_ini(MapIniEditorMessage::Save),
+        EditorType::MessageScrEditor => Message::message_scr(MessageScrEditorMessage::Save),
+        EditorType::QuestScrEditor => Message::quest_scr(QuestScrEditorMessage::Save),
+        EditorType::WaveIniEditor => Message::wave_ini(WaveIniEditorMessage::Save),
+        EditorType::ChDataEditor => Message::chdata(ChDataEditorMessage::Save),
+
+        // Custom editors with Save support
+        EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
+        EditorType::ChestEditor => Message::chest(ChestEditorMessage::Save),
+        EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
+
+        // Map editor uses SaveEntities with tab_id
+        EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
+
+        // EventScr script editor
+        EditorType::EventScrEditor => Message::event_scr(EventScrEditorMessage::SaveScript),
+
+        // Editors without Ctrl+S save
+        EditorType::SpriteViewer
+        | EditorType::SnfEditor
+        | EditorType::DbViewer
+        | EditorType::TilesetEditor
+        | EditorType::ModPackager
+        | EditorType::LocalizationManager
+        | EditorType::HexEditor
+        | EditorType::DialogueScriptEditor
+        | EditorType::DialogueTextEditor
+        | EditorType::ExtraRefEditor
+        | EditorType::MonsterRefEditor
+        | EditorType::NpcRefEditor
+        | EditorType::Unknown => return None,
+    }))
+}
 
 pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Message> {
     match message {
@@ -79,17 +158,8 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
         }
         SystemMessage::Save => {
             if let Some(tab) = app.state.workspace.active() {
-                match tab.editor_type {
-                    EditorType::MapEditor => {
-                        let tab_id = tab.id;
-                        return Task::done(Message::map_editor(MapEditorMessage::SaveEntities(
-                            tab_id,
-                        )));
-                    }
-                    EditorType::EventScrEditor => {
-                        return Task::done(Message::event_scr(EventScrEditorMessage::SaveScript));
-                    }
-                    _ => {}
+                if let Some(task) = save_task_for_editor(tab.editor_type, tab.id) {
+                    return task;
                 }
             }
             Task::none()

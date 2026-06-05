@@ -471,44 +471,23 @@ mod save_dispatch_tests {
     }
 
     #[test]
-    fn test_save_returns_none_for_most_editor_types() {
+    fn test_save_returns_none_for_editor_types_without_save() {
+        // Only editor types that genuinely lack Ctrl+S.
+        // Most standard editors now support Save via the helper.
         let no_save_types = vec![
-            WeaponEditor,
-            MonsterEditor,
-            MonsterIniEditor,
-            HealItemEditor,
-            MiscItemEditor,
-            EditItemEditor,
-            EventItemEditor,
-            MagicEditor,
-            StoreEditor,
-            ChDataEditor,
-            PartyLevelDbEditor,
-            DialogueScriptEditor,
-            DialogueTextEditor,
-            DrawItemEditor,
-            EventIniEditor,
-            EventNpcRefEditor,
-            ExtraIniEditor,
-            ExtraRefEditor,
-            MapIniEditor,
-            MessageScrEditor,
-            MonsterRefEditor,
-            NpcIniEditor,
-            NpcRefEditor,
-            PartyRefEditor,
-            PartyIniEditor,
-            QuestScrEditor,
-            WaveIniEditor,
-            AllMapIniEditor,
-            ChestEditor,
-            SpriteViewer,
-            SnfEditor,
-            DbViewer,
-            TilesetEditor,
-            ModPackager,
-            LocalizationManager,
-            HexEditor,
+            EditorType::DialogueScriptEditor,
+            EditorType::DialogueTextEditor,
+            EditorType::ExtraRefEditor,
+            EditorType::MonsterRefEditor,
+            EditorType::NpcRefEditor,
+            EditorType::SpriteViewer,
+            EditorType::SnfEditor,
+            EditorType::DbViewer,
+            EditorType::TilesetEditor,
+            EditorType::ModPackager,
+            EditorType::LocalizationManager,
+            EditorType::HexEditor,
+            EditorType::Unknown,
         ];
 
         for et in no_save_types {
@@ -2014,5 +1993,209 @@ mod indexation_edge_tests {
         let mut app = App::test_new(Workspace::new());
         let task = app.update(Message::System(SystemMessage::CacheIndexationFailed));
         assert_eq!(task.units(), 0);
+    }
+}
+
+// ============================================================================
+// clear_all() regression tests — verify ALL editor states are reset
+// ============================================================================
+
+#[cfg(test)]
+mod clear_all_tests {
+    use super::*;
+
+    #[test]
+    fn clear_all_resets_monster_ini_editor() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.monster_ini_editor.state.catalog = Some(vec![]);
+        assert!(app.state.editors.monster_ini_editor.state.catalog.is_some());
+
+        app.state.editors.clear_all();
+
+        assert!(
+            app.state.editors.monster_ini_editor.state.catalog.is_none(),
+            "monster_ini_editor should be reset after clear_all()"
+        );
+    }
+
+    #[test]
+    fn clear_all_resets_viewer() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.viewer.db_path = "test.db".into();
+        assert_eq!(app.state.editors.viewer.db_path, "test.db");
+
+        app.state.editors.clear_all();
+
+        assert_eq!(
+            app.state.editors.viewer.db_path, "database.sqlite",
+            "viewer should reset to default db_path after clear_all()"
+        );
+    }
+
+    #[test]
+    fn clear_all_resets_chest_editor() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.chest_editor.all_records =
+            vec![dispel_core::ExtraRef::default()];
+        assert!(!app.state.editors.chest_editor.all_records.is_empty());
+
+        app.state.editors.clear_all();
+
+        assert!(
+            app.state.editors.chest_editor.all_records.is_empty(),
+            "chest_editor should be reset after clear_all()"
+        );
+    }
+
+    #[test]
+    fn clear_all_resets_party_level_db_editor() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.party_level_db_editor.catalog = Some(vec![]);
+        assert!(app.state.editors.party_level_db_editor.catalog.is_some());
+
+        app.state.editors.clear_all();
+
+        assert!(
+            app.state.editors.party_level_db_editor.catalog.is_none(),
+            "party_level_db_editor should be reset after clear_all()"
+        );
+    }
+
+    #[test]
+    fn clear_all_resets_party_level_db_level_editor() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.party_level_db_level_editor.state.catalog = Some(vec![]);
+        assert!(app.state.editors.party_level_db_level_editor.state.catalog.is_some());
+
+        app.state.editors.clear_all();
+
+        assert!(
+            app.state.editors.party_level_db_level_editor.state.catalog.is_none(),
+            "party_level_db_level_editor should be reset after clear_all()"
+        );
+    }
+
+    #[test]
+    fn clear_all_does_not_panic_on_fresh_registry() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.clear_all(); // no panic
+    }
+}
+
+// ============================================================================
+// GlobalSearchConfirm — checked_sub(0) is dead code
+// ============================================================================
+
+#[cfg(test)]
+mod global_search_confirm_tests {
+    use super::*;
+
+    #[test]
+    fn confirm_with_selection_index_opens_file_when_game_path_set() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.shared_game_path = "/game/path".into();
+        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+
+        // Add a result with a source file
+        app.global_search.results.push(
+            crate::components::global_search::SearchResult {
+                catalog_type: "test".into(),
+                record_idx: 0,
+                display_text: "file.map".into(),
+                source_file: Some("maps/file.map".into()),
+            },
+        );
+        app.global_search.selected_index = 0;
+
+        let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
+        // With a game path + valid result, it should return an open-file task
+        assert!(task.units() > 0, "should open file on confirm");
+        assert!(!app.global_search.is_visible, "search closed");
+    }
+
+    #[test]
+    fn confirm_closes_search_when_no_game_path() {
+        let mut app = App::test_new(Workspace::new());
+        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+
+        app.global_search.results.push(
+            crate::components::global_search::SearchResult {
+                catalog_type: "test".into(),
+                record_idx: 0,
+                display_text: "file.map".into(),
+                source_file: Some("maps/file.map".into()),
+            },
+        );
+
+        let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
+        assert!(!app.global_search.is_visible, "search closed");
+        assert!(app.global_search.query.is_empty(), "query cleared");
+        assert_eq!(task.units(), 0, "no file task when no game path");
+    }
+}
+
+// ============================================================================
+// SystemMessage::Save for standard editors — Ctrl+S should save
+// ============================================================================
+
+#[cfg(test)]
+mod system_save_tests {
+    use super::*;
+
+    #[test]
+    fn save_returns_task_for_all_saving_editor_types() {
+        // All editor types that should return a Save task via Ctrl+S.
+        // Keep in sync with save_task_for_editor() in update/system.rs.
+        let saving_types: Vec<EditorType> = vec![
+            EditorType::WeaponEditor,
+            EditorType::MonsterEditor,
+            EditorType::MonsterIniEditor,
+            EditorType::HealItemEditor,
+            EditorType::MiscItemEditor,
+            EditorType::EditItemEditor,
+            EditorType::EventItemEditor,
+            EditorType::NpcIniEditor,
+            EditorType::MagicEditor,
+            EditorType::PartyRefEditor,
+            EditorType::PartyIniEditor,
+            EditorType::AllMapIniEditor,
+            EditorType::DrawItemEditor,
+            EditorType::EventIniEditor,
+            EditorType::EventNpcRefEditor,
+            EditorType::ExtraIniEditor,
+            EditorType::MapIniEditor,
+            EditorType::MessageScrEditor,
+            EditorType::QuestScrEditor,
+            EditorType::WaveIniEditor,
+            EditorType::ChDataEditor,
+            EditorType::StoreEditor,
+            EditorType::ChestEditor,
+            EditorType::PartyLevelDbEditor,
+            EditorType::MapEditor,
+            EditorType::EventScrEditor,
+        ];
+        for et in saving_types {
+            let mut app = app_with_tab(et);
+            let task = app.update(Message::System(SystemMessage::Save));
+            assert!(
+                task.units() > 0,
+                "EditorType::{:?} Save should produce a task (not Task::none())",
+                et
+            );
+        }
+    }
+
+    #[test]
+    fn save_returns_task_for_map_editor() {
+        let mut app = app_with_tab(EditorType::MapEditor);
+        let task = app.update(Message::System(SystemMessage::Save));
+        assert!(task.units() > 0, "MapEditor Save should produce a task");
+    }
+
+    #[test]
+    fn save_returns_task_for_event_scr_editor() {
+        let mut app = app_with_tab(EditorType::EventScrEditor);
+        let task = app.update(Message::System(SystemMessage::Save));
+        assert!(task.units() > 0, "EventScrEditor Save should produce a task");
     }
 }

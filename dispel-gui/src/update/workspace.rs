@@ -268,18 +268,19 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         }
 
         WorkspaceMessage::GlobalSearchConfirm => {
-            if let Some(selected_index) = app.global_search.selected_index.checked_sub(0) {
-                if let Some(result) = app.global_search.results.get(selected_index) {
-                    if let Some(relative_path) = &result.source_file {
-                        // Construct full path by combining game path with relative path
-                        if !app.state.shared_game_path.is_empty() {
-                            let full_path =
-                                PathBuf::from(&app.state.shared_game_path).join(relative_path);
-                            // Close search dialog and clear query before opening file
-                            app.global_search.is_visible = false;
-                            app.global_search.query.clear();
-                            return app.open_file_in_workspace(&full_path);
-                        }
+            if let Some(result) = app.global_search
+                .results
+                .get(app.global_search.selected_index)
+            {
+                if let Some(relative_path) = &result.source_file {
+                    // Construct full path by combining game path with relative path
+                    if !app.state.shared_game_path.is_empty() {
+                        let full_path =
+                            PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                        // Close search dialog and clear query before opening file
+                        app.global_search.is_visible = false;
+                        app.global_search.query.clear();
+                        return app.open_file_in_workspace(&full_path);
                     }
                 }
             }
