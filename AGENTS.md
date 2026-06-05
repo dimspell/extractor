@@ -391,11 +391,13 @@ pub struct Workspace {
 
 ### Tests
 
+**Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
+
 | Location | Coverage |
 |---|---|
-| `workspace/tests.rs` | 40+ tests: open/close tabs, `EditorType::from_path()` for every extension, serialization, timestamps, `clear_editor_states()` |
+| `workspace/tests.rs` | 40+ iced_test integration tests: open/close tabs, `EditorType::from_path()` for every extension, serialization, timestamps, `clear_editor_states()` |
 | `update/tests.rs` + `update/system.rs` inline | System message handlers: `ClearWorkspace`, `Undo`/`Redo` on weapon editor, edge cases |
-| `recording_tests.rs` | 12 tests: `observe_field_change`, weapon, wave_ini, store, npc_ref, chest (known gap) |
+| `recording_tests.rs` | 12 iced_test integration tests: `observe_field_change`, weapon, wave_ini, store, npc_ref, chest (known gap) |
 | `components/generic_editor/mod.rs` inline | Undo/redo |
 | `message/ext.rs` inline | Message constructor tests |
 | `indexation/tests.rs` | Indexation |
@@ -497,8 +499,10 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - Validate all binary bounds before indexing
 
 ### Testing
+**Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
+
 - **dispel-core**: unit test every new parser with hardcoded byte slices
-- **dispel-gui**: test state transitions, not visuals
+- **dispel-gui**: write iced_test integration tests that simulate real user flows (open tabs, edit data, undo/redo, save). Test state transitions and behaviors, not visuals.
 - **Round-trip tests** (`tests/round_trip.rs`): read fixture → parse → write → verify byte-for-byte match
 - **Integration tests** (`tests/integration_weapon_item.rs`): end-to-end load → edit → save workflow
 - **Test naming**: `test_${scenario}_${condition}` e.g. `test_undo_weapon_editor_empty_history`
