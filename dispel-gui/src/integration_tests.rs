@@ -2199,3 +2199,337 @@ mod system_save_tests {
         assert!(task.units() > 0, "EventScrEditor Save should produce a task");
     }
 }
+
+// ============================================================================
+// GenericEditorState edge cases — empty catalog, out-of-bounds, empty history
+// ============================================================================
+
+#[cfg(test)]
+mod generic_editor_edge_tests {
+    use super::*;
+
+    #[test]
+    fn select_out_of_bounds_sets_selected_idx_but_no_buffers() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        // No catalog — filtered is empty
+        editor.select(999);
+        assert_eq!(editor.selected_idx, Some(999), "idx recorded even if OOB");
+        assert!(editor.edit_buffers.is_empty(), "no buffers loaded for OOB");
+    }
+
+    #[test]
+    fn select_with_none_catalog_does_not_panic() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        // select() accesses filtered list; with no catalog, filtered is empty
+        editor.select(0); // should not panic
+    }
+
+    #[test]
+    fn undo_empty_history_returns_none() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let result = editor.undo();
+        assert!(result.is_none(), "undo on empty history returns None");
+    }
+
+    #[test]
+    fn redo_empty_history_returns_none() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        let result = editor.redo();
+        assert!(result.is_none(), "redo on empty history returns None");
+    }
+
+    #[test]
+    fn update_field_with_none_catalog_returns_false() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        // No catalog, no filtered — update_field should return false
+        let result = editor.update_field(0, "name", "Test".into());
+        assert!(!result, "update_field with no catalog returns false");
+    }
+
+    #[test]
+    fn refresh_with_some_catalog_populates_filtered() {
+        use crate::components::generic_editor::GenericEditorState;
+        use dispel_core::WeaponItem;
+        let mut editor = GenericEditorState::<WeaponItem>::default();
+        // refresh with no catalog is a no-op
+        editor.refresh();
+        assert!(editor.filtered.is_empty(), "filtered stays empty with None catalog");
+
+        // Now set a catalog and refresh
+        editor.catalog = Some(vec![WeaponItem {
+            name: "Test Sword".into(),
+            ..Default::default()
+        }]);
+        editor.refresh();
+        assert_eq!(editor.filtered.len(), 1, "filtered populated from catalog");
+        assert_eq!(editor.filtered[0].1.name, "Test Sword");
+    }
+}
+
+// ============================================================================
+// EditorRegistry tabbed editor lifecycle
+// ============================================================================
+
+#[cfg(test)]
+mod tabbed_editor_lifecycle_tests {
+    use super::*;
+
+    fn app_with_tabbed_editor(editor_type: EditorType) -> App {
+        let mut app = App::test_new(Workspace::new());
+        app.state.workspace.open("test.dlg".into(), Some(PathBuf::from("test.dlg")));
+        if let Some(tab) = app.state.workspace.tabs.last_mut() {
+            tab.editor_type = editor_type;
+        }
+        let tab_id = app.state.workspace.active().unwrap().id;
+        // Insert a dummy entry for each tabbed editor type
+        match editor_type {
+            EditorType::MonsterRefEditor => {
+                app.state.editors.monster_ref_editor.editors.insert(tab_id, Default::default());
+                app.state.editors.monster_ref_editor.spreadsheets.insert(tab_id, Default::default());
+            }
+            EditorType::NpcRefEditor => {
+                app.state.editors.npc_ref_editor.editors.insert(tab_id, Default::default());
+                app.state.editors.npc_ref_editor.spreadsheets.insert(tab_id, Default::default());
+            }
+            EditorType::ExtraRefEditor => {
+                app.state.editors.extra_ref_editor.editors.insert(tab_id, Default::default());
+                app.state.editors.extra_ref_editor.spreadsheets.insert(tab_id, Default::default());
+            }
+            EditorType::DialogueScriptEditor => {
+                app.state.editors.dialogue_script_editor.editors.insert(tab_id, Default::default());
+                app.state.editors.dialogue_script_editor.spreadsheets.insert(tab_id, Default::default());
+            }
+            EditorType::DialogueTextEditor => {
+                app.state.editors.dialogue_paragraph_editor.editors.insert(tab_id, Default::default());
+                app.state.editors.dialogue_paragraph_editor.spreadsheets.insert(tab_id, Default::default());
+            }
+            _ => {}
+        }
+        app
+    }
+
+    #[test]
+    fn remove_tab_clears_tabbed_editor_entries() {
+        let mut app = app_with_tabbed_editor(EditorType::MonsterRefEditor);
+        let tab_id = app.state.workspace.active().unwrap().id;
+        assert!(
+            !app.state.editors.monster_ref_editor.editors.is_empty(),
+            "precondition: editor entry exists before remove"
+        );
+        assert!(
+            !app.state.editors.monster_ref_editor.spreadsheets.is_empty(),
+            "precondition: spreadsheet entry exists before remove"
+        );
+
+        app.state.editors.remove_tab(tab_id);
+
+        assert!(
+            app.state.editors.monster_ref_editor.editors.is_empty(),
+            "editor entry removed"
+        );
+        assert!(
+            app.state.editors.monster_ref_editor.spreadsheets.is_empty(),
+            "spreadsheet entry removed"
+        );
+    }
+
+    #[test]
+    fn remove_tab_clears_all_tabbed_editor_types() {
+        let editors = [
+            EditorType::MonsterRefEditor,
+            EditorType::NpcRefEditor,
+            EditorType::ExtraRefEditor,
+            EditorType::DialogueScriptEditor,
+            EditorType::DialogueTextEditor,
+        ];
+        for et in editors {
+            let mut app = app_with_tabbed_editor(et);
+            let tab_id = app.state.workspace.active().unwrap().id;
+            app.state.editors.remove_tab(tab_id);
+            // Map editor types to their field names to verify cleanup
+            match et {
+                EditorType::MonsterRefEditor => {
+                    assert!(app.state.editors.monster_ref_editor.editors.is_empty(),
+                        "MonsterRefEditor editors not cleaned up for tab_id {tab_id}");
+                }
+                EditorType::NpcRefEditor => {
+                    assert!(app.state.editors.npc_ref_editor.editors.is_empty(),
+                        "NpcRefEditor editors not cleaned up");
+                }
+                EditorType::ExtraRefEditor => {
+                    assert!(app.state.editors.extra_ref_editor.editors.is_empty(),
+                        "ExtraRefEditor editors not cleaned up");
+                }
+                EditorType::DialogueScriptEditor => {
+                    assert!(app.state.editors.dialogue_script_editor.editors.is_empty(),
+                        "DialogueScriptEditor editors not cleaned up");
+                }
+                EditorType::DialogueTextEditor => {
+                    assert!(app.state.editors.dialogue_paragraph_editor.editors.is_empty(),
+                        "DialogueTextEditor editors not cleaned up");
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
+    fn remove_tab_nonexistent_id_does_not_panic() {
+        let mut app = App::test_new(Workspace::new());
+        app.state.editors.remove_tab(999); // should not panic
+    }
+
+    #[test]
+    fn undo_active_nonexistent_tabbed_editor_returns_none() {
+        let et = EditorType::MonsterRefEditor;
+        let mut app = app_with_tabbed_editor(et);
+        // Use a tab_id that doesn't match any entry
+        let result = app.state.editors.undo_active(et, 999, &Default::default());
+        assert!(result.is_none(), "undo on nonexistent tabbed editor returns None");
+    }
+
+    #[test]
+    fn redo_active_nonexistent_tabbed_editor_returns_none() {
+        let et = EditorType::MonsterRefEditor;
+        let mut app = app_with_tabbed_editor(et);
+        let result = app.state.editors.redo_active(et, 999, &Default::default());
+        assert!(result.is_none(), "redo on nonexistent tabbed editor returns None");
+    }
+
+    #[test]
+    fn refresh_spreadsheet_stale_tab_id_is_noop() {
+        let et = EditorType::MonsterRefEditor;
+        let mut app = app_with_tabbed_editor(et);
+        app.state.editors.refresh_spreadsheet(et, 999, &Default::default());
+        // should not panic
+    }
+}
+
+// ============================================================================
+// Workspace — reopen same file reactivates existing tab
+// ============================================================================
+
+#[cfg(test)]
+mod workspace_reopen_tests {
+    use super::*;
+
+    #[test]
+    fn open_file_already_open_reactivates_tab() {
+        let mut app = App::test_new(Workspace::new());
+        let path = PathBuf::from("test.map");
+
+        // Open once
+        let _task1 = app.open_file_in_workspace(&path);
+        assert_eq!(app.state.workspace.tabs.len(), 1, "one tab after first open");
+
+        // Open again — should reactivate, not create new tab
+        let _task2 = app.open_file_in_workspace(&path);
+        assert_eq!(
+            app.state.workspace.tabs.len(),
+            1,
+            "same tab reactivated, no duplicate"
+        );
+    }
+
+    #[test]
+    fn open_same_path_different_type_creates_separate_tab() {
+        let mut app = App::test_new(Workspace::new());
+        let path = PathBuf::from("test.map");
+
+        // Open normally (MapEditor)
+        let _task1 = app.open_file_in_workspace(&path);
+        assert_eq!(app.state.workspace.tabs.len(), 1);
+
+        // Open as hex (different editor type) — should create new tab
+        let _task2 = app.open_file_in_workspace_as_hex(&path);
+        assert_eq!(
+            app.state.workspace.tabs.len(),
+            2,
+            "second tab for different editor type"
+        );
+    }
+
+    #[test]
+    fn open_unknown_path_does_not_panic() {
+        let mut app = App::test_new(Workspace::new());
+        let path = PathBuf::from("nonexistent.xyz");
+        let task = app.open_file_in_workspace(&path);
+        // Should create a hex editor tab (fallback for unknown extensions)
+        assert_eq!(app.state.workspace.tabs.len(), 1, "tab created for unknown extension");
+        assert_eq!(
+            app.state.workspace.active().unwrap().editor_type,
+            EditorType::HexEditor,
+            "unknown extension defaults to HexEditor"
+        );
+    }
+}
+
+// ============================================================================
+// Message routing for tabbed editors — unknown tab should not panic
+// ============================================================================
+
+#[cfg(test)]
+mod tabbed_editor_message_routing_tests {
+    use super::*;
+    use crate::editors::monster_ref::MonsterRefEditorMessage;
+    use crate::editors::npc_ref::NpcRefEditorMessage;
+    use crate::editors::extra_ref::ExtraRefEditorMessage;
+    use crate::editors::dialogue_script::DialogueScriptEditorMessage;
+    use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
+
+    #[test]
+    fn monster_ref_message_unknown_tab_is_noop() {
+        let mut app = App::test_new(Workspace::new());
+        // No active tab → handle_core receives usize::MAX as tab_id → no-op
+        use crate::view::editor::SpreadsheetMessage;
+        let msg = MonsterRefEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
+        let task = crate::editors::monster_ref::handle(msg, &mut app);
+        assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+
+    #[test]
+    fn npc_ref_message_unknown_tab_is_noop() {
+        let mut app = App::test_new(Workspace::new());
+        use crate::view::editor::SpreadsheetMessage;
+        let msg = NpcRefEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
+        let task = crate::editors::npc_ref::handle(msg, &mut app);
+        assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+
+    #[test]
+    fn extra_ref_message_unknown_tab_is_noop() {
+        let mut app = App::test_new(Workspace::new());
+        use crate::view::editor::SpreadsheetMessage;
+        let msg = ExtraRefEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
+        let task = crate::editors::extra_ref::handle(msg, &mut app);
+        assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+
+    #[test]
+    fn dialogue_script_message_unknown_tab_is_noop() {
+        let mut app = App::test_new(Workspace::new());
+        use crate::view::editor::SpreadsheetMessage;
+        let msg = DialogueScriptEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
+        let task = crate::editors::dialogue_script::handle(msg, &mut app);
+        assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+
+    #[test]
+    fn dialogue_paragraph_message_unknown_tab_is_noop() {
+        let mut app = App::test_new(Workspace::new());
+        use crate::view::editor::SpreadsheetMessage;
+        let msg = DialogueParagraphEditorMessage::Spreadsheet(SpreadsheetMessage::SelectRow(0));
+        let task = crate::editors::dialogue_paragraph::handle(msg, &mut app);
+        assert_eq!(task.units(), 0, "no-op with no active tab");
+    }
+}
