@@ -20,7 +20,7 @@ pub mod workspace;
 mod recording_tests;
 
 #[cfg(test)]
-mod integration_tests;
+mod tests;
 
 use crate::app::App;
 
