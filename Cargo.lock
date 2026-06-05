@@ -1772,6 +1772,7 @@ version = "0.1.0"
 dependencies = [
  "gui-widgets",
  "iced",
+ "iced_test",
  "lru 0.12.5",
  "mlua",
  "objc2 0.6.4",

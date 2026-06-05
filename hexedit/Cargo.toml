@@ -24,6 +24,9 @@ optional = true
 default-features = false
 features = ["lua54", "send", "vendored"]
 
+[dev-dependencies]
+iced_test = "0.14.0"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [

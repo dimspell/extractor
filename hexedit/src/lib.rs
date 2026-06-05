@@ -42,3 +42,6 @@ pub use selection::{NavDir, Selection};
 pub use state::{HexEditorState, DEFAULT_BYTES_PER_ROW};
 pub use update::update;
 pub use view::view;
+
+#[cfg(test)]
+mod tests;
