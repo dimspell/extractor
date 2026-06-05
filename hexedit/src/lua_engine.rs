@@ -151,7 +151,11 @@ mod inner {
                                 Ok(f) => f,
                                 Err(_) => return "—".to_string(),
                             };
-                            match func.call::<mlua::String>(bytes.to_vec()) {
+                            // NOTE: must call `mlua::String::wrap()` to pass bytes as a
+                            // *Lua string* — passing `Vec<u8>` directly creates a Lua
+                            // *table* of numbers (generic `IntoLua for Vec<T>`) which
+                            // breaks `bytes:byte(i)` calls in Lua decoder scripts.
+                            match func.call::<mlua::String>(mlua::String::wrap(bytes)) {
                                 Ok(s) => s.to_string_lossy().to_string(),
                                 Err(e) => format!("— ({e})"),
                             }
