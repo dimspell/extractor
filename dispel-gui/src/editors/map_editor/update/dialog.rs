@@ -79,11 +79,24 @@ pub fn preview_loaded(
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         match result {
             Ok((npc_idx, scripts, paragraphs)) => {
-                state.view.dialog_preview = Some(DialogPreviewState {
-                    npc_index: npc_idx,
-                    dialog_scripts: scripts,
-                    dialog_paragraphs: paragraphs,
-                });
+                // Guard against a stale async result: if the user clicked on
+                // a different NPC (or a non-NPC entity) between the time
+                // `show_preview` started and now, discard the result instead
+                // of showing a preview for the wrong NPC.
+                let still_selected = state
+                    .view
+                    .selected_entity
+                    == Some(crate::editors::map_editor::SelectedEntity::Npc(npc_idx));
+                if still_selected {
+                    state.view.dialog_preview = Some(DialogPreviewState {
+                        npc_index: npc_idx,
+                        dialog_scripts: scripts,
+                        dialog_paragraphs: paragraphs,
+                    });
+                } else {
+                    state.data.status_msg =
+                        Some("Dialog preview discarded: NPC selection changed".into());
+                }
             }
             Err(err) => {
                 state.data.status_msg = Some(format!("Dialog preview: {err}"));

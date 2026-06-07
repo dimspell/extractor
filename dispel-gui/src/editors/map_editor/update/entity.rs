@@ -71,7 +71,14 @@ pub fn field_changed(
             }
         }
         SelectedEntity::EventTile(tx, ty) => {
-            if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+            // Do not mutate map data while a save/export is in flight — the
+            // async task holds a clone of the MapDataHandle Arc, making
+            // Arc::get_mut() panic.
+            if state.data.is_saving || state.data.is_exporting {
+                state.data.status_msg =
+                    Some("Cannot edit events while save/export is in progress".into());
+                entity_mutated = false;
+            } else if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                 let map_data = Arc::get_mut(&mut handle.0)
                     .expect("MapData Arc has unexpected shared reference");
                 let ev = map_data
@@ -149,26 +156,41 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                    let map_data = Arc::get_mut(&mut handle.0)
-                        .expect("MapData Arc has unexpected shared reference");
-                    let val = action.old_value.parse::<bool>().unwrap_or(false);
-                    map_data.collisions.insert((tx, ty), val);
+                // Skip undo while save/export is in flight — the Arc is
+                // shared with the async task.
+                if !state.data.is_saving && !state.data.is_exporting {
+                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                        let map_data = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference");
+                        let val = action.old_value.parse::<bool>().unwrap_or(false);
+                        map_data.collisions.insert((tx, ty), val);
+                    }
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                    let map_data = Arc::get_mut(&mut handle.0)
-                        .expect("MapData Arc has unexpected shared reference");
-                    let val = action.old_value.parse::<i16>().unwrap_or(0);
-                    if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
+                if !state.data.is_saving && !state.data.is_exporting {
+                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                        let map_data = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference");
+                        let val = action.old_value.parse::<i16>().unwrap_or(0);
+                        // The event may have been removed from the map since
+                        // the undo was recorded (e.g. the user saved the map
+                        // and the entry was culled). Re-insert it so undo
+                        // always succeeds.
+                        let ev = map_data
+                            .events
+                            .entry((tx, ty))
+                            .or_insert(dispel_core::map::EventBlock {
+                                x: tx,
+                                y: ty,
+                                _unknown_value: 0,
+                                event_id: 0,
+                            });
                         ev.event_id = val;
                     }
                 }
             }
         }
-
-        // Recompute NPC sprite if looking_direction was reverted.
         if let Some(idx) = npc_idx {
             if let Some(ref game_path) = app.state.workspace.game_path {
                 state.data.recompute_npc_sprite(idx, game_path);
@@ -216,20 +238,24 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                    let map_data = Arc::get_mut(&mut handle.0)
-                        .expect("MapData Arc has unexpected shared reference");
-                    let val = action.new_value.parse::<bool>().unwrap_or(false);
-                    map_data.collisions.insert((tx, ty), val);
+                if !state.data.is_saving && !state.data.is_exporting {
+                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                        let map_data = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference");
+                        let val = action.new_value.parse::<bool>().unwrap_or(false);
+                        map_data.collisions.insert((tx, ty), val);
+                    }
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                    let map_data = Arc::get_mut(&mut handle.0)
-                        .expect("MapData Arc has unexpected shared reference");
-                    let val = action.new_value.parse::<i16>().unwrap_or(0);
-                    if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
-                        ev.event_id = val;
+                if !state.data.is_saving && !state.data.is_exporting {
+                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
+                        let map_data = Arc::get_mut(&mut handle.0)
+                            .expect("MapData Arc has unexpected shared reference");
+                        let val = action.new_value.parse::<i16>().unwrap_or(0);
+                        if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
+                            ev.event_id = val;
+                        }
                     }
                 }
             }

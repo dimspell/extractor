@@ -22,11 +22,6 @@ mod save_dispatch_tests {
         // Only editor types that genuinely lack Ctrl+S.
         // Most standard editors now support Save via the helper.
         let no_save_types = vec![
-            EditorType::DialogueScriptEditor,
-            EditorType::DialogueTextEditor,
-            EditorType::ExtraRefEditor,
-            EditorType::MonsterRefEditor,
-            EditorType::NpcRefEditor,
             EditorType::SpriteViewer,
             EditorType::SnfEditor,
             EditorType::DbViewer,
@@ -87,6 +82,12 @@ mod system_save_tests {
             EditorType::PartyLevelDbEditor,
             EditorType::MapEditor,
             EditorType::EventScrEditor,
+            // Tabbed editors (now wired for Ctrl+S)
+            EditorType::DialogueScriptEditor,
+            EditorType::DialogueTextEditor,
+            EditorType::ExtraRefEditor,
+            EditorType::MonsterRefEditor,
+            EditorType::NpcRefEditor,
         ];
         for et in saving_types {
             let mut app = app_with_tab(et);

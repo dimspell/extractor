@@ -73,6 +73,23 @@ fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<c
         // EventScr script editor
         EditorType::EventScrEditor => Message::event_scr(EventScrEditorMessage::SaveScript),
 
+        // Tabbed editors — they define a Save variant via define_tab_editor!
+        EditorType::DialogueScriptEditor => {
+            Message::dialogue_script(crate::editors::dialogue_script::DialogueScriptEditorMessage::Save)
+        }
+        EditorType::DialogueTextEditor => {
+            Message::dialogue_paragraph(crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save)
+        }
+        EditorType::ExtraRefEditor => {
+            Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Save)
+        }
+        EditorType::MonsterRefEditor => {
+            Message::monster_ref(crate::editors::monster_ref::MonsterRefEditorMessage::Save)
+        }
+        EditorType::NpcRefEditor => {
+            Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Save)
+        }
+
         // Editors without Ctrl+S save
         EditorType::SpriteViewer
         | EditorType::SnfEditor
@@ -81,11 +98,6 @@ fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<c
         | EditorType::ModPackager
         | EditorType::LocalizationManager
         | EditorType::HexEditor
-        | EditorType::DialogueScriptEditor
-        | EditorType::DialogueTextEditor
-        | EditorType::ExtraRefEditor
-        | EditorType::MonsterRefEditor
-        | EditorType::NpcRefEditor
         | EditorType::Unknown => return None,
     }))
 }

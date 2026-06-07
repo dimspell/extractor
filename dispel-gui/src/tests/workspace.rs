@@ -75,7 +75,7 @@ mod workspace_reopen_tests {
     fn open_unknown_path_does_not_panic() {
         let mut app = App::test_new(Workspace::new());
         let path = PathBuf::from("nonexistent.xyz");
-        let task = app.open_file_in_workspace(&path);
+        let _task = app.open_file_in_workspace(&path);
         // Should create a hex editor tab (fallback for unknown extensions)
         assert_eq!(app.state.workspace.tabs.len(), 1, "tab created for unknown extension");
         assert_eq!(

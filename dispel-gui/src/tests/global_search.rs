@@ -10,14 +10,14 @@ mod global_search_tests {
         let mut app = App::test_new(Workspace::new());
         assert!(!app.global_search.is_visible, "starts hidden");
 
-        let task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         assert!(app.global_search.is_visible, "shown after toggle");
         assert!(
             app.command_palette.is_none(),
             "command palette closed when search opens"
         );
 
-        let task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         assert!(!app.global_search.is_visible, "hidden after second toggle");
         assert!(app.global_search.query.is_empty(), "query cleared on hide");
         assert!(app.global_search.results.is_empty(), "results cleared on hide");

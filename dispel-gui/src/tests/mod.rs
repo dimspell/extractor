@@ -37,3 +37,5 @@ pub(crate) mod clear_all;
 pub(crate) mod workspace_unit;
 pub(crate) mod generic_editor_edge;
 pub(crate) mod tabbed_editor;
+pub(crate) mod editor_field_edit;
+pub(crate) mod system_messages;
