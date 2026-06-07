@@ -208,6 +208,9 @@ impl EditorRegistry {
         tab_id: usize,
         lookups: &HashMap<String, Vec<(String, String)>>,
     ) -> Option<String> {
+        if !editor_type.supports_undo_redo() {
+            return None;
+        }
         undo_redo_dispatch!(self, editor_type, tab_id, lookups, undo)
     }
 
@@ -219,6 +222,9 @@ impl EditorRegistry {
         tab_id: usize,
         lookups: &HashMap<String, Vec<(String, String)>>,
     ) -> Option<String> {
+        if !editor_type.supports_undo_redo() {
+            return None;
+        }
         undo_redo_dispatch!(self, editor_type, tab_id, lookups, redo)
     }
 
@@ -288,6 +294,9 @@ impl EditorRegistry {
         editor_type: EditorType,
         tab_id: usize,
     ) -> Option<&EditHistory> {
+        if !editor_type.has_edit_history() {
+            return None;
+        }
         use crate::components::generic_editor::UndoRedo;
 
         match editor_type {
@@ -340,21 +349,11 @@ impl EditorRegistry {
                 .get(&tab_id)
                 .map(|ed| ed.edit_history()),
 
-            // Editors without standard undo/redo
-            EditorType::EventScrEditor
-            | EditorType::MonsterEditor
-            | EditorType::MonsterIniEditor
-            | EditorType::NpcIniEditor
-            | EditorType::ChestEditor
-            | EditorType::SpriteViewer
-            | EditorType::SnfEditor
-            | EditorType::DbViewer
-            | EditorType::TilesetEditor
-            | EditorType::MapEditor
-            | EditorType::ModPackager
-            | EditorType::LocalizationManager
-            | EditorType::HexEditor
-            | EditorType::Unknown => None,
+            // Safety net: has_edit_history() returned true but we're missing
+            // an arm. This is a programming error.
+            _ => unreachable!(
+                "get_active_edit_history: {editor_type:?} claims has_edit_history() but has no arm"
+            ),
         }
     }
 

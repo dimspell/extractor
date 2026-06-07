@@ -248,6 +248,13 @@ impl MapDataState {
         self.loading_state.data()
     }
 
+    /// Returns `true` when the `MapDataHandle` Arc is safe to borrow mutably.
+    /// During save/export, a clone of the Arc is held by the async task,
+    /// making `Arc::get_mut` panic.
+    pub fn can_mutate_map_data(&self) -> bool {
+        !self.is_saving && !self.is_exporting
+    }
+
     /// Recompute the sprite for NPC at `idx` based on its current `looking_direction`.
     ///
     /// Called after a direction field change so the canvas displays the new

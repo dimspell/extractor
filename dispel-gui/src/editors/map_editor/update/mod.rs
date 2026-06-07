@@ -172,10 +172,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 });
                 match clicked {
                     Some(SelectedEntity::CollisionTile(tx, ty)) => {
-                        // Do not mutate map data while a save/export is in
-                        // flight — the async task holds a clone of the
-                        // MapDataHandle Arc, making Arc::get_mut() panic.
-                        if state.data.is_saving || state.data.is_exporting {
+                        if !state.data.can_mutate_map_data() {
                             state.data.status_msg =
                                 Some("Cannot edit collision while save/export is in progress".into());
                         } else if let LoadingState::Loaded(ref mut handle) =

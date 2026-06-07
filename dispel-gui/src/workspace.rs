@@ -124,6 +124,69 @@ impl EditorType {
             _ => EditorType::HexEditor,
         }
     }
+
+    /// Returns `true` if this editor type supports Ctrl+S saving.
+    ///
+    /// This is the **single source of truth** for save capability.  Both
+    /// `save_task_for_editor()` and the test iterate this method.  When adding
+    /// a new saving editor, add its variant here *and* add a dispatch arm in
+    /// `save_task_for_editor()` (which will panic at runtime if you forget).
+    pub fn supports_save(&self) -> bool {
+        !matches!(
+            self,
+            EditorType::SpriteViewer
+                | EditorType::SnfEditor
+                | EditorType::DbViewer
+                | EditorType::TilesetEditor
+                | EditorType::ModPackager
+                | EditorType::LocalizationManager
+                | EditorType::HexEditor
+                | EditorType::Unknown
+        )
+    }
+
+    /// Returns `true` if this editor type supports undo/redo.
+    ///
+    /// Single source of truth for `undo_redo_dispatch!` — every type that
+    /// returns `true` must also have a match arm in the macro.
+    pub fn supports_undo_redo(&self) -> bool {
+        !matches!(
+            self,
+            EditorType::EventScrEditor
+                | EditorType::SpriteViewer
+                | EditorType::SnfEditor
+                | EditorType::DbViewer
+                | EditorType::TilesetEditor
+                | EditorType::MapEditor
+                | EditorType::ModPackager
+                | EditorType::LocalizationManager
+                | EditorType::HexEditor
+                | EditorType::Unknown
+        )
+    }
+
+    /// Returns `true` if this editor type exposes an edit history panel.
+    ///
+    /// Single source of truth for `get_active_edit_history()`.
+    pub fn has_edit_history(&self) -> bool {
+        !matches!(
+            self,
+            EditorType::EventScrEditor
+                | EditorType::MonsterEditor
+                | EditorType::MonsterIniEditor
+                | EditorType::NpcIniEditor
+                | EditorType::ChestEditor
+                | EditorType::SpriteViewer
+                | EditorType::SnfEditor
+                | EditorType::DbViewer
+                | EditorType::TilesetEditor
+                | EditorType::MapEditor
+                | EditorType::ModPackager
+                | EditorType::LocalizationManager
+                | EditorType::HexEditor
+                | EditorType::Unknown
+        )
+    }
 }
 
 /// A workspace tab that can hold any editor or view.

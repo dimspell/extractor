@@ -38,6 +38,9 @@ use std::path::PathBuf;
 /// Returns a `Task` that dispatches `Save` to the given editor type, or
 /// `None` if the editor type does not support saving via Ctrl+S.
 fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<crate::message::Message>> {
+    if !editor_type.supports_save() {
+        return None;
+    }
     Some(Task::done(match editor_type {
         // Standard editors (define_standard_editor! macro)
         EditorType::WeaponEditor => Message::weapon(WeaponEditorMessage::Save),
@@ -90,15 +93,13 @@ fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<c
             Message::npc_ref(crate::editors::npc_ref::NpcRefEditorMessage::Save)
         }
 
-        // Editors without Ctrl+S save
-        EditorType::SpriteViewer
-        | EditorType::SnfEditor
-        | EditorType::DbViewer
-        | EditorType::TilesetEditor
-        | EditorType::ModPackager
-        | EditorType::LocalizationManager
-        | EditorType::HexEditor
-        | EditorType::Unknown => return None,
+        // Safety net: supports_save() returned true but we're missing an arm.
+        // This is a programming error — the editor should either be listed above
+        // or removed from supports_save().
+        _ => unreachable!(
+            "save_task_for_editor: {:?} claims supports_save() but has no dispatch arm",
+            editor_type
+        ),
     }))
 }
 
@@ -173,6 +174,9 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 if let Some(task) = save_task_for_editor(tab.editor_type, tab.id) {
                     return task;
                 }
+                app.state.status_msg = "This editor does not support saving".to_string();
+            } else {
+                app.state.status_msg = "No active tab to save".to_string();
             }
             Task::none()
         }

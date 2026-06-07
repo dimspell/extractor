@@ -71,10 +71,7 @@ pub fn field_changed(
             }
         }
         SelectedEntity::EventTile(tx, ty) => {
-            // Do not mutate map data while a save/export is in flight — the
-            // async task holds a clone of the MapDataHandle Arc, making
-            // Arc::get_mut() panic.
-            if state.data.is_saving || state.data.is_exporting {
+            if !state.data.can_mutate_map_data() {
                 state.data.status_msg =
                     Some("Cannot edit events while save/export is in progress".into());
                 entity_mutated = false;
@@ -95,7 +92,9 @@ pub fn field_changed(
                 entity_mutated = false;
             }
         }
-        SelectedEntity::CollisionTile(_, _) => {}
+        SelectedEntity::CollisionTile(_, _) => {
+            entity_mutated = false;
+        }
     }
     if entity_mutated && old_value != value {
         state.push_undo(MapEditAction {
@@ -105,9 +104,9 @@ pub fn field_changed(
             new_value: value,
         });
 
-        // When an NPC's looking_direction changes, re-resolve its sprite
-        // so the map canvas reflects the new direction immediately.
-        if field == "looking_direction" {
+        // When an NPC's looking_direction or npc_id changes, re-resolve its
+        // sprite so the map canvas reflects the new state immediately.
+        if field == "looking_direction" || field == "npc_id" {
             if let SelectedEntity::Npc(i) = entity {
                 if let Some(ref game_path) = app.state.workspace.game_path {
                     state.data.recompute_npc_sprite(i, game_path);
@@ -130,7 +129,9 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_undo() {
         // Capture NPC index before the field value is moved.
-        let npc_idx = if action.field == "looking_direction" {
+        let needs_sprite_update =
+            action.field == "looking_direction" || action.field == "npc_id";
+        let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
                 _ => None,
@@ -156,9 +157,7 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                // Skip undo while save/export is in flight — the Arc is
-                // shared with the async task.
-                if !state.data.is_saving && !state.data.is_exporting {
+                if state.data.can_mutate_map_data() {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                         let map_data = Arc::get_mut(&mut handle.0)
                             .expect("MapData Arc has unexpected shared reference");
@@ -168,7 +167,7 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if !state.data.is_saving && !state.data.is_exporting {
+                if state.data.can_mutate_map_data() {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                         let map_data = Arc::get_mut(&mut handle.0)
                             .expect("MapData Arc has unexpected shared reference");
@@ -212,7 +211,9 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_redo() {
         // Capture NPC index before the field value is moved.
-        let npc_idx = if action.field == "looking_direction" {
+        let needs_sprite_update =
+            action.field == "looking_direction" || action.field == "npc_id";
+        let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
                 _ => None,
@@ -238,7 +239,7 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                if !state.data.is_saving && !state.data.is_exporting {
+                if state.data.can_mutate_map_data() {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                         let map_data = Arc::get_mut(&mut handle.0)
                             .expect("MapData Arc has unexpected shared reference");
@@ -248,7 +249,7 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if !state.data.is_saving && !state.data.is_exporting {
+                if state.data.can_mutate_map_data() {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                         let map_data = Arc::get_mut(&mut handle.0)
                             .expect("MapData Arc has unexpected shared reference");
