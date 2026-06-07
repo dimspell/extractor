@@ -14,13 +14,13 @@ impl EditableRecord for Quest {
     crate::editable_record_delegate!();
 
     fn list_label(&self) -> String {
-        // let title = self.title.as_deref().unwrap_or("???");
         let title = self.title.as_str();
-        format!(
-            "[{}] {}",
-            self.id,
-            &title.chars().take(40).collect::<String>()
-        )
+        let label = if title.is_empty() || title == "null" {
+            "???"
+        } else {
+            title
+        };
+        format!("[{}] {}", self.id, &label.chars().take(40).collect::<String>())
     }
 
     fn detail_title() -> &'static str {

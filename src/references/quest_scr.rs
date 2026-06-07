@@ -71,10 +71,10 @@ pub struct Quest {
     pub type_id: i32, // 0=main, 1=side, 2=traders
     /// Journal summary topic literal.
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
-    pub title: String, //Option<String>,
+    pub title: String,
     /// Journal paragraph body text literal.
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
-    pub description: String, //Option<String>,
+    pub description: String,
 }
 
 impl Extractor for Quest {
@@ -100,21 +100,8 @@ impl Extractor for Quest {
             let id = parts[0].trim().parse::<i32>().unwrap_or(0);
             let type_id = parts[1].trim().parse::<i32>().unwrap_or(0);
 
-            let title_str = parts[2].trim();
-            // let title = if title_str == "null" {
-            //     None
-            // } else {
-            //     Some(title_str.to_string())
-            // };
-            let title = title_str.to_string();
-
-            let desc_str = parts[3].trim();
-            // let description = if desc_str == "null" {
-            //     None
-            // } else {
-            //     Some(desc_str.to_string())
-            // };
-            let description = desc_str.to_string();
+            let title = parts[2].trim().to_string();
+            let description = parts[3].trim().to_string();
 
             quests.push(Quest {
                 id,
@@ -129,8 +116,6 @@ impl Extractor for Quest {
 
     fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
-            // let title = record.title.as_deref().unwrap_or("null");
-            // let desc = record.description.as_deref().unwrap_or("null");
             let title = record.title.as_str();
             let desc = record.description.as_str();
 
@@ -168,20 +153,21 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    // #[test]
-    // fn parse_quests() {
-    //     let data = b"1|0|Main Quest|Kill the dragon\n2|1|null|null\n";
-    //     let mut c = Cursor::new(data.as_ref());
-    //     let quests = Quest::parse(&mut c, data.len() as u64).unwrap();
-    //     assert_eq!(quests.len(), 2);
-    //     assert_eq!(quests[0].id, 1);
-    //     assert_eq!(quests[0].type_id, 0);
-    //     assert_eq!(quests[0].title.as_deref(), Some("Main Quest"));
-    //     assert_eq!(quests[0].description.as_deref(), Some("Kill the dragon"));
-    //     assert_eq!(quests[1].type_id, 1);
-    //     assert!(quests[1].title.is_none());
-    //     assert!(quests[1].description.is_none());
-    // }
+    #[test]
+    fn parse_quests() {
+        let data = b"1|0|Main Quest|Kill the dragon\n2|1|null|null\n";
+        let mut c = Cursor::new(data.as_ref());
+        let quests = Quest::parse(&mut c, data.len() as u64).unwrap();
+        assert_eq!(quests.len(), 2);
+        assert_eq!(quests[0].id, 1);
+        assert_eq!(quests[0].type_id, 0);
+        assert_eq!(quests[0].title, "Main Quest");
+        assert_eq!(quests[0].description, "Kill the dragon");
+        assert_eq!(quests[1].id, 2);
+        assert_eq!(quests[1].type_id, 1);
+        assert_eq!(quests[1].title, "null");
+        assert_eq!(quests[1].description, "null");
+    }
 
     #[test]
     fn parse_skips_comments_and_short_lines() {
