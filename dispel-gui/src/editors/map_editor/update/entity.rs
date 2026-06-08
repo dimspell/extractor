@@ -298,3 +298,147 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
     }
     Task::none()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::App;
+
+    /// Create an App with a map editor tab that has one DrawItem.
+    fn app_with_draw_item() -> (App, usize) {
+        let tab_id = 42;
+        let mut app = App::new().0;
+        let state = app.state.editors.map_editors.entry(tab_id).or_default();
+
+        state.data.all_map_id = Some(0);
+        state.data.draw_items = vec![dispel_core::DrawItem {
+            map_id: 0,
+            x_coord: 10,
+            y_coord: 20,
+            item_type: dispel_core::references::enums::ItemTypeId::Event,
+            item_id: 5,
+        }];
+        // Also need a tab in workspace so set_tab_modified doesn't silently skip
+        app.state.workspace.tabs.push(crate::workspace::WorkspaceTab {
+            id: tab_id,
+            label: "test".into(),
+            path: None,
+            editor_type: crate::workspace::EditorType::MapEditor,
+            modified: false,
+            pinned: false,
+        });
+        app.state.workspace.active_tab = Some(0);
+        (app, tab_id)
+    }
+
+    // ── DrawItem field_changed ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_draw_item_field_changed_updates_state() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(0),
+            "x_coord".into(),
+            "99".into(),
+        );
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.draw_items[0].x_coord, 99);
+        assert!(state.data.dirty, "mark dirty after edit");
+        assert_eq!(state.data.undo_stack.len(), 1, "undo created");
+    }
+
+    #[test]
+    fn test_draw_item_field_changed_undo_restores_old_value() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(0),
+            "x_coord".into(),
+            "99".into(),
+        );
+
+        let _task = undo(&mut app, tab_id);
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.draw_items[0].x_coord, 10);
+        assert_eq!(state.data.undo_stack.len(), 0, "undo stack drained");
+        assert_eq!(state.data.redo_stack.len(), 1, "redo stack populated");
+    }
+
+    #[test]
+    fn test_draw_item_field_changed_redo_reapplies_new_value() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(0),
+            "x_coord".into(),
+            "99".into(),
+        );
+        let _task = undo(&mut app, tab_id);
+        let _task = redo(&mut app, tab_id);
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.draw_items[0].x_coord, 99);
+        assert_eq!(state.data.undo_stack.len(), 1, "back on undo stack");
+        assert_eq!(state.data.redo_stack.len(), 0, "redo drained");
+    }
+
+    #[test]
+    fn test_draw_item_field_changed_out_of_bounds_noop() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(999),
+            "x_coord".into(),
+            "99".into(),
+        );
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.dirty, false);
+        assert_eq!(state.data.undo_stack.len(), 0);
+    }
+
+    #[test]
+    fn test_draw_item_field_changed_same_value_noop() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(0),
+            "x_coord".into(),
+            "10".into(),
+        );
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.dirty, false, "no undo when value unchanged");
+        assert_eq!(state.data.undo_stack.len(), 0);
+    }
+
+    #[test]
+    fn test_draw_item_field_changed_y_coord() {
+        let (mut app, tab_id) = app_with_draw_item();
+
+        let _task = field_changed(
+            &mut app,
+            tab_id,
+            SelectedEntity::DrawItem(0),
+            "y_coord".into(),
+            "77".into(),
+        );
+
+        let state = app.state.editors.map_editors.get(&tab_id).unwrap();
+        assert_eq!(state.data.draw_items[0].y_coord, 77);
+        assert_eq!(state.data.undo_stack.len(), 1);
+    }
+}

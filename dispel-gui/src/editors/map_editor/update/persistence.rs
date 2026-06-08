@@ -122,12 +122,12 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
             save_type!(dispel_core::ExtraRef, &extra_refs, extra_path);
 
             // Save DrawItems: merge into the global DRAWITEM.ref.
-            if all_map_id > 0 {
+            if let Some(map_id) = all_map_id {
                 if let Some(ref gp) = game_path {
                     let draw_item_path = gp.join("Ref").join("DRAWITEM.ref");
                     match dispel_core::DrawItem::read_file(&draw_item_path) {
                         Ok(mut all) => {
-                            all.retain(|d| d.map_id != all_map_id);
+                            all.retain(|d| d.map_id != map_id);
                             all.extend(draw_items.iter().cloned());
                             match dispel_core::DrawItem::save_file(&all, &draw_item_path) {
                                 Ok(()) => saved.push("DRAWITEM.ref".into()),
@@ -328,5 +328,136 @@ pub fn export_complete(
         super::dismiss_status_after(tab_id)
     } else {
         Task::none()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use dispel_core::references::extractor::Extractor;
+    use dispel_core::DrawItem;
+
+    /// Helper: create a temp DRAWITEM.ref with known items for two maps.
+    fn create_fixture(dir: &std::path::Path) -> std::path::PathBuf {
+        let path = dir.join("DRAWITEM.ref");
+        let items = vec![
+            DrawItem {
+                map_id: 0,
+                x_coord: 10,
+                y_coord: 20,
+                item_type: dispel_core::references::enums::ItemTypeId::Event,
+                item_id: 1,
+            },
+            DrawItem {
+                map_id: 0,
+                x_coord: 30,
+                y_coord: 40,
+                item_type: dispel_core::references::enums::ItemTypeId::Event,
+                item_id: 2,
+            },
+            DrawItem {
+                map_id: 10,
+                x_coord: 50,
+                y_coord: 60,
+                item_type: dispel_core::references::enums::ItemTypeId::Weapon,
+                item_id: 3,
+            },
+        ];
+        DrawItem::save_file(&items, &path).expect("save fixture");
+        path
+    }
+
+    fn read_all(path: &std::path::Path) -> Vec<DrawItem> {
+        DrawItem::read_file(path).expect("read draw items")
+    }
+
+    #[test]
+    fn test_draw_item_save_merge_replaces_map_items() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let path = create_fixture(dir.path());
+
+        // Simulate the merge-save logic for map 0
+        let mut all = read_all(&path);
+        all.retain(|d| d.map_id != 0);
+        all.push(DrawItem {
+            map_id: 0,
+            x_coord: 99,
+            y_coord: 20,
+            item_type: dispel_core::references::enums::ItemTypeId::Event,
+            item_id: 1,
+        });
+        all.push(DrawItem {
+            map_id: 0,
+            x_coord: 30,
+            y_coord: 88,
+            item_type: dispel_core::references::enums::ItemTypeId::Event,
+            item_id: 2,
+        });
+        DrawItem::save_file(&all, &path).expect("save merged");
+
+        let result = read_all(&path);
+        assert_eq!(result.len(), 3, "merged file has 3 items");
+
+        let map0: Vec<&DrawItem> = result.iter().filter(|d| d.map_id == 0).collect();
+        assert_eq!(map0.len(), 2, "map 0 has 2 items");
+        assert_eq!(map0[0].x_coord, 99, "first item x_coord updated");
+        assert_eq!(map0[1].y_coord, 88, "second item y_coord updated");
+
+        let map10: Vec<&DrawItem> = result.iter().filter(|d| d.map_id == 10).collect();
+        assert_eq!(map10.len(), 1, "map 10 has 1 item");
+        assert_eq!(map10[0].x_coord, 50, "map 10 x_coord unchanged");
+    }
+
+    #[test]
+    fn test_draw_item_save_merge_removes_all_entries_for_map() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let path = create_fixture(dir.path());
+
+        let mut all = read_all(&path);
+        all.retain(|d| d.map_id != 0);
+        DrawItem::save_file(&all, &path).expect("save merged");
+
+        let result = read_all(&path);
+        assert_eq!(result.len(), 1, "only map 10 item remains");
+        assert_eq!(result[0].map_id, 10);
+    }
+
+    #[test]
+    fn test_draw_item_save_merge_adds_entries_for_new_map() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let path = create_fixture(dir.path());
+
+        let mut all = read_all(&path);
+        all.retain(|d| d.map_id != 5);
+        all.push(DrawItem {
+            map_id: 5,
+            x_coord: 1,
+            y_coord: 2,
+            item_type: dispel_core::references::enums::ItemTypeId::Healing,
+            item_id: 99,
+        });
+        DrawItem::save_file(&all, &path).expect("save merged");
+
+        let result = read_all(&path);
+        assert_eq!(result.len(), 4, "original 3 + new 1 = 4");
+        assert_eq!(result.iter().filter(|d| d.map_id == 5).count(), 1);
+    }
+
+    #[test]
+    fn test_draw_item_save_merge_round_trip_preserves_encoding() {
+        let dir = tempfile::TempDir::new().expect("temp dir");
+        let path = create_fixture(dir.path());
+
+        let original = read_all(&path);
+        DrawItem::save_file(&original, &path).expect("save unmodified");
+        let after = read_all(&path);
+
+        assert_eq!(original.len(), after.len());
+        for (a, b) in original.iter().zip(after.iter()) {
+            assert_eq!(a.map_id, b.map_id);
+            assert_eq!(a.x_coord, b.x_coord);
+            assert_eq!(a.y_coord, b.y_coord);
+            assert_eq!(a.item_id, b.item_id);
+            assert_eq!(a.item_type, b.item_type);
+        }
     }
 }

@@ -521,15 +521,15 @@ pub fn load_entities(
 
     // ── Draw items & map ID ────────────────────────────────────────
     // Resolve the current map's AllMap.ini ID and load its draw items.
-    let all_map_id = resolve_map_id(&stem, &game_path).unwrap_or(0);
+    let all_map_id = resolve_map_id(&stem, &game_path);
     let draw_items = match all_map_id {
-        0 => Vec::new(),
-        id => {
+        Some(id) => {
             let all_draw_items: Vec<dispel_core::DrawItem> =
                 dispel_core::DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
                     .unwrap_or_default();
             all_draw_items.into_iter().filter(|d| d.map_id == id).collect()
         }
+        None => Vec::new(),
     };
 
     EntityBundle {
@@ -634,20 +634,105 @@ mod tests {
     use super::*;
     use std::path::Path;
 
+    fn game_path() -> Option<std::path::PathBuf> {
+        let p = Path::new("../fixtures/Dispel");
+        if p.exists() { Some(p.to_path_buf()) } else { None }
+    }
+
+    // ── resolve_map_id ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_resolve_map_id_found() {
+        let gp = match game_path() {
+            Some(p) => p,
+            None => { eprintln!("Skipping: fixtures not found"); return; }
+        };
+        assert_eq!(resolve_map_id("cat1", &gp), Some(3));
+        assert_eq!(resolve_map_id("map1", &gp), Some(0));
+        assert_eq!(resolve_map_id("dun04", &gp), Some(10));
+        assert_eq!(resolve_map_id("dun22", &gp), Some(28));
+    }
+
+    #[test]
+    fn test_resolve_map_id_not_found() {
+        let gp = match game_path() {
+            Some(p) => p,
+            None => { eprintln!("Skipping: fixtures not found"); return; }
+        };
+        assert_eq!(resolve_map_id("nonexistent", &gp), None);
+    }
+
+    #[test]
+    fn test_resolve_map_id_missing_file() {
+        let tmp = std::env::temp_dir().join("dispel_test_no_allmap");
+        let _ = std::fs::create_dir_all(&tmp);
+        // No AllMap.ini in this dir → should return None
+        assert_eq!(resolve_map_id("map1", &tmp), None);
+    }
+
+    #[test]
+    fn test_resolve_map_id_empty_stem() {
+        let gp = match game_path() {
+            Some(p) => p,
+            None => { eprintln!("Skipping: fixtures not found"); return; }
+        };
+        assert_eq!(resolve_map_id("", &gp), None);
+    }
+
+    // ── load_entities ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_load_entities_draw_items_and_map_id() {
+        let gp = match game_path() {
+            Some(p) => p,
+            None => { eprintln!("Skipping: fixtures not found"); return; }
+        };
+
+        // cat1 = Palace of Aesh: AllMap.ini id=3, has no draw items
+        let cat1 = load_entities(&gp.join("Map/cat1.map"), Some(gp.clone()));
+        assert_eq!(cat1.all_map_id, Some(3), "cat1 AllMap.ini ID");
+        assert_eq!(cat1.draw_items.len(), 0, "cat1 has no draw items");
+
+        // map1 = Aesh overworld: AllMap.ini id=0, has 2 draw items
+        let map1 = load_entities(&gp.join("Map/map1.map"), Some(gp.clone()));
+        assert_eq!(map1.all_map_id, Some(0), "map1 AllMap.ini ID");
+        assert_eq!(map1.draw_items.len(), 2, "map1 draw items");
+        // Both map1 items are event items (type 4) on the event map
+        for d in &map1.draw_items {
+            assert_eq!(d.map_id, 0, "all draw items belong to map1");
+            assert_eq!(
+                d.item_type,
+                dispel_core::references::enums::ItemTypeId::Event
+            );
+        }
+
+        // dun04 (dungeon): AllMap.ini id=10, has 3 draw items
+        let dun04 = load_entities(&gp.join("Map/dun04.map"), Some(gp.clone()));
+        assert_eq!(dun04.all_map_id, Some(10), "dun04 AllMap.ini ID");
+        assert_eq!(dun04.draw_items.len(), 3, "dun04 draw items");
+
+        // dun22: AllMap.ini id=28, has 6 draw items
+        let dun22 = load_entities(&gp.join("Map/dun22.map"), Some(gp.clone()));
+        assert_eq!(dun22.all_map_id, Some(28), "dun22 AllMap.ini ID");
+        assert_eq!(dun22.draw_items.len(), 6, "dun22 draw items");
+
+        // non-existent map → no draw items, all_map_id = None
+        let missing = load_entities(&gp.join("Map/nope.map"), Some(gp));
+        assert_eq!(missing.all_map_id, None, "missing map has no ID");
+        assert_eq!(missing.draw_items.len(), 0);
+    }
+
     #[test]
     fn test_load_entities() {
-        let game_path = Path::new("../fixtures/Dispel");
-        if !game_path.exists() {
-            println!(
-                "Skipping test_load_entities: fixtures/Dispel path does not exist"
-            );
-            return;
-        }
+        let gp = match game_path() {
+            Some(p) => p,
+            None => { eprintln!("Skipping: fixtures not found"); return; }
+        };
 
         // cat1 = Palace of Aesh: NPCs only (24), no monsters, no extras
         let cat1_entities = load_entities(
-            &game_path.join("Map/cat1.map"),
-            Some(game_path.to_path_buf()),
+            &gp.join("Map/cat1.map"),
+            Some(gp.clone()),
         );
         assert_eq!(cat1_entities.monsters.len(), 0, "cat1 has no monsters");
         assert_eq!(cat1_entities.npcs.len(), 24, "cat1 has 24 NPCs");
@@ -664,8 +749,8 @@ mod tests {
 
         // map1 = Aesh overworld: monsters + NPCs + extras
         let map1_entities = load_entities(
-            &game_path.join("Map/map1.map"),
-            Some(game_path.to_path_buf()),
+            &gp.join("Map/map1.map"),
+            Some(gp),
         );
         assert!(
             map1_entities.monsters.len() > 0,
@@ -681,5 +766,13 @@ mod tests {
             map1_entities.monsters.len(),
             "sprite vec parallel to monsters"
         );
+    }
+
+    #[test]
+    fn test_load_entities_no_game_path() {
+        let bundle = load_entities(&Path::new("Map/cat1.map"), None);
+        assert_eq!(bundle.draw_items.len(), 0);
+        assert_eq!(bundle.all_map_id, None);
+        assert_eq!(bundle.monsters.len(), 0);
     }
 }

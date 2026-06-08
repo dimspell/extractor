@@ -77,7 +77,8 @@ pub struct EntityBundle {
     /// when the looking_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// The current map's AllMap.ini ID (for DrawItem filter/save).
-    pub all_map_id: i32,
+    /// `None` if the map isn't listed in AllMap.ini.
+    pub all_map_id: Option<i32>,
 }
 
 impl std::fmt::Debug for EntityBundle {
