@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use hexedit::{HexEditorConfig, HexEditorMessage, HexEditorState};
-use iced::widget::{button, column, container, row, text, text_input};
+use iced::widget::{button, column, container, row, text};
 use iced::{Element, Fill, Font, Task};
 
 fn main() -> iced::Result {
@@ -12,15 +12,14 @@ fn main() -> iced::Result {
 
 struct HexApp {
     state: Option<HexEditorState>,
-    path_input: String,
     status: String,
 }
 
 #[derive(Debug, Clone)]
 enum AppMessage {
-    Hex(HexEditorMessage),
-    PathInput(String),
     OpenFile,
+    FilePicked(Option<PathBuf>),
+    Hex(HexEditorMessage),
     Saved(Result<(), String>),
 }
 
@@ -29,8 +28,7 @@ impl HexApp {
         (
             Self {
                 state: None,
-                path_input: String::new(),
-                status: "Enter a file path and press Open".to_string(),
+                status: "Open a file to start editing".to_string(),
             },
             Task::none(),
         )
@@ -38,18 +36,21 @@ impl HexApp {
 
     fn update(&mut self, msg: AppMessage) -> Task<AppMessage> {
         match msg {
-            AppMessage::PathInput(s) => {
-                self.path_input = s;
-                Task::none()
-            }
             AppMessage::OpenFile => {
-                let path = PathBuf::from(&self.path_input);
-                if !path.exists() {
-                    self.status = format!("File not found: {}", path.display());
-                    return Task::none();
-                }
+                let future = rfd::AsyncFileDialog::new()
+                    .set_title("Open a file for hex editing")
+                    .pick_file();
+                Task::perform(future, |opt| {
+                    AppMessage::FilePicked(opt.map(|h| h.path().to_path_buf()))
+                })
+            }
+            AppMessage::FilePicked(Some(path)) => {
                 self.state = Some(HexEditorState::load_from_path(&path));
                 self.status = format!("Opened: {}", path.display());
+                Task::none()
+            }
+            AppMessage::FilePicked(None) => {
+                // User cancelled the dialog — nothing to do.
                 Task::none()
             }
             AppMessage::Saved(Ok(())) => {
@@ -112,14 +113,7 @@ impl HexApp {
 
     fn view(&self) -> Element<'_, AppMessage> {
         let menu_bar = row![
-            text_input("Enter file path...", &self.path_input)
-                .on_input(AppMessage::PathInput)
-                .on_submit(AppMessage::OpenFile)
-                .padding([3, 8])
-                .size(11)
-                .font(Font::MONOSPACE)
-                .width(Fill),
-            button(text("Open").size(11).font(Font::MONOSPACE))
+            button(text("Open File").size(11).font(Font::MONOSPACE))
                 .padding([3, 10])
                 .on_press(AppMessage::OpenFile),
             if let Some(ref s) = self.state {
@@ -155,19 +149,21 @@ impl HexApp {
                 hexedit::view(state, &config).map(AppMessage::Hex)
             }
             None => container(
-                container(
-                    column![
-                        text("HexEdit").size(24).font(Font::MONOSPACE),
-                        text("A standalone hex editor")
-                            .size(12)
-                            .font(Font::MONOSPACE),
-                    ]
-                    .spacing(16),
-                )
+                column![
+                    text("HexEdit").size(24).font(Font::MONOSPACE),
+                    text("A standalone hex editor")
+                        .size(12)
+                        .font(Font::MONOSPACE),
+                    button(text("Open File").size(14).font(Font::MONOSPACE))
+                        .padding([8, 24])
+                        .on_press(AppMessage::OpenFile),
+                ]
+                .spacing(16)
                 .align_x(iced::Alignment::Center),
             )
             .width(Fill)
             .height(Fill)
+            .align_x(iced::Alignment::Center)
             .into(),
         };
 
