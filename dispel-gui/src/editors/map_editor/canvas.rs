@@ -273,6 +273,13 @@ pub fn find_hovered_entity_impl(
             best = Some((d2, SelectedEntity::Extra(i)));
         }
     }
+    for (i, d) in state.data.draw_items.iter().enumerate() {
+        let (wx, wy) = tile_world_center(d.x_coord, d.y_coord, diagonal);
+        let d2 = (world_x - wx).powi(2) + (world_y - wy).powi(2);
+        if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
+            best = Some((d2, SelectedEntity::DrawItem(i)));
+        }
+    }
 
     best.map(|(_, e)| e)
 }
@@ -362,6 +369,7 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                         Monster(usize),
                         Npc(usize),
                         Extra(usize),
+                        Draw(usize),
                     }
 
                     let mut items: Vec<(i32, i32, i32, Item)> = Vec::new();
@@ -412,6 +420,17 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                     if self.state.view.show_objects {
                         for (i, e) in self.state.data.extra_refs.iter().enumerate() {
                             items.push((entity_pos(e.x_pos, e.y_pos), 2, e.x_pos, Item::Extra(i)));
+                        }
+                    }
+
+                    if self.state.view.show_draw_items {
+                        for (i, d) in self.state.data.draw_items.iter().enumerate() {
+                            items.push((
+                                entity_pos(d.x_coord, d.y_coord),
+                                2,
+                                d.x_coord,
+                                Item::Draw(i),
+                            ));
                         }
                     }
 
@@ -521,6 +540,40 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                             Color::from_rgba(0.95, 0.85, 0.1, 0.85),
                                         );
                                     }
+                                }
+                            }
+                            Item::Draw(i) => {
+                                let di = &self.state.data.draw_items[*i];
+                                let (px, py) = tile_to_screen(
+                                    di.x_coord,
+                                    di.y_coord,
+                                    diagonal,
+                                    pan_x,
+                                    pan_y,
+                                    zoom,
+                                );
+                                if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                    let (tile_cx, tile_cy) = tile_center(px, py, zoom);
+                                    // Color-code by item type
+                                    let color = draw_item_color(di.item_type);
+                                    // Diamond marker
+                                    let r = 6.0 * zoom;
+                                    frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
+                                    // Label: item_id
+                                    let label = di.item_id.to_string();
+                                    let label_size = (9.0 * zoom).max(6.0);
+                                    frame.fill_text(CanvasText {
+                                        content: label,
+                                        position: Point::new(tile_cx, tile_cy - r - 2.0 * zoom),
+                                        color: Color::WHITE,
+                                        size: iced::Pixels(label_size),
+                                        font: Font::MONOSPACE,
+                                        align_x: TextAlignment::Center,
+                                        align_y: alignment::Vertical::Bottom,
+                                        shaping: iced::widget::text::Shaping::Basic,
+                                        line_height: iced::widget::text::LineHeight::default(),
+                                        max_width: f32::INFINITY,
+                                    });
                                 }
                             }
                         }
@@ -993,6 +1046,9 @@ fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, i32)
             (x, y)
         }),
         SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.x_pos, e.y_pos)),
+        SelectedEntity::DrawItem(i) => {
+            state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord))
+        }
         SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
     }
 }
@@ -1218,6 +1274,19 @@ fn draw_entity_sprite(
         Rectangle::new(Point::new(dest_x, dest_y), Size::new(w, h)),
         CoreImage::new(spr.handle.clone()),
     );
+}
+
+/// Return a colour for a draw item based on its item type.
+fn draw_item_color(item_type: dispel_core::references::enums::ItemTypeId) -> Color {
+    use dispel_core::references::enums::ItemTypeId;
+    match item_type {
+        ItemTypeId::Weapon => Color::from_rgba(0.9, 0.15, 0.15, 0.85),
+        ItemTypeId::Healing => Color::from_rgba(0.15, 0.9, 0.15, 0.85),
+        ItemTypeId::Edit => Color::from_rgba(0.15, 0.45, 0.9, 0.85),
+        ItemTypeId::Event => Color::from_rgba(0.8, 0.15, 0.8, 0.85),
+        ItemTypeId::Misc => Color::from_rgba(0.95, 0.85, 0.1, 0.85),
+        ItemTypeId::Other => Color::from_rgba(0.6, 0.6, 0.6, 0.85),
+    }
 }
 
 /// Build a diamond (rotated square) path centered at (cx, cy) with half-size r.

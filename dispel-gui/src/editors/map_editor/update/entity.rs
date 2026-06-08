@@ -38,6 +38,12 @@ pub fn field_changed(
             .get(i)
             .map(|e| e.get_field(&field))
             .unwrap_or_default(),
+        SelectedEntity::DrawItem(i) => state
+            .data
+            .draw_items
+            .get(i)
+            .map(|d| d.get_field(&field))
+            .unwrap_or_default(),
         SelectedEntity::EventTile(tx, ty) => state
             .map_data()
             .and_then(|h| h.0.events.get(&(tx, ty)))
@@ -66,6 +72,13 @@ pub fn field_changed(
         SelectedEntity::Extra(i) => {
             if let Some(e) = state.data.extra_refs.get_mut(i) {
                 e.set_field(&field, value.clone());
+            } else {
+                entity_mutated = false;
+            }
+        }
+        SelectedEntity::DrawItem(i) => {
+            if let Some(d) = state.data.draw_items.get_mut(i) {
+                d.set_field(&field, value.clone());
             } else {
                 entity_mutated = false;
             }
@@ -156,6 +169,11 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                     e.set_field(&action.field, action.old_value);
                 }
             }
+            SelectedEntity::DrawItem(i) => {
+                if let Some(d) = state.data.draw_items.get_mut(i) {
+                    d.set_field(&action.field, action.old_value);
+                }
+            }
             SelectedEntity::CollisionTile(tx, ty) => {
                 if state.data.can_mutate_map_data() {
                     if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
@@ -236,6 +254,11 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
             SelectedEntity::Extra(i) => {
                 if let Some(e) = state.data.extra_refs.get_mut(i) {
                     e.set_field(&action.field, action.new_value);
+                }
+            }
+            SelectedEntity::DrawItem(i) => {
+                if let Some(d) = state.data.draw_items.get_mut(i) {
+                    d.set_field(&action.field, action.new_value);
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {

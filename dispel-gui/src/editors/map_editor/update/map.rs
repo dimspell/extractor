@@ -10,7 +10,7 @@ use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
 use iced::widget::image::Handle;
 use iced::Task;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -257,6 +257,7 @@ pub fn entities_loaded(
         state.data.monsters = bundle.monsters;
         state.data.npcs = bundle.npcs;
         state.data.extra_refs = bundle.extra_refs;
+        state.data.draw_items = bundle.draw_items;
         state.data.monster_ref_path = bundle.monster_ref_path;
         state.data.npc_ref_path = bundle.npc_ref_path;
         state.data.extra_ref_path = bundle.extra_ref_path;
@@ -391,8 +392,6 @@ pub fn load_entities(
     use dispel_core::references::monster_ini::MonsterIni;
     use dispel_core::references::npc_ini::NpcIni;
     use dispel_core::{ExtraRef, MonsterRef, NPC};
-    use std::collections::HashMap;
-    use std::path::PathBuf;
 
     let stem = map_path
         .file_stem()
@@ -519,10 +518,32 @@ pub fn load_entities(
         &mut sprite_cache,
     );
 
+    // ── Draw items ────────────────────────────────────────────────────────────
+    // Resolve the current map's AllMap.ini ID to filter Ref/DRAWITEM.ref.
+    let draw_items = (|| -> Option<Vec<dispel_core::DrawItem>> {
+        let all_maps =
+            dispel_core::references::all_map_ini::Map::read_file(&game_path.join("AllMap.ini"))
+                .ok()?;
+        let map_id = all_maps
+            .into_iter()
+            .find(|m| m.map_filename.to_lowercase() == stem)?
+            .id;
+        let all_draw_items: Vec<dispel_core::DrawItem> =
+            dispel_core::DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref")).ok()?;
+        Some(
+            all_draw_items
+                .into_iter()
+                .filter(|d| d.map_id == map_id)
+                .collect(),
+        )
+    })()
+    .unwrap_or_default();
+
     EntityBundle {
         monsters,
         npcs,
         extra_refs,
+        draw_items,
         monster_sprites: monster_sprite_handles,
         npc_sprites: npc_sprite_handles,
         extra_sprites: extra_sprite_handles,

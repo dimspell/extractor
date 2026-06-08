@@ -98,10 +98,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 info_cell(
                     "Entities",
                     &format!(
-                        "{}M {}N {}O",
+                        "{}M {}N {}O {}D",
                         state.data.monsters.len(),
                         state.data.npcs.len(),
-                        state.data.extra_refs.len()
+                        state.data.extra_refs.len(),
+                        state.data.draw_items.len()
                     )
                 ),
                 info_cell(
@@ -194,6 +195,13 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     tab_id,
                     MapLayer::Objects,
                     Some(state.data.extra_refs.len())
+                ),
+                layer_toggle(
+                    "Items",
+                    state.view.show_draw_items,
+                    tab_id,
+                    MapLayer::DrawItems,
+                    Some(state.data.draw_items.len())
                 ),
             ]
             .spacing(12)

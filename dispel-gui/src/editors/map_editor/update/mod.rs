@@ -117,6 +117,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         state.view.show_npc_waypoints = !state.view.show_npc_waypoints
                     }
                     MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
+                    MapLayer::DrawItems => {
+                        state.view.show_draw_items = !state.view.show_draw_items
+                    }
                 }
                 // Tile canvas renders entities and tile layers; overlay renders
                 // collisions and events — clear both caches.
@@ -166,6 +169,9 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     Some(SelectedEntity::Monster(i)) => format!("Monster {} detected", i),
                     Some(SelectedEntity::Npc(i)) => format!("NPC {} detected", i),
                     Some(SelectedEntity::Extra(i)) => format!("Extra {} detected", i),
+                    Some(SelectedEntity::DrawItem(i)) => {
+                        format!("Draw item {} detected", i)
+                    }
                     None => {
                         format!("Clicked at ({:.0},{:.0}) — no tile detected", cx, cy)
                     }

@@ -100,6 +100,7 @@ pub struct MapViewState {
     pub show_npcs: bool,
     pub show_npc_waypoints: bool,
     pub show_objects: bool,
+    pub show_draw_items: bool,
     /// Last known cursor position in canvas-local pixel coordinates.
     /// Set to f32::NAN when the cursor is not over the canvas.
     pub cursor_canvas_x: f32,
@@ -143,6 +144,7 @@ impl Default for MapViewState {
             show_npcs: true,
             show_npc_waypoints: false,
             show_objects: true,
+            show_draw_items: true,
             cursor_canvas_x: f32::NAN,
             cursor_canvas_y: f32::NAN,
             last_canvas_w: 1200.0,
@@ -188,6 +190,8 @@ pub struct MapDataState {
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
     /// when the looking_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
+    /// Draw items (item placements from Ref/DRAWITEM.ref) for this map.
+    pub draw_items: Vec<dispel_core::DrawItem>,
     /// Resolved paths to entity .ref files (for save-back).
     pub monster_ref_path: Option<PathBuf>,
     pub npc_ref_path: Option<PathBuf>,
@@ -223,6 +227,7 @@ impl Default for MapDataState {
             monsters: Vec::new(),
             npcs: Vec::new(),
             extra_refs: Vec::new(),
+            draw_items: Vec::new(),
             monster_sprites: Vec::new(),
             npc_sprites: Vec::new(),
             extra_sprites: Vec::new(),

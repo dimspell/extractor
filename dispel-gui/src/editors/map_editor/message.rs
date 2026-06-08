@@ -61,6 +61,8 @@ pub struct EntityBundle {
     pub monsters: Vec<dispel_core::MonsterRef>,
     pub npcs: Vec<dispel_core::NPC>,
     pub extra_refs: Vec<dispel_core::ExtraRef>,
+    /// Draw items (item placements) for this map, filtered from Ref/DRAWITEM.ref.
+    pub draw_items: Vec<dispel_core::DrawItem>,
     /// Per-monster decoded sprite (parallel to `monsters`; `None` = no sprite found).
     pub monster_sprites: Vec<Option<DecodedEntitySprite>>,
     /// Per-NPC decoded sprite (parallel to `npcs`).
@@ -82,6 +84,7 @@ impl std::fmt::Debug for EntityBundle {
             .field("monsters", &self.monsters.len())
             .field("npcs", &self.npcs.len())
             .field("extra_refs", &self.extra_refs.len())
+            .field("draw_items", &self.draw_items.len())
             .finish()
     }
 }
@@ -177,6 +180,8 @@ pub enum SelectedEntity {
     Monster(usize),
     Npc(usize),
     Extra(usize),
+    /// A draw-item placement (index into the draw_items vec).
+    DrawItem(usize),
     /// A collision tile coordinate — carries (tx, ty).
     CollisionTile(i32, i32),
     /// An event tile coordinate — carries (tx, ty).
@@ -195,6 +200,7 @@ pub enum MapLayer {
     Npcs,
     NpcWaypoints,
     Objects,
+    DrawItems,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

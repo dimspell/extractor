@@ -4,7 +4,7 @@ use crate::components::editable::{EditableRecord, FieldKind};
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::{Message, MessageExt};
 use crate::style;
-use dispel_core::{ExtraRef, MonsterRef, NPC};
+use dispel_core::{DrawItem, ExtraRef, MonsterRef, NPC};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
 
@@ -73,6 +73,14 @@ pub fn build_inspector<'a>(
                 text("Object not found").size(12).into()
             };
             (ExtraRef::detail_title(), ExtraRef::detail_width(), body)
+        }
+        SelectedEntity::DrawItem(i) => {
+            let body = if let Some(record) = state.data.draw_items.get(i) {
+                fields::build_record_fields::<DrawItem>(record, tab_id, sel, lookups)
+            } else {
+                text("Draw item not found").size(12).into()
+            };
+            (DrawItem::detail_title(), DrawItem::detail_width(), body)
         }
         SelectedEntity::CollisionTile(tx, ty) => {
             let body = column![
