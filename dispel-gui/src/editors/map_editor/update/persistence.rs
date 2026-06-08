@@ -84,6 +84,9 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
     let monsters = state.data.monsters.clone();
     let npcs = state.data.npcs.clone();
     let extra_refs = state.data.extra_refs.clone();
+    let draw_items = state.data.draw_items.clone();
+    let all_map_id = state.data.all_map_id;
+    let game_path = app.state.workspace.game_path.clone();
     let monster_path = state.data.monster_ref_path.clone();
     let npc_path = state.data.npc_ref_path.clone();
     let extra_path = state.data.extra_ref_path.clone();
@@ -117,6 +120,24 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
             save_type!(dispel_core::MonsterRef, &monsters, monster_path);
             save_type!(dispel_core::NPC, &npcs, npc_path);
             save_type!(dispel_core::ExtraRef, &extra_refs, extra_path);
+
+            // Save DrawItems: merge into the global DRAWITEM.ref.
+            if all_map_id > 0 {
+                if let Some(ref gp) = game_path {
+                    let draw_item_path = gp.join("Ref").join("DRAWITEM.ref");
+                    match dispel_core::DrawItem::read_file(&draw_item_path) {
+                        Ok(mut all) => {
+                            all.retain(|d| d.map_id != all_map_id);
+                            all.extend(draw_items.iter().cloned());
+                            match dispel_core::DrawItem::save_file(&all, &draw_item_path) {
+                                Ok(()) => saved.push("DRAWITEM.ref".into()),
+                                Err(e) => errors.push(format!("DRAWITEM.ref: {e}")),
+                            }
+                        }
+                        Err(e) => errors.push(format!("DRAWITEM.ref read: {e}")),
+                    }
+                }
+            }
 
             // Save .map binary (collisions + events).
             match write_map_to_path(&map_path, &map_handle.0) {

@@ -76,6 +76,8 @@ pub struct EntityBundle {
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
     /// when the looking_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
+    /// The current map's AllMap.ini ID (for DrawItem filter/save).
+    pub all_map_id: i32,
 }
 
 impl std::fmt::Debug for EntityBundle {

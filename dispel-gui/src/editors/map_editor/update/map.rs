@@ -258,6 +258,7 @@ pub fn entities_loaded(
         state.data.npcs = bundle.npcs;
         state.data.extra_refs = bundle.extra_refs;
         state.data.draw_items = bundle.draw_items;
+        state.data.all_map_id = bundle.all_map_id;
         state.data.monster_ref_path = bundle.monster_ref_path;
         state.data.npc_ref_path = bundle.npc_ref_path;
         state.data.extra_ref_path = bundle.extra_ref_path;
@@ -518,32 +519,25 @@ pub fn load_entities(
         &mut sprite_cache,
     );
 
-    // ── Draw items ────────────────────────────────────────────────────────────
-    // Resolve the current map's AllMap.ini ID to filter Ref/DRAWITEM.ref.
-    let draw_items = (|| -> Option<Vec<dispel_core::DrawItem>> {
-        let all_maps =
-            dispel_core::references::all_map_ini::Map::read_file(&game_path.join("AllMap.ini"))
-                .ok()?;
-        let map_id = all_maps
-            .into_iter()
-            .find(|m| m.map_filename.to_lowercase() == stem)?
-            .id;
-        let all_draw_items: Vec<dispel_core::DrawItem> =
-            dispel_core::DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref")).ok()?;
-        Some(
-            all_draw_items
-                .into_iter()
-                .filter(|d| d.map_id == map_id)
-                .collect(),
-        )
-    })()
-    .unwrap_or_default();
+    // ── Draw items & map ID ────────────────────────────────────────
+    // Resolve the current map's AllMap.ini ID and load its draw items.
+    let all_map_id = resolve_map_id(&stem, &game_path).unwrap_or(0);
+    let draw_items = match all_map_id {
+        0 => Vec::new(),
+        id => {
+            let all_draw_items: Vec<dispel_core::DrawItem> =
+                dispel_core::DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
+                    .unwrap_or_default();
+            all_draw_items.into_iter().filter(|d| d.map_id == id).collect()
+        }
+    };
 
     EntityBundle {
         monsters,
         npcs,
         extra_refs,
         draw_items,
+        all_map_id,
         monster_sprites: monster_sprite_handles,
         npc_sprites: npc_sprite_handles,
         extra_sprites: extra_sprite_handles,
@@ -606,6 +600,16 @@ fn load_ref_file<T: dispel_core::references::extractor::Extractor>(
         .collect();
 
     (data, sprites, ref_path)
+}
+
+/// Resolve a map file stem (e.g. "cat1") to its `AllMap.ini` numeric ID.
+pub fn resolve_map_id(stem: &str, game_path: &std::path::Path) -> Option<i32> {
+    use dispel_core::references::all_map_ini::Map as AllMapI;
+    let all_maps = AllMapI::read_file(&game_path.join("AllMap.ini")).ok()?;
+    all_maps
+        .into_iter()
+        .find(|m| m.map_filename.to_lowercase() == stem)
+        .map(|m| m.id)
 }
 
 /// Convert a `LoadedSpriteFrame` to `DecodedEntitySprite`.

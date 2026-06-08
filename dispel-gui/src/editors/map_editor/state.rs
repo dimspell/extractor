@@ -192,6 +192,8 @@ pub struct MapDataState {
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// Draw items (item placements from Ref/DRAWITEM.ref) for this map.
     pub draw_items: Vec<dispel_core::DrawItem>,
+    /// The current map's AllMap.ini ID, used to filter/save draw items.
+    pub all_map_id: i32,
     /// Resolved paths to entity .ref files (for save-back).
     pub monster_ref_path: Option<PathBuf>,
     pub npc_ref_path: Option<PathBuf>,
@@ -228,6 +230,7 @@ impl Default for MapDataState {
             npcs: Vec::new(),
             extra_refs: Vec::new(),
             draw_items: Vec::new(),
+            all_map_id: 0,
             monster_sprites: Vec::new(),
             npc_sprites: Vec::new(),
             extra_sprites: Vec::new(),
