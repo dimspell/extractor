@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod save_dispatch_tests {
+    use crate::app::App;
     use crate::message::Message;
     use crate::message::system::SystemMessage;
     use crate::tests::app_with_tab;
-    use crate::workspace::EditorType;
+    use crate::workspace::{EditorType, Workspace};
 
     #[test]
     fn save_respects_editor_capability_across_all_types() {
@@ -72,5 +73,27 @@ mod save_dispatch_tests {
             EditorType::HexEditor,
             EditorType::Unknown,
         ]
+    }
+
+    #[test]
+    fn test_save_non_saving_tab_shows_correct_status() {
+        // SpriteViewer does not support saving.
+        let mut app = app_with_tab(EditorType::SpriteViewer);
+        app.update(Message::System(SystemMessage::Save));
+        assert_eq!(
+            app.state.status_msg,
+            "This editor does not support saving"
+        );
+    }
+
+    #[test]
+    fn test_save_no_active_tab_shows_correct_status() {
+        // No tabs open — no active tab to save.
+        let mut app = App::test_new(Workspace::new());
+        app.update(Message::System(SystemMessage::Save));
+        assert_eq!(
+            app.state.status_msg,
+            "No active tab to save"
+        );
     }
 }

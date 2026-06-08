@@ -502,6 +502,96 @@ mod map_editor_entity_tests {
     }
 
     #[test]
+    fn entity_field_changed_collision_tile_does_not_push_undo() {
+        let mut app = app_with_map_editor();
+        let tab_id = 0;
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::CollisionTile(5, 10),
+                "collision".into(),
+                "true".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0, "EntityFieldChanged produces no task");
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .is_empty(),
+            "collision tile field_changed should not push undo"
+        );
+        assert!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .redo_stack
+                .is_empty(),
+            "redo stack should also be empty"
+        );
+    }
+
+    #[test]
+    fn entity_field_changed_npc_id_updates_value_and_undo_stack() {
+        let mut app = App::test_new(Workspace::new());
+        let tab_id = 0;
+
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: tab_id,
+            label: "test.map".into(),
+            path: Some(PathBuf::from("test.map")),
+            editor_type: EditorType::MapEditor,
+            modified: false,
+            pinned: false,
+        });
+
+        // Set game_path so the sprite recompute guard passes
+        app.state.workspace.game_path = Some(PathBuf::from("/tmp"));
+
+        let mut map_state = MapEditorState::default();
+        map_state.data.npcs = vec![dispel_core::NPC {
+            npc_id: 1,
+            looking_direction: dispel_core::NpcLookingDirection::Right,
+            ..Default::default()
+        }];
+        app.state.editors.map_editors.insert(tab_id, map_state);
+
+        let task = map_editor::handle(
+            MapEditorMessage::EntityFieldChanged(
+                tab_id,
+                SelectedEntity::Npc(0),
+                "npc_id".into(),
+                "5".into(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(task.units(), 0, "EntityFieldChanged produces no task");
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .npcs[0]
+                .npc_id,
+            5,
+            "NPC npc_id updated"
+        );
+        assert_eq!(
+            app.state.editors.map_editors[&tab_id]
+                .data
+                .undo_stack
+                .len(),
+            1,
+            "undo stack has one entry"
+        );
+        assert!(
+            app.state.workspace.tabs[0].modified,
+            "tab marked modified"
+        );
+    }
+
+    #[test]
     fn entity_multiple_edits_produce_ordered_undo_stack() {
         let mut app = app_with_map_editor();
         let tab_id = 0;
