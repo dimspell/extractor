@@ -16,22 +16,39 @@ pub struct DraftEntry {
 pub struct DraftManager {
     drafts: HashMap<String, DraftEntry>,
     auto_save_enabled: bool,
+    #[serde(skip)]
+    persist_path: PathBuf,
 }
 
 impl DraftManager {
+    /// Create a DraftManager that persists to the default config path.
     pub fn new() -> Self {
         Self {
             drafts: HashMap::new(),
             auto_save_enabled: true,
+            persist_path: Self::default_persist_path(),
+        }
+    }
+
+    /// Create a DraftManager with a custom persist path (e.g. a temp
+    /// directory in tests).  Tests written before this field existed that
+    /// pass fake paths to `save_draft` would otherwise overwrite the user's
+    /// real draft config.
+    pub fn with_persist_path(path: PathBuf) -> Self {
+        Self {
+            drafts: HashMap::new(),
+            auto_save_enabled: true,
+            persist_path: path,
         }
     }
 
     /// Load draft state from the default disk path, falling back to a fresh instance.
     pub fn load() -> Self {
-        let path = Self::persist_path();
+        let path = Self::default_persist_path();
         if path.exists() {
             if let Ok(data) = fs::read(&path) {
-                if let Ok(manager) = serde_json::from_slice::<DraftManager>(&data) {
+                if let Ok(mut manager) = serde_json::from_slice::<DraftManager>(&data) {
+                    manager.persist_path = path;
                     return manager;
                 }
             }
@@ -41,20 +58,20 @@ impl DraftManager {
 
     /// Persist draft state to disk.
     pub fn save_to_disk(&self) -> Result<(), String> {
-        let path = Self::persist_path();
+        let path = &self.persist_path;
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create drafts directory: {}", e))?;
         }
         let data = serde_json::to_vec_pretty(self)
             .map_err(|e| format!("Failed to serialize drafts: {}", e))?;
-        fs::write(&path, data)
+        fs::write(path, data)
             .map_err(|e| format!("Failed to write drafts to disk: {}", e))?;
         Ok(())
     }
 
     /// Default path: ~/.config/dispel-gui/drafts.json
-    fn persist_path() -> PathBuf {
+    fn default_persist_path() -> PathBuf {
         let base = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
         base.join("dispel-gui").join("drafts.json")
     }

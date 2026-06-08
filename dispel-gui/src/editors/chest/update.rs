@@ -139,6 +139,10 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             }
             Task::none()
         }
+        // TODO: Wire recording via observe_field_change() for mod tracking.
+        // ExtraRef derives RecordPatcher and EditableRecord — the patcher
+        // infrastructure is fully in place; only the emit side is missing.
+        // See recording_tests::chest_editor_does_not_record.
         ChestEditorMessage::FieldChanged(orig_idx, field, val) => {
             match field.as_str() {
                 "name" => app.state.editors.chest_editor.edit_name = val.clone(),

@@ -161,6 +161,7 @@ impl EditorType {
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
                 | EditorType::HexEditor
+                | EditorType::ChestEditor
                 | EditorType::Unknown
         )
     }

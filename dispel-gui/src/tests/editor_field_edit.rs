@@ -565,6 +565,118 @@ mod standard_editors {
             "ChData warrior_strength updated"
         );
     }
+
+    // ── DrawItemEditor (record: DrawItem) ───────────────────────────────────
+
+    #[test]
+    fn draw_item_editor_field_change_updates_catalog() {
+        use dispel_core::DrawItem;
+
+        let mut app = App::test_new(Workspace::new());
+        let mut record = DrawItem::default();
+        record.map_id = 1;
+        app.state.editors.draw_item_editor.state.catalog = Some(vec![record]);
+        app.state.editors.draw_item_editor.state.refresh();
+        app.state.editors.draw_item_editor.state.select(0);
+
+        let _task = crate::editors::draw_item::handle(
+            crate::editors::draw_item::DrawItemEditorMessage::FieldChanged(
+                0,
+                "map_id".to_string(),
+                "42".to_string(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(
+            app.state.editors.draw_item_editor.state.filtered[0].1.map_id,
+            42,
+            "DrawItem map_id updated"
+        );
+    }
+
+    #[test]
+    fn draw_item_editor_field_change_oob_is_noop() {
+        use dispel_core::DrawItem;
+
+        let mut app = App::test_new(Workspace::new());
+        let mut record = DrawItem::default();
+        record.map_id = 1;
+        app.state.editors.draw_item_editor.state.catalog = Some(vec![record]);
+        app.state.editors.draw_item_editor.state.refresh();
+        app.state.editors.draw_item_editor.state.select(0);
+
+        let _task = crate::editors::draw_item::handle(
+            crate::editors::draw_item::DrawItemEditorMessage::FieldChanged(
+                999,
+                "map_id".to_string(),
+                "42".to_string(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(
+            app.state.editors.draw_item_editor.state.filtered[0].1.map_id,
+            1,
+            "OOB DrawItem FieldChanged is a no-op"
+        );
+    }
+
+    // ── EventNpcRefEditor (record: EventNpcRef) ─────────────────────────────
+
+    #[test]
+    fn event_npc_ref_editor_field_change_updates_catalog() {
+        use dispel_core::EventNpcRef;
+
+        let mut app = App::test_new(Workspace::new());
+        let mut record = EventNpcRef::default();
+        record.name = "OldName".to_string();
+        app.state.editors.event_npc_ref_editor.state.catalog = Some(vec![record]);
+        app.state.editors.event_npc_ref_editor.state.refresh();
+        app.state.editors.event_npc_ref_editor.state.select(0);
+
+        let _task = crate::editors::event_npc_ref::handle(
+            crate::editors::event_npc_ref::EventNpcRefEditorMessage::FieldChanged(
+                0,
+                "name".to_string(),
+                "NewName".to_string(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(
+            app.state.editors.event_npc_ref_editor.state.filtered[0].1.name,
+            "NewName",
+            "EventNpcRef name updated"
+        );
+    }
+
+    #[test]
+    fn event_npc_ref_editor_field_change_oob_is_noop() {
+        use dispel_core::EventNpcRef;
+
+        let mut app = App::test_new(Workspace::new());
+        let mut record = EventNpcRef::default();
+        record.name = "OldName".to_string();
+        app.state.editors.event_npc_ref_editor.state.catalog = Some(vec![record]);
+        app.state.editors.event_npc_ref_editor.state.refresh();
+        app.state.editors.event_npc_ref_editor.state.select(0);
+
+        let _task = crate::editors::event_npc_ref::handle(
+            crate::editors::event_npc_ref::EventNpcRefEditorMessage::FieldChanged(
+                999,
+                "name".to_string(),
+                "NewName".to_string(),
+            ),
+            &mut app,
+        );
+
+        assert_eq!(
+            app.state.editors.event_npc_ref_editor.state.filtered[0].1.name,
+            "OldName",
+            "OOB EventNpcRef FieldChanged is a no-op"
+        );
+    }
 }
 
 // ============================================================================

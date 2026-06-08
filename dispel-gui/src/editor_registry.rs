@@ -313,7 +313,7 @@ impl EditorRegistry {
             EditorType::ExtraIniEditor => Some(self.extra_ini_editor.edit_history()),
             EditorType::MapIniEditor => Some(self.map_ini_editor.edit_history()),
             EditorType::MessageScrEditor => Some(self.message_scr_editor.edit_history()),
-            EditorType::PartyLevelDbEditor => Some(self.party_level_db_editor.edit_history()),
+            EditorType::PartyLevelDbEditor => Some(self.party_level_db_level_editor.edit_history()),
             EditorType::QuestScrEditor => Some(self.quest_scr_editor.edit_history()),
             EditorType::WaveIniEditor => Some(self.wave_ini_editor.edit_history()),
             EditorType::AllMapIniEditor => Some(self.all_map_ini_editor.edit_history()),
