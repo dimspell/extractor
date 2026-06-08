@@ -369,7 +369,6 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                         Monster(usize),
                         Npc(usize),
                         Extra(usize),
-                        Draw(usize),
                     }
 
                     let mut items: Vec<(i32, i32, i32, Item)> = Vec::new();
@@ -420,17 +419,6 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                     if self.state.view.show_objects {
                         for (i, e) in self.state.data.extra_refs.iter().enumerate() {
                             items.push((entity_pos(e.x_pos, e.y_pos), 2, e.x_pos, Item::Extra(i)));
-                        }
-                    }
-
-                    if self.state.view.show_draw_items {
-                        for (i, d) in self.state.data.draw_items.iter().enumerate() {
-                            items.push((
-                                entity_pos(d.x_coord, d.y_coord),
-                                2,
-                                d.x_coord,
-                                Item::Draw(i),
-                            ));
                         }
                     }
 
@@ -540,40 +528,6 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                             Color::from_rgba(0.95, 0.85, 0.1, 0.85),
                                         );
                                     }
-                                }
-                            }
-                            Item::Draw(i) => {
-                                let di = &self.state.data.draw_items[*i];
-                                let (px, py) = tile_to_screen(
-                                    di.x_coord,
-                                    di.y_coord,
-                                    diagonal,
-                                    pan_x,
-                                    pan_y,
-                                    zoom,
-                                );
-                                if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
-                                    let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                    // Color-code by item type
-                                    let color = draw_item_color(di.item_type);
-                                    // Diamond marker
-                                    let r = 6.0 * zoom;
-                                    frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
-                                    // Label: item_id
-                                    let label = di.item_id.to_string();
-                                    let label_size = (9.0 * zoom).max(6.0);
-                                    frame.fill_text(CanvasText {
-                                        content: label,
-                                        position: Point::new(tile_cx, tile_cy - r - 2.0 * zoom),
-                                        color: Color::WHITE,
-                                        size: iced::Pixels(label_size),
-                                        font: Font::MONOSPACE,
-                                        align_x: TextAlignment::Center,
-                                        align_y: alignment::Vertical::Bottom,
-                                        shaping: iced::widget::text::Shaping::Basic,
-                                        line_height: iced::widget::text::LineHeight::default(),
-                                        max_width: f32::INFINITY,
-                                    });
                                 }
                             }
                         }
@@ -719,6 +673,40 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 line_height: iced::widget::text::LineHeight::default(),
                                 max_width: f32::INFINITY,
                             });
+                        }
+                    }
+
+                    // Draw items overlay (coloured diamond + item_id label)
+                    if self.state.view.show_draw_items {
+                        for di in &self.state.data.draw_items {
+                            let (px, py) = tile_to_screen(
+                                di.x_coord,
+                                di.y_coord,
+                                diagonal,
+                                pan_x,
+                                pan_y,
+                                zoom,
+                            );
+                            if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
+                                let (tile_cx, tile_cy) = tile_center(px, py, zoom);
+                                let color = draw_item_color(di.item_type);
+                                let r = 6.0 * zoom;
+                                frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
+                                let label = di.item_id.to_string();
+                                let label_size = (9.0 * zoom).max(6.0);
+                                frame.fill_text(CanvasText {
+                                    content: label,
+                                    position: Point::new(tile_cx, tile_cy - r - 2.0 * zoom),
+                                    color: Color::WHITE,
+                                    size: iced::Pixels(label_size),
+                                    font: Font::MONOSPACE,
+                                    align_x: TextAlignment::Center,
+                                    align_y: alignment::Vertical::Bottom,
+                                    shaping: iced::widget::text::Shaping::Basic,
+                                    line_height: iced::widget::text::LineHeight::default(),
+                                    max_width: f32::INFINITY,
+                                });
+                            }
                         }
                     }
 
