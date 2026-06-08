@@ -13,7 +13,7 @@ use std::ops::RangeInclusive;
 
 use iced::Color;
 
-use super::selection::Selection;
+use crate::selection::Selection;
 
 /// One layer of the coloring chain. Each provider sees `(addr, byte)` for a
 /// single cell and may contribute a foreground and/or background color.

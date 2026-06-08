@@ -7,6 +7,10 @@ edition = "2021"
 name = "hexedit-bin"
 path = "src/main.rs"
 
+[[bin]]
+name = "hexedit"
+path = "src/bin/hexedit.rs"
+
 [dependencies]
 iced = { version = "0.14", default-features = false, features = ["advanced", "thread-pool", "wgpu", "canvas", "lazy"] }
 gui-widgets = { path = "../gui-widgets" }

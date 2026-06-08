@@ -1323,7 +1323,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             shell.publish(cb(dir, extend));
         }
         // Optimistically mirror nav_target so we can scroll-into-view this
-        // frame instead of waiting for the next message round-trip.
+        // frame instead of waiting for the message handler.
         let bpr = self.bytes_per_row as u64;
         let max_addr = (self.bytes.len() as u64).saturating_sub(1);
         let viewport_h = self.content_viewport_h(bounds.height, bounds.width);

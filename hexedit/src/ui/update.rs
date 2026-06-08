@@ -1,12 +1,12 @@
 use iced::Task;
 
-use super::config::HexEditorConfig;
-use super::editing::{EditState, InspectorEditState};
-use super::goto::GotoState;
-use super::inspector::ENTRIES;
-use super::message::HexEditorMessage;
-use super::selection::nav_target;
-use super::HexProvider;
+use crate::config::HexEditorConfig;
+use crate::editing::{EditState, InspectorEditState};
+use crate::goto::GotoState;
+use crate::inspector::ENTRIES;
+use crate::message::HexEditorMessage;
+use crate::selection::nav_target;
+use crate::HexProvider;
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height
 /// up here, so PageUp/PageDown approximate a screenful.
@@ -18,7 +18,7 @@ const PAGE_ROWS: u64 = 24;
 const INSPECTOR_READ_LIMIT: u64 = 64;
 
 pub fn update(
-    state: &mut super::HexEditorState,
+    state: &mut crate::HexEditorState,
     config: &HexEditorConfig,
     message: HexEditorMessage,
 ) -> Task<HexEditorMessage> {

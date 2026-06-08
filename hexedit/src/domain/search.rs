@@ -7,7 +7,7 @@
 use iced::Color;
 use std::collections::BTreeSet;
 
-use super::coloring::CellColorProvider;
+use crate::coloring::CellColorProvider;
 
 /// Search mode toggled between hex bytes and ASCII text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

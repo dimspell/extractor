@@ -13,35 +13,48 @@
 //! view(&state, &config);
 //! ```
 
-pub mod coloring;
-pub mod config;
-pub mod editing;
-pub mod goto;
-pub mod inspector;
-pub mod layout;
-pub mod lua_engine;
-mod message;
-pub mod pattern;
-pub mod provider;
-pub mod search;
-pub mod selection;
-mod state;
-mod update;
-pub mod vanilla_diff;
-mod view;
+// ── Module hierarchy ─────────────────────────────────────────────────────
+//
+//  domain/   — Pure data model (no internal Iced-widget dependencies)
+//  ui/       — Iced-specific (widget, view, update, coloring)
+//  Root      — config, message, state aggregate, lua_engine, standalone bin
 
-pub use coloring::CellColorProvider;
+pub mod domain;
+pub mod ui;
+
+mod config;
+mod message;
+mod state;
+pub mod lua_engine;
+
+// ── Re-exports for downstream convenience ────────────────────────────────
+//
+// Keep the same public API surface that existed before the domain/ui split.
+
 pub use config::{HexEditorConfig, OnSaveFn};
-pub use editing::{EditState, InspectorEditState};
-pub use lua_engine::LuaScriptEngine;
 pub use message::HexEditorMessage;
-pub use pattern::Pattern;
-pub use provider::{BufferProvider, HexProvider};
-pub use search::{SearchMode, SearchState};
-pub use selection::{NavDir, Selection};
 pub use state::{HexEditorState, DEFAULT_BYTES_PER_ROW};
-pub use update::update;
-pub use view::view;
+pub use ui::update::update;
+pub use ui::view::view;
+
+// Type-level re-exports from domain.
+pub use domain::editing::{EditState, InspectorEditState};
+pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
+pub use domain::pattern::Pattern;
+pub use domain::provider::{BufferProvider, HexProvider};
+pub use domain::search::{SearchMode, SearchState};
+pub use domain::selection::{NavDir, Selection};
+pub use domain::vanilla_diff::compute_diff;
+
+// Type-level re-exports from ui.
+pub use ui::coloring::CellColorProvider;
+pub use ui::inspector::{EncodeFn, InspectorEntry};
+pub use lua_engine::LuaScriptEngine;
+
+// Module-level re-exports — allow `hexedit::selection::NavDir` and
+// `crate::selection::*` to keep working inside the crate.
+pub use domain::{editing, goto, layout, pattern, provider, search, selection, vanilla_diff};
+pub use ui::{coloring, inspector, update, view};
 
 #[cfg(test)]
 mod tests;
