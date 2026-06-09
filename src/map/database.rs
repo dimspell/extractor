@@ -371,38 +371,32 @@ fn render_external_entities(
 
         let mut rendered = false;
 
-        if let Some(gp) = game_path {
-            if let Some(ref sf) = entity.sprite_filename {
-                // Try case-insensitive path resolution
-                let try_paths = vec![
-                    gp.join(entity.sprite_dir).join(sf),
-                    gp.join(entity.sprite_dir).join(sf.to_ascii_uppercase()),
-                    gp.join(entity.sprite_dir).join(sf.to_ascii_lowercase()),
-                ];
+        if let Some(ref sf) = entity.sprite_filename {
+            let key = format!("{}/{}", entity.sprite_dir, sf);
 
-                let actual_path = try_paths.into_iter().find(|p| p.exists());
+            if !sprite_cache.contains_key(&key) {
+                let loaded = load_entity_sprite(
+                    conn,
+                    &key,
+                    entity.sprite_dir,
+                    sf,
+                    game_path,
+                );
+                sprite_cache.insert(key.clone(), loaded);
+            }
 
-                let key = format!("{}/{}", entity.sprite_dir, sf);
-                if !sprite_cache.contains_key(&key) {
-                    if let Some(path) = actual_path {
-                        sprite_cache.insert(key.clone(), load_sprite_frames(&path));
+            if let Some(Some(frames)) = sprite_cache.get(&key) {
+                if !frames.is_empty() {
+                    let idx = entity.sprite_sequence.min(frames.len() - 1);
+                    let frame = &frames[idx];
+                    let sx = if entity.flip {
+                        cx - (frame.image.width() as i32 - frame.origin_x)
                     } else {
-                        sprite_cache.insert(key.clone(), None);
-                    }
-                }
-                if let Some(Some(frames)) = sprite_cache.get(&key) {
-                    if !frames.is_empty() {
-                        let idx = entity.sprite_sequence.min(frames.len() - 1);
-                        let frame = &frames[idx];
-                        let sx = if entity.flip {
-                            cx - (frame.image.width() as i32 - frame.origin_x)
-                        } else {
-                            cx - frame.origin_x
-                        };
-                        let sy = cy - frame.origin_y;
-                        plot_entity_sprite(imgbuf, &frame.image, sx, sy, entity.flip);
-                        rendered = true;
-                    }
+                        cx - frame.origin_x
+                    };
+                    let sy = cy - frame.origin_y;
+                    plot_entity_sprite(imgbuf, &frame.image, sx, sy, entity.flip);
+                    rendered = true;
                 }
             }
         }
@@ -411,6 +405,55 @@ fn render_external_entities(
             draw_entity_marker(imgbuf, cx, cy, entity.color);
         }
     }
+}
+
+/// Tries to load entity sprite frames. First attempts filesystem (if `game_path`
+/// is provided), then falls back to the `sprite_file_blobs` database table.
+fn load_entity_sprite(
+    conn: &rusqlite::Connection,
+    key: &str,
+    sprite_dir: &str,
+    sf: &str,
+    game_path: Option<&Path>,
+) -> Option<Vec<super::sprite_loader::LoadedSpriteFrame>> {
+    // 1. Try filesystem if game_path is available
+    if let Some(gp) = game_path {
+        let try_paths = vec![
+            gp.join(sprite_dir).join(sf),
+            gp.join(sprite_dir).join(sf.to_ascii_uppercase()),
+            gp.join(sprite_dir).join(sf.to_ascii_lowercase()),
+        ];
+
+        for p in &try_paths {
+            if p.exists() {
+                if let Some(frames) = load_sprite_frames(p) {
+                    return Some(frames);
+                }
+            }
+        }
+    }
+
+    // 2. Fallback: try database sprite_file_blobs table
+    if let Ok(mut stmt) = conn
+        .prepare("SELECT data FROM sprite_file_blobs WHERE normalized_path = ?1")
+    {
+        // Try original key, then lowercase, then uppercase
+        let try_keys = vec![
+            key.to_string(),
+            key.to_ascii_lowercase(),
+            key.to_ascii_uppercase(),
+        ];
+        for k in &try_keys {
+            if let Ok(row) = stmt.query_row([k.as_str()], |row| row.get::<_, Vec<u8>>(0)) {
+                if let Some(frames) = crate::map::sprite_loader::load_sprite_frames_from_bytes(&row)
+                {
+                    return Some(frames);
+                }
+            }
+        }
+    }
+
+    None
 }
 
 fn collect_monsters(

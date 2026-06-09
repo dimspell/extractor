@@ -60,6 +60,9 @@ impl Command for DatabaseCommand {
             DatabaseCommands::Rest { game_path, db_path } => {
                 with_connection(db_path, |conn| import_rest(Path::new(game_path), conn))?;
             }
+            DatabaseCommands::Sprites { game_path, db_path } => {
+                with_connection(db_path, |conn| import_sprite_files(Path::new(game_path), conn))?;
+            }
         }
         Ok(())
     }
@@ -87,6 +90,7 @@ fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
     import_databases(game_path, &mut conn)?;
     import_event_scripts(game_path, &mut conn)?;
     import_maps(game_path, &mut conn)?;
+    import_sprite_files(game_path, &mut conn)?;
 
     let _ = conn.close();
     Ok(())
@@ -458,6 +462,81 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
         for event_file in event_files {
             let scripts = dispel_core::references::event_scr::read_event_scripts(&event_file)?;
             dispel_core::save_event_scripts(conn, &scripts)?;
+        }
+    }
+    Ok(())
+}
+
+fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
+    use std::io::Read;
+
+    // Ensure the schema exists (idempotent — uses CREATE TABLE IF NOT EXISTS)
+    initialize_database(conn)?;
+
+    println!("Importing sprite files...");
+    let mut insert_stmt = conn.prepare(include_str!("../queries/insert_sprite_file_blob.sql"))?;
+
+    let mut count = 0u64;
+    let mut errors = 0u64;
+
+    visit_dirs(main_path, &mut |entry| {
+        let path = entry.path();
+        if path.extension().and_then(|s| s.to_str()) != Some("SPR")
+            && path.extension().and_then(|s| s.to_str()) != Some("spr")
+        {
+            return Ok(());
+        }
+        let normalized = path
+            .strip_prefix(main_path)
+            .unwrap_or(&path)
+            .to_string_lossy()
+            .replace('\\', "/");
+
+        match std::fs::File::open(&path) {
+            Ok(mut file) => {
+                let mut data = Vec::new();
+                match file.read_to_end(&mut data) {
+                    Ok(_) => {
+                        if let Err(e) = insert_stmt.execute(rusqlite::params![&normalized, &data])
+                        {
+                            eprintln!("WARNING: DB insert failed for {}: {}", normalized, e);
+                            errors += 1;
+                        } else {
+                            count += 1;
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("WARNING: read failed for {}: {}", path.display(), e);
+                        errors += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("WARNING: open failed for {}: {}", path.display(), e);
+                errors += 1;
+            }
+        }
+        Ok(())
+    })?;
+
+    println!("Imported {} sprite files ({} errors)", count, errors);
+    Ok(())
+}
+
+/// Recursively visits all files under `dir`, calling `f` on each directory entry.
+fn visit_dirs(
+    dir: &Path,
+    f: &mut dyn FnMut(&std::fs::DirEntry) -> Result<(), Box<dyn Error>>,
+) -> Result<(), Box<dyn Error>> {
+    if dir.is_dir() {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                visit_dirs(&path, f)?;
+            } else {
+                f(&entry)?;
+            }
         }
     }
     Ok(())

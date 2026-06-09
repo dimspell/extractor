@@ -374,4 +374,6 @@ pub enum DatabaseCommands {
     Refs { game_path: String, db_path: String },
     /// Import the rest (REF/PGP files)
     Rest { game_path: String, db_path: String },
+    /// Import all SPR files
+    Sprites { game_path: String, db_path: String },
 }

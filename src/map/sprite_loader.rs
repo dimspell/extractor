@@ -1,6 +1,6 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::Path;
 
 use crate::sprite::{self, rgb16_565_produce_color};
@@ -30,6 +30,85 @@ pub fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> 
     let mut reader = BufReader::new(file);
 
     // Skip 268-byte header (same as get_sprite_info)
+    reader.seek(SeekFrom::Start(268)).ok()?;
+
+    let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
+
+    loop {
+        let pos = reader.stream_position().unwrap_or(file_len);
+        match sprite::seek_next_sequence(&mut reader, pos, file_len) {
+            Ok(true) => {}
+            _ => break,
+        }
+        let info = match sprite::get_sequence_info(&mut reader) {
+            Ok(i) => i,
+            Err(_) => break,
+        };
+
+        let frame_data = if info.frame_count > 0 && !info.frame_infos.is_empty() {
+            let f = &info.frame_infos[0];
+            if f.width > 0 && f.height > 0 {
+                reader
+                    .seek(SeekFrom::Start(f.image_start_position))
+                    .ok()
+                    .and_then(|_| {
+                        let mut img = image::RgbaImage::new(f.width as u32, f.height as u32);
+                        for y in 0..f.height {
+                            for x in 0..f.width {
+                                let pix = reader.read_u16::<LittleEndian>().ok()?;
+                                if pix > 0 {
+                                    let c = rgb16_565_produce_color(pix);
+                                    img.put_pixel(
+                                        x as u32,
+                                        y as u32,
+                                        image::Rgba([c.r, c.g, c.b, 255]),
+                                    );
+                                }
+                            }
+                        }
+                        Some(LoadedSpriteFrame {
+                            image: img,
+                            origin_x: f.origin_x,
+                            origin_y: f.origin_y,
+                        })
+                    })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        frames.push(frame_data.unwrap_or_else(|| LoadedSpriteFrame {
+            image: image::RgbaImage::new(1, 1),
+            origin_x: 0,
+            origin_y: 0,
+        }));
+
+        if reader
+            .seek(SeekFrom::Start(info.sequence_end_position))
+            .is_err()
+        {
+            break;
+        }
+    }
+
+    if frames.is_empty() {
+        None
+    } else {
+        Some(frames)
+    }
+}
+
+/// Loads the first frame of every sequence from an in-memory sprite buffer.
+///
+/// Same as `load_sprite_frames` but reads from a byte slice instead of a file.
+/// Useful when the sprite data comes from a database blob rather than the filesystem.
+pub fn load_sprite_frames_from_bytes(data: &[u8]) -> Option<Vec<LoadedSpriteFrame>> {
+    let file_len = data.len() as u64;
+    let mut reader = BufReader::new(Cursor::new(data));
+
+    // Skip 268-byte header
     reader.seek(SeekFrom::Start(268)).ok()?;
 
     let mut frames: Vec<LoadedSpriteFrame> = Vec::new();

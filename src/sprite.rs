@@ -1,6 +1,6 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::{ImageEncoder, RgbaImage};
-use std::io::{BufReader, Cursor, Result, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Read, Result, Seek, SeekFrom};
 use std::{fs::File, path::Path};
 
 // ===========================================================================
@@ -135,7 +135,7 @@ pub fn rgb16_565_produce_color(pixel: u16) -> Color {
     }
 }
 
-fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
+fn get_image_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<ImageInfo> {
     reader.seek(SeekFrom::Current(6 * 4))?;
 
     let origin_x = reader.read_i32::<LittleEndian>()?;
@@ -178,7 +178,7 @@ fn get_image_info(reader: &mut BufReader<File>) -> Result<ImageInfo> {
 ///
 /// To render the frames, seek back to `sequence_start_position` before
 /// reading pixel data.
-pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
+pub fn get_sequence_info<R: Read + Seek>(reader: &mut BufReader<R>) -> Result<SequenceInfo> {
     let mut stamp = reader.read_i32::<LittleEndian>()?;
     if stamp == 8 {
         stamp = reader.read_i32::<LittleEndian>()?;
@@ -214,8 +214,8 @@ pub fn get_sequence_info(reader: &mut BufReader<File>) -> Result<SequenceInfo> {
 ///
 /// Returns `true` if a valid sequence header was found (reader positioned
 /// at the header). Returns `false` if no more sequences exist in the file.
-pub fn seek_next_sequence(
-    reader: &mut BufReader<File>,
+pub fn seek_next_sequence<R: Read + Seek>(
+    reader: &mut BufReader<R>,
     start_pos: u64,
     file_len: u64,
 ) -> Result<bool> {
