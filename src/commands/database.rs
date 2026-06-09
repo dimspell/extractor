@@ -150,7 +150,7 @@ fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                         match dispel_core::map::read_map_data(&mut reader) {
                             Ok(map_data) => {
                                 if let Err(e) =
-                                    dispel_core::map::save_to_db(conn, map_id, &map_data)
+                                    dispel_core::map::save_to_db(conn, map_id, &map_data, &mut reader)
                                 {
                                     eprintln!(
                                         "WARNING: could not save map {} to database: {}",

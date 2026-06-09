@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufReader, Result, Seek, SeekFrom};
+use std::io::Result;
 use std::path::Path;
-
-use byteorder::{LittleEndian, ReadBytesExt};
 
 use crate::map::tileset;
 
@@ -23,7 +20,6 @@ pub struct RenderConfig<'a> {
     pub atlas_columns: u32,
     pub output_path: &'a Path,
     pub game_path: Option<&'a Path>,
-    pub map_file_path: Option<&'a Path>,
 }
 
 /// Renders a map image from data stored in the SQLite database together with
@@ -40,7 +36,6 @@ pub fn render_from_database(config: RenderConfig) -> Result<()> {
         atlas_columns,
         output_path,
         game_path,
-        map_file_path,
     } = config;
     use image::RgbaImage;
     use rusqlite::Connection;
@@ -245,110 +240,50 @@ pub fn render_from_database(config: RenderConfig) -> Result<()> {
         });
     }
 
-    // ── Pass 3.5: Internal sprites from .map file ──────────────────────
-    if let Some(map_file) = map_file_path {
-        println!("Rendering pass 3.5: Internal sprites...");
-        println!("  Loading map file: {}", map_file.display());
-        if let Ok(file) = File::open(map_file) {
-            let mut reader = BufReader::new(file);
-            println!("  Skipping first two blocks...");
-            // Skip first block (unknown data)
-            println!("    Skipping first block...");
-            if let Err(e) = super::reader::first_block(&mut reader) {
-                println!("  Warning: Failed to skip first block: {}", e);
-            } else {
-                println!("    First block skipped");
-            }
-            // Skip second block (unknown data)
-            println!("    Skipping second block...");
-            if let Err(e) = super::reader::second_block(&mut reader) {
-                println!("  Warning: Failed to skip second block: {}", e);
-            } else {
-                println!("    Second block skipped");
-            }
-            println!("  Loading sprite sequences...");
-            match super::reader::sprite_block(&mut reader) {
-                Ok(internal_sprites) => {
-                    println!("  Loaded {} sprite sequences", internal_sprites.len());
-                    match super::reader::sprite_info_block(&mut reader, &internal_sprites) {
-                        Ok(sprite_blocks) => {
-                            println!("  Loaded {} sprite blocks", sprite_blocks.len());
-                            // Render internal sprites
-                            for (i, block) in sprite_blocks.iter().enumerate() {
-                                if block.sprite_id >= internal_sprites.len() {
-                                    continue;
-                                }
-                                let sequence = &internal_sprites[block.sprite_id];
-                                if sequence.frame_infos.is_empty() {
-                                    continue;
-                                }
-                                let sprite = &sequence.frame_infos[0];
-                                let (dest_x, dest_y) = convert_map_coords_to_image_coords(
-                                    block.sprite_x + offset_x_tiles,
-                                    block.sprite_y + offset_y_tiles,
-                                    diagonal,
-                                );
-                                // Plot internal sprite on RGBA image
-                                if dest_x + sprite.width <= imgbuf.width() as i32
-                                    && dest_x >= 0
-                                    && dest_y >= 0
-                                    && dest_y + sprite.height <= imgbuf.height() as i32
-                                {
-                                    // Reopen the file for this sprite to avoid reader position issues
-                                    if let Ok(sprite_file) = File::open(map_file) {
-                                        let mut sprite_reader = BufReader::new(sprite_file);
-                                        if let Err(e) = sprite_reader
-                                            .seek(SeekFrom::Start(sprite.image_start_position))
-                                        {
-                                            println!(
-                                                "  Warning: Failed to seek in sprite {}: {}",
-                                                i, e
-                                            );
-                                        } else {
-                                            for y in 0..sprite.height {
-                                                for x in 0..sprite.width {
-                                                    let pixel = sprite_reader
-                                                        .read_u16::<LittleEndian>()
-                                                        .ok();
-                                                    if let Some(pixel_val) = pixel {
-                                                        if pixel_val > 0 {
-                                                            // Convert RGB565 to RGBA8
-                                                            let r =
-                                                                ((pixel_val >> 11) & 0x1F) as u8;
-                                                            let g = ((pixel_val >> 5) & 0x3F) as u8;
-                                                            let b = (pixel_val & 0x1F) as u8;
-                                                            // Scale 5/6/5 bit values to 8 bits
-                                                            let r8 = (r as u16 * 255 + 15) / 31;
-                                                            let g8 = (g as u16 * 255 + 31) / 63;
-                                                            let b8 = (b as u16 * 255 + 15) / 31;
-                                                            imgbuf.put_pixel(
-                                                                (dest_x + x) as u32,
-                                                                (dest_y + y) as u32,
-                                                                image::Rgba([
-                                                                    r8 as u8, g8 as u8, b8 as u8,
-                                                                    255,
-                                                                ]),
-                                                            );
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            println!("  Warning: Failed to load sprite info block: {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("  Warning: Failed to load sprite block: {}", e);
-                }
-            }
-        } else {
-            println!("  Warning: Failed to open map file");
+    // ── Pass 3.5: Internal sprites from database ───────────────────────
+    println!("Rendering pass 3.5: Internal sprites (from DB)...");
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT sf.png_blob, sf.width, sf.height, sf.origin_x, sf.origin_y,
+                        s.x AS placement_x, s.y AS placement_y
+                 FROM map_sprite_frames sf
+                 JOIN map_sprites s ON s.map_id = sf.map_id
+                    AND s.internal_sprite_id = sf.internal_sprite_id
+                 WHERE sf.map_id = ?1 AND sf.frame_index = 0",
+            )
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+
+        let iter = stmt
+            .query_map([map_id], |row| {
+                Ok((
+                    row.get::<_, Vec<u8>>(0)?,
+                    row.get::<_, i32>(1)?,
+                    row.get::<_, i32>(2)?,
+                    row.get::<_, i32>(3)?,
+                    row.get::<_, i32>(4)?,
+                    row.get::<_, i32>(5)?,
+                    row.get::<_, i32>(6)?,
+                ))
+            })
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+
+        for row in iter {
+            let (png_blob, _width, _height, origin_x, origin_y, sx, sy) =
+                row.map_err(|e| std::io::Error::other(e.to_string()))?;
+
+            // Decode PNG from DB blob
+            let img = image::load_from_memory(&png_blob)
+                .map_err(|e| std::io::Error::other(e.to_string()))?
+                .into_rgba8();
+
+            // Convert placement tile coords to image pixel coords
+            let x = sx + offset_x_tiles;
+            let y = sy + offset_y_tiles;
+            let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
+
+            // Render using existing sprite_loader function
+            plot_entity_sprite(&mut imgbuf, &img, dest_x - origin_x, dest_y - origin_y, false);
         }
     }
 

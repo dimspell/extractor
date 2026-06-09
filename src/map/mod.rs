@@ -104,10 +104,15 @@ pub use types::{
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Seek, SeekFrom};
+use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::Path;
 
-use crate::sprite::SequenceInfo;
+use byteorder::{LittleEndian, ReadBytesExt};
+use image::codecs::png::PngEncoder;
+use image::{ColorType, ImageEncoder, Rgba};
+use image::RgbaImage;
+
+use crate::sprite::{rgb16_565_produce_color, SequenceInfo};
 use rusqlite::{params, Connection, Result as DbResult};
 use serde::{Deserialize, Serialize};
 
@@ -570,7 +575,7 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
         .and_then(|s| s.to_str())
         .unwrap_or("map");
 
-    save_to_db(&mut conn, map_id, &map_data).map_err(|e| std::io::Error::other(e.to_string()))
+    save_to_db(&mut conn, map_id, &map_data, &mut reader).map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Writes map data to the SQLite database.
@@ -597,7 +602,12 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
 ///
 /// This creates a complete, queryable representation of the original
 /// binary map file in a relational database format.
-pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData) -> DbResult<()> {
+pub fn save_to_db(
+    conn: &mut rusqlite::Connection,
+    map_id: &str,
+    data: &MapData,
+    reader: &mut BufReader<File>,
+) -> DbResult<()> {
     println!("Saving map tiles for {}...", map_id);
     save_map_tiles(SaveMapTilesParams {
         conn,
@@ -613,6 +623,8 @@ pub fn save_to_db(conn: &mut rusqlite::Connection, map_id: &str, data: &MapData)
     save_map_objects(conn, map_id, &data.tiled_infos)?;
 
     save_map_sprites(conn, map_id, &data.sprite_blocks)?;
+
+    save_map_sprite_frames(conn, map_id, &data.internal_sprites, reader)?;
 
     save_map_metadata(conn, map_id, &data.model)?;
 
@@ -723,6 +735,70 @@ pub fn save_map_sprites(
                 block.sprite_y,
                 block.sprite_id as i32,
             ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+pub fn save_map_sprite_frames(
+    conn: &mut Connection,
+    map_id: &str,
+    internal_sprites: &[SequenceInfo],
+    reader: &mut BufReader<File>,
+) -> DbResult<()> {
+    let tx = conn.transaction()?;
+    {
+        let mut stmt = tx.prepare(include_str!("../queries/insert_map_sprite_frame.sql"))?;
+        for (seq_idx, seq) in internal_sprites.iter().enumerate() {
+            for (frame_idx, frame) in seq.frame_infos.iter().enumerate() {
+                // Seek to this frame's RGB565 pixel data in the .map file
+                reader
+                    .seek(SeekFrom::Start(frame.image_start_position))
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+                // Decode RGB565 → RGBA image
+                let mut rgba = RgbaImage::new(frame.width as u32, frame.height as u32);
+                for y in 0..frame.height {
+                    for x in 0..frame.width {
+                        let pixel = reader
+                            .read_u16::<LittleEndian>()
+                            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                        if pixel == 0 {
+                            continue; // transparent
+                        }
+                        let color = rgb16_565_produce_color(pixel);
+                        rgba.put_pixel(
+                            x as u32,
+                            y as u32,
+                            Rgba([color.r, color.g, color.b, 255]),
+                        );
+                    }
+                }
+
+                // Encode frame as PNG blob
+                let mut png_buf = Vec::new();
+                let encoder = PngEncoder::new(Cursor::new(&mut png_buf));
+                encoder
+                    .write_image(
+                        rgba.as_raw(),
+                        frame.width as u32,
+                        frame.height as u32,
+                        ColorType::Rgba8,
+                    )
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+
+                stmt.execute(params![
+                    map_id,
+                    seq_idx as i32,
+                    frame_idx as i32,
+                    png_buf,
+                    frame.width,
+                    frame.height,
+                    frame.origin_x,
+                    frame.origin_y,
+                ])?;
+            }
         }
     }
     tx.commit()?;

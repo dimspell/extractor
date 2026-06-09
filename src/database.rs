@@ -31,6 +31,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "map_inis",
         "map_metadata",
         "map_objects",
+        "map_sprite_frames",
         "map_sprites",
         "map_tiles",
         "maps",
@@ -81,6 +82,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_map_sprite_frames.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_metadata.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_paragraphs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_levels.sql"))?;

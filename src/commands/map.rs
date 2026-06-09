@@ -99,7 +99,6 @@ impl Command for MapCommand {
                     atlas_columns: *atlas_columns,
                     output_path: Path::new(output),
                     game_path: game_path.as_deref().map(Path::new),
-                    map_file_path: None,
                 })
                 .map_err(|e| format!("ERROR: could not render map from database: {e}"))?;
                 Ok(())
