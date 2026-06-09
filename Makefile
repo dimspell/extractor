@@ -201,10 +201,10 @@ cargo_test:
 	cargo test --workspace --all-features
 
 iced_test:
-    cargo test -p dispel-gui --features "iced_test app::tests"
+	cargo test -p dispel-gui --features "iced_test app::tests"
 
 clippy:
 	cargo clippy --workspace
 
 hexedit:
-    cargo run -p hexedit --bin hexedit-bin -- file.bin --script-dir ./scripts
+	cargo run -p hexedit --bin hexedit-bin -- file.bin --script-dir ./scripts
