@@ -96,6 +96,7 @@ pub mod writer;
 // ── Re-export the entire public surface so external code needs no changes ──
 pub use database::render_from_database;
 pub use model::{read_map_model, MapModel};
+pub use render::{ExternalEntities, EntityRenderInfo, LayerToggles};
 pub use types::{
     convert_map_coords_to_image_coords, Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
     TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_PIXEL_NUMBER, TILE_WIDTH_HALF,
@@ -448,6 +449,7 @@ pub fn extract(
     output_path: &Path,
     save_map_sprites: bool,
     game_path: Option<&Path>,
+    toggles: LayerToggles,
 ) -> IoResult<()> {
     let file = File::open(input_map_file)?;
     let mut reader = BufReader::new(file);
@@ -475,6 +477,7 @@ pub fn extract(
         btl_tileset: &btl_tileset,
         map_id,
         game_path,
+        toggles,
     })
 }
 

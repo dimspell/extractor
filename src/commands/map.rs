@@ -40,6 +40,17 @@ impl Command for MapCommand {
                 output,
                 save_sprites,
                 game_path,
+                no_ground,
+                no_buildings,
+                no_roofs,
+                no_internal_sprites,
+                no_monsters,
+                no_npcs,
+                no_objects,
+                collisions,
+                events,
+                draw_items,
+                npc_waypoints,
             } => {
                 eprintln!("Rendering map...");
                 map::extract(
@@ -49,6 +60,19 @@ impl Command for MapCommand {
                     Path::new(output),
                     *save_sprites,
                     game_path.as_deref().map(Path::new),
+                    map::render::LayerToggles {
+                        show_ground: !no_ground,
+                        show_buildings: !no_buildings,
+                        show_roofs: !no_roofs,
+                        show_internal_sprites: !no_internal_sprites,
+                        show_monsters: !no_monsters,
+                        show_npcs: !no_npcs,
+                        show_objects: !no_objects,
+                        show_collisions: *collisions,
+                        show_events: *events,
+                        show_draw_items: *draw_items,
+                        show_npc_waypoints: *npc_waypoints,
+                    },
                 )
                 .map_err(|e| format!("ERROR: could not render map: {e}"))?;
                 Ok(())

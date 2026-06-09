@@ -207,7 +207,7 @@ pub enum MapCommands {
     /// Render a full map from binary data
     #[command(
         about = "Render complete game map",
-        long_about = "Synthesizes the ground layer (GTL), building layer (BTL), and sprites into a single high-resolution image."
+        long_about = "Synthesizes the ground layer (GTL), building layer (BTL), and sprites into a single high-resolution image. All layers are enabled by default; use --no-* flags to disable specific layers."
     )]
     Render {
         /// The .MAP geography/collision file
@@ -228,6 +228,43 @@ pub enum MapCommands {
         /// Path to the Dispel game directory (enables entity overlay for NPCs, monsters, extras)
         #[arg(long)]
         game_path: Option<String>,
+
+        // Layer visibility toggles (all default to true)
+        /// Disable ground (GTL) tile layer
+        #[arg(long)]
+        no_ground: bool,
+        /// Disable buildings (tiled objects / BTL objects layer)
+        #[arg(long)]
+        no_buildings: bool,
+        /// Disable roof (BTL) tile layer
+        #[arg(long)]
+        no_roofs: bool,
+        /// Disable internal sprites (embedded in .map file)
+        #[arg(long)]
+        no_internal_sprites: bool,
+        /// Disable external monster rendering
+        #[arg(long)]
+        no_monsters: bool,
+        /// Disable external NPC rendering
+        #[arg(long)]
+        no_npcs: bool,
+        /// Disable external objects (extras) rendering
+        #[arg(long)]
+        no_objects: bool,
+
+        // Overlay toggles
+        /// Show collision overlay (red diamonds on blocked tiles)
+        #[arg(long)]
+        collisions: bool,
+        /// Show event overlay (magenta dots with event IDs)
+        #[arg(long)]
+        events: bool,
+        /// Show draw items overlay (coloured diamonds by item type)
+        #[arg(long)]
+        draw_items: bool,
+        /// Show NPC waypoint arrows
+        #[arg(long)]
+        npc_waypoints: bool,
     },
     /// Render a map from SQLite database
     #[command(

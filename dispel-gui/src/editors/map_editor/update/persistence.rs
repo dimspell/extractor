@@ -293,6 +293,7 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
                     btl_tileset: &btl_tiles,
                     map_id: &map_id,
                     game_path: game_path.as_deref(),
+                    toggles: Default::default(),
                 },
             )
             .map_err(|e| format!("Render failed: {e}"))?;
