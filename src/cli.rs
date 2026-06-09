@@ -252,17 +252,25 @@ pub enum MapCommands {
         #[arg(long)]
         no_objects: bool,
 
+        // Canvas mode
+        /// Render the full map canvas instead of the occluded viewport (reveals all edges)
+        #[arg(long)]
+        full_map: bool,
+        /// Output RGBA PNG with alpha channel (black background pixels become transparent)
+        #[arg(long)]
+        transparent: bool,
+
         // Overlay toggles
-        /// Show collision overlay (red diamonds on blocked tiles)
+        /// Show collision overlay (red blended diamonds on blocked tiles)
         #[arg(long)]
         collisions: bool,
-        /// Show event overlay (magenta dots with event IDs)
+        /// Show event overlay (magenta blended circles with white event ID labels)
         #[arg(long)]
         events: bool,
-        /// Show draw items overlay (coloured diamonds by item type)
+        /// Show draw items overlay (coloured diamonds by item type with white ID labels: red=weapon, green=heal, blue=edit, magenta=event, yellow=misc, grey=other)
         #[arg(long)]
         draw_items: bool,
-        /// Show NPC waypoint arrows
+        /// Show NPC waypoint arrows (coloured per waypoint slot: green→blue→red→yellow, with index labels)
         #[arg(long)]
         npc_waypoints: bool,
     },

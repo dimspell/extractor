@@ -1,4 +1,4 @@
-use image::{ImageBuffer, Rgb};
+use image::{ImageBuffer, Rgb, Rgba};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Result, Seek, SeekFrom};
@@ -31,6 +31,11 @@ pub struct LayerToggles {
     pub show_monsters: bool,
     pub show_npcs: bool,
     pub show_objects: bool,
+    /// If true, render the entire map canvas instead of the occluded viewport.
+    pub full_map: bool,
+    /// If true, output RGBA PNG where black (0,0,0) background pixels are
+    /// transparent (alpha=0). When false, output standard RGB PNG.
+    pub transparent: bool,
     pub show_collisions: bool,
     pub show_events: bool,
     pub show_draw_items: bool,
@@ -47,6 +52,8 @@ impl Default for LayerToggles {
             show_monsters: true,
             show_npcs: true,
             show_objects: true,
+            full_map: false,
+            transparent: false,
             show_collisions: false,
             show_events: false,
             show_draw_items: false,
@@ -354,9 +361,25 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         }
     }
 
-    imgbuf
-        .save(output_path)
-        .map_err(|e| std::io::Error::other(e.to_string()))?;
+    // ── Save: RGBA PNG (transparent) or RGB PNG (solid black) ───────────
+    if toggles.transparent {
+        let (w, h) = imgbuf.dimensions();
+        let mut rgba: ImageBuffer<Rgba<u8>, Vec<u8>> = image::ImageBuffer::new(w, h);
+        for (x, y, pixel) in imgbuf.enumerate_pixels() {
+            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                rgba.put_pixel(x, y, Rgba([0, 0, 0, 0]));
+            } else {
+                rgba.put_pixel(x, y, Rgba([pixel[0], pixel[1], pixel[2], 255]));
+            }
+        }
+        rgba
+            .save(output_path)
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+    } else {
+        imgbuf
+            .save(output_path)
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+    }
     Ok(())
 }
 

@@ -472,7 +472,7 @@ pub fn extract(
         reader: &mut reader,
         output_path,
         data: &map_data,
-        occlusion: true,
+        occlusion: !toggles.full_map,
         gtl_tileset: &gtl_tileset,
         btl_tileset: &btl_tileset,
         map_id,
