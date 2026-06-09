@@ -46,7 +46,7 @@ game_path ?= fixtures/Dispel
 map_id    ?= cat1
 db_path   ?= database.sqlite
 out       ?= out
-sprite_path ?= fixtures/Dispel/CharacterInGame/M_BODY1.SPR
+sprite_path ?= $(game_path)/CharacterInGame/M_BODY1.SPR
 
 # ============================================================================
 # Utility targets
