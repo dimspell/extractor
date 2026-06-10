@@ -468,13 +468,16 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
 }
 
 fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    use std::io::Read;
+    use std::io::{Seek, SeekFrom};
+    use image::ImageEncoder;
 
     // Ensure the schema exists (idempotent — uses CREATE TABLE IF NOT EXISTS)
     initialize_database(conn)?;
 
     println!("Importing sprite files...");
-    let mut insert_stmt = conn.prepare(include_str!("../queries/insert_sprite_file_blob.sql"))?;
+
+    let mut frame_stmt = conn.prepare(include_str!("../queries/insert_sprite_frame.sql"))?;
+    let mut seq_stmt = conn.prepare(include_str!("../queries/insert_sprite_sequence.sql"))?;
 
     let mut count = 0u64;
     let mut errors = 0u64;
@@ -493,23 +496,121 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
             .replace('\\', "/");
 
         match std::fs::File::open(&path) {
-            Ok(mut file) => {
-                let mut data = Vec::new();
-                match file.read_to_end(&mut data) {
-                    Ok(_) => {
-                        if let Err(e) = insert_stmt.execute(rusqlite::params![&normalized, &data])
+            Ok(file) => {
+                let file_len = match file.metadata() {
+                    Ok(m) => m.len(),
+                    Err(_) => {
+                        errors += 1;
+                        return Ok(());
+                    }
+                };
+                let mut reader = std::io::BufReader::new(file);
+
+                // Skip 268-byte header
+                if reader.seek(SeekFrom::Start(268)).is_err() {
+                    errors += 1;
+                    return Ok(());
+                }
+
+                let mut seq_idx = 0;
+                loop {
+                    let pos = reader.stream_position().unwrap_or(file_len);
+                    match dispel_core::sprite::seek_next_sequence(&mut reader, pos, file_len) {
+                        Ok(true) => {}
+                        _ => break,
+                    }
+                    let info = match dispel_core::sprite::get_sequence_info(&mut reader) {
+                        Ok(i) => i,
+                        Err(_) => break,
+                    };
+
+                    let frame_count = info.frame_infos.len() as i32;
+                    let mut has_frame_data = false;
+
+                    for (frame_idx, fi) in info.frame_infos.iter().enumerate() {
+                        if fi.width <= 0 || fi.height <= 0 {
+                            continue;
+                        }
+                        let img = match dispel_core::sprite::render_frame_to_rgba(
+                            &mut reader,
+                            fi,
+                            fi.width.unsigned_abs() as u32,
+                            fi.height.unsigned_abs() as u32,
+                            0,
+                            0,
+                        ) {
+                            Ok(img) => img,
+                            Err(_) => {
+                                errors += 1;
+                                continue;
+                            }
+                        };
+
+                        let mut png_data = Vec::new();
                         {
-                            eprintln!("WARNING: DB insert failed for {}: {}", normalized, e);
+                            let mut cursor = std::io::Cursor::new(&mut png_data);
+                            let encoder =
+                                image::codecs::png::PngEncoder::new(&mut cursor);
+                            if encoder
+                                .write_image(
+                                    img.as_raw(),
+                                    fi.width.unsigned_abs() as u32,
+                                    fi.height.unsigned_abs() as u32,
+                                    image::ColorType::Rgba8,
+                                )
+                                .is_err()
+                            {
+                                errors += 1;
+                                continue;
+                            }
+                        }
+
+                        if frame_stmt
+                            .execute(rusqlite::params![
+                                &normalized,
+                                seq_idx as i32,
+                                frame_idx as i32,
+                                &png_data,
+                                fi.width,
+                                fi.height,
+                                fi.origin_x,
+                                fi.origin_y,
+                            ])
+                            .is_err()
+                        {
                             errors += 1;
-                        } else {
-                            count += 1;
+                        }
+                        has_frame_data = true;
+                    }
+
+                    if has_frame_data {
+                        let first = &info.frame_infos[0];
+                        if seq_stmt
+                            .execute(rusqlite::params![
+                                &normalized,
+                                seq_idx as i32,
+                                frame_count,
+                                first.width,
+                                first.height,
+                                first.origin_x,
+                                first.origin_y,
+                            ])
+                            .is_err()
+                        {
+                            errors += 1;
                         }
                     }
-                    Err(e) => {
-                        eprintln!("WARNING: read failed for {}: {}", path.display(), e);
-                        errors += 1;
+
+                    if reader
+                        .seek(SeekFrom::Start(info.sequence_end_position))
+                        .is_err()
+                    {
+                        break;
                     }
+                    seq_idx += 1;
                 }
+
+                count += 1;
             }
             Err(e) => {
                 eprintln!("WARNING: open failed for {}: {}", path.display(), e);

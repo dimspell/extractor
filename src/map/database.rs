@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::map::tileset;
 
 use super::render::{plot_atlas_tile, AtlasTileParams};
-use super::sprite_loader::{load_sprite_frames, plot_entity_sprite};
+use super::sprite_loader::{load_sprite_frames, plot_entity_sprite, LoadedSpriteFrame};
 use super::types::{
     convert_map_coords_to_image_coords, TiledObjectInfo, TILE_HEIGHT_HALF,
     TILE_HORIZONTAL_OFFSET_HALF, TILE_WIDTH_HALF,
@@ -408,14 +408,15 @@ fn render_external_entities(
 }
 
 /// Tries to load entity sprite frames. First attempts filesystem (if `game_path`
-/// is provided), then falls back to the `sprite_file_blobs` database table.
+/// is provided), then falls back to the `sprite_frames` database table which
+/// stores pre-decoded frame PNG blobs.
 fn load_entity_sprite(
     conn: &rusqlite::Connection,
     key: &str,
     sprite_dir: &str,
     sf: &str,
     game_path: Option<&Path>,
-) -> Option<Vec<super::sprite_loader::LoadedSpriteFrame>> {
+) -> Option<Vec<LoadedSpriteFrame>> {
     // 1. Try filesystem if game_path is available
     if let Some(gp) = game_path {
         let try_paths = vec![
@@ -433,27 +434,54 @@ fn load_entity_sprite(
         }
     }
 
-    // 2. Fallback: try database sprite_file_blobs table
-    if let Ok(mut stmt) = conn
-        .prepare("SELECT data FROM sprite_file_blobs WHERE normalized_path = ?1")
-    {
-        // Try original key, then lowercase, then uppercase
-        let try_keys = vec![
-            key.to_string(),
-            key.to_ascii_lowercase(),
-            key.to_ascii_uppercase(),
-        ];
-        for k in &try_keys {
-            if let Ok(row) = stmt.query_row([k.as_str()], |row| row.get::<_, Vec<u8>>(0)) {
-                if let Some(frames) = crate::map::sprite_loader::load_sprite_frames_from_bytes(&row)
-                {
-                    return Some(frames);
-                }
-            }
-        }
+    // 2. Fallback: try database sprite_frames table (first frame of each sequence)
+    load_sprite_frames_from_db(conn, key)
+        .or_else(|| load_sprite_frames_from_db(conn, &key.to_ascii_lowercase()))
+        .or_else(|| load_sprite_frames_from_db(conn, &key.to_ascii_uppercase()))
+}
+
+/// Queries `sprite_frames` for the first frame of each sequence for a given path,
+/// decoding the PNG blobs into `LoadedSpriteFrame`.
+fn load_sprite_frames_from_db(
+    conn: &rusqlite::Connection,
+    normalized_path: &str,
+) -> Option<Vec<LoadedSpriteFrame>> {
+    let sql = "SELECT png_blob, width, height, origin_x, origin_y \
+               FROM sprite_frames \
+               WHERE normalized_path = ?1 AND frame_index = 0 \
+               ORDER BY sequence_index";
+    let mut stmt = conn.prepare(sql).ok()?;
+    let iter = stmt
+        .query_map([normalized_path], |row| {
+            Ok((
+                row.get::<_, Vec<u8>>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, i32>(3)?,
+                row.get::<_, i32>(4)?,
+            ))
+        })
+        .ok()?;
+
+    let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
+    for row in iter.flatten() {
+        let (png_blob, _width, _height, origin_x, origin_y) = row;
+        let img = match image::load_from_memory(&png_blob) {
+            Ok(i) => i.into_rgba8(),
+            Err(_) => continue,
+        };
+        frames.push(LoadedSpriteFrame {
+            image: img,
+            origin_x,
+            origin_y,
+        });
     }
 
-    None
+    if frames.is_empty() {
+        None
+    } else {
+        Some(frames)
+    }
 }
 
 fn collect_monsters(

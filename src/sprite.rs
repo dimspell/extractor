@@ -324,8 +324,8 @@ pub fn compute_frame_offset(
     (offset_x.unsigned_abs(), offset_y.unsigned_abs())
 }
 
-pub fn render_frame_to_rgba(
-    reader: &mut BufReader<File>,
+pub fn render_frame_to_rgba<R: Read + Seek>(
+    reader: &mut BufReader<R>,
     frame: &ImageInfo,
     rect_w: u32,
     rect_h: u32,
