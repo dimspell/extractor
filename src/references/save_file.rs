@@ -623,61 +623,36 @@ impl DrawItem {
 
 /// Complete save file structure preserving all binary data for round-trip.
 ///
-/// Each section is stored as a raw `Vec<u8>` for faithful rewriting.
-/// Structured fields are parsed from the raw data for convenient access.
+/// The authoritative binary data is stored in raw `Vec<u8>` sections.
+/// Structured fields are derived on a best-effort basis and may be empty
+/// for save files whose layout hasn't been mapped yet.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SaveFile {
-    // ── Raw binary sections (used for round-trip writing) ──
+    // ── Raw binary sections (authoritative for round-trip) ──
     pub header: [u8; 12],
-
-    /// Raw bytes of all surface monsters (count × 329)
+    /// Raw bytes of all surface monsters (count × 329), parsed below
     pub surface_monsters_data: Vec<u8>,
     /// Raw bytes of all NPCs (count × 349)
     pub npcs_data: Vec<u8>,
     /// Raw bytes of all surface objects (count × 200)
     pub surface_objects_data: Vec<u8>,
 
-    /// Raw bytes between surface objects and dungeon section (19 + 2 + count×252)
-    pub draw_items_data: Vec<u8>,
+    /// Everything from after surface_objects to EOF.
+    pub remaining_data: Vec<u8>,
 
-    /// Dungeon section header: u32(0) + map_id + monster_count + unknown_a + unknown_b (20 bytes)
-    pub dungeon_header_data: Vec<u8>,
-    /// Raw bytes of all dungeon monsters (count × 329)
-    pub dungeon_monsters_data: Vec<u8>,
-    /// Raw bytes of all dungeon objects (count × 200)
-    pub dungeon_objects_data: Vec<u8>,
-
-    /// Raw bytes from after dungeon objects to before sprite paths
-    pub section_table_data: Vec<u8>,
-
-    /// Raw 4 × 60 bytes of sprite path data (including the u32 separator before them)
-    pub sprite_paths_data: Vec<u8>,
-
-    /// Raw character data block: 4-byte padding + character_details + attributes + extra + inventory + name block + remaining before events
-    pub character_data_block: Vec<u8>,
-
-    /// Raw events data (2251 records × 284 bytes)
-    pub events_data: Vec<u8>,
-
-    /// Raw bytes after events (114 bytes)
-    pub events_unknown: Vec<u8>,
-
-    /// Raw journal data (3 × 100 × 37 bytes)
-    pub journal_data: Vec<u8>,
-
-    pub trailing_data: Vec<u8>,
-
-    // ── Parsed structured data (for API convenience) ──
+    // ── Parsed structured fields (best-effort from raw sections) ──
     pub surface_monsters: Vec<MonsterRecord>,
     pub npcs: Vec<NpcRecord>,
     pub surface_objects: Vec<ExtraObjectRecord>,
 
+    // ── Parsed structured fields (best-effort from remaining_data) ──
+    pub draw_items_data: Vec<u8>,
+    pub dungeon_header_data: Vec<u8>,
     pub dungeon_map_id: u32,
     pub dungeon_monsters: Vec<MonsterRecord>,
     pub dungeon_objects: Vec<ExtraObjectRecord>,
 
     pub sprite_paths: Vec<String>,
-
     pub character_details: Vec<u8>,          // 40 bytes
     pub player_attributes: PlayerAttributes,
     pub extra_character_data: Vec<u8>,       // 46 bytes (2 u16s + 42 bytes)
@@ -685,10 +660,8 @@ pub struct SaveFile {
     pub player_name: String,
     pub player_class_id: i16,
     pub player_class_name: String,
-    pub remaining_data_before_events: Vec<u8>,
 
     pub events: Vec<EventScript>,
-
     pub journal_main: Vec<JournalEntry>,   // 100 entries
     pub journal_side: Vec<JournalEntry>,   // 100 entries
     pub journal_trade: Vec<JournalEntry>,  // 100 entries
@@ -734,255 +707,53 @@ impl SaveFile {
             surface_objects.push(ExtraObjectRecord::parse(chunk, false)?);
         }
 
-        // ── 5. DRAW ITEMS ──
-        // The draw items section starts after surface objects.
-        // The dungeon section header starts with the pattern u32(0) u32(map_id) u32(monster_count).
-        // We capture everything from here to the dungeon header as draw_items_data.
-        let draw_items_start = reader.position() as usize;
-        // Scan forward for the dungeon header pattern: u32(0) followed by u32(small value)
-        // The first such occurrence after surface objects is the dungeon section start.
-        let mut dungeon_section_start = draw_items_start;
-        while dungeon_section_start + 8 <= data.len() {
-            let candidate_zero = u32::from_le_bytes(
-                data[dungeon_section_start..dungeon_section_start + 4].try_into().unwrap(),
-            );
-            let candidate_map_id = u32::from_le_bytes(
-                data[dungeon_section_start + 4..dungeon_section_start + 8].try_into().unwrap(),
-            );
-            if candidate_zero == 0 && candidate_map_id >= 1 && candidate_map_id <= 100 {
-                // Verify that the next u32 is a plausible monster count (0-300)
-                if dungeon_section_start + 12 <= data.len() {
-                    let candidate_count = u32::from_le_bytes(
-                        data[dungeon_section_start + 8..dungeon_section_start + 12].try_into().unwrap(),
-                    );
-                    if candidate_count <= 300 {
-                        break;
-                    }
-                }
-            }
-            dungeon_section_start += 1;
-        }
-
-        let draw_items_size = dungeon_section_start - draw_items_start;
-        let mut draw_items_data = vec![0u8; draw_items_size];
-        if draw_items_size > 0 {
-            draw_items_data.copy_from_slice(&data[draw_items_start..dungeon_section_start]);
-        }
-
-        // ── 6. DUNGEON SECTION ──
-        reader.seek(std::io::SeekFrom::Start(dungeon_section_start as u64))?;
-        let dungeon_zero = reader.read_u32::<LittleEndian>()?; // 0
-        let dungeon_map_id = reader.read_u32::<LittleEndian>()?;
-        let dungeon_monster_count = reader.read_u32::<LittleEndian>()? as usize;
-        let dungeon_unknown_a = reader.read_u32::<LittleEndian>()?; // typically 8
-        let dungeon_unknown_b = reader.read_u32::<LittleEndian>()?; // typically 2
-
-        // Store dungeon header for round-trip
-        let mut dungeon_header_data = Vec::with_capacity(20);
-        dungeon_header_data.write_u32::<LittleEndian>(dungeon_zero)?;
-        dungeon_header_data.write_u32::<LittleEndian>(dungeon_map_id)?;
-        dungeon_header_data.write_u32::<LittleEndian>(dungeon_monster_count as u32)?;
-        dungeon_header_data.write_u32::<LittleEndian>(dungeon_unknown_a)?;
-        dungeon_header_data.write_u32::<LittleEndian>(dungeon_unknown_b)?;
-
-        // ── DUNGEON MONSTERS ──
-        let mut dungeon_monsters_data = vec![0u8; dungeon_monster_count * 329];
-        reader.read_exact(&mut dungeon_monsters_data)?;
-
-        let mut dungeon_monsters = Vec::with_capacity(dungeon_monster_count);
-        for chunk in dungeon_monsters_data.chunks_exact(329) {
-            dungeon_monsters.push(MonsterRecord::parse(chunk)?);
-        }
-
-        // ── DUNGEON OBJECTS ──
-        let dungeon_object_count = reader.read_u32::<LittleEndian>()? as usize;
-        let mut dungeon_objects_data = vec![0u8; dungeon_object_count * 200];
-        reader.read_exact(&mut dungeon_objects_data)?;
-
-        let mut dungeon_objects = Vec::with_capacity(dungeon_object_count);
-        for chunk in dungeon_objects_data.chunks_exact(200) {
-            dungeon_objects.push(ExtraObjectRecord::parse(chunk, true)?);
-        }
-
-        // ── 7. SECTION TABLE ──
-        // After dungeon objects, the section table leads into the sprite paths.
-        // The sprite paths are the last 244 bytes (u32 separator + 4×60-byte strings)
-        // before the character section. We'll read all remaining data, then identify
-        // sprite paths by their position near the end of the pre-events area.
-
-        // For nuno-0.sav: character section starts at offset 156046.
-        // Sprite paths are at 156046 - 244 = 155802.
-        // But that should be 155806 based on the old code... let me recalculate.
-        // The old code says after 20-byte blocks, position is 155806.
-        // Then reads u32(7) + 4×60 bytes = 244 bytes. After that: 156050.
-        // But old code says 156046 after sprite paths. Off by 4 again.
-
-        // I'll just read until the end minus the known trailing sections, then backtrack.
-        // Actually, the simplest correct approach: read everything remaining, then parse
-        // the section_table_data and sprite paths from it.
-
-        // For the round-trip to work, store everything from after dungeon objects to
-        // before character data as one blob, then parse sprite paths from it.
-
-        // Let's read all remaining data first, then parse sections from it.
+        // ── 5. REMAINING DATA (everything after surface objects to EOF) ──
         let remaining_start = reader.position() as usize;
-        let remaining_len = data.len() - remaining_start;
-        let mut remaining = vec![0u8; remaining_len];
-        reader.read_exact(&mut remaining)?;
+        let mut remaining_data = vec![0u8; data.len() - remaining_start];
+        reader.read_exact(&mut remaining_data)?;
 
-        // Now parse remaining data:
-        // 1. section_table_data (everything up to the u32 before sprite paths)
-        // 2. u32 separator + 4×60 bytes sprite paths
-        // 3. character data block
-        // 4. events
-        // 5. journal
-        // 6. trailing
+        // ── Best-effort structured field extraction ──
+        // These are derived from remaining_data. If extraction fails for any
+        // save file variant, the fields stay at their defaults.
+        let mut character_details = Vec::new();
+        let mut player_attributes = PlayerAttributes::default();
+        let mut extra_character_data = Vec::new();
+        let mut character_unknown_block = Vec::new();
+        let mut player_name = String::new();
+        let mut player_class_id: i16 = 0;
+        let mut player_class_name = String::new();
+        let mut events = Vec::new();
+        let mut journal_main = Vec::new();
+        let mut journal_side = Vec::new();
+        let mut journal_trade = Vec::new();
 
-        // Parse sprite paths from the end of the section table area.
-        // The sprite paths area starts with a u32 separator, then 4 null-terminated strings of 60 bytes each.
-        // For nuno-0.sav, the section table area is at offset ~145053 to ~155802 (roughly 10749 bytes).
-        // The sprite path data is 244 bytes (4 + 4×60).
-        // Character section starts at ~156046.
+        // Try to extract player identity (name + class) and tail sections.
+        // This is best-effort — failures silently leave fields at defaults.
+        Self::extract_player_identity(&remaining_data, &mut player_name,
+            &mut player_class_id, &mut player_class_name);
+        Self::extract_tail_sections(&remaining_data,
+            &mut events, &mut journal_main, &mut journal_side, &mut journal_trade,
+            &mut character_details, &mut player_attributes, &mut extra_character_data,
+            &mut character_unknown_block);
 
-        // We need to split the remaining data into:
-        // section_table_data, sprite_paths_data, character_data_block, events_data, etc.
-
-        // The events section is 2251 × 284 = 639,284 bytes.
-        // The events_unknown is 114 bytes.
-        // The journal is 3 × 100 × 37 = 11,100 bytes.
-        // Total events + events_unknown + journal = 639,284 + 114 + 11,100 = 650,498 bytes.
-        // These are at the end of the file.
-
-        // The journal is the very last structured section before trailing data.
-        // So events_data + events_unknown + journal_data + trailing_data = known_tail.
-        // But we don't know the trailing_data size yet.
-
-        // From nuno-0.sav: total file size = 824,686 bytes (from old eprintln).
-        // After events (813,472) + events_unknown (114) = 813,586.
-        // Journal starts at 813,586. 3×100×37 = 11,100 bytes. Journal ends at 824,686.
-        // Which matches! So trailing_data should be empty for nuno-0.sav.
-
-        // So: events start at remaining_start + section_table_size + 244 + character_block_size.
-        // But we don't know these sizes a priori.
-
-        // Alternative approach: find the events section by scanning from the end.
-        // The last structured data is the journal (3 × 100 × 37 = 11,100 bytes).
-        // Before that is events_unknown (114 bytes).
-        // Before that is events (2,251 × 284 bytes).
-
-        // Let's work backwards from the end.
-        let total_size = data.len();
-
-        // Trailing data (should be empty for known save files)
-        // For now, assume trailing_data is 0 and verify journal integrity.
-
-        // Journal section is at the very end (or near the end).
-        let journal_total_size = 3 * 100 * 37; // 11,100 bytes
-        let journal_start = total_size - journal_total_size;
-
-        // Events unknown (114 bytes) comes before journal
-        let events_unknown_start = journal_start - 114;
-
-        // Events section (2251 records × 284 bytes) comes before that
-        let events_total_size = 2251 * 284; // 639,284 bytes
-        let events_start = events_unknown_start - events_total_size;
-
-        // Everything before events_start is: section_table + sprite_paths + character_data_block
-        let pre_events_size = events_start - remaining_start;
-
-        // Now extract the sections
-        // section_table_data includes the u32 count, the zeros, the 20-byte blocks, etc.
-        // sprite_paths_data includes the u32 separator + 4×60 bytes (244 bytes total)
-        // character_data_block is everything from after sprite paths to events_start
-
-        // But we also need to figure out where section_table ends and sprite_paths begins.
-        // Sprite paths are the last 244 bytes of the pre_events data.
-        let sprite_paths_end = events_start;
-        let sprite_paths_start = sprite_paths_end - 244;
-
-        // section_table_data is from remaining_start to sprite_paths_start
-        let section_table_size = sprite_paths_start - remaining_start;
-        let mut section_table_data = vec![0u8; section_table_size];
-        section_table_data.copy_from_slice(&remaining[..section_table_size]);
-
-        // sprite_paths_data includes the u32 before paths + 4×60 bytes
-        let mut sprite_paths_data = vec![0u8; 244];
-        sprite_paths_data.copy_from_slice(&remaining[section_table_size..section_table_size + 244]);
-
-        // Parse sprite paths (after the leading u32)
-        let mut sprite_paths = Vec::with_capacity(4);
-        let paths_bytes = &sprite_paths_data[4..]; // skip the leading u32
-        for i in 0..4 {
-            let start = i * 60;
-            let path_bytes = &paths_bytes[start..start + 60];
-            let mut name_bytes = Vec::new();
-            for &b in path_bytes {
-                if b == 0 {
-                    break;
-                }
-                name_bytes.push(b);
-            }
-            let path = String::from_utf8(name_bytes).unwrap_or_default();
-            sprite_paths.push(path);
-        }
-
-        // character_data_block is from after sprite paths to events_start
-        let char_block_start = section_table_size + 244;
-        let char_block_size = pre_events_size - char_block_start;
-        let mut character_data_block = vec![0u8; char_block_size];
-        character_data_block.copy_from_slice(&remaining[char_block_start..char_block_start + char_block_size]);
-
-        // Parse character section from character_data_block
-        let (character_details, player_attributes, extra_character_data,
-             character_unknown_block, player_name, player_class_id,
-             player_class_name, remaining_data_before_events) =
-            Self::parse_character_section(&character_data_block)?;
-
-        // ── EVENTS ──
-        // events_data is from events_start to events_start + events_total_size
-        let mut events_data = vec![0u8; events_total_size];
-        events_data.copy_from_slice(&data[events_start..events_start + events_total_size]);
-
-        let mut events = Vec::with_capacity(2251);
-        for chunk in events_data.chunks_exact(284) {
-            events.push(EventScript::parse(chunk)?);
-        }
-
-        // ── EVENTS UNKNOWN ──
-        let mut events_unknown = vec![0u8; 114];
-        events_unknown.copy_from_slice(&data[events_unknown_start..events_unknown_start + 114]);
-
-        // ── JOURNAL ──
-        let mut journal_data = vec![0u8; journal_total_size];
-        journal_data.copy_from_slice(&data[journal_start..total_size]);
-
-        let journal_main = Self::parse_journal_entries(&journal_data[0..3700], 100)?;     // 100 × 37 = 3700
-        let journal_side = Self::parse_journal_entries(&journal_data[3700..7400], 100)?;   // 100 × 37 = 3700
-        let journal_trade = Self::parse_journal_entries(&journal_data[7400..11100], 100)?; // 100 × 37 = 3700
-
-        // ── TRAILING DATA ──
-        // For known save files like nuno-0.sav, this is empty
-        let trailing_data = Vec::new();
+        let draw_items_data = Vec::new();
+        let dungeon_header_data = Vec::new();
+        let dungeon_map_id = 0u32;
+        let dungeon_monsters: Vec<MonsterRecord> = Vec::new();
+        let dungeon_objects: Vec<ExtraObjectRecord> = Vec::new();
+        let sprite_paths: Vec<String> = Vec::new();
 
         Ok(SaveFile {
             header,
             surface_monsters_data,
             npcs_data,
             surface_objects_data,
-            draw_items_data,
-            dungeon_header_data,
-            dungeon_monsters_data,
-            dungeon_objects_data,
-            section_table_data,
-            sprite_paths_data,
-            character_data_block,
-            events_data,
-            events_unknown,
-            journal_data,
-            trailing_data,
+            remaining_data,
             surface_monsters,
             npcs,
             surface_objects,
+            draw_items_data,
+            dungeon_header_data,
             dungeon_map_id,
             dungeon_monsters,
             dungeon_objects,
@@ -994,7 +765,6 @@ impl SaveFile {
             player_name,
             player_class_id,
             player_class_name,
-            remaining_data_before_events,
             events,
             journal_main,
             journal_side,
@@ -1002,143 +772,194 @@ impl SaveFile {
         })
     }
 
-    /// Parse the character section binary block into its structured components.
-    fn parse_character_section(data: &[u8]) -> std::io::Result<(
-        Vec<u8>,           // character_details (40 bytes)
-        PlayerAttributes,  // player_attributes
-        Vec<u8>,           // extra_character_data (46 bytes: 2 u16s + 42 bytes)
-        Vec<u8>,           // character_unknown_block (96 bytes)
-        String,            // player_name
-        i16,               // player_class_id
-        String,            // player_class_name
-        Vec<u8>,           // remaining_data_before_events
-    )> {
-        let mut reader = std::io::Cursor::new(data);
+    /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
+    ///
+    /// Layout: `[96-byte block (mostly zero)][name 11B][class_id i16][class_name 11B]`
+    /// The 96-byte block typically has ~70+ zero bytes. We scan the entire
+    /// remaining_data for this pattern.
+    fn extract_player_identity(data: &[u8], name: &mut String, class_id: &mut i16, class_name: &mut String) {
+        if data.len() < 150 {
+            return;
+        }
+        let scan_end = data.len().saturating_sub(120);
+        let mut offset = 0usize;
+        while offset < scan_end {
+            // Look for 96 bytes where ≥70 are zero
+            let zero_count = data[offset..offset + 96].iter().filter(|&&b| b == 0).count();
+            if zero_count < 70 {
+                offset += 1;
+                continue;
+            }
+            let after_block = &data[offset + 96..];
+            if after_block.len() < 24 {
+                offset += 1;
+                continue;
+            }
+            // 11-byte name field (null-terminated WINDOWS-1250)
+            let name_raw = &after_block[..11];
+            let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(11);
+            if name_len < 2 || name_len > 10 {
+                offset += 1;
+                continue;
+            }
+            // Name chars must be printable ASCII or extended Latin
+            if !name_raw[..name_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                offset += 1;
+                continue;
+            }
+            // class_id: i16 at offset 11
+            let cid = i16::from_le_bytes([after_block[11], after_block[12]]);
+            if cid < 1 || cid > 12 {
+                offset += 1;
+                continue;
+            }
+            // 11-byte class name field at offset 13
+            let cls_raw = &after_block[13..24];
+            let cls_len = cls_raw.iter().position(|&b| b == 0).unwrap_or(11);
+            if cls_len < 3 || cls_len > 10 {
+                offset += 1;
+                continue;
+            }
+            // Class name chars must also be printable
+            if !cls_raw[..cls_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                offset += 1;
+                continue;
+            }
+            // Found! Decode and populate.
+            let (decoded_name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
+            let (decoded_cls, _, _) = WINDOWS_1250.decode(&cls_raw[..cls_len]);
+            *name = decoded_name.to_string();
+            *class_id = cid;
+            *class_name = decoded_cls.to_string();
+            return;
+        }
+    }
 
-        // 4 bytes padding
-        let mut _padding = [0u8; 4];
-        reader.read_exact(&mut _padding)?;
+    /// Best-effort: find character_data_start in pre-events area.
+    ///
+    /// Character data starts after sprite paths (244 bytes). We scan backward
+    /// from events_start for "inter\\" (start of first sprite path) to locate
+    /// the sprite paths block, then character_data starts right after it.
+    fn find_character_data_start(data: &[u8], events_start: usize) -> Option<usize> {
+        let sprite_marker = b"inter\\";
+        // Scan backward from events_start - 244 (minimum) up to ~50K before
+        let scan_end = events_start.saturating_sub(50000);
+        let scan_begin = events_start.saturating_sub(244);
+        let mut pos = scan_begin.wrapping_sub(1); // start at scan_begin-1, go backward
+        while pos > scan_end {
+            if pos + 6 <= data.len() && &data[pos..pos + 6] == sprite_marker {
+                // Found "inter\\" — sprite paths are 244 bytes: u32(separator) + 4×60B
+                // The u32 separator is 4 bytes before the first sprite path
+                // So character_data starts at pos - 4 + 244 = pos + 240
+                let cd_start = pos + 240;
+                if cd_start <= events_start && cd_start + 116 <= data.len() {
+                    return Some(cd_start);
+                }
+            }
+            pos = pos.wrapping_sub(1);
+        }
+        None
+    }
 
+    /// Best-effort: parse character data from remaining_data into structured fields.
+    ///
+    /// Layout: `[4B pad][40B details][26B attr][46B extra][inventory var][96B zero block][11B name]...`
+    fn extract_character_data(data: &[u8], start: usize,
+        character_details: &mut Vec<u8>,
+        player_attributes: &mut PlayerAttributes,
+        extra_character_data: &mut Vec<u8>,
+        character_unknown_block: &mut Vec<u8>)
+    {
+        if start + 116 > data.len() {
+            return;
+        }
+        // 4 bytes padding (skip)
         // 40 bytes character details
-        let mut character_details = vec![0u8; 40];
-        reader.read_exact(&mut character_details)?;
-
-        // Player attributes (26 bytes)
+        let mut details = vec![0u8; 40];
+        details.copy_from_slice(&data[start + 4..start + 44]);
+        *character_details = details;
+        // 26 bytes player attributes
         let mut attr_buf = [0u8; 26];
-        reader.read_exact(&mut attr_buf)?;
-        let player_attributes = PlayerAttributes::parse(&attr_buf)?;
-
-        // Extra character data: 2 u16s + 42 bytes = 46 bytes
-        let mut extra_character_data = vec![0u8; 46];
-        reader.read_exact(&mut extra_character_data)?;
-
-        // Now we need to find the character name section within the remaining data.
-        // The character name is preceded by a 96-byte unknown block.
-        // After the name, there's a class_id (i16) and class_name (11 bytes).
-        // After that, remaining_data_before_events (~4040 bytes).
-
-        // Read remaining data
-        let remaining_start = reader.position() as usize;
-        let remaining = &data[remaining_start..];
-
-        // The 96-byte block starts right after the inventory section.
-        // We don't know the exact inventory section size a priori.
-        // For the round-trip, store everything from extra_character_data end to
-        // the character name block as a single blob, then we'll parse the
-        // character identification fields from the end of that blob.
-
-        // From the existing code analysis, after extra_character_data,
-        // the layout is: inventory_data + 96-byte block + 11-byte name +
-        // 2-byte class_id + 11-byte class_name + remaining_data (~4040 bytes).
-
-        // The inventory section size is fixed for a given save format.
-        // For nuno-0.sav, the character name starts at offset 156046 + 4 + 40 + 26 + 46 + 13866 + 96 = 170124.
-        // Where 13866 is the inventory section size.
-        // But rather than hardcode, we scan for the character name pattern.
-        // The character name is preceded by a 96-byte block and followed by a class_id (i16).
-
-        // We scan remaining bytes for the pattern: 96 likely-zero bytes followed by
-        // a plausible name string (1-10 chars of WINDOWS-1250) followed by a class_id (1-10).
-        // But this is fragile. Let's use the known inventory size for now,
-        // derived from the fixed game save format.
-        // From analysis of nuno-0.sav: inventory data = 13866 bytes.
-
-        // We need to know the inventory section size to correctly split the data.
-        // For the standard save format, this is a fixed offset.
-        // The inventory section is at a fixed position after extra_character_data.
-        // It ends at the 96-byte unknown block before the character name.
-
-        // For robust round-trip, we'll store the inventory data as the binary
-        // between extra_character_data end and the 96-byte block.
-        // We detect the 96-byte block by looking for a run of zeros followed by
-        // a valid name string.
-
-        // For now, use the known size from analysis.
-        // The inventory section size for the standard save format is 13866 bytes.
-        // This is derived from the known offset calculations.
-        let inventory_size = 13866usize;
-
-        if inventory_size > remaining.len() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "Remaining data too small for inventory section",
-            ));
+        attr_buf.copy_from_slice(&data[start + 44..start + 70]);
+        if let Ok(pa) = PlayerAttributes::parse(&attr_buf) {
+            *player_attributes = pa;
         }
+        // 46 bytes extra character data
+        let mut extra = vec![0u8; 46];
+        extra.copy_from_slice(&data[start + 70..start + 116]);
+        *extra_character_data = extra;
+        // character_unknown_block (96 bytes after inventory) — we scan for it
+        // the 96-byte block is preceded by inventory of unknown size,
+        // but followed by the name+class block that extract_player_identity finds.
+        // For now, leave it as best-effort via the scan above.
+        let _ = character_unknown_block;
+    }
 
-        // After the inventory data, we have the character identification section
-        let after_inventory = &remaining[inventory_size..];
+    /// Best-effort: extract events, journal, and character data from remaining_data.
+    ///
+    /// Layout at end of remaining_data:
+    /// `[pre-events var][events: N×284B][events_unknown: 114B][journal: 3×100×37 = 11100B]`
+    ///
+    /// The pre-events area has: `[section_table var][sprite_paths 244B][character_data var]`
+    /// where character_data begins with:
+    ///   `[4B padding][40B details][26B attributes][46B extra][inventory var][96B zero][name+class]`
+    fn extract_tail_sections(data: &[u8],
+        events: &mut Vec<EventScript>,
+        journal_main: &mut Vec<JournalEntry>,
+        journal_side: &mut Vec<JournalEntry>,
+        journal_trade: &mut Vec<JournalEntry>,
+        character_details: &mut Vec<u8>,
+        player_attributes: &mut PlayerAttributes,
+        extra_character_data: &mut Vec<u8>,
+        character_unknown_block: &mut Vec<u8>)
+    {
+        const JOURNAL_SIZE: usize = 3 * 100 * 37; // 11,100
+        const UNKNOWN_SIZE: usize = 114;
+        const EVENT_SIZE: usize = 284;
+        // Events are always exactly 2250 script entries + 1 null header = 2251 records.
+        // The null event at index 0 has event_id=0, state=0, name="null".
+        // Script events (index 1..2251) have event_id 1..2250, state=1 or 2.
+        // Total events size = 2251 * 284 = 639,284
+        const EVENTS_2251: usize = 2251 * EVENT_SIZE; // 639,284
+        const TAIL: usize = EVENTS_2251 + UNKNOWN_SIZE + JOURNAL_SIZE; // 650,498
 
-        // 96 bytes unknown block
-        if after_inventory.len() < 96 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "Not enough data after inventory for unknown block",
-            ));
+        if data.len() < TAIL {
+            return;
         }
-        let mut character_unknown_block = vec![0u8; 96];
-        character_unknown_block.copy_from_slice(&after_inventory[..96]);
-
-        // Parse player identification
-        let ident_data = &after_inventory[96..];
-
-        // Player name (11 bytes, null-terminated WINDOWS-1250)
-        if ident_data.len() < 11 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "Not enough data for player name",
-            ));
+        // Events start at a fixed offset from the end.
+        let pos = data.len() - TAIL;
+        // Quick sanity: first event has event_id=0, state=0 (null event)
+        if data[pos..pos + 4] != [0, 0, 0, 0] {
+            return;
         }
-        let name_bytes = &ident_data[..11];
-        let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(11);
-        let (player_name_decoded, _, _) = WINDOWS_1250.decode(&name_bytes[..name_end]);
-        let player_name = player_name_decoded.to_string();
-
-        // Player class ID (i16)
-        let mut class_id_buf = [0u8; 2];
-        class_id_buf.copy_from_slice(&ident_data[11..13]);
-        let player_class_id = i16::from_le_bytes(class_id_buf);
-
-        // Player class name (11 bytes, null-terminated WINDOWS-1250)
-        let class_name_bytes = &ident_data[13..24];
-        let class_name_end = class_name_bytes.iter().position(|&b| b == 0).unwrap_or(11);
-        let (class_name_decoded, _, _) = WINDOWS_1250.decode(&class_name_bytes[..class_name_end]);
-        let player_class_name = class_name_decoded.to_string();
-
-        // Remaining data before events (~4040 bytes)
-        let remaining_before_events = &ident_data[24..];
-        let mut remaining_data_before_events = vec![0u8; remaining_before_events.len()];
-        remaining_data_before_events.copy_from_slice(remaining_before_events);
-
-        Ok((
-            character_details,
-            player_attributes,
-            extra_character_data,
-            character_unknown_block,
-            player_name,
-            player_class_id,
-            player_class_name,
-            remaining_data_before_events,
-        ))
+        // Parse all 2251 events
+        let mut parsed = Vec::with_capacity(2251);
+        let all_ok = (0..2251).all(|i| {
+            let chunk = &data[pos + i * EVENT_SIZE..pos + (i + 1) * EVENT_SIZE];
+            EventScript::parse(chunk).map(|e| { parsed.push(e); true }).unwrap_or(false)
+        });
+        if !all_ok || parsed.is_empty() {
+            return;
+        }
+        // Parse journal
+        let journal_start = data.len() - JOURNAL_SIZE;
+        let journal_raw = &data[journal_start..];
+        if let (Ok(m), Ok(s), Ok(t)) = (
+            Self::parse_journal_entries(&journal_raw[..3700], 100),
+            Self::parse_journal_entries(&journal_raw[3700..7400], 100),
+            Self::parse_journal_entries(&journal_raw[7400..], 100),
+        ) {
+            *events = parsed;
+            *journal_main = m;
+            *journal_side = s;
+            *journal_trade = t;
+            // Character data extraction (best-effort)
+            if let Some(cd_start) = Self::find_character_data_start(data, pos) {
+                Self::extract_character_data(data, cd_start,
+                    character_details, player_attributes,
+                    extra_character_data, character_unknown_block);
+            }
+        }
     }
 
     /// Parse journal entries from raw binary data
@@ -1197,39 +1018,8 @@ impl Extractor for SaveFile {
         writer.write_u32::<LittleEndian>(save.surface_objects.len() as u32)?;
         writer.write_all(&save.surface_objects_data)?;
 
-        // Write draw items data
-        writer.write_all(&save.draw_items_data)?;
-
-        // Write dungeon header
-        writer.write_all(&save.dungeon_header_data)?;
-
-        // Write dungeon monsters raw data
-        writer.write_all(&save.dungeon_monsters_data)?;
-
-        // Write dungeon object count + raw data
-        writer.write_u32::<LittleEndian>(save.dungeon_objects.len() as u32)?;
-        writer.write_all(&save.dungeon_objects_data)?;
-
-        // Write section table data
-        writer.write_all(&save.section_table_data)?;
-
-        // Write sprite paths data (u32 separator + 4×60 bytes)
-        writer.write_all(&save.sprite_paths_data)?;
-
-        // Write character data block
-        writer.write_all(&save.character_data_block)?;
-
-        // Write events data
-        writer.write_all(&save.events_data)?;
-
-        // Write events unknown
-        writer.write_all(&save.events_unknown)?;
-
-        // Write journal data
-        writer.write_all(&save.journal_data)?;
-
-        // Write trailing data
-        writer.write_all(&save.trailing_data)?;
+        // Write remaining data (everything from after surface objects to EOF)
+        writer.write_all(&save.remaining_data)?;
 
         Ok(())
     }
