@@ -570,8 +570,8 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                         let img = match dispel_core::sprite::render_frame_to_rgba(
                             &mut reader,
                             fi,
-                            fi.width.unsigned_abs() as u32,
-                            fi.height.unsigned_abs() as u32,
+                            fi.width.unsigned_abs(),
+                            fi.height.unsigned_abs(),
                             0,
                             0,
                         ) {
@@ -590,8 +590,8 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                             if encoder
                                 .write_image(
                                     img.as_raw(),
-                                    fi.width.unsigned_abs() as u32,
-                                    fi.height.unsigned_abs() as u32,
+                                    fi.width.unsigned_abs(),
+                                    fi.height.unsigned_abs(),
                                     image::ColorType::Rgba8,
                                 )
                                 .is_err()
@@ -604,7 +604,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                         if frame_stmt
                             .execute(rusqlite::params![
                                 sprite_file_id,
-                                seq_idx as i32,
+                                seq_idx,
                                 frame_idx as i32,
                                 &png_data,
                                 fi.width,
@@ -624,7 +624,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                         if seq_stmt
                             .execute(rusqlite::params![
                                 sprite_file_id,
-                                seq_idx as i32,
+                                seq_idx,
                                 frame_count,
                                 first.width,
                                 first.height,
@@ -661,6 +661,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
 }
 
 /// Recursively visits all files under `dir`, calling `f` on each directory entry.
+#[allow(clippy::type_complexity)]
 fn visit_dirs(
     dir: &Path,
     f: &mut dyn FnMut(&std::fs::DirEntry) -> Result<(), Box<dyn Error>>,

@@ -10,7 +10,6 @@ pub mod schema;
 pub mod sound;
 pub mod sprite;
 pub mod template;
-pub mod test;
 pub mod unified;
 pub mod validate;
 

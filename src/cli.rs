@@ -10,20 +10,9 @@ use crate::commands::unified::{ExtractArgs, PatchArgs};
 use crate::commands::validate::ValidateArgs;
 
 #[derive(Parser)]
-#[command(about = "Tool to extract assets from the Dispel game")]
+#[command(about = "Tool to extract and patch Dispel game files")]
 #[command(author, version, long_about = None)]
 pub struct Cli {
-    /// Optional name to operate on
-    pub name: Option<String>,
-
-    /// Sets a custom config file
-    #[arg(short, long, value_name = "FILE")]
-    pub config: Option<PathBuf>,
-
-    /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
-    pub debug: u8,
-
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -149,16 +138,6 @@ pub enum Commands {
     )]
     ModPack(ModPackArgs),
 
-    /// Test command
-    #[command(
-        about = "Test command for verifying the command pattern",
-        long_about = "A simple test command to verify the command pattern implementation.\n\nUsage Examples:\n  dispel-extractor test --message 'Hello World'"
-    )]
-    Test {
-        /// Test message to display
-        #[arg(short, long, default_value = "Hello from test command!")]
-        message: String,
-    },
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]

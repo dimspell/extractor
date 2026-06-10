@@ -12,21 +12,12 @@ use commands::schema::SchemaCommand;
 use commands::sound::SoundCommand;
 use commands::sprite::SpriteCommand;
 use commands::template::TemplateCommand;
-use commands::test::TestCommand;
 use commands::unified::{ExtractCommand, PatchCommand};
 use commands::validate::ValidateCommand;
 use commands::Command;
 
 fn main() {
     let cli = Cli::parse();
-
-    if let Some(name) = cli.name.as_deref() {
-        println!("Value for name: {name}");
-    }
-
-    if let Some(config_path) = cli.config.as_deref() {
-        println!("Value for config: {}", config_path.display());
-    }
 
     let result = match &cli.command {
         Some(Commands::Extract(args)) => ExtractCommand { args: args.clone() }.execute(),
@@ -59,31 +50,25 @@ fn main() {
         }
         .execute(),
         Some(Commands::Map(map_args)) => {
-            if let Some(map_command) = &map_args.command {
-                MapCommand {
-                    subcommand: map_command.clone(),
+            match &map_args.command {
+                Some(sub) => MapCommand { subcommand: sub.clone() }.execute(),
+                None => {
+                    eprintln!("Error: 'map' requires a subcommand. Use --help for details.");
+                    std::process::exit(1);
                 }
-                .execute()
-            } else {
-                Ok(())
             }
         }
 
         Some(Commands::Database(database_args)) => {
-            if let Some(database_command) = &database_args.command {
-                DatabaseCommand {
-                    subcommand: database_command.clone(),
+            match &database_args.command {
+                Some(sub) => DatabaseCommand { subcommand: sub.clone() }.execute(),
+                None => {
+                    eprintln!("Error: 'database' requires a subcommand. Use --help for details.");
+                    std::process::exit(1);
                 }
-                .execute()
-            } else {
-                Ok(())
             }
         }
         Some(Commands::ModPack(args)) => ModPackCommand { args: args.clone() }.execute(),
-        Some(Commands::Test { message }) => TestCommand {
-            message: message.clone(),
-        }
-        .execute(),
         None => Ok(()),
     };
 
