@@ -495,6 +495,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 
 ### Code Quality
 - Clippy: zero warnings (`cargo clippy --workspace --all-features -- -D warnings`)
+- Compiler warnings: use `cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
 - Format: `cargo fmt --all` before commit
 - Validate all binary bounds before indexing
 
@@ -582,6 +583,7 @@ Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, spr
 ```bash
 cargo build --workspace                              # Build all
 cargo test --workspace --all-features --quiet        # Test all
+cargo test --workspace --all-features --no-run       # Compile all crates including tests (catches compiler warnings fast)
 cargo clippy --workspace -- -D warnings              # Lint
 cargo fmt --all                                      # Format
 cargo check -p dispel-gui --message-format=short     # Fast GUI errors
