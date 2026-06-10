@@ -494,7 +494,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - Always use `Task::perform` for async work — never block
 
 ### Code Quality
-- Clippy: zero warnings (`cargo clippy --workspace --all-features -- -D warnings`)
+- Clippy: zero warnings (`cargo clippy --workspace --all-features  --test -- -D warnings`)
 - Compiler warnings: use `cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
 - Format: `cargo fmt --all` before commit
 - Validate all binary bounds before indexing
