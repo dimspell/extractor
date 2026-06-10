@@ -476,8 +476,10 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
 
     println!("Importing sprite files...");
 
-    let mut frame_stmt = conn.prepare(include_str!("../queries/insert_sprite_frame.sql"))?;
-    let mut seq_stmt = conn.prepare(include_str!("../queries/insert_sprite_sequence.sql"))?;
+    let file_insert_sql = include_str!("../queries/insert_sprite_file.sql");
+    let frame_insert_sql = include_str!("../queries/insert_sprite_frame.sql");
+    let seq_insert_sql = include_str!("../queries/insert_sprite_sequence.sql");
+    let id_query_sql = "SELECT id FROM sprite_files WHERE normalized_path = ?1";
 
     let mut count = 0u64;
     let mut errors = 0u64;
@@ -494,6 +496,40 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
             .unwrap_or(&path)
             .to_string_lossy()
             .replace('\\', "/");
+
+        // 1. Upsert sprite_files entry and get its integer ID
+        if conn.execute(file_insert_sql, rusqlite::params![&normalized]).is_err() {
+            errors += 1;
+            return Ok(());
+        }
+        let sprite_file_id: i64 = match conn.query_row(
+            id_query_sql,
+            rusqlite::params![&normalized],
+            |row| row.get(0),
+        ) {
+            Ok(id) => id,
+            Err(_) => {
+                errors += 1;
+                return Ok(());
+            }
+        };
+
+        // 2. Prepare frame + sequence statements (per-file to avoid
+        //    borrow conflicts with conn inside the loop body)
+        let mut frame_stmt = match conn.prepare(frame_insert_sql) {
+            Ok(s) => s,
+            Err(_) => {
+                errors += 1;
+                return Ok(());
+            }
+        };
+        let mut seq_stmt = match conn.prepare(seq_insert_sql) {
+            Ok(s) => s,
+            Err(_) => {
+                errors += 1;
+                return Ok(());
+            }
+        };
 
         match std::fs::File::open(&path) {
             Ok(file) => {
@@ -567,7 +603,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
 
                         if frame_stmt
                             .execute(rusqlite::params![
-                                &normalized,
+                                sprite_file_id,
                                 seq_idx as i32,
                                 frame_idx as i32,
                                 &png_data,
@@ -587,7 +623,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                         let first = &info.frame_infos[0];
                         if seq_stmt
                             .execute(rusqlite::params![
-                                &normalized,
+                                sprite_file_id,
                                 seq_idx as i32,
                                 frame_count,
                                 first.width,

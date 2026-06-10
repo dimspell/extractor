@@ -446,10 +446,12 @@ fn load_sprite_frames_from_db(
     conn: &rusqlite::Connection,
     normalized_path: &str,
 ) -> Option<Vec<LoadedSpriteFrame>> {
-    let sql = "SELECT png_blob, width, height, origin_x, origin_y \
-               FROM sprite_frames \
-               WHERE normalized_path = ?1 AND frame_index = 0 \
-               ORDER BY sequence_index";
+    let sql = "\
+        SELECT sf.png_blob, sf.width, sf.height, sf.origin_x, sf.origin_y \
+        FROM sprite_frames sf \
+        JOIN sprite_files s ON s.id = sf.sprite_file_id \
+        WHERE s.normalized_path = ?1 AND sf.frame_index = 0 \
+        ORDER BY sf.sequence_index";
     let mut stmt = conn.prepare(sql).ok()?;
     let iter = stmt
         .query_map([normalized_path], |row| {

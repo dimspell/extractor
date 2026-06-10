@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS sprite_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    normalized_path TEXT NOT NULL UNIQUE
+);

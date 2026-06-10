@@ -47,6 +47,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "party_pgps",
         "party_refs",
         "quests",
+        "sprite_files",
         "sprite_frames",
         "sprite_sequences",
         "store_products",
@@ -95,6 +96,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_event_scripts.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_event_variables.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_event_sprites.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_sprite_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_sprite_frames.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_sprite_sequences.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_event_actions.sql"))?;
