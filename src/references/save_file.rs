@@ -128,10 +128,13 @@ impl InventoryItem {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
         let mut reader = std::io::Cursor::new(data);
 
-        // Parse 10-byte header
+        // Parse 10-byte header + 2-byte padding
         let field_a = reader.read_u32::<LittleEndian>()?;
         let field_b = reader.read_u32::<LittleEndian>()?;
         let quantity = reader.read_u16::<LittleEndian>()?;
+
+        // Skip 2-byte padding after header
+        reader.read_u16::<LittleEndian>()?;
 
         // Extract item type from Field A (bits 0-7)
         let item_type_id = (field_a & 0xFF) as u8;
@@ -1114,7 +1117,7 @@ impl Extractor for SaveFile {
         Ok(vec![save])
     }
 
-    fn to_writer<W: Write + Seek>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         if records.len() != 1 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -1275,8 +1278,8 @@ mod tests {
             0x02, 0x00, // Quantity=2
             0x00, 0x00, // Padding
             b'w', b'y', b't', b'r', b'y', b'c', b'h',
-            0, // "wytrych"
-               // Rest would be description and padding
+            0, // "wytrych" null terminator
+            0, // empty description (null terminator)
         ];
 
         let result = InventoryItem::parse(&data);
