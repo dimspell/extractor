@@ -14,8 +14,8 @@ fn fixture_message_scr_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Message::read_file(p),
-        |records, p| Message::save_file(records, p),
+        Message::read_file,
+        Message::save_file,
         fixture,
         "Message",
     )

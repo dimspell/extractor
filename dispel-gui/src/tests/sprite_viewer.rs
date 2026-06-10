@@ -78,7 +78,7 @@ mod sprite_viewer_tests {
                 speed_100x: 100,
                 ms_accumulated: 0.0,
                 fps: 10.0,
-                frames: (0..10).map(|i| dummy_frame(i)).collect(),
+                frames: (0..10).map(dummy_frame).collect(),
                 export_dialog: None,
                 path: PathBuf::new(),
                 name: "test.spr".into(),

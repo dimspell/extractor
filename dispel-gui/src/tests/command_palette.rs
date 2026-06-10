@@ -22,7 +22,7 @@ mod command_palette_tests {
     #[test]
     fn close_clears_state() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
         assert!(app.command_palette.is_some());
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteClose));
@@ -33,7 +33,7 @@ mod command_palette_tests {
     #[test]
     fn input_updates_query_and_filters() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteInput(
             "undo".into(),
@@ -56,10 +56,10 @@ mod command_palette_tests {
         // The confirm handler calls app.update(action_msg) for the selected
         // command, re-dispatching it through the update loop.
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         // Filter to "sidebar" (matches against label "Toggle Sidebar")
-        app.update(Message::Workspace(WorkspaceMessage::CommandPaletteInput(
+        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteInput(
             "sidebar".into(),
         )));
         assert!(app.sidebar_visible, "sidebar starts visible");
@@ -81,10 +81,10 @@ mod command_palette_tests {
     #[test]
     fn select_fires_action_and_re_dispatches() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         // Filter to "history" (matches label "Toggle Edit History")
-        app.update(Message::Workspace(WorkspaceMessage::CommandPaletteInput(
+        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteInput(
             "history".into(),
         )));
 
@@ -106,7 +106,7 @@ mod command_palette_tests {
     #[test]
     fn select_out_of_bounds_does_not_close_palette() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteSelect(999)));
         // Handler only sets palette to None when it finds a valid command
@@ -117,7 +117,7 @@ mod command_palette_tests {
     #[test]
     fn arrow_down_selects_next() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         let initial = app.command_palette.as_ref().unwrap().selected_index;
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
@@ -133,10 +133,10 @@ mod command_palette_tests {
     #[test]
     fn arrow_up_selects_previous() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         // Move down once so we're not at 0
-        app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
         let idx_after_down = app.command_palette.as_ref().unwrap().selected_index;
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp));

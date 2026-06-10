@@ -39,29 +39,13 @@ fn test_file_tree_scan_basic() {
         assert_eq!(children.len(), 2);
 
         // Find the directory and file
-        let dir = children.iter().find_map(|node| {
-            if let TreeNode::Dir { name, .. } = node {
-                if name == "subdir" {
-                    Some(node)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        });
+        let dir = children
+            .iter()
+            .find(|node| matches!(node, TreeNode::Dir { name, .. } if name == "subdir"));
 
-        let file = children.iter().find_map(|node| {
-            if let TreeNode::File { name, .. } = node {
-                if name == "test.txt" {
-                    Some(node)
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        });
+        let file = children
+            .iter()
+            .find(|node| matches!(node, TreeNode::File { name, .. } if name == "test.txt"));
 
         assert!(dir.is_some(), "Should find subdir directory");
         assert!(file.is_some(), "Should find test.txt file");
@@ -281,8 +265,7 @@ fn test_file_tree_deep_nesting() {
 
     // Should be able to handle deep nesting without crashing
     if tree.data.root.is_none() {
-        // Directory might not be accessible in test environment
-        return; // Skip this test if we can't scan the directory
+        // Directory might not be accessible in test environment// Skip this test if we can't scan the directory
     }
 }
 

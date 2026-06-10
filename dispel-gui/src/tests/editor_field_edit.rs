@@ -24,8 +24,10 @@ mod standard_editors {
         use dispel_core::Monster;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Monster::default();
-        record.name = "OldMonster".to_string();
+        let record = Monster {
+            name: "OldMonster".to_string(),
+            ..Default::default()
+        };
         app.state.editors.monster_editor.catalog = Some(vec![record]);
         app.state.editors.monster_editor.refresh();
         app.state.editors.monster_editor.select(0);
@@ -78,8 +80,10 @@ mod standard_editors {
         use dispel_core::MonsterIni;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = MonsterIni::default();
-        record.name = Some("OldIni".to_string());
+        let record = MonsterIni {
+            name: Some("OldIni".to_string()),
+            ..Default::default()
+        };
         app.state.editors.monster_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.monster_ini_editor.state.refresh();
         app.state.editors.monster_ini_editor.state.select(0);
@@ -109,8 +113,10 @@ mod standard_editors {
         use dispel_core::MagicSpell;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = MagicSpell::default();
-        record.mana_cost = 10;
+        let record = MagicSpell {
+            mana_cost: 10,
+            ..Default::default()
+        };
         app.state.editors.magic_editor.state.catalog = Some(vec![record]);
         app.state.editors.magic_editor.state.refresh();
         app.state.editors.magic_editor.state.select(0);
@@ -138,8 +144,10 @@ mod standard_editors {
         use dispel_core::Quest;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Quest::default();
-        record.title = "Old Quest".to_string();
+        let record = Quest {
+            title: "Old Quest".to_string(),
+            ..Default::default()
+        };
         app.state.editors.quest_scr_editor.state.catalog = Some(vec![record]);
         app.state.editors.quest_scr_editor.state.refresh();
         app.state.editors.quest_scr_editor.state.select(0);
@@ -167,8 +175,10 @@ mod standard_editors {
         use dispel_core::Quest;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Quest::default();
-        record.description = "".to_string();
+        let record = Quest {
+            description: "".to_string(),
+            ..Default::default()
+        };
         app.state.editors.quest_scr_editor.state.catalog = Some(vec![record]);
         app.state.editors.quest_scr_editor.state.refresh();
         app.state.editors.quest_scr_editor.state.select(0);
@@ -196,8 +206,10 @@ mod standard_editors {
         use dispel_core::HealItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = HealItem::default();
-        record.name = "OldHeal".to_string();
+        let record = HealItem {
+            name: "OldHeal".to_string(),
+            ..Default::default()
+        };
         app.state.editors.heal_item_editor.catalog = Some(vec![record]);
         app.state.editors.heal_item_editor.refresh();
         app.state.editors.heal_item_editor.select(0);
@@ -225,8 +237,10 @@ mod standard_editors {
         use dispel_core::MiscItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = MiscItem::default();
-        record.name = "OldMisc".to_string();
+        let record = MiscItem {
+            name: "OldMisc".to_string(),
+            ..Default::default()
+        };
         app.state.editors.misc_item_editor.catalog = Some(vec![record]);
         app.state.editors.misc_item_editor.refresh();
         app.state.editors.misc_item_editor.select(0);
@@ -254,8 +268,10 @@ mod standard_editors {
         use dispel_core::EventItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = EventItem::default();
-        record.name = "OldEvent".to_string();
+        let record = EventItem {
+            name: "OldEvent".to_string(),
+            ..Default::default()
+        };
         app.state.editors.event_item_editor.catalog = Some(vec![record]);
         app.state.editors.event_item_editor.refresh();
         app.state.editors.event_item_editor.select(0);
@@ -283,8 +299,10 @@ mod standard_editors {
         use dispel_core::EditItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = EditItem::default();
-        record.name = "OldEdit".to_string();
+        let record = EditItem {
+            name: "OldEdit".to_string(),
+            ..Default::default()
+        };
         app.state.editors.edit_item_editor.catalog = Some(vec![record]);
         app.state.editors.edit_item_editor.refresh();
         app.state.editors.edit_item_editor.select(0);
@@ -312,8 +330,10 @@ mod standard_editors {
         use dispel_core::Event;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Event::default();
-        record.event_id = 1;
+        let record = Event {
+            event_id: 1,
+            ..Default::default()
+        };
         app.state.editors.event_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.event_ini_editor.state.refresh();
         app.state.editors.event_ini_editor.state.select(0);
@@ -341,8 +361,10 @@ mod standard_editors {
         use dispel_core::Extra;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Extra::default();
-        record.id = 1;
+        let record = Extra {
+            id: 1,
+            ..Default::default()
+        };
         app.state.editors.extra_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.extra_ini_editor.state.refresh();
         app.state.editors.extra_ini_editor.state.select(0);
@@ -370,8 +392,10 @@ mod standard_editors {
         use dispel_core::MapIni;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = MapIni::default();
-        record.id = 1;
+        let record = MapIni {
+            id: 1,
+            ..Default::default()
+        };
         app.state.editors.map_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.map_ini_editor.state.refresh();
         app.state.editors.map_ini_editor.state.select(0);
@@ -399,8 +423,10 @@ mod standard_editors {
         use dispel_core::Message;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Message::default();
-        record.line1 = Some("old text".to_string());
+        let record = Message {
+            line1: Some("old text".to_string()),
+            ..Default::default()
+        };
         app.state.editors.message_scr_editor.state.catalog = Some(vec![record]);
         app.state.editors.message_scr_editor.state.refresh();
         app.state.editors.message_scr_editor.state.select(0);
@@ -428,8 +454,10 @@ mod standard_editors {
         use dispel_core::PartyRef;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = PartyRef::default();
-        record.npc_id = 1;
+        let record = PartyRef {
+            npc_id: 1,
+            ..Default::default()
+        };
         app.state.editors.party_ref_editor.catalog = Some(vec![record]);
         app.state.editors.party_ref_editor.refresh();
         app.state.editors.party_ref_editor.select(0);
@@ -457,8 +485,10 @@ mod standard_editors {
         use dispel_core::PartyIniNpc;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = PartyIniNpc::default();
-        record.name = "OldName".to_string();
+        let record = PartyIniNpc {
+            name: "OldName".to_string(),
+            ..Default::default()
+        };
         app.state.editors.party_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.party_ini_editor.state.refresh();
         app.state.editors.party_ini_editor.state.select(0);
@@ -486,8 +516,10 @@ mod standard_editors {
         use dispel_core::Map;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = Map::default();
-        record.map_name = "Old Map".to_string();
+        let record = Map {
+            map_name: "Old Map".to_string(),
+            ..Default::default()
+        };
         app.state.editors.all_map_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.all_map_ini_editor.state.refresh();
         app.state.editors.all_map_ini_editor.state.select(0);
@@ -515,8 +547,10 @@ mod standard_editors {
         use dispel_core::NpcIni;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = NpcIni::default();
-        record.id = 1;
+        let record = NpcIni {
+            id: 1,
+            ..Default::default()
+        };
         app.state.editors.npc_ini_editor.state.catalog = Some(vec![record]);
         app.state.editors.npc_ini_editor.state.refresh();
         app.state.editors.npc_ini_editor.state.select(0);
@@ -544,8 +578,10 @@ mod standard_editors {
         use dispel_core::ChData;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = ChData::default();
-        record.warrior_strength = 10;
+        let record = ChData {
+            warrior_strength: 10,
+            ..Default::default()
+        };
         app.state.editors.chdata_editor.state.catalog = Some(vec![record]);
         app.state.editors.chdata_editor.state.refresh();
         app.state.editors.chdata_editor.state.select(0);
@@ -573,8 +609,10 @@ mod standard_editors {
         use dispel_core::DrawItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = DrawItem::default();
-        record.map_id = 1;
+        let record = DrawItem {
+            map_id: 1,
+            ..Default::default()
+        };
         app.state.editors.draw_item_editor.state.catalog = Some(vec![record]);
         app.state.editors.draw_item_editor.state.refresh();
         app.state.editors.draw_item_editor.state.select(0);
@@ -600,8 +638,10 @@ mod standard_editors {
         use dispel_core::DrawItem;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = DrawItem::default();
-        record.map_id = 1;
+        let record = DrawItem {
+            map_id: 1,
+            ..Default::default()
+        };
         app.state.editors.draw_item_editor.state.catalog = Some(vec![record]);
         app.state.editors.draw_item_editor.state.refresh();
         app.state.editors.draw_item_editor.state.select(0);
@@ -629,8 +669,10 @@ mod standard_editors {
         use dispel_core::EventNpcRef;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = EventNpcRef::default();
-        record.name = "OldName".to_string();
+        let record = EventNpcRef {
+            name: "OldName".to_string(),
+            ..Default::default()
+        };
         app.state.editors.event_npc_ref_editor.state.catalog = Some(vec![record]);
         app.state.editors.event_npc_ref_editor.state.refresh();
         app.state.editors.event_npc_ref_editor.state.select(0);
@@ -656,8 +698,10 @@ mod standard_editors {
         use dispel_core::EventNpcRef;
 
         let mut app = App::test_new(Workspace::new());
-        let mut record = EventNpcRef::default();
-        record.name = "OldName".to_string();
+        let record = EventNpcRef {
+            name: "OldName".to_string(),
+            ..Default::default()
+        };
         app.state.editors.event_npc_ref_editor.state.catalog = Some(vec![record]);
         app.state.editors.event_npc_ref_editor.state.refresh();
         app.state.editors.event_npc_ref_editor.state.select(0);

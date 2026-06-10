@@ -183,8 +183,10 @@ impl App {
     pub fn test_new(workspace: crate::workspace::Workspace) -> Self {
         use crate::state::AppState;
 
-        let mut state = AppState::default();
-        state.workspace = workspace;
+        let state = AppState {
+            workspace,
+            ..Default::default()
+        };
 
         Self {
             state,

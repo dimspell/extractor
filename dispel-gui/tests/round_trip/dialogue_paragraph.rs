@@ -14,8 +14,8 @@ fn fixture_dialogue_paragraph_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| DialogueParagraph::read_file(p),
-        |records, p| DialogueParagraph::save_file(records, p),
+        DialogueParagraph::read_file,
+        DialogueParagraph::save_file,
         fixture,
         "DialogueParagraph",
     )

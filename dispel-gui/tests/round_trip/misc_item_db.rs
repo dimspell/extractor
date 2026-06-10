@@ -14,8 +14,8 @@ fn fixture_miscitem_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| MiscItem::read_file(p),
-        |records, p| MiscItem::save_file(records, p),
+        MiscItem::read_file,
+        MiscItem::save_file,
         fixture,
         "MiscItem",
     )

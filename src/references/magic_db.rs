@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn parse_invalid_size_returns_partial() {
-        let data = vec![0u8; 90]; // not a multiple of 88
+        let data = [0u8; 90]; // not a multiple of 88
         let mut c = Cursor::new(&data[..]);
         // The macro doesn't validate file size - it just parses what it can (1 record from 90 bytes)
         let result = MagicSpell::parse(&mut c, 90);

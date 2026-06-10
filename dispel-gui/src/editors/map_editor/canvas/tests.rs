@@ -25,6 +25,7 @@ use std::sync::Arc;
 
 /// Build a minimal `MapEditorState` with a `MapData` that has the given
 /// dimensions and entity populations.
+#[allow(clippy::too_many_arguments)]
 fn make_state(
     map_w: i32,
     map_h: i32,
@@ -441,7 +442,7 @@ fn test_hovered_element_collision_when_no_entity() {
         collisions, HashMap::new(),
     );
     // Enable collision layer so tile hit-testing is active.
-    assert_eq!(state.view.show_collisions, false);
+    assert!(!state.view.show_collisions);
     // find_hovered_element only checks collisions when layer is visible.
     // We need to test with show_collisions = true.
     let mut state = state;

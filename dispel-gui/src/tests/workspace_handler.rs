@@ -57,7 +57,7 @@ mod workspace_handler_tests {
     #[test]
     fn test_global_search_select_no_game_path() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set up a result with source_file, but shared_game_path is empty
         app.global_search.results.push(

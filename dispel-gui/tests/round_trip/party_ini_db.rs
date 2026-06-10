@@ -14,8 +14,8 @@ fn fixture_partyini_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| PartyIniNpc::read_file(p),
-        |records, p| PartyIniNpc::save_file(records, p),
+        PartyIniNpc::read_file,
+        PartyIniNpc::save_file,
         fixture,
         "PartyIniNpc",
     )

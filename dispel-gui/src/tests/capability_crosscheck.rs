@@ -1,6 +1,4 @@
-#[cfg(test)]
-mod capability_crosscheck {
-    use crate::app::App;
+mod crosscheck {
     use crate::editor_registry::EditorRegistry;
     use crate::message::system::SystemMessage;
     use crate::message::Message;

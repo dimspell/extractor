@@ -12,9 +12,11 @@ fn test_weapon_editor_migration() {
     assert!(editor.selected_idx.is_none());
 
     let mut catalog = Vec::new();
-    let mut weapon = WeaponItem::default();
-    weapon.name = "Test Sword".to_string();
-    weapon.base_price = 100;
+    let weapon = WeaponItem {
+        name: "Test Sword".to_string(),
+        base_price: 100,
+        ..Default::default()
+    };
     catalog.push(weapon);
 
     editor.catalog = Some(catalog);
@@ -33,9 +35,11 @@ fn test_monster_editor_migration() {
     assert!(editor.selected_idx.is_none());
 
     let mut catalog = Vec::new();
-    let mut monster = Monster::default();
-    monster.name = "Test Monster".to_string();
-    monster.health_points_max = 50;
+    let monster = Monster {
+        name: "Test Monster".to_string(),
+        health_points_max: 50,
+        ..Default::default()
+    };
     catalog.push(monster);
 
     editor.catalog = Some(catalog);
@@ -74,9 +78,11 @@ fn test_editor_selection_functionality() {
 
     let mut catalog = Vec::new();
     for i in 0..3 {
-        let mut weapon = WeaponItem::default();
-        weapon.name = format!("Weapon {}", i);
-        weapon.base_price = 100 + i * 10;
+        let weapon = WeaponItem {
+            name: format!("Weapon {}", i),
+            base_price: 100 + i * 10,
+            ..Default::default()
+        };
         catalog.push(weapon);
     }
 
@@ -104,9 +110,11 @@ fn test_editor_field_update_functionality() {
     let mut editor = GenericEditorState::<WeaponItem>::default();
 
     let mut catalog = Vec::new();
-    let mut weapon = WeaponItem::default();
-    weapon.name = "Original Name".to_string();
-    weapon.base_price = 100;
+    let weapon = WeaponItem {
+        name: "Original Name".to_string(),
+        base_price: 100,
+        ..Default::default()
+    };
     catalog.push(weapon);
 
     editor.catalog = Some(catalog);
@@ -159,8 +167,10 @@ fn test_update_field_by_catalog_index() {
     let mut editor = GenericEditorState::<WeaponItem>::default();
     let mut catalog = Vec::new();
     for i in 0..5 {
-        let mut w = WeaponItem::default();
-        w.name = format!("Weapon {}", i);
+        let w = WeaponItem {
+            name: format!("Weapon {}", i),
+            ..Default::default()
+        };
         catalog.push(w);
     }
     editor.catalog = Some(catalog);
@@ -188,8 +198,10 @@ fn test_update_field_works_despite_non_matching_filtered_position() {
     let mut editor = GenericEditorState::<WeaponItem>::default();
     let mut catalog = Vec::new();
     for i in 0..5 {
-        let mut w = WeaponItem::default();
-        w.name = format!("Weapon {}", i);
+        let w = WeaponItem {
+            name: format!("Weapon {}", i),
+            ..Default::default()
+        };
         catalog.push(w);
     }
     editor.catalog = Some(catalog);
@@ -212,8 +224,10 @@ fn test_undo_redo_remove_record() {
     let mut editor = GenericEditorState::<WeaponItem>::default();
     let mut catalog = Vec::new();
     for i in 0..3 {
-        let mut w = WeaponItem::default();
-        w.name = format!("Weapon {}", i);
+        let w = WeaponItem {
+            name: format!("Weapon {}", i),
+            ..Default::default()
+        };
         catalog.push(w);
     }
     editor.catalog = Some(catalog);
@@ -255,8 +269,10 @@ fn test_undo_adjusts_history_after_remove() {
     let mut editor = GenericEditorState::<WeaponItem>::default();
     let mut catalog = Vec::new();
     for i in 0..4 {
-        let mut w = WeaponItem::default();
-        w.name = format!("Weapon {}", i);
+        let w = WeaponItem {
+            name: format!("Weapon {}", i),
+            ..Default::default()
+        };
         catalog.push(w);
     }
     editor.catalog = Some(catalog);

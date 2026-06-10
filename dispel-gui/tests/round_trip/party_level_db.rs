@@ -14,8 +14,8 @@ fn fixture_partylevel_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| PartyLevelNpc::read_file(p),
-        |records, p| PartyLevelNpc::save_file(records, p),
+        PartyLevelNpc::read_file,
+        PartyLevelNpc::save_file,
         fixture,
         "PartyLevelNpc",
     )

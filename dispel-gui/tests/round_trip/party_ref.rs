@@ -14,8 +14,8 @@ fn fixture_partyref_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| PartyRef::read_file(p),
-        |records, p| PartyRef::save_file(records, p),
+        PartyRef::read_file,
+        PartyRef::save_file,
         fixture,
         "PartyRef",
     )

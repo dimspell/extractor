@@ -14,8 +14,8 @@ fn fixture_extra_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Extra::read_file(p),
-        |records, p| Extra::save_file(records, p),
+        Extra::read_file,
+        Extra::save_file,
         fixture,
         "Extra",
     )

@@ -14,8 +14,8 @@ fn fixture_drawitem_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| DrawItem::read_file(p),
-        |records, p| DrawItem::save_file(records, p),
+        DrawItem::read_file,
+        DrawItem::save_file,
         fixture,
         "DrawItem",
     )

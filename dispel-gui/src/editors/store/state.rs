@@ -395,8 +395,10 @@ mod tests {
     }
 
     fn editor_with_one_store(name: &str) -> StoreEditorState {
-        let mut editor = StoreEditorState::default();
-        editor.catalog = Some(vec![make_store(name)]);
+        let mut editor = StoreEditorState {
+            catalog: Some(vec![make_store(name)]),
+            ..Default::default()
+        };
         editor.refresh_stores();
         editor.select_store(0);
         editor

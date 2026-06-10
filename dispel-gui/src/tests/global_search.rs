@@ -10,14 +10,14 @@ mod global_search_tests {
         let mut app = App::test_new(Workspace::new());
         assert!(!app.global_search.is_visible, "starts hidden");
 
-        let _task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         assert!(app.global_search.is_visible, "shown after toggle");
         assert!(
             app.command_palette.is_none(),
             "command palette closed when search opens"
         );
 
-        let _task = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         assert!(!app.global_search.is_visible, "hidden after second toggle");
         assert!(app.global_search.query.is_empty(), "query cleared on hide");
         assert!(app.global_search.results.is_empty(), "results cleared on hide");
@@ -26,7 +26,7 @@ mod global_search_tests {
     #[test]
     fn input_two_chars_returns_async_task() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // 2+ chars triggers async search
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchInput(
@@ -39,7 +39,7 @@ mod global_search_tests {
     #[test]
     fn input_empty_returns_async_task() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Empty input also triggers async search (resets results)
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchInput(
@@ -51,7 +51,7 @@ mod global_search_tests {
     #[test]
     fn input_one_char_clears_results() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set some results first
         app.global_search.results.push(
@@ -77,7 +77,7 @@ mod global_search_tests {
     #[test]
     fn select_closes_search() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set up a result
         app.global_search.results.push(
@@ -98,7 +98,7 @@ mod global_search_tests {
     #[test]
     fn select_out_of_bounds_does_not_panic() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchSelect(999)));
         assert!(!app.global_search.is_visible, "closed on bad index");
         assert!(app.global_search.query.is_empty(), "cleared on bad index");
@@ -108,7 +108,7 @@ mod global_search_tests {
     #[test]
     fn arrow_down_selects_next() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Add some results so navigation works
         for i in 0..3 {
@@ -134,7 +134,7 @@ mod global_search_tests {
     #[test]
     fn arrow_up_selects_previous() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         for i in 0..3 {
             app.global_search.results.push(
@@ -155,7 +155,7 @@ mod global_search_tests {
     #[test]
     fn confirm_without_results_does_not_panic() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
         assert!(!app.global_search.is_visible, "closed");
         assert_eq!(task.units(), 0);
@@ -173,7 +173,7 @@ mod global_search_confirm_tests {
     fn confirm_with_selection_index_opens_file_when_game_path_set() {
         let mut app = App::test_new(Workspace::new());
         app.state.shared_game_path = "/game/path".into();
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Add a result with a source file
         app.global_search.results.push(
@@ -195,7 +195,7 @@ mod global_search_confirm_tests {
     #[test]
     fn confirm_closes_search_when_no_game_path() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         app.global_search.results.push(
             crate::components::global_search::SearchResult {

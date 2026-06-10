@@ -14,8 +14,8 @@ fn fixture_edititem_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| EditItem::read_file(p),
-        |records, p| EditItem::save_file(records, p),
+        EditItem::read_file,
+        EditItem::save_file,
         fixture,
         "EditItem",
     )

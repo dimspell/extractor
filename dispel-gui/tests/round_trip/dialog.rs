@@ -14,8 +14,8 @@ fn fixture_dialog_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| DialogueScript::read_file(p),
-        |records, p| DialogueScript::save_file(records, p),
+        DialogueScript::read_file,
+        DialogueScript::save_file,
         fixture,
         "Dialog",
     )

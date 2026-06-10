@@ -14,8 +14,8 @@ fn fixture_magicspell_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| MagicSpell::read_file(p),
-        |records, p| MagicSpell::save_file(records, p),
+        MagicSpell::read_file,
+        MagicSpell::save_file,
         fixture,
         "MagicSpell",
     )

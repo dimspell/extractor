@@ -1919,8 +1919,8 @@ mod tests {
         assert_eq!(PropertyFlag::from_i32(1), Some(PropertyFlag::Present));
         assert_eq!(PropertyFlag::from_i32(2), None);
 
-        assert_eq!(bool::from(PropertyFlag::Present), true);
-        assert_eq!(bool::from(PropertyFlag::Absent), false);
+        assert!(bool::from(PropertyFlag::Present));
+        assert!(!bool::from(PropertyFlag::Absent));
         assert_eq!(PropertyFlag::from(true), PropertyFlag::Present);
         assert_eq!(PropertyFlag::from(false), PropertyFlag::Absent);
     }
@@ -1980,7 +1980,7 @@ mod tests {
 
         assert_eq!(u8::from(EditItemModification::CanModify), 1);
         assert_eq!(EditItemModification::CanModify.value(), 1);
-        assert_eq!(bool::from(EditItemModification::CanModify), true);
+        assert!(bool::from(EditItemModification::CanModify));
         assert_eq!(
             EditItemModification::from(true),
             EditItemModification::CanModify
@@ -2049,7 +2049,7 @@ mod tests {
 
         assert_eq!(u8::from(HealItemFlag::FullRestoration), 1);
         assert_eq!(HealItemFlag::FullRestoration.value(), 1);
-        assert_eq!(bool::from(HealItemFlag::FullRestoration), true);
+        assert!(bool::from(HealItemFlag::FullRestoration));
         assert_eq!(HealItemFlag::from(true), HealItemFlag::FullRestoration);
     }
 
@@ -2097,7 +2097,7 @@ mod tests {
 
         assert_eq!(u32::from(MagicSpellFlag::Enabled), 1);
         assert_eq!(MagicSpellFlag::Enabled.value(), 1);
-        assert_eq!(bool::from(MagicSpellFlag::Enabled), true);
+        assert!(bool::from(MagicSpellFlag::Enabled));
         assert_eq!(MagicSpellFlag::from(true), MagicSpellFlag::Enabled);
     }
 

@@ -395,7 +395,6 @@ mod tests {
     #[derive(Debug, Clone)]
     enum TestMsg {
         Blur,
-        ButtonClick,
     }
 
     #[test]

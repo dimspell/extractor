@@ -14,8 +14,8 @@ fn fixture_event_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Event::read_file(p),
-        |records, p| Event::save_file(records, p),
+        Event::read_file,
+        Event::save_file,
         fixture,
         "Event",
     )

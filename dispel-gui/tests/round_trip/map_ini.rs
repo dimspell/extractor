@@ -14,8 +14,8 @@ fn fixture_map_ini_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| MapIni::read_file(p),
-        |records, p| MapIni::save_file(records, p),
+        MapIni::read_file,
+        MapIni::save_file,
         fixture,
         "MapIni",
     )

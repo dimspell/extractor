@@ -14,8 +14,8 @@ fn fixture_weaponitem_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| WeaponItem::read_file(p),
-        |records, p| WeaponItem::save_file(records, p),
+        WeaponItem::read_file,
+        WeaponItem::save_file,
         fixture,
         "WeaponItem",
     )

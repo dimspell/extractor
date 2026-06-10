@@ -14,8 +14,8 @@ fn fixture_npcini_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| NpcIni::read_file(p),
-        |records, p| NpcIni::save_file(records, p),
+        NpcIni::read_file,
+        NpcIni::save_file,
         fixture,
         "NpcIni",
     )

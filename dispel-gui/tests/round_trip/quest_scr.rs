@@ -14,8 +14,8 @@ fn fixture_quest_scr_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Quest::read_file(p),
-        |records, p| Quest::save_file(records, p),
+        Quest::read_file,
+        Quest::save_file,
         fixture,
         "Quest",
     )

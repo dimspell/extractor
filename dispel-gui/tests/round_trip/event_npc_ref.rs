@@ -14,8 +14,8 @@ fn fixture_eventnpc_ref_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| EventNpcRef::read_file(p),
-        |records, p| EventNpcRef::save_file(records, p),
+        EventNpcRef::read_file,
+        EventNpcRef::save_file,
         fixture,
         "EventNpcRef",
     )

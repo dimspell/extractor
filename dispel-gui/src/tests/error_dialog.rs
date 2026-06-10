@@ -20,7 +20,7 @@ mod error_dialog_tests {
     #[test]
     fn dismiss_error_clears_dialog() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::System(SystemMessage::ShowError("error".into())));
+        let _ = app.update(Message::System(SystemMessage::ShowError("error".into())));
         assert!(app.error_dialog.is_some());
 
         let task = app.update(Message::System(SystemMessage::DismissError));
@@ -39,8 +39,8 @@ mod error_dialog_tests {
     #[test]
     fn show_error_overwrites_previous() {
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::System(SystemMessage::ShowError("first".into())));
-        app.update(Message::System(SystemMessage::ShowError("second".into())));
+        let _ = app.update(Message::System(SystemMessage::ShowError("first".into())));
+        let _ = app.update(Message::System(SystemMessage::ShowError("second".into())));
         assert_eq!(app.error_dialog.as_deref(), Some("second"));
     }
 }

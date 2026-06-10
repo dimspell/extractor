@@ -623,11 +623,11 @@ fn recording_debounce_fired_multiple_distinct_keys() {
     let key_a = make_key("a.db", 0, "name");
     let key_b = make_key("b.db", 0, "name");
 
-    mod_packager::handle(
+    let _ = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key_a.clone(), "old", "new")),
         &mut app,
     );
-    mod_packager::handle(
+    let _ = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key_b.clone(), "old", "new")),
         &mut app,
     );
@@ -710,7 +710,7 @@ fn recording_debounce_fired_noop_edit_discarded() {
     let key = make_key("test.db", 0, "name");
 
     // Insert pending where old == new (user typed something then reverted)
-    mod_packager::handle(
+    let _ = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "same", "same")),
         &mut app,
     );
@@ -800,7 +800,7 @@ fn recording_stop_recording_clears_session_with_pending_entries() {
     let mut app = app_with_recording();
 
     // Add a pending entry
-    mod_packager::handle(
+    let _ = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(
             make_key("test.db", 0, "name"),
             "old",

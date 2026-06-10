@@ -79,7 +79,7 @@ mod save_dispatch_tests {
     fn test_save_non_saving_tab_shows_correct_status() {
         // SpriteViewer does not support saving.
         let mut app = app_with_tab(EditorType::SpriteViewer);
-        app.update(Message::System(SystemMessage::Save));
+        let _ = app.update(Message::System(SystemMessage::Save));
         assert_eq!(
             app.state.status_msg,
             "This editor does not support saving"
@@ -90,7 +90,7 @@ mod save_dispatch_tests {
     fn test_save_no_active_tab_shows_correct_status() {
         // No tabs open — no active tab to save.
         let mut app = App::test_new(Workspace::new());
-        app.update(Message::System(SystemMessage::Save));
+        let _ = app.update(Message::System(SystemMessage::Save));
         assert_eq!(
             app.state.status_msg,
             "No active tab to save"

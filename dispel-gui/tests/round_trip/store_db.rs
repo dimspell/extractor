@@ -14,8 +14,8 @@ fn fixture_store_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Store::read_file(p),
-        |records, p| Store::save_file(records, p),
+        Store::read_file,
+        Store::save_file,
         fixture,
         "Store",
     )

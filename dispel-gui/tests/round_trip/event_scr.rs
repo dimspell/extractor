@@ -59,8 +59,8 @@ fn fixture_event_scr_roundtrip() {
         any_run = true;
 
         round_trip_from_fixture(
-            |p| EventScript::read_file(p),
-            |records, p| EventScript::save_file(records, p),
+            EventScript::read_file,
+            EventScript::save_file,
             &fixture,
             &format!("EventScript({})", fixture_name),
         )

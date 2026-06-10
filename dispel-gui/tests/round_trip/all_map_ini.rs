@@ -14,8 +14,8 @@ fn fixture_allmap_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| Map::read_file(p),
-        |records, p| Map::save_file(records, p),
+        Map::read_file,
+        Map::save_file,
         fixture,
         "AllMap",
     )

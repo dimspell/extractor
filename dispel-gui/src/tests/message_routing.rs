@@ -92,7 +92,7 @@ mod message_routing_tests {
         let path = PathBuf::from("/game/scene.dlg");
         let _task = app.open_file_in_workspace(&path);
 
-        assert!(app.state.workspace.tabs.len() >= 1);
+        assert!(!app.state.workspace.tabs.is_empty());
 
         let tab = app.state.workspace.active().unwrap();
         assert_eq!(tab.editor_type, EditorType::DialogueScriptEditor);

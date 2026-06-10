@@ -753,12 +753,12 @@ mod tests {
             Some(gp),
         );
         assert!(
-            map1_entities.monsters.len() > 0,
+            !map1_entities.monsters.is_empty(),
             "map1 should have monsters"
         );
-        assert!(map1_entities.npcs.len() > 0, "map1 should have NPCs");
+        assert!(!map1_entities.npcs.is_empty(), "map1 should have NPCs");
         assert!(
-            map1_entities.extra_refs.len() > 0,
+            !map1_entities.extra_refs.is_empty(),
             "map1 should have extra refs"
         );
         assert_eq!(
@@ -770,7 +770,7 @@ mod tests {
 
     #[test]
     fn test_load_entities_no_game_path() {
-        let bundle = load_entities(&Path::new("Map/cat1.map"), None);
+        let bundle = load_entities(Path::new("Map/cat1.map"), None);
         assert_eq!(bundle.draw_items.len(), 0);
         assert_eq!(bundle.all_map_id, None);
         assert_eq!(bundle.monsters.len(), 0);

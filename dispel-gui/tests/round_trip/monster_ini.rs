@@ -14,8 +14,8 @@ fn fixture_monsterini_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| MonsterIni::read_file(p),
-        |records, p| MonsterIni::save_file(records, p),
+        MonsterIni::read_file,
+        MonsterIni::save_file,
         fixture,
         "MonsterIni",
     )

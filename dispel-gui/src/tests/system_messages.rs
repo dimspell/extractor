@@ -113,7 +113,7 @@ mod error_dialog {
 
 mod index_messages {
     use super::*;
-    use crate::indexation::search_index::{IndexedEntry, SearchIndex};
+    use crate::indexation::search_index::SearchIndex;
 
     #[test]
     fn index_loaded_sets_index_and_triggers_save_request() {

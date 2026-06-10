@@ -14,8 +14,8 @@ fn fixture_waveini_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| WaveIni::read_file(p),
-        |records, p| WaveIni::save_file(records, p),
+        WaveIni::read_file,
+        WaveIni::save_file,
         fixture,
         "WaveIni",
     )

@@ -644,8 +644,10 @@ mod tests {
         push_weapon_tab(&mut app);
 
         // Load a weapon into the editor
-        let mut weapon = WeaponItem::default();
-        weapon.name = "Iron Sword".to_string();
+        let weapon = WeaponItem {
+            name: "Iron Sword".to_string(),
+            ..Default::default()
+        };
         app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
         app.state.editors.weapon_editor.refresh();
         app.state.editors.weapon_editor.select(0);
@@ -676,8 +678,10 @@ mod tests {
         let mut app = App::new().0;
         push_weapon_tab(&mut app);
 
-        let mut weapon = WeaponItem::default();
-        weapon.name = "Iron Sword".to_string();
+        let weapon = WeaponItem {
+            name: "Iron Sword".to_string(),
+            ..Default::default()
+        };
         app.state.editors.weapon_editor.catalog = Some(vec![weapon]);
         app.state.editors.weapon_editor.refresh();
         app.state.editors.weapon_editor.select(0);

@@ -303,7 +303,7 @@ mod map_editor_entity_tests {
         let tab_id = 0;
 
         // Make an edit
-        map_editor::handle(
+        let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
@@ -351,7 +351,7 @@ mod map_editor_entity_tests {
         let tab_id = 0;
 
         // Edit: pos_x 100 → 150
-        map_editor::handle(
+        let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
@@ -362,7 +362,7 @@ mod map_editor_entity_tests {
         );
 
         // Undo: 150 → 100
-        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
             app.state.editors.map_editors[&tab_id]
                 .data
@@ -597,7 +597,7 @@ mod map_editor_entity_tests {
         let tab_id = 0;
 
         // Edit 1: pos_x 100 → 150
-        map_editor::handle(
+        let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
@@ -608,7 +608,7 @@ mod map_editor_entity_tests {
         );
 
         // Edit 2: pos_x 150 → 200
-        map_editor::handle(
+        let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
@@ -619,7 +619,7 @@ mod map_editor_entity_tests {
         );
 
         // Undo 1: 200 → 150
-        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
             app.state.editors.map_editors[&tab_id]
                 .data
@@ -630,7 +630,7 @@ mod map_editor_entity_tests {
         );
 
         // Undo 2: 150 → 100
-        map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
+        let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
             app.state.editors.map_editors[&tab_id]
                 .data

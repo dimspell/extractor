@@ -14,8 +14,8 @@ fn fixture_npcref_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| NPC::read_file(p),
-        |records, p| NPC::save_file(records, p),
+        NPC::read_file,
+        NPC::save_file,
         fixture,
         "NPC",
     )

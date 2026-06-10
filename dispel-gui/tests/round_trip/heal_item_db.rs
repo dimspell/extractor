@@ -14,8 +14,8 @@ fn fixture_healitem_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| HealItem::read_file(p),
-        |records, p| HealItem::save_file(records, p),
+        HealItem::read_file,
+        HealItem::save_file,
         fixture,
         "HealItem",
     )

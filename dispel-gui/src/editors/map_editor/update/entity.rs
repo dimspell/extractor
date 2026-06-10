@@ -404,7 +404,7 @@ mod tests {
         );
 
         let state = app.state.editors.map_editors.get(&tab_id).unwrap();
-        assert_eq!(state.data.dirty, false);
+        assert!(!state.data.dirty);
         assert_eq!(state.data.undo_stack.len(), 0);
     }
 
@@ -421,7 +421,7 @@ mod tests {
         );
 
         let state = app.state.editors.map_editors.get(&tab_id).unwrap();
-        assert_eq!(state.data.dirty, false, "no undo when value unchanged");
+        assert!(!state.data.dirty, "no undo when value unchanged");
         assert_eq!(state.data.undo_stack.len(), 0);
     }
 

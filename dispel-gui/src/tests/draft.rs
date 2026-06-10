@@ -25,8 +25,8 @@ mod draft_tests {
         let mut app = App::test_new(Workspace::new());
         let initially_enabled = app.draft_manager.is_auto_save_enabled();
 
-        app.update(Message::System(SystemMessage::ToggleAutoSave));
-        app.update(Message::System(SystemMessage::ToggleAutoSave));
+        let _ = app.update(Message::System(SystemMessage::ToggleAutoSave));
+        let _ = app.update(Message::System(SystemMessage::ToggleAutoSave));
         assert_eq!(
             app.draft_manager.is_auto_save_enabled(),
             initially_enabled,

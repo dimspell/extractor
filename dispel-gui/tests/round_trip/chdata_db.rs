@@ -14,8 +14,8 @@ fn fixture_chdata_roundtrip() {
     }
 
     round_trip_from_fixture(
-        |p| ChData::read_file(p),
-        |records, p| ChData::save_file(records, p),
+        ChData::read_file,
+        ChData::save_file,
         fixture,
         "ChData",
     )

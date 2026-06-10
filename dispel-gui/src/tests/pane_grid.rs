@@ -11,7 +11,7 @@ mod pane_grid_tests {
         assert!(app.sidebar_visible, "sidebar visible by default");
 
         // Hide sidebar
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
         assert!(!app.sidebar_visible, "sidebar hidden");
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -20,7 +20,7 @@ mod pane_grid_tests {
         );
 
         // Show sidebar again
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
         assert!(app.sidebar_visible, "sidebar shown again");
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -34,8 +34,8 @@ mod pane_grid_tests {
         let mut app = App::test_new(Workspace::new());
         let panes_before = app.state.pane_state.state.len();
 
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
 
         assert!(app.sidebar_visible);
         assert_eq!(
@@ -51,7 +51,7 @@ mod pane_grid_tests {
         assert!(!app.history_panel_visible, "history hidden by default");
 
         // Show history panel
-        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
         assert!(app.history_panel_visible);
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -60,7 +60,7 @@ mod pane_grid_tests {
         );
 
         // Hide history panel
-        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
         assert!(!app.history_panel_visible);
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -74,11 +74,11 @@ mod pane_grid_tests {
         let mut app = App::test_new(Workspace::new());
 
         // Hide sidebar first
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
         assert_eq!(app.state.pane_state.state.len(), 1, "only main content");
 
         // Show history panel (should split the single main pane)
-        app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
         assert!(app.history_panel_visible);
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -87,7 +87,7 @@ mod pane_grid_tests {
         );
 
         // Show sidebar again (should rebuild with all three)
-        app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
         assert!(app.sidebar_visible);
         assert_eq!(
             app.state.pane_state.state.len(),
@@ -101,13 +101,13 @@ mod pane_grid_tests {
         let mut app = App::test_new(Workspace::new());
         assert!(app.state.pane_state.maximized.is_none(), "not maximized");
 
-        app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
         assert!(
             app.state.pane_state.maximized.is_some(),
             "maximized after toggle"
         );
 
-        app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleMaximizePane));
         assert!(
             app.state.pane_state.maximized.is_none(),
             "restored after second toggle"
@@ -129,7 +129,7 @@ mod pane_grid_tests {
             .map(|(id, _)| *id)
             .expect("at least two panes in default layout");
 
-        app.update(Message::Workspace(WorkspaceMessage::PaneClicked(other_pane)));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::PaneClicked(other_pane)));
         assert_eq!(
             app.state.pane_state.focus,
             other_pane,
@@ -146,7 +146,7 @@ mod pane_grid_tests {
 
         use iced::widget::pane_grid::ResizeEvent;
         let event = ResizeEvent { split, ratio: 0.3 };
-        app.update(Message::Workspace(WorkspaceMessage::PaneResized(event)));
+        let _ = app.update(Message::Workspace(WorkspaceMessage::PaneResized(event)));
         // If we get here without panicking, the resize was handled
     }
 
@@ -165,7 +165,7 @@ mod pane_grid_tests {
         assert!(panes.len() >= 2, "at least two panes");
 
         use iced::widget::pane_grid::{DragEvent, Target};
-        app.update(Message::Workspace(WorkspaceMessage::PaneDragged(
+        let _ = app.update(Message::Workspace(WorkspaceMessage::PaneDragged(
             DragEvent::Dropped {
                 pane: panes[1],
                 target: Target::Pane(panes[0], iced::widget::pane_grid::Region::Center),
