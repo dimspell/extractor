@@ -108,9 +108,17 @@ fn inspector_row(
     } else {
         Space::default().width(Length::Fixed(16.0)).into()
     };
-    let copy_btn = button(text("c").size(10).font(Font::MONOSPACE))
-        .padding([0, 4])
-        .on_press(HexEditorMessage::CopyInspectorValue(idx));
+    // Copy button only when the value is actually decoded; hidden when it's
+    // a "—" placeholder (insufficient bytes at cursor).
+    let can_copy = value != "—";
+    let copy_btn: Element<'static, HexEditorMessage> = if can_copy {
+        button(text("c").size(10).font(Font::MONOSPACE))
+            .padding([0, 4])
+            .on_press(HexEditorMessage::CopyInspectorValue(idx))
+            .into()
+    } else {
+        Space::default().width(Length::Fixed(16.0)).into()
+    };
     row![
         container(text(name.to_string()).size(10).font(Font::MONOSPACE)).width(Length::Fixed(60.0)),
         container(text(value.to_string()).size(11).font(Font::MONOSPACE)).width(Fill),

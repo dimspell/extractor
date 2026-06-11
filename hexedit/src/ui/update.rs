@@ -5,6 +5,7 @@ use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
 use crate::inspector::ENTRIES;
 use crate::message::HexEditorMessage;
+use crate::search::parse_hex_query;
 use crate::selection::nav_target;
 use crate::HexProvider;
 
@@ -338,6 +339,54 @@ pub fn update(
         // ── Address format ──────────────────────────────────────────────
         HexEditorMessage::ToggleAddrFormat => {
             state.show_decimal = !state.show_decimal;
+        }
+
+        // ── Copy / Paste ─────────────────────────────────────────────────
+        HexEditorMessage::CopySelection => {
+            if state.provider.is_empty() {
+                return Task::none();
+            }
+            let start = state.selection.start();
+            let end = state.selection.end();
+            let bytes = state.provider.read(start..end.saturating_add(1));
+            if bytes.is_empty() {
+                return Task::none();
+            }
+            let hex_str = bytes
+                .iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            let n = bytes.len();
+            state.status_msg = format!("Copied {} byte(s) to clipboard", n);
+            return clipboard::write(hex_str);
+        }
+
+        HexEditorMessage::Paste => {
+            if state.provider.is_empty() {
+                return Task::none();
+            }
+            return clipboard::read().map(|contents| {
+                HexEditorMessage::PasteContent(contents.unwrap_or_default())
+            });
+        }
+
+        HexEditorMessage::PasteContent(contents) => {
+            if state.provider.is_empty() {
+                return Task::none();
+            }
+            let bytes = match parse_hex_query(&contents) {
+                Some(b) if !b.is_empty() => b,
+                _ => {
+                    state.status_msg =
+                        "Clipboard doesn't contain valid hex bytes".to_string();
+                    return Task::none();
+                }
+            };
+            let addr = state.selection.cursor;
+            state.provider.write(addr, &bytes);
+            state.recompute_vanilla_diff();
+            state.status_msg = format!("Pasted {} byte(s)", bytes.len());
         }
     }
     Task::none()

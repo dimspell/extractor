@@ -114,6 +114,8 @@ pub struct HexMatrix<'a, Message> {
     on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_goto: Option<Box<dyn Fn() -> Message + 'a>>,
     on_open_search: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_copy_selection: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_paste: Option<Box<dyn Fn() -> Message + 'a>>,
     show_decimal: bool,
     on_toggle_addr_format: Option<Box<dyn Fn() -> Message + 'a>>,
 }
@@ -161,6 +163,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_create_pattern: None,
             on_open_goto: None,
             on_open_search: None,
+            on_copy_selection: None,
+            on_paste: None,
             show_decimal: false,
             on_toggle_addr_format: None,
         }
@@ -223,6 +227,16 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_open_search(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_open_search = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_copy_selection(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_copy_selection = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_paste(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_paste = Some(Box::new(f));
         self
     }
 
@@ -844,6 +858,28 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "f")
                 {
                     if let Some(cb) = &self.on_open_search {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Ctrl+C copies the selected byte range as hex text.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "c")
+                {
+                    if let Some(cb) = &self.on_copy_selection {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // Ctrl+V pastes hex bytes from the clipboard.
+                if (modifiers.control() || modifiers.command())
+                    && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "v")
+                {
+                    if let Some(cb) = &self.on_paste {
                         shell.publish(cb());
                         shell.capture_event();
                         return;

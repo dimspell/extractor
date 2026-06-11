@@ -82,6 +82,8 @@ pub fn view<'a>(
     .on_create_pattern(|| HexEditorMessage::CreatePattern)
     .on_open_goto(|| HexEditorMessage::OpenGotoDialog)
     .on_open_search(|| HexEditorMessage::OpenSearch)
+    .on_copy_selection(|| HexEditorMessage::CopySelection)
+    .on_paste(|| HexEditorMessage::Paste)
     .show_decimal(state.show_decimal)
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .into();

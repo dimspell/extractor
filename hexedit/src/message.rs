@@ -101,4 +101,12 @@ pub enum HexEditorMessage {
     // ── Address format ──────────────────────────────────────────────────
     /// Toggle between hex and decimal address display.
     ToggleAddrFormat,
+
+    // ── Copy / Paste ────────────────────────────────────────────────────
+    /// Copy the selected byte range as hex text to the clipboard.
+    CopySelection,
+    /// Read clipboard contents for paste (triggers async clipboard read).
+    Paste,
+    /// Async result: clipboard contents to paste as hex bytes.
+    PasteContent(String),
 }
