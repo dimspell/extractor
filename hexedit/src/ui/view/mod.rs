@@ -105,12 +105,10 @@ pub fn view<'a>(
         pattern_menu_entries.push(MenuEntry::disabled("Create Pattern"));
     }
     if clicked_on_pattern {
-        if let Some(addr) = state.context_menu_addr {
-            pattern_menu_entries.push(MenuEntry::item(
-                "Remove Pattern",
-                HexEditorMessage::RemovePatternAt(addr),
-            ));
-        }
+        pattern_menu_entries.push(MenuEntry::item(
+            "Remove Pattern",
+            HexEditorMessage::RemovePatternAtContextMenu,
+        ));
     }
     if has_patterns {
         pattern_menu_entries.push(MenuEntry::item(

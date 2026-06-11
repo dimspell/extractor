@@ -60,6 +60,9 @@ pub enum HexEditorMessage {
     CreatePattern,
     /// Remove pattern at a specific address.
     RemovePatternAt(u64),
+    /// Remove pattern at `context_menu_addr` — used by the context menu to
+    /// avoid baking stale addresses into native menu entries.
+    RemovePatternAtContextMenu,
     /// Clear all patterns.
     ClearAllPatterns,
     /// Right-click at a specific address — used to determine which context

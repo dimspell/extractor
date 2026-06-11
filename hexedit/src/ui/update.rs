@@ -315,6 +315,13 @@ pub fn update(
                 state.remove_pattern(id);
             }
         }
+        HexEditorMessage::RemovePatternAtContextMenu => {
+            if let Some(addr) = state.context_menu_addr {
+                if let Some(id) = state.pattern_id_at(addr) {
+                    state.remove_pattern(id);
+                }
+            }
+        }
         HexEditorMessage::ClearAllPatterns => {
             state.clear_patterns();
             state.status_msg = "All patterns cleared".to_string();
