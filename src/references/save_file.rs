@@ -837,22 +837,25 @@ impl SaveFile {
 
     /// Best-effort: find character_data_start in pre-events area.
     ///
-    /// Character data starts after sprite paths (244 bytes). We scan backward
-    /// from events_start for "inter\\" (start of first sprite path) to locate
-    /// the sprite paths block, then character_data starts right after it.
+    /// Character data starts after sprite paths (248 bytes: 2×u32 header + 4×60B
+    /// null-terminated paths). We scan backward from events_start for "inter\\"
+    /// (the start of the first sprite path) to locate the sprite paths block,
+    /// then character_data starts right after it.
     fn find_character_data_start(data: &[u8], events_start: usize) -> Option<usize> {
         let sprite_marker = b"inter\\";
-        // Scan backward from events_start - 244 (minimum) up to ~50K before
-        let scan_end = events_start.saturating_sub(50000);
-        let scan_begin = events_start.saturating_sub(244);
-        let mut pos = scan_begin.wrapping_sub(1); // start at scan_begin-1, go backward
-        while pos > scan_end {
+        // Scan backward from events_start to the start of remaining_data,
+        // looking for the closest "inter\\" before events.
+        let mut pos = events_start.wrapping_sub(1);
+        while pos > 0 {
             if pos + 6 <= data.len() && &data[pos..pos + 6] == sprite_marker {
-                // Found "inter\\" — sprite paths are 244 bytes: u32(separator) + 4×60B
-                // The u32 separator is 4 bytes before the first sprite path
-                // So character_data starts at pos - 4 + 244 = pos + 240
+                // Found "inter\\" — the first sprite path string starts here.
+                // Sprite paths block: [u32(count)][u32(?)][4×60B paths] = 8 + 240 = 248 bytes.
+                // Character data starts right after the sprite paths.
+                //
+                // "inter\\" is at byte 8 of the sprite block (after the two u32s).
+                // So sprite_block_start = pos - 8 and cd_start = pos - 8 + 248 = pos + 240.
                 let cd_start = pos + 240;
-                if cd_start <= events_start && cd_start + 116 <= data.len() {
+                if cd_start <= events_start && cd_start + 118 <= data.len() {
                     return Some(cd_start);
                 }
             }
@@ -863,14 +866,14 @@ impl SaveFile {
 
     /// Best-effort: parse character data from remaining_data into structured fields.
     ///
-    /// Layout: `[4B pad][40B details][26B attr][46B extra][inventory var][96B zero block][11B name]...`
+    /// Layout: `[4B pad][40B details][28B attrs][46B extra][inventory var][96B zero block][11B name]...`
     fn extract_character_data(data: &[u8], start: usize,
         character_details: &mut Vec<u8>,
         player_attributes: &mut PlayerAttributes,
         extra_character_data: &mut Vec<u8>,
         character_unknown_block: &mut Vec<u8>)
     {
-        if start + 116 > data.len() {
+        if start + 118 > data.len() {
             return;
         }
         // 4 bytes padding (skip)
@@ -878,15 +881,15 @@ impl SaveFile {
         let mut details = vec![0u8; 40];
         details.copy_from_slice(&data[start + 4..start + 44]);
         *character_details = details;
-        // 26 bytes player attributes
-        let mut attr_buf = [0u8; 26];
-        attr_buf.copy_from_slice(&data[start + 44..start + 70]);
+        // 28 bytes player attributes (9 × u16 + 1 × u32 + 1 × u16 + 1 × u32)
+        let mut attr_buf = [0u8; 28];
+        attr_buf.copy_from_slice(&data[start + 44..start + 72]);
         if let Ok(pa) = PlayerAttributes::parse(&attr_buf) {
             *player_attributes = pa;
         }
         // 46 bytes extra character data
         let mut extra = vec![0u8; 46];
-        extra.copy_from_slice(&data[start + 70..start + 116]);
+        extra.copy_from_slice(&data[start + 72..start + 118]);
         *extra_character_data = extra;
         // character_unknown_block (96 bytes after inventory) — we scan for it
         // the 96-byte block is preceded by inventory of unknown size,
