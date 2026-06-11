@@ -10,42 +10,65 @@ use std::io::{Read, Seek, Write};
 
 use super::extractor::Extractor;
 
-/// Item type identifiers for inventory items
+/// Container identifiers for inventory storage locations.
+///
+/// The 4-byte type field in save file 272B inventory records encodes
+/// the storage container (byte 0) and slot index within the container (byte 2).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
-pub enum SaveItemType {
-    /// Weapon item (attack > 0, defense = 0)
-    Weapon = 1,
-    /// Healing item (potions, antidotes)
+pub enum InventoryContainer {
+    /// Backpack page 0 (first 20 slots)
+    BackpackPage0 = 1,
+    /// Backpack page 1 (next 20 slots)
     #[default]
-    Healing = 2,
-    /// Edit item (scrolls, books, modifiable items)
-    Edit = 3,
-    /// Event-specific item (quest keys, etc.)
-    Event = 4,
-    /// Miscellaneous item (coins, gems, etc.)
-    Misc = 5,
+    BackpackPage1 = 2,
+    /// Backpack page 2 (next 20 slots)
+    BackpackPage2 = 3,
+    /// Potion belt (6 dedicated slots for healing items)
+    PotionBelt = 4,
+    /// Equipment slots (weapon, armor, accessories)
+    Equipment = 5,
     /// Other/Unknown (catch-all)
     Other = 255,
 }
 
-impl SaveItemType {
+impl InventoryContainer {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            1 => Some(SaveItemType::Weapon),
-            2 => Some(SaveItemType::Healing),
-            3 => Some(SaveItemType::Edit),
-            4 => Some(SaveItemType::Event),
-            5 => Some(SaveItemType::Misc),
-            255 => Some(SaveItemType::Other),
+            1 => Some(InventoryContainer::BackpackPage0),
+            2 => Some(InventoryContainer::BackpackPage1),
+            3 => Some(InventoryContainer::BackpackPage2),
+            4 => Some(InventoryContainer::PotionBelt),
+            5 => Some(InventoryContainer::Equipment),
+            255 => Some(InventoryContainer::Other),
             _ => None,
         }
     }
 
     /// Get the numeric value
-    pub fn value(&self) -> u8 {
-        *self as u8
+    pub fn to_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+/// Full inventory position encoding the storage container and slot index.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventorySlot {
+    pub container: InventoryContainer,
+    /// Slot/position index within the container (byte 2 of the raw field)
+    pub slot: u8,
+    /// The full 4-byte raw type value from the save file
+    pub raw: u32,
+}
+
+impl InventorySlot {
+    /// Parse an inventory slot from the 4-byte type field.
+    pub fn parse(type_val: u32) -> Self {
+        let container = InventoryContainer::from_u8((type_val & 0xFF) as u8)
+            .unwrap_or(InventoryContainer::BackpackPage1);
+        let slot = ((type_val >> 16) & 0xFF) as u8;
+        InventorySlot { container, slot, raw: type_val }
     }
 }
 
@@ -116,8 +139,10 @@ const INVENTORY_RECORD_SIZE: usize = 4 + 30 + 234 + 4; // 272
 /// Inventory item record from save file
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryItem {
-    /// Item type identifier
-    pub item_type: SaveItemType,
+    /// Inventory slot information (container + slot index)
+    pub slot: InventorySlot,
+    /// Whether this is a quest item (no standard header, name-only)
+    pub is_quest: bool,
     /// Item name (decoded from WINDOWS-1250)
     pub name: String,
     /// Item description (decoded from WINDOWS-1250)
@@ -129,7 +154,7 @@ pub struct InventoryItem {
 impl InventoryItem {
     /// Whether this is a quest item (no standard header, name-only)
     pub fn is_quest(&self) -> bool {
-        self.item_type == SaveItemType::Event && self.price == 0 && self.description.is_empty()
+        self.is_quest
     }
 
     /// Extract readable CP1250 text from a fixed-size buffer.
@@ -189,7 +214,7 @@ impl InventoryItem {
 /// Potion belt slot (6 dedicated slots for healing items)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PotionSlot {
-    pub item_type: SaveItemType,
+    pub container: InventoryContainer,
     pub item_id: u32,
     pub quantity: u16,
     pub name: String,
@@ -208,7 +233,7 @@ impl PotionSlot {
         reader.read_u16::<LittleEndian>()?;
 
         let item_type_id = (field_a & 0xFF) as u8;
-        let item_type = SaveItemType::from_u8(item_type_id).unwrap_or(SaveItemType::Healing);
+        let container = InventoryContainer::from_u8(item_type_id).unwrap_or(InventoryContainer::BackpackPage1);
 
         let mut name_bytes = Vec::new();
         loop {
@@ -221,7 +246,7 @@ impl PotionSlot {
         let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
 
         Ok(PotionSlot {
-            item_type,
+            container,
             item_id: field_b,
             quantity,
             name: name.to_string(),
@@ -914,7 +939,7 @@ impl SaveFile {
                 );
                 let item_type_id = (type_val & 0xFF) as u8;
 
-                if let Some(item_type) = SaveItemType::from_u8(item_type_id) {
+                if let Some(container) = InventoryContainer::from_u8(item_type_id) {
                     let name_buf = &inv[pos + 4..pos + 4 + 30];
                     let desc_buf = &inv[pos + 4 + 30..pos + 4 + 30 + 234];
                     let name = InventoryItem::extract_name_or_desc(name_buf, desc_buf);
@@ -929,8 +954,11 @@ impl SaveFile {
                             ..pos + 4 + 30 + 234 + 4].try_into().unwrap();
                         let price = i32::from_le_bytes(price_bytes);
 
+                        let slot = ((type_val >> 16) & 0xFF) as u8;
+
                         items.push(InventoryItem {
-                            item_type,
+                            slot: InventorySlot { container, slot, raw: type_val },
+                            is_quest: false,
                             name,
                             description,
                             price,
@@ -951,7 +979,8 @@ impl SaveFile {
             if name_end > pos && name_end < inv.len() {
                 let (name, _, _) = WINDOWS_1250.decode(&inv[pos..name_end]);
                 items.push(InventoryItem {
-                    item_type: SaveItemType::Event,
+                    slot: InventorySlot { container: InventoryContainer::BackpackPage0, slot: 0, raw: 0 },
+                    is_quest: true,
                     name: name.to_string(),
                     description: String::new(),
                     price: 0,
@@ -1213,15 +1242,15 @@ mod tests {
     }
 
     #[test]
-    fn test_save_item_type_conversion() {
-        assert_eq!(SaveItemType::from_u8(1), Some(SaveItemType::Weapon));
-        assert_eq!(SaveItemType::from_u8(2), Some(SaveItemType::Healing));
-        assert_eq!(SaveItemType::from_u8(3), Some(SaveItemType::Edit));
-        assert_eq!(SaveItemType::from_u8(4), Some(SaveItemType::Event));
-        assert_eq!(SaveItemType::from_u8(5), Some(SaveItemType::Misc));
-        assert_eq!(SaveItemType::from_u8(255), Some(SaveItemType::Other));
-        assert_eq!(SaveItemType::from_u8(0), None);
-        assert_eq!(SaveItemType::from_u8(99), None);
+    fn test_inventory_container_conversion() {
+        assert_eq!(InventoryContainer::from_u8(1), Some(InventoryContainer::BackpackPage0));
+        assert_eq!(InventoryContainer::from_u8(2), Some(InventoryContainer::BackpackPage1));
+        assert_eq!(InventoryContainer::from_u8(3), Some(InventoryContainer::BackpackPage2));
+        assert_eq!(InventoryContainer::from_u8(4), Some(InventoryContainer::PotionBelt));
+        assert_eq!(InventoryContainer::from_u8(5), Some(InventoryContainer::Equipment));
+        assert_eq!(InventoryContainer::from_u8(255), Some(InventoryContainer::Other));
+        assert_eq!(InventoryContainer::from_u8(0), None);
+        assert_eq!(InventoryContainer::from_u8(99), None);
     }
 
     #[test]
@@ -1531,8 +1560,8 @@ mod tests {
             assert!(!save.inventory_items.is_empty(),
                 "{path}: no inventory items extracted");
             // First item should be a quest item (Event type)
-            assert_eq!(save.inventory_items[0].item_type, SaveItemType::Event,
-                "{path}: first item should be quest/Event type");
+            assert!(save.inventory_items[0].is_quest,
+                "{path}: first item should be quest item");
 
             eprintln!("  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
                 save.player_name, save.player_class_name, save.player_class_id,
