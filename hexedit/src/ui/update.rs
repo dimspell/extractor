@@ -1,4 +1,4 @@
-use iced::Task;
+use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
 use crate::editing::{EditState, InspectorEditState};
@@ -135,6 +135,7 @@ pub fn update(
                 if len - cursor >= entry.min_size as u64 {
                     let decoded = (entry.decode)(bytes);
                     state.status_msg = format!("Copied: {decoded}");
+                    return clipboard::write(decoded);
                 }
             }
         }
