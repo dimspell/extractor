@@ -88,12 +88,14 @@ pub fn view<'a>(
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .into();
 
+    // Use cursor (not context_menu_addr) so the check is accurate even on
+    // the first frame: left-click moves cursor synchronously before view runs,
+    // and right-click also publishes SelectAt to move cursor.
+    let have_pattern_at_addr = state.pattern_id_at(state.selection.cursor).is_some();
     let pattern_menu_entries = build_pattern_menu_entries(
         !state.selection.is_single(),
         !state.patterns.is_empty(),
-        state
-            .context_menu_addr
-            .is_some_and(|addr| state.pattern_id_at(addr).is_some()),
+        have_pattern_at_addr,
     );
 
     let matrix = ContextMenu::new(matrix, pattern_menu_entries);
