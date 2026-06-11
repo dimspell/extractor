@@ -775,86 +775,83 @@ impl SaveFile {
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
     ///
     /// Layout: `[96-byte block (mostly zero)][name 11B][class_id i16][class_name 11B]`
-    /// The 96-byte block typically has ~70+ zero bytes. We scan the entire
-    /// remaining_data for this pattern.
+    /// The 96-byte block typically has ~70+ zero bytes.
+    ///
+    /// We scan BACKWARD from the end because the player identity block is always
+    /// the LAST section before events_start — the closest match to the end wins.
     fn extract_player_identity(data: &[u8], name: &mut String, class_id: &mut i16, class_name: &mut String) {
         if data.len() < 150 {
             return;
         }
-        let scan_end = data.len().saturating_sub(120);
-        let mut offset = 0usize;
-        while offset < scan_end {
-            // Look for 96 bytes where ≥70 are zero
+        // Scan backward from (data.len() - 120) down to 0
+        let max = data.len().saturating_sub(120);
+        for offset in (0..=max).rev() {
+            // Look for 96 bytes where ≥72 are zero (stricter than 70 to filter noise)
             let zero_count = data[offset..offset + 96].iter().filter(|&&b| b == 0).count();
-            if zero_count < 70 {
-                offset += 1;
-                continue;
+            if zero_count >= 72 {
+                let after_block = &data[offset + 96..];
+                // 11-byte name field (null-terminated WINDOWS-1250)
+                let name_raw = &after_block[..11];
+                let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(11);
+                if name_len >= 3 && name_len <= 10 {
+                    // Name must start with ASCII uppercase letter (A-Z)
+                    if name_raw[0] >= 0x41 && name_raw[0] <= 0x5A {
+                        // Name chars: printable ASCII or extended Latin
+                        if name_raw[..name_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                            // class_id: i16 at offset 11
+                            let cid = i16::from_le_bytes([after_block[11], after_block[12]]);
+                            if cid >= 1 && cid <= 12 {
+                                // 11-byte class name field at offset 13
+                                let cls_raw = &after_block[13..24];
+                                let cls_len = cls_raw.iter().position(|&b| b == 0).unwrap_or(11);
+                                if cls_len >= 3 && cls_len <= 10 {
+                                    if cls_raw[..cls_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                                        // Found! Decode and populate.
+                                        let (decoded_name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
+                                        let (decoded_cls, _, _) = WINDOWS_1250.decode(&cls_raw[..cls_len]);
+                                        *name = decoded_name.to_string();
+                                        *class_id = cid;
+                                        *class_name = decoded_cls.to_string();
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            let after_block = &data[offset + 96..];
-            if after_block.len() < 24 {
-                offset += 1;
-                continue;
-            }
-            // 11-byte name field (null-terminated WINDOWS-1250)
-            let name_raw = &after_block[..11];
-            let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(11);
-            if name_len < 2 || name_len > 10 {
-                offset += 1;
-                continue;
-            }
-            // Name chars must be printable ASCII or extended Latin
-            if !name_raw[..name_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
-                offset += 1;
-                continue;
-            }
-            // class_id: i16 at offset 11
-            let cid = i16::from_le_bytes([after_block[11], after_block[12]]);
-            if cid < 1 || cid > 12 {
-                offset += 1;
-                continue;
-            }
-            // 11-byte class name field at offset 13
-            let cls_raw = &after_block[13..24];
-            let cls_len = cls_raw.iter().position(|&b| b == 0).unwrap_or(11);
-            if cls_len < 3 || cls_len > 10 {
-                offset += 1;
-                continue;
-            }
-            // Class name chars must also be printable
-            if !cls_raw[..cls_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
-                offset += 1;
-                continue;
-            }
-            // Found! Decode and populate.
-            let (decoded_name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
-            let (decoded_cls, _, _) = WINDOWS_1250.decode(&cls_raw[..cls_len]);
-            *name = decoded_name.to_string();
-            *class_id = cid;
-            *class_name = decoded_cls.to_string();
-            return;
         }
     }
 
     /// Best-effort: find character_data_start in pre-events area.
     ///
-    /// Character data starts after sprite paths (248 bytes: 2×u32 header + 4×60B
-    /// null-terminated paths). We scan backward from events_start for "inter\\"
-    /// (the start of the first sprite path) to locate the sprite paths block,
-    /// then character_data starts right after it.
+    /// Character data starts after the sprite paths block. The block has:
+    ///   [u32(?=7)][u32(?=7)][4×60B null-terminated sprite paths] = 248 bytes
+    ///
+    /// The first 2 paths use "inter\\..." prefix; paths 2-3 use "CharacterInGame\\..."
+    /// We scan backward from events_start for any "inter\\" occurrence, then walk
+    /// backward by 60-byte intervals (the path stride) to find the first path in
+    /// the block. Character data starts at first_path_offset + 240.
     fn find_character_data_start(data: &[u8], events_start: usize) -> Option<usize> {
         let sprite_marker = b"inter\\";
-        // Scan backward from events_start to the start of remaining_data,
-        // looking for the closest "inter\\" before events.
         let mut pos = events_start.wrapping_sub(1);
-        while pos > 0 {
-            if pos + 6 <= data.len() && &data[pos..pos + 6] == sprite_marker {
-                // Found "inter\\" — the first sprite path string starts here.
-                // Sprite paths block: [u32(count)][u32(?)][4×60B paths] = 8 + 240 = 248 bytes.
-                // Character data starts right after the sprite paths.
-                //
-                // "inter\\" is at byte 8 of the sprite block (after the two u32s).
-                // So sprite_block_start = pos - 8 and cd_start = pos - 8 + 248 = pos + 240.
-                let cd_start = pos + 240;
+        while pos > 0 && pos + 6 <= data.len() {
+            if &data[pos..pos + 6] == sprite_marker {
+                // Found "inter\\" — this is one of the first two sprite paths.
+                // Walk backward by 60-byte intervals to find the FIRST path.
+                let mut first = pos;
+                while first >= 60 {
+                    let prev = first - 60;
+                    if &data[prev..prev + 6] == sprite_marker {
+                        first = prev;
+                    } else {
+                        break;
+                    }
+                }
+                // first is the earliest "inter\\" in this consecutive block.
+                // The sprite block header (8 bytes) is before first.
+                // Total block = 8 + 240 = 248 bytes, so cd = first - 8 + 248 = first + 240.
+                let cd_start = first + 240;
                 if cd_start <= events_start && cd_start + 118 <= data.len() {
                     return Some(cd_start);
                 }
@@ -866,30 +863,51 @@ impl SaveFile {
 
     /// Best-effort: parse character data from remaining_data into structured fields.
     ///
-    /// Layout: `[4B pad][40B details][28B attrs][46B extra][inventory var][96B zero block][11B name]...`
+    /// Layout in save files (observed for nuno-0.sav):
+    ///   `[4B pad][40B details][24B save-attrs][46B extra][inventory var][96B zero block][11B name]...`
+    ///
+    /// The save-file attribute layout (24 bytes) uses a DIFFERENT field order
+    /// than PlayerAttributes (28 bytes). Specifically the save has NO MP fields
+    /// in this block and XP/LVL/GOLD are at different offsets:
+    ///
+    ///   Save:    STR/DEX/WIS/CON/LCK/HP_CUR/HP_MAX(7×u16=14B) + XP(u32=4B) + LVL(u16=2B) + GOLD(u32=4B) = 24B
+    ///   Struct:  STR/DEX/WIS/CON/LCK/HP_CUR/HP_MAX/MP_CUR/MP_MAX(9×u16=18B) + XP(u32=4B) + LVL(u16=2B) + GOLD(u32=4B) = 28B
+    ///
+    /// We manually map because the struct expects MP fields between HP and XP.
     fn extract_character_data(data: &[u8], start: usize,
         character_details: &mut Vec<u8>,
         player_attributes: &mut PlayerAttributes,
         extra_character_data: &mut Vec<u8>,
         character_unknown_block: &mut Vec<u8>)
     {
-        if start + 118 > data.len() {
+        if start + 114 > data.len() {
             return;
         }
+        *character_unknown_block = Vec::new(); // not populated yet
         // 4 bytes padding (skip)
         // 40 bytes character details
         let mut details = vec![0u8; 40];
         details.copy_from_slice(&data[start + 4..start + 44]);
         *character_details = details;
-        // 28 bytes player attributes (9 × u16 + 1 × u32 + 1 × u16 + 1 × u32)
-        let mut attr_buf = [0u8; 28];
-        attr_buf.copy_from_slice(&data[start + 44..start + 72]);
-        if let Ok(pa) = PlayerAttributes::parse(&attr_buf) {
-            *player_attributes = pa;
-        }
-        // 46 bytes extra character data
+        // 24 bytes save attributes — manually map to PlayerAttributes
+        let save_attrs = &data[start + 44..start + 68];
+        let mut pa = PlayerAttributes::default();
+        pa.strength = u16::from_le_bytes([save_attrs[0], save_attrs[1]]);
+        pa.dexterity = u16::from_le_bytes([save_attrs[2], save_attrs[3]]);
+        pa.wisdom = u16::from_le_bytes([save_attrs[4], save_attrs[5]]);
+        pa.constitution = u16::from_le_bytes([save_attrs[6], save_attrs[7]]);
+        pa.unknown_stat = u16::from_le_bytes([save_attrs[8], save_attrs[9]]);
+        pa.hp_current = u16::from_le_bytes([save_attrs[10], save_attrs[11]]);
+        pa.hp_maximum = u16::from_le_bytes([save_attrs[12], save_attrs[13]]);
+        // Save has no MP fields; XP at bytes 14-17 as u32, LVL at bytes 18-19, GOLD at bytes 20-23 as u32
+        pa.xp_current = u32::from_le_bytes([save_attrs[14], save_attrs[15], save_attrs[16], save_attrs[17]]);
+        pa.level = u16::from_le_bytes([save_attrs[18], save_attrs[19]]);
+        pa.gold = u32::from_le_bytes([save_attrs[20], save_attrs[21], save_attrs[22], save_attrs[23]]);
+        // MP fields stay at 0 (not present in save attrs block)
+        *player_attributes = pa;
+        // 46 bytes extra character data (unknown structure)
         let mut extra = vec![0u8; 46];
-        extra.copy_from_slice(&data[start + 72..start + 118]);
+        extra.copy_from_slice(&data[start + 68..start + 114]);
         *extra_character_data = extra;
         // character_unknown_block (96 bytes after inventory) — we scan for it
         // the 96-byte block is preceded by inventory of unknown size,
@@ -1348,5 +1366,106 @@ mod tests {
     #[test]
     fn round_trip_2_sav() {
         run_round_trip("2.sav");
+    }
+
+    /// Debug: trace the character data scan for all saves
+    #[test]
+    fn debug_character_data_scan() {
+        for path in ["nuno-0.sav", "0.sav", "2.sav", "1.sav"] {
+            let data = std::fs::read(path).unwrap();
+            let save = SaveFile::parse(&data).unwrap();
+            let remaining = &save.remaining_data;
+            const TAIL: usize = 2251 * 284 + 114 + 3 * 100 * 37;
+
+            let events_start = remaining.len() - TAIL;
+            eprintln!("\n=== {path} ===");
+            // Find the false positive player identity offset
+            let marker = b"inter\\";
+            let mut occ = Vec::new();
+            for pos in 0..events_start.saturating_sub(6) {
+                if &remaining[pos..pos+6] == marker {
+                    occ.push(pos);
+                }
+            }
+            let closest = occ.iter().max();
+            match closest {
+                Some(&pos) => eprintln!("  inter\\\\ closest={} (dist={})", pos, events_start - pos),
+                None => eprintln!("  No inter\\\\ found before events_start!"),
+            }
+            eprintln!("  Player '{}' class='{}' id={} char_details={}B events={}",
+                save.player_name, save.player_class_name, save.player_class_id,
+                save.character_details.len(), save.events.len());
+            if save.player_class_name == "Koszula" {
+                // Find where this false positive occurs in remaining_data
+                let name_raw = save.player_name.as_bytes();
+                let cls_raw = save.player_class_name.as_bytes();
+                for pos in 0..remaining.len().saturating_sub(name_raw.len() + 20) {
+                    if &remaining[pos..pos+name_raw.len()] == name_raw {
+                        eprintln!("  player_name '{}' found at remaining[{pos}] = file[{:#x}]",
+                            save.player_name, pos + (data.len() - remaining.len()));
+                        break;
+                    }
+                }
+            }
+            let pa = &save.player_attributes;
+            eprintln!("  PlayerAttributes: STR={} DEX={} WIS={} CON={} UNK={} HP={}/{} MP={}/{} XP={} LVL={} GOLD={}",
+                pa.strength, pa.dexterity, pa.wisdom, pa.constitution, pa.unknown_stat,
+                pa.hp_current, pa.hp_maximum, pa.mp_current, pa.mp_maximum,
+                pa.xp_current, pa.level, pa.gold);
+        }
+    }
+
+    /// Verify that best-effort character data extraction works for all saves.
+    #[test]
+    fn test_character_extraction_all_saves() {
+        let files = [
+            ("nuno-0.sav", "Nuno ", "Wojownik", 1u16, 65u16, 11u16, 7u16, 21u16,
+                12u16, 42u16, 14u16, 14u16, 729u32, 5u16, 1181u32),
+            ("0.sav", "Cristoforo", "Mag", 3u16, 0u16, 0u16, 0u16, 0u16,
+                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
+            ("2.sav", "", "", 0u16, 0u16, 0u16, 0u16, 0u16,
+                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
+            ("1.sav", "", "", 0u16, 0u16, 0u16, 0u16, 0u16,
+                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
+        ];
+        for &(path, exp_name, exp_class, exp_cid,
+              exp_str, exp_dex, exp_wis, exp_con,
+              exp_hp_cur, exp_hp_max, exp_mp_cur, exp_mp_max,
+              exp_xp, exp_lvl, exp_gold) in &files
+        {
+            let data = std::fs::read(path)
+                .unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+            let save = SaveFile::parse(&data)
+                .unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
+
+            assert_eq!(save.player_name, exp_name,
+                "{path}: player_name mismatch");
+            assert_eq!(save.player_class_name, exp_class,
+                "{path}: class_name mismatch");
+            assert_eq!(save.player_class_id, exp_cid as i16,
+                "{path}: class_id mismatch");
+
+            let pa = &save.player_attributes;
+            assert_eq!(pa.strength, exp_str, "{path}: STR mismatch");
+            assert_eq!(pa.dexterity, exp_dex, "{path}: DEX mismatch");
+            assert_eq!(pa.wisdom, exp_wis, "{path}: WIS mismatch");
+            assert_eq!(pa.constitution, exp_con, "{path}: CON mismatch");
+            assert_eq!(pa.hp_current, exp_hp_cur, "{path}: HP cur mismatch");
+            assert_eq!(pa.hp_maximum, exp_hp_max, "{path}: HP max mismatch");
+            assert_eq!(pa.mp_current, exp_mp_cur, "{path}: MP cur mismatch");
+            assert_eq!(pa.mp_maximum, exp_mp_max, "{path}: MP max mismatch");
+            assert_eq!(pa.xp_current, exp_xp, "{path}: XP mismatch");
+            assert_eq!(pa.level, exp_lvl, "{path}: Level mismatch");
+            assert_eq!(pa.gold, exp_gold, "{path}: Gold mismatch");
+
+            assert!(!save.events.is_empty(), "{path}: no events extracted");
+            assert_eq!(save.events.len(), 2251, "{path}: event count wrong");
+            assert_eq!(save.journal_main.len(), 100, "{path}: journal_main wrong");
+            assert_eq!(save.journal_side.len(), 100, "{path}: journal_side wrong");
+            assert_eq!(save.journal_trade.len(), 100, "{path}: journal_trade wrong");
+            eprintln!("  ✓ {path}: player={} class={}({}) str={} events={}",
+                save.player_name, save.player_class_name, save.player_class_id,
+                pa.strength, save.events.len());
+        }
     }
 }
