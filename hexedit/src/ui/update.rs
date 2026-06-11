@@ -325,6 +325,7 @@ pub fn update(
         }
         HexEditorMessage::ClearAllPatterns => {
             state.clear_patterns();
+            state.context_menu_addr = None;
             state.status_msg = "All patterns cleared".to_string();
         }
         HexEditorMessage::RightClickAt(addr) => {
@@ -342,6 +343,7 @@ pub fn update(
         }
         HexEditorMessage::RemovePattern(id) => {
             state.remove_pattern(id);
+            state.context_menu_addr = None;
         }
 
         // ── Address format ──────────────────────────────────────────────
@@ -383,15 +385,25 @@ pub fn update(
             if state.provider.is_empty() {
                 return Task::none();
             }
-            let bytes = match parse_hex_query(&contents) {
-                Some(b) if !b.is_empty() => b,
-                _ => {
-                    state.status_msg =
-                        "Clipboard doesn't contain valid hex bytes".to_string();
-                    return Task::none();
+            let bytes = if contents.is_empty() {
+                state.status_msg = "Clipboard is empty".to_string();
+                return Task::none();
+            } else {
+                match parse_hex_query(&contents) {
+                    Some(b) if !b.is_empty() => b,
+                    _ => {
+                        state.status_msg =
+                            "Clipboard doesn't contain valid hex bytes".to_string();
+                        return Task::none();
+                    }
                 }
             };
             let addr = state.selection.cursor;
+            if addr >= state.provider.len() {
+                state.status_msg =
+                    "Cannot paste: cursor is past end of file".to_string();
+                return Task::none();
+            }
             state.provider.write(addr, &bytes);
             state.recompute_vanilla_diff();
             state.status_msg = format!("Pasted {} byte(s)", bytes.len());

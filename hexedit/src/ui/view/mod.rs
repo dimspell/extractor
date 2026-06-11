@@ -88,37 +88,13 @@ pub fn view<'a>(
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .into();
 
-    let has_selection_range = !state.selection.is_single();
-    let has_patterns = !state.patterns.is_empty();
-
-    let mut pattern_menu_entries: Vec<MenuEntry<HexEditorMessage>> = Vec::new();
-    if has_selection_range {
-        pattern_menu_entries.push(MenuEntry::item(
-            "Create Pattern",
-            HexEditorMessage::CreatePattern,
-        ));
-    } else {
-        pattern_menu_entries.push(MenuEntry::disabled("Create Pattern"));
-    }
-    if has_patterns {
-        // "Remove Pattern" always appears when patterns exist. The action
-        // targets the right-click address (via context_menu_addr), which is
-        // set synchronously during event processing before the native menu
-        // fires. If the right-clicked byte is not in a pattern the action is
-        // a harmless no-op.
-        pattern_menu_entries.push(MenuEntry::item(
-            "Remove Pattern",
-            HexEditorMessage::RemovePatternAtContextMenu,
-        ));
-    }
-    if has_patterns {
-        pattern_menu_entries.push(MenuEntry::item(
-            "Clear All Patterns",
-            HexEditorMessage::ClearAllPatterns,
-        ));
-    } else {
-        pattern_menu_entries.push(MenuEntry::disabled("Clear All Patterns"));
-    }
+    let pattern_menu_entries = build_pattern_menu_entries(
+        !state.selection.is_single(),
+        !state.patterns.is_empty(),
+        state
+            .context_menu_addr
+            .is_some_and(|addr| state.pattern_id_at(addr).is_some()),
+    );
 
     let matrix = ContextMenu::new(matrix, pattern_menu_entries);
 
@@ -174,5 +150,50 @@ pub fn view<'a>(
     } else {
         base
     }
+}
+
+/// Build the pattern menu entries for the context menu.
+///
+/// Extracted as a pure function so the enabled/disabled logic can be
+/// unit-tested without simulating UI interactions.
+///
+/// - `has_selection_range`: `true` if there is a multi-byte selection (enables
+///   "Create Pattern")
+/// - `has_patterns`: `true` if any patterns exist
+/// - `have_pattern_at_addr`: `true` if the right-click address falls within a
+///   pattern (enables "Remove Pattern")
+pub(crate) fn build_pattern_menu_entries(
+    has_selection_range: bool,
+    has_patterns: bool,
+    have_pattern_at_addr: bool,
+) -> Vec<MenuEntry<HexEditorMessage>> {
+    let mut entries = Vec::new();
+    if has_selection_range {
+        entries.push(MenuEntry::item(
+            "Create Pattern",
+            HexEditorMessage::CreatePattern,
+        ));
+    } else {
+        entries.push(MenuEntry::disabled("Create Pattern"));
+    }
+    if has_patterns {
+        if have_pattern_at_addr {
+            entries.push(MenuEntry::item(
+                "Remove Pattern",
+                HexEditorMessage::RemovePatternAtContextMenu,
+            ));
+        } else {
+            entries.push(MenuEntry::disabled("Remove Pattern"));
+        }
+    }
+    if has_patterns {
+        entries.push(MenuEntry::item(
+            "Clear All Patterns",
+            HexEditorMessage::ClearAllPatterns,
+        ));
+    } else {
+        entries.push(MenuEntry::disabled("Clear All Patterns"));
+    }
+    entries
 }
 
