@@ -321,6 +321,7 @@ pub fn update(
                     state.remove_pattern(id);
                 }
             }
+            state.context_menu_addr = None;
         }
         HexEditorMessage::ClearAllPatterns => {
             state.clear_patterns();

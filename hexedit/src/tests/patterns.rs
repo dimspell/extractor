@@ -161,3 +161,42 @@ fn test_remove_pattern_at_nonexistent_address_is_noop() {
     send(&mut state, &config, HexEditorMessage::RemovePatternAt(999));
     assert_eq!(state.patterns.len(), 0);
 }
+
+#[test]
+fn test_remove_pattern_at_context_menu_removes_pattern() {
+    let mut state = make_state((0..64).collect());
+    let config = default_config();
+    // Create a pattern
+    send(&mut state, &config, HexEditorMessage::SelectAt(10));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(20));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+    assert_eq!(state.patterns.len(), 1);
+    // Set up the context-menu address
+    send(&mut state, &config, HexEditorMessage::RightClickAt(15));
+    assert_eq!(state.context_menu_addr, Some(15));
+    // Remove through context-menu path
+    send(&mut state, &config, HexEditorMessage::RemovePatternAtContextMenu);
+    assert_eq!(state.patterns.len(), 0, "pattern should be removed via context menu");
+}
+
+#[test]
+fn test_remove_pattern_at_context_menu_clears_addr() {
+    let mut state = make_state((0..64).collect());
+    let config = default_config();
+    send(&mut state, &config, HexEditorMessage::RightClickAt(42));
+    assert_eq!(state.context_menu_addr, Some(42));
+    // Remove at a non-pattern address (harmless no-op)
+    send(&mut state, &config, HexEditorMessage::RemovePatternAtContextMenu);
+    assert!(state.context_menu_addr.is_none(), "context_menu_addr should be cleared after handling");
+}
+
+#[test]
+fn test_remove_pattern_at_context_menu_noop_when_no_addr() {
+    let mut state = make_state((0..64).collect());
+    let config = default_config();
+    // context_menu_addr is None, no right-click happened
+    assert!(state.context_menu_addr.is_none());
+    // Should not panic or crash
+    send(&mut state, &config, HexEditorMessage::RemovePatternAtContextMenu);
+    assert_eq!(state.patterns.len(), 0);
+}

@@ -89,10 +89,6 @@ pub fn view<'a>(
     .into();
 
     let has_selection_range = !state.selection.is_single();
-    let clicked_on_pattern = state
-        .context_menu_addr
-        .map(|addr| state.pattern_id_at(addr).is_some())
-        .unwrap_or(false);
     let has_patterns = !state.patterns.is_empty();
 
     let mut pattern_menu_entries: Vec<MenuEntry<HexEditorMessage>> = Vec::new();
@@ -104,7 +100,12 @@ pub fn view<'a>(
     } else {
         pattern_menu_entries.push(MenuEntry::disabled("Create Pattern"));
     }
-    if clicked_on_pattern {
+    if has_patterns {
+        // "Remove Pattern" always appears when patterns exist. The action
+        // targets the right-click address (via context_menu_addr), which is
+        // set synchronously during event processing before the native menu
+        // fires. If the right-clicked byte is not in a pattern the action is
+        // a harmless no-op.
         pattern_menu_entries.push(MenuEntry::item(
             "Remove Pattern",
             HexEditorMessage::RemovePatternAtContextMenu,
