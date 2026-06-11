@@ -15,30 +15,30 @@ use super::extractor::Extractor;
 #[repr(u8)]
 pub enum SaveItemType {
     /// Weapon item (attack > 0, defense = 0)
-    #[default]
-    Weapon = 0,
-    /// Armor item (defense > 0, attack = 0)
-    Armor = 1,
+    Weapon = 1,
     /// Healing item (potions, antidotes)
-    Heal = 2,
-    /// Miscellaneous item (coins, keys, gems)
-    Misc = 3,
+    #[default]
+    Healing = 2,
     /// Edit item (scrolls, books, modifiable items)
-    Edit = 4,
-    /// Event-specific item (quest items)
-    Event = 5,
+    Edit = 3,
+    /// Event-specific item (quest keys, etc.)
+    Event = 4,
+    /// Miscellaneous item (coins, gems, etc.)
+    Misc = 5,
+    /// Other/Unknown (catch-all)
+    Other = 255,
 }
 
 impl SaveItemType {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(SaveItemType::Weapon),
-            1 => Some(SaveItemType::Armor),
-            2 => Some(SaveItemType::Heal),
-            3 => Some(SaveItemType::Misc),
-            4 => Some(SaveItemType::Edit),
-            5 => Some(SaveItemType::Event),
+            1 => Some(SaveItemType::Weapon),
+            2 => Some(SaveItemType::Healing),
+            3 => Some(SaveItemType::Edit),
+            4 => Some(SaveItemType::Event),
+            5 => Some(SaveItemType::Misc),
+            255 => Some(SaveItemType::Other),
             _ => None,
         }
     }
@@ -105,114 +105,84 @@ impl PlayerAttributes {
     }
 }
 
+/// Save-file inventory record layout:
+///   [type: u32(4B)][name: 30B fixed cstr][desc: 234B fixed cstr][price: i32(4B)] = 272B
+///
+/// The name buffer may contain a binary prefix before the text name
+/// (e.g. id/qty bytes embedded). `extract_text()` skips leading non-printable
+/// bytes to find the readable portion.
+const INVENTORY_RECORD_SIZE: usize = 4 + 30 + 234 + 4; // 272
+
 /// Inventory item record from save file
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryItem {
     /// Item type identifier
     pub item_type: SaveItemType,
-    /// Item subtype/index (maps to game database)
-    pub item_id: u32,
-    /// Quantity of items in stack
-    pub quantity: u16,
     /// Item name (decoded from WINDOWS-1250)
     pub name: String,
     /// Item description (decoded from WINDOWS-1250)
     pub description: String,
-    /// Associated quest name (empty if no quest)
-    pub quest_name: String,
+    /// Item price from save file
+    pub price: i32,
 }
 
 impl InventoryItem {
-    /// Parse inventory item from save file data
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        // Parse 10-byte header + 2-byte padding
-        let field_a = reader.read_u32::<LittleEndian>()?;
-        let field_b = reader.read_u32::<LittleEndian>()?;
-        let quantity = reader.read_u16::<LittleEndian>()?;
-
-        // Skip 2-byte padding after header
-        reader.read_u16::<LittleEndian>()?;
-
-        // Extract item type from Field A (bits 0-7)
-        let item_type_id = (field_a & 0xFF) as u8;
-        let item_type = SaveItemType::from_u8(item_type_id).unwrap_or(SaveItemType::Misc);
-
-        // Item ID from Field B
-        let item_id = field_b;
-
-        // Read name (null-terminated WINDOWS-1250)
-        let mut name_bytes = Vec::new();
-        loop {
-            let byte = reader.read_u8()?;
-            if byte == 0 {
-                break;
-            }
-            name_bytes.push(byte);
-        }
-        let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
-
-        // Read description (null-terminated WINDOWS-1250)
-        let mut desc_bytes = Vec::new();
-        loop {
-            let byte = reader.read_u8()?;
-            if byte == 0 {
-                break;
-            }
-            desc_bytes.push(byte);
-        }
-        let (description, _, _) = WINDOWS_1250.decode(&desc_bytes);
-
-        Ok(InventoryItem {
-            item_type,
-            item_id,
-            quantity,
-            name: name.to_string(),
-            description: description.to_string(),
-            quest_name: String::new(),
-        })
+    /// Whether this is a quest item (no standard header, name-only)
+    pub fn is_quest(&self) -> bool {
+        self.item_type == SaveItemType::Event && self.price == 0 && self.description.is_empty()
     }
 
-    /// Serialize inventory item to binary
-    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        // Write 10-byte header
-        let field_a = self.item_type.value() as u32;
-        writer.write_u32::<LittleEndian>(field_a)?;
-        writer.write_u32::<LittleEndian>(self.item_id)?;
-        writer.write_u16::<LittleEndian>(self.quantity)?;
+    /// Extract readable CP1250 text from a fixed-size buffer.
+    ///
+    /// The name buffer may contain a binary prefix before the actual text
+    /// (e.g. id/qty bytes). This function finds the first segment of
+    /// consecutive printable characters that is at least 2 bytes long and
+    /// starts with an alphabetic letter (ASCII or extended Latin).
+    ///
+    /// Segments shorter than 2 bytes or starting with a non-alphabetic
+    /// printable character are skipped — they are likely binary junk that
+    /// happens to fall in the printable range (e.g. `%`, `2`, `=`).
+    fn extract_text(buf: &[u8]) -> String {
+        let is_text_byte = |&b: &u8| -> bool {
+            b.is_ascii_graphic() || b == b' ' || b == b'\t' || b >= 0x80
+        };
 
-        // Pad header to 10 bytes
-        writer.write_all(&[0u8; 2])?;
-
-        // Write name (null-terminated)
-        writer.write_all(self.name.as_bytes())?;
-        writer.write_u8(0)?;
-
-        // Pad to align description (fill remaining space in 256-byte record)
-        let name_len = self.name.len() + 1;
-        let header_len = 10;
-        let used = header_len + name_len;
-        let remaining = 256 - used;
-
-        if remaining > 0 {
-            writer.write_all(&vec![0u8; remaining])?;
+        let i = 0;
+        let mut i = i;
+        while i < buf.len() {
+            if is_text_byte(&buf[i]) {
+                let seg_start = i;
+                while i < buf.len() && is_text_byte(&buf[i]) && buf[i] != 0 {
+                    i += 1;
+                }
+                let seg_len = i - seg_start;
+                // Accept segments >= 2 chars whose first byte looks like a
+                // text character (alphabetic or extended Latin).
+                if seg_len >= 2
+                    && (buf[seg_start].is_ascii_alphabetic() || buf[seg_start] >= 0x80)
+                {
+                    let (decoded, _, _) =
+                        WINDOWS_1250.decode(&buf[seg_start..seg_start + seg_len]);
+                    return decoded.trim().to_string();
+                }
+            } else {
+                i += 1;
+            }
         }
 
-        // Write description (null-terminated)
-        writer.write_all(self.description.as_bytes())?;
-        writer.write_u8(0)?;
+        String::new()
+    }
 
-        // Pad to 256 bytes - calculate padding needed
-        let description_len = self.description.len() + 1;
-        let total_written = header_len + name_len + description_len;
-        let padding_needed = 256 - (total_written % 256);
-
-        if padding_needed < 256 {
-            writer.write_all(&vec![0u8; padding_needed])?;
+    /// Extract the item name, falling back to the description buffer when
+    /// the name buffer contains no readable text (binary-id-only items).
+    fn extract_name_or_desc(name_buf: &[u8], desc_buf: &[u8]) -> String {
+        let name = Self::extract_text(name_buf);
+        if !name.is_empty() {
+            return name;
         }
-
-        Ok(())
+        // Many Edit/Misc/Event items store their real name in the desc
+        // buffer (first text segment).
+        Self::extract_text(desc_buf)
     }
 }
 
@@ -238,7 +208,7 @@ impl PotionSlot {
         reader.read_u16::<LittleEndian>()?;
 
         let item_type_id = (field_a & 0xFF) as u8;
-        let item_type = SaveItemType::from_u8(item_type_id).unwrap_or(SaveItemType::Heal);
+        let item_type = SaveItemType::from_u8(item_type_id).unwrap_or(SaveItemType::Healing);
 
         let mut name_bytes = Vec::new();
         loop {
@@ -661,6 +631,8 @@ pub struct SaveFile {
     pub player_class_id: i16,
     pub player_class_name: String,
 
+    pub inventory_items: Vec<InventoryItem>,
+
     pub events: Vec<EventScript>,
     pub journal_main: Vec<JournalEntry>,   // 100 entries
     pub journal_side: Vec<JournalEntry>,   // 100 entries
@@ -722,6 +694,7 @@ impl SaveFile {
         let mut player_name = String::new();
         let mut player_class_id: i16 = 0;
         let mut player_class_name = String::new();
+        let mut inventory_items = Vec::new();
         let mut events = Vec::new();
         let mut journal_main = Vec::new();
         let mut journal_side = Vec::new();
@@ -734,7 +707,7 @@ impl SaveFile {
         Self::extract_tail_sections(&remaining_data,
             &mut events, &mut journal_main, &mut journal_side, &mut journal_trade,
             &mut character_details, &mut player_attributes, &mut extra_character_data,
-            &mut character_unknown_block);
+            &mut character_unknown_block, &mut inventory_items);
 
         let draw_items_data = Vec::new();
         let dungeon_header_data = Vec::new();
@@ -765,6 +738,7 @@ impl SaveFile {
             player_name,
             player_class_id,
             player_class_name,
+            inventory_items,
             events,
             journal_main,
             journal_side,
@@ -861,8 +835,140 @@ impl SaveFile {
         None
     }
 
-    /// Best-effort: parse character data from remaining_data into structured fields.
+    /// Find the 96-byte zero block that marks the end of inventory data.
     ///
+    /// Scans forward from `inv_start` for a block of 96 bytes with ≥72 zeros,
+    /// followed by a valid player name pattern (matching extract_player_identity).
+    /// This avoids false positives from zero padding between inventory items.
+    fn find_inventory_end(data: &[u8], inv_start: usize) -> Option<usize> {
+        if inv_start >= data.len() {
+            return None;
+        }
+        let mut pos = inv_start;
+        while pos + 96 + 24 <= data.len() {
+            let zero_count = data[pos..pos + 96].iter().filter(|&&b| b == 0).count();
+            if zero_count >= 72 {
+                // Validate what follows: should be player name (same logic as extract_player_identity)
+                let after = &data[pos + 96..];
+                let name_raw = &after[..11];
+                let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(11);
+                if name_len >= 3 && name_len <= 10
+                    && name_raw[0] >= 0x41 && name_raw[0] <= 0x5A
+                {
+                    let cid = i16::from_le_bytes([after[11], after[12]]);
+                    if cid >= 1 && cid <= 12 {
+                        return Some(pos);
+                    }
+                }
+            }
+            pos += 1;
+        }
+        None
+    }
+
+    /// Best-effort: parse inventory items from the area after character data.
+    ///
+    /// Inventory layout in remaining_data after extra_character_data (cd_start + 114):
+    ///   `[quest_items var][standard_items: N×272B][96B zero block][name+class]`
+    ///
+    /// Standard items use a fixed 272-byte record:
+    ///   [type: u32(4B)][name: 30B cstr][desc: 234B cstr][price: i32(4B)]
+    ///
+    /// The name buffer may contain binary data before the readable text;
+    /// `InventoryItem::extract_text()` handles this by scanning past non-printable bytes.
+    ///
+    /// Quest items precede the standard items and have no header — just a null-terminated name.
+    ///
+    /// Note: `item_id` and `quantity` are NOT stored in the save file's inventory records.
+    /// The current InventoryItem struct omits them since this is a save-file parser.
+    fn parse_inventory(data: &[u8], cd_start: usize) -> Vec<InventoryItem> {
+        let inv_start = cd_start + 114;
+        if inv_start >= data.len() {
+            return Vec::new();
+        }
+        let inv_end = match Self::find_inventory_end(data, inv_start) {
+            Some(pos) => pos,
+            None => return Vec::new(),
+        };
+        if inv_end <= inv_start {
+            return Vec::new();
+        }
+
+        let inv = &data[inv_start..inv_end];
+        let mut items = Vec::new();
+        let mut pos = 0;
+
+        while pos < inv.len() {
+            // Skip zero bytes (padding/alignment)
+            while pos < inv.len() && inv[pos] == 0 {
+                pos += 1;
+            }
+            if pos >= inv.len() {
+                break;
+            }
+
+            // Try standard item: 272B record, 4B type (must be 1-5)
+            if pos + INVENTORY_RECORD_SIZE <= inv.len() {
+                let type_val = u32::from_le_bytes(
+                    inv[pos..pos + 4].try_into().unwrap(),
+                );
+                let item_type_id = (type_val & 0xFF) as u8;
+
+                if let Some(item_type) = SaveItemType::from_u8(item_type_id) {
+                    let name_buf = &inv[pos + 4..pos + 4 + 30];
+                    let desc_buf = &inv[pos + 4 + 30..pos + 4 + 30 + 234];
+                    let name = InventoryItem::extract_name_or_desc(name_buf, desc_buf);
+
+                    if !name.is_empty() {
+                        // Extract description (stats text) from desc buffer,
+                        // skipping the leading segment that we may have used as name
+                        let description = InventoryItem::extract_text(desc_buf);
+
+                        // Extract price (i32 at end of record)
+                        let price_bytes: [u8; 4] = inv[pos + 4 + 30 + 234
+                            ..pos + 4 + 30 + 234 + 4].try_into().unwrap();
+                        let price = i32::from_le_bytes(price_bytes);
+
+                        items.push(InventoryItem {
+                            item_type,
+                            name,
+                            description,
+                            price,
+                        });
+
+                        pos += INVENTORY_RECORD_SIZE;
+                        continue;
+                    }
+                }
+            }
+
+            // Not a standard header — try quest item (null-terminated name only)
+            let mut name_end = pos;
+            while name_end < inv.len() && inv[name_end] != 0 {
+                name_end += 1;
+            }
+
+            if name_end > pos && name_end < inv.len() {
+                let (name, _, _) = WINDOWS_1250.decode(&inv[pos..name_end]);
+                items.push(InventoryItem {
+                    item_type: SaveItemType::Event,
+                    name: name.to_string(),
+                    description: String::new(),
+                    price: 0,
+                });
+                pos = name_end + 1;
+                continue;
+            }
+
+            // Can't parse this byte — skip it
+            pos += 1;
+        }
+
+        items
+    }
+
+    /// Best-effort: parse character data from remaining_data into structured fields.
+
     /// Layout in save files (observed for nuno-0.sav):
     ///   `[4B pad][40B details][24B save-attrs][46B extra][inventory var][96B zero block][11B name]...`
     ///
@@ -932,7 +1038,8 @@ impl SaveFile {
         character_details: &mut Vec<u8>,
         player_attributes: &mut PlayerAttributes,
         extra_character_data: &mut Vec<u8>,
-        character_unknown_block: &mut Vec<u8>)
+        character_unknown_block: &mut Vec<u8>,
+        inventory_items: &mut Vec<InventoryItem>)
     {
         const JOURNAL_SIZE: usize = 3 * 100 * 37; // 11,100
         const UNKNOWN_SIZE: usize = 114;
@@ -979,6 +1086,8 @@ impl SaveFile {
                 Self::extract_character_data(data, cd_start,
                     character_details, player_attributes,
                     extra_character_data, character_unknown_block);
+                // Inventory parsing (best-effort)
+                *inventory_items = Self::parse_inventory(data, cd_start);
             }
         }
     }
@@ -1083,35 +1192,35 @@ mod tests {
     }
 
     #[test]
-    fn test_inventory_item_parse() {
-        // Simplified test - actual parsing would need full 256-byte record
-        let data = [
-            0x02, 0x00, 0x00, 0x00, // Field A: type=2 (Heal)
-            0x04, 0x00, 0x00, 0x00, // Field B: item_id=4
-            0x02, 0x00, // Quantity=2
-            0x00, 0x00, // Padding
-            b'w', b'y', b't', b'r', b'y', b'c', b'h',
-            0, // "wytrych" null terminator
-            0, // empty description (null terminator)
-        ];
+    fn test_inventory_item_extract_text() {
+        // Name with binary prefix followed by readable text
+        let mut name_buf = [0u8; 30];
+        // Simulate "wytrych" with 6 bytes of binary prefix + 22 bytes zero padding
+        name_buf[0..6].copy_from_slice(&[0x04, 0x00, 0x00, 0x00, 0x02, 0x00]);
+        name_buf[6..14].copy_from_slice(b"wytrych\0");
+        let name = InventoryItem::extract_text(&name_buf);
+        assert_eq!(name, "wytrych");
 
-        let result = InventoryItem::parse(&data);
-        assert!(result.is_ok());
-        let item = result.unwrap();
-        assert_eq!(item.item_type, SaveItemType::Heal);
-        assert_eq!(item.item_id, 4);
-        assert_eq!(item.quantity, 2);
-        assert_eq!(item.name, "wytrych");
+        // Name starting at byte 0 (no binary prefix)
+        let mut name_buf2 = [0u8; 30];
+        name_buf2[..14].copy_from_slice(b"Kostka wladzy\0");
+        let name2 = InventoryItem::extract_text(&name_buf2);
+        assert_eq!(name2, "Kostka wladzy");
+
+        // Empty buffer
+        let empty = [0u8; 30];
+        assert_eq!(InventoryItem::extract_text(&empty), "");
     }
 
     #[test]
     fn test_save_item_type_conversion() {
-        assert_eq!(SaveItemType::from_u8(0), Some(SaveItemType::Weapon));
-        assert_eq!(SaveItemType::from_u8(1), Some(SaveItemType::Armor));
-        assert_eq!(SaveItemType::from_u8(2), Some(SaveItemType::Heal));
-        assert_eq!(SaveItemType::from_u8(3), Some(SaveItemType::Misc));
-        assert_eq!(SaveItemType::from_u8(4), Some(SaveItemType::Edit));
-        assert_eq!(SaveItemType::from_u8(5), Some(SaveItemType::Event));
+        assert_eq!(SaveItemType::from_u8(1), Some(SaveItemType::Weapon));
+        assert_eq!(SaveItemType::from_u8(2), Some(SaveItemType::Healing));
+        assert_eq!(SaveItemType::from_u8(3), Some(SaveItemType::Edit));
+        assert_eq!(SaveItemType::from_u8(4), Some(SaveItemType::Event));
+        assert_eq!(SaveItemType::from_u8(5), Some(SaveItemType::Misc));
+        assert_eq!(SaveItemType::from_u8(255), Some(SaveItemType::Other));
+        assert_eq!(SaveItemType::from_u8(0), None);
         assert_eq!(SaveItemType::from_u8(99), None);
     }
 
@@ -1417,9 +1526,17 @@ mod tests {
             assert_eq!(save.journal_main.len(), 100, "{path}: journal_main wrong");
             assert_eq!(save.journal_side.len(), 100, "{path}: journal_side wrong");
             assert_eq!(save.journal_trade.len(), 100, "{path}: journal_trade wrong");
-            eprintln!("  ✓ {path}: player={} class={}({}) str={} events={}",
+
+            // Inventory: verify at least some items parsed
+            assert!(!save.inventory_items.is_empty(),
+                "{path}: no inventory items extracted");
+            // First item should be a quest item (Event type)
+            assert_eq!(save.inventory_items[0].item_type, SaveItemType::Event,
+                "{path}: first item should be quest/Event type");
+
+            eprintln!("  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
                 save.player_name, save.player_class_name, save.player_class_id,
-                pa.strength, save.events.len());
+                pa.strength, save.events.len(), save.inventory_items.len());
         }
     }
 }
