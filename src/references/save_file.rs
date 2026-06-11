@@ -1368,68 +1368,21 @@ mod tests {
         run_round_trip("2.sav");
     }
 
-    /// Debug: trace the character data scan for all saves
-    #[test]
-    fn debug_character_data_scan() {
-        for path in ["nuno-0.sav", "0.sav", "2.sav", "1.sav"] {
-            let data = std::fs::read(path).unwrap();
-            let save = SaveFile::parse(&data).unwrap();
-            let remaining = &save.remaining_data;
-            const TAIL: usize = 2251 * 284 + 114 + 3 * 100 * 37;
-
-            let events_start = remaining.len() - TAIL;
-            eprintln!("\n=== {path} ===");
-            // Find the false positive player identity offset
-            let marker = b"inter\\";
-            let mut occ = Vec::new();
-            for pos in 0..events_start.saturating_sub(6) {
-                if &remaining[pos..pos+6] == marker {
-                    occ.push(pos);
-                }
-            }
-            let closest = occ.iter().max();
-            match closest {
-                Some(&pos) => eprintln!("  inter\\\\ closest={} (dist={})", pos, events_start - pos),
-                None => eprintln!("  No inter\\\\ found before events_start!"),
-            }
-            eprintln!("  Player '{}' class='{}' id={} char_details={}B events={}",
-                save.player_name, save.player_class_name, save.player_class_id,
-                save.character_details.len(), save.events.len());
-            if save.player_class_name == "Koszula" {
-                // Find where this false positive occurs in remaining_data
-                let name_raw = save.player_name.as_bytes();
-                let cls_raw = save.player_class_name.as_bytes();
-                for pos in 0..remaining.len().saturating_sub(name_raw.len() + 20) {
-                    if &remaining[pos..pos+name_raw.len()] == name_raw {
-                        eprintln!("  player_name '{}' found at remaining[{pos}] = file[{:#x}]",
-                            save.player_name, pos + (data.len() - remaining.len()));
-                        break;
-                    }
-                }
-            }
-            let pa = &save.player_attributes;
-            eprintln!("  PlayerAttributes: STR={} DEX={} WIS={} CON={} UNK={} HP={}/{} MP={}/{} XP={} LVL={} GOLD={}",
-                pa.strength, pa.dexterity, pa.wisdom, pa.constitution, pa.unknown_stat,
-                pa.hp_current, pa.hp_maximum, pa.mp_current, pa.mp_maximum,
-                pa.xp_current, pa.level, pa.gold);
-        }
-    }
-
     /// Verify that best-effort character data extraction works for all saves.
     #[test]
     fn test_character_extraction_all_saves() {
         let files = [
-            ("nuno-0.sav", "Nuno ", "Wojownik", 1u16, 65u16, 11u16, 7u16, 21u16,
-                12u16, 42u16, 14u16, 14u16, 729u32, 5u16, 1181u32),
-            ("0.sav", "Cristoforo", "Mag", 3u16, 0u16, 0u16, 0u16, 0u16,
-                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
-            ("2.sav", "", "", 0u16, 0u16, 0u16, 0u16, 0u16,
-                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
-            ("1.sav", "", "", 0u16, 0u16, 0u16, 0u16, 0u16,
-                0u16, 0u16, 0u16, 0u16, 0u32, 0u16, 0u32),
+            ("nuno-0.sav", "Nuno ", "Wojownik", 1u16, 7u16, 21u16, 10u16, 12u16,
+                42u16, 14u16, 14u16, 0u16, 0u16, 729u32, 5u16, 1181u32),
+            ("0.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 20u16, 1200u16,
+                1200u16, 670u16, 700u16, 0u16, 0u16, 123074u32, 16u16, 24965u32),
+            ("2.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 10u16, 991u16,
+                1200u16, 675u16, 700u16, 0u16, 0u16, 122266u32, 16u16, 24832u32),
+            ("1.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 10u16, 1200u16,
+                1200u16, 670u16, 700u16, 0u16, 0u16, 122974u32, 16u16, 24965u32),
         ];
         for &(path, exp_name, exp_class, exp_cid,
-              exp_str, exp_dex, exp_wis, exp_con,
+              exp_str, exp_dex, exp_wis, exp_con, exp_unk,
               exp_hp_cur, exp_hp_max, exp_mp_cur, exp_mp_max,
               exp_xp, exp_lvl, exp_gold) in &files
         {
@@ -1450,6 +1403,7 @@ mod tests {
             assert_eq!(pa.dexterity, exp_dex, "{path}: DEX mismatch");
             assert_eq!(pa.wisdom, exp_wis, "{path}: WIS mismatch");
             assert_eq!(pa.constitution, exp_con, "{path}: CON mismatch");
+            assert_eq!(pa.unknown_stat, exp_unk, "{path}: unknown_stat mismatch");
             assert_eq!(pa.hp_current, exp_hp_cur, "{path}: HP cur mismatch");
             assert_eq!(pa.hp_maximum, exp_hp_max, "{path}: HP max mismatch");
             assert_eq!(pa.mp_current, exp_mp_cur, "{path}: MP cur mismatch");
