@@ -452,6 +452,9 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
         next_pattern_id: 0,
+        groups: Vec::new(),
+        next_group_id: 0,
+        collapsed_groups: std::collections::BTreeSet::new(),
         context_menu_addr: None,
         goto: None,
         search: crate::search::SearchState::new(),
@@ -461,6 +464,7 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
         lua_engine: LuaScriptEngine::new(false).unwrap(),
         export_config: None,
+        repeat_pattern: None,
     };
     let errors = state.load_lua_scripts(&dir);
     assert!(errors.is_empty(), "should load without errors: {errors:?}");
@@ -489,6 +493,9 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
         next_pattern_id: 0,
+        groups: Vec::new(),
+        next_group_id: 0,
+        collapsed_groups: std::collections::BTreeSet::new(),
         context_menu_addr: None,
         goto: None,
         search: crate::search::SearchState::new(),
@@ -498,6 +505,7 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
         lua_engine: engine,
         export_config: None,
+        repeat_pattern: None,
     };
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
     assert!(errors.is_empty(), "non-existent dir should return 0 errors");
@@ -553,6 +561,9 @@ return {
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
         next_pattern_id: 0,
+        groups: Vec::new(),
+        next_group_id: 0,
+        collapsed_groups: std::collections::BTreeSet::new(),
         context_menu_addr: None,
         goto: None,
         search: crate::search::SearchState::new(),
@@ -562,6 +573,7 @@ return {
         cache: gui_widgets::components::paragraph_cache::ParagraphCache::default(),
         lua_engine: engine,
         export_config: None,
+        repeat_pattern: None,
     };
     // Verify the decode works
     assert_eq!((entries[0].decode)(&[0xAB]), "LUA:0xAB");

@@ -2,10 +2,12 @@ use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
 use crate::domain::export_config::ExportConfig;
+use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
 use crate::inspector::ENTRIES;
 use crate::message::HexEditorMessage;
+use crate::pattern::Pattern;
 use crate::search::parse_hex_query;
 use crate::selection::nav_target;
 use crate::HexProvider;
@@ -333,6 +335,89 @@ pub fn update(
             state.context_menu_addr = Some(addr);
         }
 
+        // ── Repeat pattern dialog ────────────────────────────────────────
+        HexEditorMessage::BeginRepeatedPattern => {
+            if state.selection.is_single() {
+                state.status_msg = "Select a range of bytes to repeat".to_string();
+            } else {
+                let (start, end) = (state.selection.start(), state.selection.end());
+                let block_size = end - start + 1;
+                state.repeat_pattern =
+                    Some(RepeatPatternDialog::new(start, block_size));
+                return iced::widget::operation::focus(RepeatPatternDialog::input_id());
+            }
+        }
+        HexEditorMessage::SetRepeatedPatternDraft(s) => {
+            if let Some(ref mut dlg) = state.repeat_pattern {
+                dlg.draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::SetRepeatedPatternLabel(s) => {
+            if let Some(ref mut dlg) = state.repeat_pattern {
+                dlg.label_draft = s;
+            }
+        }
+        HexEditorMessage::CommitRepeatedPattern => {
+            let result = state
+                .repeat_pattern
+                .as_ref()
+                .map(|dlg| dlg.parse_repeat_count());
+            match result {
+                Some(Ok(count)) => {
+                    let dlg = state.repeat_pattern.take().unwrap();
+                    let label = if dlg.label_draft.trim().is_empty() {
+                        "Unnamed group".to_string()
+                    } else {
+                        dlg.label_draft.trim().to_string()
+                    };
+
+                    // Create the group entry.
+                    let group_id = state.next_group_id;
+                    state.next_group_id += 1;
+                    let group_color = (state.groups.len() % 16) as u8;
+                    state.groups.push(RepeatedPatternGroup::new(
+                        group_id,
+                        label.clone(),
+                        group_color,
+                    ));
+
+                    let max_addr = state.max_addr();
+                    let mut created = 0u64;
+                    for i in 0..count {
+                        let block_start = dlg.block_start + i * dlg.block_size;
+                        if block_start > max_addr {
+                            break;
+                        }
+                        let block_end =
+                            (block_start + dlg.block_size - 1).min(max_addr);
+                        let id = state.next_pattern_id;
+                        state.next_pattern_id += 1;
+                        state.patterns.push(Pattern::grouped(
+                            id,
+                            block_start,
+                            block_end,
+                            group_color,
+                            group_id,
+                        ));
+                        created += 1;
+                    }
+                    state.rebuild_pattern_lookup();
+                    state.status_msg =
+                        format!("Created group \"{label}\" with {created} repetition(s)");
+                }
+                Some(Err(msg)) => {
+                    if let Some(ref mut dlg) = state.repeat_pattern {
+                        dlg.error = Some(msg);
+                    }
+                }
+                None => {}
+            }
+        }
+        HexEditorMessage::CloseRepeatedPattern => {
+            state.repeat_pattern = None;
+        }
+
         // ── Pattern list panel ──────────────────────────────────────────
         HexEditorMessage::TogglePatternList => {
             state.show_pattern_list = !state.show_pattern_list;
@@ -345,6 +430,11 @@ pub fn update(
         HexEditorMessage::RemovePattern(id) => {
             state.remove_pattern(id);
             state.context_menu_addr = None;
+        }
+        HexEditorMessage::TogglePatternGroup(id) => {
+            if !state.collapsed_groups.remove(&id) {
+                state.collapsed_groups.insert(id);
+            }
         }
 
         // ── Address format ──────────────────────────────────────────────

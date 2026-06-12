@@ -7,7 +7,7 @@ use super::domain::export_config::ExportConfig;
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
 use super::lua_engine::LuaScriptEngine;
-use super::pattern::Pattern;
+use super::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
 use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
@@ -41,6 +41,12 @@ pub struct HexEditorState {
     pub show_pattern_list: bool,
     /// Monotonically increasing id counter for new patterns.
     pub next_pattern_id: usize,
+    /// Metadata for repeated-pattern groups (label, colour).
+    pub groups: Vec<RepeatedPatternGroup>,
+    /// Monotonically increasing id counter for new groups.
+    pub next_group_id: usize,
+    /// Set of group ids whose accordion section is collapsed.
+    pub collapsed_groups: BTreeSet<usize>,
     /// Last address where right-click occurred (for context menu).
     pub context_menu_addr: Option<u64>,
     /// Goto-address dialog state (None when closed).
@@ -55,6 +61,9 @@ pub struct HexEditorState {
     pub show_decimal: bool,
     pub status_msg: String,
     pub error: Option<String>,
+    /// Dialog state for creating a repeated (zebra-striped) pattern.
+    /// `None` when the dialog is closed.
+    pub repeat_pattern: Option<RepeatPatternDialog>,
     /// Shared paragraph cache shared across frames so shaped glyphs survive
     /// between render cycles (cheaply cloned into the widget each frame).
     pub cache: ParagraphCache,
@@ -92,6 +101,9 @@ impl HexEditorState {
             pattern_by_addr: BTreeMap::new(),
             show_pattern_list: false,
             next_pattern_id: 0,
+            groups: Vec::new(),
+            next_group_id: 0,
+            collapsed_groups: BTreeSet::new(),
             context_menu_addr: None,
             goto: None,
             export_config: None,
@@ -99,6 +111,7 @@ impl HexEditorState {
             show_decimal: false,
             status_msg: String::new(),
             error,
+            repeat_pattern: None,
             cache: ParagraphCache::default(),
             lua_engine,
         }
@@ -135,10 +148,12 @@ impl HexEditorState {
         self.rebuild_pattern_lookup();
     }
 
-    /// Clear all patterns.
+    /// Clear all patterns and pattern groups.
     pub fn clear_patterns(&mut self) {
         self.patterns.clear();
         self.pattern_by_addr.clear();
+        self.groups.clear();
+        self.collapsed_groups.clear();
     }
 
     /// Rebuild the `pattern_by_addr` lookup from the current `patterns` vec.

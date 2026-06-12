@@ -69,6 +69,18 @@ pub enum HexEditorMessage {
     /// menu options to show (remove pattern vs create pattern).
     RightClickAt(u64),
 
+    // ── Repeat pattern dialog ────────────────────────────────────────────
+    /// Open the repeat-pattern dialog from a selection range.
+    BeginRepeatedPattern,
+    /// Update the repeat-count draft.
+    SetRepeatedPatternDraft(String),
+    /// Update the label draft.
+    SetRepeatedPatternLabel(String),
+    /// Parse the count and create repeated pattern entries under a named group.
+    CommitRepeatedPattern,
+    /// Dismiss the dialog without creating patterns.
+    CloseRepeatedPattern,
+
     // ── Goto address ────────────────────────────────────────────────────
     /// Open the goto-address dialog.
     OpenGotoDialog,
@@ -100,6 +112,8 @@ pub enum HexEditorMessage {
     NavigateToPattern(usize),
     /// Remove a pattern by its id.
     RemovePattern(usize),
+    /// Collapse / expand a repeated-pattern group in the pattern list.
+    TogglePatternGroup(usize),
 
     // ── Address format ──────────────────────────────────────────────────
     /// Toggle between hex and decimal address display.

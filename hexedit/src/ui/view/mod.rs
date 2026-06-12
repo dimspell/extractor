@@ -5,6 +5,7 @@ pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
 pub mod patterns;
+pub mod repeat_modal;
 pub mod search_overlay;
 pub mod toolbar;
 
@@ -154,6 +155,17 @@ pub fn view<'a>(
         base
     };
 
+    let base = if let Some(ref rp) = state.repeat_pattern {
+        modal(
+            base,
+            repeat_modal::view(rp),
+            || HexEditorMessage::CloseRepeatedPattern,
+            0.3,
+        )
+    } else {
+        base
+    };
+
     if state.export_config.is_some() {
         modal(
             base,
@@ -172,7 +184,7 @@ pub fn view<'a>(
 /// unit-tested without simulating UI interactions.
 ///
 /// - `has_selection_range`: `true` if there is a multi-byte selection (enables
-///   "Create Pattern")
+///   "Create Pattern" and "Add Repeated Pattern")
 /// - `has_patterns`: `true` if any patterns exist
 /// - `have_pattern_at_addr`: `true` if the right-click address falls within a
 ///   pattern (enables "Remove Pattern")
@@ -187,8 +199,13 @@ pub(crate) fn build_pattern_menu_entries(
             "Create Pattern",
             HexEditorMessage::CreatePattern,
         ));
+        entries.push(MenuEntry::item(
+            "Add Repeated Pattern",
+            HexEditorMessage::BeginRepeatedPattern,
+        ));
     } else {
         entries.push(MenuEntry::disabled("Create Pattern"));
+        entries.push(MenuEntry::disabled("Add Repeated Pattern"));
     }
     if has_patterns {
         if have_pattern_at_addr {

@@ -44,6 +44,9 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         pattern_by_addr: BTreeMap::new(),
         show_pattern_list: false,
         next_pattern_id: 0,
+        groups: Vec::new(),
+        next_group_id: 0,
+        collapsed_groups: BTreeSet::new(),
         context_menu_addr: None,
         goto: None,
         search: SearchState::new(),
@@ -53,6 +56,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         cache: ParagraphCache::default(),
         lua_engine: LuaScriptEngine::default(),
         export_config: None,
+        repeat_pattern: None,
     }
 }
 
