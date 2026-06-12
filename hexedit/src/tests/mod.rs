@@ -57,6 +57,9 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         lua_engine: LuaScriptEngine::default(),
         export_config: None,
         repeat_pattern: None,
+        row_annotations: BTreeMap::new(),
+        renaming_group: None,
+        renaming_group_draft: String::new(),
     }
 }
 

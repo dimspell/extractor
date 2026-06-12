@@ -70,6 +70,7 @@ pub fn view<'a>(
         state.search.query_len,
         state.search.current_addr(),
         &state.search.results,
+        &state.row_annotations,
         cache,
     )
     .on_select_at(HexEditorMessage::SelectAt)
@@ -94,10 +95,19 @@ pub fn view<'a>(
     // the first frame: left-click moves cursor synchronously before view runs,
     // and right-click also publishes SelectAt to move cursor.
     let have_pattern_at_addr = state.pattern_id_at(state.selection.cursor).is_some();
+    let pattern_at_cursor = have_pattern_at_addr
+        .then(|| state.pattern_id_at(state.selection.cursor))
+        .flatten()
+        .and_then(|pid| state.pattern_by_id(pid));
+    let pattern_group_at_cursor = pattern_at_cursor
+        .and_then(|p| p.group_id)
+        .and_then(|gid| state.groups.iter().find(|g| g.id == gid));
+    let group_id_at_cursor = pattern_group_at_cursor.map(|g| g.id);
     let pattern_menu_entries = build_pattern_menu_entries(
         !state.selection.is_single(),
         !state.patterns.is_empty(),
         have_pattern_at_addr,
+        group_id_at_cursor,
     );
 
     let matrix = ContextMenu::new(matrix, pattern_menu_entries);
@@ -192,6 +202,7 @@ pub(crate) fn build_pattern_menu_entries(
     has_selection_range: bool,
     has_patterns: bool,
     have_pattern_at_addr: bool,
+    group_id_at_cursor: Option<usize>,
 ) -> Vec<MenuEntry<HexEditorMessage>> {
     let mut entries = Vec::new();
     if has_selection_range {
@@ -216,6 +227,13 @@ pub(crate) fn build_pattern_menu_entries(
         } else {
             entries.push(MenuEntry::disabled("Remove Pattern"));
         }
+        if let Some(gid) = group_id_at_cursor {
+            entries.push(MenuEntry::separator());
+            entries.push(MenuEntry::item(
+                "Remove Group",
+                HexEditorMessage::RemovePatternGroup(gid),
+            ));
+        }
     }
     if has_patterns {
         entries.push(MenuEntry::item(
@@ -225,6 +243,19 @@ pub(crate) fn build_pattern_menu_entries(
     } else {
         entries.push(MenuEntry::disabled("Clear All Patterns"));
     }
+    entries.push(MenuEntry::separator());
+    if has_patterns {
+        entries.push(MenuEntry::item(
+            "Export Patterns…",
+            HexEditorMessage::ExportPatterns,
+        ));
+    } else {
+        entries.push(MenuEntry::disabled("Export Patterns…"));
+    }
+    entries.push(MenuEntry::item(
+        "Import Patterns…",
+        HexEditorMessage::ImportPatterns,
+    ));
     entries
 }
 

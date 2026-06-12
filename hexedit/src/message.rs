@@ -115,6 +115,39 @@ pub enum HexEditorMessage {
     /// Collapse / expand a repeated-pattern group in the pattern list.
     TogglePatternGroup(usize),
 
+    // ── Pattern group operations ─────────────────────────────────────────
+    /// Remove an entire group and all its patterns.
+    RemovePatternGroup(usize),
+    /// Begin inline rename of a group (opens text input).
+    BeginRenameGroup(usize),
+    /// Update the rename draft.
+    SetRenameGroupDraft(String),
+    /// Commit the new label for the group being renamed.
+    CommitRenameGroup,
+    /// Cancel inline rename.
+    CancelRenameGroup,
+    /// Cycle the group's colour index (all child patterns update too).
+    CycleGroupColor(usize),
+    /// Cycle a single pattern's colour index.
+    CyclePatternColor(usize),
+
+    // ── Pattern annotations ──────────────────────────────────────────────
+    /// Set (or replace) a pattern's annotation text.
+    SetPatternAnnotation(usize, String),
+    /// Remove a pattern's annotation.
+    ClearPatternAnnotation(usize),
+
+    // ── Pattern import / export ──────────────────────────────────────────
+    /// Export all patterns and groups to a text file.
+    ExportPatterns,
+    /// Import patterns and groups from a text file.
+    ImportPatterns,
+    /// Async result after exporting.
+    PatternsExported(Result<(), String>),
+    /// Async result after importing — carries the file content so the handler
+    /// can parse it with mutable state access.
+    PatternsImported(Result<String, String>),
+
     // ── Address format ──────────────────────────────────────────────────
     /// Toggle between hex and decimal address display.
     ToggleAddrFormat,

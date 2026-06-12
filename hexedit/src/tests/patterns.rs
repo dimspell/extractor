@@ -252,7 +252,7 @@ use crate::view::build_pattern_menu_entries;
 #[test]
 fn test_build_entries_no_patterns() {
     // No patterns → "Remove Pattern" not present, "Clear All Patterns" disabled
-    let entries = build_pattern_menu_entries(false, false, false);
+    let entries = build_pattern_menu_entries(false, false, false, None);
     assert!(
         !entries.iter().any(|e| matches!(e, CtxEntry::Item { label, .. } | CtxEntry::Disabled { label, .. } if label == "Remove Pattern")),
         "Remove Pattern should not appear when there are no patterns"
@@ -266,7 +266,7 @@ fn test_build_entries_no_patterns() {
 #[test]
 fn test_build_entries_remove_pattern_enabled() {
     // Patterns exist + pattern at right-click address → "Remove Pattern" enabled
-    let entries = build_pattern_menu_entries(false, true, true);
+    let entries = build_pattern_menu_entries(false, true, true, None);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::RemovePatternAtContextMenu, .. } if label == "Remove Pattern")),
         "Remove Pattern should be enabled (Item with RemovePatternAtContextMenu) when patterns exist and addr has a pattern"
@@ -280,7 +280,7 @@ fn test_build_entries_remove_pattern_enabled() {
 #[test]
 fn test_build_entries_remove_pattern_disabled() {
     // Patterns exist + no pattern at right-click address → "Remove Pattern" disabled
-    let entries = build_pattern_menu_entries(false, true, false);
+    let entries = build_pattern_menu_entries(false, true, false, None);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Disabled { label, .. } if label == "Remove Pattern")),
         "Remove Pattern should be disabled when patterns exist but addr has no pattern"
@@ -294,7 +294,7 @@ fn test_build_entries_remove_pattern_disabled() {
 #[test]
 fn test_build_entries_create_pattern_enabled() {
     // Range selected → "Create Pattern" enabled
-    let entries = build_pattern_menu_entries(true, false, false);
+    let entries = build_pattern_menu_entries(true, false, false, None);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::CreatePattern, .. } if label == "Create Pattern")),
         "Create Pattern should be enabled when range is selected"
@@ -304,7 +304,7 @@ fn test_build_entries_create_pattern_enabled() {
 #[test]
 fn test_build_entries_create_pattern_disabled() {
     // Single selection → "Create Pattern" disabled
-    let entries = build_pattern_menu_entries(false, false, false);
+    let entries = build_pattern_menu_entries(false, false, false, None);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Disabled { label, .. } if label == "Create Pattern")),
         "Create Pattern should be disabled when no range is selected"
@@ -314,7 +314,7 @@ fn test_build_entries_create_pattern_disabled() {
 #[test]
 fn test_build_entries_clear_all_patterns_enabled() {
     // Patterns exist → "Clear All Patterns" enabled
-    let entries = build_pattern_menu_entries(false, true, false);
+    let entries = build_pattern_menu_entries(false, true, false, None);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::ClearAllPatterns, .. } if label == "Clear All Patterns")),
         "Clear All Patterns should be enabled when patterns exist"
@@ -335,7 +335,7 @@ fn test_build_entries_all_three_combinations() {
         ( true,  true,  true,  true,  true,  true),  // range, patterns, addr match
     ];
     for (has_sel, has_pat, has_addr, expect_create_enabled, expect_clear_enabled, expect_remove_enabled) in cases {
-        let entries = build_pattern_menu_entries(has_sel, has_pat, has_addr);
+        let entries = build_pattern_menu_entries(has_sel, has_pat, has_addr, None);
 
         let create_enabled = entries.iter().any(|e| matches!(e, CtxEntry::Item { label, .. } if label == "Create Pattern"));
         let create_disabled = entries.iter().any(|e| matches!(e, CtxEntry::Disabled { label, .. } if label == "Create Pattern"));

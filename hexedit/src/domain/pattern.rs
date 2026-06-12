@@ -10,6 +10,8 @@ pub struct Pattern {
     pub color_idx: u8,
     /// If this pattern belongs to a repeated-pattern group, the group id.
     pub group_id: Option<usize>,
+    /// Optional user note displayed to the right of the ASCII column.
+    pub annotation: Option<String>,
 }
 
 impl Pattern {
@@ -20,6 +22,7 @@ impl Pattern {
             end,
             color_idx,
             group_id: None,
+            annotation: None,
         }
     }
 
@@ -30,6 +33,7 @@ impl Pattern {
             end,
             color_idx,
             group_id: Some(group_id),
+            annotation: None,
         }
     }
 

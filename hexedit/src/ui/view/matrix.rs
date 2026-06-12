@@ -34,6 +34,8 @@ const HEX_CELL_WIDTH: f32 = 20.0;
 const ASCII_CELL_WIDTH: f32 = 9.0;
 const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
+const ANN_COL_GAP: f32 = 16.0;
+const ANNOTATION_COL_WIDTH: f32 = 200.0;
 const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
@@ -99,6 +101,8 @@ pub struct HexMatrix<'a, Message> {
     search_current_addr: Option<u64>,
     /// Start addresses of all search matches, for scrollbar markers.
     search_match_starts: &'a [u64],
+    /// Precomputed row-address → annotation text for the annotation column.
+    row_annotations: &'a BTreeMap<u64, String>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -134,6 +138,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         search_query_len: u64,
         search_current_addr: Option<u64>,
         search_match_starts: &'a [u64],
+        row_annotations: &'a BTreeMap<u64, String>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -148,6 +153,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             search_query_len,
             search_current_addr,
             search_match_starts,
+            row_annotations,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -284,14 +290,22 @@ impl<'a, Message> HexMatrix<'a, Message> {
             + COLUMN_GAP
     }
 
-    /// Total width of the address + hex + ASCII content area.
+    fn annotation_start_x(&self, bounds_x: f32) -> f32 {
+        self.ascii_start_x(bounds_x) + (self.bytes_per_row as f32) * ASCII_CELL_WIDTH + ANN_COL_GAP
+    }
+
+    /// Total width of the address + hex + ASCII + annotation content area.
     fn total_content_width(&self) -> f32 {
         let bpr = self.bytes_per_row as usize;
-        self.addr_col_width()
+        let mut w = self.addr_col_width()
             + (bpr as f32) * HEX_CELL_WIDTH
             + group_count(bpr) as f32 * GROUP_GAP
             + COLUMN_GAP
-            + (bpr as f32) * ASCII_CELL_WIDTH
+            + (bpr as f32) * ASCII_CELL_WIDTH;
+        if !self.row_annotations.is_empty() {
+            w += ANN_COL_GAP + ANNOTATION_COL_WIDTH;
+        }
+        w
     }
 
     /// Viewport height available for content, accounting for horizontal scrollbar.
@@ -1246,6 +1260,29 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
                     let ascii = shape_glyph(&self.cache, ascii_repr(b), font);
                     paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
+                }
+            }
+
+            // ── Annotation column ───────────────────────────────────────
+            if !self.row_annotations.is_empty() {
+                let ann_text: Option<&str> = self.row_annotations.get(&base_addr).map(|s| s.as_str());
+                if let Some(text) = ann_text {
+                    let ann_x = self.annotation_start_x(bounds.x) - scroll_x;
+                    let ann_color = color!(0x6a6050);
+                    draw_glyph_string(
+                        renderer,
+                        &self.cache,
+                        text,
+                        font,
+                        Rectangle {
+                            x: ann_x,
+                            y,
+                            width: ANNOTATION_COL_WIDTH - 4.0,
+                            height: ROW_HEIGHT,
+                        },
+                        ann_color,
+                        clip,
+                    );
                 }
             }
         }

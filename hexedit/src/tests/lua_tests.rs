@@ -465,6 +465,9 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         lua_engine: LuaScriptEngine::new(false).unwrap(),
         export_config: None,
         repeat_pattern: None,
+        row_annotations: std::collections::BTreeMap::new(),
+        renaming_group: None,
+        renaming_group_draft: String::new(),
     };
     let errors = state.load_lua_scripts(&dir);
     assert!(errors.is_empty(), "should load without errors: {errors:?}");
@@ -506,6 +509,9 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         lua_engine: engine,
         export_config: None,
         repeat_pattern: None,
+        row_annotations: std::collections::BTreeMap::new(),
+        renaming_group: None,
+        renaming_group_draft: String::new(),
     };
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
     assert!(errors.is_empty(), "non-existent dir should return 0 errors");
@@ -574,6 +580,9 @@ return {
         lua_engine: engine,
         export_config: None,
         repeat_pattern: None,
+        row_annotations: std::collections::BTreeMap::new(),
+        renaming_group: None,
+        renaming_group_draft: String::new(),
     };
     // Verify the decode works
     assert_eq!((entries[0].decode)(&[0xAB]), "LUA:0xAB");

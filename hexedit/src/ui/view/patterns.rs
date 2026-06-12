@@ -1,4 +1,5 @@
-//! Pattern list panel with accordion grouping for repeated patterns.
+//! Pattern list panel with accordion grouping, colour cycling, inline rename,
+//! annotation editing, and pattern import/export.
 //!
 //! Ungrouped patterns (created via "Create Pattern") appear as flat rows.
 //! Repeated-pattern groups (created via "Add Repeated Pattern") appear under
@@ -7,7 +8,9 @@
 use std::collections::BTreeMap;
 
 use iced::widget::space::Space;
-use iced::widget::{button, column, container, row, scrollable, text};
+use iced::widget::{
+    button, column, container, row, scrollable, text, text_input,
+};
 use iced::{color, Element, Fill, Font, Length};
 
 use crate::pattern::{pattern_bg, pattern_fg};
@@ -21,6 +24,17 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
             .size(11)
             .font(Font::MONOSPACE),
         Space::default().width(Fill),
+        // Export / Import buttons
+        if !editor.patterns.is_empty() {
+            text("↥").size(12).font(Font::MONOSPACE)
+        } else {
+            text("").size(12)
+        },
+        if !editor.patterns.is_empty() {
+            text("↧").size(12).font(Font::MONOSPACE)
+        } else {
+            text("").size(12)
+        },
         button(text("✕").size(10).font(Font::MONOSPACE))
             .padding([2, 6])
             .on_press(HexEditorMessage::TogglePatternList),
@@ -51,7 +65,20 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     let mut col = column![].spacing(1).padding([2, 12]);
 
-    // ── Render ungrouped patterns (flat rows, same as before) ────────────
+    // ── Toolbar row ──────────────────────────────────────────────────────
+    let import_export_row = row![
+        Space::default().width(Fill),
+        button(text("Export").size(9).font(Font::MONOSPACE))
+            .padding([2, 8])
+            .on_press(HexEditorMessage::ExportPatterns),
+        button(text("Import").size(9).font(Font::MONOSPACE))
+            .padding([2, 8])
+            .on_press(HexEditorMessage::ImportPatterns),
+    ]
+    .spacing(6);
+    col = col.push(import_export_row);
+
+    // ── Render ungrouped patterns ────────────────────────────────────────
     for pat in &ungrouped {
         col = col.push(pattern_row(pat));
     }
@@ -62,7 +89,12 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
         if let Some(grp) = group {
             let children = &grouped[gid];
             let collapsed = editor.collapsed_groups.contains(&grp.id);
-            col = col.push(group_header(grp, children.len(), collapsed));
+            col = col.push(group_header(
+                editor,
+                grp,
+                children.len(),
+                collapsed,
+            ));
             if !collapsed {
                 for pat in children {
                     col = col.push(pattern_row(pat));
@@ -89,6 +121,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
 /// Accordion header row for a repeated-pattern group.
 fn group_header<'a>(
+    editor: &'a HexEditorState,
     grp: &'a RepeatedPatternGroup,
     child_count: usize,
     collapsed: bool,
@@ -107,22 +140,50 @@ fn group_header<'a>(
             },
             ..Default::default()
         });
+    // Clicking the swatch cycles the group colour.
+    let swatch_btn = button(swatch)
+        .padding(0)
+        .on_press(HexEditorMessage::CycleGroupColor(grp.id))
+        .style(button::text);
 
     let toggle_char = if collapsed { "▶" } else { "▼" };
     let toggle = text(toggle_char).size(9).font(Font::MONOSPACE);
 
-    let label = text(&grp.label).size(10).font(Font::MONOSPACE);
+    // ── Rename UI ────────────────────────────────────────────────────────
+    let label_elem: Element<'_, HexEditorMessage> =
+        if editor.renaming_group == Some(grp.id) {
+            text_input("Group name", &editor.renaming_group_draft)
+                .id(iced::widget::Id::new("hex-rename-group-input"))
+                .on_input(HexEditorMessage::SetRenameGroupDraft)
+                .on_submit(HexEditorMessage::CommitRenameGroup)
+                .size(10)
+                .padding([1, 4])
+                .width(Length::Fixed(140.0))
+                .into()
+        } else {
+            button(text(&grp.label).size(10).font(Font::MONOSPACE))
+                .on_press(HexEditorMessage::BeginRenameGroup(grp.id))
+                .padding(0)
+                .style(button::text)
+                .into()
+        };
+
     let count = text(format!("({})", child_count))
         .size(10)
         .color(color!(0x8a7a6a))
         .font(Font::MONOSPACE);
 
+    let remove_btn = button(text("✕").size(9).font(Font::MONOSPACE))
+        .padding([1, 4])
+        .on_press(HexEditorMessage::RemovePatternGroup(grp.id));
+
     let inner = row![
         toggle,
-        swatch,
-        label,
+        swatch_btn,
+        label_elem,
         count,
         Space::default().width(Fill),
+        remove_btn,
     ]
     .spacing(6)
     .align_y(iced::Alignment::Center);
@@ -135,8 +196,8 @@ fn group_header<'a>(
         .into()
 }
 
-/// A single pattern row — used both for ungrouped patterns and for children
-/// of a group accordion.
+/// A single pattern row — clickable to navigate, swatch cycles colour,
+/// annotation text input sits on the right.
 fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, HexEditorMessage> {
     let (bg, fg) = (pattern_bg(pat.color_idx), pattern_fg(pat.color_idx));
 
@@ -152,6 +213,11 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, HexEditorMessage> {
             },
             ..Default::default()
         });
+    // Clicking the swatch cycles the colour.
+    let swatch_btn = button(swatch)
+        .padding(0)
+        .on_press(HexEditorMessage::CyclePatternColor(pat.id))
+        .style(button::text);
 
     let start = text(format!("0x{:08X}", pat.start))
         .size(10)
@@ -165,31 +231,44 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, HexEditorMessage> {
         .padding([1, 4])
         .on_press(HexEditorMessage::RemovePattern(pat.id));
 
+    // ── Annotation text input on the right ───────────────────────────────
+    let current = pat.annotation.as_deref().unwrap_or("");
+    let ann_input = text_input("Annotation…", current)
+        .on_input(move |s| HexEditorMessage::SetPatternAnnotation(pat.id, s))
+        .size(9)
+        .padding([1, 4])
+        .width(Fill);
+
     let inner = row![
-        swatch,
+        swatch_btn,
         container(start).width(Length::Fixed(80.0)),
         container(end).width(Length::Fixed(80.0)),
         container(size).width(Length::Fixed(40.0)),
         remove_btn,
+        ann_input,
     ]
-    .spacing(8)
+    .spacing(6)
     .align_y(iced::Alignment::Center);
 
     let row = button(inner)
         .on_press(HexEditorMessage::NavigateToPattern(pat.id))
-        .padding([3, 6])
+        .padding(iced::Padding {
+            top: 3.0,
+            right: 4.0,
+            bottom: 3.0,
+            left: 6.0,
+        })
         .width(Fill)
         .style(button::text);
 
-    // Indent group children with left padding.
+    // Indent group children.
     if pat.group_id.is_some() {
-        let left_pad: f32 = 20.0;
         container(row)
             .padding(iced::Padding {
-                top: 3.0,
+                top: 0.0,
                 right: 6.0,
-                bottom: 3.0,
-                left: 6.0 + left_pad,
+                bottom: 0.0,
+                left: 26.0,
             })
             .width(Fill)
             .into()

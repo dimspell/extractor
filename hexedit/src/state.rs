@@ -47,6 +47,13 @@ pub struct HexEditorState {
     pub next_group_id: usize,
     /// Set of group ids whose accordion section is collapsed.
     pub collapsed_groups: BTreeSet<usize>,
+    /// Precomputed map: row-start-address → annotation text for the hex
+    /// matrix annotation column. Rebuilt after every pattern mutation.
+    pub row_annotations: BTreeMap<u64, String>,
+    /// Which group is currently being renamed (inline edit in pattern list).
+    pub renaming_group: Option<usize>,
+    /// Draft text for the rename text input.
+    pub renaming_group_draft: String,
     /// Last address where right-click occurred (for context menu).
     pub context_menu_addr: Option<u64>,
     /// Goto-address dialog state (None when closed).
@@ -104,6 +111,9 @@ impl HexEditorState {
             groups: Vec::new(),
             next_group_id: 0,
             collapsed_groups: BTreeSet::new(),
+            row_annotations: BTreeMap::new(),
+            renaming_group: None,
+            renaming_group_draft: String::new(),
             context_menu_addr: None,
             goto: None,
             export_config: None,
@@ -139,6 +149,7 @@ impl HexEditorState {
         let color_idx = (self.patterns.len() % 16) as u8;
         self.patterns.push(Pattern::new(id, start, end, color_idx));
         self.rebuild_pattern_lookup();
+        self.recompute_row_annotations();
         id
     }
 
@@ -146,6 +157,7 @@ impl HexEditorState {
     pub fn remove_pattern(&mut self, id: usize) {
         self.patterns.retain(|p| p.id != id);
         self.rebuild_pattern_lookup();
+        self.recompute_row_annotations();
     }
 
     /// Clear all patterns and pattern groups.
@@ -154,6 +166,8 @@ impl HexEditorState {
         self.pattern_by_addr.clear();
         self.groups.clear();
         self.collapsed_groups.clear();
+        self.row_annotations.clear();
+        self.renaming_group = None;
     }
 
     /// Rebuild the `pattern_by_addr` lookup from the current `patterns` vec.
@@ -174,6 +188,35 @@ impl HexEditorState {
     /// Return the pattern with the given id, if it exists.
     pub fn pattern_by_id(&self, id: usize) -> Option<&Pattern> {
         self.patterns.iter().find(|p| p.id == id)
+    }
+
+    /// Rebuild the `row_annotations` map from the current pattern list.
+    /// Called after every pattern mutation so the hex matrix can render
+    /// annotations to the right of the ASCII column.
+    /// When multiple patterns with annotations overlap the same row, their
+    /// texts are joined with ` │ ` (a pipe surrounded by spaces).
+    pub fn recompute_row_annotations(&mut self) {
+        self.row_annotations.clear();
+        let bpr = self.bytes_per_row.max(1) as u64;
+        for pat in &self.patterns {
+            if let Some(ref ann) = pat.annotation {
+                if ann.is_empty() {
+                    continue;
+                }
+                let first_row = pat.start / bpr;
+                let last_row = pat.end / bpr;
+                for row in first_row..=last_row {
+                    let row_start = row * bpr;
+                    self.row_annotations
+                        .entry(row_start)
+                        .and_modify(|existing| {
+                            existing.push_str(" │ ");
+                            existing.push_str(ann);
+                        })
+                        .or_insert_with(|| ann.clone());
+                }
+            }
+        }
     }
 
     /// Load all `.lua` scripts from a directory into the Lua engine.

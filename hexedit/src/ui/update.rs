@@ -2,6 +2,8 @@ use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
 use crate::domain::export_config::ExportConfig;
+
+
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
@@ -403,6 +405,7 @@ pub fn update(
                         created += 1;
                     }
                     state.rebuild_pattern_lookup();
+                    state.recompute_row_annotations();
                     state.status_msg =
                         format!("Created group \"{label}\" with {created} repetition(s)");
                 }
@@ -436,6 +439,159 @@ pub fn update(
                 state.collapsed_groups.insert(id);
             }
         }
+
+        // ── Group operations ────────────────────────────────────────────
+        HexEditorMessage::RemovePatternGroup(gid) => {
+            state.patterns.retain(|p| p.group_id != Some(gid));
+            state.groups.retain(|g| g.id != gid);
+            state.collapsed_groups.remove(&gid);
+            state.rebuild_pattern_lookup();
+            state.recompute_row_annotations();
+            state.status_msg = format!("Removed group and {} pattern(s)", state.patterns.len());
+        }
+        HexEditorMessage::BeginRenameGroup(gid) => {
+            state.renaming_group = Some(gid);
+            if let Some(grp) = state.groups.iter().find(|g| g.id == gid) {
+                state.renaming_group_draft = grp.label.clone();
+            }
+            return iced::widget::operation::focus(
+                iced::widget::Id::new("hex-rename-group-input"),
+            );
+        }
+        HexEditorMessage::SetRenameGroupDraft(s) => {
+            state.renaming_group_draft = s;
+        }
+        HexEditorMessage::CommitRenameGroup => {
+            if let Some(gid) = state.renaming_group.take() {
+                let label = if state.renaming_group_draft.trim().is_empty() {
+                    "Unnamed group"
+                } else {
+                    state.renaming_group_draft.trim()
+                };
+                if let Some(grp) = state.groups.iter_mut().find(|g| g.id == gid) {
+                    grp.label = label.to_string();
+                }
+                state.status_msg = format!("Group renamed to \"{label}\"");
+            }
+            state.renaming_group_draft.clear();
+        }
+        HexEditorMessage::CancelRenameGroup => {
+            state.renaming_group = None;
+            state.renaming_group_draft.clear();
+        }
+        HexEditorMessage::CycleGroupColor(gid) => {
+            if let Some(grp) = state.groups.iter_mut().find(|g| g.id == gid) {
+                grp.color_idx = (grp.color_idx + 1) % 16;
+                for pat in &mut state.patterns {
+                    if pat.group_id == Some(gid) {
+                        pat.color_idx = grp.color_idx;
+                    }
+                }
+            }
+        }
+        HexEditorMessage::CyclePatternColor(pid) => {
+            if let Some(pat) = state.patterns.iter_mut().find(|p| p.id == pid) {
+                pat.color_idx = (pat.color_idx + 1) % 16;
+            }
+        }
+
+        // ── Pattern annotations ─────────────────────────────────────────
+        HexEditorMessage::SetPatternAnnotation(pid, text) => {
+            if let Some(pat) = state.patterns.iter_mut().find(|p| p.id == pid) {
+                let text = text.trim().to_string();
+                pat.annotation = if text.is_empty() { None } else { Some(text) };
+                state.recompute_row_annotations();
+            }
+        }
+        HexEditorMessage::ClearPatternAnnotation(pid) => {
+            if let Some(pat) = state.patterns.iter_mut().find(|p| p.id == pid) {
+                pat.annotation = None;
+                state.recompute_row_annotations();
+            }
+        }
+
+        // ── Pattern import / export ─────────────────────────────────────
+        HexEditorMessage::ExportPatterns => {
+            let payload = export_patterns_to_text(state);
+            if let Some(text) = payload {
+                return Task::perform(
+                    async move {
+                        let path = rfd::AsyncFileDialog::new()
+                            .set_title("Export Patterns")
+                            .set_file_name("patterns.txt")
+                            .add_filter("Pattern files", &["txt", "pat"])
+                            .save_file()
+                            .await;
+                        let Some(path) = path else {
+                            return HexEditorMessage::PatternsExported(
+                                Err("cancelled".to_string()),
+                            );
+                        };
+                        match tokio::fs::write(path.path(), text).await {
+                            Ok(()) => HexEditorMessage::PatternsExported(Ok(())),
+                            Err(e) => {
+                                HexEditorMessage::PatternsExported(Err(e.to_string()))
+                            }
+                        }
+                    },
+                    std::convert::identity,
+                );
+            }
+        }
+        HexEditorMessage::ImportPatterns => {
+            return Task::perform(
+                async move {
+                    let path = rfd::AsyncFileDialog::new()
+                        .set_title("Import Patterns")
+                        .add_filter("Pattern files", &["txt", "pat"])
+                        .pick_file()
+                        .await;
+                    let Some(path) = path else {
+                        return HexEditorMessage::PatternsImported(
+                            Err("cancelled".to_string()),
+                        );
+                    };
+                    match tokio::fs::read_to_string(path.path()).await {
+                        Ok(text) => {
+                            HexEditorMessage::PatternsImported(Ok(text))
+                        }
+                        Err(e) => {
+                            HexEditorMessage::PatternsImported(Err(e.to_string()))
+                        }
+                    }
+                },
+                std::convert::identity,
+            );
+        }
+        HexEditorMessage::PatternsExported(result) => match result {
+            Ok(()) => {
+                state.status_msg = "Patterns exported".to_string();
+            }
+            Err(e) => {
+                if e != "cancelled" {
+                    state.status_msg = format!("Export failed: {e}");
+                }
+            }
+        },
+        HexEditorMessage::PatternsImported(result) => match result {
+            Ok(text) => {
+                match import_patterns_into(&text, state) {
+                    Ok(msg) => {
+                        state.rebuild_pattern_lookup();
+                        state.recompute_row_annotations();
+                        state.status_msg = msg;
+                    }
+                    Err(e) => {
+                        state.status_msg = format!("Import failed: {e}");
+                    }
+                }
+            }
+            Err(e) => {
+                if e != "cancelled" {
+                    state.status_msg = format!("Import failed: {e}");
+                }
+            }
+        },
 
         // ── Address format ──────────────────────────────────────────────
         HexEditorMessage::ToggleAddrFormat => {
@@ -664,6 +820,118 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8, config: &ExportConfig) -
     }
 
     output
+}
+
+// ── Pattern import / export format ─────────────────────────────────────
+//
+// Text format (one record per line):
+//   P|<start_hex>|<end_hex>|<color_idx>|<group_id>|<annotation>
+//   G|<group_id>|<label>|<color_idx>
+// Lines starting with '#' are comments. Start addresses in hex.
+
+/// Serialise current patterns + groups to the custom text format.
+pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<String> {
+    if state.patterns.is_empty() && state.groups.is_empty() {
+        return None;
+    }
+    let mut out = String::with_capacity(state.patterns.len() * 80);
+    out.push_str("# HexEdit Pattern Export v1\n");
+    for g in &state.groups {
+        out.push_str(&format!(
+            "G|{}|{}|{}\n",
+            g.id, g.label, g.color_idx
+        ));
+    }
+    for p in &state.patterns {
+        let gid = p
+            .group_id
+            .map(|id| id.to_string())
+            .unwrap_or_default();
+        let ann = p
+            .annotation
+            .as_deref()
+            .unwrap_or("");
+        out.push_str(&format!(
+            "P|{:X}|{:X}|{}|{}|{}\n",
+            p.start, p.end, p.color_idx, gid, ann
+        ));
+    }
+    Some(out)
+}
+
+/// Parse the custom text format and apply patterns/groups to `state`.
+/// Returns a status message or an error.
+pub(crate) fn import_patterns_into(
+    text: &str,
+    state: &mut crate::HexEditorState,
+) -> Result<String, String> {
+    use std::collections::HashMap;
+
+    let mut group_map: HashMap<usize, usize> = HashMap::new();
+    let mut pattern_count = 0usize;
+
+    for (lineno, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let parts: Vec<&str> = line.split('|').collect();
+
+        match parts.first() {
+            Some(&"G") if parts.len() >= 3 => {
+                let gid: usize = parts[1]
+                    .parse()
+                    .map_err(|_| format!("line {}: invalid group id", lineno + 1))?;
+                let label = parts[2].to_string();
+                let color_idx: u8 = parts
+                    .get(3)
+                    .and_then(|s| s.parse().ok())
+                    .unwrap_or(0);
+                let new_id = state.next_group_id;
+                state.next_group_id += 1;
+                group_map.insert(gid, new_id);
+                state
+                    .groups
+                    .push(RepeatedPatternGroup::new(new_id, label, color_idx));
+            }
+            Some(&"P") if parts.len() >= 4 => {
+                let start = u64::from_str_radix(parts[1], 16)
+                    .map_err(|_| format!("line {}: invalid start address", lineno + 1))?;
+                let end = u64::from_str_radix(parts[2], 16)
+                    .map_err(|_| format!("line {}: invalid end address", lineno + 1))?;
+                let color_idx: u8 = parts[3]
+                    .parse()
+                    .map_err(|_| format!("line {}: invalid color index", lineno + 1))?;
+                let mapped_gid = parts
+                    .get(4)
+                    .and_then(|s| s.parse::<usize>().ok())
+                    .and_then(|old| group_map.get(&old).copied());
+                let annotation = parts
+                    .get(5)
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string());
+                let id = state.next_pattern_id;
+                state.next_pattern_id += 1;
+                let mut pat =
+                    Pattern::new(id, start.min(end), start.max(end), color_idx % 16);
+                pat.group_id = mapped_gid;
+                pat.annotation = annotation;
+                state.patterns.push(pat);
+                pattern_count += 1;
+            }
+            Some(t) if *t == "G" || *t == "P" => {
+                return Err(format!("line {}: too few fields", lineno + 1));
+            }
+            _ => {
+                return Err(format!("line {}: unknown type '{}'", lineno + 1, parts[0]));
+            }
+        }
+    }
+
+    if pattern_count == 0 {
+        return Err("No patterns found in import file".to_string());
+    }
+    Ok(format!("Imported {pattern_count} pattern(s)"))
 }
 
 #[cfg(test)]
