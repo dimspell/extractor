@@ -1,4 +1,5 @@
 pub mod editing;
+pub mod export_config;
 pub mod goto;
 pub mod layout;
 pub mod pattern;

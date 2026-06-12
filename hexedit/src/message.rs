@@ -114,8 +114,18 @@ pub enum HexEditorMessage {
     PasteContent(String),
 
     // ── Export as text ──────────────────────────────────────────────────
-    /// Export the data as a text file (hex dump format matching the matrix).
-    ExportAsText,
+    /// Open the export config modal.
+    OpenExportConfig,
+    /// Close the export config modal without exporting.
+    CloseExportConfig,
+    /// Toggle the address-gutter checkbox in the export config modal.
+    SetExportShowAddress(bool),
+    /// Toggle the decimal-address checkbox.
+    SetExportAddressDecimal(bool),
+    /// Toggle the show-ASCII column checkbox.
+    SetExportShowAscii(bool),
+    /// User confirmed the config — start the export flow (file dialog + write).
+    CommitExport,
     /// Result after the text export completes.
     TextExportCompleted(Result<(), String>),
 }

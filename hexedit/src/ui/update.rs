@@ -1,6 +1,7 @@
 use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
+use crate::domain::export_config::ExportConfig;
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
 use crate::inspector::ENTRIES;
@@ -410,13 +411,45 @@ pub fn update(
         }
 
         // ── Export as text ──────────────────────────────────────────────
-        HexEditorMessage::ExportAsText => {
+        HexEditorMessage::OpenExportConfig => {
+            state.export_config = Some(ExportConfig {
+                show_address: true,
+                address_decimal: state.show_decimal,
+                show_ascii: true,
+            });
+        }
+
+        HexEditorMessage::CloseExportConfig => {
+            state.export_config = None;
+        }
+
+        HexEditorMessage::SetExportShowAddress(v) => {
+            if let Some(ref mut c) = state.export_config {
+                c.show_address = v;
+            }
+        }
+        HexEditorMessage::SetExportAddressDecimal(v) => {
+            if let Some(ref mut c) = state.export_config {
+                c.address_decimal = v;
+            }
+        }
+        HexEditorMessage::SetExportShowAscii(v) => {
+            if let Some(ref mut c) = state.export_config {
+                c.show_ascii = v;
+            }
+        }
+
+        HexEditorMessage::CommitExport => {
             let bytes = state.provider.as_slice().to_vec();
             if bytes.is_empty() {
                 state.status_msg = "Nothing to export — file is empty".to_string();
+                state.export_config = None;
                 return Task::none();
             }
             let bpr = state.bytes_per_row;
+            let config = state.export_config.clone().unwrap_or_default();
+            state.export_config = None; // close modal
+
             return Task::perform(
                 async move {
                     let path = rfd::AsyncFileDialog::new()
@@ -428,7 +461,7 @@ pub fn update(
                     let Some(path) = path else {
                         return HexEditorMessage::TextExportCompleted(Err("cancelled".to_string()));
                     };
-                    let text = format_hex_dump(&bytes, bpr);
+                    let text = format_hex_dump(&bytes, bpr, &config);
                     match tokio::fs::write(path.path(), text).await {
                         Ok(()) => HexEditorMessage::TextExportCompleted(Ok(())),
                         Err(e) => HexEditorMessage::TextExportCompleted(Err(e.to_string())),
@@ -456,14 +489,16 @@ pub fn update(
 ///
 /// Each line shows: address (hex) · hex bytes grouped 8+8 · ASCII repr.
 /// Non-printable bytes (outside 0x20..0x7F) are displayed as `·` (middle dot).
+/// The [`ExportConfig`] controls which columns are included and the address
+/// format.
 ///
-/// # Example (with `bytes_per_row = 16`)
+/// # Example (with default config, `bytes_per_row = 16`)
 ///
 /// ```text
 /// 00000000  48 65 6C 6C 6F 20 57 6F  72 6C 64 00 00 00 00 00  Hello World·····
 /// 00000010  00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F  ················
 /// ```
-pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8) -> String {
+pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8, config: &ExportConfig) -> String {
     let bpr = bytes_per_row.max(1) as usize;
 
     // Compute the fixed width of the hex column for a full row.
@@ -472,47 +507,70 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8) -> String {
     //   - the last byte has no trailing separator,
     //   - after every 8th byte an extra space is added (group gap).
     // Formula: bpr * 3 - 1 + group_gaps
-    // where group_gaps = (bpr / 8).saturating_sub(1)  (n groups → n-1 gaps)
+    // where group_gaps = groups.saturating_sub(1)
     let groups = bpr.div_ceil(8);
     let hex_col_width = bpr * 3 - 1 + groups.saturating_sub(1);
 
+    // Maximum width (in chars) of the address column (including "  " separator).
+    let addr_width = if config.show_address {
+        if config.address_decimal {
+            let max_addr = bytes.len().saturating_sub(1);
+            format!("{}", max_addr).len().max(1) + 2
+        } else {
+            8 + 2 // 8 hex chars + "  "
+        }
+    } else {
+        0
+    };
+
     let mut output = String::with_capacity(
-        // Estimate: 8 addr + 2 sep + hex_col_width + 2 sep + bpr ascii + 1 newline, per row
-        ((8 + 2 + hex_col_width + 2 + bpr + 1) * bytes.len().div_ceil(bpr)).min(usize::MAX),
+        ((addr_width + hex_col_width + 2 + bpr + 1) * bytes.len().div_ceil(bpr)).min(usize::MAX),
     );
 
     for (chunk_idx, chunk) in bytes.chunks(bpr).enumerate() {
-        let mut hex_part = String::with_capacity(hex_col_width);
+        let addr = chunk_idx * bpr;
 
+        // ── Address gutter ────────────────────────────────────────────
+        if config.show_address {
+            if config.address_decimal {
+                output.push_str(&format!("{:>width$}  ", addr, width = addr_width - 2));
+            } else {
+                output.push_str(&format!("{:08X}  ", addr));
+            }
+        }
+
+        // ── Hex column ────────────────────────────────────────────────
+        let mut hex_part = String::with_capacity(hex_col_width);
         for (col, &b) in chunk.iter().enumerate() {
             if col > 0 {
                 if col % 8 == 0 {
-                    hex_part.push_str("  "); // double space between 8-byte groups
+                    hex_part.push_str("  "); // double space between groups
                 } else {
                     hex_part.push(' ');
                 }
             }
             hex_part.push_str(&format!("{:02X}", b));
         }
+        output.push_str(&hex_part);
 
-        // Build ASCII column
-        let mut ascii_part = String::with_capacity(bpr);
-        for &b in chunk {
-            if (0x20..0x7F).contains(&b) {
-                ascii_part.push(b as char);
-            } else {
-                ascii_part.push('·'); // middle dot, matching matrix rendering
+        // Right-pad hex column to fixed width
+        for _ in hex_part.len()..hex_col_width {
+            output.push(' ');
+        }
+
+        // ── ASCII column ──────────────────────────────────────────────
+        if config.show_ascii {
+            output.push_str("  ");
+            for &b in chunk {
+                if (0x20..0x7F).contains(&b) {
+                    output.push(b as char);
+                } else {
+                    output.push('·');
+                }
             }
         }
 
-        // Left-align hex column, pad to full width so ASCII aligns
-        output.push_str(&format!(
-            "{0:08X}  {1:<2$}  {3}\n",
-            chunk_idx * bpr,
-            hex_part,
-            hex_col_width,
-            ascii_part,
-        ));
+        output.push('\n');
     }
 
     output
@@ -521,17 +579,48 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::format_hex_dump;
+    use crate::domain::export_config::ExportConfig;
+
+    fn default_config() -> ExportConfig {
+        ExportConfig::default()
+    }
+
+    /// Config with addresses hidden.
+    fn no_addr_config() -> ExportConfig {
+        ExportConfig {
+            show_address: false,
+            address_decimal: false,
+            show_ascii: true,
+        }
+    }
+
+    /// Config with no ASCII column.
+    fn no_ascii_config() -> ExportConfig {
+        ExportConfig {
+            show_address: true,
+            address_decimal: false,
+            show_ascii: false,
+        }
+    }
+
+    /// Config with decimal addresses.
+    fn decimal_addr_config() -> ExportConfig {
+        ExportConfig {
+            show_address: true,
+            address_decimal: true,
+            show_ascii: true,
+        }
+    }
 
     #[test]
     fn format_empty_bytes() {
-        assert_eq!(format_hex_dump(&[], 16), "");
+        assert_eq!(format_hex_dump(&[], 16, &default_config()), "");
     }
 
     #[test]
     fn format_single_row() {
         let bytes = b"Hello World";
-        let result = format_hex_dump(bytes, 16);
-        // 11 bytes in a 16-byte row — hex column is right-padded to fixed width
+        let result = format_hex_dump(bytes, 16, &default_config());
         assert!(result.starts_with("00000000  48 65 6C 6C 6F 20 57 6F  72 6C 64"));
         assert!(result.contains("Hello World"));
         assert!(result.ends_with("\n"));
@@ -540,7 +629,7 @@ mod tests {
     #[test]
     fn format_two_rows() {
         let bytes: Vec<u8> = (0..32).collect();
-        let result = format_hex_dump(&bytes, 16);
+        let result = format_hex_dump(&bytes, 16, &default_config());
         let expected = "\
 00000000  00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F  ················
 00000010  10 11 12 13 14 15 16 17  18 19 1A 1B 1C 1D 1E 1F  ················
@@ -551,31 +640,27 @@ mod tests {
     #[test]
     fn format_partial_last_row() {
         let bytes: Vec<u8> = (0..20).collect();
-        let result = format_hex_dump(&bytes, 16);
+        let result = format_hex_dump(&bytes, 16, &default_config());
         let lines: Vec<&str> = result.lines().collect();
         assert_eq!(lines.len(), 2);
-        // Full first row
         assert!(lines[0].starts_with("00000000"));
-        // Second row has only 4 bytes (address 0x10)
         assert!(lines[1].starts_with("00000010"));
-        assert!(lines[1].contains("10 11 12 13")); // bytes 16-19
+        assert!(lines[1].contains("10 11 12 13"));
     }
 
     #[test]
     fn format_bpr_8() {
         let bytes: Vec<u8> = (0..8).collect();
-        let result = format_hex_dump(&bytes, 8);
-        // With 8 BPR there should be 8 bytes, no group gap needed (only 1 group)
+        let result = format_hex_dump(&bytes, 8, &default_config());
         assert!(result.contains("00 01 02 03 04 05 06 07"));
     }
 
     #[test]
     fn format_bpr_32() {
         let bytes: Vec<u8> = (0..64).collect();
-        let result = format_hex_dump(&bytes, 32);
+        let result = format_hex_dump(&bytes, 32, &default_config());
         let lines: Vec<&str> = result.lines().collect();
         assert_eq!(lines.len(), 2);
-        // First line should have address 0x00000000, second 0x00000020 (32 byte rows)
         assert!(lines[0].starts_with("00000000"));
         assert!(lines[1].starts_with("00000020"));
     }
@@ -583,8 +668,7 @@ mod tests {
     #[test]
     fn format_non_printable_shows_dot() {
         let bytes = [0x00, 0x1F, 0x7F, 0x80, 0xFF];
-        let result = format_hex_dump(&bytes, 16);
-        // These bytes should all show as '·' in the ASCII column
+        let result = format_hex_dump(&bytes, 16, &default_config());
         let ascii_part = result.split("  ").last().unwrap_or("");
         assert_eq!(ascii_part.trim_end_matches('\n'), "·····");
     }
@@ -592,19 +676,15 @@ mod tests {
     #[test]
     fn format_printable_preserved() {
         let bytes = b"ABC123!@#";
-        let result = format_hex_dump(bytes, 16);
+        let result = format_hex_dump(bytes, 16, &default_config());
         let ascii_part = result.split("  ").last().unwrap_or("");
         assert!(ascii_part.contains("ABC123!@#"));
     }
 
     #[test]
     fn format_hex_colums_align() {
-        // Hex column is padded to a fixed width so ASCII always starts at
-        // the same column position regardless of row length.
-        // For BPR=16: hex_col_width = 48, address + spaces = 10,
-        // so the hex/ASCII separator "  " should always be at position 58.
         let bytes: Vec<u8> = (0..40).collect();
-        let result = format_hex_dump(&bytes, 16);
+        let result = format_hex_dump(&bytes, 16, &default_config());
         for (i, line) in result.lines().enumerate() {
             assert!(
                 line.len() >= 60,
@@ -614,5 +694,55 @@ mod tests {
             assert_eq!(&line[58..60], "  ",
                 "row {i}: hex/ASCII separator not at expected position 58");
         }
+    }
+
+    // ── Config-variant tests ───────────────────────────────────────────
+
+    #[test]
+    fn format_no_address_gutter() {
+        let bytes = b"Hello World";
+        let result = format_hex_dump(bytes, 16, &no_addr_config());
+        // No address prefix — should start directly with hex
+        assert!(!result.starts_with("00000000"));
+        assert!(result.starts_with("48 65 6C"));
+        assert!(result.contains("Hello World"));
+    }
+
+    #[test]
+    fn format_no_ascii() {
+        let bytes: Vec<u8> = (0..16).collect();
+        let result = format_hex_dump(&bytes, 16, &no_ascii_config());
+        // Should have the address and hex but no ASCII column
+        assert!(result.starts_with("00000000"));
+        assert!(result.contains("00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F"));
+        // No dots (middle-dot characters) because ASCII column is gone
+        assert!(!result.contains('·'));
+        // Line should end at hex column + newline (no ASCII)
+        assert!(result.ends_with("\n"));
+    }
+
+    #[test]
+    fn format_decimal_addresses() {
+        let bytes: Vec<u8> = (0..32).collect();
+        let result = format_hex_dump(&bytes, 16, &decimal_addr_config());
+        // First address is 0 — right-aligned in width, then "  "
+        assert!(result.starts_with(" 0  "));
+        // Second row starts at address 16 (decimal)
+        assert!(result.contains("16  10 11 12 13 14 15 16 17"));
+        // Should still have hex and ASCII columns
+        assert!(result.contains("00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F"));
+        assert!(result.contains('·'));
+    }
+
+    #[test]
+    fn format_only_hex_column() {
+        let bytes = b"\x00\x01\x02\x03";
+        let result = format_hex_dump(bytes, 16, &ExportConfig {
+            show_address: false,
+            address_decimal: false,
+            show_ascii: false,
+        });
+        // Just the hex values, nothing else
+        assert_eq!(result, "00 01 02 03                                     \n");
     }
 }

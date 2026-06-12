@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
+use super::domain::export_config::ExportConfig;
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
 use super::lua_engine::LuaScriptEngine;
@@ -44,6 +45,8 @@ pub struct HexEditorState {
     pub context_menu_addr: Option<u64>,
     /// Goto-address dialog state (None when closed).
     pub goto: Option<GotoState>,
+    /// Export-as-text config modal state (None when closed).
+    pub export_config: Option<ExportConfig>,
     /// Search & replace overlay state.
     pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
@@ -91,6 +94,7 @@ impl HexEditorState {
             next_pattern_id: 0,
             context_menu_addr: None,
             goto: None,
+            export_config: None,
             search: SearchState::new(),
             show_decimal: false,
             status_msg: String::new(),

@@ -52,6 +52,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         error: None,
         cache: ParagraphCache::default(),
         lua_engine: LuaScriptEngine::default(),
+        export_config: None,
     }
 }
 

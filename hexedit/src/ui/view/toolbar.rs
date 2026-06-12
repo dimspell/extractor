@@ -29,7 +29,7 @@ pub fn build_toolbar<'a>(
 
     let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
-        .on_press(HexEditorMessage::ExportAsText);
+        .on_press(HexEditorMessage::OpenExportConfig);
 
     // Bytes-per-row toggle group.
     let goto_btn = button(text("Go to...").size(11).font(Font::MONOSPACE))

@@ -1,3 +1,4 @@
+pub mod export_modal;
 pub mod footer;
 pub mod goto_modal;
 pub mod inspector;
@@ -142,12 +143,23 @@ pub fn view<'a>(
         base
     };
 
-    if let Some(ref g) = state.goto {
+    let base = if let Some(ref g) = state.goto {
         modal(
             base,
             goto_modal::view(g),
             || HexEditorMessage::CloseGotoDialog,
             0.3,
+        )
+    } else {
+        base
+    };
+
+    if state.export_config.is_some() {
+        modal(
+            base,
+            export_modal::view(state),
+            || HexEditorMessage::CloseExportConfig,
+            0.35,
         )
     } else {
         base
