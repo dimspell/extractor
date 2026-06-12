@@ -71,6 +71,7 @@ pub fn view<'a>(
         state.search.current_addr(),
         &state.search.results,
         &state.row_annotations,
+        &state.active_patterns,
         cache,
     )
     .on_select_at(HexEditorMessage::SelectAt)

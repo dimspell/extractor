@@ -38,9 +38,11 @@ pub fn update(
         HexEditorMessage::SelectAt(addr) => {
             state.selection.select(addr, max_addr);
             state.edit_mode = None;
+            state.refresh_active_patterns();
         }
         HexEditorMessage::ExtendTo(addr) => {
             state.selection.extend(addr, max_addr);
+            state.refresh_active_patterns();
         }
         HexEditorMessage::Nav { dir, extend } => {
             if state.provider.is_empty() {
@@ -54,6 +56,7 @@ pub fn update(
                 state.selection.select(target, max_addr);
             }
             state.edit_mode = None;
+            state.refresh_active_patterns();
         }
 
         HexEditorMessage::BeginEdit(addr) => {
@@ -63,6 +66,7 @@ pub fn update(
             let addr = addr.min(max_addr);
             state.selection.select(addr, max_addr);
             state.edit_mode = Some(EditState::new(addr));
+            state.refresh_active_patterns();
         }
         HexEditorMessage::EditTypeChar(c) => {
             if state.provider.is_empty() {
@@ -429,6 +433,7 @@ pub fn update(
             if let Some(pat) = state.pattern_by_id(id) {
                 state.selection.select(pat.start, max_addr);
             }
+            state.refresh_active_patterns();
         }
         HexEditorMessage::RemovePattern(id) => {
             state.remove_pattern(id);

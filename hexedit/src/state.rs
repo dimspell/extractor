@@ -47,9 +47,15 @@ pub struct HexEditorState {
     pub next_group_id: usize,
     /// Set of group ids whose accordion section is collapsed.
     pub collapsed_groups: BTreeSet<usize>,
-    /// Precomputed map: row-start-address → annotation text for the hex
-    /// matrix annotation column. Rebuilt after every pattern mutation.
-    pub row_annotations: BTreeMap<u64, String>,
+    /// Precomputed map: row-start-address → list of `(pattern_id, annotation)`
+    /// segments for the hex matrix annotation column. Rebuilt after every
+    /// pattern mutation. The matrix renders each segment independently so it
+    /// can highlight only the segments belonging to the active pattern.
+    pub row_annotations: BTreeMap<u64, Vec<(usize, String)>>,
+    /// Pattern ids that contain the current cursor address. The hex matrix
+    /// checks segments in `row_annotations` against this set to decide which
+    /// annotation text to render in a brighter colour.
+    pub active_patterns: BTreeSet<usize>,
     /// Which group is currently being renamed (inline edit in pattern list).
     pub renaming_group: Option<usize>,
     /// Draft text for the rename text input.
@@ -112,6 +118,7 @@ impl HexEditorState {
             next_group_id: 0,
             collapsed_groups: BTreeSet::new(),
             row_annotations: BTreeMap::new(),
+            active_patterns: BTreeSet::new(),
             renaming_group: None,
             renaming_group_draft: String::new(),
             context_menu_addr: None,
@@ -193,27 +200,41 @@ impl HexEditorState {
     /// Rebuild the `row_annotations` map from the current pattern list.
     /// Called after every pattern mutation so the hex matrix can render
     /// annotations to the right of the ASCII column.
-    /// When multiple patterns with annotations overlap the same row, their
-    /// texts are joined with ` │ ` (a pipe surrounded by spaces).
+    /// Each entry maps `row_start → Vec<(pattern_id, text)>` so the hex
+    /// matrix can colour segments independently based on cursor position.
     pub fn recompute_row_annotations(&mut self) {
         self.row_annotations.clear();
         let bpr = self.bytes_per_row.max(1) as u64;
         for pat in &self.patterns {
-            if let Some(ref ann) = pat.annotation {
-                if ann.is_empty() {
-                    continue;
-                }
-                let first_row = pat.start / bpr;
-                let last_row = pat.end / bpr;
-                for row in first_row..=last_row {
-                    let row_start = row * bpr;
-                    self.row_annotations
-                        .entry(row_start)
-                        .and_modify(|existing| {
-                            existing.push_str(" │ ");
-                            existing.push_str(ann);
-                        })
-                        .or_insert_with(|| ann.clone());
+            let Some(ref ann) = pat.annotation else { continue };
+            if ann.is_empty() {
+                continue;
+            }
+            let first_row = pat.start / bpr;
+            let last_row = pat.end / bpr;
+            for row in first_row..=last_row {
+                let row_start = row * bpr;
+                self.row_annotations
+                    .entry(row_start)
+                    .or_default()
+                    .push((pat.id, ann.clone()));
+            }
+        }
+        self.refresh_active_patterns();
+    }
+
+    /// Rebuild `active_patterns` — the set of pattern ids whose span contains
+    /// the current cursor address. Called automatically from
+    /// `recompute_row_annotations()` and should also be called whenever the
+    /// cursor moves (select, navigate, etc.).
+    pub fn refresh_active_patterns(&mut self) {
+        self.active_patterns.clear();
+        let cursor = self.selection.cursor;
+        for pat in &self.patterns {
+            if cursor >= pat.start && cursor <= pat.end {
+                let has_annotation = pat.annotation.as_ref().is_some_and(|a| !a.is_empty());
+                if has_annotation {
+                    self.active_patterns.insert(pat.id);
                 }
             }
         }

@@ -466,6 +466,7 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         export_config: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
+        active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
     };
@@ -510,6 +511,7 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         export_config: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
+        active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
     };
@@ -581,6 +583,7 @@ return {
         export_config: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
+        active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
     };

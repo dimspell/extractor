@@ -101,8 +101,13 @@ pub struct HexMatrix<'a, Message> {
     search_current_addr: Option<u64>,
     /// Start addresses of all search matches, for scrollbar markers.
     search_match_starts: &'a [u64],
-    /// Precomputed row-address → annotation text for the annotation column.
-    row_annotations: &'a BTreeMap<u64, String>,
+    /// Precomputed row-address → list of `(pattern_id, annotation)` segments
+    /// for the annotation column. Each segment is coloured independently so
+    /// only the active pattern's annotation appears highlighted.
+    row_annotations: &'a BTreeMap<u64, Vec<(usize, String)>>,
+    /// Pattern ids whose span contains the cursor — their annotation segments
+    /// are rendered in a brighter colour.
+    active_patterns: &'a BTreeSet<usize>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -138,7 +143,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
         search_query_len: u64,
         search_current_addr: Option<u64>,
         search_match_starts: &'a [u64],
-        row_annotations: &'a BTreeMap<u64, String>,
+        row_annotations: &'a BTreeMap<u64, Vec<(usize, String)>>,
+        active_patterns: &'a BTreeSet<usize>,
         cache: ParagraphCache,
     ) -> Self {
         Self {
@@ -154,6 +160,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             search_current_addr,
             search_match_starts,
             row_annotations,
+            active_patterns,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -1263,26 +1270,66 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
             }
 
-            // ── Annotation column ───────────────────────────────────────
-            if !self.row_annotations.is_empty() {
-                let ann_text: Option<&str> = self.row_annotations.get(&base_addr).map(|s| s.as_str());
-                if let Some(text) = ann_text {
-                    let ann_x = self.annotation_start_x(bounds.x) - scroll_x;
-                    let ann_color = color!(0x6a6050);
-                    draw_glyph_string(
-                        renderer,
-                        &self.cache,
-                        text,
-                        font,
-                        Rectangle {
-                            x: ann_x,
+            // ── Annotation column (per-segment colour) ──────────────────
+            if let Some(segments) = self.row_annotations.get(&base_addr) {
+                let ann_x0 = self.annotation_start_x(bounds.x) - scroll_x;
+                let mut seg_x = ann_x0;
+                // Shared separator paragraph (shaped once).
+                let sep_para = shape_glyph(&self.cache, " │ ", font);
+                let sep_w = sep_para.min_bounds().width;
+                for (i, (pat_id, text)) in segments.iter().enumerate() {
+                    let is_active = self.active_patterns.contains(pat_id);
+                    let color = if is_active {
+                        color!(0xd4cabd)
+                    } else {
+                        color!(0x6a6050)
+                    };
+                    if i > 0 {
+                        let cell = Rectangle {
+                            x: seg_x,
                             y,
-                            width: ANNOTATION_COL_WIDTH - 4.0,
+                            width: sep_w,
                             height: ROW_HEIGHT,
-                        },
-                        ann_color,
-                        clip,
+                        };
+                        let pos = cell.anchor(
+                            sep_para.min_bounds(),
+                            alignment::Horizontal::Left,
+                            alignment::Vertical::Center,
+                        );
+                        if let Some(cell_clip) = clip.intersection(&cell) {
+                            <iced::Renderer as text::Renderer>::fill_paragraph(
+                                renderer,
+                                &sep_para,
+                                pos,
+                                color!(0x6a6050),
+                                cell_clip,
+                            );
+                        }
+                        seg_x += sep_w;
+                    }
+                    let para = shape_glyph(&self.cache, text, font);
+                    let text_w = para.min_bounds().width;
+                    let cell = Rectangle {
+                        x: seg_x,
+                        y,
+                        width: text_w,
+                        height: ROW_HEIGHT,
+                    };
+                    let pos = cell.anchor(
+                        para.min_bounds(),
+                        alignment::Horizontal::Left,
+                        alignment::Vertical::Center,
                     );
+                    if let Some(cell_clip) = clip.intersection(&cell) {
+                        <iced::Renderer as text::Renderer>::fill_paragraph(
+                            renderer,
+                            &para,
+                            pos,
+                            color,
+                            cell_clip,
+                        );
+                    }
+                    seg_x += text_w;
                 }
             }
         }
