@@ -32,11 +32,16 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .size(13)
         .spacing(8);
 
-    let addr_fmt = toggler(cfg.address_decimal)
-        .label("Decimal addresses")
-        .on_toggle(HexEditorMessage::SetExportAddressDecimal)
-        .size(13)
-        .spacing(8);
+    let addr_fmt = {
+        let mut t = toggler(cfg.address_decimal)
+            .label("Decimal addresses")
+            .size(13)
+            .spacing(8);
+        if cfg.show_address {
+            t = t.on_toggle(HexEditorMessage::SetExportAddressDecimal);
+        }
+        t
+    };
 
     let show_ascii = toggler(cfg.show_ascii)
         .label("Show ASCII column")
@@ -61,12 +66,37 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     // ── Preview (right) ───────────────────────────────────────────────
     let bpr = state.bytes_per_row;
     let total = state.provider.len();
+    let total_rows = total.div_ceil(bpr as u64);
+    let preview_rows_max = PREVIEW_ROWS.min(total_rows as usize);
     let preview_len = (PREVIEW_ROWS as u64 * bpr as u64).min(total) as usize;
-    let preview_bytes = &state.provider.as_slice()[..preview_len];
-    let preview_text = format_hex_dump(preview_bytes, bpr, cfg);
 
-    let preview = column![
-        text("Preview").size(11).font(Font::MONOSPACE),
+    // Preview info header
+    let info = if total == 0 {
+        text("File is empty — nothing to export")
+            .size(11)
+            .color(color!(0x7a6f64))
+            .font(Font::MONOSPACE)
+    } else if total_rows as usize <= PREVIEW_ROWS {
+        text(format!("All {total_rows} row(s) — {total} bytes"))
+            .size(11)
+            .font(Font::MONOSPACE)
+    } else {
+        text(format!(
+            "Showing {preview_rows_max} of {total_rows} rows ({total} bytes total)"
+        ))
+        .size(11)
+        .font(Font::MONOSPACE)
+    };
+
+    // Preview body — empty state vs rendered dump
+    let preview_body: Element<'_, HexEditorMessage> = if preview_len == 0 {
+        text("")
+            .size(12)
+            .font(Font::MONOSPACE)
+            .into()
+    } else {
+        let preview_bytes = &state.provider.as_slice()[..preview_len];
+        let preview_text = format_hex_dump(preview_bytes, bpr, cfg);
         scrollable(
             container(
                 text(preview_text)
@@ -83,17 +113,19 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
                     radius: 4.0.into(),
                 },
                 ..Default::default()
-            })
+            }),
         )
         .direction(scrollable::Direction::Both {
             vertical: Default::default(),
             horizontal: Default::default(),
         })
         .height(Length::Fixed(340.0))
-        .width(Length::Fill),
-    ]
-    .spacing(6)
-    .width(Length::FillPortion(2));
+        .into()
+    };
+
+    let preview = column![info, preview_body]
+        .spacing(6)
+        .width(Length::FillPortion(2));
 
     // ── Outer container ───────────────────────────────────────────────
     container(row![settings, preview].spacing(16))
