@@ -112,4 +112,10 @@ pub enum HexEditorMessage {
     Paste,
     /// Async result: clipboard contents to paste as hex bytes.
     PasteContent(String),
+
+    // ── Export as text ──────────────────────────────────────────────────
+    /// Export the data as a text file (hex dump format matching the matrix).
+    ExportAsText,
+    /// Result after the text export completes.
+    TextExportCompleted(Result<(), String>),
 }

@@ -27,6 +27,10 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::TogglePatternList);
 
+    let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(HexEditorMessage::ExportAsText);
+
     // Bytes-per-row toggle group.
     let goto_btn = button(text("Go to...").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
@@ -57,6 +61,7 @@ pub fn build_toolbar<'a>(
             save_btn,
             goto_btn,
             patterns_btn,
+            export_btn,
             row![
                 text("BPR").size(10).font(Font::MONOSPACE),
                 bpr_btn(8),
