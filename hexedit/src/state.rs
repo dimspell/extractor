@@ -86,6 +86,10 @@ pub struct HexEditorState {
     /// Shared paragraph cache shared across frames so shaped glyphs survive
     /// between render cycles (cheaply cloned into the widget each frame).
     pub cache: ParagraphCache,
+    /// Whether nybble-based byte coloring is enabled in the matrix.
+    pub nybble_coloring: bool,
+    /// Whether the settings modal is currently open.
+    pub settings_open: bool,
     /// Lua scripting engine for custom inspector decoders.
     pub lua_engine: LuaScriptEngine,
 }
@@ -144,6 +148,8 @@ impl HexEditorState {
             status_msg: String::new(),
             error,
             repeat_pattern: None,
+            nybble_coloring: false,
+            settings_open: false,
             cache: ParagraphCache::default(),
             lua_engine,
         }

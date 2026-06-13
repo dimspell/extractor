@@ -113,10 +113,53 @@ impl CellColorProvider for SelectionProvider {
     }
 }
 
+// ── Nybble-based byte coloring ────────────────────────────────────────────
+
+/// Map a byte to a color based on its high nybble.
+///
+/// 18 groups: 16 nybble ranges (`0x`..`Fx`), plus special entries for `00`
+/// and `FF`. This makes repeated nulls and 0xFFs visually distinct while
+/// giving every other byte a colour that varies with its position in the
+/// byte-value space.
+fn hex(c: u32) -> Color {
+    let r = ((c >> 16) & 0xFF) as f32 / 255.0;
+    let g = ((c >> 8) & 0xFF) as f32 / 255.0;
+    let b = (c & 0xFF) as f32 / 255.0;
+    Color::from_rgb(r, g, b)
+}
+
+pub fn nybble_color(b: u8) -> Color {
+    match b {
+        0x00 => hex(0x4a4339), // very dim
+        0xFF => hex(0xd4cabd), // bright
+        _ => {
+            let palette = [
+                hex(0x7a6f64), // 0x
+                hex(0x8a7f64), // 1x
+                hex(0x7a8f5a), // 2x
+                hex(0x6a8f4a), // 3x
+                hex(0x5a8f5a), // 4x
+                hex(0x5a8f6a), // 5x
+                hex(0x5a7f6a), // 6x
+                hex(0x6a7f5a), // 7x
+                hex(0x7a6f4a), // 8x
+                hex(0x8a5f3a), // 9x
+                hex(0x9a4f3a), // Ax
+                hex(0xaa3f3a), // Bx
+                hex(0xaa3f4a), // Cx
+                hex(0x9a4f5a), // Dx
+                hex(0x8a5f5a), // Ex
+                hex(0x7a6f5a), // Fx (except 0xFF)
+            ];
+            palette[(b >> 4) as usize]
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use iced::Color;
+use iced::Color;
 
     fn red() -> Color {
         Color::from_rgb(1.0, 0.0, 0.0)
@@ -190,5 +233,55 @@ mod tests {
         assert_eq!(p.color(11, 0).1, Some(blue()));
         assert_eq!(p.color(12, 0).1, Some(green()));
         assert_eq!(p.color(13, 0), (None, None));
+    }
+
+    // ── Nybble-colour tests ─────────────────────────────────────────────
+
+    #[test]
+    fn nybble_color_00_is_dim() {
+        let c = nybble_color(0x00);
+        // Should be noticeably darker (lower luminance) than the default hex
+        // colour to make null bytes visually fade.
+        let lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+        assert!(lum < 0.3, "0x00 should be dim, got luminance {lum}");
+    }
+
+    #[test]
+    fn nybble_color_ff_is_bright() {
+        let c = nybble_color(0xFF);
+        let lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+        assert!(lum > 0.6, "0xFF should be bright, got luminance {lum}");
+    }
+
+    #[test]
+    fn nybble_color_same_high_nybble_equal() {
+        let c10 = nybble_color(0x10);
+        let c1f = nybble_color(0x1F);
+        assert!(
+            (c10.r - c1f.r).abs() < 0.001
+                && (c10.g - c1f.g).abs() < 0.001
+                && (c10.b - c1f.b).abs() < 0.001,
+            "0x10 and 0x1F should have the same colour"
+        );
+    }
+
+    #[test]
+    fn nybble_color_adjacent_nybbles_different() {
+        let c0 = nybble_color(0x0F); // nybble 0
+        let c1 = nybble_color(0x10); // nybble 1
+        let same = (c0.r - c1.r).abs() < 0.001
+            && (c0.g - c1.g).abs() < 0.001
+            && (c0.b - c1.b).abs() < 0.001;
+        assert!(!same, "different nybbles should have different colours");
+    }
+
+    #[test]
+    fn nybble_color_00_and_0x_are_distinct() {
+        let c00 = nybble_color(0x00);
+        let c0x = nybble_color(0x0F);
+        let same = (c00.r - c0x.r).abs() < 0.001
+            && (c00.g - c0x.g).abs() < 0.001
+            && (c00.b - c0x.b).abs() < 0.001;
+        assert!(!same, "0x00 and 0x0F should have different colours");
     }
 }

@@ -65,6 +65,8 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         active_patterns: BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
+        nybble_coloring: false,
+        settings_open: false,
     }
 }
 

@@ -674,6 +674,17 @@ pub fn update(
             state.show_decimal = !state.show_decimal;
         }
 
+        // ── Settings modal ──────────────────────────────────────────────
+        HexEditorMessage::OpenSettings => {
+            state.settings_open = true;
+        }
+        HexEditorMessage::CloseSettings => {
+            state.settings_open = false;
+        }
+        HexEditorMessage::SetNybbleColoring(v) => {
+            state.nybble_coloring = v;
+        }
+
         // ── Copy / Paste ─────────────────────────────────────────────────
         HexEditorMessage::CopySelection => {
             if state.provider.is_empty() {

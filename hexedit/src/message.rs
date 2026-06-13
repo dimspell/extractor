@@ -166,6 +166,14 @@ pub enum HexEditorMessage {
     /// Toggle between hex and decimal address display.
     ToggleAddrFormat,
 
+    // ── Settings modal ──────────────────────────────────────────────────
+    /// Open the settings modal.
+    OpenSettings,
+    /// Close the settings modal.
+    CloseSettings,
+    /// Enable/disable nybble-based byte coloring.
+    SetNybbleColoring(bool),
+
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.
     CopySelection,

@@ -8,6 +8,7 @@ pub mod panel;
 pub mod patterns;
 pub mod repeat_modal;
 pub mod search_overlay;
+pub mod settings_modal;
 pub mod toolbar;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
@@ -151,7 +152,7 @@ pub fn view<'a>(
         base
     };
 
-    let base = if let Some(ref rp) = state.repeat_pattern {
+    let mut base = if let Some(ref rp) = state.repeat_pattern {
         modal(
             base,
             repeat_modal::view(rp),
@@ -163,15 +164,24 @@ pub fn view<'a>(
     };
 
     if state.export_config.is_some() {
-        modal(
+        base = modal(
             base,
             export_modal::view(state),
             || HexEditorMessage::CloseExportConfig,
             0.35,
-        )
-    } else {
-        base
+        );
     }
+
+    if state.settings_open {
+        base = modal(
+            base,
+            settings_modal::view(state),
+            || HexEditorMessage::CloseSettings,
+            0.35,
+        );
+    }
+
+    base
 }
 
 /// Build the pattern menu entries for the context menu.

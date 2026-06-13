@@ -21,6 +21,7 @@ use iced::{
     Rectangle, Shadow, Size,
 };
 
+use crate::coloring::nybble_color;
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
@@ -127,6 +128,9 @@ pub struct HexMatrix<'a, Message> {
     on_paste: Option<Box<dyn Fn() -> Message + 'a>>,
     show_decimal: bool,
     on_toggle_addr_format: Option<Box<dyn Fn() -> Message + 'a>>,
+    /// When true, hex bytes are colored by their high nybble instead of a
+    /// uniform default color.
+    color_bytes: bool,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -146,6 +150,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         row_annotations: &'a BTreeMap<u64, Vec<(usize, String)>>,
         active_patterns: &'a BTreeSet<usize>,
         cache: ParagraphCache,
+        color_bytes: bool,
     ) -> Self {
         Self {
             bytes,
@@ -162,6 +167,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             row_annotations,
             active_patterns,
             cache,
+            color_bytes,
             width: Length::Fill,
             height: Length::Fill,
             on_select_at: None,
@@ -1170,6 +1176,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     dirty_text
                 } else if is_diff {
                     diff_text
+                } else if self.color_bytes {
+                    nybble_color(b)
                 } else if b == 0 {
                     zero_color
                 } else {
@@ -1185,6 +1193,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     dirty_text
                 } else if is_diff {
                     diff_text
+                } else if self.color_bytes {
+                    nybble_color(b)
                 } else {
                     ascii_color
                 };
