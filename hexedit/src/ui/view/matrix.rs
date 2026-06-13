@@ -38,7 +38,11 @@ const ASCII_CELL_WIDTH: f32 = 9.0;
 const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
 const ANN_COL_GAP: f32 = 16.0;
-const ANNOTATION_COL_WIDTH: f32 = 200.0;
+
+/// Maximum width of the annotation column when computed from content.
+const MAX_ANN_COL_WIDTH: f32 = 400.0;
+/// Minimum annotation column width when no annotations exist.
+const MIN_ANN_COL_WIDTH: f32 = 200.0;
 const SCROLLBAR_THICKNESS: f32 = 10.0;
 
 /// How many extra rows to render above/below the viewport so wheel scrolls
@@ -308,6 +312,29 @@ impl<'a, Message> HexMatrix<'a, Message> {
             + COLUMN_GAP
     }
 
+    /// Dynamic annotation column width: computed from the longest visible
+    /// annotation string, capped at [`MAX_ANN_COL_WIDTH`].
+    fn annotation_col_width(&self) -> f32 {
+        if self.row_annotations.is_empty() {
+            return 0.0;
+        }
+        let max_chars = self
+            .row_annotations
+            .values()
+            .map(|segments| {
+                let text_len: usize = segments.iter().map(|(_, t)| t.len()).sum();
+                let separators = segments.len().saturating_sub(1) * 3; // " │ " = 3 chars
+                text_len + separators
+            })
+            .max()
+            .unwrap_or(0);
+        // Estimate pixel width using ASCII_CELL_WIDTH (9px monospace).
+        let estimated = max_chars as f32 * ASCII_CELL_WIDTH;
+        estimated
+            .max(MIN_ANN_COL_WIDTH) // reasonable minimum even for short text
+            .min(MAX_ANN_COL_WIDTH)
+    }
+
     fn annotation_start_x(&self, bounds_x: f32) -> f32 {
         self.ascii_start_x(bounds_x) + (self.bytes_per_row as f32) * ASCII_CELL_WIDTH + ANN_COL_GAP
     }
@@ -321,7 +348,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             + COLUMN_GAP
             + (bpr as f32) * ASCII_CELL_WIDTH;
         if !self.row_annotations.is_empty() {
-            w += ANN_COL_GAP + ANNOTATION_COL_WIDTH;
+            w += ANN_COL_GAP + self.annotation_col_width();
         }
         w
     }

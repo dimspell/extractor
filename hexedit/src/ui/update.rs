@@ -550,7 +550,33 @@ pub fn update(
                     state.renaming_group_draft.trim()
                 };
                 if let Some(grp) = state.groups.iter_mut().find(|g| g.id == gid) {
+                    let old_label = std::mem::take(&mut grp.label);
                     grp.label = label.to_string();
+
+                    // Update child pattern annotations whose auto-generated
+                    // prefix matches the old label, e.g. "Monster[0]" → "Enemy[0]".
+                    // Only update annotations matching `{old_label}[{digit}+]`
+                    // to avoid overwriting manual edits.
+                    let old_prefix = format!("{}[", old_label);
+                    let new_prefix = format!("{}[", grp.label);
+                    for pat in &mut state.patterns {
+                        if pat.group_id == Some(gid) {
+                            if let Some(ann) = &mut pat.annotation {
+                                if ann.starts_with(&old_prefix) {
+                                    let after_bracket = &ann[old_prefix.len()..];
+                                    if let Some(bracket_end) = after_bracket.find(']') {
+                                        let digits = &after_bracket[..bracket_end];
+                                        if !digits.is_empty()
+                                            && digits.chars().all(|c| c.is_ascii_digit())
+                                        {
+                                            *ann =
+                                                ann.replacen(&old_prefix, &new_prefix, 1);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 state.status_msg = format!("Group renamed to \"{label}\"");
             }
@@ -925,6 +951,44 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8, config: &ExportConfig) -
 // Lines starting with '#' are comments. Start addresses in hex.
 
 /// Serialise current patterns + groups to the custom text format.
+/// Escape a string for the pipe-delimited export format:
+/// `\` → `\\`, `|` → `\|`, `\n` → `\\n`.
+fn escape_pipe_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 4);
+    for ch in s.chars() {
+        match ch {
+            '\\' => out.push_str("\\\\"),
+            '|' => out.push_str("\\|"),
+            '\n' => out.push_str("\\n"),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Unescape a string from the pipe-delimited export format.
+fn unescape_pipe_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('|') => out.push('|'),
+                Some('n') => out.push('\n'),
+                Some('\\') => out.push('\\'),
+                Some(c) => {
+                    out.push('\\');
+                    out.push(c);
+                }
+                None => out.push('\\'),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<String> {
     if state.patterns.is_empty() && state.groups.is_empty() {
         return None;
@@ -934,7 +998,9 @@ pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<S
     for g in &state.groups {
         out.push_str(&format!(
             "G|{}|{}|{}\n",
-            g.id, g.label, g.color_idx
+            g.id,
+            escape_pipe_field(&g.label),
+            g.color_idx
         ));
     }
     for p in &state.patterns {
@@ -948,7 +1014,11 @@ pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<S
             .unwrap_or("");
         out.push_str(&format!(
             "P|{:X}|{:X}|{}|{}|{}\n",
-            p.start, p.end, p.color_idx, gid, ann
+            p.start,
+            p.end,
+            p.color_idx,
+            gid,
+            escape_pipe_field(ann)
         ));
     }
     Some(out)
@@ -970,15 +1040,26 @@ pub(crate) fn import_patterns_into(
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let parts: Vec<&str> = line.split('|').collect();
 
-        match parts.first() {
-            Some(&"G") if parts.len() >= 3 => {
-                let gid: usize = parts[1]
+        // Use splitn so pipes inside annotations/labels don't break field
+        // alignment. G line: id | label | color_idx (4 parts max).
+        // P line: start | end | color_idx | group_id | annotation (6 parts max).
+        let fields: Vec<&str> = if line.starts_with('G') || line.starts_with('g') {
+            line.splitn(4, '|').collect()
+        } else {
+            line.splitn(6, '|').collect()
+        };
+
+        match fields.first() {
+            Some(&"G") => {
+                if fields.len() < 3 {
+                    return Err(format!("line {}: too few fields for group", lineno + 1));
+                }
+                let gid: usize = fields[1]
                     .parse()
                     .map_err(|_| format!("line {}: invalid group id", lineno + 1))?;
-                let label = parts[2].to_string();
-                let color_idx: u8 = parts
+                let label = unescape_pipe_field(fields[2]);
+                let color_idx: u8 = fields
                     .get(3)
                     .and_then(|s| s.parse().ok())
                     .unwrap_or(0);
@@ -989,22 +1070,25 @@ pub(crate) fn import_patterns_into(
                     .groups
                     .push(RepeatedPatternGroup::new(new_id, label, color_idx));
             }
-            Some(&"P") if parts.len() >= 4 => {
-                let start = u64::from_str_radix(parts[1], 16)
+            Some(&"P") => {
+                if fields.len() < 4 {
+                    return Err(format!("line {}: too few fields for pattern", lineno + 1));
+                }
+                let start = u64::from_str_radix(fields[1], 16)
                     .map_err(|_| format!("line {}: invalid start address", lineno + 1))?;
-                let end = u64::from_str_radix(parts[2], 16)
+                let end = u64::from_str_radix(fields[2], 16)
                     .map_err(|_| format!("line {}: invalid end address", lineno + 1))?;
-                let color_idx: u8 = parts[3]
+                let color_idx: u8 = fields[3]
                     .parse()
                     .map_err(|_| format!("line {}: invalid color index", lineno + 1))?;
-                let mapped_gid = parts
+                let mapped_gid = fields
                     .get(4)
                     .and_then(|s| s.parse::<usize>().ok())
                     .and_then(|old| group_map.get(&old).copied());
-                let annotation = parts
+                let annotation = fields
                     .get(5)
                     .filter(|s| !s.is_empty())
-                    .map(|s| s.to_string());
+                    .map(|s| unescape_pipe_field(s));
                 let id = state.next_pattern_id;
                 state.next_pattern_id += 1;
                 let mut pat =
@@ -1014,11 +1098,11 @@ pub(crate) fn import_patterns_into(
                 state.patterns.push(pat);
                 pattern_count += 1;
             }
-            Some(t) if *t == "G" || *t == "P" => {
+            Some(t) if t.eq_ignore_ascii_case("G") || t.eq_ignore_ascii_case("P") => {
                 return Err(format!("line {}: too few fields", lineno + 1));
             }
             _ => {
-                return Err(format!("line {}: unknown type '{}'", lineno + 1, parts[0]));
+                return Err(format!("line {}: unknown type '{}'", lineno + 1, fields[0]));
             }
         }
     }

@@ -239,27 +239,29 @@ fn pattern_row<'a>(pat: &'a Pattern) -> Element<'a, HexEditorMessage> {
         .padding([1, 4])
         .width(Fill);
 
-    let inner = row![
-        swatch_btn,
-        container(start).width(Length::Fixed(80.0)),
-        container(end).width(Length::Fixed(80.0)),
-        container(size).width(Length::Fixed(40.0)),
-        remove_btn,
-        ann_input,
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center);
+    let metadata = button(
+        row![
+            swatch_btn,
+            container(start).width(Length::Fixed(80.0)),
+            container(end).width(Length::Fixed(80.0)),
+            container(size).width(Length::Fixed(40.0)),
+            remove_btn,
+        ]
+        .spacing(6)
+        .align_y(iced::Alignment::Center),
+    )
+    .on_press(HexEditorMessage::NavigateToPattern(pat.id))
+    .padding(iced::Padding {
+        top: 3.0,
+        right: 4.0,
+        bottom: 3.0,
+        left: 6.0,
+    })
+    .style(button::text);
 
-    let row = button(inner)
-        .on_press(HexEditorMessage::NavigateToPattern(pat.id))
-        .padding(iced::Padding {
-            top: 3.0,
-            right: 4.0,
-            bottom: 3.0,
-            left: 6.0,
-        })
-        .width(Fill)
-        .style(button::text);
+    let row = row![metadata, ann_input]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
 
     // Indent group children.
     if pat.group_id.is_some() {
