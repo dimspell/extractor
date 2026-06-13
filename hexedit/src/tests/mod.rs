@@ -30,9 +30,13 @@ use crate::LuaScriptEngine;
 // ============================================================================
 
 pub fn make_state(data: Vec<u8>) -> HexEditorState {
+    let panes = crate::domain::panel::default_pane_grid();
+    let pane_focus = *panes.iter().next().map(|(id, _)| id).unwrap();
     HexEditorState {
         path: PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        panes,
+        pane_focus,
         provider: BufferProvider::from_bytes(data),
         bytes_per_row: 16,
         selection: Selection::single(0),
@@ -135,6 +139,8 @@ fn test_hex_matrix_uses_paragraph_cache() {
     // Just verify the element can be created without errors
     let _element = view(&state, &config);
 }
+
+pub mod pane_grid;
 
 pub mod header;
 pub mod toolbar;

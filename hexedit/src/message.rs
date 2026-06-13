@@ -1,8 +1,22 @@
+use iced::widget::pane_grid;
+
 use super::selection::NavDir;
 
 /// Messages produced by the hex editor.
 #[derive(Debug, Clone)]
 pub enum HexEditorMessage {
+    // ── Pane grid layout (Halloy-style movable panels) ──────────────────
+    /// A pane was clicked — sets focus for keyboard routing.
+    PaneClicked(pane_grid::Pane),
+    /// A split divider was dragged.
+    PaneResized(pane_grid::ResizeEvent),
+    /// A pane was dragged to a new position (reordering / docking).
+    PaneDragged(pane_grid::DragEvent),
+    /// Split the focused pane along the given axis.
+    SplitPane(pane_grid::Axis),
+    /// Close the focused pane (removed from grid).
+    ClosePane,
+
     /// User asked to change the row width (8/16/32).
     SetBytesPerRow(u8),
     /// Single click on a cell — sets `anchor = cursor = addr`.

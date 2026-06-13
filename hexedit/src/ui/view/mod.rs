@@ -4,6 +4,7 @@ pub mod goto_modal;
 pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
+pub mod panel;
 pub mod patterns;
 pub mod repeat_modal;
 pub mod search_overlay;
@@ -11,14 +12,16 @@ pub mod toolbar;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use gui_widgets::components::modal::modal;
+use iced::widget::pane_grid;
+use iced::widget::pane_grid::PaneGrid;
 use iced::widget::space::Space;
-use iced::widget::{column, container, row, text};
+use iced::widget::{column, container, text};
 use iced::{Element, Fill, Font};
 
 use crate::config::HexEditorConfig;
+use crate::domain::panel::HexPanelContent;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
-use self::matrix::{EditView, HexMatrix};
 use self::toolbar::build_toolbar;
 
 pub fn view<'a>(
@@ -53,77 +56,48 @@ pub fn view<'a>(
 
     let toolbar = build_toolbar(state, config);
 
-    let cache = state.cache.clone();
-    let edit = state.edit_mode.as_ref().map(|e| EditView {
-        addr: e.addr,
-        draft: e.draft.as_str(),
-    });
-    let matrix: Element<'a, HexEditorMessage> = HexMatrix::new(
-        state.provider.as_slice(),
-        state.bytes_per_row,
-        state.selection,
-        edit,
-        state.provider.dirty(),
-        &state.vanilla_diff,
-        &state.pattern_by_addr,
-        &state.search.match_set,
-        state.search.query_len,
-        state.search.current_addr(),
-        &state.search.results,
-        &state.row_annotations,
-        &state.active_patterns,
-        cache,
+    // ── Halloy-style Pane Grid ──────────────────────────────────────────
+    // The body area is a split-pane grid with movable/resizable panels.
+    // Each panel contains one sub-view (matrix, inspector, pattern list).
+    let pane_count = state.panes.len();
+    let pane_grid = PaneGrid::new(
+        &state.panes,
+        |id, panel: &crate::domain::panel::HexPanel, _maximized| {
+            // The matrix pane gets a context menu for pattern operations.
+            let content = if panel.content == HexPanelContent::Matrix {
+                let matrix = panel::pane_content(state, config, id, panel);
+
+                // Build context menu entries from current state.
+                let have_pattern_at_addr =
+                    state.pattern_id_at(state.selection.cursor).is_some();
+                let pattern_at_cursor = have_pattern_at_addr
+                    .then(|| state.pattern_id_at(state.selection.cursor))
+                    .flatten()
+                    .and_then(|pid| state.pattern_by_id(pid));
+                let pattern_group_at_cursor = pattern_at_cursor
+                    .and_then(|p| p.group_id)
+                    .and_then(|gid| state.groups.iter().find(|g| g.id == gid));
+                let group_id_at_cursor = pattern_group_at_cursor.map(|g| g.id);
+                let entries = build_pattern_menu_entries(
+                    !state.selection.is_single(),
+                    !state.patterns.is_empty(),
+                    have_pattern_at_addr,
+                    group_id_at_cursor,
+                );
+                ContextMenu::new(matrix, entries).into()
+            } else {
+                panel::pane_content(state, config, id, panel)
+            };
+
+            pane_grid::Content::new(content)
+                .title_bar(panel::title_bar(state, id, panel, pane_count))
+        },
     )
-    .on_select_at(HexEditorMessage::SelectAt)
-    .on_extend_to(HexEditorMessage::ExtendTo)
-    .on_nav(|dir, extend| HexEditorMessage::Nav { dir, extend })
-    .on_begin_edit(HexEditorMessage::BeginEdit)
-    .on_edit_type(HexEditorMessage::EditTypeChar)
-    .on_edit_backspace(|| HexEditorMessage::EditBackspace)
-    .on_edit_cancel(|| HexEditorMessage::EditCancel)
-    .on_edit_commit(|advance| HexEditorMessage::EditCommit { advance })
-    .on_right_click(HexEditorMessage::RightClickAt)
-    .on_create_pattern(|| HexEditorMessage::CreatePattern)
-    .on_open_goto(|| HexEditorMessage::OpenGotoDialog)
-    .on_open_search(|| HexEditorMessage::OpenSearch)
-    .on_copy_selection(|| HexEditorMessage::CopySelection)
-    .on_paste(|| HexEditorMessage::Paste)
-    .show_decimal(state.show_decimal)
-    .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
-    .into();
-
-    // Use cursor (not context_menu_addr) so the check is accurate even on
-    // the first frame: left-click moves cursor synchronously before view runs,
-    // and right-click also publishes SelectAt to move cursor.
-    let have_pattern_at_addr = state.pattern_id_at(state.selection.cursor).is_some();
-    let pattern_at_cursor = have_pattern_at_addr
-        .then(|| state.pattern_id_at(state.selection.cursor))
-        .flatten()
-        .and_then(|pid| state.pattern_by_id(pid));
-    let pattern_group_at_cursor = pattern_at_cursor
-        .and_then(|p| p.group_id)
-        .and_then(|gid| state.groups.iter().find(|g| g.id == gid));
-    let group_id_at_cursor = pattern_group_at_cursor.map(|g| g.id);
-    let pattern_menu_entries = build_pattern_menu_entries(
-        !state.selection.is_single(),
-        !state.patterns.is_empty(),
-        have_pattern_at_addr,
-        group_id_at_cursor,
-    );
-
-    let matrix = ContextMenu::new(matrix, pattern_menu_entries);
-
-    let body = row![
-        container(matrix).width(Fill).height(Fill),
-        inspector::view(state, config),
-    ]
-    .spacing(0);
-
-    let pattern_section: Element<'a, HexEditorMessage> = if state.show_pattern_list {
-        patterns::view(state)
-    } else {
-        Space::default().height(0).into()
-    };
+    .on_click(HexEditorMessage::PaneClicked)
+    .on_drag(HexEditorMessage::PaneDragged)
+    .on_resize(10, HexEditorMessage::PaneResized)
+    .width(Fill)
+    .height(Fill);
 
     let search_section: Element<'a, HexEditorMessage> = if state.search.is_visible() {
         search_overlay::view(&state.search)
@@ -135,8 +109,7 @@ pub fn view<'a>(
         toolbar,
         search_section,
         header,
-        pattern_section,
-        container(body).width(Fill).height(Fill),
+        pane_grid,
         footer::view(state),
     ]
     .spacing(0)
@@ -259,4 +232,3 @@ pub(crate) fn build_pattern_menu_entries(
     ));
     entries
 }
-

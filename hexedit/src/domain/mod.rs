@@ -2,6 +2,7 @@ pub mod editing;
 pub mod export_config;
 pub mod goto;
 pub mod layout;
+pub mod panel;
 pub mod pattern;
 pub mod provider;
 pub mod search;

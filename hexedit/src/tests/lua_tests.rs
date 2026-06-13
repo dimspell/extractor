@@ -7,6 +7,13 @@ use crate::LuaScriptEngine;
 /// Uses a global counter to keep paths unique across tests.
 static SCRIPT_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
+/// Helper: create default pane grid + focus for test constructors.
+fn default_test_panes() -> (iced::widget::pane_grid::State<crate::domain::panel::HexPanel>, iced::widget::pane_grid::Pane) {
+    let panes = crate::domain::panel::default_pane_grid();
+    let focus = *panes.iter().next().map(|(id, _)| id).unwrap();
+    (panes, focus)
+}
+
 fn write_script(dir: &str, name: &str, code: &str) -> PathBuf {
     let counter = SCRIPT_COUNTER.fetch_add(1, Ordering::SeqCst);
     let d = std::env::temp_dir()
@@ -438,9 +445,12 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
     // Non-.lua file should be ignored
     std::fs::write(dir.join("notes.txt"), "not a script").unwrap();
 
+    let (panes, pane_focus) = default_test_panes();
     let mut state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        panes,
+        pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
         bytes_per_row: 16,
         selection: crate::selection::Selection::single(0),
@@ -483,9 +493,12 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
     // Current behavior: non-existent dir returns empty errors (treated as
     // "no scripts to load", not an error condition).
     let engine = LuaScriptEngine::new(false).unwrap();
+    let (panes, pane_focus) = default_test_panes();
     let mut state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        panes,
+        pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
         bytes_per_row: 16,
         selection: crate::selection::Selection::single(0),
@@ -555,9 +568,12 @@ return {
     //
     // Instead, let's verify that Lua entries decode correctly and that
     // a custom InspectorEntry built from Lua can be used in the view.
+    let (panes, pane_focus) = default_test_panes();
     let state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        panes,
+        pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0xAB]),
         bytes_per_row: 16,
         selection: crate::selection::Selection::single(0),

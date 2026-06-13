@@ -18,7 +18,14 @@ pub fn build_toolbar<'a>(
 
     let hint = config.save_hint.clone();
 
-    let patterns_label = if editor.show_pattern_list {
+    // Check if a PatternList pane exists in the grid (Halloy-style).
+    let has_patterns_pane = editor.panes.iter().any(|(_, p)| {
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
+    });
+    let patterns_label = if has_patterns_pane {
         "Hide Patterns"
     } else {
         "Patterns"

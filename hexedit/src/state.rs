@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
+use iced::widget::pane_grid;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use super::domain::export_config::ExportConfig;
+use super::domain::panel::{default_pane_grid, HexPanel};
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
 use super::lua_engine::LuaScriptEngine;
@@ -20,6 +22,10 @@ pub const DEFAULT_BYTES_PER_ROW: u8 = 16;
 pub struct HexEditorState {
     pub path: PathBuf,
     pub name: String,
+    /// Halloy-style pane grid: movable, splittable, resizable panels.
+    pub panes: pane_grid::State<HexPanel>,
+    /// Which pane currently has keyboard focus in the grid.
+    pub pane_focus: pane_grid::Pane,
     pub provider: BufferProvider,
     pub bytes_per_row: u8,
     pub selection: Selection,
@@ -100,9 +106,18 @@ impl HexEditorState {
         let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
         let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
 
+        let panes = default_pane_grid();
+        let pane_focus = *panes
+            .iter()
+            .next()
+            .map(|(id, _)| id)
+            .expect("default_pane_grid always has at least one pane");
+
         Self {
             path: path.to_path_buf(),
             name,
+            panes,
+            pane_focus,
             provider,
             bytes_per_row: DEFAULT_BYTES_PER_ROW,
             selection: Selection::default(),

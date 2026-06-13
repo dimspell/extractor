@@ -1,8 +1,9 @@
+use iced::widget::pane_grid;
 use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
 use crate::domain::export_config::ExportConfig;
-
+use crate::domain::panel::HexPanel;
 
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
@@ -30,6 +31,38 @@ pub fn update(
 ) -> Task<HexEditorMessage> {
     let max_addr = state.max_addr();
     match message {
+        // ── Pane grid layout (Halloy-style) ─────────────────────────────
+        HexEditorMessage::PaneClicked(pane) => {
+            state.pane_focus = pane;
+        }
+        HexEditorMessage::PaneResized(event) => {
+            state.panes.resize(event.split, event.ratio);
+        }
+        HexEditorMessage::PaneDragged(event) => {
+            if let pane_grid::DragEvent::Dropped { pane, target } = event {
+                state.panes.drop(pane, target);
+            }
+        }
+        HexEditorMessage::SplitPane(axis) => {
+            let focus = state.pane_focus;
+            let can_split =
+                state.panes.len() < 8;
+            if can_split {
+                let new_panel = HexPanel::new(
+                    crate::domain::panel::HexPanelContent::Matrix,
+                );
+                let _ = state.panes.split(axis, focus, new_panel);
+            }
+        }
+        HexEditorMessage::ClosePane => {
+            if state.panes.len() > 1 {
+                let focus = state.pane_focus;
+                if let Some((_, sibling)) = state.panes.close(focus) {
+                    state.pane_focus = sibling;
+                }
+            }
+        }
+
         HexEditorMessage::SetBytesPerRow(n) => {
             if matches!(n, 8 | 16 | 32) {
                 state.bytes_per_row = n;
@@ -427,7 +460,42 @@ pub fn update(
 
         // ── Pattern list panel ──────────────────────────────────────────
         HexEditorMessage::TogglePatternList => {
-            state.show_pattern_list = !state.show_pattern_list;
+            // With the pane grid, toggling the pattern list adds or removes
+            // a PatternList pane (Halloy-style) rather than showing/hiding a
+            // pinned section. Keep the legacy boolean in sync for the toolbar.
+            let existing: Option<pane_grid::Pane> = state
+                .panes
+                .iter()
+                .find_map(|(id, panel)| {
+                    if panel.content == crate::domain::panel::HexPanelContent::PatternList {
+                        Some(id)
+                    } else {
+                        None
+                    }
+                })
+                .copied();
+
+            if let Some(pane_id) = existing {
+                if state.panes.len() > 1 {
+                    if let Some((_, sibling)) = state.panes.close(pane_id) {
+                        state.pane_focus = sibling;
+                    }
+                }
+                state.show_pattern_list = false;
+            } else {
+                let focus = state.pane_focus;
+                let can_split = state.panes.len() < 8;
+                if can_split {
+                    let _ = state.panes.split(
+                        iced::widget::pane_grid::Axis::Vertical,
+                        focus,
+                        HexPanel::new(
+                            crate::domain::panel::HexPanelContent::PatternList,
+                        ),
+                    );
+                }
+                state.show_pattern_list = true;
+            }
         }
         HexEditorMessage::NavigateToPattern(id) => {
             if let Some(pat) = state.pattern_by_id(id) {
@@ -775,7 +843,7 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8, config: &ExportConfig) -
     };
 
     let mut output = String::with_capacity(
-        ((addr_width + hex_col_width + 2 + bpr + 1) * bytes.len().div_ceil(bpr)).min(usize::MAX),
+        (addr_width + hex_col_width + 2 + bpr + 1) * bytes.len().div_ceil(bpr),
     );
 
     for (chunk_idx, chunk) in bytes.chunks(bpr).enumerate() {
