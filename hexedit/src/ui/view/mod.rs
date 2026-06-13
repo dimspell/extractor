@@ -59,10 +59,15 @@ pub fn view<'a>(
     // ── Halloy-style Pane Grid ──────────────────────────────────────────
     // The body area is a split-pane grid with movable/resizable panels.
     // Each panel contains one sub-view (matrix, inspector, pattern list).
+    // Follows Halloy's pattern: spacing between panes, outer padding, and
+    // focused-pane highlighting in the title bar.
     let pane_count = state.panes.len();
+    let pane_focus = state.pane_focus;
     let pane_grid = PaneGrid::new(
         &state.panes,
         |id, panel: &crate::domain::panel::HexPanel, _maximized| {
+            let is_focused = id == pane_focus;
+
             // The matrix pane gets a context menu for pattern operations.
             let content = if panel.content == HexPanelContent::Matrix {
                 let matrix = panel::pane_content(state, config, id, panel);
@@ -90,12 +95,13 @@ pub fn view<'a>(
             };
 
             pane_grid::Content::new(content)
-                .title_bar(panel::title_bar(state, id, panel, pane_count))
+                .title_bar(panel::title_bar(state, id, panel, pane_count, is_focused))
         },
     )
     .on_click(HexEditorMessage::PaneClicked)
     .on_drag(HexEditorMessage::PaneDragged)
-    .on_resize(10, HexEditorMessage::PaneResized)
+    .on_resize(6, HexEditorMessage::PaneResized)
+    .spacing(config.pane_gap as f32)
     .width(Fill)
     .height(Fill);
 
@@ -104,6 +110,12 @@ pub fn view<'a>(
     } else {
         Space::default().height(0).into()
     };
+
+    // Halloy-style outer padding around the pane grid.
+    let pane_grid = container(pane_grid)
+        .padding(config.pane_gap as f32)
+        .width(Fill)
+        .height(Fill);
 
     let base: Element<'a, HexEditorMessage> = column![
         toolbar,

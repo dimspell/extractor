@@ -70,6 +70,7 @@ pub fn build_hex_config(
         String::new()
     };
     HexEditorConfig {
+        pane_gap: 4,
         on_save: crate::editors::mod_packager::hex_save::build_save_callback(recording, game_path),
         save_label,
         can_save,

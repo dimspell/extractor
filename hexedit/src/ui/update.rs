@@ -39,6 +39,9 @@ pub fn update(
             state.panes.resize(event.split, event.ratio);
         }
         HexEditorMessage::PaneDragged(event) => {
+            // Halloy pattern: only the Dropped variant mutates state.
+            // Picked / Canceled are no-ops (visual feedback is handled
+            // internally by the PaneGrid widget).
             if let pane_grid::DragEvent::Dropped { pane, target } = event {
                 state.panes.drop(pane, target);
             }

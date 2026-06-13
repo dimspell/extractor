@@ -1,14 +1,15 @@
 //! Pane title bars and per-panel content rendering for the hex editor's
 //! Halloy-style movable pane grid.
 //!
-//! Each panel in the grid gets a title bar showing its name, a close button,
-//! and — when there are multiple panes — a split/merge affordance following
-//! the pattern from Halloy's [`pane.rs`].
+//! Each panel in the grid gets a title bar showing its name, a drag grip,
+//! split/close controls, and focused-pane highlighting — following the
+//! pattern from Halloy's [`pane.rs`].
 
 use iced::widget::pane_grid;
 use iced::widget::space::Space;
 use iced::widget::{button, container, row, text};
 use iced::{Element, Fill, Font};
+use iced::Color;
 
 use crate::config::HexEditorConfig;
 use crate::domain::panel::HexPanelContent;
@@ -17,6 +18,11 @@ use crate::{HexEditorMessage, HexEditorState};
 /// Maximum number of panels before we disable splitting to prevent
 /// window-shattering fragmentation.
 const MAX_PANELS: usize = 8;
+
+/// Background colour for the focused pane's title bar (#333344).
+const FOCUSED_TITLE_BG: Color = Color::from_rgb(0.2, 0.2, 0.267);
+/// Background colour for unfocused pane title bars (#222222).
+const UNFOCUSED_TITLE_BG: Color = Color::from_rgb(0.133, 0.133, 0.133);
 
 /// Render the content for a single pane in the hex editor grid.
 pub fn pane_content<'a>(
@@ -79,13 +85,19 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
 
 /// Build the title bar for a pane.
 ///
-/// Following Halloy's pattern: shows the panel name, a spacer, then controls
-/// (close ×, and split ⊞ when there's room for more panes).
+/// Follows Halloy's pattern:
+/// - Drag grip indicator (≡) on the left
+/// - Panel name label
+/// - Spacer
+/// - Split buttons (▤ / ▥) when more panes are allowed
+/// - Close button (✕) when there's more than one pane
+/// - Background colour changes when this pane has focus
 pub fn title_bar<'a>(
     _state: &'a HexEditorState,
     _id: pane_grid::Pane,
     panel: &'a crate::domain::panel::HexPanel,
     pane_count: usize,
+    is_focused: bool,
 ) -> pane_grid::TitleBar<'a, HexEditorMessage> {
     let label = match panel.content {
         HexPanelContent::Matrix => "Hex Dump",
@@ -121,7 +133,9 @@ pub fn title_bar<'a>(
         controls = controls.push(close_btn);
     }
 
+    // Halloy-style drag grip indicator (≡) on the left, then label, then controls.
     let title_row = row![
+        text("≡").size(12).font(Font::MONOSPACE),
         text(label).size(11).font(Font::MONOSPACE),
         Space::default().width(Fill),
         controls,
@@ -129,7 +143,19 @@ pub fn title_bar<'a>(
     .spacing(8)
     .align_y(iced::Alignment::Center);
 
-    let title_widget = container(title_row).padding([3, 8]).width(Fill);
+    let bg = if is_focused {
+        FOCUSED_TITLE_BG
+    } else {
+        UNFOCUSED_TITLE_BG
+    };
+
+    let title_widget = container(title_row)
+        .padding([3, 8])
+        .width(Fill)
+        .style(move |_theme| container::Style {
+            background: Some(bg.into()),
+            ..container::Style::default()
+        });
 
     pane_grid::TitleBar::new(title_widget)
 }

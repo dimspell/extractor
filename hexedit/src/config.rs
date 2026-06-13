@@ -11,8 +11,10 @@ use super::state::HexEditorState;
 pub type OnSaveFn = Arc<dyn Fn(&HexEditorState) -> Task<HexEditorMessage> + Send + Sync>;
 
 /// External configuration injected into the hex editor by the host application.
-#[derive(Default)]
 pub struct HexEditorConfig {
+    /// Halloy-style gap between panes in the pane grid (in logical pixels).
+    /// Default: 4. Set to 0 to disable spacing.
+    pub pane_gap: u16,
     /// Optional save-to-mod callback. `None` hides the save button.
     pub on_save: Option<OnSaveFn>,
     /// Label for the save button (e.g. "Save into `my-mod`").
@@ -25,6 +27,19 @@ pub struct HexEditorConfig {
     pub save_hint: String,
     /// Additional inspector entries from scripts or host-specific decoders.
     pub extra_entries: Vec<super::inspector::InspectorEntry>,
+}
+
+impl Default for HexEditorConfig {
+    fn default() -> Self {
+        Self {
+            pane_gap: 4,
+            on_save: None,
+            save_label: String::new(),
+            can_save: false,
+            save_hint: String::new(),
+            extra_entries: Vec::new(),
+        }
+    }
 }
 
 impl HexEditorConfig {

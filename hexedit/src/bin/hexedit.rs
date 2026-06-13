@@ -96,6 +96,7 @@ impl HexApp {
                     _ => {
                         let can_save = state.provider.dirty_count() > 0;
                         let config = HexEditorConfig {
+                            pane_gap: 4,
                             on_save: Some(std::sync::Arc::new(|_| {
                                 Task::done(HexEditorMessage::SaveIntoRecording)
                             })),
@@ -138,6 +139,7 @@ impl HexApp {
             Some(state) => {
                 let can_save = state.provider.dirty_count() > 0;
                 let config = HexEditorConfig {
+                    pane_gap: 4,
                     on_save: Some(std::sync::Arc::new(|_| {
                         Task::done(HexEditorMessage::SaveIntoRecording)
                     })),
