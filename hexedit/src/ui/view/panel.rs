@@ -73,7 +73,8 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
         &state.row_annotations,
         &state.active_patterns,
         cache,
-        state.nybble_coloring,
+        state.color_scheme,
+        state.dim_nulls,
     )
     .on_select_at(HexEditorMessage::SelectAt)
     .on_extend_to(HexEditorMessage::ExtendTo)

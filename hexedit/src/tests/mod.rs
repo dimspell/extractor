@@ -18,6 +18,7 @@ use crate::config::HexEditorConfig;
 use crate::message::HexEditorMessage;
 use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
+use crate::ui::coloring::ColorScheme;
 use crate::search::SearchState;
 use crate::selection::{NavDir, Selection};
 use crate::state::HexEditorState;
@@ -65,7 +66,8 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         active_patterns: BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
-        nybble_coloring: false,
+        color_scheme: ColorScheme::Monochrome,
+        dim_nulls: false,
         settings_open: false,
     }
 }

@@ -686,8 +686,11 @@ pub fn update(
         HexEditorMessage::CloseSettings => {
             state.settings_open = false;
         }
-        HexEditorMessage::SetNybbleColoring(v) => {
-            state.nybble_coloring = v;
+        HexEditorMessage::SetColorScheme(scheme) => {
+            state.color_scheme = scheme;
+        }
+        HexEditorMessage::SetDimNulls(v) => {
+            state.dim_nulls = v;
         }
 
         // ── Copy / Paste ─────────────────────────────────────────────────

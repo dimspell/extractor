@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use crate::ui::coloring::ColorScheme;
 use crate::LuaScriptEngine;
 
 /// Write a Lua script to the temp dir and return its path.
@@ -479,7 +480,8 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
-        nybble_coloring: false,
+        color_scheme: ColorScheme::Monochrome,
+        dim_nulls: false,
         settings_open: false,
     };
     let errors = state.load_lua_scripts(&dir);
@@ -529,7 +531,8 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
-        nybble_coloring: false,
+        color_scheme: ColorScheme::Monochrome,
+        dim_nulls: false,
         settings_open: false,
     };
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
@@ -606,7 +609,8 @@ return {
         active_patterns: std::collections::BTreeSet::new(),
         renaming_group: None,
         renaming_group_draft: String::new(),
-        nybble_coloring: false,
+        color_scheme: ColorScheme::Monochrome,
+        dim_nulls: false,
         settings_open: false,
     };
     // Verify the decode works

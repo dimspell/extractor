@@ -171,8 +171,10 @@ pub enum HexEditorMessage {
     OpenSettings,
     /// Close the settings modal.
     CloseSettings,
-    /// Enable/disable nybble-based byte coloring.
-    SetNybbleColoring(bool),
+    /// Switch the default byte-colouring scheme.
+    SetColorScheme(crate::ui::coloring::ColorScheme),
+    /// Enable/disable dim-nulls regardless of colour scheme.
+    SetDimNulls(bool),
 
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.

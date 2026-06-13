@@ -113,14 +113,47 @@ impl CellColorProvider for SelectionProvider {
     }
 }
 
-// ── Nybble-based byte coloring ────────────────────────────────────────────
+// ── Color scheme — which rule maps byte → fg colour ───────────────────────
 
-/// Map a byte to a color based on its high nybble.
-///
-/// 18 groups: 16 nybble ranges (`0x`..`Fx`), plus special entries for `00`
-/// and `FF`. This makes repeated nulls and 0xFFs visually distinct while
-/// giving every other byte a colour that varies with its position in the
-/// byte-value space.
+/// Which colour scheme the hex matrix uses for its default byte foreground.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ColorScheme {
+    /// No extra colouring — the original monochrome look.
+    Monochrome,
+    /// 18 groups: one per high nybble plus special `00` / `FF`.
+    Nybble,
+    /// 6 semantic categories (NULL / printable / whitespace / control / non-ASCII).
+    Categories,
+    /// Continuous rainbow hue across the full 0x00…0xFF range.
+    Rainbow,
+}
+
+impl ColorScheme {
+    pub const ALL: [ColorScheme; 4] = [
+        ColorScheme::Monochrome,
+        ColorScheme::Nybble,
+        ColorScheme::Categories,
+        ColorScheme::Rainbow,
+    ];
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            ColorScheme::Monochrome => "Monochrome",
+            ColorScheme::Nybble => "Nybble (18 groups)",
+            ColorScheme::Categories => "Categories (6 groups)",
+            ColorScheme::Rainbow => "Rainbow gradient",
+        }
+    }
+}
+
+impl std::fmt::Display for ColorScheme {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+// ── Color helpers ─────────────────────────────────────────────────────────
+
 fn hex(c: u32) -> Color {
     let r = ((c >> 16) & 0xFF) as f32 / 255.0;
     let g = ((c >> 8) & 0xFF) as f32 / 255.0;
@@ -128,30 +161,104 @@ fn hex(c: u32) -> Color {
     Color::from_rgb(r, g, b)
 }
 
+/// Perceived luminance (rec. 709 weights) — used for colour-brightness tests.
+pub fn luminance(c: &Color) -> f32 {
+    0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+}
+
+// ── Built-in colour functions ────────────────────────────────────────────
+
+/// Map a byte to a colour based on its high nybble — 18 groups.
 pub fn nybble_color(b: u8) -> Color {
     match b {
-        0x00 => hex(0x4a4339), // very dim
-        0xFF => hex(0xd4cabd), // bright
+        0x00 => hex(0x4a4339),
+        0xFF => hex(0xd4cabd),
         _ => {
             let palette = [
-                hex(0x7a6f64), // 0x
-                hex(0x8a7f64), // 1x
-                hex(0x7a8f5a), // 2x
-                hex(0x6a8f4a), // 3x
-                hex(0x5a8f5a), // 4x
-                hex(0x5a8f6a), // 5x
-                hex(0x5a7f6a), // 6x
-                hex(0x6a7f5a), // 7x
-                hex(0x7a6f4a), // 8x
-                hex(0x8a5f3a), // 9x
-                hex(0x9a4f3a), // Ax
-                hex(0xaa3f3a), // Bx
-                hex(0xaa3f4a), // Cx
-                hex(0x9a4f5a), // Dx
-                hex(0x8a5f5a), // Ex
-                hex(0x7a6f5a), // Fx (except 0xFF)
+                hex(0x7a6f64), hex(0x8a7f64), hex(0x7a8f5a), hex(0x6a8f4a),
+                hex(0x5a8f5a), hex(0x5a8f6a), hex(0x5a7f6a), hex(0x6a7f5a),
+                hex(0x7a6f4a), hex(0x8a5f3a), hex(0x9a4f3a), hex(0xaa3f3a),
+                hex(0xaa3f4a), hex(0x9a4f5a), hex(0x8a5f5a), hex(0x7a6f5a),
             ];
             palette[(b >> 4) as usize]
+        }
+    }
+}
+
+/// 6 semantic categories matching hexyl's default scheme.
+pub fn category_color(b: u8) -> Color {
+    match b {
+        0x00        => hex(0x4a4339), // NULL
+        0x09..=0x0D => hex(0x5a7f4a), // whitespace (tab, newline, cr, etc.)
+        0x20..=0x7E => hex(0xb8a898), // printable ASCII
+        0x7F        => hex(0x8a6f5a), // DEL
+        _ if b < 0x20 => hex(0x8a6f5a), // other control chars
+        _           => hex(0x7a4f6a), // non-ASCII (0x80..0xFF)
+    }
+}
+
+/// Continuous rainbow hue, skipping the red-to-red wrap for clarity.
+pub fn rainbow_color(b: u8) -> Color {
+    // Map 0→300° hue so 0x00 starts blue-violet and 0xFF ends magenta.
+    let hue = (b as f32 / 255.0) * 300.0;
+    let (r, g, b_) = hsl_to_rgb(hue, 0.85, 0.55);
+    Color::from_rgb(r, g, b_)
+}
+
+/// Convert HSL to RGB, all components in 0..1 range.
+fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
+    let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let x = c * (1.0 - ((h / 60.0) % 2.0 - 1.0).abs());
+    let m = l - c / 2.0;
+    let (r1, g1, b1) = match h as u16 {
+        0..=59 => (c, x, 0.0),
+        60..=119 => (x, c, 0.0),
+        120..=179 => (0.0, c, x),
+        180..=239 => (0.0, x, c),
+        240..=299 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+    (r1 + m, g1 + m, b1 + m)
+}
+
+/// Pick the colour for a byte under the given scheme.
+pub fn scheme_color(scheme: ColorScheme, b: u8) -> Color {
+    match scheme {
+        ColorScheme::Monochrome => hex(0xd4cabd),
+        ColorScheme::Nybble => nybble_color(b),
+        ColorScheme::Categories => category_color(b),
+        ColorScheme::Rainbow => rainbow_color(b),
+    }
+}
+
+// ── Providers for the CellColorProvider chain ─────────────────────────────
+
+/// Applies a [`ColorScheme`] as a foreground provider in the chain.
+/// Always returns `Some(fg)` and never touches the background.
+pub struct SchemeProvider {
+    pub scheme: ColorScheme,
+}
+
+impl CellColorProvider for SchemeProvider {
+    fn color(&self, _addr: u64, byte: u8) -> (Option<Color>, Option<Color>) {
+        (Some(scheme_color(self.scheme, byte)), None)
+    }
+}
+
+/// Optionally dims `0x00` bytes by overriding their foreground.
+/// Designed to sit *after* a scheme provider in the chain so it wins for
+/// null bytes without affecting other values.
+pub struct DimNullsProvider {
+    pub enabled: bool,
+    pub null_color: Color,
+}
+
+impl CellColorProvider for DimNullsProvider {
+    fn color(&self, _addr: u64, byte: u8) -> (Option<Color>, Option<Color>) {
+        if self.enabled && byte == 0x00 {
+            (Some(self.null_color), None)
+        } else {
+            (None, None)
         }
     }
 }

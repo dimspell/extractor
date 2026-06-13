@@ -13,6 +13,7 @@ use super::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
 use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
+use super::ui::coloring::ColorScheme;
 use super::vanilla_diff::compute_diff;
 
 /// Default cell width — 16 bytes per row matches every other hex editor on
@@ -149,7 +150,8 @@ impl HexEditorState {
             status_msg: String::new(),
             error,
             repeat_pattern: None,
-            nybble_coloring: false,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: true,
             settings_open: false,
             cache: ParagraphCache::default(),
             lua_engine,

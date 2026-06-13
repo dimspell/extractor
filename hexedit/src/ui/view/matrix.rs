@@ -21,7 +21,9 @@ use iced::{
     Rectangle, Shadow, Size,
 };
 
-use crate::coloring::nybble_color;
+use crate::coloring::{
+    fold_color, CellColorProvider, ColorScheme, DimNullsProvider, SchemeProvider,
+};
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
@@ -128,9 +130,10 @@ pub struct HexMatrix<'a, Message> {
     on_paste: Option<Box<dyn Fn() -> Message + 'a>>,
     show_decimal: bool,
     on_toggle_addr_format: Option<Box<dyn Fn() -> Message + 'a>>,
-    /// When true, hex bytes are colored by their high nybble instead of a
-    /// uniform default color.
-    color_bytes: bool,
+    /// Which colour scheme the matrix uses for default byte foreground.
+    color_scheme: ColorScheme,
+    /// When true, `0x00` bytes use a dim colour regardless of the active scheme.
+    dim_nulls: bool,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -150,7 +153,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
         row_annotations: &'a BTreeMap<u64, Vec<(usize, String)>>,
         active_patterns: &'a BTreeSet<usize>,
         cache: ParagraphCache,
-        color_bytes: bool,
+        color_scheme: ColorScheme,
+        dim_nulls: bool,
     ) -> Self {
         Self {
             bytes,
@@ -167,7 +171,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
             row_annotations,
             active_patterns,
             cache,
-            color_bytes,
+            color_scheme,
+            dim_nulls,
             width: Length::Fill,
             height: Length::Fill,
             on_select_at: None,
@@ -1166,6 +1171,21 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     None
                 };
 
+                // Default foreground via the provider chain.
+                let scheme_prov = SchemeProvider {
+                    scheme: self.color_scheme,
+                };
+                let dim_prov = DimNullsProvider {
+                    enabled: self.dim_nulls,
+                    null_color: zero_color,
+                };
+                let (default_fg, _) = fold_color(
+                    [&scheme_prov as &dyn CellColorProvider, &dim_prov as &dyn CellColorProvider],
+                    addr,
+                    b,
+                );
+                let default_fg = default_fg.unwrap_or(hex_color);
+
                 let text_color = if is_editing {
                     edit_text
                 } else if in_sel {
@@ -1176,12 +1196,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     dirty_text
                 } else if is_diff {
                     diff_text
-                } else if self.color_bytes {
-                    nybble_color(b)
-                } else if b == 0 {
-                    zero_color
                 } else {
-                    hex_color
+                    default_fg
                 };
                 let ascii_col = if is_editing {
                     edit_text
@@ -1193,8 +1209,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     dirty_text
                 } else if is_diff {
                     diff_text
-                } else if self.color_bytes {
-                    nybble_color(b)
+                } else if self.color_scheme != ColorScheme::Monochrome {
+                    default_fg
                 } else {
                     ascii_color
                 };
