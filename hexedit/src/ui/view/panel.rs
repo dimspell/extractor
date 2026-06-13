@@ -157,7 +157,12 @@ pub fn title_bar<'a>(
             ..container::Style::default()
         });
 
+    // Padding on the TitleBar provides the "pick area" for dragging —
+    // Iced considers anything outside the title text & controls bounds
+    // as draggable. Without this padding, there's no space to initiate a
+    // drag.
     pane_grid::TitleBar::new(title_widget)
+        .padding([6, 4])
 }
 
 #[cfg(test)]
