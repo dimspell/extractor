@@ -85,13 +85,15 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
 
 /// Build the title bar for a pane.
 ///
-/// Follows Halloy's pattern:
-/// - Drag grip indicator (≡) on the left
-/// - Panel name label
-/// - Spacer
-/// - Split buttons (▤ / ▥) when more panes are allowed
-/// - Close button (✕) when there's more than one pane
-/// - Background colour changes when this pane has focus
+/// Iced `PaneGrid` pattern (matching the official example):
+/// - **Content** (passed to `TitleBar::new`): grip indicator + panel name +
+///   spacer. The spacer becomes the "drag handle" — clicking anywhere
+///   between the label and the controls initiates a drag.
+/// - **Controls** (passed to `TitleBar::controls`): split buttons + close
+///   button. Iced excludes the controls region from the drag pick area so
+///   button presses work unambiguously.
+///
+/// The focused pane gets a different background colour.
 pub fn title_bar<'a>(
     _state: &'a HexEditorState,
     _id: pane_grid::Pane,
@@ -108,61 +110,75 @@ pub fn title_bar<'a>(
     let can_close = pane_count > 1;
     let can_split = pane_count < MAX_PANELS;
 
-    let mut controls = row![].spacing(4);
-
-    if can_split {
-        let split_h = button(text("▤").size(10).font(Font::MONOSPACE))
-            .padding([2, 5])
-            .on_press(HexEditorMessage::SplitPane(
-                iced::widget::pane_grid::Axis::Horizontal,
-            ));
-        controls = controls.push(split_h);
-
-        let split_v = button(text("▥").size(10).font(Font::MONOSPACE))
-            .padding([2, 5])
-            .on_press(HexEditorMessage::SplitPane(
-                iced::widget::pane_grid::Axis::Vertical,
-            ));
-        controls = controls.push(split_v);
-    }
-
-    if can_close {
-        let close_btn = button(text("✕").size(10).font(Font::MONOSPACE))
-            .padding([2, 6])
-            .on_press(HexEditorMessage::ClosePane);
-        controls = controls.push(close_btn);
-    }
-
-    // Halloy-style drag grip indicator (≡) on the left, then label, then controls.
-    let title_row = row![
+    // ── Title content ──────────────────────────────────────────────────
+    //
+    // The title content FILLS the full padded width (via Space::Fill +
+    // .width(Fill) on the container). This forces Iced's overflow branch
+    // in `is_over_pick_area`, where `!controls_layout` is the ONLY check
+    // — making the entire title area (including the label) draggable.
+    //
+    // The controls are placed on TOP of the rightmost part of the title
+    // content (where the invisible Fill spacer sits), so there's no
+    // visual overlap with the label.
+    let title_content = row![
         text("≡").size(12).font(Font::MONOSPACE),
         text(label).size(11).font(Font::MONOSPACE),
-        Space::default().width(Fill),
-        controls,
+        Space::default().width(Fill), // ← extends title to full width
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);
 
-    let bg = if is_focused {
-        FOCUSED_TITLE_BG
-    } else {
-        UNFOCUSED_TITLE_BG
+    // ── Controls ───────────────────────────────────────────────────────
+    //
+    // Using `Controls::new()` (NO compact version) so that the overflow
+    // branch of `is_over_pick_area` uses `!controls_layout` instead of
+    // `!compact AND !title`.
+    let mut controls = row![].spacing(4);
+
+    if can_split {
+        controls = controls.push(
+            button(text("▤").size(10).font(Font::MONOSPACE))
+                .padding([2, 5])
+                .on_press(HexEditorMessage::SplitPane(
+                    iced::widget::pane_grid::Axis::Horizontal,
+                )),
+        );
+        controls = controls.push(
+            button(text("▥").size(10).font(Font::MONOSPACE))
+                .padding([2, 5])
+                .on_press(HexEditorMessage::SplitPane(
+                    iced::widget::pane_grid::Axis::Vertical,
+                )),
+        );
+    }
+
+    if can_close {
+        controls = controls.push(
+            button(text("✕").size(10).font(Font::MONOSPACE))
+                .padding([2, 6])
+                .on_press(HexEditorMessage::ClosePane),
+        );
+    }
+
+    // Font styling to match the dark theme.
+    let font_style = move |_theme: &iced::Theme| -> container::Style {
+        container::Style {
+            background: Some(
+                (if is_focused { FOCUSED_TITLE_BG } else { UNFOCUSED_TITLE_BG }).into(),
+            ),
+            ..container::Style::default()
+        }
     };
 
-    let title_widget = container(title_row)
-        .padding([3, 8])
-        .width(Fill)
-        .style(move |_theme| container::Style {
-            background: Some(bg.into()),
-            ..container::Style::default()
-        });
-
-    // Padding on the TitleBar provides the "pick area" for dragging —
-    // Iced considers anything outside the title text & controls bounds
-    // as draggable. Without this padding, there's no space to initiate a
-    // drag.
-    pane_grid::TitleBar::new(title_widget)
-        .padding([6, 4])
+    pane_grid::TitleBar::new(
+        container(title_content)
+            .padding([3, 8])
+            .width(Fill)
+            .style(font_style),
+    )
+    .controls(pane_grid::Controls::new(controls))
+    .always_show_controls()
+    .padding([6, 4])
 }
 
 #[cfg(test)]
