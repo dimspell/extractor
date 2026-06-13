@@ -442,6 +442,11 @@ pub fn update(
                             group_color,
                             group_id,
                         ));
+                        // Prefill annotation with group label + index so the
+                        // hex matrix annotation column identifies each entry.
+                        if let Some(pat) = state.patterns.last_mut() {
+                            pat.annotation = Some(format!("{}[{}]", label, i));
+                        }
                         created += 1;
                     }
                     state.rebuild_pattern_lookup();

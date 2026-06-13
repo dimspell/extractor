@@ -53,14 +53,12 @@ pub struct HexEditorState {
     pub next_group_id: usize,
     /// Set of group ids whose accordion section is collapsed.
     pub collapsed_groups: BTreeSet<usize>,
-    /// Precomputed map: row-start-address → list of `(pattern_id, annotation)`
-    /// segments for the hex matrix annotation column. Rebuilt after every
-    /// pattern mutation. The matrix renders each segment independently so it
-    /// can highlight only the segments belonging to the active pattern.
+    /// Precomputed map: row-start-address → list of `(pattern_id, text)`
+    /// annotation segments for the hex matrix annotation column. Rebuilt
+    /// after every pattern mutation.
     pub row_annotations: BTreeMap<u64, Vec<(usize, String)>>,
-    /// Pattern ids that contain the current cursor address. The hex matrix
-    /// checks segments in `row_annotations` against this set to decide which
-    /// annotation text to render in a brighter colour.
+    /// Pattern ids whose span contains the current cursor address. The matrix
+    /// uses this to decide which annotation segments to highlight.
     pub active_patterns: BTreeSet<usize>,
     /// Which group is currently being renamed (inline edit in pattern list).
     pub renaming_group: Option<usize>,
@@ -86,8 +84,11 @@ pub struct HexEditorState {
     /// Shared paragraph cache shared across frames so shaped glyphs survive
     /// between render cycles (cheaply cloned into the widget each frame).
     pub cache: ParagraphCache,
-    /// Whether nybble-based byte coloring is enabled in the matrix.
-    pub nybble_coloring: bool,
+    /// Which byte-colouring scheme the hex matrix should use.
+    pub color_scheme: ColorScheme,
+    /// When true, `0x00` bytes are drawn with a dim colour regardless of the
+    /// active scheme (Monochrome included).
+    pub dim_nulls: bool,
     /// Whether the settings modal is currently open.
     pub settings_open: bool,
     /// Lua scripting engine for custom inspector decoders.
@@ -221,8 +222,6 @@ impl HexEditorState {
     /// Rebuild the `row_annotations` map from the current pattern list.
     /// Called after every pattern mutation so the hex matrix can render
     /// annotations to the right of the ASCII column.
-    /// Each entry maps `row_start → Vec<(pattern_id, text)>` so the hex
-    /// matrix can colour segments independently based on cursor position.
     pub fn recompute_row_annotations(&mut self) {
         self.row_annotations.clear();
         let bpr = self.bytes_per_row.max(1) as u64;
