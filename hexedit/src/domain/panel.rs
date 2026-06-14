@@ -50,7 +50,7 @@ pub fn default_pane_grid() -> pane_grid::State<HexPanel> {
     ) {
         // Give the inspector panel ~25% of the width (~280px on a 1100px
         // window) instead of the default 50/50 split.
-        state.resize(split, 0.25);
+        state.resize(split, 0.75);
     }
 
     state

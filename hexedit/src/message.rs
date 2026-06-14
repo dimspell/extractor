@@ -177,6 +177,11 @@ pub enum HexEditorMessage {
     SetColorScheme(crate::ui::coloring::ColorScheme),
     /// Enable/disable dim-nulls regardless of colour scheme.
     SetDimNulls(bool),
+    /// Set the address format: `true` = decimal, `false` = hex.
+    SetAddrFormat(bool),
+    /// Reset all settings to their defaults (colour scheme, dim-nulls, address
+    /// format, bytes-per-row).
+    ResetSettings,
 
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.

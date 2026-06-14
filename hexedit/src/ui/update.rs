@@ -4,6 +4,7 @@ use iced::{clipboard, Task};
 use crate::config::HexEditorConfig;
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
+use crate::ui::coloring::ColorScheme;
 
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
@@ -759,6 +760,16 @@ pub fn update(
         }
         HexEditorMessage::SetDimNulls(v) => {
             state.dim_nulls = v;
+        }
+        HexEditorMessage::SetAddrFormat(decimal) => {
+            state.show_decimal = decimal;
+        }
+        HexEditorMessage::ResetSettings => {
+            state.color_scheme = ColorScheme::Monochrome;
+            state.dim_nulls = true;
+            state.show_decimal = false;
+            state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
+            state.status_msg = "Settings reset to defaults".to_string();
         }
 
         // ── Copy / Paste ─────────────────────────────────────────────────

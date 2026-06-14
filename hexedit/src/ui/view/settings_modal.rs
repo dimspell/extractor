@@ -5,6 +5,25 @@ use crate::ui::coloring::{default_byte_colors, ColorScheme};
 use crate::HexEditorMessage;
 use crate::HexEditorState;
 
+/// Colour for section heading text.
+const HEADING_COLOR: Color = color!(0xa0907a);
+/// Colour for lighter secondary text.
+const MUTED_COLOR: Color = color!(0x7a6f64);
+
+/// A horizontal rule separator.
+fn sep() -> iced::widget::rule::Rule<'static, iced::Theme> {
+    iced::widget::rule::horizontal(1.0)
+}
+
+/// Section heading label.
+fn section_label(label: &str) -> Element<'_, HexEditorMessage> {
+    text(label)
+        .size(11)
+        .color(HEADING_COLOR)
+        .font(Font::MONOSPACE)
+        .into()
+}
+
 /// Modal body for the hex editor settings dialog.
 ///
 /// Options are live-applied — toggling/selecting takes effect immediately.
@@ -12,9 +31,12 @@ use crate::HexEditorState;
 pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let title = text("Hex Editor Settings").size(13).font(Font::MONOSPACE);
 
-    // ── Colour-scheme pick list ────────────────────────────────────────
+    // ── Byte Coloring section ──────────────────────────────────────────
+    let coloring_label = section_label("Byte Coloring");
+
+    // Colour-scheme pick list
     let scheme_row = row![
-            text("Byte colour scheme")
+            text("Scheme")
                 .size(12)
                 .width(Length::Fill),
             pick_list(
@@ -29,24 +51,24 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .spacing(8)
         .align_y(iced::Alignment::Center);
 
-    // ── Dim-nulls toggle ───────────────────────────────────────────────
+    // Dim-nulls toggle
     let dim_toggle = toggler(state.dim_nulls)
         .label("Dim null bytes")
         .on_toggle(HexEditorMessage::SetDimNulls)
         .size(13)
         .spacing(8);
 
-    // ── Palette preview ────────────────────────────────────────────────
-    // Show a row of small coloured squares sampled across the byte range.
-    // Uses the same provider chain as the matrix so the preview stays in sync.
+    // Palette preview — a row of small coloured squares sampled across
+    // the byte range. Uses the same provider chain as the matrix so the
+    // preview stays in sync.
     let swatch_size = 14.0;
     let palette: Vec<Element<'_, HexEditorMessage>> = (0..=15)
         .map(|i| {
-            let b = (i * 17) as u8; // 0x00, 0x11, …, 0xFF
+            let b = (i * 17) as u8;
             let (fg_opt, _) = default_byte_colors(state.color_scheme, b, state.dim_nulls);
             let fg = fg_opt.unwrap_or(color!(0xd4cabd));
             container(
-                text("  ") // invisible spacer – the swatch is the container bg
+                text("  ")
                     .size(10),
             )
             .style(move |_: &_| container::Style {
@@ -68,21 +90,68 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     let palette_label = text("Palette preview (0x00 … 0xFF)")
         .size(10)
-        .color(color!(0x7a6f64));
+        .color(MUTED_COLOR);
 
-    // ── Close button ───────────────────────────────────────────────────
+    // ── Display section ────────────────────────────────────────────────
+    let display_label = section_label("Display");
+
+    // Address format pick list
+    const ADDR_OPTIONS: [&str; 2] = ["Hex (default)", "Decimal"];
+    let addr_current = if state.show_decimal {
+        ADDR_OPTIONS[1]
+    } else {
+        ADDR_OPTIONS[0]
+    };
+    let addr_pick = pick_list(
+        &ADDR_OPTIONS[..],
+        Some(addr_current),
+        |selected| HexEditorMessage::SetAddrFormat(selected == ADDR_OPTIONS[1]),
+    )
+    .font(Font::MONOSPACE)
+    .text_size(12)
+    .padding([2, 6]);
+
+    let addr_row = row![
+        text("Address format")
+            .size(12)
+            .width(Length::Fill),
+        addr_pick,
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
+    // Bytes-per-row display (read-only in settings — shows current value)
+    let bpr_label = text(format!("Bytes per row: {}", state.bytes_per_row))
+        .size(12)
+        .color(MUTED_COLOR);
+
+    // ── Action buttons ─────────────────────────────────────────────────
+    let reset_btn = button(text("Reset to Defaults").size(12))
+        .padding([4, 14])
+        .on_press(HexEditorMessage::ResetSettings);
+
     let close_btn = button(text("Close").size(12))
         .padding([4, 14])
         .on_press(HexEditorMessage::CloseSettings);
 
+    let action_row = row![reset_btn, close_btn].spacing(12);
+
+    // ── Assemble ───────────────────────────────────────────────────────
     container(
         column![
             title,
+            sep(),
+            coloring_label,
             scheme_row,
             dim_toggle,
             palette_label,
             palette_row,
-            row![close_btn].spacing(8),
+            sep(),
+            display_label,
+            addr_row,
+            bpr_label,
+            sep(),
+            action_row,
         ]
         .spacing(8)
         .width(Length::Fill),
