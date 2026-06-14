@@ -330,9 +330,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             .unwrap_or(0);
         // Estimate pixel width using ASCII_CELL_WIDTH (9px monospace).
         let estimated = max_chars as f32 * ASCII_CELL_WIDTH;
-        estimated
-            .max(MIN_ANN_COL_WIDTH) // reasonable minimum even for short text
-            .min(MAX_ANN_COL_WIDTH)
+        estimated.clamp(MIN_ANN_COL_WIDTH, MAX_ANN_COL_WIDTH)
     }
 
     fn annotation_start_x(&self, bounds_x: f32) -> f32 {

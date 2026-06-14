@@ -523,12 +523,14 @@ pub fn update(
 
         // ── Group operations ────────────────────────────────────────────
         HexEditorMessage::RemovePatternGroup(gid) => {
+            let before = state.patterns.len();
             state.patterns.retain(|p| p.group_id != Some(gid));
+            let removed = before - state.patterns.len();
             state.groups.retain(|g| g.id != gid);
             state.collapsed_groups.remove(&gid);
             state.rebuild_pattern_lookup();
             state.recompute_row_annotations();
-            state.status_msg = format!("Removed group and {} pattern(s)", state.patterns.len());
+            state.status_msg = format!("Removed group and {removed} pattern(s)");
         }
         HexEditorMessage::BeginRenameGroup(gid) => {
             state.renaming_group = Some(gid);
@@ -557,20 +559,22 @@ pub fn update(
                     // prefix matches the old label, e.g. "Monster[0]" → "Enemy[0]".
                     // Only update annotations matching `{old_label}[{digit}+]`
                     // to avoid overwriting manual edits.
-                    let old_prefix = format!("{}[", old_label);
-                    let new_prefix = format!("{}[", grp.label);
-                    for pat in &mut state.patterns {
-                        if pat.group_id == Some(gid) {
-                            if let Some(ann) = &mut pat.annotation {
-                                if ann.starts_with(&old_prefix) {
-                                    let after_bracket = &ann[old_prefix.len()..];
-                                    if let Some(bracket_end) = after_bracket.find(']') {
-                                        let digits = &after_bracket[..bracket_end];
-                                        if !digits.is_empty()
-                                            && digits.chars().all(|c| c.is_ascii_digit())
-                                        {
-                                            *ann =
-                                                ann.replacen(&old_prefix, &new_prefix, 1);
+                    if !old_label.is_empty() {
+                        let old_prefix = format!("{}[", old_label);
+                        let new_prefix = format!("{}[", grp.label);
+                        for pat in &mut state.patterns {
+                            if pat.group_id == Some(gid) {
+                                if let Some(ann) = &mut pat.annotation {
+                                    if ann.starts_with(&old_prefix) {
+                                        let after_bracket = &ann[old_prefix.len()..];
+                                        if let Some(bracket_end) = after_bracket.find(']') {
+                                            let digits = &after_bracket[..bracket_end];
+                                            if !digits.is_empty()
+                                                && digits.chars().all(|c| c.is_ascii_digit())
+                                            {
+                                                *ann =
+                                                    ann.replacen(&old_prefix, &new_prefix, 1);
+                                            }
                                         }
                                     }
                                 }
@@ -1024,6 +1028,40 @@ pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<S
     Some(out)
 }
 
+/// Split a line into pipe-delimited fields, respecting backslash escaping.
+/// `\|` is treated as a literal pipe character, not a field delimiter.
+/// Collects at most `max_fields` fields (remaining content stays in the last field).
+fn split_pipe_fields(line: &str, max_fields: usize) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            // Look ahead: if next is `|`, treat as escaped pipe.
+            if chars.peek() == Some(&'|') {
+                current.push('|');
+                chars.next(); // consume the `|`
+            } else {
+                current.push('\\');
+            }
+        } else if ch == '|' {
+            if fields.len() + 1 < max_fields {
+                fields.push(current);
+                current = String::new();
+            } else {
+                // Last field: put everything remaining (including this pipe
+                // and the rest) into the current field.
+                current.push('|');
+            }
+        } else {
+            current.push(ch);
+        }
+    }
+    fields.push(current);
+    fields
+}
+
 /// Parse the custom text format and apply patterns/groups to `state`.
 /// Returns a status message or an error.
 pub(crate) fn import_patterns_into(
@@ -1041,24 +1079,25 @@ pub(crate) fn import_patterns_into(
             continue;
         }
 
-        // Use splitn so pipes inside annotations/labels don't break field
-        // alignment. G line: id | label | color_idx (4 parts max).
-        // P line: start | end | color_idx | group_id | annotation (6 parts max).
-        let fields: Vec<&str> = if line.starts_with('G') || line.starts_with('g') {
-            line.splitn(4, '|').collect()
+        // Use custom escaping-aware split so escaped pipes (`\|`) inside
+        // annotations/labels stay as content. G line: id | label | color_idx
+        // (4 fields). P line: start | end | color_idx | group_id | annotation (6 fields).
+        let max_fields: usize = if line.starts_with('G') || line.starts_with('g') {
+            4
         } else {
-            line.splitn(6, '|').collect()
+            6
         };
+        let fields = split_pipe_fields(line, max_fields);
 
-        match fields.first() {
-            Some(&"G") => {
+        match fields.first().map(|s| s.as_str()) {
+            Some("G" | "g") => {
                 if fields.len() < 3 {
                     return Err(format!("line {}: too few fields for group", lineno + 1));
                 }
                 let gid: usize = fields[1]
                     .parse()
                     .map_err(|_| format!("line {}: invalid group id", lineno + 1))?;
-                let label = unescape_pipe_field(fields[2]);
+                let label = unescape_pipe_field(&fields[2]);
                 let color_idx: u8 = fields
                     .get(3)
                     .and_then(|s| s.parse().ok())
@@ -1070,13 +1109,13 @@ pub(crate) fn import_patterns_into(
                     .groups
                     .push(RepeatedPatternGroup::new(new_id, label, color_idx));
             }
-            Some(&"P") => {
+            Some("P" | "p") => {
                 if fields.len() < 4 {
                     return Err(format!("line {}: too few fields for pattern", lineno + 1));
                 }
-                let start = u64::from_str_radix(fields[1], 16)
+                let start = u64::from_str_radix(&fields[1], 16)
                     .map_err(|_| format!("line {}: invalid start address", lineno + 1))?;
-                let end = u64::from_str_radix(fields[2], 16)
+                let end = u64::from_str_radix(&fields[2], 16)
                     .map_err(|_| format!("line {}: invalid end address", lineno + 1))?;
                 let color_idx: u8 = fields[3]
                     .parse()
@@ -1098,7 +1137,7 @@ pub(crate) fn import_patterns_into(
                 state.patterns.push(pat);
                 pattern_count += 1;
             }
-            Some(t) if t.eq_ignore_ascii_case("G") || t.eq_ignore_ascii_case("P") => {
+            Some(t) if t == "G" || t == "g" || t == "P" || t == "p" => {
                 return Err(format!("line {}: too few fields", lineno + 1));
             }
             _ => {
@@ -1115,7 +1154,7 @@ pub(crate) fn import_patterns_into(
 
 #[cfg(test)]
 mod tests {
-    use super::format_hex_dump;
+    use super::*;
     use crate::domain::export_config::ExportConfig;
 
     fn default_config() -> ExportConfig {
@@ -1281,5 +1320,377 @@ mod tests {
         });
         // Just the hex values, nothing else
         assert_eq!(result, "00 01 02 03                                     \n");
+    }
+
+    // ====================================================================
+    // Pipe escaping — pure function tests
+    // ====================================================================
+
+    #[test]
+    fn escape_noop() {
+        assert_eq!(escape_pipe_field("hello"), "hello");
+    }
+
+    #[test]
+    fn escape_pipe() {
+        assert_eq!(escape_pipe_field("a|b"), "a\\|b");
+    }
+
+    #[test]
+    fn escape_backslash() {
+        assert_eq!(escape_pipe_field("a\\b"), "a\\\\b");
+    }
+
+    #[test]
+    fn escape_newline() {
+        assert_eq!(escape_pipe_field("a\nb"), "a\\nb");
+    }
+
+    #[test]
+    fn escape_all_special() {
+        assert_eq!(escape_pipe_field("a|\n\\"), "a\\|\\n\\\\");
+    }
+
+    #[test]
+    fn escape_empty() {
+        assert_eq!(escape_pipe_field(""), "");
+    }
+
+    #[test]
+    fn escape_multiple_pipes() {
+        assert_eq!(escape_pipe_field("|||"), "\\|\\|\\|");
+    }
+
+    #[test]
+    fn escape_trailing_backslash() {
+        assert_eq!(escape_pipe_field("end\\"), "end\\\\");
+    }
+
+    #[test]
+    fn unescape_noop() {
+        assert_eq!(unescape_pipe_field("hello"), "hello");
+    }
+
+    #[test]
+    fn unescape_pipe() {
+        assert_eq!(unescape_pipe_field("a\\|b"), "a|b");
+    }
+
+    #[test]
+    fn unescape_backslash() {
+        assert_eq!(unescape_pipe_field("a\\\\b"), "a\\b");
+    }
+
+    #[test]
+    fn unescape_newline() {
+        assert_eq!(unescape_pipe_field("a\\nb"), "a\nb");
+    }
+
+    #[test]
+    fn unescape_all_special() {
+        assert_eq!(unescape_pipe_field("a\\|\\n\\\\"), "a|\n\\");
+    }
+
+    #[test]
+    fn unescape_unknown_escape() {
+        assert_eq!(unescape_pipe_field("a\\xb"), "a\\xb");
+    }
+
+    #[test]
+    fn unescape_trailing_backslash() {
+        assert_eq!(unescape_pipe_field("a\\"), "a\\");
+    }
+
+    #[test]
+    fn unescape_double_escape_pipe() {
+        // \\| → first \\ becomes \, then | is not after a \ so stays as literal
+        assert_eq!(unescape_pipe_field("\\\\|"), "\\|");
+    }
+
+    #[test]
+    fn escape_roundtrip_basic() {
+        let s = "hello world";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_pipe() {
+        let s = "a|b|c";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_backslash() {
+        let s = "a\\b\\c";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_newline() {
+        let s = "line1\nline2\nline3";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_mixed() {
+        let s = "a|b\nc\\d|e";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_empty() {
+        let s = "";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_only_pipe() {
+        let s = "|";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    #[test]
+    fn escape_roundtrip_only_backslash() {
+        let s = "\\";
+        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
+    }
+
+    // ====================================================================
+    // Export / import round-trip
+    // ====================================================================
+
+    /// Build a minimal HexEditorState with the given patterns and groups.
+    fn make_export_state(
+        patterns: Vec<(u64, u64, u8, Option<usize>, Option<&str>)>,
+        groups: Vec<(usize, &str, u8)>,
+    ) -> crate::HexEditorState {
+        let mut next_pid = 1usize;
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        // Reset counters
+        state.next_pattern_id = 1;
+        state.next_group_id = 1;
+        state.patterns.clear();
+        state.groups.clear();
+        for (start, end, color, gid, ann) in patterns {
+            let id = next_pid;
+            next_pid += 1;
+            let mut pat = crate::Pattern::new(id, start, end, color);
+            pat.group_id = gid;
+            pat.annotation = ann.map(|s| s.to_string());
+            state.patterns.push(pat);
+        }
+        state.next_pattern_id = next_pid;
+        for (id, label, color) in groups {
+            state.groups.push(crate::RepeatedPatternGroup::new(id, label.to_string(), color));
+            if id >= state.next_group_id {
+                state.next_group_id = id + 1;
+            }
+        }
+        state.rebuild_pattern_lookup();
+        state.recompute_row_annotations();
+        state
+    }
+
+    #[test]
+    fn export_empty_returns_none() {
+        let state = make_export_state(vec![], vec![]);
+        assert!(export_patterns_to_text(&state).is_none());
+    }
+
+    #[test]
+    fn export_only_groups_returns_some() {
+        let state = make_export_state(vec![], vec![(1, "GroupA", 3)]);
+        let text = export_patterns_to_text(&state);
+        assert!(text.is_some());
+        let text = text.unwrap();
+        assert!(text.contains("G|1|GroupA|3"));
+    }
+
+    #[test]
+    fn export_only_patterns_returns_some() {
+        let state = make_export_state(vec![(0x100, 0x1FF, 5, None, None)], vec![]);
+        let text = export_patterns_to_text(&state).unwrap();
+        assert!(text.contains("P|100|1FF|5||"));
+    }
+
+    #[test]
+    fn import_empty_text_returns_error() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("", &mut state);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("No patterns found"));
+    }
+
+    #[test]
+    fn export_import_basic_roundtrip() {
+        let state = make_export_state(
+            vec![
+                (0x000, 0x0FF, 3, None, Some("header")),
+                (0x100, 0x1FF, 5, Some(1), Some("body[0]")),
+                (0x200, 0x2FF, 7, Some(1), Some("body[1]")),
+            ],
+            vec![(1, "BodyGroup", 2)],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let msg = import_patterns_into(&text, &mut import_state).unwrap();
+        assert!(msg.contains("Imported 3 pattern(s)"));
+
+        assert_eq!(import_state.patterns.len(), 3);
+        assert_eq!(import_state.groups.len(), 1);
+
+        // Patterns map to the new group
+        let mapped_group = import_state.groups[0].id;
+        let grouped: Vec<_> = import_state.patterns.iter().filter(|p| p.group_id == Some(mapped_group)).collect();
+        assert_eq!(grouped.len(), 2);
+        assert_eq!(grouped[0].annotation.as_deref(), Some("body[0]"));
+        assert_eq!(grouped[1].annotation.as_deref(), Some("body[1]"));
+
+        // Ungrouped pattern preserved
+        let ungrouped: Vec<_> = import_state.patterns.iter().filter(|p| p.group_id.is_none()).collect();
+        assert_eq!(ungrouped.len(), 1);
+        assert_eq!(ungrouped[0].annotation.as_deref(), Some("header"));
+    }
+
+    #[test]
+    fn export_import_pipe_in_annotation() {
+        let state = make_export_state(
+            vec![(0x000, 0x0FF, 3, None, Some("a|b|c")), (0x100, 0x1FF, 5, None, None)],
+            vec![],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+        // Pipe should be escaped
+        assert!(text.contains("a\\|b\\|c"), "pipe should be escaped in export: got {text:?}");
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(&text, &mut import_state).unwrap();
+        assert_eq!(import_state.patterns.len(), 2);
+        // Annotation should be restored with original pipes
+        let ann = import_state.patterns.iter().find(|p| p.start == 0).unwrap().annotation.as_deref();
+        assert_eq!(ann, Some("a|b|c"));
+    }
+
+    #[test]
+    fn export_import_pipe_in_group_label() {
+        let state = make_export_state(
+            vec![(0x100, 0x1FF, 5, Some(1), Some("data"))],
+            vec![(1, "Group|One", 4)],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+        assert!(text.contains("Group\\|One"), "pipe should be escaped in label: got {text:?}");
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(&text, &mut import_state).unwrap();
+        assert_eq!(import_state.groups.len(), 1);
+        assert_eq!(import_state.groups[0].label, "Group|One");
+    }
+
+    #[test]
+    fn export_import_backslash_in_annotation() {
+        let state = make_export_state(
+            vec![(0x000, 0x0FF, 3, None, Some("path\\to\\file"))],
+            vec![],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+        assert!(text.contains("path\\\\to\\\\file"), "backslash should be escaped: got {text:?}");
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(&text, &mut import_state).unwrap();
+        let ann = import_state.patterns[0].annotation.as_deref();
+        assert_eq!(ann, Some("path\\to\\file"));
+    }
+
+    #[test]
+    fn export_import_newline_in_annotation() {
+        let state = make_export_state(
+            vec![(0x000, 0x0FF, 3, None, Some("line1\nline2"))],
+            vec![],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+        assert!(text.contains("line1\\nline2"), "newline should be escaped: got {text:?}");
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(&text, &mut import_state).unwrap();
+        let ann = import_state.patterns[0].annotation.as_deref();
+        assert_eq!(ann, Some("line1\nline2"));
+    }
+
+    #[test]
+    fn import_with_comments_and_blank_lines() {
+        let text = "# HexEdit Pattern Export v1\n\nG|1|Test|2\n\nP|0|FF|3|1|note\n";
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(text, &mut state).unwrap();
+        assert_eq!(state.groups.len(), 1);
+        assert_eq!(state.patterns.len(), 1);
+    }
+
+    #[test]
+    fn import_unknown_type_returns_error() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("X|1|foo", &mut state);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown type"));
+    }
+
+    #[test]
+    fn import_too_few_fields_group_returns_error() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("G|42", &mut state);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn import_too_few_fields_pattern_returns_error() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("P|FF|10", &mut state);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn import_lowercase_g_accepts_group() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        // Import requires at least 1 pattern, so include both a group and a pattern.
+        let result = import_patterns_into("g|1|LowerGroup|3\np|100|1FF|5|1", &mut state);
+        assert!(result.is_ok(), "lowercase 'g' should be accepted: {result:?}");
+        assert_eq!(state.groups.len(), 1);
+        assert_eq!(state.groups[0].label, "LowerGroup");
+    }
+
+    #[test]
+    fn import_lowercase_p_accepts_pattern() {
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("p|100|1FF|5||mynote", &mut state);
+        assert!(result.is_ok(), "lowercase 'p' should be accepted: {result:?}");
+        assert_eq!(state.patterns.len(), 1);
+        assert_eq!(state.patterns[0].annotation.as_deref(), Some("mynote"));
+    }
+
+    #[test]
+    fn export_import_large_address_space() {
+        let state = make_export_state(
+            vec![(0x0000_0000, 0x00FF_FFFF, 1, None, None)],
+            vec![],
+        );
+        let text = export_patterns_to_text(&state).unwrap();
+        assert!(text.contains("P|0|FFFFFF|1||"));
+
+        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        import_patterns_into(&text, &mut import_state).unwrap();
+        assert_eq!(import_state.patterns.len(), 1);
+        assert_eq!(import_state.patterns[0].start, 0);
+        assert_eq!(import_state.patterns[0].end, 0x00FF_FFFF);
+    }
+
+    #[test]
+    fn import_old_format_without_escaping_still_works() {
+        // Old export format: pipes in annotations were NOT escaped.
+        // With splitn, the extra field content remains attached to the last field.
+        // Line: P|100|1FF|5||a|b|c  → after splitn(6,'|'): ["P","100","1FF","5","","a|b|c"]
+        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let result = import_patterns_into("P|100|1FF|5||a|b|c", &mut state);
+        assert!(result.is_ok(), "old format with unescaped pipes should load: {result:?}");
+        assert_eq!(state.patterns.len(), 1);
+        assert_eq!(state.patterns[0].annotation.as_deref(), Some("a|b|c"));
     }
 }

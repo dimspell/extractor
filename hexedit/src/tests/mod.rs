@@ -154,6 +154,7 @@ pub mod editing;
 pub mod search;
 pub mod goto;
 pub mod patterns;
+pub mod pattern_group;
 pub mod inspector;
 pub mod saving;
 pub mod settings;
