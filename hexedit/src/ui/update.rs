@@ -359,6 +359,7 @@ pub fn update(
             if let Some(id) = state.pattern_id_at(addr) {
                 state.remove_pattern(id);
             }
+            state.context_menu_addr = None;
         }
         HexEditorMessage::RemovePatternAtContextMenu => {
             if let Some(addr) = state.context_menu_addr {
@@ -530,6 +531,7 @@ pub fn update(
             state.collapsed_groups.remove(&gid);
             state.rebuild_pattern_lookup();
             state.recompute_row_annotations();
+            state.context_menu_addr = None;
             state.status_msg = format!("Removed group and {removed} pattern(s)");
         }
         HexEditorMessage::BeginRenameGroup(gid) => {
@@ -538,7 +540,7 @@ pub fn update(
                 state.renaming_group_draft = grp.label.clone();
             }
             return iced::widget::operation::focus(
-                iced::widget::Id::new("hex-rename-group-input"),
+                iced::widget::Id::from(format!("hex-rename-group-input-{gid}")),
             );
         }
         HexEditorMessage::SetRenameGroupDraft(s) => {
@@ -583,6 +585,7 @@ pub fn update(
                     }
                 }
                 state.status_msg = format!("Group renamed to \"{label}\"");
+                state.recompute_row_annotations();
             }
             state.renaming_group_draft.clear();
         }
@@ -598,11 +601,13 @@ pub fn update(
                         pat.color_idx = grp.color_idx;
                     }
                 }
+                state.rebuild_pattern_lookup();
             }
         }
         HexEditorMessage::CyclePatternColor(pid) => {
             if let Some(pat) = state.patterns.iter_mut().find(|p| p.id == pid) {
                 pat.color_idx = (pat.color_idx + 1) % 16;
+                state.rebuild_pattern_lookup();
             }
         }
 

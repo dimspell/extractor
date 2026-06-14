@@ -185,12 +185,16 @@ impl HexEditorState {
     }
 
     /// Remove a pattern by its id. Also removes any group that ends up with
-    /// zero patterns (orphan cleanup).
+    /// zero patterns (orphan cleanup), and cleans up stale collapsed_groups.
     pub fn remove_pattern(&mut self, id: usize) {
         self.patterns.retain(|p| p.id != id);
         // Clean up orphan groups — groups with no patterns left.
         self.groups
             .retain(|g| self.patterns.iter().any(|p| p.group_id == Some(g.id)));
+        // Also clean up stale collapsed_groups entries (orphaned group ids
+        // that lingered after the group was removed above).
+        self.collapsed_groups
+            .retain(|gid| self.groups.iter().any(|g| g.id == *gid));
         self.rebuild_pattern_lookup();
         self.recompute_row_annotations();
     }
@@ -202,6 +206,7 @@ impl HexEditorState {
         self.groups.clear();
         self.collapsed_groups.clear();
         self.row_annotations.clear();
+        self.active_patterns.clear();
         self.renaming_group = None;
     }
 

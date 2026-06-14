@@ -74,11 +74,12 @@ pub fn view<'a>(
                 let matrix = panel::pane_content(state, config, id, panel);
 
                 // Build context menu entries from current state.
-                let have_pattern_at_addr =
-                    state.pattern_id_at(state.selection.cursor).is_some();
-                let pattern_at_cursor = have_pattern_at_addr
-                    .then(|| state.pattern_id_at(state.selection.cursor))
-                    .flatten()
+                let context_addr = state.context_menu_addr;
+                let have_pattern_at_addr = context_addr
+                    .and_then(|addr| state.pattern_id_at(addr))
+                    .is_some();
+                let pattern_at_cursor = context_addr
+                    .and_then(|addr| state.pattern_id_at(addr))
                     .and_then(|pid| state.pattern_by_id(pid));
                 let pattern_group_at_cursor = pattern_at_cursor
                     .and_then(|p| p.group_id)

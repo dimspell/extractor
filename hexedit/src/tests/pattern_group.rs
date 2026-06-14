@@ -1052,3 +1052,149 @@ fn pattern_by_addr_color_idx_survives_removal_and_add() {
             "address {addr}: color_idx {color_idx} matches pattern {id}");
     }
 }
+
+// ---------------------------------------------------------------------------
+// Regression: color cycling rebuilds pattern_by_addr
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cycle_pattern_color_rebuilds_lookup() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    send(&mut state, &config, HexEditorMessage::SelectAt(0x10));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(0x1F));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+    let pid = state.patterns[0].id;
+    let original = state.patterns[0].color_idx;
+
+    send(&mut state, &config, HexEditorMessage::CyclePatternColor(pid));
+
+    let new_color = state.patterns[0].color_idx;
+    assert_ne!(new_color, original, "color should cycle");
+    for (addr, (_id, ci)) in &state.pattern_by_addr {
+        assert_eq!(*ci, new_color,
+            "pattern_by_addr at {addr} should reflect new color_idx {new_color}");
+    }
+}
+
+#[test]
+fn cycle_group_color_rebuilds_lookup_for_all_children() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+    create_group(&mut state, &config, "Group", 0x10, 0x10, 3);
+
+    let gid = state.groups[0].id;
+    let original = state.groups[0].color_idx;
+
+    send(&mut state, &config, HexEditorMessage::CycleGroupColor(gid));
+
+    let new_color = state.groups[0].color_idx;
+    assert_ne!(new_color, original, "group color should cycle");
+    // All child patterns in pattern_by_addr should have the new color
+    for (addr, (_id, ci)) in &state.pattern_by_addr {
+        assert_eq!(*ci, new_color,
+            "all patterns should have the new group color at {addr}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Regression: rename group recomputes row_annotations
+// ---------------------------------------------------------------------------
+
+#[test]
+fn commit_rename_group_recomputes_row_annotations() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    // Create a single pattern and assign it to a group manually
+    send(&mut state, &config, HexEditorMessage::SelectAt(0x10));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(0x1F));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+    let group = crate::domain::pattern::RepeatedPatternGroup::new(
+        state.next_group_id,
+        "Monster".to_string(),
+        0,
+    );
+    let gid = group.id;
+    state.next_group_id += 1;
+    state.groups.push(group);
+    state.patterns[0].group_id = Some(gid);
+    state.patterns[0].annotation = Some("Monster[0]".to_string());
+    state.rebuild_pattern_lookup();
+    state.recompute_row_annotations();
+
+    // Verify annotation is in row_annotations
+    let has_annotation = state
+        .row_annotations
+        .values()
+        .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
+    assert!(has_annotation, "row_annotations should contain old annotation");
+
+    // Now rename the group
+    send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetRenameGroupDraft("Enemy".to_string()),
+    );
+    send(&mut state, &config, HexEditorMessage::CommitRenameGroup);
+
+    // row_annotations should now have the new annotation
+    let has_new = state
+        .row_annotations
+        .values()
+        .any(|segments| segments.iter().any(|(_, ann)| ann == "Enemy[0]"));
+    assert!(has_new, "row_annotations should contain updated annotation after rename");
+    let has_old = state
+        .row_annotations
+        .values()
+        .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
+    assert!(!has_old, "row_annotations should not contain stale old annotation");
+}
+
+// ---------------------------------------------------------------------------
+// Regression: collapsed_groups cleaned up after orphan removal
+// ---------------------------------------------------------------------------
+
+#[test]
+fn remove_pattern_cleans_up_collapsed_groups() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+    create_group(&mut state, &config, "Group", 0x10, 0x10, 1);
+
+    let gid = state.groups[0].id;
+    // Collapse the group
+    send(&mut state, &config, HexEditorMessage::TogglePatternGroup(gid));
+    assert!(state.collapsed_groups.contains(&gid), "group should be collapsed");
+
+    // Remove the only pattern — group should be cleaned up
+    let pid = state.patterns[0].id;
+    send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
+
+    assert!(state.groups.is_empty(), "orphan group removed");
+    assert!(!state.collapsed_groups.contains(&gid),
+        "collapsed_groups should not contain stale orphaned group id");
+}
+
+// ---------------------------------------------------------------------------
+// Regression: clear_patterns cleans up active_patterns
+// ---------------------------------------------------------------------------
+
+#[test]
+fn clear_patterns_cleans_up_active_patterns() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    send(&mut state, &config, HexEditorMessage::SelectAt(0x10));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(0x1F));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+
+    // Manually seed active_patterns (normally set via cursor-move logic)
+    state.active_patterns.insert(999);
+    assert!(!state.active_patterns.is_empty(), "precondition: active_patterns populated");
+
+    send(&mut state, &config, HexEditorMessage::ClearAllPatterns);
+
+    assert!(state.active_patterns.is_empty(), "active_patterns should be cleared");
+}

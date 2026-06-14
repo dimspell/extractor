@@ -159,7 +159,10 @@ fn group_header_row<'a>(
     let label_elem: Element<'a, HexEditorMessage> =
         if editor.renaming_group == Some(grp.id) {
             text_input("Group name", &editor.renaming_group_draft)
-                .id(iced::widget::Id::new("hex-rename-group-input"))
+                .id(iced::widget::Id::from(format!(
+                    "hex-rename-group-input-{}",
+                    grp.id
+                )))
                 .on_input(HexEditorMessage::SetRenameGroupDraft)
                 .on_submit(HexEditorMessage::CommitRenameGroup)
                 .size(10)
@@ -291,25 +294,24 @@ fn pattern_row<'a>(
         .padding([1, 4])
         .width(Fill);
 
-    // ── Clickable metadata block (navigates to pattern) ──────────────────
-    let metadata = button(
-        row![
-            swatch_btn,
-            range,
-            size,
-            remove_btn,
-        ]
-        .spacing(6)
-        .align_y(iced::Alignment::Center),
+    // ── Navigation button (range + size, click to navigate) ──────────────
+    let nav_btn = button(
+        row![range, size]
+            .spacing(6)
+            .align_y(iced::Alignment::Center),
     )
     .on_press(HexEditorMessage::NavigateToPattern(pattern.id))
-    .padding(iced::Padding {
-        top: 3.0,
-        right: 4.0,
-        bottom: 3.0,
-        left: 6.0,
-    })
+    .padding([3, 6])
     .style(button::text);
+
+    // ── Assemble metadata row (sibling buttons, no nesting) ──────────────
+    let metadata = row![
+        swatch_btn,
+        nav_btn,
+        remove_btn,
+    ]
+    .spacing(6)
+    .align_y(iced::Alignment::Center);
 
     // ── Assemble row ─────────────────────────────────────────────────────
     let row = row![glyph, metadata, ann_input]
