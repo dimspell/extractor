@@ -122,6 +122,8 @@ pub enum HexEditorMessage {
     // ── Pattern list panel ───────────────────────────────────────────────
     /// Show/hide the pattern list panel.
     TogglePatternList,
+    /// Show/hide the inspector panel.
+    ToggleInspector,
     /// Navigate to a pattern's start address.
     NavigateToPattern(usize),
     /// Remove a pattern by its id.

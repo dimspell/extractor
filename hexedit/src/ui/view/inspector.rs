@@ -6,8 +6,6 @@ use crate::config::HexEditorConfig;
 use crate::inspector::ENTRIES;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
-const PANEL_WIDTH: f32 = 280.0;
-
 pub fn view<'a>(
     editor: &'a HexEditorState,
     config: &HexEditorConfig,
@@ -77,7 +75,7 @@ pub fn view<'a>(
     };
 
     container(column![header, scrollable(rows).height(Length::Fill)])
-        .width(Length::Fixed(PANEL_WIDTH))
+        .width(Fill)
         .height(Fill)
         .into()
 }

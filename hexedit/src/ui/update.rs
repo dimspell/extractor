@@ -468,6 +468,39 @@ pub fn update(
         }
 
         // ── Pattern list panel ──────────────────────────────────────────
+        HexEditorMessage::ToggleInspector => {
+            let existing: Option<pane_grid::Pane> = state
+                .panes
+                .iter()
+                .find_map(|(id, panel)| {
+                    if panel.content == crate::domain::panel::HexPanelContent::Inspector {
+                        Some(id)
+                    } else {
+                        None
+                    }
+                })
+                .copied();
+
+            if let Some(pane_id) = existing {
+                if state.panes.len() > 1 {
+                    if let Some((_, sibling)) = state.panes.close(pane_id) {
+                        state.pane_focus = sibling;
+                    }
+                }
+            } else {
+                let focus = state.pane_focus;
+                let can_split = state.panes.len() < 8;
+                if can_split {
+                    let _ = state.panes.split(
+                        iced::widget::pane_grid::Axis::Vertical,
+                        focus,
+                        HexPanel::new(
+                            crate::domain::panel::HexPanelContent::Inspector,
+                        ),
+                    );
+                }
+            }
+        }
         HexEditorMessage::TogglePatternList => {
             // With the pane grid, toggling the pattern list adds or removes
             // a PatternList pane (Halloy-style) rather than showing/hiding a

@@ -18,6 +18,22 @@ pub fn build_toolbar<'a>(
 
     let hint = config.save_hint.clone();
 
+    // Check if an Inspector pane exists in the grid (Halloy-style).
+    let has_inspector_pane = editor.panes.iter().any(|(_, p)| {
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::Inspector
+        )
+    });
+    let inspector_label = if has_inspector_pane {
+        "Hide Inspector"
+    } else {
+        "Inspector"
+    };
+    let inspector_btn = button(text(inspector_label).size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(HexEditorMessage::ToggleInspector);
+
     // Check if a PatternList pane exists in the grid (Halloy-style).
     let has_patterns_pane = editor.panes.iter().any(|(_, p)| {
         matches!(
@@ -71,6 +87,7 @@ pub fn build_toolbar<'a>(
         row![
             save_btn,
             goto_btn,
+            inspector_btn,
             patterns_btn,
             export_btn,
             settings_btn,
