@@ -1191,9 +1191,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 } else if let Some((pid, color_idx)) = pat_entry {
                     let mut bg = pattern_bg(color_idx);
                     if self.alternate_patterns.contains(&pid) {
-                        bg.r *= 0.75;
-                        bg.g *= 0.75;
-                        bg.b *= 0.75;
+                        bg.r *= 0.5;
+                        bg.g *= 0.5;
+                        bg.b *= 0.5;
                     }
                     Some(bg)
                 } else if is_dirty {
