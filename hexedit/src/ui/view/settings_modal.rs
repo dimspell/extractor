@@ -1,7 +1,7 @@
 use iced::widget::{button, column, container, pick_list, row, text, toggler};
 use iced::{color, Color, Element, Font, Length};
 
-use crate::ui::coloring::{scheme_color, ColorScheme};
+use crate::ui::coloring::{default_byte_colors, ColorScheme};
 use crate::HexEditorMessage;
 use crate::HexEditorState;
 
@@ -38,18 +38,13 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     // ── Palette preview ────────────────────────────────────────────────
     // Show a row of small coloured squares sampled across the byte range.
-    // The preview updates live when the scheme or dim-nulls changes.
+    // Uses the same provider chain as the matrix so the preview stays in sync.
     let swatch_size = 14.0;
     let palette: Vec<Element<'_, HexEditorMessage>> = (0..=15)
         .map(|i| {
             let b = (i * 17) as u8; // 0x00, 0x11, …, 0xFF
-            let fg = scheme_color(state.color_scheme, b);
-            // When dim-nulls is on, override 0x00 with a dim colour.
-            let fg = if state.dim_nulls && b == 0 {
-                color!(0x4a4339)
-            } else {
-                fg
-            };
+            let (fg_opt, _) = default_byte_colors(state.color_scheme, b, state.dim_nulls);
+            let fg = fg_opt.unwrap_or(color!(0xd4cabd));
             container(
                 text("  ") // invisible spacer – the swatch is the container bg
                     .size(10),

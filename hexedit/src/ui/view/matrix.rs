@@ -21,9 +21,7 @@ use iced::{
     Rectangle, Shadow, Size,
 };
 
-use crate::coloring::{
-    fold_color, CellColorProvider, ColorScheme, DimNullsProvider, SchemeProvider,
-};
+use crate::coloring::{default_byte_colors, ColorScheme};
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
@@ -1097,7 +1095,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let font = Font::MONOSPACE;
         let addr_color = color!(0x7a6f64);
         let hex_color = color!(0xd4cabd);
-        let zero_color = color!(0x4a4339);
         let ascii_color = color!(0xb8a898);
         let group_separator_color = color!(0x251f1a);
         let selection_bg = color!(0x3b2a18);
@@ -1196,19 +1193,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     None
                 };
 
-                // Default foreground via the provider chain.
-                let scheme_prov = SchemeProvider {
-                    scheme: self.color_scheme,
-                };
-                let dim_prov = DimNullsProvider {
-                    enabled: self.dim_nulls,
-                    null_color: zero_color,
-                };
-                let (default_fg, _) = fold_color(
-                    [&scheme_prov as &dyn CellColorProvider, &dim_prov as &dyn CellColorProvider],
-                    addr,
-                    b,
-                );
+                // Default foreground via the shared provider chain.
+                let (default_fg, _) = default_byte_colors(self.color_scheme, b, self.dim_nulls);
                 let default_fg = default_fg.unwrap_or(hex_color);
 
                 let text_color = if is_editing {
