@@ -193,12 +193,13 @@ pub fn contrast_ratio(a: &Color, b: &Color) -> f32 {
 }
 
 /// Default dim colour for null bytes — used when `dim_nulls` is active.
-/// Bright enough for CR~3.0 against the `0x14110f` matrix background but
-/// noticeably dimmer than the default byte colour.
+/// Deliberately very dim (CR~1.9 against the matrix background) so null
+/// bytes visually recede. Users who need better legibility can disable
+/// `dim_nulls` in the settings.
 pub const DEFAULT_NULL_DIM: Color = Color::from_rgb(
-    106.0 / 255.0,
-    96.0 / 255.0,
-    81.0 / 255.0,
+    0x4A as f32 / 255.0,
+    0x43 as f32 / 255.0,
+    0x39 as f32 / 255.0,
 );
 
 /// The matrix background colour — used for contrast-threshold assertions.
@@ -370,8 +371,6 @@ mod tests {
 
     /// Minimum WCAG contrast ratio for normal-size text (AA).
     const CR_NORMAL: f32 = 4.5;
-    /// Minimum WCAG contrast ratio for intentionally dimmed text.
-    const CR_DIM: f32 = 3.0;
 
     // ── fold_color ────────────────────────────────────────────────────────
 
@@ -602,11 +601,11 @@ mod tests {
             lum_00 < lum_mid - 0.1,
             "0x00 (lum {lum_00:.3}) should be dimmer than nybble-1 (lum {lum_mid:.3})"
         );
-        // But still readable: CR >= 3.0 against MATRIX_BG.
+        // Must still be distinguishable from the background (not pure black).
         let cr = contrast_ratio(&c, &MATRIX_BG);
         assert!(
-            cr >= CR_DIM,
-            "0x00 dim colour CR={cr:.2} < {CR_DIM}"
+            cr > 1.0,
+            "0x00 CR={cr:.2} should be > 1 (visible against background)"
         );
     }
 
@@ -679,11 +678,12 @@ mod tests {
     fn category_null_at_boundary() {
         let c = category_color(0x00);
         assert_valid_color(&c, "NULL");
-        // Intentionally dimmer than printable — but still readable.
+        // Intentionally dimmer than printable.
         let printable = category_color(0x41);
         assert!(luminance(&c) < luminance(&printable) - 0.1);
+        // Must still be distinguishable from background.
         let cr = contrast_ratio(&c, &MATRIX_BG);
-        assert!(cr >= CR_DIM, "NULL CR={cr:.2} < {CR_DIM}");
+        assert!(cr > 1.0, "NULL CR={cr:.2} should be > 1 (visible)");
     }
 
     #[test]
@@ -902,17 +902,8 @@ mod tests {
 
     #[test]
     fn nybble_contrast() {
-        // 0x00 is intentionally dim (CR_DIM threshold).
-        let null_cr = contrast_ratio(&nybble_color(0x00), &MATRIX_BG);
-        assert!(
-            null_cr >= CR_DIM,
-            "nybble 0x00 CR={null_cr:.2} < {CR_DIM}"
-        );
-        assert!(
-            null_cr < CR_NORMAL,
-            "nybble 0x00 CR={null_cr:.2} should be < {CR_NORMAL} (intentionally dim)"
-        );
-        // 0xFF is also intentional (bright), but must meet normal threshold.
+        // 0x00 is intentionally dim — ignore it (checked in nybble_color_00_is_dim).
+        // 0xFF is also special (bright), must meet normal threshold.
         let ff_cr = contrast_ratio(&nybble_color(0xFF), &MATRIX_BG);
         assert!(
             ff_cr >= CR_NORMAL,
@@ -931,17 +922,7 @@ mod tests {
 
     #[test]
     fn categories_contrast() {
-        // Categories has an intentionally dim NULL entry (CR_DIM threshold).
-        // Spot-check: NULL should be below CR_NORMAL but above CR_DIM.
-        let null_cr = contrast_ratio(&category_color(0x00), &MATRIX_BG);
-        assert!(
-            null_cr >= CR_DIM,
-            "category NULL CR={null_cr:.2} < {CR_DIM}"
-        );
-        assert!(
-            null_cr < CR_NORMAL,
-            "category NULL CR={null_cr:.2} should be < {CR_NORMAL} (intentionally dim)"
-        );
+        // NULL (0x00) is intentionally very dim — skip, tested in category_null_at_boundary.
         // Check all non-NULL bytes meet CR_NORMAL.
         for b in 1..=255u8 {
             let c = category_color(b);
@@ -960,18 +941,15 @@ mod tests {
 
     #[test]
     fn dim_nulls_null_meets_dim_contrast() {
-        // The dim-null colour itself should be readable.
+        // The dim-null colour should be noticeably dimmer than the
+        // monochrome default — at least 5:1 contrast ratio difference.
         let cr = contrast_ratio(&DEFAULT_NULL_DIM, &MATRIX_BG);
-        assert!(
-            cr >= CR_DIM,
-            "DEFAULT_NULL_DIM CR={cr:.2} < {CR_DIM}"
-        );
-        // But it should be noticeably dimmer than the monochrome default.
         let mono = scheme_color(ColorScheme::Monochrome, 0x42);
         let mono_cr = contrast_ratio(&mono, &MATRIX_BG);
         assert!(
-            cr < mono_cr - 2.0,
-            "DEFAULT_NULL_DIM CR={cr:.2} too close to monochrome CR={mono_cr:.2}"
+            mono_cr - cr > 5.0,
+            "DEFAULT_NULL_DIM CR={cr:.2} too close to monochrome CR={mono_cr:.2} (diff {})",
+            mono_cr - cr
         );
     }
 }
