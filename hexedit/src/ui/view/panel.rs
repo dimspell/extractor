@@ -20,6 +20,8 @@
 //! considered a drag "handle". We use generous padding so this is easy to
 //! grab — matching the official example's behaviour.
 
+use std::collections::BTreeSet;
+
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::{Axis, Controls};
 use iced::widget::space::Space;
@@ -58,6 +60,24 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
         draft: e.draft.as_str(),
     });
 
+    // Compute zebra-striping: every other pattern in each group gets an
+    // alternate (darkened) background so adjacent same-group patterns are
+    // visually distinct.
+    let mut alternate_patterns = BTreeSet::new();
+    for group in &state.groups {
+        let mut group_patterns: Vec<&crate::domain::pattern::Pattern> = state
+            .patterns
+            .iter()
+            .filter(|p| p.group_id == Some(group.id))
+            .collect();
+        group_patterns.sort_by_key(|p| (p.start, p.id));
+        for (i, pat) in group_patterns.iter().enumerate() {
+            if i % 2 == 1 {
+                alternate_patterns.insert(pat.id);
+            }
+        }
+    }
+
     HexMatrix::new(
         state.provider.as_slice(),
         state.bytes_per_row,
@@ -72,6 +92,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
         &state.search.results,
         &state.row_annotations,
         &state.active_patterns,
+        alternate_patterns,
         cache,
         state.color_scheme,
         state.dim_nulls,

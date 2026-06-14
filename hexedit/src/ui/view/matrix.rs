@@ -113,6 +113,9 @@ pub struct HexMatrix<'a, Message> {
     /// Pattern ids whose span contains the cursor — their annotation segments
     /// are rendered in a brighter colour.
     active_patterns: &'a BTreeSet<usize>,
+    /// Pattern ids that should use a darkened background (zebra-striping
+    /// within their group — every other pattern in the same group).
+    alternate_patterns: BTreeSet<usize>,
     cache: ParagraphCache,
     width: Length,
     height: Length,
@@ -154,6 +157,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         search_match_starts: &'a [u64],
         row_annotations: &'a BTreeMap<u64, Vec<(usize, String)>>,
         active_patterns: &'a BTreeSet<usize>,
+        alternate_patterns: BTreeSet<usize>,
         cache: ParagraphCache,
         color_scheme: ColorScheme,
         dim_nulls: bool,
@@ -172,6 +176,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             search_match_starts,
             row_annotations,
             active_patterns,
+            alternate_patterns,
             cache,
             color_scheme,
             dim_nulls,
@@ -1183,8 +1188,14 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     } else {
                         selection_bg
                     })
-                } else if let Some((_, color_idx)) = pat_entry {
-                    Some(pattern_bg(color_idx))
+                } else if let Some((pid, color_idx)) = pat_entry {
+                    let mut bg = pattern_bg(color_idx);
+                    if self.alternate_patterns.contains(&pid) {
+                        bg.r *= 0.75;
+                        bg.g *= 0.75;
+                        bg.b *= 0.75;
+                    }
+                    Some(bg)
                 } else if is_dirty {
                     Some(dirty_bg)
                 } else if is_diff {
