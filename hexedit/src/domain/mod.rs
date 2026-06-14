@@ -4,6 +4,7 @@ pub mod goto;
 pub mod layout;
 pub mod panel;
 pub mod pattern;
+pub mod pattern_layout;
 pub mod provider;
 pub mod search;
 pub mod selection;
