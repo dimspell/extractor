@@ -67,7 +67,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         renaming_group: None,
         renaming_group_draft: String::new(),
         color_scheme: ColorScheme::Monochrome,
-        dim_nulls: false,
+        dim_nulls: true,
         settings_open: false,
     }
 }

@@ -120,10 +120,27 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .spacing(8)
     .align_y(iced::Alignment::Center);
 
-    // Bytes-per-row display (read-only in settings — shows current value)
-    let bpr_label = text(format!("Bytes per row: {}", state.bytes_per_row))
-        .size(12)
-        .color(MUTED_COLOR);
+    // Bytes-per-row selector
+    let bpr = state.bytes_per_row;
+    let bpr_btn = |n: u8| {
+        let label = format!("{:02}", n);
+        let active = bpr == n;
+        let mut btn = button(text(label).size(12).font(Font::MONOSPACE)).padding([3, 6]);
+        if !active {
+            btn = btn.style(button::text);
+        }
+        btn.on_press(HexEditorMessage::SetBytesPerRow(n))
+    };
+
+    let bpr_row = row![
+        text("Bytes per row")
+            .size(12)
+            .width(Length::Fill),
+        row![bpr_btn(8), bpr_btn(16), bpr_btn(32)]
+            .spacing(4),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
 
     // ── Action buttons ─────────────────────────────────────────────────
     let reset_btn = button(text("Reset to Defaults").size(12))
@@ -149,7 +166,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             sep(),
             display_label,
             addr_row,
-            bpr_label,
+            bpr_row,
             sep(),
             action_row,
         ]

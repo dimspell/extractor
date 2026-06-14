@@ -56,6 +56,6 @@ impl HexEditorConfig {
     }
 
     pub fn can_save_now(&self, state: &HexEditorState) -> bool {
-        self.can_save && state.provider.dirty_count() > 0
+        self.can_save && self.on_save.is_some() && state.provider.dirty_count() > 0
     }
 }
