@@ -492,13 +492,15 @@ pub fn update(
                 let focus = state.pane_focus;
                 let can_split = state.panes.len() < 8;
                 if can_split {
-                    let _ = state.panes.split(
+                    if let Some((_, split)) = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
                         focus,
                         HexPanel::new(
                             crate::domain::panel::HexPanelContent::Inspector,
                         ),
-                    );
+                    ) {
+                        state.panes.resize(split, 0.75);
+                    }
                 }
             }
         }
