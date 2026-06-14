@@ -218,8 +218,8 @@ fn group_header_row<'a>(
 /// The lifetime is deliberately decoupled from `row_info` — the returned
 /// `Element` only borrows from `editor` and owned data, so the caller can
 /// construct it from a local `PatternRow` without borrow conflicts.
-fn pattern_row<'b, 'a>(
-    row_info: &'b PatternRow,
+fn pattern_row<'a>(
+    row_info: &PatternRow,
     editor: &'a HexEditorState,
 ) -> Element<'a, HexEditorMessage> {
     let pattern = match editor.pattern_by_id(row_info.pattern_id) {

@@ -43,7 +43,7 @@ pub struct HexEditorState {
     /// not persisted to disk.
     pub patterns: Vec<Pattern>,
     /// Fast address → pattern_id lookup, rebuilt after every mutation.
-    pub pattern_by_addr: BTreeMap<u64, usize>,
+    pub     pattern_by_addr: BTreeMap<u64, (usize, u8)>,
     /// Whether the pattern-list panel is visible.
     pub show_pattern_list: bool,
     /// Monotonically increasing id counter for new patterns.
@@ -184,9 +184,13 @@ impl HexEditorState {
         id
     }
 
-    /// Remove a pattern by its id.
+    /// Remove a pattern by its id. Also removes any group that ends up with
+    /// zero patterns (orphan cleanup).
     pub fn remove_pattern(&mut self, id: usize) {
         self.patterns.retain(|p| p.id != id);
+        // Clean up orphan groups — groups with no patterns left.
+        self.groups
+            .retain(|g| self.patterns.iter().any(|p| p.group_id == Some(g.id)));
         self.rebuild_pattern_lookup();
         self.recompute_row_annotations();
     }
@@ -206,14 +210,14 @@ impl HexEditorState {
         self.pattern_by_addr.clear();
         for pat in &self.patterns {
             for addr in pat.start..=pat.end {
-                self.pattern_by_addr.insert(addr, pat.id);
+                self.pattern_by_addr.insert(addr, (pat.id, pat.color_idx));
             }
         }
     }
 
     /// Return the pattern id for an address if it falls within any pattern.
     pub fn pattern_id_at(&self, addr: u64) -> Option<usize> {
-        self.pattern_by_addr.get(&addr).copied()
+        self.pattern_by_addr.get(&addr).map(|(id, _)| *id)
     }
 
     /// Return the pattern with the given id, if it exists.

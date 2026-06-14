@@ -93,7 +93,7 @@ pub fn compute_pattern_rows(
 
     // Visible patterns
     for p in patterns {
-        let hidden = p.group_id.map_or(false, |gid| collapsed_groups.contains(&gid));
+        let hidden = p.group_id.is_some_and(|gid| collapsed_groups.contains(&gid));
         if !hidden {
             entries.push(Entry {
                 start: p.start,

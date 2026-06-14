@@ -922,3 +922,133 @@ fn commit_repeated_pattern_zero_count_does_nothing() {
     assert!(state.repeat_pattern.is_some());
     assert!(state.repeat_pattern.unwrap().error.is_some());
 }
+
+// ---------------------------------------------------------------------------
+// Orphan group auto-cleanup
+// ---------------------------------------------------------------------------
+
+#[test]
+fn remove_last_pattern_in_group_removes_group() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+    create_group(&mut state, &config, "Monster", 0x10, 0x10, 1);
+
+    assert_eq!(state.groups.len(), 1, "should have 1 group");
+    let pid = state.patterns[0].id;
+
+    send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
+
+    assert!(state.groups.is_empty(), "group should be removed when its last pattern is removed");
+    assert!(state.patterns.is_empty(), "pattern should be gone");
+}
+
+#[test]
+fn remove_some_but_not_all_patterns_keeps_group() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+    create_group(&mut state, &config, "Monster", 0x10, 0x10, 3);
+
+    assert_eq!(state.groups.len(), 1, "should have 1 group");
+    assert_eq!(state.patterns.len(), 3, "should have 3 patterns");
+    let pid = state.patterns[0].id;
+
+    send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
+
+    assert_eq!(state.groups.len(), 1, "group should persist when patterns remain");
+    assert_eq!(state.patterns.len(), 2, "only one pattern removed");
+    assert_eq!(state.groups[0].label, "Monster", "group label preserved");
+}
+
+#[test]
+fn remove_all_patterns_from_multiple_groups_cleans_up() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    // Create two groups, each with 1 pattern
+    create_group(&mut state, &config, "GroupA", 0x10, 0x10, 1);
+    create_group(&mut state, &config, "GroupB", 0x30, 0x10, 1);
+
+    assert_eq!(state.groups.len(), 2);
+    let pid_a = state.patterns[0].id;
+    let pid_b = state.patterns[1].id;
+
+    send(&mut state, &config, HexEditorMessage::RemovePattern(pid_a));
+    assert_eq!(state.groups.len(), 1, "GroupA removed, GroupB stays");
+    assert_eq!(state.groups[0].label, "GroupB");
+
+    send(&mut state, &config, HexEditorMessage::RemovePattern(pid_b));
+    assert!(state.groups.is_empty(), "all groups removed");
+}
+
+#[test]
+fn orphan_cleanup_does_not_affect_patterns_not_in_groups() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+    create_group(&mut state, &config, "Monster", 0x10, 0x10, 1);
+
+    // Also create a standalone pattern
+    state.repeat_pattern = None;
+    send(&mut state, &config, HexEditorMessage::SelectAt(0x50));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(0x5F));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+
+    assert_eq!(state.patterns.len(), 2, "grouped + standalone pattern");
+    let gid = state.groups[0].id;
+    let grouped_pid = state.patterns.iter().find(|p| p.group_id == Some(gid)).unwrap().id;
+
+    send(&mut state, &config, HexEditorMessage::RemovePattern(grouped_pid));
+
+    assert!(state.groups.is_empty(), "group removed");
+    assert_eq!(state.patterns.len(), 1, "standalone pattern remains");
+    assert!(state.patterns[0].group_id.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Pattern color_idx stored in pattern_by_addr
+// ---------------------------------------------------------------------------
+
+#[test]
+fn pattern_by_addr_stores_color_idx() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    // Create a pattern — it gets color_idx = 0 (first pattern)
+    send(&mut state, &config, HexEditorMessage::SelectAt(0x10));
+    send(&mut state, &config, HexEditorMessage::ExtendTo(0x1F));
+    send(&mut state, &config, HexEditorMessage::CreatePattern);
+
+    let pat = &state.patterns[0];
+    for (addr, (id, color_idx)) in &state.pattern_by_addr {
+        assert_eq!(*id, pat.id, "address {addr}: pattern id matches");
+        assert_eq!(*color_idx, pat.color_idx, "address {addr}: color_idx matches pattern's color_idx");
+    }
+    assert!(!state.pattern_by_addr.is_empty());
+}
+
+#[test]
+fn pattern_by_addr_color_idx_survives_removal_and_add() {
+    let mut state = make_state((0..=255u8).collect());
+    let config = default_config();
+
+    // Create 3 patterns to get color_idx = 0, 1, 2
+    for (i, start) in [0x10, 0x30, 0x50].iter().enumerate() {
+        send(&mut state, &config, HexEditorMessage::SelectAt(*start));
+        send(&mut state, &config, HexEditorMessage::ExtendTo(start + 0x0F));
+        send(&mut state, &config, HexEditorMessage::CreatePattern);
+        assert_eq!(state.patterns.last().unwrap().color_idx, i as u8,
+            "pattern {i} should get color_idx {i}");
+    }
+
+    // Remove pattern 1 (the middle one)
+    let mid_id = state.patterns[1].id;
+    send(&mut state, &config, HexEditorMessage::RemovePattern(mid_id));
+
+    // Remaining patterns should still have their original color_idx
+    assert_eq!(state.patterns[0].color_idx, 0);
+    assert_eq!(state.patterns[1].color_idx, 2);
+    for (addr, (id, color_idx)) in &state.pattern_by_addr {
+        let pat = state.pattern_by_id(*id).unwrap();
+        assert_eq!(*color_idx, pat.color_idx,
+            "address {addr}: color_idx {color_idx} matches pattern {id}");
+    }
+}

@@ -96,8 +96,8 @@ pub struct HexMatrix<'a, Message> {
     /// Bytes that already differ from vanilla (load-time + cumulative).
     /// Distinct from `dirty` (= dirtied this session); tinted differently.
     vanilla_diff: &'a BTreeSet<u64>,
-    /// Fast lookup: byte address → pattern id.
-    patterns: &'a BTreeMap<u64, usize>,
+    /// Fast lookup: byte address → (pattern id, color_idx).
+    patterns: &'a BTreeMap<u64, (usize, u8)>,
     /// Search results: all byte addresses covered by any match.
     search_match_set: &'a BTreeSet<u64>,
     /// Length (in bytes) of the current search query.
@@ -147,7 +147,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         edit: Option<EditView<'a>>,
         dirty: &'a BTreeSet<u64>,
         vanilla_diff: &'a BTreeSet<u64>,
-        patterns: &'a BTreeMap<u64, usize>,
+        patterns: &'a BTreeMap<u64, (usize, u8)>,
         search_match_set: &'a BTreeSet<u64>,
         search_query_len: u64,
         search_current_addr: Option<u64>,
@@ -1170,7 +1170,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 let in_sel = sel_range.contains(&addr);
                 let is_dirty = self.dirty.contains(&addr);
                 let is_diff = self.vanilla_diff.contains(&addr);
-                let pattern_id = self.patterns.get(&addr).copied();
+                let pat_entry = self.patterns.get(&addr).copied();
                 let is_editing = edit_addr == Some(addr);
 
                 // Background priority: edit > selection-cursor > selection >
@@ -1183,8 +1183,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     } else {
                         selection_bg
                     })
-                } else if let Some(pid) = pattern_id {
-                    Some(pattern_bg(pid as u8))
+                } else if let Some((_, color_idx)) = pat_entry {
+                    Some(pattern_bg(color_idx))
                 } else if is_dirty {
                     Some(dirty_bg)
                 } else if is_diff {
@@ -1201,8 +1201,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     edit_text
                 } else if in_sel {
                     selection_text
-                } else if let Some(pid) = pattern_id {
-                    pattern_fg(pid as u8)
+                } else if let Some((_, color_idx)) = pat_entry {
+                    pattern_fg(color_idx)
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {
@@ -1214,8 +1214,8 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     edit_text
                 } else if in_sel {
                     selection_text
-                } else if let Some(pid) = pattern_id {
-                    pattern_fg(pid as u8)
+                } else if let Some((_, color_idx)) = pat_entry {
+                    pattern_fg(color_idx)
                 } else if is_dirty {
                     dirty_text
                 } else if is_diff {
