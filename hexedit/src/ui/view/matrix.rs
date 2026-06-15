@@ -22,6 +22,7 @@ use iced::{
 };
 
 use crate::coloring::{default_byte_colors, ColorScheme};
+use crate::domain::write_mode::WriteMode;
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
@@ -139,6 +140,8 @@ pub struct HexMatrix<'a, Message> {
     color_scheme: ColorScheme,
     /// When true, `0x00` bytes use a dim colour regardless of the active scheme.
     dim_nulls: bool,
+    /// Active write mode — controls which keystrokes are accepted.
+    write_mode: WriteMode,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -180,6 +183,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             cache,
             color_scheme,
             dim_nulls,
+            write_mode: WriteMode::Hex,
             width: Length::Fill,
             height: Length::Fill,
             on_select_at: None,
@@ -278,6 +282,13 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_toggle_addr_format(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_toggle_addr_format = Some(Box::new(f));
+        self
+    }
+
+    /// Set the active write mode — affects which keystrokes are accepted as
+    /// input (hex digits only, or any printable character for text modes).
+    pub fn write_mode(mut self, mode: WriteMode) -> Self {
+        self.write_mode = mode;
         self
     }
 
@@ -946,10 +957,17 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                 }
 
-                // Hex-digit typing: append in edit mode, or auto-start one.
+                // Character typing: in hex mode only hex-digits are accepted;
+                // in text mode any printable character is forwarded so the
+                // update handler can encode it.
                 if !modifiers.control() && !modifiers.command() && !modifiers.alt() {
                     if let Some(t) = text {
-                        if let Some(c) = first_hex_char(t) {
+                        let c = if self.write_mode == WriteMode::Hex {
+                            first_hex_char(t)
+                        } else {
+                            first_printable_char(t)
+                        };
+                        if let Some(c) = c {
                             if self.edit.is_some() {
                                 if let Some(cb) = &self.on_edit_type {
                                     shell.publish(cb(c));
@@ -1469,6 +1487,13 @@ fn char_to_glyph(c: char) -> &'static str {
 /// "FF aa" only registers the first digit per keypress.
 pub fn first_hex_char(t: &str) -> Option<char> {
     t.chars().find(|c| c.is_ascii_hexdigit())
+}
+
+/// First printable (non-control) character in a typed `text` field, if any.
+/// Used by text write-modes so that any meaningful character is forwarded to
+/// the encoding pipeline.  Control characters like Tab/Enter are excluded.
+pub fn first_printable_char(t: &str) -> Option<char> {
+    t.chars().find(|c| !c.is_control() && !c.is_whitespace())
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {

@@ -1,3 +1,4 @@
+pub mod encoding_modal;
 pub mod export_modal;
 pub mod footer;
 pub mod goto_modal;
@@ -179,6 +180,15 @@ pub fn view<'a>(
             settings_modal::view(state),
             || HexEditorMessage::CloseSettings,
             0.35,
+        );
+    }
+
+    if state.encoding_settings_open {
+        base = modal(
+            base,
+            encoding_modal::view(state),
+            || HexEditorMessage::CloseEncodingSettings,
+            0.4,
         );
     }
 

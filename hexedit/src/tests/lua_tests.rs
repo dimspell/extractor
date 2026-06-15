@@ -566,6 +566,10 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         color_scheme: ColorScheme::Monochrome,
         dim_nulls: false,
         settings_open: false,
+        write_mode: crate::domain::write_mode::WriteMode::Hex,
+        custom_encodings: Vec::new(),
+        encoding_settings_open: false,
+        encoding_settings_selection: None,
     };
     let errors = state.load_lua_scripts(&dir);
     assert!(errors.is_empty(), "should load without errors: {errors:?}");
@@ -617,6 +621,10 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         color_scheme: ColorScheme::Monochrome,
         dim_nulls: false,
         settings_open: false,
+        write_mode: crate::domain::write_mode::WriteMode::Hex,
+        custom_encodings: Vec::new(),
+        encoding_settings_open: false,
+        encoding_settings_selection: None,
     };
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
     assert!(errors.is_empty(), "non-existent dir should return 0 errors");
@@ -699,6 +707,10 @@ return {
         color_scheme: ColorScheme::Monochrome,
         dim_nulls: false,
         settings_open: false,
+        write_mode: crate::domain::write_mode::WriteMode::Hex,
+        custom_encodings: Vec::new(),
+        encoding_settings_open: false,
+        encoding_settings_selection: None,
     };
     // Verify the decode works
     assert_eq!((entries[0].decode)(&[0xAB]), "LUA:0xAB");

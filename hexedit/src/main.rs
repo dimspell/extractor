@@ -1,8 +1,41 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use iced::{color, Element, Task, Theme};
 
-use hexedit::{view, HexEditorConfig, HexEditorMessage, HexEditorState};
+use hexedit::{view, EncodingEntry, HexEditorConfig, HexEditorMessage, HexEditorState, WriteMode};
+
+/// Settings persisted to `~/.config/hexedit/settings.json`.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PersistedSettings {
+    write_mode: WriteMode,
+    custom_encodings: Vec<EncodingEntry>,
+}
+
+impl Default for PersistedSettings {
+    fn default() -> Self {
+        Self {
+            write_mode: WriteMode::Hex,
+            custom_encodings: Vec::new(),
+        }
+    }
+}
+
+fn settings_path() -> PathBuf {
+    let mut p = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
+    p.push("hexedit");
+    let _ = std::fs::create_dir_all(&p);
+    p.push("settings.json");
+    p
+}
+
+fn load_settings() -> PersistedSettings {
+    let path = settings_path();
+    match std::fs::read_to_string(&path) {
+        Ok(json) => serde_json::from_str(&json).unwrap_or_default(),
+        Err(_) => PersistedSettings::default(),
+    }
+}
 
 fn main() -> iced::Result {
     iced::application(App::new, App::update, App::view)
@@ -49,7 +82,9 @@ impl App {
             i += 1;
         }
 
-        let editor = match path {
+        let persisted = load_settings();
+
+        let mut editor = match path {
             Some(p) => HexEditorState::load_from_path(&p),
             None => HexEditorState::load_from_path(
                 &std::env::current_dir()
@@ -57,6 +92,10 @@ impl App {
                     .join("scratch.bin"),
             ),
         };
+
+        // Apply persisted settings.
+        editor.write_mode = persisted.write_mode;
+        editor.custom_encodings = persisted.custom_encodings.clone();
 
         let mut app = Self {
             editor,
@@ -77,6 +116,9 @@ impl App {
 
     fn refresh_config(&mut self) {
         let has_dirty = self.editor.provider.dirty_count() > 0;
+        let settings_path = settings_path();
+        // Clone the current custom encodings for the callback closure.
+        let current_encodings = self.editor.custom_encodings.clone();
         self.config = HexEditorConfig {
             extra_entries: self.editor.lua_engine.entries(),
             can_save: has_dirty,
@@ -86,6 +128,18 @@ impl App {
             } else {
                 "  ·  no edits".to_string()
             },
+            custom_encodings: current_encodings.clone(),
+            on_write_mode_changed: Some(Arc::new(move |mode| {
+                // Persist the write mode + current custom encodings.
+                let settings = PersistedSettings {
+                    write_mode: mode,
+                    custom_encodings: current_encodings.clone(),
+                };
+                if let Ok(json) = serde_json::to_string_pretty(&settings) {
+                    let _ = std::fs::write(&settings_path, json);
+                }
+                Task::none()
+            })),
             ..HexEditorConfig::default()
         };
     }

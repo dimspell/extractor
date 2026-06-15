@@ -76,6 +76,8 @@ pub fn build_hex_config(
         can_save,
         save_hint,
         extra_entries: state.lua_engine.entries(),
+        custom_encodings: Vec::new(),
+        on_write_mode_changed: None,
     }
 }
 

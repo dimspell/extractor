@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use iced::Task;
 
+use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::message::HexEditorMessage;
 use super::state::HexEditorState;
 
@@ -27,6 +28,12 @@ pub struct HexEditorConfig {
     pub save_hint: String,
     /// Additional inspector entries from scripts or host-specific decoders.
     pub extra_entries: Vec<super::inspector::InspectorEntry>,
+    /// User‑defined custom text encodings (persisted by the host).
+    pub custom_encodings: Vec<EncodingEntry>,
+    /// Optional callback fired when the write mode changes.  The host can use
+    /// this to persist the selection.
+    pub on_write_mode_changed:
+        Option<Arc<dyn Fn(WriteMode) -> Task<HexEditorMessage> + Send + Sync>>,
 }
 
 impl Default for HexEditorConfig {
@@ -38,6 +45,8 @@ impl Default for HexEditorConfig {
             can_save: false,
             save_hint: String::new(),
             extra_entries: Vec::new(),
+            custom_encodings: Vec::new(),
+            on_write_mode_changed: None,
         }
     }
 }

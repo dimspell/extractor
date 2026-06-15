@@ -9,3 +9,4 @@ pub mod provider;
 pub mod search;
 pub mod selection;
 pub mod vanilla_diff;
+pub mod write_mode;

@@ -6,6 +6,7 @@ use iced::widget::pane_grid;
 
 use super::domain::export_config::ExportConfig;
 use super::domain::panel::{default_pane_grid, HexPanel};
+use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
 use super::lua_engine::LuaScriptEngine;
@@ -94,6 +95,19 @@ pub struct HexEditorState {
     pub settings_open: bool,
     /// Lua scripting engine for custom inspector decoders.
     pub lua_engine: LuaScriptEngine,
+
+    // ── Write mode / text encoding ──────────────────────────────────────
+    /// Active write mode for keyboard input.
+    /// - Hex   → type two hex digits per byte (existing behaviour).
+    /// - Text  → type characters that get encoded into bytes.
+    pub write_mode: WriteMode,
+    /// User-defined custom text encodings (populated from config or modal).
+    pub custom_encodings: Vec<EncodingEntry>,
+    /// Whether the "encoding settings" modal is open.
+    pub encoding_settings_open: bool,
+    /// Index of the encoding the user is hovering in the "add encoding"
+    /// pick list inside the encoding-settings modal.
+    pub encoding_settings_selection: Option<usize>,
 }
 
 impl HexEditorState {
@@ -155,6 +169,10 @@ impl HexEditorState {
             settings_open: false,
             cache: ParagraphCache::default(),
             lua_engine,
+            write_mode: WriteMode::Hex,
+            custom_encodings: Vec::new(),
+            encoding_settings_open: false,
+            encoding_settings_selection: None,
         }
     }
 

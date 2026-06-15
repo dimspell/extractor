@@ -1,5 +1,6 @@
 use iced::widget::pane_grid;
 
+use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::selection::NavDir;
 
 /// Messages produced by the hex editor.
@@ -177,6 +178,22 @@ pub enum HexEditorMessage {
     SetColorScheme(crate::ui::coloring::ColorScheme),
     /// Enable/disable dim-nulls regardless of colour scheme.
     SetDimNulls(bool),
+
+    // ── Write mode / text encoding ──────────────────────────────────────
+    /// Switch the active write mode (Hex, ASCII, UTF-8, Windows-1250,
+    /// EUC-KR, or a custom encoding).
+    SetWriteMode(WriteMode),
+    /// Open the "encoding settings" modal where the user can add/remove
+    /// custom text encodings.
+    OpenEncodingSettings,
+    /// Close the encoding-settings modal.
+    CloseEncodingSettings,
+    /// Add a custom encoding entry by its index in the common list.
+    AddCustomEncoding(usize),
+    /// Remove a custom encoding entry by its index.
+    RemoveCustomEncoding(usize),
+    /// Bulk-replace the entire custom encoding list (e.g. on deserialise).
+    SetCustomEncodings(Vec<EncodingEntry>),
     /// Set the address format: `true` = decimal, `false` = hex.
     SetAddrFormat(bool),
     /// Reset all settings to their defaults (colour scheme, dim-nulls, address

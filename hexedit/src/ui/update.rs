@@ -4,6 +4,7 @@ use iced::{clipboard, Task};
 use crate::config::HexEditorConfig;
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
+use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::ui::coloring::ColorScheme;
 
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
@@ -106,28 +107,44 @@ pub fn update(
             if state.provider.is_empty() {
                 return Task::none();
             }
-            let edit_addr = match state.edit_mode {
-                Some(ref e) => e.addr,
-                None => state.selection.cursor,
-            };
-            let edit = state
-                .edit_mode
-                .get_or_insert_with(|| EditState::new(edit_addr));
-            if !edit.push_char(c) {
-                return Task::none();
-            }
-            let staged = edit.is_complete().then(|| (edit.addr, edit.staged_byte()));
-            if let Some((addr, byte)) = staged {
-                if let Some(byte) = byte {
-                    state.provider.write(addr, &[byte]);
-                    state.recompute_vanilla_diff();
+
+            if is_text_mode(state.write_mode) {
+                // ── Text mode: encode & write immediately ──────────────
+                let text: String = c.into();
+                let encoded = encode_text(&text, state.write_mode, &state.custom_encodings);
+                if encoded.is_empty() {
+                    return Task::none();
                 }
-                let next = (addr + 1).min(max_addr);
-                if next == addr {
-                    state.edit_mode = None;
-                } else {
-                    state.selection.select(next, max_addr);
-                    state.edit_mode = Some(EditState::new(next));
+                let addr = state.selection.cursor;
+                state.provider.write(addr, &encoded);
+                state.recompute_vanilla_diff();
+                let next = addr.saturating_add(encoded.len() as u64).min(max_addr);
+                state.selection.select(next, max_addr);
+            } else {
+                // ── Hex mode: draft-based (existing behaviour) ─────────
+                let edit_addr = match state.edit_mode {
+                    Some(ref e) => e.addr,
+                    None => state.selection.cursor,
+                };
+                let edit = state
+                    .edit_mode
+                    .get_or_insert_with(|| EditState::new(edit_addr));
+                if !edit.push_char(c) {
+                    return Task::none();
+                }
+                let staged = edit.is_complete().then(|| (edit.addr, edit.staged_byte()));
+                if let Some((addr, byte)) = staged {
+                    if let Some(byte) = byte {
+                        state.provider.write(addr, &[byte]);
+                        state.recompute_vanilla_diff();
+                    }
+                    let next = (addr + 1).min(max_addr);
+                    if next == addr {
+                        state.edit_mode = None;
+                    } else {
+                        state.selection.select(next, max_addr);
+                        state.edit_mode = Some(EditState::new(next));
+                    }
                 }
             }
         }
@@ -752,6 +769,50 @@ pub fn update(
             state.show_decimal = false;
             state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
             state.status_msg = "Settings reset to defaults".to_string();
+        }
+
+        // ── Write mode / text encoding ───────────────────────────────────
+        HexEditorMessage::SetWriteMode(mode) => {
+            if mode != state.write_mode {
+                state.edit_mode = None; // clear any in-progress hex edit
+                state.write_mode = mode;
+                if let Some(ref cb) = config.on_write_mode_changed {
+                    return cb(mode);
+                }
+            }
+        }
+        HexEditorMessage::OpenEncodingSettings => {
+            state.encoding_settings_open = true;
+            state.encoding_settings_selection = Some(0);
+        }
+        HexEditorMessage::CloseEncodingSettings => {
+            state.encoding_settings_open = false;
+        }
+        HexEditorMessage::AddCustomEncoding(common_idx) => {
+            if let Some((label, enc_name)) =
+                crate::domain::write_mode::COMMON_ENCODINGS.get(common_idx)
+            {
+                // Avoid duplicates.
+                if !state.custom_encodings.iter().any(|e| e.encoding_name == *enc_name) {
+                    state.custom_encodings.push(crate::domain::write_mode::EncodingEntry {
+                        label: label.to_string(),
+                        encoding_name: enc_name.to_string(),
+                    });
+                    state.status_msg = format!("Added encoding: {label}");
+                } else {
+                    state.status_msg = format!("Encoding already added: {label}");
+                }
+            }
+        }
+        HexEditorMessage::RemoveCustomEncoding(idx) => {
+            if idx < state.custom_encodings.len() {
+                let removed = state.custom_encodings.remove(idx);
+                remap_write_mode(&mut state.write_mode, idx);
+                state.status_msg = format!("Removed encoding: {}", removed.label);
+            }
+        }
+        HexEditorMessage::SetCustomEncodings(encodings) => {
+            state.custom_encodings = encodings;
         }
 
         // ── Copy / Paste ─────────────────────────────────────────────────

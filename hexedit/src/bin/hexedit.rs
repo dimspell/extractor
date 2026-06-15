@@ -104,6 +104,8 @@ impl HexApp {
                             can_save,
                             save_hint: String::new(),
                             extra_entries: Vec::new(),
+                            custom_encodings: Vec::new(),
+                            on_write_mode_changed: None,
                         };
                         hexedit::update(state, &config, msg).map(AppMessage::Hex)
                     }
@@ -147,6 +149,8 @@ impl HexApp {
                     can_save,
                     save_hint: String::new(),
                     extra_entries: Vec::new(),
+                    custom_encodings: Vec::new(),
+                    on_write_mode_changed: None,
                 };
                 hexedit::view(state, &config).map(AppMessage::Hex)
             }

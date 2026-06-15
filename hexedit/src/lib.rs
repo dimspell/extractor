@@ -46,6 +46,7 @@ pub use domain::provider::{BufferProvider, HexProvider};
 pub use domain::search::{SearchMode, SearchState};
 pub use domain::selection::{NavDir, Selection};
 pub use domain::vanilla_diff::compute_diff;
+pub use domain::write_mode::{EncodingEntry, WriteMode};
 
 // Type-level re-exports from ui.
 pub use lua_engine::LuaScriptEngine;
@@ -54,7 +55,7 @@ pub use ui::inspector::{EncodeFn, InspectorEntry};
 
 // Module-level re-exports — allow `hexedit::selection::NavDir` and
 // `crate::selection::*` to keep working inside the crate.
-pub use domain::{editing, goto, layout, pattern, provider, search, selection, vanilla_diff};
+pub use domain::{editing, goto, layout, pattern, provider, search, selection, vanilla_diff, write_mode};
 pub use ui::{coloring, inspector, update, view};
 
 #[cfg(test)]

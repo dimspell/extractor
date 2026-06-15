@@ -15,6 +15,7 @@ use iced_test::simulator;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use crate::config::HexEditorConfig;
+use crate::domain::write_mode::WriteMode;
 use crate::message::HexEditorMessage;
 use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
@@ -69,6 +70,10 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         color_scheme: ColorScheme::Monochrome,
         dim_nulls: true,
         settings_open: false,
+        write_mode: WriteMode::Hex,
+        custom_encodings: Vec::new(),
+        encoding_settings_open: false,
+        encoding_settings_selection: None,
     }
 }
 

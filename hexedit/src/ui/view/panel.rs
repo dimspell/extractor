@@ -113,6 +113,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
     .on_paste(|| HexEditorMessage::Paste)
     .show_decimal(state.show_decimal)
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
+    .write_mode(state.write_mode)
     .into()
 }
 
