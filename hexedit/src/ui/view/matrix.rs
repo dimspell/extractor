@@ -893,8 +893,12 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                 }
 
-                // F2 starts an edit at the current cursor.
-                if matches!(key, keyboard::Key::Named(key::Named::F2)) && self.edit.is_none() {
+                // F2 starts a hex-digit edit at the current cursor (hex mode
+                // only — in text mode each character encodes immediately).
+                if self.write_mode == WriteMode::Hex
+                    && matches!(key, keyboard::Key::Named(key::Named::F2))
+                    && self.edit.is_none()
+                {
                     if let Some(cb) = &self.on_begin_edit {
                         shell.publish(cb(self.selection.cursor));
                         shell.capture_event();
@@ -960,7 +964,18 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 // Character typing: in hex mode only hex-digits are accepted;
                 // in text mode any printable character is forwarded so the
                 // update handler can encode it.
-                if !modifiers.control() && !modifiers.command() && !modifiers.alt() {
+                //
+                // Control and Command are blocked in both modes (they are used
+                // for shortcuts such as Ctrl+C/V).  Alt / Option is *only*
+                // blocked in hex mode — on macOS, Option is how non-ASCII
+                // characters like `ł` or `€` are typed and must be allowed in
+                // text mode.
+                let mods_blocked = if self.write_mode == WriteMode::Hex {
+                    modifiers.control() || modifiers.command() || modifiers.alt()
+                } else {
+                    modifiers.control() || modifiers.command()
+                };
+                if !mods_blocked {
                     if let Some(t) = text {
                         let c = if self.write_mode == WriteMode::Hex {
                             first_hex_char(t)
@@ -968,22 +983,32 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                             first_printable_char(t)
                         };
                         if let Some(c) = c {
-                            if self.edit.is_some() {
+                            if self.write_mode == WriteMode::Hex {
+                                // Hex mode: existing draft-based editing.
+                                if self.edit.is_some() {
+                                    if let Some(cb) = &self.on_edit_type {
+                                        shell.publish(cb(c));
+                                        shell.capture_event();
+                                        return;
+                                    }
+                                } else if !self.bytes.is_empty() {
+                                    // Auto-start: behave like F2 then type.
+                                    if let Some(begin) = &self.on_begin_edit {
+                                        shell.publish(begin(self.selection.cursor));
+                                    }
+                                    if let Some(typ) = &self.on_edit_type {
+                                        shell.publish(typ(c));
+                                    }
+                                    shell.capture_event();
+                                    return;
+                                }
+                            } else {
+                                // Text mode: encode & write immediately.
                                 if let Some(cb) = &self.on_edit_type {
                                     shell.publish(cb(c));
                                     shell.capture_event();
                                     return;
                                 }
-                            } else if !self.bytes.is_empty() {
-                                // Auto-start: behave like F2 then type.
-                                if let Some(begin) = &self.on_begin_edit {
-                                    shell.publish(begin(self.selection.cursor));
-                                }
-                                if let Some(typ) = &self.on_edit_type {
-                                    shell.publish(typ(c));
-                                }
-                                shell.capture_event();
-                                return;
                             }
                         }
                     }
