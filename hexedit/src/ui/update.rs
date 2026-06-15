@@ -888,6 +888,67 @@ pub fn update(
             state.status_msg = format!("Pasted {} byte(s)", bytes.len());
         }
 
+        // ── Fill Selection ───────────────────────────────────────────────
+        HexEditorMessage::BeginFill => {
+            if state.provider.is_empty() || state.selection.is_single() {
+                state.status_msg = "Select a range of bytes to fill".to_string();
+                return Task::none();
+            }
+            state.fill_dialog = Some(crate::domain::fill_dialog::FillDialog::new());
+            return iced::widget::operation::focus(
+                crate::domain::fill_dialog::FillDialog::input_id(),
+            );
+        }
+        HexEditorMessage::SetFillDraft(s) => {
+            if let Some(ref mut dlg) = state.fill_dialog {
+                dlg.draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::CommitFill => {
+            let parse_result = state.fill_dialog.as_ref().map(|dlg| dlg.parse_pattern());
+            match parse_result {
+                Some(Ok(pattern)) => {
+                    let start = state.selection.start();
+                    let end = state.selection.end();
+                    let range_len = end.saturating_sub(start).saturating_add(1);
+                    let pattern_len = pattern.len() as u64;
+
+                    if pattern_len > 0 {
+                        // Repeat the pattern across the selected range.
+                        let mut offset = 0u64;
+                        while offset < range_len {
+                            let chunk_end =
+                                (offset + pattern_len).min(range_len) as usize;
+                            let chunk = &pattern[..chunk_end - offset as usize];
+                            state
+                                .provider
+                                .write(start + offset, chunk);
+                            offset += pattern_len;
+                        }
+                        state.recompute_vanilla_diff();
+                        let written = range_len;
+                        state.status_msg = format!(
+                            "Filled {} byte(s) with {:02X?}",
+                            written, pattern
+                        );
+                    } else {
+                        state.status_msg = "No bytes to fill — empty pattern".to_string();
+                    }
+                    state.fill_dialog = None;
+                }
+                Some(Err(msg)) => {
+                    if let Some(ref mut dlg) = state.fill_dialog {
+                        dlg.error = Some(msg);
+                    }
+                }
+                None => {}
+            }
+        }
+        HexEditorMessage::CloseFill => {
+            state.fill_dialog = None;
+        }
+
         // ── Export as text ──────────────────────────────────────────────
         HexEditorMessage::OpenExportConfig => {
             state.export_config = Some(ExportConfig {

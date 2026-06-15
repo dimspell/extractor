@@ -1,5 +1,6 @@
 pub mod encoding_modal;
 pub mod export_modal;
+pub mod fill_modal;
 pub mod footer;
 pub mod goto_modal;
 pub mod inspector;
@@ -192,6 +193,15 @@ pub fn view<'a>(
         );
     }
 
+    if let Some(ref dlg) = state.fill_dialog {
+        base = modal(
+            base,
+            fill_modal::view(dlg),
+            || HexEditorMessage::CloseFill,
+            0.3,
+        );
+    }
+
     base
 }
 
@@ -263,5 +273,14 @@ pub(crate) fn build_pattern_menu_entries(
         "Import Patterns…",
         HexEditorMessage::ImportPatterns,
     ));
+    entries.push(MenuEntry::separator());
+    if has_selection_range {
+        entries.push(MenuEntry::item(
+            "Fill…",
+            HexEditorMessage::BeginFill,
+        ));
+    } else {
+        entries.push(MenuEntry::disabled("Fill…"));
+    }
     entries
 }

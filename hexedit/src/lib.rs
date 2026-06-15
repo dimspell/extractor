@@ -39,6 +39,7 @@ pub use ui::view::view;
 
 // Type-level re-exports from domain.
 pub use domain::editing::{EditState, InspectorEditState};
+pub use domain::fill_dialog::FillDialog;
 pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
 pub use domain::panel::{HexPanel, HexPanelContent};
 pub use domain::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};

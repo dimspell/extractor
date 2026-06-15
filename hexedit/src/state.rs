@@ -5,6 +5,7 @@ use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid;
 
 use super::domain::export_config::ExportConfig;
+use super::domain::fill_dialog::FillDialog;
 use super::domain::panel::{default_pane_grid, HexPanel};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
@@ -72,6 +73,8 @@ pub struct HexEditorState {
     pub goto: Option<GotoState>,
     /// Export-as-text config modal state (None when closed).
     pub export_config: Option<ExportConfig>,
+    /// Fill-selection dialog state (None when closed).
+    pub fill_dialog: Option<FillDialog>,
     /// Search & replace overlay state.
     pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
@@ -159,6 +162,7 @@ impl HexEditorState {
             context_menu_addr: None,
             goto: None,
             export_config: None,
+            fill_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
             status_msg: String::new(),

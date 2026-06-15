@@ -202,6 +202,16 @@ pub enum HexEditorMessage {
     /// format, bytes-per-row).
     ResetSettings,
 
+    // ── Fill Selection ──────────────────────────────────────────────────
+    /// Open the fill-selection dialog (context menu with active selection).
+    BeginFill,
+    /// Update the fill-pattern draft text.
+    SetFillDraft(String),
+    /// Parse the draft and write the repeated pattern across the selection.
+    CommitFill,
+    /// Dismiss the fill dialog without writing.
+    CloseFill,
+
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.
     CopySelection,

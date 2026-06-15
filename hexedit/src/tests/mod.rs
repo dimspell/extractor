@@ -62,6 +62,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         cache: ParagraphCache::default(),
         lua_engine: LuaScriptEngine::default(),
         export_config: None,
+        fill_dialog: None,
         repeat_pattern: None,
         row_annotations: BTreeMap::new(),
         active_patterns: BTreeSet::new(),
