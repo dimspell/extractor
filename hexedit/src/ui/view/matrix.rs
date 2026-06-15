@@ -1139,12 +1139,12 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
     ) {
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
-        let clip = bounds.intersection(viewport).unwrap_or(bounds);
+        let full_clip = bounds.intersection(viewport).unwrap_or(bounds);
 
         // Background (full bounds — fill everything).
         renderer.fill_quad(
             renderer::Quad {
-                bounds: clip,
+                bounds: full_clip,
                 border: Border::default(),
                 shadow: Shadow::default(),
                 snap: true,
@@ -1152,10 +1152,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             Background::Color(color!(0x14110f)),
         );
 
-        // ── Content area below the fixed column header ─────────────────
-        // Save the initial clip for use by the header renderers before we
-        // reassign `clip` to the content-only area below the header.
-        let initial_clip = clip;
+        // ── Geometry for the content area below the column header ──────
         let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
         let content_top = bounds.y + HEADER_HEIGHT;
         let content_bounds = Rectangle {
@@ -1165,22 +1162,25 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             height: viewport_h,
         };
 
-        // Clip content to the content area (excludes header + scrollbar).
-        let content_clip_top = content_top.max(clip.y);
-        let content_clip_bottom = (content_top + viewport_h).min(clip.y + clip.height);
-        let clip = Rectangle {
-            x: clip.x,
-            y: content_clip_top,
-            width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
-            height: (content_clip_bottom - content_clip_top).max(0.0),
+        // Clip the content rows to the visible portion of the content area
+        // (below header, excluding the vertical scrollbar strip).
+        let content_clip_y = content_top.max(full_clip.y);
+        let content_clip_bottom = (content_top + viewport_h).min(full_clip.y + full_clip.height);
+        let content_clip = Rectangle {
+            x: full_clip.x,
+            y: content_clip_y,
+            width: (full_clip.width - SCROLLBAR_THICKNESS).max(0.0),
+            height: (content_clip_bottom - content_clip_y).max(0.0),
         };
 
-        // Further clip hex/ASCII content to exclude the address gutter.
+        // Further clip hex/ASCII cells to exclude the address gutter.
         let cell_clip = Rectangle {
-            x: clip.x.max(bounds.x + self.addr_col_width()),
-            y: clip.y,
-            width: (clip.x + clip.width - clip.x.max(bounds.x + self.addr_col_width())).max(0.0),
-            height: clip.height,
+            x: content_clip.x.max(bounds.x + self.addr_col_width()),
+            y: content_clip.y,
+            width: (content_clip.x + content_clip.width
+                - content_clip.x.max(bounds.x + self.addr_col_width()))
+            .max(0.0),
+            height: content_clip.height,
         };
 
         let total_rows = self.total_rows();
@@ -1239,8 +1239,25 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let cursor_addr = self.selection.cursor;
         let edit_addr = self.edit.map(|e| e.addr);
 
+        // ── Address-gutter background (covers header + content rows) ────
+        // Drawn early so both the header row and content rows sit on top.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x,
+                    y: bounds.y,
+                    width: self.addr_col_width(),
+                    height: HEADER_HEIGHT + viewport_h,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(color!(0x14110f)),
+        );
+
         // ── Column header ─────────────────────────────────────────────────
-        // Background for the header row (full width, below address gutter).
+        // Background for the header row (right of the address gutter).
         renderer.fill_quad(
             renderer::Quad {
                 bounds: Rectangle {
@@ -1287,7 +1304,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     height: HEADER_HEIGHT,
                 },
                 header_color,
-                initial_clip,
+                full_clip,
             );
         }
 
@@ -1308,23 +1325,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         );
 
         // ── Data rows ─────────────────────────────────────────────────────
-        // Address-gutter background — covers header + content so horizontal
-        // scrolling never reveals bare background beneath the address text.
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: bounds.x,
-                    y: bounds.y,
-                    width: self.addr_col_width(),
-                    height: HEADER_HEIGHT + viewport_h,
-                },
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(color!(0x14110f)),
-        );
-
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
             let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
@@ -1348,7 +1348,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     height: ROW_HEIGHT,
                 },
                 addr_color,
-                clip,
+                content_clip,
             );
 
             // Hex + ASCII columns.
@@ -1533,7 +1533,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                             alignment::Horizontal::Left,
                             alignment::Vertical::Center,
                         );
-                        if let Some(cell_clip) = clip.intersection(&cell) {
+                        if let Some(cell_clip) = content_clip.intersection(&cell) {
                             <iced::Renderer as text::Renderer>::fill_paragraph(
                                 renderer,
                                 &sep_para,
@@ -1557,7 +1557,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         alignment::Horizontal::Left,
                         alignment::Vertical::Center,
                     );
-                    if let Some(cell_clip) = clip.intersection(&cell) {
+                    if let Some(cell_clip) = content_clip.intersection(&cell) {
                         <iced::Renderer as text::Renderer>::fill_paragraph(
                             renderer, &para, pos, color, cell_clip,
                         );
