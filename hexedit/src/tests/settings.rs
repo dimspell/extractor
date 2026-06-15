@@ -52,7 +52,10 @@ fn test_toolbar_save_disabled_when_not_dirty() {
         ..Default::default()
     };
     // can_save_now should be false when dirty=0
-    assert!(!config.can_save_now(&state), "should not be savable when clean");
+    assert!(
+        !config.can_save_now(&state),
+        "should not be savable when clean"
+    );
 }
 
 #[test]
@@ -84,7 +87,10 @@ fn test_set_addr_format_decimal() {
     state.show_decimal = false; // start in hex mode
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SetAddrFormat(true));
-    assert!(state.show_decimal, "should switch to decimal address format");
+    assert!(
+        state.show_decimal,
+        "should switch to decimal address format"
+    );
 }
 
 #[test]

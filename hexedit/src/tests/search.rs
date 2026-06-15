@@ -76,7 +76,11 @@ fn test_search_next_prev() {
     let mut state = make_state(b"\x61\x62\x20\x61\x62\x20\x61\x62".to_vec());
     let config = default_config();
     // Search for hex bytes "61 62" (= "ab" ASCII) to verify navigation.
-    send(&mut state, &config, HexEditorMessage::Search("61 62".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Search("61 62".into()),
+    );
     assert_eq!(state.search.count(), 3, "should find 3 matches");
     // After initial search, current_match is None (no match selected).
     // Navigate to the first match:
@@ -87,17 +91,9 @@ fn test_search_next_prev() {
     send(&mut state, &config, HexEditorMessage::SearchNext);
     assert_eq!(state.search.current_match, Some(2));
     send(&mut state, &config, HexEditorMessage::SearchNext);
-    assert_eq!(
-        state.search.current_match,
-        Some(0),
-        "should wrap around"
-    );
+    assert_eq!(state.search.current_match, Some(0), "should wrap around");
     send(&mut state, &config, HexEditorMessage::SearchPrev);
-    assert_eq!(
-        state.search.current_match,
-        Some(2),
-        "should wrap backward"
-    );
+    assert_eq!(state.search.current_match, Some(2), "should wrap backward");
 }
 
 #[test]
@@ -120,11 +116,18 @@ fn test_search_close_clears_state() {
 fn test_search_selects_cursor() {
     let mut state = make_state(b"\x00\xDE\xAD\xBE\xEF\x00".to_vec());
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::Search("DE AD BE EF".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Search("DE AD BE EF".into()),
+    );
     // After initial Search, cursor stays at 0 (current_match is None).
     // Navigate to the first match:
     send(&mut state, &config, HexEditorMessage::SearchNext);
-    assert_eq!(state.selection.cursor, 1, "search should move cursor to first match");
+    assert_eq!(
+        state.selection.cursor, 1,
+        "search should move cursor to first match"
+    );
 }
 
 #[test]
@@ -137,9 +140,17 @@ fn test_search_next_prev_single_match_stays_on_zero() {
     send(&mut state, &config, HexEditorMessage::SearchNext);
     assert_eq!(state.search.current_match, Some(0));
     send(&mut state, &config, HexEditorMessage::SearchNext);
-    assert_eq!(state.search.current_match, Some(0), "single match should stay on 0 with wrap");
+    assert_eq!(
+        state.search.current_match,
+        Some(0),
+        "single match should stay on 0 with wrap"
+    );
     send(&mut state, &config, HexEditorMessage::SearchPrev);
-    assert_eq!(state.search.current_match, Some(0), "single match should stay on 0 backward");
+    assert_eq!(
+        state.search.current_match,
+        Some(0),
+        "single match should stay on 0 backward"
+    );
 }
 
 #[test]
@@ -148,7 +159,11 @@ fn test_search_reexecute_after_toggle_mode() {
     let config = default_config();
     // Search for "AB" in hex mode — no match (bytes would be 0xAB, 0xBE...)
     send(&mut state, &config, HexEditorMessage::Search("4142".into()));
-    assert_eq!(state.search.count(), 1, "hex 4142 matches bytes at offset 5");
+    assert_eq!(
+        state.search.count(),
+        1,
+        "hex 4142 matches bytes at offset 5"
+    );
     // Toggle to ASCII — the query "4142" is now treated as ASCII text
     send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
     // In ASCII mode, "4142" is looked for as literal bytes 0x34 0x31 0x34 0x32
@@ -169,16 +184,22 @@ fn test_search_overlay_shows_match_count() {
     assert_eq!(state.search.count(), 2);
     let mut ui = simulator(view(&state, &config));
     // Shows "-/2" after initial search (no match selected yet)
-    ui.find("-/2").expect("search overlay should show match count");
+    ui.find("-/2")
+        .expect("search overlay should show match count");
 }
 
 #[test]
 fn test_search_overlay_shows_no_matches() {
     let mut state = make_state(b"hello".to_vec());
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::Search("xyzzy".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Search("xyzzy".into()),
+    );
     let mut ui = simulator(view(&state, &config));
-    ui.find("0 matches").expect("should show 0 matches for no results");
+    ui.find("0 matches")
+        .expect("should show 0 matches for no results");
 }
 
 #[test]

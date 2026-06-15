@@ -192,7 +192,11 @@ mod tests {
                 Paragraph::new()
             }
         });
-        assert_eq!(build_count.load(Ordering::SeqCst), 1, "first call should build");
+        assert_eq!(
+            build_count.load(Ordering::SeqCst),
+            1,
+            "first call should build"
+        );
 
         let _p2 = cache.get_or_insert(key.clone(), {
             let count = Arc::clone(&build_count);
@@ -201,7 +205,11 @@ mod tests {
                 Paragraph::new()
             }
         });
-        assert_eq!(build_count.load(Ordering::SeqCst), 1, "second call should use cache, not build");
+        assert_eq!(
+            build_count.load(Ordering::SeqCst),
+            1,
+            "second call should use cache, not build"
+        );
     }
 
     #[test]

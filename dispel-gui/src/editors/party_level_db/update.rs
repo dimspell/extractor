@@ -68,7 +68,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
 
             let records = app
                 .state
-                .editors.party_level_db_editor
+                .editors
+                .party_level_db_editor
                 .catalog
                 .as_ref()
                 .and_then(|c| c.get(npc_idx))
@@ -78,28 +79,37 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             app.state.editors.party_level_db_level_editor.catalog = Some(records.clone());
             app.state.editors.party_level_db_level_editor.refresh();
             app.state.editors.party_level_db_level_editor.selected_idx = None;
-            app.state.editors.party_level_db_level_editor.edit_buffers.clear();
+            app.state
+                .editors
+                .party_level_db_level_editor
+                .edit_buffers
+                .clear();
             app.state.editors.party_level_db_level_editor.status_msg =
                 format!("NPC {} — {} levels", npc_idx, records.len());
 
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .spreadsheet
                 .apply_filter(&records);
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .spreadsheet
                 .compute_all_caches(&records, &app.state.lookups);
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .spreadsheet
                 .init_pane_state();
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .spreadsheet
                 .selected_orig = None;
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .spreadsheet
                 .inspector_textarea_contents
                 .clear();
@@ -114,12 +124,14 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             // the change.
             let captured = app
                 .state
-                .editors.party_level_db_editor
+                .editors
+                .party_level_db_editor
                 .selected_npc_idx
                 .and_then(|npc_idx| {
                     let (level_orig_idx, record) = app
                         .state
-                        .editors.party_level_db_level_editor
+                        .editors
+                        .party_level_db_level_editor
                         .state
                         .filtered
                         .get(level_idx)?;
@@ -130,13 +142,18 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 });
             let new_value = value.clone();
             app.state
-                .editors.party_level_db_level_editor
+                .editors
+                .party_level_db_level_editor
                 .update_field(level_idx, &field, value);
 
             // Sync updated level records back to the NPC catalog
             if let Some(npc_idx) = app.state.editors.party_level_db_editor.selected_npc_idx {
                 if let (Some(level_catalog), Some(npc_catalog)) = (
-                    app.state.editors.party_level_db_level_editor.catalog.clone(),
+                    app.state
+                        .editors
+                        .party_level_db_level_editor
+                        .catalog
+                        .clone(),
                     app.state.editors.party_level_db_editor.catalog.as_mut(),
                 ) {
                     if let Some(npc) = npc_catalog.get_mut(npc_idx) {
@@ -149,7 +166,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             if let Some(catalog) = &app.state.editors.party_level_db_level_editor.catalog {
                 let catalog = catalog.clone();
                 app.state
-                    .editors.party_level_db_level_editor
+                    .editors
+                    .party_level_db_level_editor
                     .spreadsheet
                     .compute_all_caches(&catalog, &app.state.lookups);
             }
@@ -179,7 +197,8 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
             }
             match app
                 .state
-                .editors.party_level_db_editor
+                .editors
+                .party_level_db_editor
                 .save_levels(&app.state.shared_game_path)
             {
                 Ok(_) => {
@@ -212,7 +231,13 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
         }
 
         PartyLevelDbEditorMessage::PaneResized(event) => {
-            if let Some(ref mut ps) = app.state.editors.party_level_db_level_editor.spreadsheet.pane_state {
+            if let Some(ref mut ps) = app
+                .state
+                .editors
+                .party_level_db_level_editor
+                .spreadsheet
+                .pane_state
+            {
                 ps.resize(event.split, event.ratio);
             }
             Task::none()

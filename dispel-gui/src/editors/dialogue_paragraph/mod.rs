@@ -30,7 +30,13 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<Messag
 
     match msg {
         DialogueParagraphEditorMessage::ScanCatalog => {
-            if let Some(editor) = app.state.editors.dialogue_paragraph_editor.editors.get_mut(&tab_id) {
+            if let Some(editor) = app
+                .state
+                .editors
+                .dialogue_paragraph_editor
+                .editors
+                .get_mut(&tab_id)
+            {
                 if let Some(path) = editor.current_file.clone() {
                     editor.editor.loading_state = LoadingState::Loading;
                     return Task::perform(
@@ -46,7 +52,13 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<Messag
             Task::none()
         }
         DialogueParagraphEditorMessage::CatalogLoaded(id, result) => {
-            if let Some(editor) = app.state.editors.dialogue_paragraph_editor.editors.get_mut(&id) {
+            if let Some(editor) = app
+                .state
+                .editors
+                .dialogue_paragraph_editor
+                .editors
+                .get_mut(&id)
+            {
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
@@ -60,7 +72,8 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<Messag
                         editor.editor.refresh();
                         if let Some(spreadsheet) = app
                             .state
-                            .editors.dialogue_paragraph_editor
+                            .editors
+                            .dialogue_paragraph_editor
                             .spreadsheets
                             .get_mut(&id)
                         {

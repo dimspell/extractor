@@ -402,6 +402,3 @@ macro_rules! handle_spreadsheet_messages_tab {
         }
     };
 }
-
-
-

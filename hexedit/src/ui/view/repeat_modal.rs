@@ -13,9 +13,7 @@ use crate::HexEditorMessage;
 /// Modal body shown when "Add Repeated Pattern" is selected from the context
 /// menu with an active multi-byte selection.
 pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
-    let title = text("Add Repeated Pattern")
-        .size(13)
-        .font(Font::MONOSPACE);
+    let title = text("Add Repeated Pattern").size(13).font(Font::MONOSPACE);
 
     let block_info = text(format!(
         "Block: {} bytes  ·  Start: 0x{:08X}",

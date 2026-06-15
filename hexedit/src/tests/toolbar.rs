@@ -53,8 +53,7 @@ fn test_toolbar_save_button_with_custom_label() {
         ..Default::default()
     };
     let mut ui = simulator(view(&state, &config));
-    ui.find("Store")
-        .expect("custom save label should appear");
+    ui.find("Store").expect("custom save label should appear");
 }
 
 #[test]

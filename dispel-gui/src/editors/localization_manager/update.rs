@@ -16,7 +16,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
     match message {
         LocalizationMessage::Scan => {
             if app.state.shared_game_path.is_empty() {
-                app.state.editors.localization_manager.status_msg = "Please select game path first.".into();
+                app.state.editors.localization_manager.status_msg =
+                    "Please select game path first.".into();
                 return Task::none();
             }
             app.state.editors.localization_manager.loading_state = LoadingState::Loading;
@@ -24,7 +25,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             let game_path = PathBuf::from(&app.state.shared_game_path);
             let session_path = app
                 .state
-                .editors.localization_manager
+                .editors
+                .localization_manager
                 .session_path(&app.state.shared_game_path);
             Task::perform(
                 async move { scan_all_entries(&game_path, session_path.as_deref()) },
@@ -43,7 +45,12 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                         format!("{count} strings loaded ({translated} already translated).");
                     app.state.editors.localization_manager.loading_state = LoadingState::Loaded(());
                     // Auto-select first entry if nothing selected yet
-                    if app.state.editors.localization_manager.selected_idx.is_none()
+                    if app
+                        .state
+                        .editors
+                        .localization_manager
+                        .selected_idx
+                        .is_none()
                         && !app.state.editors.localization_manager.entries.is_empty()
                     {
                         return app.update(crate::message::Message::localization(
@@ -61,7 +68,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
         LocalizationMessage::SelectEntry(idx) => {
             let text = app
                 .state
-                .editors.localization_manager
+                .editors
+                .localization_manager
                 .entries
                 .get(idx)
                 .map(|e| e.translation.as_str())
@@ -75,22 +83,34 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             use iced::widget::text_editor::Action;
             let is_edit = matches!(action, Action::Edit(_));
             app.state
-                .editors.localization_manager
+                .editors
+                .localization_manager
                 .translation_content
                 .0
                 .perform(action);
             if is_edit {
-                let text = app.state.editors.localization_manager.translation_content.0.text();
+                let text = app
+                    .state
+                    .editors
+                    .localization_manager
+                    .translation_content
+                    .0
+                    .text();
                 // trim trailing newline that text_editor appends
                 let text = text.trim_end_matches('\n').to_owned();
                 if let Some(idx) = app.state.editors.localization_manager.selected_idx {
-                    if let Some(entry) = app.state.editors.localization_manager.entries.get_mut(idx) {
+                    if let Some(entry) = app.state.editors.localization_manager.entries.get_mut(idx)
+                    {
                         entry.translation = text;
                     }
                 }
                 // Debounced session save
                 let game_path = app.state.shared_game_path.clone();
-                let session_path = app.state.editors.localization_manager.session_path(&game_path);
+                let session_path = app
+                    .state
+                    .editors
+                    .localization_manager
+                    .session_path(&game_path);
                 if let Some(path) = session_path {
                     let entries = app.state.editors.localization_manager.entries.clone();
                     return Task::perform(async move { save_session(&path, &entries) }, |_| {
@@ -135,8 +155,15 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             Task::none()
         }
         LocalizationMessage::ToggleUntranslatedOnly => {
-            let v = app.state.editors.localization_manager.show_untranslated_only;
-            app.state.editors.localization_manager.show_untranslated_only = !v;
+            let v = app
+                .state
+                .editors
+                .localization_manager
+                .show_untranslated_only;
+            app.state
+                .editors
+                .localization_manager
+                .show_untranslated_only = !v;
             app.state.editors.localization_manager.page = 0;
             Task::none()
         }
@@ -153,7 +180,12 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
             Task::none()
         }
         LocalizationMessage::PageNext => {
-            let visible_len = app.state.editors.localization_manager.visible_entries().len();
+            let visible_len = app
+                .state
+                .editors
+                .localization_manager
+                .visible_entries()
+                .len();
             let max_page = visible_len.saturating_sub(1) / 250;
             if app.state.editors.localization_manager.page < max_page {
                 app.state.editors.localization_manager.page += 1;
@@ -252,7 +284,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     app.state.editors.localization_manager.status_msg = msg;
                     // Refresh editor panel if selected entry changed
                     if let Some(idx) = app.state.editors.localization_manager.selected_idx {
-                        if let Some(entry) = app.state.editors.localization_manager.entries.get(idx) {
+                        if let Some(entry) = app.state.editors.localization_manager.entries.get(idx)
+                        {
                             let text = entry.translation.clone();
                             app.state.editors.localization_manager.translation_content =
                                 crate::components::textarea::TextAreaContent::with_text(&text);
@@ -260,7 +293,12 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     }
                     // Persist session
                     let game_path = app.state.shared_game_path.clone();
-                    if let Some(path) = app.state.editors.localization_manager.session_path(&game_path) {
+                    if let Some(path) = app
+                        .state
+                        .editors
+                        .localization_manager
+                        .session_path(&game_path)
+                    {
                         let entries = app.state.editors.localization_manager.entries.clone();
                         return Task::perform(async move { save_session(&path, &entries) }, |_| {
                             crate::message::Message::localization(LocalizationMessage::ExportDone(
@@ -270,7 +308,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     }
                 }
                 Err(e) => {
-                    app.state.editors.localization_manager.status_msg = format!("Import failed: {e}");
+                    app.state.editors.localization_manager.status_msg =
+                        format!("Import failed: {e}");
                 }
             }
             Task::none()
@@ -332,7 +371,8 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                 return Task::none();
             };
             if !backup_dir.exists() {
-                app.state.editors.localization_manager.status_msg = "No backup found to revert.".into();
+                app.state.editors.localization_manager.status_msg =
+                    "No backup found to revert.".into();
                 return Task::none();
             }
             let game_path = PathBuf::from(&game_path);

@@ -12,10 +12,7 @@ pub fn open_in_file_manager(path: &Path) {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
-        let _ = Command::new("explorer")
-            .arg("/select,")
-            .arg(path)
-            .spawn();
+        let _ = Command::new("explorer").arg("/select,").arg(path).spawn();
     }
 
     #[cfg(target_os = "macos")]

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod command_palette_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::workspace::WorkspaceMessage;
+    use crate::message::Message;
     use crate::workspace::Workspace;
 
     #[test]
@@ -26,7 +26,10 @@ mod command_palette_tests {
         assert!(app.command_palette.is_some());
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteClose));
-        assert!(app.command_palette.is_none(), "closed via CommandPaletteClose");
+        assert!(
+            app.command_palette.is_none(),
+            "closed via CommandPaletteClose"
+        );
         assert_eq!(task.units(), 0);
     }
 
@@ -63,8 +66,14 @@ mod command_palette_tests {
             "sidebar".into(),
         )));
         assert!(app.sidebar_visible, "sidebar starts visible");
-        assert!(!app.command_palette.as_ref().unwrap().filtered_commands.is_empty(),
-            "at least one command matches 'sidebar'");
+        assert!(
+            !app.command_palette
+                .as_ref()
+                .unwrap()
+                .filtered_commands
+                .is_empty(),
+            "at least one command matches 'sidebar'"
+        );
 
         // Confirm fires ToggleSidebar (via selected_command + re-dispatch)
         let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteConfirm));
@@ -99,8 +108,13 @@ mod command_palette_tests {
         assert!(!app.history_panel_visible, "history panel starts hidden");
 
         // Select fires ToggleHistoryPanel (via action + re-dispatch)
-        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteSelect(idx)));
-        assert!(app.history_panel_visible, "history panel toggled by selected command");
+        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteSelect(
+            idx,
+        )));
+        assert!(
+            app.history_panel_visible,
+            "history panel toggled by selected command"
+        );
     }
 
     #[test]
@@ -108,9 +122,14 @@ mod command_palette_tests {
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
-        let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteSelect(999)));
+        let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteSelect(
+            999,
+        )));
         // Handler only sets palette to None when it finds a valid command
-        assert!(app.command_palette.is_some(), "palette still open on bad index");
+        assert!(
+            app.command_palette.is_some(),
+            "palette still open on bad index"
+        );
         assert_eq!(task.units(), 0);
     }
 
@@ -120,13 +139,17 @@ mod command_palette_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         let initial = app.command_palette.as_ref().unwrap().selected_index;
-        let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
+        let task = app.update(Message::Workspace(
+            WorkspaceMessage::CommandPaletteArrowDown,
+        ));
         let new_idx = app.command_palette.as_ref().unwrap().selected_index;
-        let count = app.command_palette.as_ref().unwrap().filtered_commands.len();
-        assert_eq!(
-            new_idx, (initial + 1) % count,
-            "selection wraps forward"
-        );
+        let count = app
+            .command_palette
+            .as_ref()
+            .unwrap()
+            .filtered_commands
+            .len();
+        assert_eq!(new_idx, (initial + 1) % count, "selection wraps forward");
         assert!(task.units() > 0, "returns scroll task");
     }
 
@@ -136,12 +159,19 @@ mod command_palette_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleCommandPalette));
 
         // Move down once so we're not at 0
-        let _ = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
+        let _ = app.update(Message::Workspace(
+            WorkspaceMessage::CommandPaletteArrowDown,
+        ));
         let idx_after_down = app.command_palette.as_ref().unwrap().selected_index;
 
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp));
         let idx_after_up = app.command_palette.as_ref().unwrap().selected_index;
-        let count = app.command_palette.as_ref().unwrap().filtered_commands.len();
+        let count = app
+            .command_palette
+            .as_ref()
+            .unwrap()
+            .filtered_commands
+            .len();
         assert_eq!(
             idx_after_up,
             (idx_after_down + count - 1) % count,
@@ -153,7 +183,9 @@ mod command_palette_tests {
     #[test]
     fn arrow_on_closed_palette_does_not_panic() {
         let mut app = App::test_new(Workspace::new());
-        let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown));
+        let task = app.update(Message::Workspace(
+            WorkspaceMessage::CommandPaletteArrowDown,
+        ));
         assert_eq!(task.units(), 0);
         let task = app.update(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp));
         assert_eq!(task.units(), 0);

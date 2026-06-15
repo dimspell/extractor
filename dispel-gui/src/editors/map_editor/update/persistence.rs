@@ -195,11 +195,7 @@ pub fn save_complete(
     }
 }
 
-pub fn map_saved(
-    app: &mut App,
-    tab_id: usize,
-    result: Result<String, String>,
-) -> Task<Message> {
+pub fn map_saved(app: &mut App, tab_id: usize, result: Result<String, String>) -> Task<Message> {
     let success = result.is_ok();
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.is_saving = false;
@@ -274,8 +270,8 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
             let btl_tiles = dispel_core::map::tileset::extract(&btl_path)
                 .map_err(|e| format!("BTL read failed: {e}"))?;
 
-            let file = std::fs::File::open(&map_path)
-                .map_err(|e| format!("Map open failed: {e}"))?;
+            let file =
+                std::fs::File::open(&map_path).map_err(|e| format!("Map open failed: {e}"))?;
             let mut reader = std::io::BufReader::new(file);
 
             let map_id = map_path
@@ -283,19 +279,17 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
                 .map(|s| s.to_string_lossy().to_string())
                 .unwrap_or_default();
 
-            dispel_core::map::render::render_map(
-                dispel_core::map::render::MapRenderConfig {
-                    reader: &mut reader,
-                    output_path: &output_path,
-                    data: &map_data,
-                    occlusion: false,
-                    gtl_tileset: &gtl_tiles,
-                    btl_tileset: &btl_tiles,
-                    map_id: &map_id,
-                    game_path: game_path.as_deref(),
-                    toggles: Default::default(),
-                },
-            )
+            dispel_core::map::render::render_map(dispel_core::map::render::MapRenderConfig {
+                reader: &mut reader,
+                output_path: &output_path,
+                data: &map_data,
+                occlusion: false,
+                gtl_tileset: &gtl_tiles,
+                btl_tileset: &btl_tiles,
+                map_id: &map_id,
+                game_path: game_path.as_deref(),
+                toggles: Default::default(),
+            })
             .map_err(|e| format!("Render failed: {e}"))?;
 
             Ok(format!(
@@ -306,9 +300,7 @@ pub fn export_image(app: &mut App, tab_id: usize) -> Task<Message> {
                     .unwrap_or_else(|| output_path.display().to_string())
             ))
         },
-        move |result| {
-            Message::map_editor(MapEditorMessage::ExportComplete(tab_id, result))
-        },
+        move |result| Message::map_editor(MapEditorMessage::ExportComplete(tab_id, result)),
     )
 }
 

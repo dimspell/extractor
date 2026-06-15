@@ -216,7 +216,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             };
             let currently_enabled = app
                 .state
-                .editors.mod_packager_editor
+                .editors
+                .mod_packager_editor
                 .mods
                 .iter()
                 .find(|m| m.slug == slug)
@@ -340,7 +341,8 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             };
             let mod_name = app
                 .state
-                .editors.mod_packager_editor
+                .editors
+                .mod_packager_editor
                 .mods
                 .iter()
                 .find(|m| m.slug == slug)
@@ -537,7 +539,8 @@ fn open_workspace(app: &mut App, root: PathBuf) -> Task<Message> {
     match Workspace::open(root.clone()) {
         Ok(_) => {
             app.state.editors.mod_packager_editor.workspace_root = Some(root.clone());
-            app.state.editors.mod_packager_editor.status_msg = format!("Workspace: {}", root.display());
+            app.state.editors.mod_packager_editor.status_msg =
+                format!("Workspace: {}", root.display());
             refresh_library(root)
         }
         Err(e) => {

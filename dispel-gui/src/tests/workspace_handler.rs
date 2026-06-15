@@ -60,14 +60,14 @@ mod workspace_handler_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set up a result with source_file, but shared_game_path is empty
-        app.global_search.results.push(
-            crate::components::global_search::SearchResult {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
                 catalog_type: "test".into(),
                 record_idx: 0,
                 display_text: "file.map".into(),
                 source_file: Some("maps/file.map".into()),
-            },
-        );
+            });
         app.global_search.selected_index = 0;
 
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchSelect(0)));
@@ -94,10 +94,7 @@ mod workspace_handler_tests {
             app.state.workspace.tabs[0].editor_type,
             EditorType::LocalizationManager
         );
-        assert_eq!(
-            app.state.workspace.tabs[0].label,
-            "Localization Packager"
-        );
+        assert_eq!(app.state.workspace.tabs[0].label, "Localization Packager");
 
         // With game path set and empty entries, should return a Scan task
         assert!(

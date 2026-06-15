@@ -43,7 +43,11 @@ fn test_goto_commit_with_decimal() {
     let mut state = make_state((0..=255u8).collect());
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("100".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("100".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 100);
 }
@@ -54,7 +58,11 @@ fn test_goto_commit_with_relative_forward() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SelectAt(50));
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("+10".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("+10".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 60);
 }
@@ -65,7 +73,11 @@ fn test_goto_commit_with_relative_backward() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SelectAt(50));
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("-10".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("-10".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 40);
 }
@@ -93,7 +105,11 @@ fn test_goto_empty_shows_error() {
     let mut state = make_state((0..=255u8).collect());
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert!(state.goto.is_some(), "dialog should stay open");
     assert!(
@@ -121,7 +137,11 @@ fn test_goto_zero() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SelectAt(100));
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("0".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("0".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 0);
 }
@@ -132,7 +152,11 @@ fn test_goto_relative_saturates_forward() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SelectAt(200));
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("+1000".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("+1000".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 255, "should saturate at max_addr");
 }
@@ -143,7 +167,11 @@ fn test_goto_relative_saturates_backward() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::SelectAt(50));
     send(&mut state, &config, HexEditorMessage::OpenGotoDialog);
-    send(&mut state, &config, HexEditorMessage::SetGotoDraft("-100".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetGotoDraft("-100".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitGoto);
     assert_eq!(state.selection.cursor, 0, "should saturate at 0");
 }

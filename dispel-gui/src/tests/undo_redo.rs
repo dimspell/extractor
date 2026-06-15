@@ -189,13 +189,24 @@ mod edit_history_tests {
     fn test_tab_editors_return_history_only_with_valid_tab_id() {
         let mut registry = EditorRegistry::default();
 
-        assert!(registry.get_active_edit_history(MonsterRefEditor, 0).is_none());
+        assert!(registry
+            .get_active_edit_history(MonsterRefEditor, 0)
+            .is_none());
         assert!(registry.get_active_edit_history(NpcRefEditor, 0).is_none());
-        assert!(registry.get_active_edit_history(ExtraRefEditor, 0).is_none());
-        assert!(registry.get_active_edit_history(DialogueScriptEditor, 0).is_none());
-        assert!(registry.get_active_edit_history(DialogueTextEditor, 0).is_none());
+        assert!(registry
+            .get_active_edit_history(ExtraRefEditor, 0)
+            .is_none());
+        assert!(registry
+            .get_active_edit_history(DialogueScriptEditor, 0)
+            .is_none());
+        assert!(registry
+            .get_active_edit_history(DialogueTextEditor, 0)
+            .is_none());
 
-        registry.npc_ref_editor.editors.insert(42, Default::default());
+        registry
+            .npc_ref_editor
+            .editors
+            .insert(42, Default::default());
         assert!(
             registry.get_active_edit_history(NpcRefEditor, 42).is_some(),
             "NpcRefEditor with tab_id=42 should have history after insert"

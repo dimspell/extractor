@@ -1,7 +1,5 @@
 use crate::app::App;
-use crate::editors::map_editor::{
-    MapEditorMessage, SpriteExportDialogState, SpriteExportStatus,
-};
+use crate::editors::map_editor::{MapEditorMessage, SpriteExportDialogState, SpriteExportStatus};
 use crate::message::{Message, MessageExt};
 use iced::Task;
 use std::path::PathBuf;
@@ -28,17 +26,11 @@ pub fn choose_dir(tab_id: usize) -> Task<Message> {
                 .await
                 .map(|h| h.path().to_path_buf())
         },
-        move |path| {
-            Message::map_editor(MapEditorMessage::SpriteExportDirChosen(tab_id, path))
-        },
+        move |path| Message::map_editor(MapEditorMessage::SpriteExportDirChosen(tab_id, path)),
     )
 }
 
-pub fn dir_chosen(
-    app: &mut App,
-    tab_id: usize,
-    path: Option<PathBuf>,
-) -> Task<Message> {
+pub fn dir_chosen(app: &mut App, tab_id: usize, path: Option<PathBuf>) -> Task<Message> {
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         if let Some(ref mut dlg) = state.data.sprite_export_dialog {
             dlg.export_dir = path;
@@ -74,17 +66,11 @@ pub fn confirm_export(app: &mut App, tab_id: usize) -> Task<Message> {
                 .map(|()| format!("Sprites exported → {}", export_dir.display()))
                 .map_err(|e| e.to_string())
         },
-        move |result| {
-            Message::map_editor(MapEditorMessage::SpriteExportDone(tab_id, result))
-        },
+        move |result| Message::map_editor(MapEditorMessage::SpriteExportDone(tab_id, result)),
     )
 }
 
-pub fn export_done(
-    app: &mut App,
-    tab_id: usize,
-    result: Result<String, String>,
-) -> Task<Message> {
+pub fn export_done(app: &mut App, tab_id: usize, result: Result<String, String>) -> Task<Message> {
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         if let Some(ref mut dlg) = state.data.sprite_export_dialog {
             dlg.status = match result {

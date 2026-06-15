@@ -19,12 +19,10 @@ pub fn build_toolbar<'a>(
     let hint = config.save_hint.clone();
 
     // Check if an Inspector pane exists in the grid (Halloy-style).
-    let has_inspector_pane = editor.panes.iter().any(|(_, p)| {
-        matches!(
-            p.content,
-            crate::domain::panel::HexPanelContent::Inspector
-        )
-    });
+    let has_inspector_pane = editor
+        .panes
+        .iter()
+        .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Inspector));
     let inspector_label = if has_inspector_pane {
         "Hide Inspector"
     } else {

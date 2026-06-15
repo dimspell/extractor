@@ -13,11 +13,5 @@ fn fixture_monster_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Monster::read_file,
-        Monster::save_file,
-        fixture,
-        "Monster",
-    )
-    .unwrap();
+    round_trip_from_fixture(Monster::read_file, Monster::save_file, fixture, "Monster").unwrap();
 }

@@ -132,7 +132,10 @@ fn test_close_pane_removes_pane() {
     let mut state = make_state(vec![0u8; 64]);
     let config = default_config();
     let before = state.panes.len();
-    assert!(before > 1, "default layout must have >1 panes to test close");
+    assert!(
+        before > 1,
+        "default layout must have >1 panes to test close"
+    );
 
     send(&mut state, &config, HexEditorMessage::ClosePane);
 
@@ -145,11 +148,9 @@ fn test_close_pane_removes_pane() {
 
 #[test]
 fn test_close_last_pane_is_noop() {
-    let (single_state, _pane) = pane_grid::State::new(
-        crate::domain::panel::HexPanel::new(
-            crate::domain::panel::HexPanelContent::Matrix,
-        ),
-    );
+    let (single_state, _pane) = pane_grid::State::new(crate::domain::panel::HexPanel::new(
+        crate::domain::panel::HexPanelContent::Matrix,
+    ));
     let mut state = make_state(vec![0u8; 64]);
     state.panes = single_state;
     state.pane_focus = state.panes.iter().next().map(|(id, _)| *id).unwrap();
@@ -159,11 +160,7 @@ fn test_close_last_pane_is_noop() {
 
     send(&mut state, &config, HexEditorMessage::ClosePane);
 
-    assert_eq!(
-        state.panes.len(),
-        1,
-        "close of last pane should be a no-op"
-    );
+    assert_eq!(state.panes.len(), 1, "close of last pane should be a no-op");
 }
 
 #[test]
@@ -194,7 +191,10 @@ fn test_toggle_pattern_list_adds_pattern_pane() {
     let mut state = make_state(vec![0u8; 64]);
     let config = default_config();
     let has_pattern_before = state.panes.iter().any(|(_, p)| {
-        matches!(p.content, crate::domain::panel::HexPanelContent::PatternList)
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
     });
 
     assert!(
@@ -205,7 +205,10 @@ fn test_toggle_pattern_list_adds_pattern_pane() {
     send(&mut state, &config, HexEditorMessage::TogglePatternList);
 
     let has_pattern_after = state.panes.iter().any(|(_, p)| {
-        matches!(p.content, crate::domain::panel::HexPanelContent::PatternList)
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
     });
     assert!(
         has_pattern_after,
@@ -221,7 +224,10 @@ fn test_toggle_pattern_list_removes_pattern_pane() {
     // Add pattern list
     send(&mut state, &config, HexEditorMessage::TogglePatternList);
     let has_pattern = state.panes.iter().any(|(_, p)| {
-        matches!(p.content, crate::domain::panel::HexPanelContent::PatternList)
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
     });
     assert!(has_pattern);
 
@@ -229,7 +235,10 @@ fn test_toggle_pattern_list_removes_pattern_pane() {
     send(&mut state, &config, HexEditorMessage::TogglePatternList);
 
     let has_pattern_after = state.panes.iter().any(|(_, p)| {
-        matches!(p.content, crate::domain::panel::HexPanelContent::PatternList)
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
     });
     assert!(
         !has_pattern_after,
@@ -239,11 +248,9 @@ fn test_toggle_pattern_list_removes_pattern_pane() {
 
 #[test]
 fn test_toggle_pattern_list_when_single_pane_works() {
-    let (single_state, _pane) = pane_grid::State::new(
-        crate::domain::panel::HexPanel::new(
-            crate::domain::panel::HexPanelContent::Matrix,
-        ),
-    );
+    let (single_state, _pane) = pane_grid::State::new(crate::domain::panel::HexPanel::new(
+        crate::domain::panel::HexPanelContent::Matrix,
+    ));
     let mut state = make_state(vec![0u8; 64]);
     state.panes = single_state;
     state.pane_focus = state.panes.iter().next().map(|(id, _)| *id).unwrap();
@@ -254,7 +261,10 @@ fn test_toggle_pattern_list_when_single_pane_works() {
 
     assert_eq!(state.panes.len(), 2, "should split to add pattern list");
     let has_pattern = state.panes.iter().any(|(_, p)| {
-        matches!(p.content, crate::domain::panel::HexPanelContent::PatternList)
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::PatternList
+        )
     });
     assert!(has_pattern);
 }
@@ -336,11 +346,7 @@ fn test_pane_resized_updates_ratio() {
         HexEditorMessage::PaneResized(ResizeEvent { split, ratio: 0.75 }),
     );
 
-    assert_eq!(
-        state.panes.len(),
-        2,
-        "resize should not change pane count"
-    );
+    assert_eq!(state.panes.len(), 2, "resize should not change pane count");
 }
 
 #[test]
@@ -374,9 +380,12 @@ fn test_multiple_toggle_pattern_list_toggling() {
 
     // Default has no PatternList
     let has_pat = |st: &HexEditorState| -> bool {
-        st.panes
-            .iter()
-            .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::PatternList))
+        st.panes.iter().any(|(_, p)| {
+            matches!(
+                p.content,
+                crate::domain::panel::HexPanelContent::PatternList
+            )
+        })
     };
     assert!(!has_pat(&state));
 
@@ -428,7 +437,11 @@ fn test_split_close_split_sequence() {
     assert_eq!(state.panes.len(), 2);
 
     // Split → 3
-    send(&mut state, &config, HexEditorMessage::SplitPane(Axis::Vertical));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SplitPane(Axis::Vertical),
+    );
     assert_eq!(state.panes.len(), 3);
 
     // Close → 2

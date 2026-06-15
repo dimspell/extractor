@@ -220,10 +220,22 @@ pub fn nybble_color(b: u8) -> Color {
         0xFF => hex(0xd4cabd),
         _ => {
             let palette = [
-                hex(0x887c6f), hex(0x8a7f64), hex(0x7a8f5a), hex(0x6a8f4a),
-                hex(0x5a8f5a), hex(0x5a8f6a), hex(0x5e856f), hex(0x6f855e),
-                hex(0x8a7d54), hex(0xa77346), hex(0xbb644c), hex(0xc65c57),
-                hex(0xc35e68), hex(0xb26a74), hex(0xa0726d), hex(0x897c65),
+                hex(0x887c6f),
+                hex(0x8a7f64),
+                hex(0x7a8f5a),
+                hex(0x6a8f4a),
+                hex(0x5a8f5a),
+                hex(0x5a8f6a),
+                hex(0x5e856f),
+                hex(0x6f855e),
+                hex(0x8a7d54),
+                hex(0xa77346),
+                hex(0xbb644c),
+                hex(0xc65c57),
+                hex(0xc35e68),
+                hex(0xb26a74),
+                hex(0xa0726d),
+                hex(0x897c65),
             ];
             palette[(b >> 4) as usize]
         }
@@ -236,12 +248,12 @@ pub fn nybble_color(b: u8) -> Color {
 /// (CR ≥ 3.0 for the intentionally dim NULL entry).
 pub fn category_color(b: u8) -> Color {
     match b {
-        0x00        => DEFAULT_NULL_DIM,          // NULL, intentionally dim
-        0x09..=0x0D => hex(0x618950),              // whitespace (tab, nl, cr)
-        0x20..=0x7E => hex(0xb8a898),              // printable ASCII
-        0x7F        => hex(0x967962),              // DEL
-        _ if b < 0x20 => hex(0x967962),            // other control chars
-        _           => hex(0xa26f8f),              // non-ASCII (0x80..0xFF)
+        0x00 => DEFAULT_NULL_DIM,       // NULL, intentionally dim
+        0x09..=0x0D => hex(0x618950),   // whitespace (tab, nl, cr)
+        0x20..=0x7E => hex(0xb8a898),   // printable ASCII
+        0x7F => hex(0x967962),          // DEL
+        _ if b < 0x20 => hex(0x967962), // other control chars
+        _ => hex(0xa26f8f),             // non-ASCII (0x80..0xFF)
     }
 }
 
@@ -288,14 +300,21 @@ pub fn scheme_color(scheme: ColorScheme, b: u8) -> Color {
 ///
 /// This is the single source of truth for the provider chain so the matrix
 /// widget and the settings-modal palette preview stay in sync.
-pub fn default_byte_colors(scheme: ColorScheme, byte: u8, dim_nulls: bool) -> (Option<Color>, Option<Color>) {
+pub fn default_byte_colors(
+    scheme: ColorScheme,
+    byte: u8,
+    dim_nulls: bool,
+) -> (Option<Color>, Option<Color>) {
     let scheme_prov = SchemeProvider { scheme };
     let dim_prov = DimNullsProvider {
         enabled: dim_nulls,
         null_color: DEFAULT_NULL_DIM,
     };
     fold_color(
-        [&scheme_prov as &dyn CellColorProvider, &dim_prov as &dyn CellColorProvider],
+        [
+            &scheme_prov as &dyn CellColorProvider,
+            &dim_prov as &dyn CellColorProvider,
+        ],
         0,
         byte,
     )
@@ -412,7 +431,10 @@ mod tests {
             }
         }
         let (fg, bg) = fold_color(
-            [&PartialFg as &dyn CellColorProvider, &PartialBg as &dyn CellColorProvider],
+            [
+                &PartialFg as &dyn CellColorProvider,
+                &PartialBg as &dyn CellColorProvider,
+            ],
             0,
             0,
         );
@@ -527,12 +549,14 @@ mod tests {
         for &b in &checkpoints {
             let expected = category_color(b);
             let actual = p.color(0, b).0.unwrap();
-            let same =
-                (actual.r - expected.r).abs() < 0.001
-                    && (actual.g - expected.g).abs() < 0.001
-                    && (actual.b - expected.b).abs() < 0.001;
-            assert!(same, "byte 0x{b:02X}: got ({:.4},{:.4},{:.4}) expected ({:.4},{:.4},{:.4})",
-                    actual.r, actual.g, actual.b, expected.r, expected.g, expected.b);
+            let same = (actual.r - expected.r).abs() < 0.001
+                && (actual.g - expected.g).abs() < 0.001
+                && (actual.b - expected.b).abs() < 0.001;
+            assert!(
+                same,
+                "byte 0x{b:02X}: got ({:.4},{:.4},{:.4}) expected ({:.4},{:.4},{:.4})",
+                actual.r, actual.g, actual.b, expected.r, expected.g, expected.b
+            );
         }
     }
 
@@ -544,10 +568,9 @@ mod tests {
         for b in [0x00, 0x01, 0x40, 0x80, 0xBF, 0xCC, 0xFF] {
             let expected = rainbow_color(b);
             let actual = p.color(0, b).0.unwrap();
-            let same =
-                (actual.r - expected.r).abs() < 0.001
-                    && (actual.g - expected.g).abs() < 0.001
-                    && (actual.b - expected.b).abs() < 0.001;
+            let same = (actual.r - expected.r).abs() < 0.001
+                && (actual.g - expected.g).abs() < 0.001
+                && (actual.b - expected.b).abs() < 0.001;
             assert!(same, "byte 0x{b:02X}: rainbow mismatch");
         }
     }
@@ -572,7 +595,11 @@ mod tests {
             null_color: red(),
         };
         for b in [0x01, 0x20, 0x7F, 0xFF] {
-            assert_eq!(p.color(0, b), (None, None), "byte 0x{b:02X} should not be dimmed");
+            assert_eq!(
+                p.color(0, b),
+                (None, None),
+                "byte 0x{b:02X} should not be dimmed"
+            );
         }
     }
 
@@ -756,10 +783,9 @@ mod tests {
     fn rainbow_0x00_and_0xff_distinct() {
         let c0 = rainbow_color(0x00);
         let cff = rainbow_color(0xFF);
-        let same =
-            (c0.r - cff.r).abs() < 0.01
-                && (c0.g - cff.g).abs() < 0.01
-                && (c0.b - cff.b).abs() < 0.01;
+        let same = (c0.r - cff.r).abs() < 0.01
+            && (c0.g - cff.g).abs() < 0.01
+            && (c0.b - cff.b).abs() < 0.01;
         assert!(!same, "rainbow 0x00 and 0xFF should be different colours");
     }
 
@@ -826,12 +852,18 @@ mod tests {
         let white = Color::from_rgb(1.0, 1.0, 1.0);
         // WCAG: black-on-white = 21:1
         let cr = contrast_ratio(&black, &white);
-        assert!((cr - 21.0).abs() < 0.5, "black/white CR={cr:.1} (expected ~21)");
+        assert!(
+            (cr - 21.0).abs() < 0.5,
+            "black/white CR={cr:.1} (expected ~21)"
+        );
 
         // Identity: same colour → 1:1
         let gray = Color::from_rgb(0.5, 0.5, 0.5);
         let cr_id = contrast_ratio(&gray, &gray);
-        assert!((cr_id - 1.0).abs() < 0.01, "same colour CR={cr_id:.2} (expected 1.0)");
+        assert!(
+            (cr_id - 1.0).abs() < 0.01,
+            "same colour CR={cr_id:.2} (expected 1.0)"
+        );
 
         // MATRIX_BG relative luminance should be very low but non-zero.
         let bg_lum = relative_luminance(&MATRIX_BG);

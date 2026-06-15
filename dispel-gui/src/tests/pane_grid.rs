@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod pane_grid_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::workspace::WorkspaceMessage;
+    use crate::message::Message;
     use crate::workspace::Workspace;
 
     #[test]
@@ -62,11 +62,7 @@ mod pane_grid_tests {
         // Hide history panel
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel));
         assert!(!app.history_panel_visible);
-        assert_eq!(
-            app.state.pane_state.state.len(),
-            2,
-            "back to two panes"
-        );
+        assert_eq!(app.state.pane_state.state.len(), 2, "back to two panes");
     }
 
     #[test]
@@ -129,10 +125,11 @@ mod pane_grid_tests {
             .map(|(id, _)| *id)
             .expect("at least two panes in default layout");
 
-        let _ = app.update(Message::Workspace(WorkspaceMessage::PaneClicked(other_pane)));
-        assert_eq!(
-            app.state.pane_state.focus,
+        let _ = app.update(Message::Workspace(WorkspaceMessage::PaneClicked(
             other_pane,
+        )));
+        assert_eq!(
+            app.state.pane_state.focus, other_pane,
             "focus changed to clicked pane"
         );
     }
@@ -142,7 +139,11 @@ mod pane_grid_tests {
         let mut app = App::test_new(Workspace::new());
 
         // Get the sidebar split from the default layout
-        let split = app.state.pane_state.sidebar_split.expect("has sidebar split");
+        let split = app
+            .state
+            .pane_state
+            .sidebar_split
+            .expect("has sidebar split");
 
         use iced::widget::pane_grid::ResizeEvent;
         let event = ResizeEvent { split, ratio: 0.3 };

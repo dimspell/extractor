@@ -5,8 +5,8 @@ use super::geometry::{is_visible, tile_center, tile_to_screen};
 use super::input::MapCanvas;
 use super::state::MapCanvasState;
 use super::{TILE_H, TILE_W};
-use crate::editors::map_editor::state::MapEditorState;
 use crate::editors::map_editor::canvas::hit_test::npc_pos;
+use crate::editors::map_editor::state::MapEditorState;
 use crate::message::Message;
 use iced::advanced::image::Image as CoreImage;
 use iced::widget::canvas::{self, Action, Geometry};
@@ -127,11 +127,10 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                     //   (-X+Y)*16 + mapPixelHeight/2 - mapNonOccludedStartY + 16
                     //   = convert_y(X,Y,diagonal) + 32 - noy
                     let entity_pos = |tx: i32, ty: i32| -> i32 {
-                        let img_y =
-                            dispel_core::map::types::convert_map_coords_to_image_coords(
-                                tx, ty, diagonal,
-                            )
-                            .1;
+                        let img_y = dispel_core::map::types::convert_map_coords_to_image_coords(
+                            tx, ty, diagonal,
+                        )
+                        .1;
                         img_y + 32 - noy
                     };
 
@@ -155,12 +154,7 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
 
                     if self.state.view.show_objects {
                         for (i, e) in self.state.data.extra_refs.iter().enumerate() {
-                            items.push((
-                                entity_pos(e.x_pos, e.y_pos),
-                                2,
-                                e.x_pos,
-                                Item::Extra(i),
-                            ));
+                            items.push((entity_pos(e.x_pos, e.y_pos), 2, e.x_pos, Item::Extra(i)));
                         }
                     }
 
@@ -179,8 +173,7 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                         continue;
                                     }
                                     let handle_id = btl_id.unsigned_abs() as i32;
-                                    let Some(handle) =
-                                        self.state.data.btl_handles.get(&handle_id)
+                                    let Some(handle) = self.state.data.btl_handles.get(&handle_id)
                                     else {
                                         continue;
                                     };
@@ -190,10 +183,7 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                         continue;
                                     }
                                     frame.draw_image(
-                                        Rectangle::new(
-                                            Point::new(px, py),
-                                            Size::new(w, h),
-                                        ),
+                                        Rectangle::new(Point::new(px, py), Size::new(w, h)),
                                         CoreImage::new(handle.clone()),
                                     );
                                 }
@@ -206,10 +196,7 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                 let sh = spr.height as f32 * zoom;
                                 if is_visible(sx, sy, sw, sh, bounds) {
                                     frame.draw_image(
-                                        Rectangle::new(
-                                            Point::new(sx, sy),
-                                            Size::new(sw, sh),
-                                        ),
+                                        Rectangle::new(Point::new(sx, sy), Size::new(sw, sh)),
                                         CoreImage::new(spr.handle.clone()),
                                     );
                                 }
@@ -226,16 +213,9 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                 );
                                 if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                     let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                    if let Some(Some(spr)) =
-                                        self.state.data.monster_sprites.get(*i)
+                                    if let Some(Some(spr)) = self.state.data.monster_sprites.get(*i)
                                     {
-                                        draw_entity_sprite(
-                                            frame,
-                                            spr,
-                                            tile_cx,
-                                            tile_cy,
-                                            zoom,
-                                        );
+                                        draw_entity_sprite(frame, spr, tile_cx, tile_cy, zoom);
                                     } else {
                                         let r = 4.0 * zoom;
                                         frame.fill(
@@ -248,28 +228,15 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                             Item::Npc(i) => {
                                 let npc = &self.state.data.npcs[*i];
                                 let (nx, ny) = npc_pos(npc);
-                                let (px, py) = tile_to_screen(
-                                    nx, ny, diagonal, pan_x, pan_y, zoom,
-                                );
+                                let (px, py) = tile_to_screen(nx, ny, diagonal, pan_x, pan_y, zoom);
                                 if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                     let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                    if let Some(Some(spr)) =
-                                        self.state.data.npc_sprites.get(*i)
-                                    {
-                                        draw_entity_sprite(
-                                            frame,
-                                            spr,
-                                            tile_cx,
-                                            tile_cy,
-                                            zoom,
-                                        );
+                                    if let Some(Some(spr)) = self.state.data.npc_sprites.get(*i) {
+                                        draw_entity_sprite(frame, spr, tile_cx, tile_cy, zoom);
                                     } else {
                                         let r = 3.5 * zoom;
                                         frame.fill(
-                                            &canvas::Path::circle(
-                                                Point::new(tile_cx, tile_cy),
-                                                r,
-                                            ),
+                                            &canvas::Path::circle(Point::new(tile_cx, tile_cy), r),
                                             Color::from_rgba(0.15, 0.45, 0.9, 0.85),
                                         );
                                     }
@@ -287,23 +254,12 @@ impl<'a> canvas::Program<Message> for MapCanvasTilesLayer<'a> {
                                 );
                                 if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                     let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                    if let Some(Some(spr)) =
-                                        self.state.data.extra_sprites.get(*i)
-                                    {
-                                        draw_entity_sprite(
-                                            frame,
-                                            spr,
-                                            tile_cx,
-                                            tile_cy,
-                                            zoom,
-                                        );
+                                    if let Some(Some(spr)) = self.state.data.extra_sprites.get(*i) {
+                                        draw_entity_sprite(frame, spr, tile_cx, tile_cy, zoom);
                                     } else {
                                         let s = 5.0 * zoom;
                                         frame.fill_rectangle(
-                                            Point::new(
-                                                tile_cx - s * 0.5,
-                                                tile_cy - s * 0.5,
-                                            ),
+                                            Point::new(tile_cx - s * 0.5, tile_cy - s * 0.5),
                                             Size::new(s, s),
                                             Color::from_rgba(0.95, 0.85, 0.1, 0.85),
                                         );

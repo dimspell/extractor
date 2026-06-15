@@ -4,11 +4,7 @@ use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
 use iced::Task;
 
-pub fn show_preview(
-    app: &mut App,
-    tab_id: usize,
-    npc_idx: usize,
-) -> Task<Message> {
+pub fn show_preview(app: &mut App, tab_id: usize, npc_idx: usize) -> Task<Message> {
     let state = match app.state.editors.map_editors.get(&tab_id) {
         Some(s) => s,
         None => return Task::none(),
@@ -49,18 +45,14 @@ pub fn show_preview(
                 .as_deref()
                 .ok_or_else(|| "No .pgp for this map".to_string())?;
 
-            let scripts =
-                DialogueScript::read_file(&gp.join("NpcInGame").join(dlg_name))
-                    .map_err(|e| format!("{dlg_name}: {e}"))?;
-            let paragraphs =
-                DialogueParagraph::read_file(&gp.join("NpcInGame").join(pgp_name))
-                    .map_err(|e| format!("{pgp_name}: {e}"))?;
+            let scripts = DialogueScript::read_file(&gp.join("NpcInGame").join(dlg_name))
+                .map_err(|e| format!("{dlg_name}: {e}"))?;
+            let paragraphs = DialogueParagraph::read_file(&gp.join("NpcInGame").join(pgp_name))
+                .map_err(|e| format!("{pgp_name}: {e}"))?;
 
             Ok((npc_idx, scripts, paragraphs))
         },
-        move |result| {
-            Message::map_editor(MapEditorMessage::DialogPreviewLoaded(tab_id, result))
-        },
+        move |result| Message::map_editor(MapEditorMessage::DialogPreviewLoaded(tab_id, result)),
     )
 }
 
@@ -83,9 +75,7 @@ pub fn preview_loaded(
                 // a different NPC (or a non-NPC entity) between the time
                 // `show_preview` started and now, discard the result instead
                 // of showing a preview for the wrong NPC.
-                let still_selected = state
-                    .view
-                    .selected_entity
+                let still_selected = state.view.selected_entity
                     == Some(crate::editors::map_editor::SelectedEntity::Npc(npc_idx));
                 if still_selected {
                     state.view.dialog_preview = Some(DialogPreviewState {

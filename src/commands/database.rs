@@ -61,7 +61,9 @@ impl Command for DatabaseCommand {
                 with_connection(db_path, |conn| import_rest(Path::new(game_path), conn))?;
             }
             DatabaseCommands::Sprites { game_path, db_path } => {
-                with_connection(db_path, |conn| import_sprite_files(Path::new(game_path), conn))?;
+                with_connection(db_path, |conn| {
+                    import_sprite_files(Path::new(game_path), conn)
+                })?;
             }
         }
         Ok(())
@@ -153,9 +155,12 @@ fn import_maps(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                         let mut reader = std::io::BufReader::new(file);
                         match dispel_core::map::read_map_data(&mut reader) {
                             Ok(map_data) => {
-                                if let Err(e) =
-                                    dispel_core::map::save_to_db(conn, map_id, &map_data, &mut reader)
-                                {
+                                if let Err(e) = dispel_core::map::save_to_db(
+                                    conn,
+                                    map_id,
+                                    &map_data,
+                                    &mut reader,
+                                ) {
                                     eprintln!(
                                         "WARNING: could not save map {} to database: {}",
                                         map_id, e
@@ -468,8 +473,8 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
 }
 
 fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Error>> {
-    use std::io::{Seek, SeekFrom};
     use image::ImageEncoder;
+    use std::io::{Seek, SeekFrom};
 
     // Ensure the schema exists (idempotent — uses CREATE TABLE IF NOT EXISTS)
     initialize_database(conn)?;
@@ -498,21 +503,23 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
             .replace('\\', "/");
 
         // 1. Upsert sprite_files entry and get its integer ID
-        if conn.execute(file_insert_sql, rusqlite::params![&normalized]).is_err() {
+        if conn
+            .execute(file_insert_sql, rusqlite::params![&normalized])
+            .is_err()
+        {
             errors += 1;
             return Ok(());
         }
-        let sprite_file_id: i64 = match conn.query_row(
-            id_query_sql,
-            rusqlite::params![&normalized],
-            |row| row.get(0),
-        ) {
-            Ok(id) => id,
-            Err(_) => {
-                errors += 1;
-                return Ok(());
-            }
-        };
+        let sprite_file_id: i64 =
+            match conn.query_row(id_query_sql, rusqlite::params![&normalized], |row| {
+                row.get(0)
+            }) {
+                Ok(id) => id,
+                Err(_) => {
+                    errors += 1;
+                    return Ok(());
+                }
+            };
 
         // 2. Prepare frame + sequence statements (per-file to avoid
         //    borrow conflicts with conn inside the loop body)
@@ -585,8 +592,7 @@ fn import_sprite_files(main_path: &Path, conn: &mut Connection) -> Result<(), Bo
                         let mut png_data = Vec::new();
                         {
                             let mut cursor = std::io::Cursor::new(&mut png_data);
-                            let encoder =
-                                image::codecs::png::PngEncoder::new(&mut cursor);
+                            let encoder = image::codecs::png::PngEncoder::new(&mut cursor);
                             if encoder
                                 .write_image(
                                     img.as_raw(),

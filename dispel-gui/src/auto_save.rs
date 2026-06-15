@@ -65,8 +65,7 @@ impl DraftManager {
         }
         let data = serde_json::to_vec_pretty(self)
             .map_err(|e| format!("Failed to serialize drafts: {}", e))?;
-        fs::write(path, data)
-            .map_err(|e| format!("Failed to write drafts to disk: {}", e))?;
+        fs::write(path, data).map_err(|e| format!("Failed to write drafts to disk: {}", e))?;
         Ok(())
     }
 

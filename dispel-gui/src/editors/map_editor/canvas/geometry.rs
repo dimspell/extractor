@@ -5,8 +5,7 @@ use iced::Rectangle;
 
 /// World pixel centre of an isometric tile.
 pub fn tile_world_center(tx: i32, ty: i32, diagonal: i32) -> (f32, f32) {
-    let (px, py) =
-        dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal);
+    let (px, py) = dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal);
     (px as f32 + TILE_W * 0.5, py as f32 + TILE_H * 0.5)
 }
 
@@ -42,8 +41,7 @@ pub fn tile_to_screen(
     pan_y: f32,
     zoom: f32,
 ) -> (f32, f32) {
-    let (px, py) =
-        dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal);
+    let (px, py) = dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal);
     (px as f32 * zoom + pan_x, py as f32 * zoom + pan_y)
 }
 

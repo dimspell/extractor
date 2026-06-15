@@ -42,8 +42,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.monster_editor.filtered[0].1.name,
-            "NewMonster",
+            app.state.editors.monster_editor.filtered[0].1.name, "NewMonster",
             "Monster name updated via FieldChanged"
         );
     }
@@ -67,8 +66,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.monster_editor.filtered[0].1.name,
-            "",
+            app.state.editors.monster_editor.filtered[0].1.name, "",
             "OOB FieldChanged is a no-op"
         );
     }
@@ -131,8 +129,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.magic_editor.state.filtered[0].1.mana_cost,
-            99,
+            app.state.editors.magic_editor.state.filtered[0].1.mana_cost, 99,
             "MagicSpell mana_cost updated"
         );
     }
@@ -162,8 +159,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.quest_scr_editor.state.filtered[0].1.title,
-            "New Quest",
+            app.state.editors.quest_scr_editor.state.filtered[0].1.title, "New Quest",
             "Quest title updated"
         );
     }
@@ -193,7 +189,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.quest_scr_editor.state.filtered[0].1.description,
+            app.state.editors.quest_scr_editor.state.filtered[0]
+                .1
+                .description,
             "Long description",
             "Description (plain String) updated"
         );
@@ -224,8 +222,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.heal_item_editor.filtered[0].1.name,
-            "NewHeal",
+            app.state.editors.heal_item_editor.filtered[0].1.name, "NewHeal",
             "HealItem name updated"
         );
     }
@@ -255,8 +252,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.misc_item_editor.filtered[0].1.name,
-            "NewMisc",
+            app.state.editors.misc_item_editor.filtered[0].1.name, "NewMisc",
             "MiscItem name updated"
         );
     }
@@ -286,8 +282,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.event_item_editor.filtered[0].1.name,
-            "NewEvent",
+            app.state.editors.event_item_editor.filtered[0].1.name, "NewEvent",
             "EventItem name updated"
         );
     }
@@ -317,8 +312,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.edit_item_editor.filtered[0].1.name,
-            "NewEdit",
+            app.state.editors.edit_item_editor.filtered[0].1.name, "NewEdit",
             "EditItem name updated"
         );
     }
@@ -348,7 +342,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.event_ini_editor.state.filtered[0].1.event_id,
+            app.state.editors.event_ini_editor.state.filtered[0]
+                .1
+                .event_id,
             42,
             "Event event_id updated"
         );
@@ -379,8 +375,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.extra_ini_editor.state.filtered[0].1.id,
-            99,
+            app.state.editors.extra_ini_editor.state.filtered[0].1.id, 99,
             "Extra id updated"
         );
     }
@@ -410,8 +405,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.map_ini_editor.state.filtered[0].1.id,
-            42,
+            app.state.editors.map_ini_editor.state.filtered[0].1.id, 42,
             "MapIni id updated"
         );
     }
@@ -441,7 +435,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.message_scr_editor.state.filtered[0].1.line1,
+            app.state.editors.message_scr_editor.state.filtered[0]
+                .1
+                .line1,
             Some("new text".to_string()),
             "Message line1 updated"
         );
@@ -472,8 +468,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.party_ref_editor.filtered[0].1.npc_id,
-            42,
+            app.state.editors.party_ref_editor.filtered[0].1.npc_id, 42,
             "PartyRef npc_id updated"
         );
     }
@@ -503,8 +498,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.party_ini_editor.state.filtered[0].1.name,
-            "NewName",
+            app.state.editors.party_ini_editor.state.filtered[0].1.name, "NewName",
             "PartyIniNpc name updated"
         );
     }
@@ -534,7 +528,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.all_map_ini_editor.state.filtered[0].1.map_name,
+            app.state.editors.all_map_ini_editor.state.filtered[0]
+                .1
+                .map_name,
             "New Map",
             "AllMapIni map_name updated"
         );
@@ -565,8 +561,7 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.npc_ini_editor.state.filtered[0].1.id,
-            42,
+            app.state.editors.npc_ini_editor.state.filtered[0].1.id, 42,
             "NpcIni id updated"
         );
     }
@@ -596,7 +591,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.chdata_editor.state.filtered[0].1.warrior_strength,
+            app.state.editors.chdata_editor.state.filtered[0]
+                .1
+                .warrior_strength,
             99,
             "ChData warrior_strength updated"
         );
@@ -627,7 +624,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.draw_item_editor.state.filtered[0].1.map_id,
+            app.state.editors.draw_item_editor.state.filtered[0]
+                .1
+                .map_id,
             42,
             "DrawItem map_id updated"
         );
@@ -656,7 +655,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.draw_item_editor.state.filtered[0].1.map_id,
+            app.state.editors.draw_item_editor.state.filtered[0]
+                .1
+                .map_id,
             1,
             "OOB DrawItem FieldChanged is a no-op"
         );
@@ -687,7 +688,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.event_npc_ref_editor.state.filtered[0].1.name,
+            app.state.editors.event_npc_ref_editor.state.filtered[0]
+                .1
+                .name,
             "NewName",
             "EventNpcRef name updated"
         );
@@ -716,7 +719,9 @@ mod standard_editors {
         );
 
         assert_eq!(
-            app.state.editors.event_npc_ref_editor.state.filtered[0].1.name,
+            app.state.editors.event_npc_ref_editor.state.filtered[0]
+                .1
+                .name,
             "OldName",
             "OOB EventNpcRef FieldChanged is a no-op"
         );
@@ -751,7 +756,9 @@ mod custom_editors {
         );
 
         assert_eq!(
-            app.state.editors.store_editor.filtered_stores[0].1.store_name,
+            app.state.editors.store_editor.filtered_stores[0]
+                .1
+                .store_name,
             "New Shop",
             "Store store_name updated"
         );

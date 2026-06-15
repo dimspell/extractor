@@ -13,11 +13,5 @@ fn fixture_store_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Store::read_file,
-        Store::save_file,
-        fixture,
-        "Store",
-    )
-    .unwrap();
+    round_trip_from_fixture(Store::read_file, Store::save_file, fixture, "Store").unwrap();
 }

@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-use iced::widget::pane_grid;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
+use iced::widget::pane_grid;
 
 use super::domain::export_config::ExportConfig;
 use super::domain::panel::{default_pane_grid, HexPanel};
@@ -43,7 +43,7 @@ pub struct HexEditorState {
     /// not persisted to disk.
     pub patterns: Vec<Pattern>,
     /// Fast address → pattern_id lookup, rebuilt after every mutation.
-    pub     pattern_by_addr: BTreeMap<u64, (usize, u8)>,
+    pub pattern_by_addr: BTreeMap<u64, (usize, u8)>,
     /// Whether the pattern-list panel is visible.
     pub show_pattern_list: bool,
     /// Monotonically increasing id counter for new patterns.
@@ -237,7 +237,9 @@ impl HexEditorState {
         self.row_annotations.clear();
         let bpr = self.bytes_per_row.max(1) as u64;
         for pat in &self.patterns {
-            let Some(ref ann) = pat.annotation else { continue };
+            let Some(ref ann) = pat.annotation else {
+                continue;
+            };
             if ann.is_empty() {
                 continue;
             }

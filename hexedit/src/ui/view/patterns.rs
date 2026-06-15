@@ -63,11 +63,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     }
 
     // ── Compute sorted visible rows ─────────────────────────────────────
-    let rows = compute_pattern_rows(
-        &editor.patterns,
-        &editor.groups,
-        &editor.collapsed_groups,
-    );
+    let rows = compute_pattern_rows(&editor.patterns, &editor.groups, &editor.collapsed_groups);
 
     let mut col = column![].spacing(2).padding([2, 12]);
 
@@ -122,10 +118,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
 /// Renders a group section header: toggle + swatch + label + count + remove.
 /// The `label` parameter is unused (the group's actual label is fetched from
 /// `editor.groups`) — it only serves as a signal that a group starts here.
-fn group_header_row<'a>(
-    gid: usize,
-    editor: &'a HexEditorState,
-) -> Element<'a, HexEditorMessage> {
+fn group_header_row<'a>(gid: usize, editor: &'a HexEditorState) -> Element<'a, HexEditorMessage> {
     let group = editor.groups.iter().find(|g| g.id == gid);
     let grp = match group {
         Some(g) => g,
@@ -156,26 +149,25 @@ fn group_header_row<'a>(
     let toggle = text(toggle_char).size(9).font(Font::MONOSPACE);
 
     // ── Rename UI ────────────────────────────────────────────────────────
-    let label_elem: Element<'a, HexEditorMessage> =
-        if editor.renaming_group == Some(grp.id) {
-            text_input("Group name", &editor.renaming_group_draft)
-                .id(iced::widget::Id::from(format!(
-                    "hex-rename-group-input-{}",
-                    grp.id
-                )))
-                .on_input(HexEditorMessage::SetRenameGroupDraft)
-                .on_submit(HexEditorMessage::CommitRenameGroup)
-                .size(10)
-                .padding([1, 4])
-                .width(Length::Fixed(140.0))
-                .into()
-        } else {
-            button(text(&grp.label).size(10).font(Font::MONOSPACE))
-                .on_press(HexEditorMessage::BeginRenameGroup(grp.id))
-                .padding(0)
-                .style(button::text)
-                .into()
-        };
+    let label_elem: Element<'a, HexEditorMessage> = if editor.renaming_group == Some(grp.id) {
+        text_input("Group name", &editor.renaming_group_draft)
+            .id(iced::widget::Id::from(format!(
+                "hex-rename-group-input-{}",
+                grp.id
+            )))
+            .on_input(HexEditorMessage::SetRenameGroupDraft)
+            .on_submit(HexEditorMessage::CommitRenameGroup)
+            .size(10)
+            .padding([1, 4])
+            .width(Length::Fixed(140.0))
+            .into()
+    } else {
+        button(text(&grp.label).size(10).font(Font::MONOSPACE))
+            .on_press(HexEditorMessage::BeginRenameGroup(grp.id))
+            .padding(0)
+            .style(button::text)
+            .into()
+    };
 
     // Count patterns belonging to this group (including collapsed)
     let pattern_count = editor
@@ -278,8 +270,7 @@ fn pattern_row<'a>(
 
     // ── Size ─────────────────────────────────────────────────────────────
     let size_str = format_size(pattern.len());
-    let size = container(text(size_str).size(10).font(Font::MONOSPACE))
-        .width(Length::Fixed(50.0));
+    let size = container(text(size_str).size(10).font(Font::MONOSPACE)).width(Length::Fixed(50.0));
 
     // ── Remove button ────────────────────────────────────────────────────
     let remove_btn = button(text("✕").size(9).font(Font::MONOSPACE))
@@ -305,13 +296,9 @@ fn pattern_row<'a>(
     .style(button::text);
 
     // ── Assemble metadata row (sibling buttons, no nesting) ──────────────
-    let metadata = row![
-        swatch_btn,
-        nav_btn,
-        remove_btn,
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center);
+    let metadata = row![swatch_btn, nav_btn, remove_btn,]
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
 
     // ── Assemble row ─────────────────────────────────────────────────────
     let row = row![glyph, metadata, ann_input]

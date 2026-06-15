@@ -13,11 +13,5 @@ fn fixture_allmap_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Map::read_file,
-        Map::save_file,
-        fixture,
-        "AllMap",
-    )
-    .unwrap();
+    round_trip_from_fixture(Map::read_file, Map::save_file, fixture, "AllMap").unwrap();
 }

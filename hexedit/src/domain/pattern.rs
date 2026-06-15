@@ -61,7 +61,11 @@ pub struct RepeatedPatternGroup {
 
 impl RepeatedPatternGroup {
     pub fn new(id: usize, label: String, color_idx: u8) -> Self {
-        Self { id, label, color_idx }
+        Self {
+            id,
+            label,
+            color_idx,
+        }
     }
 }
 

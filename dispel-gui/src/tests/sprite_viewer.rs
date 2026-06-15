@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod sprite_viewer_tests {
     use crate::app::App;
-    use crate::editors::sprite_browser::{
-        SpriteFrame, SpriteViewerMessage, SpriteViewerState,
-    };
+    use crate::editors::sprite_browser::{SpriteFrame, SpriteViewerMessage, SpriteViewerState};
     use crate::workspace::{EditorType, Workspace, WorkspaceTab};
     use std::path::PathBuf;
 
@@ -98,29 +96,18 @@ mod sprite_viewer_tests {
             &mut app,
         );
         assert_eq!(task.units(), 0);
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_sequence,
-            1
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_sequence, 1);
         // Frame resets to 0 when sequence changes
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_frame,
-            0
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 0);
     }
 
     #[test]
     fn test_sprite_viewer_select_frame() {
         let mut app = app_with_sprite_viewer_frames();
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::SelectFrame(5),
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::SelectFrame(5), &mut app);
         assert_eq!(task.units(), 0);
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_frame,
-            5
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 5);
     }
 
     // ── Playback ─────────────────────────────────────────────────────────────
@@ -130,17 +117,11 @@ mod sprite_viewer_tests {
         let mut app = app_with_sprite_viewer();
         assert!(!app.state.editors.sprite_viewers[&0].is_playing);
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::Play,
-            &mut app,
-        );
+        let task = crate::editors::sprite_browser::handle(SpriteViewerMessage::Play, &mut app);
         assert_eq!(task.units(), 0);
         assert!(app.state.editors.sprite_viewers[&0].is_playing);
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::Pause,
-            &mut app,
-        );
+        let task = crate::editors::sprite_browser::handle(SpriteViewerMessage::Pause, &mut app);
         assert_eq!(task.units(), 0);
         assert!(!app.state.editors.sprite_viewers[&0].is_playing);
     }
@@ -157,10 +138,7 @@ mod sprite_viewer_tests {
             viewer.ms_accumulated = 84.0;
         }
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::Tick,
-            &mut app,
-        );
+        let task = crate::editors::sprite_browser::handle(SpriteViewerMessage::Tick, &mut app);
         assert_eq!(task.units(), 0);
 
         let viewer = app.state.editors.sprite_viewers.get(&0).unwrap();
@@ -179,10 +157,8 @@ mod sprite_viewer_tests {
         let mut app = app_with_sprite_viewer();
         assert!(app.state.editors.sprite_viewers[&0].is_looping);
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::ToggleLoop,
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::ToggleLoop, &mut app);
         assert_eq!(task.units(), 0);
         assert!(!app.state.editors.sprite_viewers[&0].is_looping);
     }
@@ -192,10 +168,8 @@ mod sprite_viewer_tests {
         let mut app = app_with_sprite_viewer();
         assert_eq!(app.state.editors.sprite_viewers[&0].speed_100x, 100);
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::SetSpeed(200),
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::SetSpeed(200), &mut app);
         assert_eq!(task.units(), 0);
         assert_eq!(app.state.editors.sprite_viewers[&0].speed_100x, 200);
     }
@@ -205,15 +179,10 @@ mod sprite_viewer_tests {
         let mut app = app_with_sprite_viewer_frames();
         assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 0);
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::StepForward,
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::StepForward, &mut app);
         assert_eq!(task.units(), 0);
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_frame,
-            1
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 1);
         assert!(
             !app.state.editors.sprite_viewers[&0].is_playing,
             "StepForward pauses playback"
@@ -229,15 +198,9 @@ mod sprite_viewer_tests {
             viewer.selected_frame = 5;
         }
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::StepBack,
-            &mut app,
-        );
+        let task = crate::editors::sprite_browser::handle(SpriteViewerMessage::StepBack, &mut app);
         assert_eq!(task.units(), 0);
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_frame,
-            4
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 4);
         assert!(
             !app.state.editors.sprite_viewers[&0].is_playing,
             "StepBack pauses playback"
@@ -253,15 +216,10 @@ mod sprite_viewer_tests {
             viewer.is_playing = true;
         }
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::ScrubTo(3),
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::ScrubTo(3), &mut app);
         assert_eq!(task.units(), 0);
-        assert_eq!(
-            app.state.editors.sprite_viewers[&0].selected_frame,
-            3
-        );
+        assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 3);
         assert!(
             !app.state.editors.sprite_viewers[&0].is_playing,
             "ScrubTo pauses playback"
@@ -273,19 +231,13 @@ mod sprite_viewer_tests {
     #[test]
     fn test_sprite_viewer_show_close_export_dialog() {
         let mut app = app_with_sprite_viewer();
-        assert!(app.state.editors.sprite_viewers[&0]
-            .export_dialog
-            .is_none());
+        assert!(app.state.editors.sprite_viewers[&0].export_dialog.is_none());
 
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::ShowExportDialog,
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_browser::handle(SpriteViewerMessage::ShowExportDialog, &mut app);
         assert_eq!(task.units(), 0);
         assert!(
-            app.state.editors.sprite_viewers[&0]
-                .export_dialog
-                .is_some(),
+            app.state.editors.sprite_viewers[&0].export_dialog.is_some(),
             "export dialog shown"
         );
 
@@ -295,9 +247,7 @@ mod sprite_viewer_tests {
         );
         assert_eq!(task.units(), 0);
         assert!(
-            app.state.editors.sprite_viewers[&0]
-                .export_dialog
-                .is_none(),
+            app.state.editors.sprite_viewers[&0].export_dialog.is_none(),
             "export dialog closed"
         );
     }
@@ -310,10 +260,7 @@ mod sprite_viewer_tests {
         // No active tab, no sprite viewers inserted
         // handle() calls active() which returns None → tab_id = usize::MAX
         // → sprite_viewers.get_mut(usize::MAX) returns None → Task::none()
-        let task = crate::editors::sprite_browser::handle(
-            SpriteViewerMessage::Play,
-            &mut app,
-        );
+        let task = crate::editors::sprite_browser::handle(SpriteViewerMessage::Play, &mut app);
         assert_eq!(task.units(), 0, "no-op with no active tab");
     }
 }

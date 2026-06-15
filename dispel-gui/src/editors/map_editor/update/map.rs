@@ -2,9 +2,8 @@ use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::map_editor::canvas::decode_tileset_file;
 use crate::editors::map_editor::{
-    DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle,
-    InternalSpriteHandle, MapDataHandle, MapEditorMessage, SpriteSequenceHandle,
-    TilePixelData,
+    DecodedEntitySprite, DecodedMapSprite, EntityBundle, EntitySpriteHandle, InternalSpriteHandle,
+    MapDataHandle, MapEditorMessage, SpriteSequenceHandle, TilePixelData,
 };
 use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
@@ -25,9 +24,7 @@ pub fn open(app: &mut App, tab_id: usize, path: PathBuf) -> Task<Message> {
     );
     // Ensure monster-name lookups are loaded for the `mon_id` field's
     // pick_list in the Monster inspector.
-    if !app.state.shared_game_path.is_empty()
-        && !app.state.lookups.contains_key("monster_names")
-    {
+    if !app.state.shared_game_path.is_empty() && !app.state.lookups.contains_key("monster_names") {
         if let Ok(monsters) = dispel_core::references::monster_ini::MonsterIni::read_file(
             &std::path::PathBuf::from(&app.state.shared_game_path).join("Monster.ini"),
         ) {
@@ -35,9 +32,7 @@ pub fn open(app: &mut App, tab_id: usize, path: PathBuf) -> Task<Message> {
                 .iter()
                 .map(|m| (m.id.to_string(), m.name.clone().unwrap_or_default()))
                 .collect();
-            app.state
-                .lookups
-                .insert("monster_names".to_string(), names);
+            app.state.lookups.insert("monster_names".to_string(), names);
         }
     }
 
@@ -93,9 +88,9 @@ pub fn map_loaded(
             for (i, sprite) in decoded_sprites.iter().enumerate() {
                 if let Some(block) = arc_data.sprite_blocks.get(i) {
                     let sid = block.sprite_id;
-                    seq_first.entry(sid).or_insert_with(|| {
-                        (sprite.width, sprite.height, sprite.pixels.clone())
-                    });
+                    seq_first
+                        .entry(sid)
+                        .or_insert_with(|| (sprite.width, sprite.height, sprite.pixels.clone()));
                     seq_placements
                         .entry(sid)
                         .or_default()
@@ -109,10 +104,7 @@ pub fn map_loaded(
                     handle: Handle::from_rgba(w, h, pixels),
                     width: w,
                     height: h,
-                    placement_count: seq_placements
-                        .get(&sid)
-                        .map(|v| v.len())
-                        .unwrap_or(0),
+                    placement_count: seq_placements.get(&sid).map(|v| v.len()).unwrap_or(0),
                     placements: seq_placements.remove(&sid).unwrap_or_default(),
                 })
                 .collect();
@@ -147,28 +139,26 @@ pub fn map_loaded(
 
             Task::perform(
                 async move {
-                    let gtl_ids: HashSet<i32> =
-                        arc_data.gtl_tiles.values().copied().collect();
+                    let gtl_ids: HashSet<i32> = arc_data.gtl_tiles.values().copied().collect();
                     let btl_ids: HashSet<i32> = arc_data
                         .btl_tiles
                         .values()
                         .copied()
-                        .chain(arc_data.tiled_infos.iter().flat_map(|t| {
-                            t.ids.iter().map(|&id| id.unsigned_abs() as i32)
-                        }))
+                        .chain(
+                            arc_data
+                                .tiled_infos
+                                .iter()
+                                .flat_map(|t| t.ids.iter().map(|&id| id.unsigned_abs() as i32)),
+                        )
                         .filter(|&id| id > 0)
                         .collect();
 
-                    let gtl =
-                        decode_tileset_file(&gtl_path, &gtl_ids).unwrap_or_default();
-                    let btl =
-                        decode_tileset_file(&btl_path, &btl_ids).unwrap_or_default();
+                    let gtl = decode_tileset_file(&gtl_path, &gtl_ids).unwrap_or_default();
+                    let btl = decode_tileset_file(&btl_path, &btl_ids).unwrap_or_default();
 
                     Ok(TilePixelData { gtl, btl })
                 },
-                move |result| {
-                    Message::map_editor(MapEditorMessage::TilesDecoded(tab_id, result))
-                },
+                move |result| Message::map_editor(MapEditorMessage::TilesDecoded(tab_id, result)),
             )
         }
         Err(e) => {
@@ -239,8 +229,7 @@ pub fn tiles_decoded(
     };
     let game_path = app.state.workspace.game_path.clone();
     if game_path.is_none() {
-        state.data.status_msg =
-            Some("No game path set — entity files not loaded".to_string());
+        state.data.status_msg = Some("No game path set — entity files not loaded".to_string());
     }
     Task::perform(
         async move { load_entities(&map_path, game_path) },
@@ -248,11 +237,7 @@ pub fn tiles_decoded(
     )
 }
 
-pub fn entities_loaded(
-    app: &mut App,
-    tab_id: usize,
-    bundle: EntityBundle,
-) -> Task<Message> {
+pub fn entities_loaded(app: &mut App, tab_id: usize, bundle: EntityBundle) -> Task<Message> {
     if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
         state.data.monsters = bundle.monsters;
         state.data.npcs = bundle.npcs;
@@ -454,18 +439,16 @@ pub fn load_entities(
             .into_iter()
             .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
             .collect();
-    let npc_id_to_sprite: HashMap<i32, String> =
-        NpcIni::read_file(&game_path.join("Npc.ini"))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
-            .collect();
-    let extra_id_to_sprite: HashMap<i32, String> =
-        Extra::read_file(&game_path.join("Extra.ini"))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
-            .collect();
+    let npc_id_to_sprite: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
+        .collect();
+    let extra_id_to_sprite: HashMap<i32, String> = Extra::read_file(&game_path.join("Extra.ini"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
+        .collect();
 
     // Frame cache: avoid re-reading the same sprite file.
     type FrameCache =
@@ -527,7 +510,10 @@ pub fn load_entities(
             let all_draw_items: Vec<dispel_core::DrawItem> =
                 dispel_core::DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
                     .unwrap_or_default();
-            all_draw_items.into_iter().filter(|d| d.map_id == id).collect()
+            all_draw_items
+                .into_iter()
+                .filter(|d| d.map_id == id)
+                .collect()
         }
         None => Vec::new(),
     };
@@ -636,7 +622,11 @@ mod tests {
 
     fn game_path() -> Option<std::path::PathBuf> {
         let p = Path::new("../fixtures/Dispel");
-        if p.exists() { Some(p.to_path_buf()) } else { None }
+        if p.exists() {
+            Some(p.to_path_buf())
+        } else {
+            None
+        }
     }
 
     // ── resolve_map_id ──────────────────────────────────────────────────────────
@@ -645,7 +635,10 @@ mod tests {
     fn test_resolve_map_id_found() {
         let gp = match game_path() {
             Some(p) => p,
-            None => { eprintln!("Skipping: fixtures not found"); return; }
+            None => {
+                eprintln!("Skipping: fixtures not found");
+                return;
+            }
         };
         assert_eq!(resolve_map_id("cat1", &gp), Some(3));
         assert_eq!(resolve_map_id("map1", &gp), Some(0));
@@ -657,7 +650,10 @@ mod tests {
     fn test_resolve_map_id_not_found() {
         let gp = match game_path() {
             Some(p) => p,
-            None => { eprintln!("Skipping: fixtures not found"); return; }
+            None => {
+                eprintln!("Skipping: fixtures not found");
+                return;
+            }
         };
         assert_eq!(resolve_map_id("nonexistent", &gp), None);
     }
@@ -674,7 +670,10 @@ mod tests {
     fn test_resolve_map_id_empty_stem() {
         let gp = match game_path() {
             Some(p) => p,
-            None => { eprintln!("Skipping: fixtures not found"); return; }
+            None => {
+                eprintln!("Skipping: fixtures not found");
+                return;
+            }
         };
         assert_eq!(resolve_map_id("", &gp), None);
     }
@@ -685,7 +684,10 @@ mod tests {
     fn test_load_entities_draw_items_and_map_id() {
         let gp = match game_path() {
             Some(p) => p,
-            None => { eprintln!("Skipping: fixtures not found"); return; }
+            None => {
+                eprintln!("Skipping: fixtures not found");
+                return;
+            }
         };
 
         // cat1 = Palace of Aesh: AllMap.ini id=3, has no draw items
@@ -726,21 +728,17 @@ mod tests {
     fn test_load_entities() {
         let gp = match game_path() {
             Some(p) => p,
-            None => { eprintln!("Skipping: fixtures not found"); return; }
+            None => {
+                eprintln!("Skipping: fixtures not found");
+                return;
+            }
         };
 
         // cat1 = Palace of Aesh: NPCs only (24), no monsters, no extras
-        let cat1_entities = load_entities(
-            &gp.join("Map/cat1.map"),
-            Some(gp.clone()),
-        );
+        let cat1_entities = load_entities(&gp.join("Map/cat1.map"), Some(gp.clone()));
         assert_eq!(cat1_entities.monsters.len(), 0, "cat1 has no monsters");
         assert_eq!(cat1_entities.npcs.len(), 24, "cat1 has 24 NPCs");
-        assert_eq!(
-            cat1_entities.extra_refs.len(),
-            0,
-            "cat1 has no extra refs"
-        );
+        assert_eq!(cat1_entities.extra_refs.len(), 0, "cat1 has no extra refs");
         assert_eq!(
             cat1_entities.npc_sprites.len(),
             24,
@@ -748,10 +746,7 @@ mod tests {
         );
 
         // map1 = Aesh overworld: monsters + NPCs + extras
-        let map1_entities = load_entities(
-            &gp.join("Map/map1.map"),
-            Some(gp),
-        );
+        let map1_entities = load_entities(&gp.join("Map/map1.map"), Some(gp));
         assert!(
             !map1_entities.monsters.is_empty(),
             "map1 should have monsters"

@@ -17,9 +17,15 @@ mod auto_save_tests {
     #[test]
     fn test_draft_manager_new_defaults() {
         let dm = DraftManager::new();
-        assert!(dm.is_auto_save_enabled(), "auto_save_enabled should be true");
+        assert!(
+            dm.is_auto_save_enabled(),
+            "auto_save_enabled should be true"
+        );
         assert_eq!(dm.draft_count(), 0, "draft_count should be 0");
-        assert!(dm.pending_drafts().is_empty(), "pending_drafts should be empty");
+        assert!(
+            dm.pending_drafts().is_empty(),
+            "pending_drafts should be empty"
+        );
     }
 
     #[test]
@@ -114,13 +120,21 @@ mod auto_save_tests {
         let json = serde_json::to_string(&dm).expect("serialize to JSON");
         // persist_path is #[serde(skip)], so deserialized DraftManager gets
         // the default persist_path. That's fine — we only test data fidelity.
-        let restored: DraftManager =
-            serde_json::from_str(&json).expect("deserialize from JSON");
+        let restored: DraftManager = serde_json::from_str(&json).expect("deserialize from JSON");
 
         assert_eq!(restored.draft_count(), 2, "restored has 2 drafts");
-        assert!(restored.is_auto_save_enabled(), "auto_save_enabled preserved");
-        assert!(restored.has_draft(Path::new("/serde/a.txt")), "draft A restored");
-        assert!(restored.has_draft(Path::new("/serde/b.txt")), "draft B restored");
+        assert!(
+            restored.is_auto_save_enabled(),
+            "auto_save_enabled preserved"
+        );
+        assert!(
+            restored.has_draft(Path::new("/serde/a.txt")),
+            "draft A restored"
+        );
+        assert!(
+            restored.has_draft(Path::new("/serde/b.txt")),
+            "draft B restored"
+        );
 
         let content_a = restored.get_draft(Path::new("/serde/a.txt")).unwrap();
         assert_eq!(
@@ -142,7 +156,8 @@ mod auto_save_tests {
         dm.save_draft(&file_path, b"modified draft content");
 
         // Apply the draft — should overwrite the file
-        dm.apply_draft(&file_path).expect("apply_draft should succeed");
+        dm.apply_draft(&file_path)
+            .expect("apply_draft should succeed");
 
         let after = std::fs::read(&file_path).expect("read file after apply");
         assert_eq!(
@@ -194,10 +209,13 @@ mod auto_save_tests {
 
         // Now there should be a conflict
         let conflicts = dm.check_conflicts();
-        assert_eq!(conflicts.len(), 1, "one conflict expected after external touch");
         assert_eq!(
-            conflicts[0].file_path,
-            file_path,
+            conflicts.len(),
+            1,
+            "one conflict expected after external touch"
+        );
+        assert_eq!(
+            conflicts[0].file_path, file_path,
             "conflict file path matches"
         );
 

@@ -13,11 +13,5 @@ fn fixture_event_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Event::read_file,
-        Event::save_file,
-        fixture,
-        "Event",
-    )
-    .unwrap();
+    round_trip_from_fixture(Event::read_file, Event::save_file, fixture, "Event").unwrap();
 }

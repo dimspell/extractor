@@ -9,7 +9,10 @@ use crate::LuaScriptEngine;
 static SCRIPT_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Helper: create default pane grid + focus for test constructors.
-fn default_test_panes() -> (iced::widget::pane_grid::State<crate::domain::panel::HexPanel>, iced::widget::pane_grid::Pane) {
+fn default_test_panes() -> (
+    iced::widget::pane_grid::State<crate::domain::panel::HexPanel>,
+    iced::widget::pane_grid::Pane,
+) {
     let panes = crate::domain::panel::default_pane_grid();
     let focus = *panes.iter().next().map(|(id, _)| id).unwrap();
     (panes, focus)
@@ -97,12 +100,18 @@ fn test_lua_engine_decode_multi_byte() {
     let entries = engine.entries();
     let result = (entries[0].decode)(&[0x01, 0x02, 0x03, 0x04]);
     // Script with min_size=2 only formats first 2 bytes
-    assert_eq!(result, "01 02", "decode should handle 4 bytes, but only formats first 2");
+    assert_eq!(
+        result, "01 02",
+        "decode should handle 4 bytes, but only formats first 2"
+    );
 }
 
 #[test]
 fn test_lua_engine_encode_returns_bytes() {
-    let path = write_script("encode_bytes", "test.lua", r#"
+    let path = write_script(
+        "encode_bytes",
+        "test.lua",
+        r#"
 return {
     name = "echo",
     min_size = 1,
@@ -113,7 +122,8 @@ return {
         return s
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -124,7 +134,10 @@ return {
 
 #[test]
 fn test_lua_engine_encode_hex_string() {
-    let path = write_script("encode_hex", "test.lua", r#"
+    let path = write_script(
+        "encode_hex",
+        "test.lua",
+        r#"
 return {
     name = "hex_encode",
     min_size = 1,
@@ -138,7 +151,8 @@ return {
         end))
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -149,7 +163,10 @@ return {
 
 #[test]
 fn test_lua_engine_encode_byte_calculation() {
-    let path = write_script("encode_calc", "test.lua", r#"
+    let path = write_script(
+        "encode_calc",
+        "test.lua",
+        r#"
 return {
     name = "twos_complement",
     min_size = 1,
@@ -167,7 +184,8 @@ return {
         return string.char(n)
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -178,11 +196,7 @@ return {
     assert_eq!((entries[0].decode)(&[0x7F]), "127");
 
     // Encode "-1" → should write 0xFF
-    let result = entries[0]
-        .encode
-        .as_ref()
-        .unwrap()("-1")
-        .expect("encode should succeed");
+    let result = entries[0].encode.as_ref().unwrap()("-1").expect("encode should succeed");
     assert_eq!(result, &[0xFF]);
 }
 
@@ -190,12 +204,20 @@ return {
 
 #[test]
 fn test_lua_engine_multiple_scripts() {
-    let p1 = write_script("multi", "d1.lua", r#"
+    let p1 = write_script(
+        "multi",
+        "d1.lua",
+        r#"
 return { name = "d1", min_size = 1, decode = function(b) return "first" end }
-"#);
-    let p2 = write_script("multi", "d2.lua", r#"
+"#,
+    );
+    let p2 = write_script(
+        "multi",
+        "d2.lua",
+        r#"
 return { name = "d2", min_size = 2, decode = function(b) return "second" end }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&p1).unwrap();
     engine.load_script(&p2).unwrap();
@@ -209,9 +231,13 @@ return { name = "d2", min_size = 2, decode = function(b) return "second" end }
 
 #[test]
 fn test_lua_engine_entries_independent_from_engine() {
-    let path = write_script("independent", "test.lua", r#"
+    let path = write_script(
+        "independent",
+        "test.lua",
+        r#"
 return { name = "indep", min_size = 1, decode = function(b) return "ok" end }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -223,9 +249,13 @@ return { name = "indep", min_size = 1, decode = function(b) return "ok" end }
 
 #[test]
 fn test_lua_engine_missing_name_returns_error() {
-    let path = write_script("missing_name", "test.lua", r#"
+    let path = write_script(
+        "missing_name",
+        "test.lua",
+        r#"
 return { min_size = 1, decode = function(b) return "x" end }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     let err = engine.load_script(&path).unwrap_err();
     assert!(err.contains("name"), "error should mention 'name': {err}");
@@ -233,22 +263,36 @@ return { min_size = 1, decode = function(b) return "x" end }
 
 #[test]
 fn test_lua_engine_missing_min_size_returns_error() {
-    let path = write_script("missing_min_size", "test.lua", r#"
+    let path = write_script(
+        "missing_min_size",
+        "test.lua",
+        r#"
 return { name = "x", decode = function(b) return "x" end }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     let err = engine.load_script(&path).unwrap_err();
-    assert!(err.contains("min_size"), "error should mention 'min_size': {err}");
+    assert!(
+        err.contains("min_size"),
+        "error should mention 'min_size': {err}"
+    );
 }
 
 #[test]
 fn test_lua_engine_missing_decode_returns_error() {
-    let path = write_script("missing_decode", "test.lua", r#"
+    let path = write_script(
+        "missing_decode",
+        "test.lua",
+        r#"
 return { name = "x", min_size = 1 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     let err = engine.load_script(&path).unwrap_err();
-    assert!(err.contains("decode"), "error should mention 'decode': {err}");
+    assert!(
+        err.contains("decode"),
+        "error should mention 'decode': {err}"
+    );
 }
 
 #[test]
@@ -277,12 +321,18 @@ fn test_lua_engine_nonexistent_file_returns_error() {
     let err = engine
         .load_script("/tmp/nonexistent_script_12345.lua")
         .unwrap_err();
-    assert!(err.contains("cannot read"), "error should mention file read: {err}");
+    assert!(
+        err.contains("cannot read"),
+        "error should mention file read: {err}"
+    );
 }
 
 #[test]
 fn test_lua_engine_decode_runtime_error_graceful() {
-    let path = write_script("decode_error", "test.lua", r#"
+    let path = write_script(
+        "decode_error",
+        "test.lua",
+        r#"
 return {
     name = "faulty",
     min_size = 1,
@@ -290,7 +340,8 @@ return {
         error("something went wrong in lua")
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -307,7 +358,10 @@ return {
 
 #[test]
 fn test_lua_engine_encode_runtime_error_graceful() {
-    let path = write_script("encode_error", "test.lua", r#"
+    let path = write_script(
+        "encode_error",
+        "test.lua",
+        r#"
 return {
     name = "faulty_encode",
     min_size = 1,
@@ -316,7 +370,8 @@ return {
         error("encode failure")
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -331,7 +386,10 @@ return {
 
 #[test]
 fn test_lua_engine_decode_returns_non_string() {
-    let path = write_script("decode_non_string", "test.lua", r#"
+    let path = write_script(
+        "decode_non_string",
+        "test.lua",
+        r#"
 return {
     name = "returns_number",
     min_size = 1,
@@ -339,7 +397,8 @@ return {
         return 42
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -350,7 +409,10 @@ return {
 
 #[test]
 fn test_lua_engine_encode_returns_non_string() {
-    let path = write_script("encode_non_string", "test.lua", r#"
+    let path = write_script(
+        "encode_non_string",
+        "test.lua",
+        r#"
 return {
     name = "encode_number",
     min_size = 1,
@@ -359,7 +421,8 @@ return {
         return 42  -- return number, not string
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -372,7 +435,10 @@ return {
 
 #[test]
 fn test_lua_engine_unsafe_mode_blocks_os() {
-    let path = write_script("unsafe_os", "test.lua", r#"
+    let path = write_script(
+        "unsafe_os",
+        "test.lua",
+        r#"
 return {
     name = "os_user",
     min_size = 1,
@@ -380,7 +446,8 @@ return {
         return tostring(os.clock())
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -393,7 +460,10 @@ return {
 
 #[test]
 fn test_lua_engine_unsafe_mode_allows_os() {
-    let path = write_script("unsafe_allowed", "test.lua", r#"
+    let path = write_script(
+        "unsafe_allowed",
+        "test.lua",
+        r#"
 return {
     name = "os_user",
     min_size = 1,
@@ -405,7 +475,8 @@ return {
         end
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(true).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -417,9 +488,13 @@ return {
 
 #[test]
 fn test_lua_engine_default_category_and_description() {
-    let path = write_script("default_cat", "test.lua", r#"
+    let path = write_script(
+        "default_cat",
+        "test.lua",
+        r#"
 return { name = "minimal", min_size = 1, decode = function(b) return "ok" end }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -437,12 +512,20 @@ fn test_load_lua_scripts_from_dir() {
         .join("load_dir")
         .join(counter.to_string());
     std::fs::create_dir_all(&dir).expect("create temp dir");
-    std::fs::write(dir.join("a.lua"), r#"
+    std::fs::write(
+        dir.join("a.lua"),
+        r#"
 return { name = "from_dir_a", min_size = 1, decode = function(b) return "A" end }
-"#).unwrap();
-    std::fs::write(dir.join("b.lua"), r#"
+"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("b.lua"),
+        r#"
 return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end }
-"#).unwrap();
+"#,
+    )
+    .unwrap();
     // Non-.lua file should be ignored
     std::fs::write(dir.join("notes.txt"), "not a script").unwrap();
 
@@ -546,7 +629,10 @@ fn test_lua_decoder_appears_in_inspector_view() {
     use crate::view::view;
     use iced_test::simulator;
 
-    let path = write_script("inspector_view", "test.lua", r#"
+    let path = write_script(
+        "inspector_view",
+        "test.lua",
+        r#"
 return {
     name = "lua_decoder",
     min_size = 1,
@@ -556,7 +642,8 @@ return {
         return string.format("LUA:0x%02X", bytes:byte(1))
     end,
 }
-"#);
+"#,
+    );
     let mut engine = LuaScriptEngine::new(false).unwrap();
     engine.load_script(&path).unwrap();
     let entries = engine.entries();
@@ -621,6 +708,8 @@ return {
         ..Default::default()
     };
     let mut ui = simulator(view(&state, &config));
-    ui.find("lua_decoder").expect("Lua decoder name should appear in inspector");
-    ui.find("LUA:0xAB").expect("Lua decoder value should appear in inspector");
+    ui.find("lua_decoder")
+        .expect("Lua decoder name should appear in inspector");
+    ui.find("LUA:0xAB")
+        .expect("Lua decoder value should appear in inspector");
 }

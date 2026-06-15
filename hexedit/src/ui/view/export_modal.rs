@@ -90,10 +90,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     // Preview body — empty state vs rendered dump
     let preview_body: Element<'_, HexEditorMessage> = if preview_len == 0 {
-        text("")
-            .size(12)
-            .font(Font::MONOSPACE)
-            .into()
+        text("").size(12).font(Font::MONOSPACE).into()
     } else {
         let preview_bytes = &state.provider.as_slice()[..preview_len];
         let preview_text = format_hex_dump(preview_bytes, bpr, cfg);
@@ -102,7 +99,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
                 text(preview_text)
                     .font(Font::MONOSPACE)
                     .size(12)
-                    .wrapping(text::Wrapping::None)
+                    .wrapping(text::Wrapping::None),
             )
             .padding(8)
             .style(|_: &_| container::Style {

@@ -40,8 +40,7 @@ impl From<HexPanelContent> for HexPanel {
 /// Build the default pane layout: a vertical split with the matrix on the left
 /// and the inspector on the right.
 pub fn default_pane_grid() -> pane_grid::State<HexPanel> {
-    let (mut state, matrix_pane) =
-        pane_grid::State::new(HexPanel::new(HexPanelContent::Matrix));
+    let (mut state, matrix_pane) = pane_grid::State::new(HexPanel::new(HexPanelContent::Matrix));
 
     if let Some((_, split)) = state.split(
         pane_grid::Axis::Vertical,
@@ -69,10 +68,7 @@ mod tests {
     #[test]
     fn default_layout_contains_matrix_and_inspector() {
         let state = default_pane_grid();
-        let contents: Vec<HexPanelContent> = state
-            .iter()
-            .map(|(_, p)| p.content)
-            .collect();
+        let contents: Vec<HexPanelContent> = state.iter().map(|(_, p)| p.content).collect();
         assert!(contents.contains(&HexPanelContent::Matrix));
         assert!(contents.contains(&HexPanelContent::Inspector));
     }

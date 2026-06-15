@@ -1,9 +1,7 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::editors::map_editor::canvas::find_hovered_element;
-use crate::editors::map_editor::{
-    MapEditAction, MapEditorMessage, MapLayer, SelectedEntity,
-};
+use crate::editors::map_editor::{MapEditAction, MapEditorMessage, MapLayer, SelectedEntity};
 use crate::message::{Message, MessageExt};
 use iced::Task;
 use std::sync::Arc;
@@ -36,9 +34,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         MapEditorMessage::SaveComplete(tab_id, result) => {
             persistence::save_complete(app, tab_id, result)
         }
-        MapEditorMessage::MapSaved(tab_id, result) => {
-            persistence::map_saved(app, tab_id, result)
-        }
+        MapEditorMessage::MapSaved(tab_id, result) => persistence::map_saved(app, tab_id, result),
         MapEditorMessage::ExportImage(tab_id) => persistence::export_image(app, tab_id),
         MapEditorMessage::ExportComplete(tab_id, result) => {
             persistence::export_complete(app, tab_id, result)
@@ -50,9 +46,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             dialog::preview_loaded(app, tab_id, result)
         }
         MapEditorMessage::HideDialogPreview(tab_id) => dialog::hide_preview(app, tab_id),
-        MapEditorMessage::ShowSpriteExportDialog(tab_id) => {
-            sprite_export::show_dialog(app, tab_id)
-        }
+        MapEditorMessage::ShowSpriteExportDialog(tab_id) => sprite_export::show_dialog(app, tab_id),
         MapEditorMessage::CloseSpriteExportDialog(tab_id) => {
             sprite_export::close_dialog(app, tab_id)
         }
@@ -60,9 +54,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         MapEditorMessage::SpriteExportDirChosen(tab_id, path) => {
             sprite_export::dir_chosen(app, tab_id, path)
         }
-        MapEditorMessage::ConfirmSpriteExport(tab_id) => {
-            sprite_export::confirm_export(app, tab_id)
-        }
+        MapEditorMessage::ConfirmSpriteExport(tab_id) => sprite_export::confirm_export(app, tab_id),
         MapEditorMessage::SpriteExportDone(tab_id, result) => {
             sprite_export::export_done(app, tab_id, result)
         }
@@ -100,9 +92,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
                 match layer {
                     MapLayer::Ground => state.view.show_ground = !state.view.show_ground,
-                    MapLayer::Buildings => {
-                        state.view.show_buildings = !state.view.show_buildings
-                    }
+                    MapLayer::Buildings => state.view.show_buildings = !state.view.show_buildings,
                     MapLayer::Roofs => state.view.show_roofs = !state.view.show_roofs,
                     MapLayer::InternalSprites => {
                         state.view.show_internal_sprites = !state.view.show_internal_sprites
@@ -117,9 +107,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         state.view.show_npc_waypoints = !state.view.show_npc_waypoints
                     }
                     MapLayer::Objects => state.view.show_objects = !state.view.show_objects,
-                    MapLayer::DrawItems => {
-                        state.view.show_draw_items = !state.view.show_draw_items
-                    }
+                    MapLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
                 }
                 // Tile canvas renders entities and tile layers; overlay renders
                 // collisions and events — clear both caches.
@@ -179,15 +167,15 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 match clicked {
                     Some(SelectedEntity::CollisionTile(tx, ty)) => {
                         if !state.data.can_mutate_map_data() {
-                            state.data.status_msg =
-                                Some("Cannot edit collision while save/export is in progress".into());
+                            state.data.status_msg = Some(
+                                "Cannot edit collision while save/export is in progress".into(),
+                            );
                         } else if let LoadingState::Loaded(ref mut handle) =
                             state.data.loading_state
                         {
                             let map_data = Arc::get_mut(&mut handle.0)
                                 .expect("MapData Arc has unexpected shared reference");
-                            let old =
-                                map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
+                            let old = map_data.collisions.get(&(tx, ty)).copied().unwrap_or(false);
                             map_data.collisions.insert((tx, ty), !old);
                             state.push_undo(MapEditAction {
                                 entity: SelectedEntity::CollisionTile(tx, ty),
@@ -241,12 +229,11 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     let diagonal = model.tiled_map_width + model.tiled_map_height;
                     let map_px_w = diagonal as f32 * 32.0;
                     let map_px_h = diagonal as f32 * 16.0;
-                    let (cx, cy) =
-                        dispel_core::map::types::convert_map_coords_to_image_coords(
-                            model.tiled_map_width / 2,
-                            model.tiled_map_height / 2,
-                            diagonal,
-                        );
+                    let (cx, cy) = dispel_core::map::types::convert_map_coords_to_image_coords(
+                        model.tiled_map_width / 2,
+                        model.tiled_map_height / 2,
+                        diagonal,
+                    );
                     (map_px_w, map_px_h, cx as f32, cy as f32)
                 });
                 if let Some((map_px_w, map_px_h, center_px, center_py)) = fit {
@@ -254,8 +241,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     let vp_h = state.view.last_canvas_h;
                     // Choose zoom so the full map width or height fits, capped at
                     // 1.0 (no zoom-in).
-                    let zoom =
-                        (vp_w / map_px_w).min(vp_h / map_px_h).clamp(0.05, 1.0);
+                    let zoom = (vp_w / map_px_w).min(vp_h / map_px_h).clamp(0.05, 1.0);
                     state.view.zoom = zoom;
                     state.view.pan_x = vp_w / 2.0 - center_px * zoom;
                     state.view.pan_y = vp_h / 2.0 - center_py * zoom;
@@ -274,13 +260,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
 
 /// Mark the workspace tab as modified/clean.
 fn set_tab_modified(app: &mut App, tab_id: usize, modified: bool) {
-    if let Some(tab) = app
-        .state
-        .workspace
-        .tabs
-        .iter_mut()
-        .find(|t| t.id == tab_id)
-    {
+    if let Some(tab) = app.state.workspace.tabs.iter_mut().find(|t| t.id == tab_id) {
         tab.modified = modified;
     }
 }

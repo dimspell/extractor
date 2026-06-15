@@ -464,4 +464,3 @@ impl Workspace {
         // Don't reset next_id to preserve ID uniqueness across workspace sessions
     }
 }
-

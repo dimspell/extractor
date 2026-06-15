@@ -96,13 +96,7 @@ impl<'a> canvas::Program<Message> for MapCanvas<'a> {
                     } else {
                         interaction.hovered_entity = None;
                         return Some(Action::publish(Message::map_editor(
-                            MapEditorMessage::MouseMoved(
-                                self.tab_id,
-                                f32::NAN,
-                                f32::NAN,
-                                0.0,
-                                0.0,
-                            ),
+                            MapEditorMessage::MouseMoved(self.tab_id, f32::NAN, f32::NAN, 0.0, 0.0),
                         )));
                     }
                 }

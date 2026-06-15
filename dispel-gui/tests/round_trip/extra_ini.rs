@@ -13,11 +13,5 @@ fn fixture_extra_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Extra::read_file,
-        Extra::save_file,
-        fixture,
-        "Extra",
-    )
-    .unwrap();
+    round_trip_from_fixture(Extra::read_file, Extra::save_file, fixture, "Extra").unwrap();
 }

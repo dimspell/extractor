@@ -30,7 +30,13 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<Message> 
 
     match msg {
         DialogueScriptEditorMessage::LoadCatalog => {
-            if let Some(editor) = app.state.editors.dialogue_script_editor.editors.get_mut(&tab_id) {
+            if let Some(editor) = app
+                .state
+                .editors
+                .dialogue_script_editor
+                .editors
+                .get_mut(&tab_id)
+            {
                 if let Some(path) = editor.current_file.clone() {
                     editor.editor.loading_state = LoadingState::Loading;
                     return Task::perform(
@@ -46,7 +52,13 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<Message> 
             Task::none()
         }
         DialogueScriptEditorMessage::CatalogLoaded(result) => {
-            if let Some(editor) = app.state.editors.dialogue_script_editor.editors.get_mut(&tab_id) {
+            if let Some(editor) = app
+                .state
+                .editors
+                .dialogue_script_editor
+                .editors
+                .get_mut(&tab_id)
+            {
                 editor.editor.loading_state = LoadingState::Loaded(());
                 match result {
                     Ok(catalog) => {
@@ -60,7 +72,8 @@ pub fn handle(msg: DialogueScriptEditorMessage, app: &mut App) -> Task<Message> 
                         editor.editor.refresh();
                         if let Some(spreadsheet) = app
                             .state
-                            .editors.dialogue_script_editor
+                            .editors
+                            .dialogue_script_editor
                             .spreadsheets
                             .get_mut(&tab_id)
                         {

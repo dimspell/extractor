@@ -735,8 +735,14 @@ fn test_clear_editor_states() {
 
     let mut state = AppState::default();
 
-    state.editors.map_editors.insert(1, MapEditorState::default());
-    state.editors.map_editors.insert(2, MapEditorState::default());
+    state
+        .editors
+        .map_editors
+        .insert(1, MapEditorState::default());
+    state
+        .editors
+        .map_editors
+        .insert(2, MapEditorState::default());
 
     state.lookups.insert(
         "test_key".to_string(),

@@ -70,7 +70,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
         WaveIniEditorMessage::FieldChanged(index, field, value) => {
             let (old_value, orig_idx_u32) = app
                 .state
-                .editors.wave_ini_editor
+                .editors
+                .wave_ini_editor
                 .filtered
                 .iter()
                 .find(|(i, _)| *i == index)
@@ -104,7 +105,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
         }
         WaveIniEditorMessage::ExportWav(index) => {
             if app.state.shared_game_path.is_empty() {
-                app.state.editors.wave_ini_editor.status_msg = "Please select game path first.".into();
+                app.state.editors.wave_ini_editor.status_msg =
+                    "Please select game path first.".into();
                 return Task::none();
             }
             if let Some((_, wave)) = app.state.editors.wave_ini_editor.filtered.get(index) {
@@ -159,8 +161,12 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
             app.state.editors.wave_ini_editor.loading_state =
                 crate::components::loading_state::LoadingState::Loaded(());
             match result {
-                Ok(p) => app.state.editors.wave_ini_editor.status_msg = format!("Exported to {}", p),
-                Err(e) => app.state.editors.wave_ini_editor.status_msg = format!("Export failed: {}", e),
+                Ok(p) => {
+                    app.state.editors.wave_ini_editor.status_msg = format!("Exported to {}", p)
+                }
+                Err(e) => {
+                    app.state.editors.wave_ini_editor.status_msg = format!("Export failed: {}", e)
+                }
             }
             Task::none()
         }

@@ -283,7 +283,13 @@ pub fn render_from_database(config: RenderConfig) -> Result<()> {
             let (dest_x, dest_y) = convert_map_coords_to_image_coords(x, y, diagonal);
 
             // Render using existing sprite_loader function
-            plot_entity_sprite(&mut imgbuf, &img, dest_x - origin_x, dest_y - origin_y, false);
+            plot_entity_sprite(
+                &mut imgbuf,
+                &img,
+                dest_x - origin_x,
+                dest_y - origin_y,
+                false,
+            );
         }
     }
 
@@ -375,13 +381,7 @@ fn render_external_entities(
             let key = format!("{}/{}", entity.sprite_dir, sf);
 
             if !sprite_cache.contains_key(&key) {
-                let loaded = load_entity_sprite(
-                    conn,
-                    &key,
-                    entity.sprite_dir,
-                    sf,
-                    game_path,
-                );
+                let loaded = load_entity_sprite(conn, &key, entity.sprite_dir, sf, game_path);
                 sprite_cache.insert(key.clone(), loaded);
             }
 

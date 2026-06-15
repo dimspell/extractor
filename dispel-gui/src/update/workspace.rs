@@ -268,7 +268,8 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
         }
 
         WorkspaceMessage::GlobalSearchConfirm => {
-            if let Some(result) = app.global_search
+            if let Some(result) = app
+                .global_search
                 .results
                 .get(app.global_search.selected_index)
             {

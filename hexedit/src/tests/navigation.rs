@@ -95,7 +95,10 @@ fn test_navigation_at_bounds() {
             extend: false,
         },
     );
-    assert_eq!(state.selection.cursor, 255, "document end should be at max_addr");
+    assert_eq!(
+        state.selection.cursor, 255,
+        "document end should be at max_addr"
+    );
 }
 
 #[test]
@@ -110,7 +113,10 @@ fn test_navigation_on_empty_file_does_nothing() {
             extend: false,
         },
     );
-    assert_eq!(state.selection.cursor, 0, "empty file navigation should be no-op");
+    assert_eq!(
+        state.selection.cursor, 0,
+        "empty file navigation should be no-op"
+    );
 }
 
 // ============================================================================
@@ -121,9 +127,19 @@ fn test_navigation_on_empty_file_does_nothing() {
 fn test_nav_page_down() {
     let mut state = make_state((0..=255u8).collect());
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::PageDown, extend: false });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::PageDown,
+            extend: false,
+        },
+    );
     // PAGE_ROWS = 24, so cursor moves from 0 to 24*16 = 384, clamped to 255
-    assert_eq!(state.selection.cursor, 255, "PageDown should saturate at max_addr");
+    assert_eq!(
+        state.selection.cursor, 255,
+        "PageDown should saturate at max_addr"
+    );
 }
 
 #[test]
@@ -131,20 +147,51 @@ fn test_nav_page_up() {
     let mut state = make_state((0..=255u8).collect());
     let config = default_config();
     // Go to end first
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::DocumentEnd, extend: false });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::DocumentEnd,
+            extend: false,
+        },
+    );
     assert_eq!(state.selection.cursor, 255);
     // Page up from 255: 255.saturating_sub(24*16) = 255-384 = 0
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::PageUp, extend: false });
-    assert_eq!(state.selection.cursor, 0, "PageUp from end should saturate at 0");
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::PageUp,
+            extend: false,
+        },
+    );
+    assert_eq!(
+        state.selection.cursor, 0,
+        "PageUp from end should saturate at 0"
+    );
 }
 
 #[test]
 fn test_nav_document_start() {
     let mut state = make_state((0..=255u8).collect());
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::DocumentEnd, extend: false });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::DocumentEnd,
+            extend: false,
+        },
+    );
     assert_eq!(state.selection.cursor, 255);
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::DocumentStart, extend: false });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::DocumentStart,
+            extend: false,
+        },
+    );
     assert_eq!(state.selection.cursor, 0);
 }
 
@@ -154,9 +201,19 @@ fn test_nav_down_saturates_at_end() {
     let config = default_config();
     // 256 bytes, 16 BPR = 16 rows. Last row starts at 240. Go there.
     send(&mut state, &config, HexEditorMessage::SelectAt(240));
-    send(&mut state, &config, HexEditorMessage::Nav { dir: NavDir::Down, extend: false });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Nav {
+            dir: NavDir::Down,
+            extend: false,
+        },
+    );
     // Down from 240 → 256, saturates at max_addr = 255
-    assert_eq!(state.selection.cursor, 255, "Down from last row should saturate at max_addr");
+    assert_eq!(
+        state.selection.cursor, 255,
+        "Down from last row should saturate at max_addr"
+    );
 }
 
 #[test]

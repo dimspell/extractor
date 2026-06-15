@@ -65,5 +65,3 @@ fn default_value_for_field(field: &str) -> serde_json::Value {
     }
     serde_json::json!(0)
 }
-
-

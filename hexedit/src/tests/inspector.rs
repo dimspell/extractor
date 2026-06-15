@@ -46,8 +46,7 @@ fn test_inspector_placeholder_for_truncated_read() {
     let state = make_state(vec![0x2A]);
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
-    ui.find("42")
-        .expect("u8 (1 byte) should still decode");
+    ui.find("42").expect("u8 (1 byte) should still decode");
 }
 
 // ============================================================================
@@ -170,11 +169,16 @@ fn test_inspector_shows_category_headers() {
     let state = make_state(vec![0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
-    ui.find("── Integer ──").expect("Integer category header should render");
-    ui.find("── Float ──").expect("Float category header should render");
-    ui.find("── Text ──").expect("Text category header should render");
-    ui.find("── Color ──").expect("Color category header should render");
-    ui.find("── Binary ──").expect("Binary category header should render");
+    ui.find("── Integer ──")
+        .expect("Integer category header should render");
+    ui.find("── Float ──")
+        .expect("Float category header should render");
+    ui.find("── Text ──")
+        .expect("Text category header should render");
+    ui.find("── Color ──")
+        .expect("Color category header should render");
+    ui.find("── Binary ──")
+        .expect("Binary category header should render");
 }
 
 #[test]
@@ -220,7 +224,11 @@ fn test_inspector_edit_with_hex_prefix() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(0)); // u8
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("0xFF".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("0xFF".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     assert_eq!(state.provider.as_slice()[0], 0xFF);
 }
@@ -231,7 +239,11 @@ fn test_inspector_edit_i8() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(1)); // i8
     assert_eq!(state.inspector_edit.as_ref().unwrap().draft, "0");
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("-128".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("-128".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     assert_eq!(state.provider.as_slice()[0], 0x80);
 }
@@ -241,7 +253,11 @@ fn test_inspector_edit_u16() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(2)); // u16 at cursor=0
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("0x1234".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("0x1234".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     assert_eq!(state.provider.as_slice()[0..2], [0x34, 0x12]);
 }
@@ -251,7 +267,11 @@ fn test_inspector_edit_i16() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(3)); // i16
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("-1".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("-1".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     assert_eq!(state.provider.as_slice()[0..2], [0xFF, 0xFF]);
 }
@@ -261,7 +281,11 @@ fn test_inspector_edit_u32() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(4)); // u32
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("305419896".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("305419896".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     // 305419896 = 0x12345678 in LE
     assert_eq!(state.provider.as_slice()[0..4], [0x78, 0x56, 0x34, 0x12]);
@@ -272,7 +296,11 @@ fn test_inspector_edit_i32() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(5)); // i32
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("-128".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("-128".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     // -128 as i32 LE = [0x80, 0xFF, 0xFF, 0xFF]
     assert_eq!(state.provider.as_slice()[0..4], [0x80, 0xFF, 0xFF, 0xFF]);
@@ -283,9 +311,16 @@ fn test_inspector_edit_u64() {
     let mut state = make_state(vec![0x00; 8]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(6)); // u64
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("0x0102030405060708".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("0x0102030405060708".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
-    assert_eq!(state.provider.as_slice(), &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]);
+    assert_eq!(
+        state.provider.as_slice(),
+        &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
+    );
 }
 
 #[test]
@@ -293,7 +328,11 @@ fn test_inspector_edit_i64() {
     let mut state = make_state(vec![0x00; 8]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(7)); // i64
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("-1".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("-1".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     assert_eq!(state.provider.as_slice(), &[0xFF; 8]);
 }
@@ -303,7 +342,11 @@ fn test_inspector_edit_f32() {
     let mut state = make_state(vec![0x00, 0x00, 0x00, 0x00]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(8)); // f32
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("1.5".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("1.5".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     let v = f32::from_le_bytes([
         state.provider.as_slice()[0],
@@ -319,12 +362,15 @@ fn test_inspector_edit_f64() {
     let mut state = make_state(vec![0x00; 8]);
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(9)); // f64
-    send(&mut state, &config, HexEditorMessage::SetInspectorDraft("3.14159".into()));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorDraft("3.14159".into()),
+    );
     send(&mut state, &config, HexEditorMessage::CommitInspectorEdit);
     let bytes = state.provider.as_slice();
     let v = f64::from_le_bytes([
-        bytes[0], bytes[1], bytes[2], bytes[3],
-        bytes[4], bytes[5], bytes[6], bytes[7],
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
     ]);
     assert!((v - std::f64::consts::PI).abs() < 0.001);
 }
@@ -347,5 +393,6 @@ fn test_inspector_displays_cstr_for_printable() {
     let state = make_state(b"hello\0world".to_vec());
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
-    ui.find("\"hello\"").expect("cstr should show quoted string");
+    ui.find("\"hello\"")
+        .expect("cstr should show quoted string");
 }

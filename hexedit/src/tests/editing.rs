@@ -73,7 +73,10 @@ fn test_edit_commit_without_advance() {
     );
     // Single nibble "F" → 0x0F
     assert_eq!(state.provider.as_slice()[0], 0x0F);
-    assert_eq!(state.selection.cursor, 0, "cursor should stay at committed addr");
+    assert_eq!(
+        state.selection.cursor, 0,
+        "cursor should stay at committed addr"
+    );
     assert!(state.edit_mode.is_none(), "edit mode should end");
 }
 
@@ -145,7 +148,10 @@ fn test_select_at_clears_edit_mode() {
     assert!(state.edit_mode.is_some(), "should be in edit mode");
     // Click on a different address
     send(&mut state, &config, HexEditorMessage::SelectAt(2));
-    assert!(state.edit_mode.is_none(), "clicking should cancel edit mode");
+    assert!(
+        state.edit_mode.is_none(),
+        "clicking should cancel edit mode"
+    );
     assert_eq!(state.selection.cursor, 2);
 }
 
@@ -164,7 +170,10 @@ fn test_edit_commit_advance_at_last_byte_exits_edit_mode() {
     assert_eq!(state.provider.as_slice()[0], 0xFF, "byte should be written");
     // After second nibble, it auto-commits with advance. Since addr 0 is max_addr,
     // advance should set edit_mode to None.
-    assert!(state.edit_mode.is_none(), "edit mode should exit at max_addr");
+    assert!(
+        state.edit_mode.is_none(),
+        "edit mode should exit at max_addr"
+    );
     assert_eq!(state.selection.cursor, 0, "cursor should stay at last byte");
 }
 
@@ -195,7 +204,14 @@ fn test_multiple_sequential_edits() {
 fn test_write_bytes_on_empty_file_is_noop() {
     let mut state = make_state(vec![]);
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::WriteBytes { addr: 0, bytes: vec![0xFF] });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::WriteBytes {
+            addr: 0,
+            bytes: vec![0xFF],
+        },
+    );
     assert!(state.provider.is_empty(), "should not modify empty file");
 }
 
@@ -203,7 +219,18 @@ fn test_write_bytes_on_empty_file_is_noop() {
 fn test_write_bytes_empty_slice() {
     let mut state = make_state(vec![0x00; 4]);
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::WriteBytes { addr: 0, bytes: vec![] });
-    assert_eq!(state.provider.dirty_count(), 0, "empty write should not dirty");
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::WriteBytes {
+            addr: 0,
+            bytes: vec![],
+        },
+    );
+    assert_eq!(
+        state.provider.dirty_count(),
+        0,
+        "empty write should not dirty"
+    );
     assert_eq!(state.provider.as_slice(), &[0x00, 0x00, 0x00, 0x00]);
 }

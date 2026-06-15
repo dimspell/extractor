@@ -8,9 +8,7 @@ use crate::workspace::Workspace;
 fn test_file_tree_search_empty_clears_filter() {
     let mut app = App::test_new(Workspace::new());
     app.file_tree.state.search_query = "old".to_string();
-    let _ = app.update(Message::file_tree(FileTreeMessage::Search(
-        "".to_string(),
-    )));
+    let _ = app.update(Message::file_tree(FileTreeMessage::Search("".to_string())));
     assert!(
         app.file_tree.state.search_query.is_empty(),
         "empty search clears search_query"

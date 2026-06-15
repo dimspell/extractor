@@ -13,11 +13,5 @@ fn fixture_map_ini_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        MapIni::read_file,
-        MapIni::save_file,
-        fixture,
-        "MapIni",
-    )
-    .unwrap();
+    round_trip_from_fixture(MapIni::read_file, MapIni::save_file, fixture, "MapIni").unwrap();
 }

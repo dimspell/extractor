@@ -68,10 +68,7 @@ mod chest_editor_tests {
             "setup: all three records are chests"
         );
 
-        let _task = crate::editors::chest::handle(
-            ChestEditorMessage::SelectChest(1),
-            &mut app,
-        );
+        let _task = crate::editors::chest::handle(ChestEditorMessage::SelectChest(1), &mut app);
 
         assert_eq!(
             app.state.editors.chest_editor.selected_idx,
@@ -82,18 +79,9 @@ mod chest_editor_tests {
             app.state.editors.chest_editor.edit_name, "Chest B",
             "edit_name from filtered_chest[1]"
         );
-        assert_eq!(
-            app.state.editors.chest_editor.edit_x, "30",
-            "edit_x"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.edit_y, "40",
-            "edit_y"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.edit_gold, "200",
-            "edit_gold"
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_x, "30", "edit_x");
+        assert_eq!(app.state.editors.chest_editor.edit_y, "40", "edit_y");
+        assert_eq!(app.state.editors.chest_editor.edit_gold, "200", "edit_gold");
         assert_eq!(
             app.state.editors.chest_editor.edit_item_count, "1",
             "edit_item_count"
@@ -115,16 +103,10 @@ mod chest_editor_tests {
 
         assert_eq!(app.state.editors.chest_editor.selected_idx, None);
 
-        let _task = crate::editors::chest::handle(
-            ChestEditorMessage::SelectChest(999),
-            &mut app,
-        );
+        let _task = crate::editors::chest::handle(ChestEditorMessage::SelectChest(999), &mut app);
 
         // selected_idx is set unconditionally
-        assert_eq!(
-            app.state.editors.chest_editor.selected_idx,
-            Some(999)
-        );
+        assert_eq!(app.state.editors.chest_editor.selected_idx, Some(999));
         // But no edit fields are populated because filtered_chests.get(999) fails
         assert_eq!(
             app.state.editors.chest_editor.edit_name, "",
@@ -193,12 +175,8 @@ mod chest_editor_tests {
             &mut app,
         );
 
-        assert_eq!(
-            app.state.editors.chest_editor.edit_y, "123"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.all_records[0].y_pos, 123
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_y, "123");
+        assert_eq!(app.state.editors.chest_editor.all_records[0].y_pos, 123);
     }
 
     #[test]
@@ -214,11 +192,10 @@ mod chest_editor_tests {
             &mut app,
         );
 
+        assert_eq!(app.state.editors.chest_editor.edit_gold, "9999");
         assert_eq!(
-            app.state.editors.chest_editor.edit_gold, "9999"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.all_records[0].gold_amount, 9999
+            app.state.editors.chest_editor.all_records[0].gold_amount,
+            9999
         );
     }
 
@@ -235,12 +212,8 @@ mod chest_editor_tests {
             &mut app,
         );
 
-        assert_eq!(
-            app.state.editors.chest_editor.edit_item_count, "5"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.all_records[0].item_count, 5
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_item_count, "5");
+        assert_eq!(app.state.editors.chest_editor.all_records[0].item_count, 5);
     }
 
     #[test]
@@ -256,12 +229,8 @@ mod chest_editor_tests {
             &mut app,
         );
 
-        assert_eq!(
-            app.state.editors.chest_editor.edit_item_id, "77"
-        );
-        assert_eq!(
-            app.state.editors.chest_editor.all_records[0].item_id, 77
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_item_id, "77");
+        assert_eq!(app.state.editors.chest_editor.all_records[0].item_id, 77);
     }
 
     #[test]
@@ -278,9 +247,7 @@ mod chest_editor_tests {
         );
 
         // The string buffer is updated regardless
-        assert_eq!(
-            app.state.editors.chest_editor.edit_x, "not-a-number"
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_x, "not-a-number");
         // The record stays unchanged because parse<i32>() fails
         assert_eq!(
             app.state.editors.chest_editor.all_records[0].x_pos, 10,
@@ -302,9 +269,7 @@ mod chest_editor_tests {
         );
 
         // The edit_name string buffer is updated unconditionally
-        assert_eq!(
-            app.state.editors.chest_editor.edit_name, "Changed"
-        );
+        assert_eq!(app.state.editors.chest_editor.edit_name, "Changed");
         // But all_records is not touched because orig_idx 999 is OOB
         assert_eq!(
             app.state.editors.chest_editor.all_records[0].name, "KeepMe",
@@ -339,20 +304,13 @@ mod chest_editor_tests {
         let mut app = App::test_new(Workspace::new());
         // shared_game_path is empty by default
 
-        let task = crate::editors::chest::handle(
-            ChestEditorMessage::ScanMaps,
-            &mut app,
-        );
+        let task = crate::editors::chest::handle(ChestEditorMessage::ScanMaps, &mut app);
 
         assert_eq!(
-            app.state.editors.chest_editor.status_msg,
-            "Please select game path first.",
+            app.state.editors.chest_editor.status_msg, "Please select game path first.",
             "error message set when game path is empty"
         );
-        assert_eq!(
-            task.units(), 0,
-            "no Task produced for missing game path"
-        );
+        assert_eq!(task.units(), 0, "no Task produced for missing game path");
     }
 
     // ── Add / Delete ──────────────────────────────────────────────────────
@@ -367,10 +325,7 @@ mod chest_editor_tests {
 
         let count_before = app.state.editors.chest_editor.all_records.len();
 
-        let _task = crate::editors::chest::handle(
-            ChestEditorMessage::Add,
-            &mut app,
-        );
+        let _task = crate::editors::chest::handle(ChestEditorMessage::Add, &mut app);
 
         assert_eq!(
             app.state.editors.chest_editor.all_records.len(),
@@ -389,10 +344,7 @@ mod chest_editor_tests {
 
         let count_before = app.state.editors.chest_editor.all_records.len();
 
-        let _task = crate::editors::chest::handle(
-            ChestEditorMessage::Delete(0),
-            &mut app,
-        );
+        let _task = crate::editors::chest::handle(ChestEditorMessage::Delete(0), &mut app);
 
         assert_eq!(
             app.state.editors.chest_editor.all_records.len(),
@@ -411,13 +363,11 @@ mod chest_editor_tests {
             ..Default::default()
         }]);
 
-        let task = crate::editors::chest::handle(
-            ChestEditorMessage::Save,
-            &mut app,
-        );
+        let task = crate::editors::chest::handle(ChestEditorMessage::Save, &mut app);
 
         assert_eq!(
-            task.units(), 0,
+            task.units(),
+            0,
             "Save without current_map_file produces no task"
         );
     }

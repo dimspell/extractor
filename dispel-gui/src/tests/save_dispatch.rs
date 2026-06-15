@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod save_dispatch_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::system::SystemMessage;
+    use crate::message::Message;
     use crate::tests::app_with_tab;
     use crate::workspace::{EditorType, Workspace};
 
@@ -80,10 +80,7 @@ mod save_dispatch_tests {
         // SpriteViewer does not support saving.
         let mut app = app_with_tab(EditorType::SpriteViewer);
         let _ = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(
-            app.state.status_msg,
-            "This editor does not support saving"
-        );
+        assert_eq!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
@@ -91,9 +88,6 @@ mod save_dispatch_tests {
         // No tabs open — no active tab to save.
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(
-            app.state.status_msg,
-            "No active tab to save"
-        );
+        assert_eq!(app.state.status_msg, "No active tab to save");
     }
 }

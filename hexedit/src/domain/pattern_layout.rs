@@ -93,7 +93,9 @@ pub fn compute_pattern_rows(
 
     // Visible patterns
     for p in patterns {
-        let hidden = p.group_id.is_some_and(|gid| collapsed_groups.contains(&gid));
+        let hidden = p
+            .group_id
+            .is_some_and(|gid| collapsed_groups.contains(&gid));
         if !hidden {
             entries.push(Entry {
                 start: p.start,
@@ -133,7 +135,11 @@ pub fn compute_pattern_rows(
 
     while i < entries.len() {
         match &entries[i].kind {
-            EntryKind::CollapsedStub { first, label, color_idx } => {
+            EntryKind::CollapsedStub {
+                first,
+                label,
+                color_idx,
+            } => {
                 rows.push(PatternRow {
                     pattern_id: first.id,
                     glyph: GutterGlyph::GroupFirst,
@@ -157,10 +163,8 @@ pub fn compute_pattern_rows(
                         }
                         let run_len = j - i;
 
-                        let group_label = groups
-                            .iter()
-                            .find(|g| g.id == gid)
-                            .map(|g| g.label.clone());
+                        let group_label =
+                            groups.iter().find(|g| g.id == gid).map(|g| g.label.clone());
 
                         for k in 0..run_len {
                             let EntryKind::Visible(p) = &entries[i + k].kind else {
@@ -175,11 +179,7 @@ pub fn compute_pattern_rows(
                             rows.push(PatternRow {
                                 pattern_id: p.id,
                                 glyph,
-                                group_label: if k == 0 {
-                                    group_label.clone()
-                                } else {
-                                    None
-                                },
+                                group_label: if k == 0 { group_label.clone() } else { None },
                                 group_id: Some(gid),
                                 color_idx: p.color_idx,
                                 collapsed: false,
@@ -294,8 +294,8 @@ mod tests {
         let group = RepeatedPatternGroup::new(0, "G".into(), 0);
         let patterns = vec![
             Pattern::grouped(0, 0x10, 0x1F, 0, 0), // group, run of 1
-            Pattern::new(1, 0x20, 0x2F, 1),         // solo
-            Pattern::grouped(2, 0x30, 0x3F, 2, 1),  // another group, run of 1
+            Pattern::new(1, 0x20, 0x2F, 1),        // solo
+            Pattern::grouped(2, 0x30, 0x3F, 2, 1), // another group, run of 1
         ];
         // Two groups, each with 1 pattern → each gets GroupFirst
         // Middle one is solo
@@ -324,11 +324,7 @@ mod tests {
         // A[0] forms run of 1 (B[0] breaks continuity)
         // B[0] forms run of 1
         // A[1] forms run of 1
-        let rows = compute_pattern_rows(
-            &patterns,
-            &[group_a, group_b],
-            &BTreeSet::new(),
-        );
+        let rows = compute_pattern_rows(&patterns, &[group_a, group_b], &BTreeSet::new());
         assert_eq!(rows.len(), 3);
         // Each run has length 1 → GroupFirst for all
         assert_eq!(rows[0].glyph, GutterGlyph::GroupFirst);
@@ -350,7 +346,7 @@ mod tests {
         let group = RepeatedPatternGroup::new(0, "Collapsed".into(), 0);
         let patterns = vec![
             Pattern::grouped(0, 0x10, 0x1F, 0, 0), // group 0
-            Pattern::new(1, 0x30, 0x3F, 1),          // solo
+            Pattern::new(1, 0x30, 0x3F, 1),        // solo
         ];
         let mut collapsed = BTreeSet::new();
         collapsed.insert(0);
@@ -386,7 +382,7 @@ mod tests {
         let patterns = vec![
             Pattern::grouped(0, 0x10, 0x1F, 0, 0), // G0
             Pattern::grouped(1, 0x20, 0x2F, 1, 1), // G1
-            Pattern::new(2, 0x80, 0x8F, 2),          // solo
+            Pattern::new(2, 0x80, 0x8F, 2),        // solo
         ];
         let mut collapsed = BTreeSet::new();
         collapsed.insert(0); // G0 collapsed, G1 visible
@@ -420,7 +416,10 @@ mod tests {
         let rows = compute_pattern_rows(&patterns, &[], &BTreeSet::new());
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].group_id, Some(99));
-        assert!(rows[0].group_label.is_none(), "no matching group → no label");
+        assert!(
+            rows[0].group_label.is_none(),
+            "no matching group → no label"
+        );
         assert_eq!(rows[0].glyph, GutterGlyph::GroupFirst);
     }
 

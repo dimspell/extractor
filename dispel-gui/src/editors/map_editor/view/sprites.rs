@@ -12,10 +12,7 @@ use super::super::state::{SpriteExportDialogState, SpriteExportStatus};
 
 // ── Sprite browser ────────────────────────────────────────────────────────────
 
-pub fn view_sprite_browser<'a>(
-    state: &'a MapEditorState,
-    tab_id: usize,
-) -> Element<'a, Message> {
+pub fn view_sprite_browser<'a>(state: &'a MapEditorState, tab_id: usize) -> Element<'a, Message> {
     use iced::widget::image;
     use iced::Length::Fixed;
 

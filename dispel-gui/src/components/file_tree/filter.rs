@@ -85,8 +85,8 @@ pub enum FileTreeError {
 /// Result type for file tree operations
 pub type FileTreeResult<T> = Result<T, FileTreeError>;
 
-use std::cell::RefCell;
 use nucleo_matcher::{Config, Matcher, Utf32Str};
+use std::cell::RefCell;
 
 thread_local! {
     static FUZZY_MATCHER: RefCell<Matcher> = RefCell::new(Matcher::new(Config::DEFAULT));

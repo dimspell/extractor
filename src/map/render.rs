@@ -169,9 +169,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     }
 
     // ── Pre-load external entities (if game path given) ──────────────────
-    let external = game_path.and_then(|gp| {
-        collect_external_entities(map_id, gp, &data.model).ok()
-    });
+    let external = game_path.and_then(|gp| collect_external_entities(map_id, gp, &data.model).ok());
 
     // ── Pass 2: Interleaved objects + entities ───────────────────────────
     // All depth-relevant items (buildings, internal sprites, monsters, NPCs,
@@ -179,11 +177,17 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     // tiebreaker, then rendered together — matching the DispelTools
     // IInterlacedOrderObject / IInterlacedOrderObjectComparer approach.
     {
-        let mut sprite_cache: HashMap<PathBuf, Option<Vec<super::sprite_loader::LoadedSpriteFrame>>> =
-            HashMap::new();
+        let mut sprite_cache: HashMap<
+            PathBuf,
+            Option<Vec<super::sprite_loader::LoadedSpriteFrame>>,
+        > = HashMap::new();
 
         let diagonal = data.model.tiled_map_width + data.model.tiled_map_height;
-        let noy = if occlusion { 0 } else { data.model.map_non_occluded_start_y };
+        let noy = if occlusion {
+            0
+        } else {
+            data.model.map_non_occluded_start_y
+        };
 
         // Helper: entity sort position (matches GUI's entity_pos)
         let entity_pos = |tx: i32, ty: i32| -> i32 {
@@ -328,13 +332,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
     }
 
     if toggles.show_events {
-        plot_events_overlay(
-            &mut imgbuf,
-            &data.model,
-            &data.events,
-            occlusion,
-            diagonal,
-        );
+        plot_events_overlay(&mut imgbuf, &data.model, &data.events, occlusion, diagonal);
     }
 
     if toggles.show_draw_items {
@@ -372,8 +370,7 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
                 rgba.put_pixel(x, y, Rgba([pixel[0], pixel[1], pixel[2], 255]));
             }
         }
-        rgba
-            .save(output_path)
+        rgba.save(output_path)
             .map_err(|e| std::io::Error::other(e.to_string()))?;
     } else {
         imgbuf
@@ -687,19 +684,17 @@ pub fn collect_external_entities(
             .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
             .collect();
 
-    let npc_sprite_map: HashMap<i32, String> =
-        NpcIni::read_file(&game_path.join("Npc.ini"))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
-            .collect();
+    let npc_sprite_map: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
+        .collect();
 
-    let extra_sprite_map: HashMap<i32, String> =
-        Extra::read_file(&game_path.join("Extra.ini"))
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
-            .collect();
+    let extra_sprite_map: HashMap<i32, String> = Extra::read_file(&game_path.join("Extra.ini"))
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
+        .collect();
 
     let mut monsters = Vec::new();
     let mut npcs = Vec::new();
@@ -748,8 +743,9 @@ pub fn collect_external_entities(
                 } else {
                     (dir as usize, false)
                 };
-                let sprite_path =
-                    npc_sprite_map.get(&n.npc_id).map(|s| resolve("NpcInGame", s));
+                let sprite_path = npc_sprite_map
+                    .get(&n.npc_id)
+                    .map(|s| resolve("NpcInGame", s));
 
                 npcs.push(EntityRenderInfo {
                     x,
@@ -795,11 +791,12 @@ pub fn collect_external_entities(
         .trim_start_matches(|c: char| !c.is_ascii_digit())
         .parse()
         .unwrap_or(0);
-    let draw_items: Vec<DrawItem> = DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|d| d.map_id == map_draw_id)
-        .collect();
+    let draw_items: Vec<DrawItem> =
+        DrawItem::read_file(&game_path.join("Ref").join("DRAWITEM.ref"))
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|d| d.map_id == map_draw_id)
+            .collect();
 
     Ok(ExternalEntities {
         monsters,
@@ -1158,7 +1155,14 @@ fn plot_events_overlay(
             // Magenta dot
             fill_circle_blended(imgbuf, cx, cy, 3, [200, 25, 200], 180);
             // Event ID label above the dot
-            draw_number(imgbuf, cx, cy - 8, event.event_id as i32, [255, 255, 255], 3);
+            draw_number(
+                imgbuf,
+                cx,
+                cy - 8,
+                event.event_id as i32,
+                [255, 255, 255],
+                3,
+            );
         }
     }
 }
@@ -1187,8 +1191,7 @@ fn plot_draw_items_overlay(
     diagonal: i32,
 ) {
     for di in draw_items {
-        let (mut px, mut py) =
-            convert_map_coords_to_image_coords(di.x_coord, di.y_coord, diagonal);
+        let (mut px, mut py) = convert_map_coords_to_image_coords(di.x_coord, di.y_coord, diagonal);
         if occlusion {
             px -= model.map_non_occluded_start_x;
             py -= model.map_non_occluded_start_y;
@@ -1223,10 +1226,10 @@ fn plot_npc_waypoints_overlay(
     diagonal: i32,
 ) {
     let waypoint_colors: [[u8; 3]; 4] = [
-        [50, 200, 50],   // green
-        [50, 50, 200],   // blue
-        [200, 50, 50],   // red
-        [200, 200, 50],  // yellow
+        [50, 200, 50],  // green
+        [50, 50, 200],  // blue
+        [200, 50, 50],  // red
+        [200, 200, 50], // yellow
     ];
 
     for npc in npc_records {
@@ -1245,11 +1248,8 @@ fn plot_npc_waypoints_overlay(
         }
 
         for j in 0..waypoints.len() {
-            let (sx, sy) = convert_map_coords_to_image_coords(
-                waypoints[j].0,
-                waypoints[j].1,
-                diagonal,
-            );
+            let (sx, sy) =
+                convert_map_coords_to_image_coords(waypoints[j].0, waypoints[j].1, diagonal);
             let (ex, ey) = convert_map_coords_to_image_coords(
                 waypoints[(j + 1) % waypoints.len()].0,
                 waypoints[(j + 1) % waypoints.len()].1,
@@ -1472,7 +1472,10 @@ fn test_draw_number_negative() {
     let mut img = ImageBuffer::new(50, 20);
     draw_number(&mut img, 25, 10, -42, [255; 3], 3);
     let has_white = img.pixels().any(|p| *p == Rgb([255, 255, 255]));
-    assert!(has_white, "draw_number(-42) should produce some white pixels");
+    assert!(
+        has_white,
+        "draw_number(-42) should produce some white pixels"
+    );
 }
 
 #[test]

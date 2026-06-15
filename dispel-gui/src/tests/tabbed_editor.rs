@@ -6,7 +6,9 @@ mod tabbed_editor_lifecycle_tests {
 
     fn app_with_tabbed_editor(editor_type: EditorType) -> App {
         let mut app = App::test_new(Workspace::new());
-        app.state.workspace.open("test.dlg".into(), Some(PathBuf::from("test.dlg")));
+        app.state
+            .workspace
+            .open("test.dlg".into(), Some(PathBuf::from("test.dlg")));
         if let Some(tab) = app.state.workspace.tabs.last_mut() {
             tab.editor_type = editor_type;
         }
@@ -14,24 +16,64 @@ mod tabbed_editor_lifecycle_tests {
         // Insert a dummy entry for each tabbed editor type
         match editor_type {
             EditorType::MonsterRefEditor => {
-                app.state.editors.monster_ref_editor.editors.insert(tab_id, Default::default());
-                app.state.editors.monster_ref_editor.spreadsheets.insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .monster_ref_editor
+                    .editors
+                    .insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .monster_ref_editor
+                    .spreadsheets
+                    .insert(tab_id, Default::default());
             }
             EditorType::NpcRefEditor => {
-                app.state.editors.npc_ref_editor.editors.insert(tab_id, Default::default());
-                app.state.editors.npc_ref_editor.spreadsheets.insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .npc_ref_editor
+                    .editors
+                    .insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .npc_ref_editor
+                    .spreadsheets
+                    .insert(tab_id, Default::default());
             }
             EditorType::ExtraRefEditor => {
-                app.state.editors.extra_ref_editor.editors.insert(tab_id, Default::default());
-                app.state.editors.extra_ref_editor.spreadsheets.insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .extra_ref_editor
+                    .editors
+                    .insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .extra_ref_editor
+                    .spreadsheets
+                    .insert(tab_id, Default::default());
             }
             EditorType::DialogueScriptEditor => {
-                app.state.editors.dialogue_script_editor.editors.insert(tab_id, Default::default());
-                app.state.editors.dialogue_script_editor.spreadsheets.insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .dialogue_script_editor
+                    .editors
+                    .insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .dialogue_script_editor
+                    .spreadsheets
+                    .insert(tab_id, Default::default());
             }
             EditorType::DialogueTextEditor => {
-                app.state.editors.dialogue_paragraph_editor.editors.insert(tab_id, Default::default());
-                app.state.editors.dialogue_paragraph_editor.spreadsheets.insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .dialogue_paragraph_editor
+                    .editors
+                    .insert(tab_id, Default::default());
+                app.state
+                    .editors
+                    .dialogue_paragraph_editor
+                    .spreadsheets
+                    .insert(tab_id, Default::default());
             }
             _ => {}
         }
@@ -79,24 +121,38 @@ mod tabbed_editor_lifecycle_tests {
             // Map editor types to their field names to verify cleanup
             match et {
                 EditorType::MonsterRefEditor => {
-                    assert!(app.state.editors.monster_ref_editor.editors.is_empty(),
-                        "MonsterRefEditor editors not cleaned up for tab_id {tab_id}");
+                    assert!(
+                        app.state.editors.monster_ref_editor.editors.is_empty(),
+                        "MonsterRefEditor editors not cleaned up for tab_id {tab_id}"
+                    );
                 }
                 EditorType::NpcRefEditor => {
-                    assert!(app.state.editors.npc_ref_editor.editors.is_empty(),
-                        "NpcRefEditor editors not cleaned up");
+                    assert!(
+                        app.state.editors.npc_ref_editor.editors.is_empty(),
+                        "NpcRefEditor editors not cleaned up"
+                    );
                 }
                 EditorType::ExtraRefEditor => {
-                    assert!(app.state.editors.extra_ref_editor.editors.is_empty(),
-                        "ExtraRefEditor editors not cleaned up");
+                    assert!(
+                        app.state.editors.extra_ref_editor.editors.is_empty(),
+                        "ExtraRefEditor editors not cleaned up"
+                    );
                 }
                 EditorType::DialogueScriptEditor => {
-                    assert!(app.state.editors.dialogue_script_editor.editors.is_empty(),
-                        "DialogueScriptEditor editors not cleaned up");
+                    assert!(
+                        app.state.editors.dialogue_script_editor.editors.is_empty(),
+                        "DialogueScriptEditor editors not cleaned up"
+                    );
                 }
                 EditorType::DialogueTextEditor => {
-                    assert!(app.state.editors.dialogue_paragraph_editor.editors.is_empty(),
-                        "DialogueTextEditor editors not cleaned up");
+                    assert!(
+                        app.state
+                            .editors
+                            .dialogue_paragraph_editor
+                            .editors
+                            .is_empty(),
+                        "DialogueTextEditor editors not cleaned up"
+                    );
                 }
                 _ => unreachable!(),
             }
@@ -115,7 +171,10 @@ mod tabbed_editor_lifecycle_tests {
         let mut app = app_with_tabbed_editor(et);
         // Use a tab_id that doesn't match any entry
         let result = app.state.editors.undo_active(et, 999, &Default::default());
-        assert!(result.is_none(), "undo on nonexistent tabbed editor returns None");
+        assert!(
+            result.is_none(),
+            "undo on nonexistent tabbed editor returns None"
+        );
     }
 
     #[test]
@@ -123,14 +182,19 @@ mod tabbed_editor_lifecycle_tests {
         let et = EditorType::MonsterRefEditor;
         let mut app = app_with_tabbed_editor(et);
         let result = app.state.editors.redo_active(et, 999, &Default::default());
-        assert!(result.is_none(), "redo on nonexistent tabbed editor returns None");
+        assert!(
+            result.is_none(),
+            "redo on nonexistent tabbed editor returns None"
+        );
     }
 
     #[test]
     fn refresh_spreadsheet_stale_tab_id_is_noop() {
         let et = EditorType::MonsterRefEditor;
         let mut app = app_with_tabbed_editor(et);
-        app.state.editors.refresh_spreadsheet(et, 999, &Default::default());
+        app.state
+            .editors
+            .refresh_spreadsheet(et, 999, &Default::default());
         // should not panic
     }
 }
@@ -138,11 +202,11 @@ mod tabbed_editor_lifecycle_tests {
 #[cfg(test)]
 mod tabbed_editor_message_routing_tests {
     use crate::app::App;
+    use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
+    use crate::editors::dialogue_script::DialogueScriptEditorMessage;
+    use crate::editors::extra_ref::ExtraRefEditorMessage;
     use crate::editors::monster_ref::MonsterRefEditorMessage;
     use crate::editors::npc_ref::NpcRefEditorMessage;
-    use crate::editors::extra_ref::ExtraRefEditorMessage;
-    use crate::editors::dialogue_script::DialogueScriptEditorMessage;
-    use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
     use crate::view::editor::SpreadsheetMessage;
     use crate::workspace::Workspace;
 

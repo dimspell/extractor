@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod error_dialog_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::system::SystemMessage;
+    use crate::message::Message;
     use crate::workspace::Workspace;
 
     #[test]

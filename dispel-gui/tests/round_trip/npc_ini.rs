@@ -13,11 +13,5 @@ fn fixture_npcini_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        NpcIni::read_file,
-        NpcIni::save_file,
-        fixture,
-        "NpcIni",
-    )
-    .unwrap();
+    round_trip_from_fixture(NpcIni::read_file, NpcIni::save_file, fixture, "NpcIni").unwrap();
 }

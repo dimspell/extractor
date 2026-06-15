@@ -13,11 +13,5 @@ fn fixture_waveini_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        WaveIni::read_file,
-        WaveIni::save_file,
-        fixture,
-        "WaveIni",
-    )
-    .unwrap();
+    round_trip_from_fixture(WaveIni::read_file, WaveIni::save_file, fixture, "WaveIni").unwrap();
 }

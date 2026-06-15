@@ -13,11 +13,5 @@ fn fixture_npcref_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        NPC::read_file,
-        NPC::save_file,
-        fixture,
-        "NPC",
-    )
-    .unwrap();
+    round_trip_from_fixture(NPC::read_file, NPC::save_file, fixture, "NPC").unwrap();
 }

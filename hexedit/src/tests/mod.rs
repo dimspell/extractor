@@ -18,10 +18,10 @@ use crate::config::HexEditorConfig;
 use crate::message::HexEditorMessage;
 use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
-use crate::ui::coloring::ColorScheme;
 use crate::search::SearchState;
 use crate::selection::{NavDir, Selection};
 use crate::state::HexEditorState;
+use crate::ui::coloring::ColorScheme;
 use crate::update::update;
 use crate::view::view;
 use crate::LuaScriptEngine;
@@ -146,19 +146,18 @@ fn test_hex_matrix_uses_paragraph_cache() {
 
 pub mod pane_grid;
 
-pub mod header;
-pub mod toolbar;
-pub mod footer;
-pub mod navigation;
 pub mod editing;
-pub mod search;
+pub mod footer;
 pub mod goto;
-pub mod patterns;
-pub mod pattern_group;
+pub mod header;
 pub mod inspector;
+pub mod navigation;
+pub mod pattern_group;
+pub mod patterns;
 pub mod saving;
+pub mod search;
 pub mod settings;
+pub mod toolbar;
 
 #[cfg(feature = "lua")]
 pub mod lua_tests;
-

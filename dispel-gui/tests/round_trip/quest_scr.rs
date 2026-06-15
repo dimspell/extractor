@@ -13,11 +13,5 @@ fn fixture_quest_scr_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Quest::read_file,
-        Quest::save_file,
-        fixture,
-        "Quest",
-    )
-    .unwrap();
+    round_trip_from_fixture(Quest::read_file, Quest::save_file, fixture, "Quest").unwrap();
 }

@@ -252,5 +252,3 @@ fn infer_json_type(field: &str) -> serde_json::Value {
 
     serde_json::json!({ "type": "integer" })
 }
-
-

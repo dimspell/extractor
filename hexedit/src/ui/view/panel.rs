@@ -258,9 +258,7 @@ mod tests {
     fn matrix_content_renders_with_empty_provider() {
         // Quick smoke test: matrix content function shouldn't panic even with
         // a minimal state.
-        let state = HexEditorState::load_from_path(
-            std::path::Path::new("/nonexistent/file.bin"),
-        );
+        let state = HexEditorState::load_from_path(std::path::Path::new("/nonexistent/file.bin"));
         let _content = matrix_content(&state);
     }
 }

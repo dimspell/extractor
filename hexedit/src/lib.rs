@@ -23,9 +23,9 @@ pub mod domain;
 pub mod ui;
 
 mod config;
+pub mod lua_engine;
 mod message;
 mod state;
-pub mod lua_engine;
 
 // ── Re-exports for downstream convenience ────────────────────────────────
 //
@@ -48,9 +48,9 @@ pub use domain::selection::{NavDir, Selection};
 pub use domain::vanilla_diff::compute_diff;
 
 // Type-level re-exports from ui.
+pub use lua_engine::LuaScriptEngine;
 pub use ui::coloring::CellColorProvider;
 pub use ui::inspector::{EncodeFn, InspectorEntry};
-pub use lua_engine::LuaScriptEngine;
 
 // Module-level re-exports — allow `hexedit::selection::NavDir` and
 // `crate::selection::*` to keep working inside the crate.

@@ -1370,11 +1370,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     );
                     if let Some(cell_clip) = clip.intersection(&cell) {
                         <iced::Renderer as text::Renderer>::fill_paragraph(
-                            renderer,
-                            &para,
-                            pos,
-                            color,
-                            cell_clip,
+                            renderer, &para, pos, color, cell_clip,
                         );
                     }
                     seg_x += text_w;

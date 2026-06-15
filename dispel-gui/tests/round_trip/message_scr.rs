@@ -13,11 +13,5 @@ fn fixture_message_scr_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        Message::read_file,
-        Message::save_file,
-        fixture,
-        "Message",
-    )
-    .unwrap();
+    round_trip_from_fixture(Message::read_file, Message::save_file, fixture, "Message").unwrap();
 }

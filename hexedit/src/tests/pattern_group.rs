@@ -29,18 +29,9 @@ fn commit_repeated_pattern_prefills_annotations() {
     assert_eq!(state.groups[0].label, "Monster");
 
     // Each pattern should have an auto-prefilled annotation
-    assert_eq!(
-        state.patterns[0].annotation.as_deref(),
-        Some("Monster[0]")
-    );
-    assert_eq!(
-        state.patterns[1].annotation.as_deref(),
-        Some("Monster[1]")
-    );
-    assert_eq!(
-        state.patterns[2].annotation.as_deref(),
-        Some("Monster[2]")
-    );
+    assert_eq!(state.patterns[0].annotation.as_deref(), Some("Monster[0]"));
+    assert_eq!(state.patterns[1].annotation.as_deref(), Some("Monster[1]"));
+    assert_eq!(state.patterns[2].annotation.as_deref(), Some("Monster[2]"));
 
     // Each should be in the group
     let gid = state.groups[0].id;
@@ -107,7 +98,10 @@ fn commit_repeated_pattern_clamps_at_max_addr() {
     // 5 blocks of 0x20 → blocks 0-31 and 32-49 fit; block 3 at 64 > max_addr
     assert_eq!(state.patterns.len(), 2, "only 2 blocks fit in 50 bytes");
     assert_eq!(state.patterns[0].end, 31);
-    assert_eq!(state.patterns[1].end, 49, "last block should clamp at max_addr");
+    assert_eq!(
+        state.patterns[1].end, 49,
+        "last block should clamp at max_addr"
+    );
 }
 
 #[test]
@@ -150,10 +144,7 @@ fn set_annotation_creates_annotation() {
         HexEditorMessage::SetPatternAnnotation(id, "my note".to_string()),
     );
 
-    assert_eq!(
-        state.patterns[0].annotation.as_deref(),
-        Some("my note")
-    );
+    assert_eq!(state.patterns[0].annotation.as_deref(), Some("my note"));
 }
 
 #[test]
@@ -302,11 +293,7 @@ fn rename_group_updates_child_annotations() {
     let gid = state.groups[0].id;
 
     // Begin rename
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::BeginRenameGroup(gid),
-    );
+    send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
     assert_eq!(state.renaming_group, Some(gid));
     assert_eq!(state.renaming_group_draft, "Monster");
 
@@ -322,7 +309,10 @@ fn rename_group_updates_child_annotations() {
 
     assert_eq!(state.groups[0].label, "Enemy");
     assert!(state.renaming_group.is_none(), "rename should be cleared");
-    assert!(state.renaming_group_draft.is_empty(), "draft should be cleared");
+    assert!(
+        state.renaming_group_draft.is_empty(),
+        "draft should be cleared"
+    );
 
     // Annotations should be updated
     assert_eq!(state.patterns[0].annotation.as_deref(), Some("Enemy[0]"));
@@ -341,11 +331,7 @@ fn rename_group_to_empty_uses_unnamed_and_updates_annotations() {
     create_group(&mut state, &config, "Monster", 0x10, 0x10, 2);
 
     let gid = state.groups[0].id;
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::BeginRenameGroup(gid),
-    );
+    send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
     send(
         &mut state,
         &config,
@@ -379,11 +365,7 @@ fn rename_group_preserves_manual_annotations() {
     );
 
     let gid = state.groups[0].id;
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::BeginRenameGroup(gid),
-    );
+    send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
     send(
         &mut state,
         &config,
@@ -394,10 +376,7 @@ fn rename_group_preserves_manual_annotations() {
     // Auto-generated annotation should update
     assert_eq!(state.patterns[0].annotation.as_deref(), Some("Enemy[0]"));
     // Manual annotation should be preserved
-    assert_eq!(
-        state.patterns[1].annotation.as_deref(),
-        Some("custom note")
-    );
+    assert_eq!(state.patterns[1].annotation.as_deref(), Some("custom note"));
 }
 
 #[test]
@@ -454,7 +433,11 @@ fn rename_group_other_groups_unaffected() {
     let gid_b = state.groups[1].id;
 
     // Rename GroupA → RenamedA
-    send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid_a));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::BeginRenameGroup(gid_a),
+    );
     send(
         &mut state,
         &config,
@@ -500,10 +483,7 @@ fn rename_group_ungrouped_unaffected() {
     send(&mut state, &config, HexEditorMessage::CommitRenameGroup);
 
     // Ungrouped pattern annotation should be untouched
-    assert_eq!(
-        state.patterns[2].annotation.as_deref(),
-        Some("standalone")
-    );
+    assert_eq!(state.patterns[2].annotation.as_deref(), Some("standalone"));
 }
 
 #[test]
@@ -521,10 +501,7 @@ fn rename_group_non_auto_annotation_preserved() {
     send(
         &mut state,
         &config,
-        HexEditorMessage::SetPatternAnnotation(
-            pid,
-            "Monster[foobar]".to_string(),
-        ),
+        HexEditorMessage::SetPatternAnnotation(pid, "Monster[foobar]".to_string()),
     );
 
     send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
@@ -555,10 +532,7 @@ fn rename_group_non_match_annotation_preserved() {
     send(
         &mut state,
         &config,
-        HexEditorMessage::SetPatternAnnotation(
-            pid,
-            "custom annotation".to_string(),
-        ),
+        HexEditorMessage::SetPatternAnnotation(pid, "custom annotation".to_string()),
     );
 
     send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
@@ -592,19 +566,16 @@ fn rename_group_cancel_does_not_change_anything() {
     // Cancel instead of commit
     send(&mut state, &config, HexEditorMessage::CancelRenameGroup);
 
-    assert_eq!(state.groups[0].label, "Monster", "label should be unchanged");
+    assert_eq!(
+        state.groups[0].label, "Monster",
+        "label should be unchanged"
+    );
     assert!(state.renaming_group.is_none());
     assert!(state.renaming_group_draft.is_empty());
 
     // Annotations unchanged
-    assert_eq!(
-        state.patterns[0].annotation.as_deref(),
-        Some("Monster[0]")
-    );
-    assert_eq!(
-        state.patterns[1].annotation.as_deref(),
-        Some("Monster[1]")
-    );
+    assert_eq!(state.patterns[0].annotation.as_deref(), Some("Monster[0]"));
+    assert_eq!(state.patterns[1].annotation.as_deref(), Some("Monster[1]"));
 }
 
 #[test]
@@ -787,11 +758,7 @@ fn cycle_group_color_updates_all_children() {
     let gid = state.groups[0].id;
     let original_color = state.groups[0].color_idx;
 
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::CycleGroupColor(gid),
-    );
+    send(&mut state, &config, HexEditorMessage::CycleGroupColor(gid));
 
     let expected_color = (original_color + 1) % 16;
     assert_eq!(state.groups[0].color_idx, expected_color);
@@ -812,11 +779,7 @@ fn cycle_group_color_nonexistent_id_is_noop() {
     let config = default_config();
 
     // Should not panic
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::CycleGroupColor(999),
-    );
+    send(&mut state, &config, HexEditorMessage::CycleGroupColor(999));
 }
 
 // ---------------------------------------------------------------------------
@@ -831,16 +794,9 @@ fn cycle_pattern_color() {
     let id = state.patterns[0].id;
     let original_color = state.patterns[0].color_idx;
 
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::CyclePatternColor(id),
-    );
+    send(&mut state, &config, HexEditorMessage::CyclePatternColor(id));
 
-    assert_eq!(
-        state.patterns[0].color_idx,
-        (original_color + 1) % 16
-    );
+    assert_eq!(state.patterns[0].color_idx, (original_color + 1) % 16);
 }
 
 #[test]
@@ -916,8 +872,16 @@ fn commit_repeated_pattern_zero_count_does_nothing() {
     send(&mut state, &config, HexEditorMessage::CommitRepeatedPattern);
 
     // count < 1 is rejected by parse_repeat_count() → no group, no patterns
-    assert_eq!(state.patterns.len(), 0, "zero count should create no patterns");
-    assert_eq!(state.groups.len(), 0, "group should NOT be created for invalid count");
+    assert_eq!(
+        state.patterns.len(),
+        0,
+        "zero count should create no patterns"
+    );
+    assert_eq!(
+        state.groups.len(),
+        0,
+        "group should NOT be created for invalid count"
+    );
     // Dialog still open with error
     assert!(state.repeat_pattern.is_some());
     assert!(state.repeat_pattern.unwrap().error.is_some());
@@ -938,7 +902,10 @@ fn remove_last_pattern_in_group_removes_group() {
 
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
-    assert!(state.groups.is_empty(), "group should be removed when its last pattern is removed");
+    assert!(
+        state.groups.is_empty(),
+        "group should be removed when its last pattern is removed"
+    );
     assert!(state.patterns.is_empty(), "pattern should be gone");
 }
 
@@ -954,7 +921,11 @@ fn remove_some_but_not_all_patterns_keeps_group() {
 
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
-    assert_eq!(state.groups.len(), 1, "group should persist when patterns remain");
+    assert_eq!(
+        state.groups.len(),
+        1,
+        "group should persist when patterns remain"
+    );
     assert_eq!(state.patterns.len(), 2, "only one pattern removed");
     assert_eq!(state.groups[0].label, "Monster", "group label preserved");
 }
@@ -994,9 +965,18 @@ fn orphan_cleanup_does_not_affect_patterns_not_in_groups() {
 
     assert_eq!(state.patterns.len(), 2, "grouped + standalone pattern");
     let gid = state.groups[0].id;
-    let grouped_pid = state.patterns.iter().find(|p| p.group_id == Some(gid)).unwrap().id;
+    let grouped_pid = state
+        .patterns
+        .iter()
+        .find(|p| p.group_id == Some(gid))
+        .unwrap()
+        .id;
 
-    send(&mut state, &config, HexEditorMessage::RemovePattern(grouped_pid));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::RemovePattern(grouped_pid),
+    );
 
     assert!(state.groups.is_empty(), "group removed");
     assert_eq!(state.patterns.len(), 1, "standalone pattern remains");
@@ -1020,7 +1000,10 @@ fn pattern_by_addr_stores_color_idx() {
     let pat = &state.patterns[0];
     for (addr, (id, color_idx)) in &state.pattern_by_addr {
         assert_eq!(*id, pat.id, "address {addr}: pattern id matches");
-        assert_eq!(*color_idx, pat.color_idx, "address {addr}: color_idx matches pattern's color_idx");
+        assert_eq!(
+            *color_idx, pat.color_idx,
+            "address {addr}: color_idx matches pattern's color_idx"
+        );
     }
     assert!(!state.pattern_by_addr.is_empty());
 }
@@ -1033,10 +1016,17 @@ fn pattern_by_addr_color_idx_survives_removal_and_add() {
     // Create 3 patterns to get color_idx = 0, 1, 2
     for (i, start) in [0x10, 0x30, 0x50].iter().enumerate() {
         send(&mut state, &config, HexEditorMessage::SelectAt(*start));
-        send(&mut state, &config, HexEditorMessage::ExtendTo(start + 0x0F));
+        send(
+            &mut state,
+            &config,
+            HexEditorMessage::ExtendTo(start + 0x0F),
+        );
         send(&mut state, &config, HexEditorMessage::CreatePattern);
-        assert_eq!(state.patterns.last().unwrap().color_idx, i as u8,
-            "pattern {i} should get color_idx {i}");
+        assert_eq!(
+            state.patterns.last().unwrap().color_idx,
+            i as u8,
+            "pattern {i} should get color_idx {i}"
+        );
     }
 
     // Remove pattern 1 (the middle one)
@@ -1048,8 +1038,10 @@ fn pattern_by_addr_color_idx_survives_removal_and_add() {
     assert_eq!(state.patterns[1].color_idx, 2);
     for (addr, (id, color_idx)) in &state.pattern_by_addr {
         let pat = state.pattern_by_id(*id).unwrap();
-        assert_eq!(*color_idx, pat.color_idx,
-            "address {addr}: color_idx {color_idx} matches pattern {id}");
+        assert_eq!(
+            *color_idx, pat.color_idx,
+            "address {addr}: color_idx {color_idx} matches pattern {id}"
+        );
     }
 }
 
@@ -1068,13 +1060,19 @@ fn cycle_pattern_color_rebuilds_lookup() {
     let pid = state.patterns[0].id;
     let original = state.patterns[0].color_idx;
 
-    send(&mut state, &config, HexEditorMessage::CyclePatternColor(pid));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::CyclePatternColor(pid),
+    );
 
     let new_color = state.patterns[0].color_idx;
     assert_ne!(new_color, original, "color should cycle");
     for (addr, (_id, ci)) in &state.pattern_by_addr {
-        assert_eq!(*ci, new_color,
-            "pattern_by_addr at {addr} should reflect new color_idx {new_color}");
+        assert_eq!(
+            *ci, new_color,
+            "pattern_by_addr at {addr} should reflect new color_idx {new_color}"
+        );
     }
 }
 
@@ -1093,8 +1091,10 @@ fn cycle_group_color_rebuilds_lookup_for_all_children() {
     assert_ne!(new_color, original, "group color should cycle");
     // All child patterns in pattern_by_addr should have the new color
     for (addr, (_id, ci)) in &state.pattern_by_addr {
-        assert_eq!(*ci, new_color,
-            "all patterns should have the new group color at {addr}");
+        assert_eq!(
+            *ci, new_color,
+            "all patterns should have the new group color at {addr}"
+        );
     }
 }
 
@@ -1129,7 +1129,10 @@ fn commit_rename_group_recomputes_row_annotations() {
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
-    assert!(has_annotation, "row_annotations should contain old annotation");
+    assert!(
+        has_annotation,
+        "row_annotations should contain old annotation"
+    );
 
     // Now rename the group
     send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
@@ -1145,12 +1148,18 @@ fn commit_rename_group_recomputes_row_annotations() {
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Enemy[0]"));
-    assert!(has_new, "row_annotations should contain updated annotation after rename");
+    assert!(
+        has_new,
+        "row_annotations should contain updated annotation after rename"
+    );
     let has_old = state
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
-    assert!(!has_old, "row_annotations should not contain stale old annotation");
+    assert!(
+        !has_old,
+        "row_annotations should not contain stale old annotation"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1165,16 +1174,25 @@ fn remove_pattern_cleans_up_collapsed_groups() {
 
     let gid = state.groups[0].id;
     // Collapse the group
-    send(&mut state, &config, HexEditorMessage::TogglePatternGroup(gid));
-    assert!(state.collapsed_groups.contains(&gid), "group should be collapsed");
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::TogglePatternGroup(gid),
+    );
+    assert!(
+        state.collapsed_groups.contains(&gid),
+        "group should be collapsed"
+    );
 
     // Remove the only pattern — group should be cleaned up
     let pid = state.patterns[0].id;
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
     assert!(state.groups.is_empty(), "orphan group removed");
-    assert!(!state.collapsed_groups.contains(&gid),
-        "collapsed_groups should not contain stale orphaned group id");
+    assert!(
+        !state.collapsed_groups.contains(&gid),
+        "collapsed_groups should not contain stale orphaned group id"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1192,9 +1210,15 @@ fn clear_patterns_cleans_up_active_patterns() {
 
     // Manually seed active_patterns (normally set via cursor-move logic)
     state.active_patterns.insert(999);
-    assert!(!state.active_patterns.is_empty(), "precondition: active_patterns populated");
+    assert!(
+        !state.active_patterns.is_empty(),
+        "precondition: active_patterns populated"
+    );
 
     send(&mut state, &config, HexEditorMessage::ClearAllPatterns);
 
-    assert!(state.active_patterns.is_empty(), "active_patterns should be cleared");
+    assert!(
+        state.active_patterns.is_empty(),
+        "active_patterns should be cleared"
+    );
 }

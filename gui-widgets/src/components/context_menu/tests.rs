@@ -164,8 +164,14 @@ fn test_native_result_clone_copy() {
         super::platform::NativeResult::Cancelled
     ));
     // Verify originals are still usable (Copy)
-    assert!(matches!(selected, super::platform::NativeResult::Selected(5)));
-    assert!(matches!(cancelled, super::platform::NativeResult::Cancelled));
+    assert!(matches!(
+        selected,
+        super::platform::NativeResult::Selected(5)
+    ));
+    assert!(matches!(
+        cancelled,
+        super::platform::NativeResult::Cancelled
+    ));
 }
 
 #[test]

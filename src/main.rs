@@ -49,25 +49,27 @@ fn main() {
             database_path: database_path.as_ref().map(|p| p.display().to_string()),
         }
         .execute(),
-        Some(Commands::Map(map_args)) => {
-            match &map_args.command {
-                Some(sub) => MapCommand { subcommand: sub.clone() }.execute(),
-                None => {
-                    eprintln!("Error: 'map' requires a subcommand. Use --help for details.");
-                    std::process::exit(1);
-                }
+        Some(Commands::Map(map_args)) => match &map_args.command {
+            Some(sub) => MapCommand {
+                subcommand: sub.clone(),
             }
-        }
+            .execute(),
+            None => {
+                eprintln!("Error: 'map' requires a subcommand. Use --help for details.");
+                std::process::exit(1);
+            }
+        },
 
-        Some(Commands::Database(database_args)) => {
-            match &database_args.command {
-                Some(sub) => DatabaseCommand { subcommand: sub.clone() }.execute(),
-                None => {
-                    eprintln!("Error: 'database' requires a subcommand. Use --help for details.");
-                    std::process::exit(1);
-                }
+        Some(Commands::Database(database_args)) => match &database_args.command {
+            Some(sub) => DatabaseCommand {
+                subcommand: sub.clone(),
             }
-        }
+            .execute(),
+            None => {
+                eprintln!("Error: 'database' requires a subcommand. Use --help for details.");
+                std::process::exit(1);
+            }
+        },
         Some(Commands::ModPack(args)) => ModPackCommand { args: args.clone() }.execute(),
         None => Ok(()),
     };

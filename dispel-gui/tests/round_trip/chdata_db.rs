@@ -13,11 +13,5 @@ fn fixture_chdata_roundtrip() {
         return;
     }
 
-    round_trip_from_fixture(
-        ChData::read_file,
-        ChData::save_file,
-        fixture,
-        "ChData",
-    )
-    .unwrap();
+    round_trip_from_fixture(ChData::read_file, ChData::save_file, fixture, "ChData").unwrap();
 }

@@ -107,12 +107,16 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
             // (orig_idx, store) tuple. Bail out if the row is missing.
             let captured = app
                 .state
-                .editors.store_editor
+                .editors
+                .store_editor
                 .filtered_stores
                 .get(index)
                 .map(|(i, r)| (*i as u32, r.get_field(&field)));
             let new_value = value.clone();
-            app.state.editors.store_editor.update_field(index, &field, value);
+            app.state
+                .editors
+                .store_editor
+                .update_field(index, &field, value);
             match captured {
                 Some((orig_idx, old_value)) if old_value != new_value => {
                     crate::editors::mod_packager::recording::observe_field_change(
@@ -142,7 +146,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         }
         StoreEditorMessage::ProductFieldChanged(product_idx, field, value) => {
             app.state
-                .editors.store_editor
+                .editors
+                .store_editor
                 .update_product(product_idx, &field, value);
             Task::none()
         }
@@ -158,7 +163,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
 
                 let result = app
                     .state
-                    .editors.store_editor
+                    .editors
+                    .store_editor
                     .save_stores(&app.state.shared_game_path);
 
                 return Task::perform(async { result }, |result: Result<(), String>| {
@@ -183,7 +189,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
                     }
                 }
                 Err(e) => {
-                    app.state.editors.store_editor.status_msg = format!("Error saving stores: {}", e);
+                    app.state.editors.store_editor.status_msg =
+                        format!("Error saving stores: {}", e);
                 }
             }
             Task::none()
@@ -217,7 +224,8 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         }
         StoreEditorMessage::PaneResized(event) => {
             app.state
-                .editors.store_editor
+                .editors
+                .store_editor
                 .pane_state
                 .resize(event.split, event.ratio);
             Task::none()

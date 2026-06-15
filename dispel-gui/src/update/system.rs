@@ -3,6 +3,7 @@
 use crate::app::App;
 use crate::components::utils::browse_folder;
 use crate::components::FileTree;
+use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
 use crate::editors::chest::ChestEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
@@ -28,7 +29,6 @@ use crate::editors::quest_scr::QuestScrEditorMessage;
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::editors::weapon::WeaponEditorMessage;
-use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
 use crate::message::{system::SystemMessage, Message, MessageExt};
 use crate::workspace::EditorType;
@@ -37,7 +37,10 @@ use std::path::PathBuf;
 
 /// Returns a `Task` that dispatches `Save` to the given editor type, or
 /// `None` if the editor type does not support saving via Ctrl+S.
-fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<crate::message::Message>> {
+fn save_task_for_editor(
+    editor_type: EditorType,
+    tab_id: usize,
+) -> Option<Task<crate::message::Message>> {
     if !editor_type.supports_save() {
         return None;
     }
@@ -77,12 +80,12 @@ fn save_task_for_editor(editor_type: EditorType, tab_id: usize) -> Option<Task<c
         EditorType::EventScrEditor => Message::event_scr(EventScrEditorMessage::SaveScript),
 
         // Tabbed editors — they define a Save variant via define_tab_editor!
-        EditorType::DialogueScriptEditor => {
-            Message::dialogue_script(crate::editors::dialogue_script::DialogueScriptEditorMessage::Save)
-        }
-        EditorType::DialogueTextEditor => {
-            Message::dialogue_paragraph(crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save)
-        }
+        EditorType::DialogueScriptEditor => Message::dialogue_script(
+            crate::editors::dialogue_script::DialogueScriptEditorMessage::Save,
+        ),
+        EditorType::DialogueTextEditor => Message::dialogue_paragraph(
+            crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage::Save,
+        ),
         EditorType::ExtraRefEditor => {
             Message::extra_ref(crate::editors::extra_ref::ExtraRefEditorMessage::Save)
         }
@@ -218,9 +221,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                             )
                         },
                         |tree| {
-                            crate::message::Message::System(
-                                SystemMessage::FileTreeScanned(tree),
-                            )
+                            crate::message::Message::System(SystemMessage::FileTreeScanned(tree))
                         },
                     );
 
@@ -229,9 +230,7 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     let index_task = Task::perform(
                         async move { crate::indexation::search_index::build_index(&gp).await },
                         |index| {
-                            crate::message::Message::System(SystemMessage::IndexLoaded(
-                                Ok(index),
-                            ))
+                            crate::message::Message::System(SystemMessage::IndexLoaded(Ok(index)))
                         },
                     );
 
@@ -465,7 +464,8 @@ mod tests {
 
         // Add some editor states
         app.state
-            .editors.map_editors
+            .editors
+            .map_editors
             .insert(1, crate::editors::map_editor::MapEditorState::default());
         app.state.lookups.insert(
             "test".to_string(),
@@ -654,7 +654,8 @@ mod tests {
 
         // Make a change
         app.state
-            .editors.weapon_editor
+            .editors
+            .weapon_editor
             .update_field(0, "name", "Steel Sword".to_string());
         assert!(app.state.editors.weapon_editor.edit_history.can_undo());
 
@@ -687,11 +688,15 @@ mod tests {
         app.state.editors.weapon_editor.select(0);
 
         app.state
-            .editors.weapon_editor
+            .editors
+            .weapon_editor
             .update_field(0, "name", "Steel Sword".to_string());
 
         let _ = handle(SystemMessage::Undo, &mut app);
-        assert_eq!(app.state.editors.weapon_editor.filtered[0].1.name, "Iron Sword");
+        assert_eq!(
+            app.state.editors.weapon_editor.filtered[0].1.name,
+            "Iron Sword"
+        );
 
         let _ = handle(SystemMessage::Redo, &mut app);
         assert_eq!(

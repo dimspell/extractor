@@ -20,7 +20,11 @@ impl EditableRecord for Quest {
         } else {
             title
         };
-        format!("[{}] {}", self.id, &label.chars().take(40).collect::<String>())
+        format!(
+            "[{}] {}",
+            self.id,
+            &label.chars().take(40).collect::<String>()
+        )
     }
 
     fn detail_title() -> &'static str {

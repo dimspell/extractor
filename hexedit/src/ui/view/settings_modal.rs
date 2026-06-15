@@ -36,20 +36,18 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     // Colour-scheme pick list
     let scheme_row = row![
-            text("Scheme")
-                .size(12)
-                .width(Length::Fill),
-            pick_list(
-                &ColorScheme::ALL[..],
-                Some(state.color_scheme),
-                HexEditorMessage::SetColorScheme,
-            )
-            .font(Font::MONOSPACE)
-            .text_size(12)
-            .padding([2, 6]),
-        ]
-        .spacing(8)
-        .align_y(iced::Alignment::Center);
+        text("Scheme").size(12).width(Length::Fill),
+        pick_list(
+            &ColorScheme::ALL[..],
+            Some(state.color_scheme),
+            HexEditorMessage::SetColorScheme,
+        )
+        .font(Font::MONOSPACE)
+        .text_size(12)
+        .padding([2, 6]),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
 
     // Dim-nulls toggle
     let dim_toggle = toggler(state.dim_nulls)
@@ -67,22 +65,19 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             let b = (i * 17) as u8;
             let (fg_opt, _) = default_byte_colors(state.color_scheme, b, state.dim_nulls);
             let fg = fg_opt.unwrap_or(color!(0xd4cabd));
-            container(
-                text("  ")
-                    .size(10),
-            )
-            .style(move |_: &_| container::Style {
-                background: Some(iced::Background::Color(fg)),
-                border: iced::Border {
-                    color: Color::BLACK,
-                    width: 0.5,
-                    radius: 2.0.into(),
-                },
-                ..Default::default()
-            })
-            .width(swatch_size)
-            .height(swatch_size)
-            .into()
+            container(text("  ").size(10))
+                .style(move |_: &_| container::Style {
+                    background: Some(iced::Background::Color(fg)),
+                    border: iced::Border {
+                        color: Color::BLACK,
+                        width: 0.5,
+                        radius: 2.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .width(swatch_size)
+                .height(swatch_size)
+                .into()
         })
         .collect();
 
@@ -102,19 +97,15 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     } else {
         ADDR_OPTIONS[0]
     };
-    let addr_pick = pick_list(
-        &ADDR_OPTIONS[..],
-        Some(addr_current),
-        |selected| HexEditorMessage::SetAddrFormat(selected == ADDR_OPTIONS[1]),
-    )
+    let addr_pick = pick_list(&ADDR_OPTIONS[..], Some(addr_current), |selected| {
+        HexEditorMessage::SetAddrFormat(selected == ADDR_OPTIONS[1])
+    })
     .font(Font::MONOSPACE)
     .text_size(12)
     .padding([2, 6]);
 
     let addr_row = row![
-        text("Address format")
-            .size(12)
-            .width(Length::Fill),
+        text("Address format").size(12).width(Length::Fill),
         addr_pick,
     ]
     .spacing(8)
@@ -133,11 +124,8 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     };
 
     let bpr_row = row![
-        text("Bytes per row")
-            .size(12)
-            .width(Length::Fill),
-        row![bpr_btn(8), bpr_btn(16), bpr_btn(32)]
-            .spacing(4),
+        text("Bytes per row").size(12).width(Length::Fill),
+        row![bpr_btn(8), bpr_btn(16), bpr_btn(32)].spacing(4),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);
@@ -186,5 +174,3 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     })
     .into()
 }
-
-

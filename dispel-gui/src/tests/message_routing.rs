@@ -21,7 +21,8 @@ mod message_routing_tests {
             },
         )));
         assert_eq!(
-            task.units(), 0,
+            task.units(),
+            0,
             "Should return Task::none() when no hex editor state"
         );
     }
@@ -150,10 +151,7 @@ mod message_routing_tests {
         }
 
         assert_eq!(app.state.recent_files.len(), 10);
-        assert_eq!(
-            app.state.recent_files[0],
-            PathBuf::from("/game/file14.db")
-        );
+        assert_eq!(app.state.recent_files[0], PathBuf::from("/game/file14.db"));
     }
 
     #[test]
@@ -170,5 +168,4 @@ mod message_routing_tests {
             PathBuf::from("/game/weaponItem.db")
         );
     }
-
 }

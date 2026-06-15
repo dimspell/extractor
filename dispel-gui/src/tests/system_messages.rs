@@ -132,7 +132,7 @@ mod index_messages {
     fn index_loaded_error_sets_error_status() {
         let mut app = App::test_new(Workspace::new());
         let task = app.update(Message::System(SystemMessage::IndexLoaded(Err(
-            "corrupt".to_string(),
+            "corrupt".to_string()
         ))));
         assert!(app.state.status_msg.contains("Failed to load"));
         let _ = task;
@@ -141,12 +141,12 @@ mod index_messages {
     #[test]
     fn index_complete_updates_progress_and_flag() {
         let mut app = App::test_new(Workspace::new());
-        app.search_index.file_mappings.push(
-            crate::indexation::search_index::FileMapping {
+        app.search_index
+            .file_mappings
+            .push(crate::indexation::search_index::FileMapping {
                 file_path: "test.file".to_string(),
                 editor_type: "WeaponEditor".to_string(),
-            },
-        );
+            });
 
         let task = app.update(Message::System(SystemMessage::IndexComplete));
         assert!(!app.search_index.indexing, "indexing flag cleared");
@@ -173,7 +173,11 @@ mod draft_messages {
         let _ = task;
 
         let task = app.update(Message::System(SystemMessage::ToggleAutoSave));
-        assert_eq!(app.draft_manager.is_auto_save_enabled(), was, "toggled back");
+        assert_eq!(
+            app.draft_manager.is_auto_save_enabled(),
+            was,
+            "toggled back"
+        );
         let _ = task;
     }
 
@@ -207,17 +211,14 @@ mod clear_workspace_edges {
     fn clear_workspace_clears_tabbed_editors() {
         let mut app = App::test_new(Workspace::new());
 
-        app.state
-            .workspace
-            .tabs
-            .push(WorkspaceTab {
-                id: 1,
-                label: "MonsterRef".to_string(),
-                path: None,
-                editor_type: EditorType::MonsterRefEditor,
-                modified: false,
-                pinned: false,
-            });
+        app.state.workspace.tabs.push(WorkspaceTab {
+            id: 1,
+            label: "MonsterRef".to_string(),
+            path: None,
+            editor_type: EditorType::MonsterRefEditor,
+            modified: false,
+            pinned: false,
+        });
         app.state.workspace.active_tab = Some(0);
         app.state.editors.monster_ref_editor.editors.insert(
             1,

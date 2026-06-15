@@ -46,7 +46,10 @@ mod generic_editor_edge_tests {
         let mut editor = GenericEditorState::<WeaponItem>::default();
         // refresh with no catalog is a no-op
         editor.refresh();
-        assert!(editor.filtered.is_empty(), "filtered stays empty with None catalog");
+        assert!(
+            editor.filtered.is_empty(),
+            "filtered stays empty with None catalog"
+        );
 
         // Now set a catalog and refresh
         editor.catalog = Some(vec![WeaponItem {

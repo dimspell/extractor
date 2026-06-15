@@ -306,7 +306,13 @@ impl App {
         }
 
         // Drive animation playback when any sprite viewer is playing.
-        if self.state.editors.sprite_viewers.values().any(|v| v.is_playing) {
+        if self
+            .state
+            .editors
+            .sprite_viewers
+            .values()
+            .any(|v| v.is_playing)
+        {
             use crate::editors::sprite_browser::SpriteViewerMessage;
             let anim = iced::time::every(std::time::Duration::from_millis(16))
                 .map(|_| Message::sprite_viewer(SpriteViewerMessage::Tick));
@@ -316,7 +322,8 @@ impl App {
         // Poll for SNF playback completion so the Play/Pause button stays in sync.
         if self
             .state
-            .editors.snf_editors
+            .editors
+            .snf_editors
             .values()
             .any(|e| e.playback.is_some())
         {
@@ -471,7 +478,8 @@ impl App {
                     },
                 );
                 self.state
-                    .editors.dialogue_script_editor
+                    .editors
+                    .dialogue_script_editor
                     .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
@@ -499,7 +507,8 @@ impl App {
                     },
                 );
                 self.state
-                    .editors.dialogue_paragraph_editor
+                    .editors
+                    .dialogue_paragraph_editor
                     .spreadsheets
                     .insert(tab_id, Default::default());
                 Task::perform(
@@ -528,7 +537,8 @@ impl App {
             EditorType::TilesetEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .editors.tileset_editors
+                        .editors
+                        .tileset_editors
                         .entry(tab_id)
                         .or_insert_with(|| TilesetEditorState::load(path));
                 }
@@ -537,7 +547,8 @@ impl App {
             EditorType::SpriteViewer => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .editors.sprite_viewers
+                        .editors
+                        .sprite_viewers
                         .entry(tab_id)
                         .or_insert_with(|| SpriteViewerState::load_from_path(path));
                 }
@@ -546,7 +557,8 @@ impl App {
             EditorType::SnfEditor => {
                 if let Some(tab_id) = self.active_tab_id() {
                     self.state
-                        .editors.snf_editors
+                        .editors
+                        .snf_editors
                         .entry(tab_id)
                         .or_insert_with(|| SnfEditorState::load_from_path(path));
                 }
@@ -562,7 +574,8 @@ impl App {
                 if let Some(tab_id) = self.active_tab_id() {
                     let state = self
                         .state
-                        .editors.hex_editors
+                        .editors
+                        .hex_editors
                         .entry(tab_id)
                         .or_insert_with(|| HexEditorState::load_from_path(path));
                     if let Some(ref dir) = scripts_dir {
@@ -621,7 +634,8 @@ impl App {
         if let Some(tab_id) = self.active_tab_id() {
             let state = self
                 .state
-                .editors.hex_editors
+                .editors
+                .hex_editors
                 .entry(tab_id)
                 .or_insert_with(|| HexEditorState::load_from_path(path));
             if let Some(ref dir) = scripts_dir {
@@ -695,7 +709,8 @@ impl App {
             Some(t) => t.clone(),
             None => return Task::none(),
         };
-        self.state.editors.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
+        self.state.editors.viewer.loading_state =
+            crate::components::loading_state::LoadingState::Loading;
 
         // First get column info, then build query
         let path = self.state.editors.viewer.db_path.clone();
@@ -719,7 +734,8 @@ impl App {
 
     /// Fetch data using the custom SQL query.
     pub fn fetch_viewer_data_sql(&mut self) -> Task<Message> {
-        self.state.editors.viewer.loading_state = crate::components::loading_state::LoadingState::Loading;
+        self.state.editors.viewer.loading_state =
+            crate::components::loading_state::LoadingState::Loading;
         let path = self.state.editors.viewer.db_path.clone();
         let sql = self.state.editors.viewer.sql_query.clone();
         let page = self.state.editors.viewer.page;

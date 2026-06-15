@@ -278,7 +278,8 @@ fn npc_ref_editor_records_when_session_active() {
         },
     );
     app.state
-        .editors.npc_ref_editor
+        .editors
+        .npc_ref_editor
         .spreadsheets
         .insert(tab_id, SpreadsheetState::new());
     app.state.shared_game_path = "/game".into();
@@ -321,7 +322,8 @@ fn npc_ref_editor_does_not_record_without_session() {
         },
     );
     app.state
-        .editors.npc_ref_editor
+        .editors
+        .npc_ref_editor
         .spreadsheets
         .insert(tab_id, SpreadsheetState::new());
     app.state.shared_game_path = "/game".into();
@@ -514,10 +516,7 @@ fn recording_observed_same_key_updates_in_place() {
         Value::String("new2".into()),
         "latest_new is the most recent value"
     );
-    assert_eq!(
-        pending.generation, 2,
-        "generation matches latest edit"
-    );
+    assert_eq!(pending.generation, 2, "generation matches latest edit");
     assert_eq!(
         app.state.recording.as_ref().unwrap().pending.len(),
         1,
@@ -558,7 +557,12 @@ fn recording_debounce_fired_stale_generation_dropped() {
     );
     // Entry still in pending (not removed by stale timer)
     assert!(
-        app.state.recording.as_ref().unwrap().pending.contains_key(&key),
+        app.state
+            .recording
+            .as_ref()
+            .unwrap()
+            .pending
+            .contains_key(&key),
         "stale timer does not remove pending entry"
     );
 }
@@ -593,7 +597,12 @@ fn recording_debounce_fired_matching_generation_produces_task() {
     );
     // Pending entry removed before the async task runs
     assert!(
-        !app.state.recording.as_ref().unwrap().pending.contains_key(&key),
+        !app.state
+            .recording
+            .as_ref()
+            .unwrap()
+            .pending
+            .contains_key(&key),
         "pending entry removed during flush"
     );
 }
@@ -610,11 +619,7 @@ fn recording_debounce_fired_nonexistent_key_is_noop() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "nonexistent key — no task produced"
-    );
+    assert_eq!(task.units(), 0, "nonexistent key — no task produced");
 }
 
 #[test]
@@ -643,11 +648,21 @@ fn recording_debounce_fired_multiple_distinct_keys() {
     assert!(task.units() > 0, "flush task for key_a");
 
     assert!(
-        !app.state.recording.as_ref().unwrap().pending.contains_key(&key_a),
+        !app.state
+            .recording
+            .as_ref()
+            .unwrap()
+            .pending
+            .contains_key(&key_a),
         "key_a removed from pending"
     );
     assert!(
-        app.state.recording.as_ref().unwrap().pending.contains_key(&key_b),
+        app.state
+            .recording
+            .as_ref()
+            .unwrap()
+            .pending
+            .contains_key(&key_b),
         "key_b still pending"
     );
     assert_eq!(
@@ -669,11 +684,7 @@ fn recording_debounce_fired_without_session_is_noop() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "no-op when no recording session"
-    );
+    assert_eq!(task.units(), 0, "no-op when no recording session");
 }
 
 // ============================================================================
@@ -693,11 +704,7 @@ fn recording_observed_without_session_is_noop() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "no-op when no recording session"
-    );
+    assert_eq!(task.units(), 0, "no-op when no recording session");
 }
 
 // ============================================================================
@@ -725,13 +732,14 @@ fn recording_debounce_fired_noop_edit_discarded() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "no-op edit discarded — no flush task"
-    );
+    assert_eq!(task.units(), 0, "no-op edit discarded — no flush task");
     assert!(
-        !app.state.recording.as_ref().unwrap().pending.contains_key(&key),
+        !app.state
+            .recording
+            .as_ref()
+            .unwrap()
+            .pending
+            .contains_key(&key),
         "no-op entry removed from pending"
     );
 }
@@ -746,10 +754,7 @@ fn recording_stop_recording_clears_session() {
 
     let task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
 
-    assert!(
-        app.state.recording.is_none(),
-        "session cleared after stop"
-    );
+    assert!(app.state.recording.is_none(), "session cleared after stop");
     assert!(
         task.units() > 0,
         "stop recording produces a task (Refresh after flush)"
@@ -785,10 +790,7 @@ fn recording_stop_recording_no_session_does_not_set_status() {
     // Even without a session, StopRecording chains a Refresh task to update UI.
     // The real assertion is that the status message is NOT set (stopped_name empty).
     assert!(task.units() > 0, "Refresh task produced");
-    assert!(
-        app.state.recording.is_none(),
-        "recording remains None"
-    );
+    assert!(app.state.recording.is_none(), "recording remains None");
     assert!(
         app.state.editors.mod_packager_editor.status_msg.is_empty(),
         "no status message when no session"
@@ -817,10 +819,7 @@ fn recording_stop_recording_clears_session_with_pending_entries() {
     assert!(app.state.recording.is_none(), "session cleared");
     // Status message mentions the mod name
     let msg = &app.state.editors.mod_packager_editor.status_msg;
-    assert!(
-        msg.contains("Test Mod"),
-        "status mentions mod name: {msg}"
-    );
+    assert!(msg.contains("Test Mod"), "status mentions mod name: {msg}");
 }
 
 // ============================================================================
@@ -838,11 +837,7 @@ fn recording_start_recording_without_workspace_shows_error() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "no task when workspace is missing"
-    );
+    assert_eq!(task.units(), 0, "no task when workspace is missing");
     assert!(
         app.state
             .editors
@@ -888,10 +883,7 @@ fn recording_start_recording_initializes_session() {
     assert_eq!(session.recorded_count, 0);
     assert!(session.pending.is_empty());
     assert_eq!(session.next_generation, 0);
-    assert_eq!(
-        session.workspace_root,
-        std::path::PathBuf::from("/tmp/ws")
-    );
+    assert_eq!(session.workspace_root, std::path::PathBuf::from("/tmp/ws"));
     assert!(
         app.state
             .editors
@@ -911,10 +903,7 @@ fn recording_persisted_ok_increments_count() {
     let mut app = app_with_recording();
     assert_eq!(app.state.recording.as_ref().unwrap().recorded_count, 0);
 
-    let task = mod_packager::handle(
-        ModPackagerMessage::RecordingPersisted(Ok(())),
-        &mut app,
-    );
+    let task = mod_packager::handle(ModPackagerMessage::RecordingPersisted(Ok(())), &mut app);
 
     assert_eq!(task.units(), 0, "RecordingPersisted returns no task");
     assert_eq!(
@@ -967,10 +956,7 @@ fn chdata_editor_records_when_session_active() {
         &mut app,
     );
 
-    assert!(
-        task.units() > 0,
-        "chdata should record when session active"
-    );
+    assert!(task.units() > 0, "chdata should record when session active");
     assert_eq!(
         app.state.editors.chdata_editor.catalog.as_ref().unwrap()[0].warrior_strength,
         15,
@@ -997,11 +983,7 @@ fn chdata_editor_does_not_record_without_session() {
         &mut app,
     );
 
-    assert_eq!(
-        task.units(),
-        0,
-        "chdata should NOT record without session"
-    );
+    assert_eq!(task.units(), 0, "chdata should NOT record without session");
 }
 
 // ============================================================================
@@ -1023,14 +1005,16 @@ fn party_level_db_editor_records_when_session_active() {
     app.state.editors.party_level_db_editor.selected_npc_idx = Some(0);
 
     // Set up the inner level editor with a matching record
-    app.state.editors.party_level_db_level_editor.catalog = Some(vec![
-        dispel_core::PartyLevelRecord {
+    app.state.editors.party_level_db_level_editor.catalog =
+        Some(vec![dispel_core::PartyLevelRecord {
             level: 1,
             strength: 10,
             ..Default::default()
-        },
-    ]);
-    let record = app.state.editors.party_level_db_level_editor
+        }]);
+    let record = app
+        .state
+        .editors
+        .party_level_db_level_editor
         .catalog
         .as_ref()
         .unwrap()[0]
@@ -1065,14 +1049,16 @@ fn party_level_db_editor_does_not_record_without_session() {
     }]);
     app.state.editors.party_level_db_editor.selected_npc_idx = Some(0);
 
-    app.state.editors.party_level_db_level_editor.catalog = Some(vec![
-        dispel_core::PartyLevelRecord {
+    app.state.editors.party_level_db_level_editor.catalog =
+        Some(vec![dispel_core::PartyLevelRecord {
             level: 1,
             strength: 10,
             ..Default::default()
-        },
-    ]);
-    let record = app.state.editors.party_level_db_level_editor
+        }]);
+    let record = app
+        .state
+        .editors
+        .party_level_db_level_editor
         .catalog
         .as_ref()
         .unwrap()[0]
@@ -1108,14 +1094,16 @@ fn party_level_db_no_recording_when_value_unchanged() {
     }]);
     app.state.editors.party_level_db_editor.selected_npc_idx = Some(0);
 
-    app.state.editors.party_level_db_level_editor.catalog = Some(vec![
-        dispel_core::PartyLevelRecord {
+    app.state.editors.party_level_db_level_editor.catalog =
+        Some(vec![dispel_core::PartyLevelRecord {
             level: 1,
             strength: 10,
             ..Default::default()
-        },
-    ]);
-    let record = app.state.editors.party_level_db_level_editor
+        }]);
+    let record = app
+        .state
+        .editors
+        .party_level_db_level_editor
         .catalog
         .as_ref()
         .unwrap()[0]
@@ -1143,14 +1131,16 @@ fn party_level_db_no_recording_when_no_npc_selected() {
     let mut app = app_with_recording();
     // Do NOT set selected_npc_idx — capture returns None
 
-    app.state.editors.party_level_db_level_editor.catalog = Some(vec![
-        dispel_core::PartyLevelRecord {
+    app.state.editors.party_level_db_level_editor.catalog =
+        Some(vec![dispel_core::PartyLevelRecord {
             level: 1,
             strength: 10,
             ..Default::default()
-        },
-    ]);
-    let record = app.state.editors.party_level_db_level_editor
+        }]);
+    let record = app
+        .state
+        .editors
+        .party_level_db_level_editor
         .catalog
         .as_ref()
         .unwrap()[0]

@@ -137,7 +137,6 @@ pub enum Commands {
         long_about = "Reads all Event*.scr files from a Dispel game directory's Ref/ folder and exports them as JSON for use in Godot (or other tools).\n\nUsage Examples:\n  dispel-extractor mod-pack --game-path fixtures/Dispel --output mod-pack/\n  dispel-extractor mod-pack -g fixtures/Dispel -o mod-pack/ --pretty\n  dispel-extractor mod-pack -g fixtures/Dispel -o mod-pack/ --single-file"
     )]
     ModPack(ModPackArgs),
-
 }
 
 #[derive(ValueEnum, Copy, Clone, Debug, PartialEq, Eq)]

@@ -15,9 +15,14 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
 
     let (Some(editor), Some(spreadsheet)) = (
-        app.state.editors.dialogue_paragraph_editor.editors.get(&tab_id),
         app.state
-            .editors.dialogue_paragraph_editor
+            .editors
+            .dialogue_paragraph_editor
+            .editors
+            .get(&tab_id),
+        app.state
+            .editors
+            .dialogue_paragraph_editor
             .spreadsheets
             .get(&tab_id),
     ) else {

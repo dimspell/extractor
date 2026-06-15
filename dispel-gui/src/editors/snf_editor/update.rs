@@ -46,14 +46,13 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             let loop_flag_thread = Arc::clone(&loop_flag);
 
             let thread = std::thread::spawn(move || {
-                let mut device_sink =
-                    match rodio::stream::DeviceSinkBuilder::open_default_sink() {
-                        Ok(s) => s,
-                        Err(e) => {
-                            eprintln!("SNF: failed to open audio output: {e}");
-                            return;
-                        }
-                    };
+                let mut device_sink = match rodio::stream::DeviceSinkBuilder::open_default_sink() {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("SNF: failed to open audio output: {e}");
+                        return;
+                    }
+                };
                 device_sink.log_on_drop(false);
 
                 let player = Arc::new(rodio::Player::connect_new(device_sink.mixer()));

@@ -109,11 +109,7 @@ fn find_hovered_event_tile(state: &MapEditorState, cx: f32, cy: f32) -> Option<(
 }
 
 /// Find what's under the cursor, with priority: entity > collision tile > event tile.
-pub fn find_hovered_element(
-    state: &MapEditorState,
-    cx: f32,
-    cy: f32,
-) -> Option<SelectedEntity> {
+pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<SelectedEntity> {
     // 1. Try entities (existing logic)
     if let Some(entity) = find_hovered_entity_impl(state, cx, cy) {
         return Some(entity);
@@ -142,12 +138,8 @@ pub fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, 
             (x, y)
         }),
         SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.x_pos, e.y_pos)),
-        SelectedEntity::DrawItem(i) => {
-            state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord))
-        }
-        SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => {
-            Some((tx, ty))
-        }
+        SelectedEntity::DrawItem(i) => state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord)),
+        SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
     }
 }
 

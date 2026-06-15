@@ -353,7 +353,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
             let body: Element<'_, Message> = match state.view.view_mode {
                 MapViewMode::Map => match state.view.selected_entity {
                     Some(sel) => {
-                        let inspector = inspector::build_inspector(state, tab_id, sel, &app.state.lookups);
+                        let inspector =
+                            inspector::build_inspector(state, tab_id, sel, &app.state.lookups);
                         row![canvas_with_overlay, inspector]
                             .width(Fill)
                             .height(Fill)

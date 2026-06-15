@@ -52,7 +52,10 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                         app.state.editors.chest_editor.map_files.len()
                     );
                 }
-                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error scanning maps: {}", e),
+                Err(e) => {
+                    app.state.editors.chest_editor.status_msg =
+                        format!("Error scanning maps: {}", e)
+                }
             }
             // Also load the catalog for human-friendly item names
             if app.state.shared_game_path.is_empty() {
@@ -93,10 +96,12 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
             match res {
                 Ok(catalog) => {
                     app.state.editors.chest_editor.catalog = Some(catalog);
-                    app.state.editors.chest_editor.status_msg = "Catalog loaded successfully.".into();
+                    app.state.editors.chest_editor.status_msg =
+                        "Catalog loaded successfully.".into();
                 }
                 Err(e) => {
-                    app.state.editors.chest_editor.status_msg = format!("Error loading catalog: {}", e)
+                    app.state.editors.chest_editor.status_msg =
+                        format!("Error loading catalog: {}", e)
                 }
             }
             Task::none()
@@ -106,7 +111,9 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                 app.state.editors.chest_editor.status_msg = "No map file selected.".into();
                 return Task::none();
             }
-            app.load_map_file(PathBuf::from(&app.state.editors.chest_editor.current_map_file))
+            app.load_map_file(PathBuf::from(
+                &app.state.editors.chest_editor.current_map_file,
+            ))
         }
         ChestEditorMessage::SelectMapFromFile(path) => {
             app.state.editors.chest_editor.current_map_file = path.clone();
@@ -121,7 +128,9 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                     app.state.editors.chest_editor.status_msg = "Map loaded successfully.".into();
                     app.refresh_chests();
                 }
-                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error loading map: {}", e),
+                Err(e) => {
+                    app.state.editors.chest_editor.status_msg = format!("Error loading map: {}", e)
+                }
             }
             Task::none()
         }
@@ -134,7 +143,8 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
                 app.state.editors.chest_editor.edit_gold = record.gold_amount.to_string();
                 app.state.editors.chest_editor.edit_item_count = record.item_count.to_string();
                 app.state.editors.chest_editor.edit_item_id = record.item_id.to_string();
-                app.state.editors.chest_editor.edit_item_type = (u8::from(record.item_type_id)).to_string();
+                app.state.editors.chest_editor.edit_item_type =
+                    (u8::from(record.item_type_id)).to_string();
                 app.state.editors.chest_editor.edit_closed = record.closed.to_string();
             }
             Task::none()
@@ -249,8 +259,12 @@ pub fn handle(message: ChestEditorMessage, app: &mut App) -> Task<crate::message
         ChestEditorMessage::Saved(res) => {
             app.state.editors.chest_editor.loading_state = LoadingState::Loaded(());
             match res {
-                Ok(_) => app.state.editors.chest_editor.status_msg = "Map saved successfully.".into(),
-                Err(e) => app.state.editors.chest_editor.status_msg = format!("Error saving map: {}", e),
+                Ok(_) => {
+                    app.state.editors.chest_editor.status_msg = "Map saved successfully.".into()
+                }
+                Err(e) => {
+                    app.state.editors.chest_editor.status_msg = format!("Error saving map: {}", e)
+                }
             }
             Task::none()
         }

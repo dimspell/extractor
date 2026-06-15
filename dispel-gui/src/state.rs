@@ -1,8 +1,8 @@
 use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
 use crate::message::{system::SystemMessage, Message};
-use crate::workspace::Workspace;
 use crate::workspace::EditorType;
+use crate::workspace::Workspace;
 use dirs;
 use dispel_core::Extractor;
 use iced::{
@@ -229,23 +229,17 @@ impl AppState {
     /// Perform undo on the active editor.
     /// Returns a status message, or `None` if there's nothing to undo.
     pub fn undo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
-        self.editors
-            .undo_active(editor_type, tab_id, &self.lookups)
+        self.editors.undo_active(editor_type, tab_id, &self.lookups)
     }
 
     /// Perform redo on the active editor.
     /// Returns a status message, or `None` if there's nothing to redo.
     pub fn redo_active(&mut self, editor_type: EditorType, tab_id: usize) -> Option<String> {
-        self.editors
-            .redo_active(editor_type, tab_id, &self.lookups)
+        self.editors.redo_active(editor_type, tab_id, &self.lookups)
     }
 
     /// Refresh spreadsheet caches after undo/redo for tab-based editors.
-    pub fn refresh_spreadsheet_after_undo_redo(
-        &mut self,
-        editor_type: EditorType,
-        tab_id: usize,
-    ) {
+    pub fn refresh_spreadsheet_after_undo_redo(&mut self, editor_type: EditorType, tab_id: usize) {
         self.editors
             .refresh_spreadsheet(editor_type, tab_id, &self.lookups);
     }

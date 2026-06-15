@@ -49,12 +49,9 @@ pub fn update(
         }
         HexEditorMessage::SplitPane(axis) => {
             let focus = state.pane_focus;
-            let can_split =
-                state.panes.len() < 8;
+            let can_split = state.panes.len() < 8;
             if can_split {
-                let new_panel = HexPanel::new(
-                    crate::domain::panel::HexPanelContent::Matrix,
-                );
+                let new_panel = HexPanel::new(crate::domain::panel::HexPanelContent::Matrix);
                 let _ = state.panes.split(axis, focus, new_panel);
             }
         }
@@ -386,8 +383,7 @@ pub fn update(
             } else {
                 let (start, end) = (state.selection.start(), state.selection.end());
                 let block_size = end - start + 1;
-                state.repeat_pattern =
-                    Some(RepeatPatternDialog::new(start, block_size));
+                state.repeat_pattern = Some(RepeatPatternDialog::new(start, block_size));
                 return iced::widget::operation::focus(RepeatPatternDialog::input_id());
             }
         }
@@ -433,8 +429,7 @@ pub fn update(
                         if block_start > max_addr {
                             break;
                         }
-                        let block_end =
-                            (block_start + dlg.block_size - 1).min(max_addr);
+                        let block_end = (block_start + dlg.block_size - 1).min(max_addr);
                         let id = state.next_pattern_id;
                         state.next_pattern_id += 1;
                         state.patterns.push(Pattern::grouped(
@@ -495,9 +490,7 @@ pub fn update(
                     if let Some((_, split)) = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
                         focus,
-                        HexPanel::new(
-                            crate::domain::panel::HexPanelContent::Inspector,
-                        ),
+                        HexPanel::new(crate::domain::panel::HexPanelContent::Inspector),
                     ) {
                         state.panes.resize(split, 0.75);
                     }
@@ -534,9 +527,7 @@ pub fn update(
                     let _ = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
                         focus,
-                        HexPanel::new(
-                            crate::domain::panel::HexPanelContent::PatternList,
-                        ),
+                        HexPanel::new(crate::domain::panel::HexPanelContent::PatternList),
                     );
                 }
                 state.show_pattern_list = true;
@@ -575,9 +566,9 @@ pub fn update(
             if let Some(grp) = state.groups.iter().find(|g| g.id == gid) {
                 state.renaming_group_draft = grp.label.clone();
             }
-            return iced::widget::operation::focus(
-                iced::widget::Id::from(format!("hex-rename-group-input-{gid}")),
-            );
+            return iced::widget::operation::focus(iced::widget::Id::from(format!(
+                "hex-rename-group-input-{gid}"
+            )));
         }
         HexEditorMessage::SetRenameGroupDraft(s) => {
             state.renaming_group_draft = s;
@@ -610,8 +601,7 @@ pub fn update(
                                             if !digits.is_empty()
                                                 && digits.chars().all(|c| c.is_ascii_digit())
                                             {
-                                                *ann =
-                                                    ann.replacen(&old_prefix, &new_prefix, 1);
+                                                *ann = ann.replacen(&old_prefix, &new_prefix, 1);
                                             }
                                         }
                                     }
@@ -681,9 +671,7 @@ pub fn update(
                         };
                         match tokio::fs::write(path.path(), json).await {
                             Ok(()) => HexEditorMessage::PatternsExported(Ok(())),
-                            Err(e) => {
-                                HexEditorMessage::PatternsExported(Err(e.to_string()))
-                            }
+                            Err(e) => HexEditorMessage::PatternsExported(Err(e.to_string())),
                         }
                     },
                     std::convert::identity,
@@ -699,17 +687,11 @@ pub fn update(
                         .pick_file()
                         .await;
                     let Some(path) = path else {
-                        return HexEditorMessage::PatternsImported(
-                            Err("cancelled".to_string()),
-                        );
+                        return HexEditorMessage::PatternsImported(Err("cancelled".to_string()));
                     };
                     match tokio::fs::read_to_string(path.path()).await {
-                        Ok(text) => {
-                            HexEditorMessage::PatternsImported(Ok(text))
-                        }
-                        Err(e) => {
-                            HexEditorMessage::PatternsImported(Err(e.to_string()))
-                        }
+                        Ok(text) => HexEditorMessage::PatternsImported(Ok(text)),
+                        Err(e) => HexEditorMessage::PatternsImported(Err(e.to_string())),
                     }
                 },
                 std::convert::identity,
@@ -726,18 +708,16 @@ pub fn update(
             }
         },
         HexEditorMessage::PatternsImported(result) => match result {
-            Ok(text) => {
-                match import_patterns_from_json(&text, state) {
-                    Ok(msg) => {
-                        state.rebuild_pattern_lookup();
-                        state.recompute_row_annotations();
-                        state.status_msg = msg;
-                    }
-                    Err(e) => {
-                        state.status_msg = format!("Import failed: {e}");
-                    }
+            Ok(text) => match import_patterns_from_json(&text, state) {
+                Ok(msg) => {
+                    state.rebuild_pattern_lookup();
+                    state.recompute_row_annotations();
+                    state.status_msg = msg;
                 }
-            }
+                Err(e) => {
+                    state.status_msg = format!("Import failed: {e}");
+                }
+            },
             Err(e) => {
                 if e != "cancelled" {
                     state.status_msg = format!("Import failed: {e}");
@@ -799,9 +779,8 @@ pub fn update(
             if state.provider.is_empty() {
                 return Task::none();
             }
-            return clipboard::read().map(|contents| {
-                HexEditorMessage::PasteContent(contents.unwrap_or_default())
-            });
+            return clipboard::read()
+                .map(|contents| HexEditorMessage::PasteContent(contents.unwrap_or_default()));
         }
 
         HexEditorMessage::PasteContent(contents) => {
@@ -815,16 +794,14 @@ pub fn update(
                 match parse_hex_query(&contents) {
                     Some(b) if !b.is_empty() => b,
                     _ => {
-                        state.status_msg =
-                            "Clipboard doesn't contain valid hex bytes".to_string();
+                        state.status_msg = "Clipboard doesn't contain valid hex bytes".to_string();
                         return Task::none();
                     }
                 }
             };
             let addr = state.selection.cursor;
             if addr >= state.provider.len() {
-                state.status_msg =
-                    "Cannot paste: cursor is past end of file".to_string();
+                state.status_msg = "Cannot paste: cursor is past end of file".to_string();
                 return Task::none();
             }
             state.provider.write(addr, &bytes);
@@ -1046,12 +1023,7 @@ pub(crate) fn import_patterns_from_json(
     for p in &export.patterns {
         let id = state.next_pattern_id;
         state.next_pattern_id += 1;
-        let mut pat = Pattern::new(
-            id,
-            p.start.min(p.end),
-            p.start.max(p.end),
-            p.color_idx % 16,
-        );
+        let mut pat = Pattern::new(id, p.start.min(p.end), p.start.max(p.end), p.color_idx % 16);
         pat.group_id = p.group_id.and_then(|gid| group_map.get(&gid).copied());
         pat.annotation.clone_from(&p.annotation);
         state.patterns.push(pat);
@@ -1176,8 +1148,11 @@ mod tests {
                 "row {i}: line too short (len={})",
                 line.len()
             );
-            assert_eq!(&line[58..60], "  ",
-                "row {i}: hex/ASCII separator not at expected position 58");
+            assert_eq!(
+                &line[58..60],
+                "  ",
+                "row {i}: hex/ASCII separator not at expected position 58"
+            );
         }
     }
 
@@ -1222,11 +1197,15 @@ mod tests {
     #[test]
     fn format_only_hex_column() {
         let bytes = b"\x00\x01\x02\x03";
-        let result = format_hex_dump(bytes, 16, &ExportConfig {
-            show_address: false,
-            address_decimal: false,
-            show_ascii: false,
-        });
+        let result = format_hex_dump(
+            bytes,
+            16,
+            &ExportConfig {
+                show_address: false,
+                address_decimal: false,
+                show_ascii: false,
+            },
+        );
         // Just the hex values, nothing else
         assert_eq!(result, "00 01 02 03                                     \n");
     }
@@ -1261,7 +1240,11 @@ mod tests {
         }
         state.next_pattern_id = next_pid;
         for (id, label, color) in groups {
-            state.groups.push(crate::RepeatedPatternGroup::new(id, label.to_string(), color));
+            state.groups.push(crate::RepeatedPatternGroup::new(
+                id,
+                label.to_string(),
+                color,
+            ));
             if id >= state.next_group_id {
                 state.next_group_id = id + 1;
             }
@@ -1319,7 +1302,8 @@ mod tests {
         );
         let json = export_patterns_to_json(&state).unwrap();
 
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let mut import_state =
+            crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
         let msg = import_patterns_from_json(&json, &mut import_state).unwrap();
         assert!(msg.contains("Imported 3 pattern(s)"));
 
@@ -1328,13 +1312,21 @@ mod tests {
 
         // Patterns map to the new group
         let mapped_group = import_state.groups[0].id;
-        let grouped: Vec<_> = import_state.patterns.iter().filter(|p| p.group_id == Some(mapped_group)).collect();
+        let grouped: Vec<_> = import_state
+            .patterns
+            .iter()
+            .filter(|p| p.group_id == Some(mapped_group))
+            .collect();
         assert_eq!(grouped.len(), 2);
         assert_eq!(grouped[0].annotation.as_deref(), Some("body[0]"));
         assert_eq!(grouped[1].annotation.as_deref(), Some("body[1]"));
 
         // Ungrouped pattern preserved
-        let ungrouped: Vec<_> = import_state.patterns.iter().filter(|p| p.group_id.is_none()).collect();
+        let ungrouped: Vec<_> = import_state
+            .patterns
+            .iter()
+            .filter(|p| p.group_id.is_none())
+            .collect();
         assert_eq!(ungrouped.len(), 1);
         assert_eq!(ungrouped[0].annotation.as_deref(), Some("header"));
     }
@@ -1352,17 +1344,36 @@ mod tests {
         );
         let json = export_patterns_to_json(&state).unwrap();
 
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let mut import_state =
+            crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
         import_patterns_from_json(&json, &mut import_state).unwrap();
         assert_eq!(import_state.patterns.len(), 3);
 
-        let ann0 = import_state.patterns.iter().find(|p| p.start == 0x000).unwrap().annotation.as_deref();
+        let ann0 = import_state
+            .patterns
+            .iter()
+            .find(|p| p.start == 0x000)
+            .unwrap()
+            .annotation
+            .as_deref();
         assert_eq!(ann0, Some("a|b|c"));
 
-        let ann1 = import_state.patterns.iter().find(|p| p.start == 0x100).unwrap().annotation.as_deref();
+        let ann1 = import_state
+            .patterns
+            .iter()
+            .find(|p| p.start == 0x100)
+            .unwrap()
+            .annotation
+            .as_deref();
         assert_eq!(ann1, Some("path\\to\\file"));
 
-        let ann2 = import_state.patterns.iter().find(|p| p.start == 0x200).unwrap().annotation.as_deref();
+        let ann2 = import_state
+            .patterns
+            .iter()
+            .find(|p| p.start == 0x200)
+            .unwrap()
+            .annotation
+            .as_deref();
         assert_eq!(ann2, Some("line1\nline2"));
     }
 
@@ -1374,7 +1385,8 @@ mod tests {
         );
         let json = export_patterns_to_json(&state).unwrap();
 
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let mut import_state =
+            crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
         import_patterns_from_json(&json, &mut import_state).unwrap();
         assert_eq!(import_state.groups.len(), 1);
         assert_eq!(import_state.groups[0].label, "Group|One\nLabel\\Test");
@@ -1399,16 +1411,14 @@ mod tests {
 
     #[test]
     fn export_import_large_address_space() {
-        let state = make_export_state(
-            vec![(0x0000_0000, 0x00FF_FFFF, 1, None, None)],
-            vec![],
-        );
+        let state = make_export_state(vec![(0x0000_0000, 0x00FF_FFFF, 1, None, None)], vec![]);
         let json = export_patterns_to_json(&state).unwrap();
         let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.patterns[0].start, 0);
         assert_eq!(parsed.patterns[0].end, 0x00FF_FFFF);
 
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
+        let mut import_state =
+            crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
         import_patterns_from_json(&json, &mut import_state).unwrap();
         assert_eq!(import_state.patterns.len(), 1);
         assert_eq!(import_state.patterns[0].start, 0);
@@ -1418,10 +1428,7 @@ mod tests {
     #[test]
     fn export_import_empty_groups_vec() {
         // Groups array can be empty — that's fine.
-        let state = make_export_state(
-            vec![(0x000, 0x0FF, 3, None, Some("solo"))],
-            vec![],
-        );
+        let state = make_export_state(vec![(0x000, 0x0FF, 3, None, Some("solo"))], vec![]);
         let json = export_patterns_to_json(&state).unwrap();
         let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
         assert!(parsed.groups.is_empty());
@@ -1429,10 +1436,7 @@ mod tests {
 
     #[test]
     fn export_json_is_valid_pretty() {
-        let state = make_export_state(
-            vec![(0x000, 0x0FF, 3, None, None)],
-            vec![],
-        );
+        let state = make_export_state(vec![(0x000, 0x0FF, 3, None, None)], vec![]);
         let json = export_patterns_to_json(&state).unwrap();
         // Pretty-printed JSON should contain newlines
         assert!(json.contains('\n'));

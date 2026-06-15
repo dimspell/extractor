@@ -62,8 +62,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
         // Cleared on pan, zoom, layer toggle, selection change, entity edit.
         // NOT cleared on MouseMoved, so collision/event cells aren't redrawn each frame.
         let static_geometry =
-            self
-                .state
+            self.state
                 .view
                 .overlay_cache
                 .draw(renderer, bounds.size(), |frame| {
@@ -73,8 +72,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             if !blocked {
                                 continue;
                             }
-                            let (px, py) =
-                                tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
                             let w = TILE_W * zoom;
                             let h = TILE_H * zoom;
                             if !is_visible(px, py, w, h, bounds) {
@@ -104,8 +102,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             if event.event_id == 0 {
                                 continue;
                             }
-                            let (px, py) =
-                                tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
+                            let (px, py) = tile_to_screen(tx, ty, diagonal, pan_x, pan_y, zoom);
                             if !is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                 continue;
                             }
@@ -136,12 +133,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                     if self.state.view.show_draw_items {
                         for di in &self.state.data.draw_items {
                             let (px, py) = tile_to_screen(
-                                di.x_coord,
-                                di.y_coord,
-                                diagonal,
-                                pan_x,
-                                pan_y,
-                                zoom,
+                                di.x_coord, di.y_coord, diagonal, pan_x, pan_y, zoom,
                             );
                             if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                 let (tile_cx, tile_cy) = tile_center(px, py, zoom);
@@ -152,10 +144,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 let label_size = (9.0 * zoom).max(6.0);
                                 frame.fill_text(CanvasText {
                                     content: label,
-                                    position: Point::new(
-                                        tile_cx,
-                                        tile_cy - r - 2.0 * zoom,
-                                    ),
+                                    position: Point::new(tile_cx, tile_cy - r - 2.0 * zoom),
                                     color: Color::WHITE,
                                     size: iced::Pixels(label_size),
                                     font: Font::MONOSPACE,
@@ -212,13 +201,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 );
 
                                 if !is_visible(sx, sy, TILE_W * zoom, TILE_H * zoom, bounds)
-                                    && !is_visible(
-                                        ex,
-                                        ey,
-                                        TILE_W * zoom,
-                                        TILE_H * zoom,
-                                        bounds,
-                                    )
+                                    && !is_visible(ex, ey, TILE_W * zoom, TILE_H * zoom, bounds)
                                 {
                                     continue;
                                 }
@@ -285,8 +268,7 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                     // Selection ring
                     if let Some(sel) = self.state.view.selected_entity {
                         if let Some((stx, sty)) = entity_tile(sel, self.state) {
-                            let (px, py) =
-                                tile_to_screen(stx, sty, diagonal, pan_x, pan_y, zoom);
+                            let (px, py) = tile_to_screen(stx, sty, diagonal, pan_x, pan_y, zoom);
                             let r = 14.0 * zoom;
                             let scx = px + TILE_W * zoom * 0.5;
                             let scy = py + TILE_H * zoom * 0.5;

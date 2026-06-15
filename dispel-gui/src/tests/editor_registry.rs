@@ -35,7 +35,10 @@ mod editor_registry_tests {
         registry.sprite_viewers.insert(3, Default::default());
 
         // Populate tabbed editor
-        registry.npc_ref_editor.editors.insert(1, Default::default());
+        registry
+            .npc_ref_editor
+            .editors
+            .insert(1, Default::default());
 
         registry.close_all_tabs();
 
@@ -54,17 +57,24 @@ mod editor_registry_tests {
 
         registry.map_editors.insert(1, Default::default());
         registry.sprite_viewers.insert(1, Default::default());
-        registry.npc_ref_editor.editors.insert(1, Default::default());
-        registry.dialogue_script_editor
+        registry
+            .npc_ref_editor
             .editors
             .insert(1, Default::default());
-        registry.monster_ref_editor
+        registry
+            .dialogue_script_editor
             .editors
             .insert(1, Default::default());
-        registry.extra_ref_editor
+        registry
+            .monster_ref_editor
             .editors
             .insert(1, Default::default());
-        registry.dialogue_paragraph_editor
+        registry
+            .extra_ref_editor
+            .editors
+            .insert(1, Default::default());
+        registry
+            .dialogue_paragraph_editor
             .editors
             .insert(1, Default::default());
 

@@ -93,7 +93,10 @@ mod tests {
     #[test]
     fn test_context_menu_style_has_background() {
         let style = context_menu(&THEME);
-        assert!(style.background.is_some(), "context menu should have background");
+        assert!(
+            style.background.is_some(),
+            "context menu should have background"
+        );
     }
 
     #[test]
@@ -128,7 +131,10 @@ mod tests {
     #[test]
     fn test_menu_separator_has_background() {
         let style = menu_separator(&THEME);
-        assert!(style.background.is_some(), "separator should have background");
+        assert!(
+            style.background.is_some(),
+            "separator should have background"
+        );
     }
 
     #[test]

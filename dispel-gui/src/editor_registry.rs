@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use crate::components::edit_history::EditHistory;
-use crate::components::generic_editor::UndoRedo;
 use crate::components::generic_editor::TabbedEditor;
+use crate::components::generic_editor::UndoRedo;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
@@ -30,8 +30,8 @@ use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
-    DialogueParagraph, DialogueScript, EditItem, EventItem, ExtraRef, HealItem, MiscItem,
-    Monster, MonsterRef, NPC, PartyLevelRecord, PartyRef, WeaponItem,
+    DialogueParagraph, DialogueScript, EditItem, EventItem, ExtraRef, HealItem, MiscItem, Monster,
+    MonsterRef, PartyLevelRecord, PartyRef, WeaponItem, NPC,
 };
 use hexedit::HexEditorState;
 
@@ -111,9 +111,7 @@ macro_rules! undo_redo_dispatch {
             EditorType::QuestScrEditor => $self.quest_scr_editor.$action($lookups),
             EditorType::WaveIniEditor => $self.wave_ini_editor.$action($lookups),
             EditorType::ChDataEditor => $self.chdata_editor.$action($lookups),
-            EditorType::PartyLevelDbEditor => {
-                $self.party_level_db_level_editor.$action($lookups)
-            }
+            EditorType::PartyLevelDbEditor => $self.party_level_db_level_editor.$action($lookups),
 
             // Custom-layout editor (undo/redo without lookups)
             EditorType::StoreEditor => $self.store_editor.$action(),

@@ -60,7 +60,9 @@ pub fn handle(msg: ExtraRefEditorMessage, app: &mut App) -> Task<crate::message:
                         editor.editor.status_msg =
                             format!("Extra ref catalog loaded: {} entries", catalog.len());
                         editor.editor.catalog = Some(catalog.clone());
-                        if let Some(ss) = app.state.editors.extra_ref_editor.spreadsheets.get_mut(&id) {
+                        if let Some(ss) =
+                            app.state.editors.extra_ref_editor.spreadsheets.get_mut(&id)
+                        {
                             ss.apply_filter(&catalog);
                             let lookups = &app.state.lookups;
                             ss.compute_all_caches(&catalog, lookups);

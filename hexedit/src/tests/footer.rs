@@ -81,7 +81,14 @@ fn test_footer_shows_selection_range() {
 fn test_footer_shows_dirty_after_edit() {
     let mut state = make_state(vec![0x00, 0x00, 0x00]);
     let config = default_config();
-    send(&mut state, &config, HexEditorMessage::WriteBytes { addr: 0, bytes: vec![0xAA, 0xBB] });
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::WriteBytes {
+            addr: 0,
+            bytes: vec![0xAA, 0xBB],
+        },
+    );
     assert_eq!(state.provider.dirty_count(), 2);
     let mut ui = simulator(view(&state, &config));
     let expected = "0x0  ·  total: 0x3 (3 B)  ·  dirty: 2  ·  cursor: 0x0";
@@ -98,5 +105,6 @@ fn test_footer_shows_dirty_after_inline_edit() {
     assert_eq!(state.provider.dirty_count(), 1);
     let mut ui = simulator(view(&state, &config));
     let expected = "0x1  ·  total: 0x3 (3 B)  ·  dirty: 1  ·  cursor: 0x1";
-    ui.find(expected).expect("footer should show dirty: 1 after inline edit");
+    ui.find(expected)
+        .expect("footer should show dirty: 1 after inline edit");
 }

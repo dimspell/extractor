@@ -91,15 +91,12 @@ pub fn field_changed(
             } else if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
                 let map_data = Arc::get_mut(&mut handle.0)
                     .expect("MapData Arc has unexpected shared reference");
-                let ev = map_data
-                    .events
-                    .entry((tx, ty))
-                    .or_insert(EventBlock {
-                        x: tx,
-                        y: ty,
-                        _unknown_value: 0,
-                        event_id: 0,
-                    });
+                let ev = map_data.events.entry((tx, ty)).or_insert(EventBlock {
+                    x: tx,
+                    y: ty,
+                    _unknown_value: 0,
+                    event_id: 0,
+                });
                 ev.event_id = value.parse::<i16>().unwrap_or(0);
             } else {
                 entity_mutated = false;
@@ -142,8 +139,7 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_undo() {
         // Capture NPC index before the field value is moved.
-        let needs_sprite_update =
-            action.field == "looking_direction" || action.field == "npc_id";
+        let needs_sprite_update = action.field == "looking_direction" || action.field == "npc_id";
         let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
@@ -194,15 +190,14 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                         // the undo was recorded (e.g. the user saved the map
                         // and the entry was culled). Re-insert it so undo
                         // always succeeds.
-                        let ev = map_data
-                            .events
-                            .entry((tx, ty))
-                            .or_insert(dispel_core::map::EventBlock {
+                        let ev = map_data.events.entry((tx, ty)).or_insert(
+                            dispel_core::map::EventBlock {
                                 x: tx,
                                 y: ty,
                                 _unknown_value: 0,
                                 event_id: 0,
-                            });
+                            },
+                        );
                         ev.event_id = val;
                     }
                 }
@@ -229,8 +224,7 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
     };
     if let Some(action) = state.pop_redo() {
         // Capture NPC index before the field value is moved.
-        let needs_sprite_update =
-            action.field == "looking_direction" || action.field == "npc_id";
+        let needs_sprite_update = action.field == "looking_direction" || action.field == "npc_id";
         let npc_idx = if needs_sprite_update {
             match action.entity {
                 SelectedEntity::Npc(i) => Some(i),
@@ -319,14 +313,17 @@ mod tests {
             item_id: 5,
         }];
         // Also need a tab in workspace so set_tab_modified doesn't silently skip
-        app.state.workspace.tabs.push(crate::workspace::WorkspaceTab {
-            id: tab_id,
-            label: "test".into(),
-            path: None,
-            editor_type: crate::workspace::EditorType::MapEditor,
-            modified: false,
-            pinned: false,
-        });
+        app.state
+            .workspace
+            .tabs
+            .push(crate::workspace::WorkspaceTab {
+                id: tab_id,
+                label: "test".into(),
+                path: None,
+                editor_type: crate::workspace::EditorType::MapEditor,
+                modified: false,
+                pinned: false,
+            });
         app.state.workspace.active_tab = Some(0);
         (app, tab_id)
     }

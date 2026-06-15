@@ -36,11 +36,7 @@ impl Command for ModPackCommand {
         let ref_dir = game_dir.join("Ref");
 
         if !ref_dir.exists() {
-            return Err(format!(
-                "Ref directory not found at: {}",
-                ref_dir.display()
-            )
-            .into());
+            return Err(format!("Ref directory not found at: {}", ref_dir.display()).into());
         }
 
         // Find all .scr files in the Ref directory (case-insensitive)
@@ -94,11 +90,7 @@ impl ModPackCommand {
                     }
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to parse {}: {}",
-                        path.display(),
-                        e
-                    );
+                    eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
                 }
             }
         }
@@ -159,11 +151,7 @@ impl ModPackCommand {
                     }
                 }
                 Err(e) => {
-                    eprintln!(
-                        "Warning: Failed to parse {}: {}",
-                        path.display(),
-                        e
-                    );
+                    eprintln!("Warning: Failed to parse {}: {}", path.display(), e);
                     fail_count += 1;
                 }
             }

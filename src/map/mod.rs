@@ -96,7 +96,7 @@ pub mod writer;
 // ── Re-export the entire public surface so external code needs no changes ──
 pub use database::render_from_database;
 pub use model::{read_map_model, MapModel};
-pub use render::{ExternalEntities, EntityRenderInfo, LayerToggles};
+pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
     convert_map_coords_to_image_coords, Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
     TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_PIXEL_NUMBER, TILE_WIDTH_HALF,
@@ -109,8 +109,8 @@ use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use image::codecs::png::PngEncoder;
-use image::{ColorType, ImageEncoder, Rgba};
 use image::RgbaImage;
+use image::{ColorType, ImageEncoder, Rgba};
 
 use crate::sprite::{rgb16_565_produce_color, SequenceInfo};
 use rusqlite::{params, Connection, Result as DbResult};
@@ -575,7 +575,8 @@ pub fn import_to_database(database_path: &Path, map_path: &Path) -> IoResult<()>
         .and_then(|s| s.to_str())
         .unwrap_or("map");
 
-    save_to_db(&mut conn, map_id, &map_data, &mut reader).map_err(|e| std::io::Error::other(e.to_string()))
+    save_to_db(&mut conn, map_id, &map_data, &mut reader)
+        .map_err(|e| std::io::Error::other(e.to_string()))
 }
 
 /// Writes map data to the SQLite database.
@@ -768,11 +769,7 @@ pub fn save_map_sprite_frames(
                             continue; // transparent
                         }
                         let color = rgb16_565_produce_color(pixel);
-                        rgba.put_pixel(
-                            x as u32,
-                            y as u32,
-                            Rgba([color.r, color.g, color.b, 255]),
-                        );
+                        rgba.put_pixel(x as u32, y as u32, Rgba([color.r, color.g, color.b, 255]));
                     }
                 }
 

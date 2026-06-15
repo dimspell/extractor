@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod global_search_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::workspace::WorkspaceMessage;
+    use crate::message::Message;
     use crate::workspace::Workspace;
 
     #[test]
@@ -20,7 +20,10 @@ mod global_search_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
         assert!(!app.global_search.is_visible, "hidden after second toggle");
         assert!(app.global_search.query.is_empty(), "query cleared on hide");
-        assert!(app.global_search.results.is_empty(), "results cleared on hide");
+        assert!(
+            app.global_search.results.is_empty(),
+            "results cleared on hide"
+        );
     }
 
     #[test]
@@ -54,14 +57,14 @@ mod global_search_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set some results first
-        app.global_search.results.push(
-            crate::components::global_search::SearchResult {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
                 catalog_type: "test".into(),
                 record_idx: 0,
                 display_text: "foo".into(),
                 source_file: None,
-            },
-        );
+            });
         app.global_search.selected_index = 0;
 
         // Single char clears results
@@ -80,14 +83,14 @@ mod global_search_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Set up a result
-        app.global_search.results.push(
-            crate::components::global_search::SearchResult {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
                 catalog_type: "test".into(),
                 record_idx: 0,
                 display_text: "foo".into(),
                 source_file: None,
-            },
-        );
+            });
 
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchSelect(0)));
         assert!(!app.global_search.is_visible, "search closed after select");
@@ -99,7 +102,9 @@ mod global_search_tests {
     fn select_out_of_bounds_does_not_panic() {
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
-        let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchSelect(999)));
+        let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchSelect(
+            999,
+        )));
         assert!(!app.global_search.is_visible, "closed on bad index");
         assert!(app.global_search.query.is_empty(), "cleared on bad index");
         assert_eq!(task.units(), 0);
@@ -112,14 +117,14 @@ mod global_search_tests {
 
         // Add some results so navigation works
         for i in 0..3 {
-            app.global_search.results.push(
-                crate::components::global_search::SearchResult {
+            app.global_search
+                .results
+                .push(crate::components::global_search::SearchResult {
                     catalog_type: "test".into(),
                     record_idx: i,
                     display_text: format!("file_{i}"),
                     source_file: None,
-                },
-            );
+                });
         }
 
         assert_eq!(app.global_search.selected_index, 0);
@@ -137,14 +142,14 @@ mod global_search_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         for i in 0..3 {
-            app.global_search.results.push(
-                crate::components::global_search::SearchResult {
+            app.global_search
+                .results
+                .push(crate::components::global_search::SearchResult {
                     catalog_type: "test".into(),
                     record_idx: i,
                     display_text: format!("file_{i}"),
                     source_file: None,
-                },
-            );
+                });
         }
 
         // Start at 0, press up → wraps to last
@@ -176,14 +181,14 @@ mod global_search_confirm_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
         // Add a result with a source file
-        app.global_search.results.push(
-            crate::components::global_search::SearchResult {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
                 catalog_type: "test".into(),
                 record_idx: 0,
                 display_text: "file.map".into(),
                 source_file: Some("maps/file.map".into()),
-            },
-        );
+            });
         app.global_search.selected_index = 0;
 
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
@@ -197,14 +202,14 @@ mod global_search_confirm_tests {
         let mut app = App::test_new(Workspace::new());
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch));
 
-        app.global_search.results.push(
-            crate::components::global_search::SearchResult {
+        app.global_search
+            .results
+            .push(crate::components::global_search::SearchResult {
                 catalog_type: "test".into(),
                 record_idx: 0,
                 display_text: "file.map".into(),
                 source_file: Some("maps/file.map".into()),
-            },
-        );
+            });
 
         let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
         assert!(!app.global_search.is_visible, "search closed");

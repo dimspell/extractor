@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod indexation_edge_tests {
     use crate::app::App;
-    use crate::message::Message;
     use crate::message::system::SystemMessage;
+    use crate::message::Message;
     use crate::workspace::Workspace;
 
     #[test]

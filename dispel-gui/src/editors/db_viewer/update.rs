@@ -182,7 +182,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 if !app.state.editors.viewer.edit_buffer.is_empty()
                     || app
                         .state
-                        .editors.viewer
+                        .editors
+                        .viewer
                         .rows
                         .get(pr)
                         .and_then(|row| row.get(pc).map(|v| v.as_str()))
@@ -190,7 +191,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 {
                     let original = app
                         .state
-                        .editors.viewer
+                        .editors
+                        .viewer
                         .rows
                         .get(pr)
                         .and_then(|row| row.get(pc))
@@ -198,7 +200,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                         .unwrap_or_default();
                     if app.state.editors.viewer.edit_buffer != original {
                         app.state
-                            .editors.viewer
+                            .editors
+                            .viewer
                             .pending_edits
                             .insert((pr, pc), app.state.editors.viewer.edit_buffer.clone());
                     }
@@ -206,7 +209,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             }
             let val = app
                 .state
-                .editors.viewer
+                .editors
+                .viewer
                 .rows
                 .get(row)
                 .and_then(|row| row.get(col))
@@ -224,11 +228,13 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         }
         ViewerMessage::CellConfirm => {
             // Confirm cell edit
-            app.state.editors.viewer.status_msg = "Cell edit confirmed (implementation needed)".into();
+            app.state.editors.viewer.status_msg =
+                "Cell edit confirmed (implementation needed)".into();
             if let Some((r, c)) = app.state.editors.viewer.editing_cell {
                 let original = app
                     .state
-                    .editors.viewer
+                    .editors
+                    .viewer
                     .rows
                     .get(r)
                     .and_then(|row| row.get(c))
@@ -236,7 +242,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                     .unwrap_or_default();
                 if app.state.editors.viewer.edit_buffer != original {
                     app.state
-                        .editors.viewer
+                        .editors
+                        .viewer
                         .pending_edits
                         .insert((r, c), app.state.editors.viewer.edit_buffer.clone());
                 }

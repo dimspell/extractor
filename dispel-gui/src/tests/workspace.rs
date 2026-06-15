@@ -42,7 +42,11 @@ mod workspace_reopen_tests {
 
         // Open once
         let _task1 = app.open_file_in_workspace(&path);
-        assert_eq!(app.state.workspace.tabs.len(), 1, "one tab after first open");
+        assert_eq!(
+            app.state.workspace.tabs.len(),
+            1,
+            "one tab after first open"
+        );
 
         // Open again — should reactivate, not create new tab
         let _task2 = app.open_file_in_workspace(&path);
@@ -77,7 +81,11 @@ mod workspace_reopen_tests {
         let path = PathBuf::from("nonexistent.xyz");
         let _task = app.open_file_in_workspace(&path);
         // Should create a hex editor tab (fallback for unknown extensions)
-        assert_eq!(app.state.workspace.tabs.len(), 1, "tab created for unknown extension");
+        assert_eq!(
+            app.state.workspace.tabs.len(),
+            1,
+            "tab created for unknown extension"
+        );
         assert_eq!(
             app.state.workspace.active().unwrap().editor_type,
             EditorType::HexEditor,
