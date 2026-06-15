@@ -4,7 +4,8 @@ use super::*;
 // Footer — empty file
 // ============================================================================
 
-/// Footer is also a single `text()` widget; we match the full string.
+/// Footer text is embedded in a row alongside the write-mode pick list;
+/// we match the full string via recursive text search.
 fn footer_empty() -> &'static str {
     "(empty)  ·  total: 0 (0 B)  ·  dirty: 0"
 }

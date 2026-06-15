@@ -38,6 +38,10 @@ const GROUP_GAP: f32 = 8.0;
 const COLUMN_GAP: f32 = 12.0;
 const ANN_COL_GAP: f32 = 16.0;
 
+/// Height of the fixed column header row above the hex area. Same as a
+/// data row so labels align vertically with the first row beneath them.
+const HEADER_HEIGHT: f32 = 16.0;
+
 /// Maximum width of the annotation column when computed from content.
 const MAX_ANN_COL_WIDTH: f32 = 400.0;
 /// Minimum annotation column width when no annotations exist.
@@ -372,13 +376,15 @@ impl<'a, Message> HexMatrix<'a, Message> {
         w
     }
 
-    /// Viewport height available for content, accounting for horizontal scrollbar.
+    /// Viewport height available for content rows (below the fixed column
+    /// header), accounting for horizontal scrollbar.
     fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {
         let needs_hscroll = self.total_content_width() > bounds_w - SCROLLBAR_THICKNESS;
+        let header_h = HEADER_HEIGHT;
         if needs_hscroll {
-            (bounds_h - SCROLLBAR_THICKNESS).max(0.0)
+            (bounds_h - header_h - SCROLLBAR_THICKNESS).max(0.0)
         } else {
-            bounds_h
+            (bounds_h - header_h).max(0.0)
         }
     }
 }
@@ -693,8 +699,14 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     return;
                 }
 
-                // Vertical scrollbar.
-                let scrollbar = scrollbar_track(bounds, viewport_h);
+                // Vertical scrollbar (sits below the column header).
+                let content_bounds = Rectangle {
+                    x: bounds.x,
+                    y: bounds.y + HEADER_HEIGHT,
+                    width: bounds.width,
+                    height: viewport_h,
+                };
+                let scrollbar = scrollbar_track(content_bounds, viewport_h);
                 if scrollbar.contains(p) && total_h > viewport_h {
                     let thumb = scrollbar_thumb(scrollbar, state.scroll_offset.get(), total_h);
                     if thumb.contains(p) {
@@ -722,6 +734,11 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                     shell.request_redraw();
                     shell.capture_event();
+                    return;
+                }
+
+                // Header area (above content rows) -> ignore for byte selection.
+                if p.y < bounds.y + HEADER_HEIGHT {
                     return;
                 }
 
@@ -765,6 +782,10 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
+                // Header area -> no right-click target.
+                if p.y < bounds.y + HEADER_HEIGHT {
+                    return;
+                }
                 if let Some(addr) = addr_at(
                     p,
                     bounds,
@@ -780,10 +801,18 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
             }
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
+                // ── Column-header area for scrollbar-track hover ──────
+                let content_bounds = Rectangle {
+                    x: bounds.x,
+                    y: bounds.y + HEADER_HEIGHT,
+                    width: bounds.width,
+                    height: viewport_h,
+                };
+
                 // Repaint on hover transitions over scrollbar tracks.
                 if cursor.is_over(bounds) {
                     if let Some(p) = cursor.position() {
-                        let vtrack = scrollbar_track(bounds, viewport_h);
+                        let vtrack = scrollbar_track(content_bounds, viewport_h);
                         let htrack = hscrollbar_track(bounds);
                         let now_hovering = vtrack.contains(p) || htrack.contains(p);
                         if now_hovering != state.hovering_scrollbar.get() {
@@ -809,7 +838,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
                 if state.dragging_scrollbar {
                     let Some(p) = cursor.position() else { return };
-                    let scrollbar = scrollbar_track(bounds, viewport_h);
+                    let scrollbar = scrollbar_track(content_bounds, viewport_h);
                     let thumb_h = thumb_height(scrollbar, total_h);
                     let travel = (scrollbar.height - thumb_h).max(1.0);
                     let max_off = (total_h - viewport_h).max(1.0);
@@ -817,13 +846,17 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     let new = state.drag_start_offset + dy * (max_off / travel);
                     state
                         .scroll_offset
-                        .set(clamp_scroll(new, total_h, bounds.height));
+                        .set(clamp_scroll(new, total_h, content_bounds.height));
                     shell.request_redraw();
                     shell.capture_event();
                     return;
                 }
                 if state.selecting {
                     let Some(p) = cursor.position() else { return };
+                    // Do not extend selection into the column header.
+                    if p.y < bounds.y + HEADER_HEIGHT {
+                        return;
+                    }
                     if let Some(addr) = addr_at(
                         p,
                         bounds,
@@ -1119,13 +1152,27 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             Background::Color(color!(0x14110f)),
         );
 
-        // Clip content rendering to exclude scrollbar areas.
+        // ── Content area below the fixed column header ─────────────────
+        // Save the initial clip for use by the header renderers before we
+        // reassign `clip` to the content-only area below the header.
+        let initial_clip = clip;
         let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
+        let content_top = bounds.y + HEADER_HEIGHT;
+        let content_bounds = Rectangle {
+            x: bounds.x,
+            y: content_top,
+            width: bounds.width,
+            height: viewport_h,
+        };
+
+        // Clip content to the content area (excludes header + scrollbar).
+        let content_clip_top = content_top.max(clip.y);
+        let content_clip_bottom = (content_top + viewport_h).min(clip.y + clip.height);
         let clip = Rectangle {
             x: clip.x,
-            y: clip.y,
+            y: content_clip_top,
             width: (clip.width - SCROLLBAR_THICKNESS).max(0.0),
-            height: viewport_h.min(clip.height),
+            height: (content_clip_bottom - content_clip_top).max(0.0),
         };
 
         // Further clip hex/ASCII content to exclude the address gutter.
@@ -1137,16 +1184,11 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         };
 
         let total_rows = self.total_rows();
-        if total_rows == 0 {
-            return;
-        }
-
         let bpr = self.bytes_per_row as usize;
         let total_h = self.total_height();
         let bpr64 = bpr as u64;
 
-        let scroll = if total_h <= viewport_h {
-            // Content fits — no scrolling needed.
+        let scroll = if total_h <= viewport_h || total_rows == 0 {
             0.0
         } else {
             let cursor = self.selection.cursor;
@@ -1176,6 +1218,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let addr_color = color!(0x7a6f64);
         let hex_color = color!(0xd4cabd);
         let ascii_color = color!(0xb8a898);
+        let header_color = color!(0x8a7a6a);
+        let header_bg = color!(0x1a1614);
+        let header_separator = color!(0x2a2218);
         let group_separator_color = color!(0x251f1a);
         let selection_bg = color!(0x3b2a18);
         let cursor_bg = color!(0x6a4a26);
@@ -1188,21 +1233,90 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let edit_text = color!(0xfff8ee);
         let caret_color = color!(0xfff4e0);
 
-        let hex_start_x = bounds.x + self.addr_col_width() - scroll_x;
-        let ascii_start_x = self.ascii_start_x(bounds.x) - scroll_x;
+        let hex_start_x = content_bounds.x + self.addr_col_width() - scroll_x;
+        let ascii_start_x = self.ascii_start_x(content_bounds.x) - scroll_x;
         let sel_range = self.selection.range();
         let cursor_addr = self.selection.cursor;
         let edit_addr = self.edit.map(|e| e.addr);
 
-        // Address-gutter background — covers any hex/ASCII content that may
-        // have scrolled underneath when scroll_x > 0.
+        // ── Column header ─────────────────────────────────────────────────
+        // Background for the header row (full width, below address gutter).
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x + self.addr_col_width(),
+                    y: bounds.y,
+                    width: (bounds.width - self.addr_col_width()).max(0.0),
+                    height: HEADER_HEIGHT,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(header_bg),
+        );
+
+        // Hex column numbers (e.g. "0 1 2 3 4 5 6 7  8 9 A B C D E F").
+        for col in 0..self.bytes_per_row as usize {
+            let group = col / 8;
+            let cell_x =
+                hex_start_x + col as f32 * HEX_CELL_WIDTH + group as f32 * GROUP_GAP;
+            let label = if self.show_decimal {
+                format!("{}", col)
+            } else {
+                // One hex digit per column (0–F).
+                let c = match col {
+                    0..=9 => (b'0' + col as u8) as char,
+                    10..=15 => (b'A' + col as u8 - 10) as char,
+                    _ => '?',
+                };
+                c.to_string()
+            };
+            // Center the label in its HEX_CELL_WIDTH column.
+            let label_w = label.len() as f32 * 9.0;
+            let text_x = cell_x + (HEX_CELL_WIDTH - label_w) / 2.0;
+            draw_glyph_string(
+                renderer,
+                &self.cache,
+                &label,
+                font,
+                Rectangle {
+                    x: text_x,
+                    y: bounds.y,
+                    width: label_w,
+                    height: HEADER_HEIGHT,
+                },
+                header_color,
+                initial_clip,
+            );
+        }
+
+        // Thin separator line below the header.
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: Rectangle {
+                    x: bounds.x,
+                    y: bounds.y + HEADER_HEIGHT - 1.0,
+                    width: bounds.width,
+                    height: 1.0,
+                },
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(header_separator),
+        );
+
+        // ── Data rows ─────────────────────────────────────────────────────
+        // Address-gutter background — covers header + content so horizontal
+        // scrolling never reveals bare background beneath the address text.
         renderer.fill_quad(
             renderer::Quad {
                 bounds: Rectangle {
                     x: bounds.x,
                     y: bounds.y,
                     width: self.addr_col_width(),
-                    height: viewport_h,
+                    height: HEADER_HEIGHT + viewport_h,
                 },
                 border: Border::default(),
                 shadow: Shadow::default(),
@@ -1213,7 +1327,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
-            let y = bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
+            let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
             // Address gutter — right-aligned.
             let addr_str = if self.show_decimal {
@@ -1461,7 +1575,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 renderer::Quad {
                     bounds: Rectangle {
                         x,
-                        y: bounds.y,
+                        y: content_bounds.y,
                         width: 1.0,
                         height: viewport_h,
                     },
@@ -1478,12 +1592,12 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let needs_vscroll = total_h > viewport_h;
         if needs_vscroll {
             let hovering = cursor
-                .position_over(bounds)
-                .map(|p| scrollbar_track(bounds, viewport_h).contains(p))
+                .position_over(content_bounds)
+                .map(|p| scrollbar_track(content_bounds, viewport_h).contains(p))
                 .unwrap_or(false);
             draw_vscrollbar(
                 renderer,
-                bounds,
+                content_bounds,
                 scroll,
                 total_h,
                 viewport_h,
@@ -2098,5 +2212,66 @@ mod tests {
     #[test]
     fn first_printable_char_empty_string() {
         assert_eq!(first_printable_char(""), None);
+    }
+
+    // ── Column header tests ─────────────────────────────────────────────
+
+    #[test]
+    fn header_constants_are_reasonable() {
+        assert_eq!(HEADER_HEIGHT, 16.0);
+        assert_eq!(HEADER_HEIGHT, ROW_HEIGHT);
+    }
+
+    #[test]
+    fn addr_at_returns_none_for_clicks_in_header_area() {
+        // With bounds adjusted to start after the header, a click at the top
+        // of the widget (in the header area) should not match any address.
+        let bounds = Rectangle {
+            x: 0.0,
+            y: HEADER_HEIGHT, // content starts after the header
+            width: 800.0,
+            height: 300.0,
+        };
+        // A click at (100, 0) in widget coordinates — this is inside the
+        // header area (y < HEADER_HEIGHT), but *outside* the content bounds
+        // (content starts at y=HEADER_HEIGHT). addr_at should reject it.
+        let p = Point::new(100.0, 0.0);
+        assert!(
+            addr_at(p, bounds, 0.0, 0.0, 16, 1024, TEST_ADDR_COL_WIDTH).is_none(),
+            "click in header area should not resolve to a byte address"
+        );
+    }
+
+    #[test]
+    fn header_does_not_affect_addr_at_after_content_bounds() {
+        // Verify that when the content bounds start after HEADER_HEIGHT,
+        // addr_at requires the click Y to be within those bounds to resolve
+        // an address. A click in the header area (y < HEADER_HEIGHT) is
+        // rejected because bounds.contains() returns false.
+        let bpr: u8 = 16;
+        let aw = bpr as f32 * HEX_CELL_WIDTH + group_count(bpr as usize) as f32 * GROUP_GAP
+            + TEST_ADDR_COL_WIDTH
+            + COLUMN_GAP
+            + bpr as f32 * ASCII_CELL_WIDTH;
+        let bounds = Rectangle {
+            x: 0.0,
+            y: HEADER_HEIGHT, // content starts here
+            width: aw + 100.0,
+            height: 300.0,
+        };
+        // Click at (in hex area, y=0) — this is BEFORE content_bounds.y so
+        // bounds.contains() is false → addr_at returns None.
+        let hex_x = TEST_ADDR_COL_WIDTH + 4.0;
+        assert!(
+            addr_at(Point::new(hex_x, 0.0), bounds, 0.0, 0.0, bpr, 1024, TEST_ADDR_COL_WIDTH)
+                .is_none(),
+            "click at y=0 (in header) should be rejected by content bounds"
+        );
+        // Click at the same x but within the content area → should resolve.
+        assert!(
+            addr_at(Point::new(hex_x, HEADER_HEIGHT + 4.0), bounds, 0.0, 0.0, bpr, 1024, TEST_ADDR_COL_WIDTH)
+                .is_some(),
+            "click within content bounds should resolve"
+        );
     }
 }
