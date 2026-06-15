@@ -282,15 +282,15 @@ impl HexEditorState {
     /// the current cursor address. Called automatically from
     /// `recompute_row_annotations()` and should also be called whenever the
     /// cursor moves (select, navigate, etc.).
+    ///
+    /// Used by the hex matrix to highlight annotation segments and by the
+    /// pattern list to highlight the row whose span the cursor is over.
     pub fn refresh_active_patterns(&mut self) {
         self.active_patterns.clear();
         let cursor = self.selection.cursor;
         for pat in &self.patterns {
             if cursor >= pat.start && cursor <= pat.end {
-                let has_annotation = pat.annotation.as_ref().is_some_and(|a| !a.is_empty());
-                if has_annotation {
-                    self.active_patterns.insert(pat.id);
-                }
+                self.active_patterns.insert(pat.id);
             }
         }
     }

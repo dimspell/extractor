@@ -305,6 +305,7 @@ fn pattern_row<'a>(
         .spacing(6)
         .align_y(iced::Alignment::Center);
 
+    let is_active = editor.active_patterns.contains(&pattern.id);
     container(row)
         .padding(iced::Padding {
             top: 0.0,
@@ -313,6 +314,16 @@ fn pattern_row<'a>(
             left: 6.0,
         })
         .width(Fill)
+        .style(move |_: &iced::Theme| {
+            if is_active {
+                container::Style {
+                    background: Some(iced::Background::Color(color!(0x3b2a18))),
+                    ..Default::default()
+                }
+            } else {
+                container::Style::default()
+            }
+        })
         .into()
 }
 

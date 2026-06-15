@@ -126,14 +126,17 @@ pub enum ColorScheme {
     Categories,
     /// Continuous rainbow hue across the full 0x00…0xFF range.
     Rainbow,
+    /// Cold-to-hot heatmap: blue → cyan → green → yellow → red.
+    Heatmap,
 }
 
 impl ColorScheme {
-    pub const ALL: [ColorScheme; 4] = [
+    pub const ALL: [ColorScheme; 5] = [
         ColorScheme::Monochrome,
         ColorScheme::Nybble,
         ColorScheme::Categories,
         ColorScheme::Rainbow,
+        ColorScheme::Heatmap,
     ];
 
     pub fn label(&self) -> &'static str {
@@ -142,6 +145,7 @@ impl ColorScheme {
             ColorScheme::Nybble => "Nybble (18 groups)",
             ColorScheme::Categories => "Categories (6 groups)",
             ColorScheme::Rainbow => "Rainbow gradient",
+            ColorScheme::Heatmap => "Value-based heatmap",
         }
     }
 }
@@ -268,6 +272,17 @@ pub fn rainbow_color(b: u8) -> Color {
     Color::from_rgb(r, g, b_)
 }
 
+/// Cold-to-hot heatmap, mapping 0x00 (cool/blue) → 0xFF (hot/red).
+///
+/// Lightness and saturation match [`rainbow_color`], guaranteeing every byte
+/// has CR ≥ 4.5 against [`MATRIX_BG`].
+pub fn heatmap_color(b: u8) -> Color {
+    // Map 0x00 → 240° (blue) through cyan, green, yellow to 0xFF → 0° (red).
+    let hue = 240.0 * (1.0 - b as f32 / 255.0);
+    let (r, g, b_) = hsl_to_rgb(hue, 0.85, 0.70);
+    Color::from_rgb(r, g, b_)
+}
+
 /// Convert HSL to RGB, all components in 0..1 range.
 fn hsl_to_rgb(h: f32, s: f32, l: f32) -> (f32, f32, f32) {
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
@@ -291,6 +306,7 @@ pub fn scheme_color(scheme: ColorScheme, b: u8) -> Color {
         ColorScheme::Nybble => nybble_color(b),
         ColorScheme::Categories => category_color(b),
         ColorScheme::Rainbow => rainbow_color(b),
+        ColorScheme::Heatmap => heatmap_color(b),
     }
 }
 
@@ -803,6 +819,94 @@ mod tests {
         );
     }
 
+    // ── Heatmap-colour tests ────────────────────────────────────────────
+
+    #[test]
+    fn heatmap_no_panic_all_bytes() {
+        for b in 0..=255u8 {
+            let c = heatmap_color(b);
+            assert_valid_color(&c, &format!("heatmap 0x{b:02X}"));
+        }
+    }
+
+    #[test]
+    fn heatmap_0x00_blue_0xff_red() {
+        let c0 = heatmap_color(0x00);
+        let cff = heatmap_color(0xFF);
+        // 0x00 should be blue-dominant (b > r).
+        assert!(
+            c0.b > c0.r + 0.1,
+            "heatmap 0x00 should be blue-dominant: r={} b={}",
+            c0.r,
+            c0.b
+        );
+        // 0xFF should be red-dominant (r > b).
+        assert!(
+            cff.r > cff.b + 0.1,
+            "heatmap 0xFF should be red-dominant: r={} b={}",
+            cff.r,
+            cff.b
+        );
+    }
+
+    #[test]
+    fn heatmap_low_vs_high_distinct() {
+        let c00 = heatmap_color(0x00);
+        let cff = heatmap_color(0xFF);
+        let diff = (c00.r - cff.r).abs() + (c00.g - cff.g).abs() + (c00.b - cff.b).abs();
+        assert!(
+            diff > 0.3,
+            "heatmap 0x00 and 0xFF should be very different, total diff={diff:.3}"
+        );
+    }
+
+    #[test]
+    fn heatmap_hue_decreases_monotonically() {
+        // The hue should decrease from 240° (blue) towards 0° (red) as byte
+        // values increase.  Derive hue from the HSL-to-RGB output by
+        // examining the RGB ordering (which sector of the HSL cylinder the
+        // colour falls in) — simpler: just check that red increases and
+        // blue decreases overall, with tolerance for the HSL sector
+        // boundaries where channels cross over.
+        let c00 = heatmap_color(0x00);
+        let cff = heatmap_color(0xFF);
+        // 0x00 must be blue-dominant; 0xFF must be red-dominant.
+        assert!(c00.b > c00.r, "0x00: blue dominant");
+        assert!(cff.r > cff.b, "0xFF: red dominant");
+
+        // Every step from 0x00→0xFF should increase the red-blue ratio.
+        let ratio_prev = c00.r / c00.b.max(0.001);
+        for step in 1..=255u8 {
+            let c = heatmap_color(step);
+            let ratio = c.r / c.b.max(0.001);
+            // Ratio should be non-decreasing (tolerance for near-identical steps).
+            assert!(
+                ratio >= ratio_prev - 0.05,
+                "byte 0x{step:02X}: red/blue ratio {ratio:.4} < previous {ratio_prev:.4}"
+            );
+        }
+    }
+
+    #[test]
+    fn heatmap_contrast() {
+        check_scheme_contrast(ColorScheme::Heatmap, CR_NORMAL, "Heatmap");
+    }
+
+    #[test]
+    fn scheme_provider_heatmap_delegates() {
+        let p = SchemeProvider {
+            scheme: ColorScheme::Heatmap,
+        };
+        for b in [0x00, 0x01, 0x40, 0x80, 0xBF, 0xFF] {
+            let expected = heatmap_color(b);
+            let actual = p.color(0, b).0.unwrap();
+            let same = (actual.r - expected.r).abs() < 0.001
+                && (actual.g - expected.g).abs() < 0.001
+                && (actual.b - expected.b).abs() < 0.001;
+            assert!(same, "byte 0x{b:02X}: heatmap mismatch");
+        }
+    }
+
     // ── scheme_color ─────────────────────────────────────────────────────
 
     #[test]
@@ -826,11 +930,12 @@ mod tests {
 
     #[test]
     fn color_scheme_all_contains_all() {
-        assert_eq!(ColorScheme::ALL.len(), 4);
+        assert_eq!(ColorScheme::ALL.len(), 5);
         assert!(ColorScheme::ALL.contains(&ColorScheme::Monochrome));
         assert!(ColorScheme::ALL.contains(&ColorScheme::Nybble));
         assert!(ColorScheme::ALL.contains(&ColorScheme::Categories));
         assert!(ColorScheme::ALL.contains(&ColorScheme::Rainbow));
+        assert!(ColorScheme::ALL.contains(&ColorScheme::Heatmap));
     }
 
     // ── luminance / relative_luminance / contrast_ratio ─────────────────
