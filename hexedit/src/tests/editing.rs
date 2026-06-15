@@ -197,6 +197,71 @@ fn test_multiple_sequential_edits() {
 }
 
 // ============================================================================
+// Text write mode
+// ============================================================================
+
+#[test]
+fn test_text_mode_typing_writes_and_advances() {
+    let mut state = make_state(vec![0x00; 4]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('H'));
+    assert_eq!(state.provider.as_slice()[0], b'H');
+    assert_eq!(state.selection.cursor, 1);
+}
+
+#[test]
+fn test_text_mode_backspace_moves_cursor_left() {
+    let mut state = make_state(vec![0x00; 4]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    // Type two characters then backspace
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('A'));
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('B'));
+    assert_eq!(state.selection.cursor, 2);
+    send(&mut state, &config, HexEditorMessage::EditBackspace);
+    assert_eq!(state.selection.cursor, 1, "backspace should move cursor left");
+    assert_eq!(state.provider.as_slice()[1], b'B', "byte at addr 1 should be unchanged");
+}
+
+#[test]
+fn test_text_mode_backspace_at_zero_stays_at_zero() {
+    let mut state = make_state(vec![0x00; 2]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    send(&mut state, &config, HexEditorMessage::EditBackspace);
+    assert_eq!(state.selection.cursor, 0, "backspace at zero should stay at zero");
+}
+
+#[test]
+fn test_hex_mode_backspace_still_pops_nibble() {
+    // Ensure hex mode Backspace still works (no regression).
+    let mut state = make_state(vec![0x00, 0x00]);
+    let config = default_config();
+    state.write_mode = WriteMode::Hex;
+    send(&mut state, &config, HexEditorMessage::BeginEdit(0));
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('1'));
+    assert_eq!(state.edit_mode.as_ref().unwrap().draft, "1");
+    send(&mut state, &config, HexEditorMessage::EditBackspace);
+    assert!(state.edit_mode.as_ref().unwrap().draft.is_empty());
+}
+
+#[test]
+fn test_text_mode_unencodable_shows_status() {
+    let mut state = make_state(vec![0x00; 4]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    // Euro sign cannot be encoded in ASCII (non-ASCII).
+    send(&mut state, &config, HexEditorMessage::EditTypeChar('€'));
+    assert!(
+        !state.status_msg.is_empty(),
+        "should show status message for unencodable char"
+    );
+    assert_eq!(state.provider.as_slice()[0], 0x00, "byte should not change");
+    assert_eq!(state.selection.cursor, 0, "cursor should not advance");
+}
+
+// ============================================================================
 // Write operations — edge cases
 // ============================================================================
 

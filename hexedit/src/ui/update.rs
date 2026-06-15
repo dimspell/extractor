@@ -113,6 +113,10 @@ pub fn update(
                 let text: String = c.into();
                 let encoded = encode_text(&text, state.write_mode, &state.custom_encodings);
                 if encoded.is_empty() {
+                    state.status_msg = format!(
+                        "Cannot encode '{c}' in {} mode",
+                        state.write_mode.label(),
+                    );
                     return Task::none();
                 }
                 let addr = state.selection.cursor;
@@ -151,6 +155,10 @@ pub fn update(
         HexEditorMessage::EditBackspace => {
             if let Some(ref mut e) = state.edit_mode {
                 e.pop_char();
+            } else if is_text_mode(state.write_mode) {
+                // Text mode has no draft — move cursor left.
+                let prev = state.selection.cursor.saturating_sub(1);
+                state.selection.select(prev, state.max_addr());
             }
         }
         HexEditorMessage::EditCancel => {

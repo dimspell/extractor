@@ -1018,6 +1018,20 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                 }
 
+                // ── Text-mode Backspace ────────────────────────────────────
+                // In hex mode Backspace pops a nibble from the edit draft (see
+                // the edit-mode priority block above).  In text mode there is no
+                // draft, so Backspace simply moves the cursor back one byte.
+                if self.write_mode != WriteMode::Hex
+                    && matches!(key, keyboard::Key::Named(key::Named::Backspace))
+                {
+                    if let Some(cb) = &self.on_edit_backspace {
+                        shell.publish(cb());
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
                 // ── Navigation ───────────────────────────────────────────
                 if modifiers.control() || modifiers.command() {
                     let dir = match key {
