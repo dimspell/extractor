@@ -50,13 +50,15 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .size(11)
         .font(Font::MONOSPACE);
 
+    let labels = crate::domain::write_mode::common_encoding_labels();
+
     let pick_list_selection = state
         .encoding_settings_selection
         .and_then(|idx| COMMON_ENCODINGS.get(idx))
         .map(|(l, _)| *l);
 
     let encoding_picker = pick_list(
-        crate::domain::write_mode::COMMON_ENCODING_LABELS,
+        labels,
         pick_list_selection,
         |label| {
             // Find the index of the selected label.

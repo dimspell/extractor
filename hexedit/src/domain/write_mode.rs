@@ -218,17 +218,12 @@ pub const COMMON_ENCODINGS: &[(&str, &str)] = &[
     ("macintosh", "macintosh"),
 ];
 
-/// Static slice of just the display labels, for use in Iced pick lists.
-pub const COMMON_ENCODING_LABELS: &[&str] = &[
-    "UTF-16LE", "UTF-16BE",
-    "Windows-1250", "Windows-1251", "Windows-1252", "Windows-1253",
-    "Windows-1254", "Windows-1255", "Windows-1256", "Windows-1257", "Windows-1258",
-    "ISO-8859-1", "ISO-8859-2", "ISO-8859-3", "ISO-8859-4",
-    "ISO-8859-5", "ISO-8859-6", "ISO-8859-7", "ISO-8859-8", "ISO-8859-9",
-    "ISO-8859-10", "ISO-8859-13", "ISO-8859-14", "ISO-8859-15", "ISO-8859-16",
-    "EUC-JP", "Shift_JIS", "GBK", "Big5",
-    "KOI8-R", "KOI8-U", "IBM866", "macintosh",
-];
+/// Return the display labels for all common encodings.
+/// This is derived at runtime from [`COMMON_ENCODINGS`] so the two lists never
+/// drift apart (a maintenance hazard that existed with a previous static slice).
+pub fn common_encoding_labels() -> Vec<&'static str> {
+    COMMON_ENCODINGS.iter().map(|(label, _)| *label).collect()
+}
 
 /// Look up an `encoding_rs` name for a given display label.
 pub fn encoding_name_for_label(label: &str) -> Option<&'static str> {
@@ -304,5 +299,15 @@ mod tests {
         let mut mode = WriteMode::Custom(1);
         remap_write_mode(&mut mode, 1);
         assert_eq!(mode, WriteMode::Hex);
+    }
+
+    #[test]
+    fn common_encoding_labels_matches_encoding_count() {
+        let labels = common_encoding_labels();
+        assert_eq!(labels.len(), COMMON_ENCODINGS.len());
+        // Each label should correspond to the first element of a COMMON_ENCODINGS entry
+        for (i, label) in labels.iter().enumerate() {
+            assert_eq!(*label, COMMON_ENCODINGS[i].0);
+        }
     }
 }

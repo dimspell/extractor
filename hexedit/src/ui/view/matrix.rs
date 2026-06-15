@@ -1004,10 +1004,14 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                                 }
                             } else {
                                 // Text mode: encode & write immediately.
-                                if let Some(cb) = &self.on_edit_type {
-                                    shell.publish(cb(c));
-                                    shell.capture_event();
-                                    return;
+                                // Only when the buffer is non-empty (hex mode
+                                // also guards with the same check above).
+                                if !self.bytes.is_empty() {
+                                    if let Some(cb) = &self.on_edit_type {
+                                        shell.publish(cb(c));
+                                        shell.capture_event();
+                                        return;
+                                    }
                                 }
                             }
                         }
@@ -1518,7 +1522,11 @@ pub fn first_hex_char(t: &str) -> Option<char> {
 /// Used by text write-modes so that any meaningful character is forwarded to
 /// the encoding pipeline.  Control characters like Tab/Enter are excluded.
 pub fn first_printable_char(t: &str) -> Option<char> {
-    t.chars().find(|c| !c.is_control() && !c.is_whitespace())
+    // Allow any character that is not a control character.
+    // This includes spaces (U+0020) — they are NOT control characters but
+    // `char::is_whitespace` returns true for ' '.  Spaces MUST be allowed so
+    // the user can type them in text write modes.
+    t.chars().find(|c| !c.is_control())
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -2035,5 +2043,32 @@ mod tests {
         assert_eq!(char_to_glyph('F'), "F");
         assert_eq!(char_to_glyph('0'), "0");
         assert_eq!(char_to_glyph('z'), " ");
+    }
+
+    #[test]
+    fn first_printable_char_allows_space() {
+        // Regression: space is whitespace (not control) and MUST be allowed.
+        assert_eq!(first_printable_char(" "), Some(' '));
+        assert_eq!(first_printable_char("  "), Some(' '));
+    }
+
+    #[test]
+    fn first_printable_char_standard() {
+        assert_eq!(first_printable_char("Hello"), Some('H'));
+        assert_eq!(first_printable_char("ł"), Some('ł'));
+        assert_eq!(first_printable_char("€"), Some('€'));
+    }
+
+    #[test]
+    fn first_printable_char_rejects_control() {
+        // Tab, newline, null etc. are control characters — correctly rejected.
+        assert_eq!(first_printable_char("\t"), None);
+        assert_eq!(first_printable_char("\n"), None);
+        assert_eq!(first_printable_char("\0"), None);
+    }
+
+    #[test]
+    fn first_printable_char_empty_string() {
+        assert_eq!(first_printable_char(""), None);
     }
 }
