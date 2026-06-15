@@ -154,9 +154,9 @@ pub enum HexEditorMessage {
     ClearPatternAnnotation(usize),
 
     // ── Pattern import / export ──────────────────────────────────────────
-    /// Export all patterns and groups to a text file.
+    /// Export all patterns and groups to a JSON file.
     ExportPatterns,
-    /// Import patterns and groups from a text file.
+    /// Import patterns and groups from a JSON file.
     ImportPatterns,
     /// Async result after exporting.
     PatternsExported(Result<(), String>),

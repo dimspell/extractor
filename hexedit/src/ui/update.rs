@@ -664,14 +664,14 @@ pub fn update(
 
         // ── Pattern import / export ─────────────────────────────────────
         HexEditorMessage::ExportPatterns => {
-            let payload = export_patterns_to_text(state);
-            if let Some(text) = payload {
+            let payload = export_patterns_to_json(state);
+            if let Some(json) = payload {
                 return Task::perform(
                     async move {
                         let path = rfd::AsyncFileDialog::new()
                             .set_title("Export Patterns")
-                            .set_file_name("patterns.txt")
-                            .add_filter("Pattern files", &["txt", "pat"])
+                            .set_file_name("patterns.json")
+                            .add_filter("Pattern files", &["json"])
                             .save_file()
                             .await;
                         let Some(path) = path else {
@@ -679,7 +679,7 @@ pub fn update(
                                 Err("cancelled".to_string()),
                             );
                         };
-                        match tokio::fs::write(path.path(), text).await {
+                        match tokio::fs::write(path.path(), json).await {
                             Ok(()) => HexEditorMessage::PatternsExported(Ok(())),
                             Err(e) => {
                                 HexEditorMessage::PatternsExported(Err(e.to_string()))
@@ -695,7 +695,7 @@ pub fn update(
                 async move {
                     let path = rfd::AsyncFileDialog::new()
                         .set_title("Import Patterns")
-                        .add_filter("Pattern files", &["txt", "pat"])
+                        .add_filter("Pattern files", &["json"])
                         .pick_file()
                         .await;
                     let Some(path) = path else {
@@ -727,7 +727,7 @@ pub fn update(
         },
         HexEditorMessage::PatternsImported(result) => match result {
             Ok(text) => {
-                match import_patterns_into(&text, state) {
+                match import_patterns_from_json(&text, state) {
                     Ok(msg) => {
                         state.rebuild_pattern_lookup();
                         state.recompute_row_annotations();
@@ -998,209 +998,67 @@ pub fn format_hex_dump(bytes: &[u8], bytes_per_row: u8, config: &ExportConfig) -
     output
 }
 
-// ── Pattern import / export format ─────────────────────────────────────
-//
-// Text format (one record per line):
-//   P|<start_hex>|<end_hex>|<color_idx>|<group_id>|<annotation>
-//   G|<group_id>|<label>|<color_idx>
-// Lines starting with '#' are comments. Start addresses in hex.
+// ── Pattern import / export (JSON) ─────────────────────────────────────
 
-/// Serialise current patterns + groups to the custom text format.
-/// Escape a string for the pipe-delimited export format:
-/// `\` → `\\`, `|` → `\|`, `\n` → `\\n`.
-fn escape_pipe_field(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 4);
-    for ch in s.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '|' => out.push_str("\\|"),
-            '\n' => out.push_str("\\n"),
-            c => out.push(c),
-        }
-    }
-    out
-}
-
-/// Unescape a string from the pipe-delimited export format.
-fn unescape_pipe_field(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut chars = s.chars();
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            match chars.next() {
-                Some('|') => out.push('|'),
-                Some('n') => out.push('\n'),
-                Some('\\') => out.push('\\'),
-                Some(c) => {
-                    out.push('\\');
-                    out.push(c);
-                }
-                None => out.push('\\'),
-            }
-        } else {
-            out.push(ch);
-        }
-    }
-    out
-}
-
-pub(crate) fn export_patterns_to_text(state: &crate::HexEditorState) -> Option<String> {
+/// Serialise current patterns + groups to a JSON string.
+pub(crate) fn export_patterns_to_json(state: &crate::HexEditorState) -> Option<String> {
     if state.patterns.is_empty() && state.groups.is_empty() {
         return None;
     }
-    let mut out = String::with_capacity(state.patterns.len() * 80);
-    out.push_str("# HexEdit Pattern Export v1\n");
-    for g in &state.groups {
-        out.push_str(&format!(
-            "G|{}|{}|{}\n",
-            g.id,
-            escape_pipe_field(&g.label),
-            g.color_idx
-        ));
-    }
-    for p in &state.patterns {
-        let gid = p
-            .group_id
-            .map(|id| id.to_string())
-            .unwrap_or_default();
-        let ann = p
-            .annotation
-            .as_deref()
-            .unwrap_or("");
-        out.push_str(&format!(
-            "P|{:X}|{:X}|{}|{}|{}\n",
-            p.start,
-            p.end,
-            p.color_idx,
-            gid,
-            escape_pipe_field(ann)
-        ));
-    }
-    Some(out)
+    let export = crate::domain::pattern::PatternExport {
+        version: crate::domain::pattern::PatternExport::VERSION,
+        groups: state.groups.clone(),
+        patterns: state.patterns.clone(),
+    };
+    serde_json::to_string_pretty(&export)
+        .ok()
+        .map(|json| format!("{}\n", json))
 }
 
-/// Split a line into pipe-delimited fields, respecting backslash escaping.
-/// `\|` is treated as a literal pipe character, not a field delimiter.
-/// Collects at most `max_fields` fields (remaining content stays in the last field).
-fn split_pipe_fields(line: &str, max_fields: usize) -> Vec<String> {
-    let mut fields = Vec::new();
-    let mut current = String::new();
-    let mut chars = line.chars().peekable();
-
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            // Look ahead: if next is `|`, treat as escaped pipe.
-            if chars.peek() == Some(&'|') {
-                current.push('|');
-                chars.next(); // consume the `|`
-            } else {
-                current.push('\\');
-            }
-        } else if ch == '|' {
-            if fields.len() + 1 < max_fields {
-                fields.push(current);
-                current = String::new();
-            } else {
-                // Last field: put everything remaining (including this pipe
-                // and the rest) into the current field.
-                current.push('|');
-            }
-        } else {
-            current.push(ch);
-        }
-    }
-    fields.push(current);
-    fields
-}
-
-/// Parse the custom text format and apply patterns/groups to `state`.
+/// Parse a JSON pattern export and apply patterns/groups to `state`.
 /// Returns a status message or an error.
-pub(crate) fn import_patterns_into(
-    text: &str,
+pub(crate) fn import_patterns_from_json(
+    json: &str,
     state: &mut crate::HexEditorState,
 ) -> Result<String, String> {
-    use std::collections::HashMap;
+    let export: crate::domain::pattern::PatternExport =
+        serde_json::from_str(json).map_err(|e| format!("Invalid JSON: {e}"))?;
 
-    let mut group_map: HashMap<usize, usize> = HashMap::new();
-    let mut pattern_count = 0usize;
-
-    for (lineno, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        // Use custom escaping-aware split so escaped pipes (`\|`) inside
-        // annotations/labels stay as content. G line: id | label | color_idx
-        // (4 fields). P line: start | end | color_idx | group_id | annotation (6 fields).
-        let max_fields: usize = if line.starts_with('G') || line.starts_with('g') {
-            4
-        } else {
-            6
-        };
-        let fields = split_pipe_fields(line, max_fields);
-
-        match fields.first().map(|s| s.as_str()) {
-            Some("G" | "g") => {
-                if fields.len() < 3 {
-                    return Err(format!("line {}: too few fields for group", lineno + 1));
-                }
-                let gid: usize = fields[1]
-                    .parse()
-                    .map_err(|_| format!("line {}: invalid group id", lineno + 1))?;
-                let label = unescape_pipe_field(&fields[2]);
-                let color_idx: u8 = fields
-                    .get(3)
-                    .and_then(|s| s.parse().ok())
-                    .unwrap_or(0);
-                let new_id = state.next_group_id;
-                state.next_group_id += 1;
-                group_map.insert(gid, new_id);
-                state
-                    .groups
-                    .push(RepeatedPatternGroup::new(new_id, label, color_idx));
-            }
-            Some("P" | "p") => {
-                if fields.len() < 4 {
-                    return Err(format!("line {}: too few fields for pattern", lineno + 1));
-                }
-                let start = u64::from_str_radix(&fields[1], 16)
-                    .map_err(|_| format!("line {}: invalid start address", lineno + 1))?;
-                let end = u64::from_str_radix(&fields[2], 16)
-                    .map_err(|_| format!("line {}: invalid end address", lineno + 1))?;
-                let color_idx: u8 = fields[3]
-                    .parse()
-                    .map_err(|_| format!("line {}: invalid color index", lineno + 1))?;
-                let mapped_gid = fields
-                    .get(4)
-                    .and_then(|s| s.parse::<usize>().ok())
-                    .and_then(|old| group_map.get(&old).copied());
-                let annotation = fields
-                    .get(5)
-                    .filter(|s| !s.is_empty())
-                    .map(|s| unescape_pipe_field(s));
-                let id = state.next_pattern_id;
-                state.next_pattern_id += 1;
-                let mut pat =
-                    Pattern::new(id, start.min(end), start.max(end), color_idx % 16);
-                pat.group_id = mapped_gid;
-                pat.annotation = annotation;
-                state.patterns.push(pat);
-                pattern_count += 1;
-            }
-            Some(t) if t == "G" || t == "g" || t == "P" || t == "p" => {
-                return Err(format!("line {}: too few fields", lineno + 1));
-            }
-            _ => {
-                return Err(format!("line {}: unknown type '{}'", lineno + 1, fields[0]));
-            }
-        }
-    }
-
-    if pattern_count == 0 {
+    if export.patterns.is_empty() {
         return Err("No patterns found in import file".to_string());
     }
-    Ok(format!("Imported {pattern_count} pattern(s)"))
+
+    // Map exported group IDs to new local IDs.
+    use std::collections::HashMap;
+    let mut group_map: HashMap<usize, usize> = HashMap::new();
+
+    for g in &export.groups {
+        let new_id = state.next_group_id;
+        state.next_group_id += 1;
+        group_map.insert(g.id, new_id);
+        state.groups.push(RepeatedPatternGroup::new(
+            new_id,
+            g.label.clone(),
+            g.color_idx,
+        ));
+    }
+
+    for p in &export.patterns {
+        let id = state.next_pattern_id;
+        state.next_pattern_id += 1;
+        let mut pat = Pattern::new(
+            id,
+            p.start.min(p.end),
+            p.start.max(p.end),
+            p.color_idx % 16,
+        );
+        pat.group_id = p.group_id.and_then(|gid| group_map.get(&gid).copied());
+        pat.annotation.clone_from(&p.annotation);
+        state.patterns.push(pat);
+    }
+
+    let count = export.patterns.len();
+    Ok(format!("Imported {count} pattern(s)"))
 }
 
 #[cfg(test)]
@@ -1374,140 +1232,11 @@ mod tests {
     }
 
     // ====================================================================
-    // Pipe escaping — pure function tests
+    // JSON-based pattern export / import
     // ====================================================================
 
-    #[test]
-    fn escape_noop() {
-        assert_eq!(escape_pipe_field("hello"), "hello");
-    }
-
-    #[test]
-    fn escape_pipe() {
-        assert_eq!(escape_pipe_field("a|b"), "a\\|b");
-    }
-
-    #[test]
-    fn escape_backslash() {
-        assert_eq!(escape_pipe_field("a\\b"), "a\\\\b");
-    }
-
-    #[test]
-    fn escape_newline() {
-        assert_eq!(escape_pipe_field("a\nb"), "a\\nb");
-    }
-
-    #[test]
-    fn escape_all_special() {
-        assert_eq!(escape_pipe_field("a|\n\\"), "a\\|\\n\\\\");
-    }
-
-    #[test]
-    fn escape_empty() {
-        assert_eq!(escape_pipe_field(""), "");
-    }
-
-    #[test]
-    fn escape_multiple_pipes() {
-        assert_eq!(escape_pipe_field("|||"), "\\|\\|\\|");
-    }
-
-    #[test]
-    fn escape_trailing_backslash() {
-        assert_eq!(escape_pipe_field("end\\"), "end\\\\");
-    }
-
-    #[test]
-    fn unescape_noop() {
-        assert_eq!(unescape_pipe_field("hello"), "hello");
-    }
-
-    #[test]
-    fn unescape_pipe() {
-        assert_eq!(unescape_pipe_field("a\\|b"), "a|b");
-    }
-
-    #[test]
-    fn unescape_backslash() {
-        assert_eq!(unescape_pipe_field("a\\\\b"), "a\\b");
-    }
-
-    #[test]
-    fn unescape_newline() {
-        assert_eq!(unescape_pipe_field("a\\nb"), "a\nb");
-    }
-
-    #[test]
-    fn unescape_all_special() {
-        assert_eq!(unescape_pipe_field("a\\|\\n\\\\"), "a|\n\\");
-    }
-
-    #[test]
-    fn unescape_unknown_escape() {
-        assert_eq!(unescape_pipe_field("a\\xb"), "a\\xb");
-    }
-
-    #[test]
-    fn unescape_trailing_backslash() {
-        assert_eq!(unescape_pipe_field("a\\"), "a\\");
-    }
-
-    #[test]
-    fn unescape_double_escape_pipe() {
-        // \\| → first \\ becomes \, then | is not after a \ so stays as literal
-        assert_eq!(unescape_pipe_field("\\\\|"), "\\|");
-    }
-
-    #[test]
-    fn escape_roundtrip_basic() {
-        let s = "hello world";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_pipe() {
-        let s = "a|b|c";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_backslash() {
-        let s = "a\\b\\c";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_newline() {
-        let s = "line1\nline2\nline3";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_mixed() {
-        let s = "a|b\nc\\d|e";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_empty() {
-        let s = "";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_only_pipe() {
-        let s = "|";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
-    #[test]
-    fn escape_roundtrip_only_backslash() {
-        let s = "\\";
-        assert_eq!(unescape_pipe_field(&escape_pipe_field(s)), s);
-    }
-
     // ====================================================================
-    // Export / import round-trip
+    // JSON-based pattern export / import
     // ====================================================================
 
     /// Build a minimal HexEditorState with the given patterns and groups.
@@ -1545,31 +1274,37 @@ mod tests {
     #[test]
     fn export_empty_returns_none() {
         let state = make_export_state(vec![], vec![]);
-        assert!(export_patterns_to_text(&state).is_none());
+        assert!(export_patterns_to_json(&state).is_none());
     }
 
     #[test]
-    fn export_only_groups_returns_some() {
+    fn export_only_groups_contains_group_data() {
         let state = make_export_state(vec![], vec![(1, "GroupA", 3)]);
-        let text = export_patterns_to_text(&state);
-        assert!(text.is_some());
-        let text = text.unwrap();
-        assert!(text.contains("G|1|GroupA|3"));
+        let json = export_patterns_to_json(&state).unwrap();
+        let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.version, 1);
+        assert_eq!(parsed.groups.len(), 1);
+        assert_eq!(parsed.groups[0].label, "GroupA");
+        assert_eq!(parsed.groups[0].color_idx, 3);
     }
 
     #[test]
-    fn export_only_patterns_returns_some() {
+    fn export_only_patterns_contains_pattern_data() {
         let state = make_export_state(vec![(0x100, 0x1FF, 5, None, None)], vec![]);
-        let text = export_patterns_to_text(&state).unwrap();
-        assert!(text.contains("P|100|1FF|5||"));
+        let json = export_patterns_to_json(&state).unwrap();
+        let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.patterns.len(), 1);
+        assert_eq!(parsed.patterns[0].start, 0x100);
+        assert_eq!(parsed.patterns[0].end, 0x1FF);
+        assert_eq!(parsed.patterns[0].color_idx, 5);
     }
 
     #[test]
-    fn import_empty_text_returns_error() {
+    fn import_empty_json_returns_error() {
         let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("", &mut state);
+        let result = import_patterns_from_json("", &mut state);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No patterns found"));
+        assert!(result.unwrap_err().contains("Invalid JSON"));
     }
 
     #[test]
@@ -1582,10 +1317,10 @@ mod tests {
             ],
             vec![(1, "BodyGroup", 2)],
         );
-        let text = export_patterns_to_text(&state).unwrap();
+        let json = export_patterns_to_json(&state).unwrap();
 
         let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let msg = import_patterns_into(&text, &mut import_state).unwrap();
+        let msg = import_patterns_from_json(&json, &mut import_state).unwrap();
         assert!(msg.contains("Imported 3 pattern(s)"));
 
         assert_eq!(import_state.patterns.len(), 3);
@@ -1605,116 +1340,61 @@ mod tests {
     }
 
     #[test]
-    fn export_import_pipe_in_annotation() {
+    fn export_import_special_chars_in_annotation() {
+        // JSON natively handles pipes, backslashes, newlines, etc.
         let state = make_export_state(
-            vec![(0x000, 0x0FF, 3, None, Some("a|b|c")), (0x100, 0x1FF, 5, None, None)],
+            vec![
+                (0x000, 0x0FF, 3, None, Some("a|b|c")),
+                (0x100, 0x1FF, 5, None, Some("path\\to\\file")),
+                (0x200, 0x2FF, 7, None, Some("line1\nline2")),
+            ],
             vec![],
         );
-        let text = export_patterns_to_text(&state).unwrap();
-        // Pipe should be escaped
-        assert!(text.contains("a\\|b\\|c"), "pipe should be escaped in export: got {text:?}");
+        let json = export_patterns_to_json(&state).unwrap();
 
         let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(&text, &mut import_state).unwrap();
-        assert_eq!(import_state.patterns.len(), 2);
-        // Annotation should be restored with original pipes
-        let ann = import_state.patterns.iter().find(|p| p.start == 0).unwrap().annotation.as_deref();
-        assert_eq!(ann, Some("a|b|c"));
+        import_patterns_from_json(&json, &mut import_state).unwrap();
+        assert_eq!(import_state.patterns.len(), 3);
+
+        let ann0 = import_state.patterns.iter().find(|p| p.start == 0x000).unwrap().annotation.as_deref();
+        assert_eq!(ann0, Some("a|b|c"));
+
+        let ann1 = import_state.patterns.iter().find(|p| p.start == 0x100).unwrap().annotation.as_deref();
+        assert_eq!(ann1, Some("path\\to\\file"));
+
+        let ann2 = import_state.patterns.iter().find(|p| p.start == 0x200).unwrap().annotation.as_deref();
+        assert_eq!(ann2, Some("line1\nline2"));
     }
 
     #[test]
-    fn export_import_pipe_in_group_label() {
+    fn export_import_special_chars_in_group_label() {
         let state = make_export_state(
             vec![(0x100, 0x1FF, 5, Some(1), Some("data"))],
-            vec![(1, "Group|One", 4)],
+            vec![(1, "Group|One\nLabel\\Test", 4)],
         );
-        let text = export_patterns_to_text(&state).unwrap();
-        assert!(text.contains("Group\\|One"), "pipe should be escaped in label: got {text:?}");
+        let json = export_patterns_to_json(&state).unwrap();
 
         let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(&text, &mut import_state).unwrap();
+        import_patterns_from_json(&json, &mut import_state).unwrap();
         assert_eq!(import_state.groups.len(), 1);
-        assert_eq!(import_state.groups[0].label, "Group|One");
+        assert_eq!(import_state.groups[0].label, "Group|One\nLabel\\Test");
     }
 
     #[test]
-    fn export_import_backslash_in_annotation() {
-        let state = make_export_state(
-            vec![(0x000, 0x0FF, 3, None, Some("path\\to\\file"))],
-            vec![],
-        );
-        let text = export_patterns_to_text(&state).unwrap();
-        assert!(text.contains("path\\\\to\\\\file"), "backslash should be escaped: got {text:?}");
-
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(&text, &mut import_state).unwrap();
-        let ann = import_state.patterns[0].annotation.as_deref();
-        assert_eq!(ann, Some("path\\to\\file"));
-    }
-
-    #[test]
-    fn export_import_newline_in_annotation() {
-        let state = make_export_state(
-            vec![(0x000, 0x0FF, 3, None, Some("line1\nline2"))],
-            vec![],
-        );
-        let text = export_patterns_to_text(&state).unwrap();
-        assert!(text.contains("line1\\nline2"), "newline should be escaped: got {text:?}");
-
-        let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(&text, &mut import_state).unwrap();
-        let ann = import_state.patterns[0].annotation.as_deref();
-        assert_eq!(ann, Some("line1\nline2"));
-    }
-
-    #[test]
-    fn import_with_comments_and_blank_lines() {
-        let text = "# HexEdit Pattern Export v1\n\nG|1|Test|2\n\nP|0|FF|3|1|note\n";
+    fn import_invalid_json_returns_error() {
         let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(text, &mut state).unwrap();
-        assert_eq!(state.groups.len(), 1);
-        assert_eq!(state.patterns.len(), 1);
-    }
-
-    #[test]
-    fn import_unknown_type_returns_error() {
-        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("X|1|foo", &mut state);
+        let result = import_patterns_from_json("{invalid json}", &mut state);
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("unknown type"));
+        assert!(result.unwrap_err().contains("Invalid JSON"));
     }
 
     #[test]
-    fn import_too_few_fields_group_returns_error() {
+    fn import_json_no_patterns_returns_error() {
+        let json = r#"{"version":1,"groups":[],"patterns":[]}"#;
         let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("G|42", &mut state);
+        let result = import_patterns_from_json(json, &mut state);
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn import_too_few_fields_pattern_returns_error() {
-        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("P|FF|10", &mut state);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn import_lowercase_g_accepts_group() {
-        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        // Import requires at least 1 pattern, so include both a group and a pattern.
-        let result = import_patterns_into("g|1|LowerGroup|3\np|100|1FF|5|1", &mut state);
-        assert!(result.is_ok(), "lowercase 'g' should be accepted: {result:?}");
-        assert_eq!(state.groups.len(), 1);
-        assert_eq!(state.groups[0].label, "LowerGroup");
-    }
-
-    #[test]
-    fn import_lowercase_p_accepts_pattern() {
-        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("p|100|1FF|5||mynote", &mut state);
-        assert!(result.is_ok(), "lowercase 'p' should be accepted: {result:?}");
-        assert_eq!(state.patterns.len(), 1);
-        assert_eq!(state.patterns[0].annotation.as_deref(), Some("mynote"));
+        assert!(result.unwrap_err().contains("No patterns found"));
     }
 
     #[test]
@@ -1723,25 +1403,40 @@ mod tests {
             vec![(0x0000_0000, 0x00FF_FFFF, 1, None, None)],
             vec![],
         );
-        let text = export_patterns_to_text(&state).unwrap();
-        assert!(text.contains("P|0|FFFFFF|1||"));
+        let json = export_patterns_to_json(&state).unwrap();
+        let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.patterns[0].start, 0);
+        assert_eq!(parsed.patterns[0].end, 0x00FF_FFFF);
 
         let mut import_state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        import_patterns_into(&text, &mut import_state).unwrap();
+        import_patterns_from_json(&json, &mut import_state).unwrap();
         assert_eq!(import_state.patterns.len(), 1);
         assert_eq!(import_state.patterns[0].start, 0);
         assert_eq!(import_state.patterns[0].end, 0x00FF_FFFF);
     }
 
     #[test]
-    fn import_old_format_without_escaping_still_works() {
-        // Old export format: pipes in annotations were NOT escaped.
-        // With splitn, the extra field content remains attached to the last field.
-        // Line: P|100|1FF|5||a|b|c  → after splitn(6,'|'): ["P","100","1FF","5","","a|b|c"]
-        let mut state = crate::HexEditorState::load_from_path(std::path::Path::new("test.bin"));
-        let result = import_patterns_into("P|100|1FF|5||a|b|c", &mut state);
-        assert!(result.is_ok(), "old format with unescaped pipes should load: {result:?}");
-        assert_eq!(state.patterns.len(), 1);
-        assert_eq!(state.patterns[0].annotation.as_deref(), Some("a|b|c"));
+    fn export_import_empty_groups_vec() {
+        // Groups array can be empty — that's fine.
+        let state = make_export_state(
+            vec![(0x000, 0x0FF, 3, None, Some("solo"))],
+            vec![],
+        );
+        let json = export_patterns_to_json(&state).unwrap();
+        let parsed: crate::domain::pattern::PatternExport = serde_json::from_str(&json).unwrap();
+        assert!(parsed.groups.is_empty());
+    }
+
+    #[test]
+    fn export_json_is_valid_pretty() {
+        let state = make_export_state(
+            vec![(0x000, 0x0FF, 3, None, None)],
+            vec![],
+        );
+        let json = export_patterns_to_json(&state).unwrap();
+        // Pretty-printed JSON should contain newlines
+        assert!(json.contains('\n'));
+        // Should end with a trailing newline
+        assert!(json.ends_with('\n'));
     }
 }

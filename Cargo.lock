@@ -1816,6 +1816,8 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "once_cell",
  "rfd",
+ "serde",
+ "serde_json",
  "tokio",
 ]
 

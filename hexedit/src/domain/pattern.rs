@@ -1,7 +1,8 @@
 use iced::{color, widget::Id};
+use serde::{Deserialize, Serialize};
 
 /// A user-defined annotated byte range in the hex editor.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Pattern {
     pub id: usize,
     pub start: u64,
@@ -51,7 +52,7 @@ impl Pattern {
 /// All patterns in the same group share a single colour so the user can
 /// visually distinguish different repetition groups from each other and from
 /// individual patterns.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RepeatedPatternGroup {
     pub id: usize,
     pub label: String,
@@ -134,6 +135,21 @@ impl RepeatPatternDialog {
         }
         Ok(count)
     }
+}
+
+/// Top-level JSON envelope for pattern export/import.
+///
+/// Versioned for forward compatibility — bump `VERSION` if the format changes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PatternExport {
+    /// Schema version (currently 1).
+    pub version: u32,
+    pub groups: Vec<RepeatedPatternGroup>,
+    pub patterns: Vec<Pattern>,
+}
+
+impl PatternExport {
+    pub const VERSION: u32 = 1;
 }
 
 /// Return the foreground (text) colour for the given palette index (0..15).
