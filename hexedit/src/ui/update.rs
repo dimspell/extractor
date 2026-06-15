@@ -182,6 +182,16 @@ pub fn update(
             }
         }
 
+        HexEditorMessage::DeleteByteAtCursor => {
+            if !state.provider.is_empty() && is_text_mode(state.write_mode) {
+                let addr = state.selection.cursor;
+                state.provider.write(addr, &[0x00]);
+                state.recompute_vanilla_diff();
+                let next = (addr + 1).min(max_addr);
+                state.selection.select(next, max_addr);
+            }
+        }
+
         HexEditorMessage::WriteBytes { addr, bytes } => {
             if !state.provider.is_empty() {
                 state.provider.write(addr, &bytes);

@@ -1,14 +1,70 @@
-use iced::widget::{container, text};
+use iced::widget::{container, pick_list, row, text};
 use iced::{Element, Fill, Font};
 
+use crate::domain::write_mode::{all_write_modes, custom_mode_label, WriteMode};
 use crate::selection::Selection;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
-    container(text(format_footer(editor)).size(11).font(Font::MONOSPACE))
-        .padding([4, 12])
-        .width(Fill)
-        .into()
+    // ── Write-mode pick list ────────────────────────────────────────────
+    #[derive(Debug, Clone)]
+    struct ModeOption {
+        mode: WriteMode,
+        label: String,
+    }
+    impl PartialEq for ModeOption {
+        fn eq(&self, other: &Self) -> bool {
+            self.mode == other.mode
+        }
+    }
+    impl Eq for ModeOption {}
+    impl std::fmt::Display for ModeOption {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{}", self.label)
+        }
+    }
+
+    let all_modes_raw = all_write_modes(&editor.custom_encodings);
+    let mode_options: Vec<ModeOption> = all_modes_raw
+        .iter()
+        .map(|m| ModeOption {
+            mode: *m,
+            label: match m {
+                WriteMode::Hex => "Hex".into(),
+                WriteMode::Ascii => "ASCII".into(),
+                WriteMode::Utf8 => "UTF-8".into(),
+                WriteMode::Windows1250 => "Windows-1250".into(),
+                WriteMode::EucKr => "EUC-KR".into(),
+                WriteMode::Custom(idx) => {
+                    custom_mode_label(&editor.custom_encodings, *idx)
+                }
+            },
+        })
+        .collect();
+    let selected = mode_options
+        .iter()
+        .find(|o| o.mode == editor.write_mode)
+        .cloned();
+    let mode_pick = pick_list(
+        mode_options,
+        selected,
+        |opt| HexEditorMessage::SetWriteMode(opt.mode),
+    )
+    .font(Font::MONOSPACE)
+    .text_size(11)
+    .padding([2, 6]);
+
+    container(
+        row![
+            container(text(format_footer(editor)).size(11).font(Font::MONOSPACE))
+                .width(Fill),
+            mode_pick,
+        ]
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([4, 12])
+    .width(Fill)
+    .into()
 }
 
 /// Pure formatter — easy to assert in unit tests.

@@ -103,6 +103,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
     .on_begin_edit(HexEditorMessage::BeginEdit)
     .on_edit_type(HexEditorMessage::EditTypeChar)
     .on_edit_backspace(|| HexEditorMessage::EditBackspace)
+    .on_delete_byte(|| HexEditorMessage::DeleteByteAtCursor)
     .on_edit_cancel(|| HexEditorMessage::EditCancel)
     .on_edit_commit(|advance| HexEditorMessage::EditCommit { advance })
     .on_right_click(HexEditorMessage::RightClickAt)

@@ -127,6 +127,7 @@ pub struct HexMatrix<'a, Message> {
     on_edit_type: Option<Box<dyn Fn(char) -> Message + 'a>>,
     on_edit_backspace: Option<Box<dyn Fn() -> Message + 'a>>,
     on_edit_cancel: Option<Box<dyn Fn() -> Message + 'a>>,
+    on_delete_byte: Option<Box<dyn Fn() -> Message + 'a>>,
     on_edit_commit: Option<Box<dyn Fn(bool) -> Message + 'a>>,
     on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     on_create_pattern: Option<Box<dyn Fn() -> Message + 'a>>,
@@ -193,6 +194,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_edit_type: None,
             on_edit_backspace: None,
             on_edit_cancel: None,
+            on_delete_byte: None,
             on_edit_commit: None,
             on_right_click: None,
             on_create_pattern: None,
@@ -237,6 +239,11 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_edit_cancel(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_edit_cancel = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_delete_byte(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_delete_byte = Some(Box::new(f));
         self
     }
 
@@ -1018,17 +1025,24 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                 }
 
-                // ── Text-mode Backspace ────────────────────────────────────
+                // ── Text-mode Backspace / Delete ───────────────────────────
                 // In hex mode Backspace pops a nibble from the edit draft (see
                 // the edit-mode priority block above).  In text mode there is no
-                // draft, so Backspace simply moves the cursor back one byte.
-                if self.write_mode != WriteMode::Hex
-                    && matches!(key, keyboard::Key::Named(key::Named::Backspace))
-                {
-                    if let Some(cb) = &self.on_edit_backspace {
-                        shell.publish(cb());
-                        shell.capture_event();
-                        return;
+                // draft, so Backspace simply moves the cursor back one byte and
+                // Delete writes 0x00 at the current position (advancing by one).
+                if self.write_mode != WriteMode::Hex {
+                    if matches!(key, keyboard::Key::Named(key::Named::Backspace)) {
+                        if let Some(cb) = &self.on_edit_backspace {
+                            shell.publish(cb());
+                            shell.capture_event();
+                            return;
+                        }
+                    } else if matches!(key, keyboard::Key::Named(key::Named::Delete)) {
+                        if let Some(cb) = &self.on_delete_byte {
+                            shell.publish(cb());
+                            shell.capture_event();
+                            return;
+                        }
                     }
                 }
 

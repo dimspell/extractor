@@ -1,8 +1,7 @@
-use iced::widget::{button, container, pick_list, row, text};
+use iced::widget::{button, container, row, text};
 use iced::{Element, Fill, Font};
 
 use crate::config::HexEditorConfig;
-use crate::domain::write_mode::{all_write_modes, custom_mode_label, WriteMode};
 use crate::{HexEditorMessage, HexEditorState};
 
 pub fn build_toolbar<'a>(
@@ -57,54 +56,6 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::OpenSettings);
 
-    // ── Write-mode pick list ────────────────────────────────────────────
-    #[derive(Debug, Clone)]
-    struct ModeOption {
-        mode: WriteMode,
-        label: String,
-    }
-    impl PartialEq for ModeOption {
-        fn eq(&self, other: &Self) -> bool {
-            self.mode == other.mode
-        }
-    }
-    impl Eq for ModeOption {}
-    impl std::fmt::Display for ModeOption {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{}", self.label)
-        }
-    }
-
-    let all_modes_raw = all_write_modes(&editor.custom_encodings);
-    let mode_options: Vec<ModeOption> = all_modes_raw
-        .iter()
-        .map(|m| ModeOption {
-            mode: *m,
-            label: match m {
-                WriteMode::Hex => "Hex".into(),
-                WriteMode::Ascii => "ASCII".into(),
-                WriteMode::Utf8 => "UTF-8".into(),
-                WriteMode::Windows1250 => "Windows-1250".into(),
-                WriteMode::EucKr => "EUC-KR".into(),
-                WriteMode::Custom(idx) => {
-                    custom_mode_label(&editor.custom_encodings, *idx)
-                }
-            },
-        })
-        .collect();
-    let selected = mode_options
-        .iter()
-        .find(|o| o.mode == editor.write_mode)
-        .cloned();
-    let mode_pick = pick_list(
-        mode_options,
-        selected,
-        |opt| HexEditorMessage::SetWriteMode(opt.mode),
-    )
-    .font(Font::MONOSPACE)
-    .text_size(11)
-    .padding([2, 6]);
-
     // Bytes-per-row toggle group.
     let goto_btn = button(text("Go to...").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
@@ -138,7 +89,6 @@ pub fn build_toolbar<'a>(
             patterns_btn,
             export_btn,
             settings_btn,
-            mode_pick,
             row![
                 text("BPR").size(10).font(Font::MONOSPACE),
                 bpr_btn(8),

@@ -108,3 +108,21 @@ fn test_footer_shows_dirty_after_inline_edit() {
     ui.find(expected)
         .expect("footer should show dirty: 1 after inline edit");
 }
+
+// ============================================================================
+// Write-mode (state-level — Iced's pick_list uses canvas rendering so the
+// selected text cannot be found with the `text == "..."` selector)
+// ============================================================================
+
+#[test]
+fn test_set_write_mode_changes_state() {
+    let mut state = make_state(vec![]);
+    let config = default_config();
+    assert_eq!(state.write_mode, WriteMode::Hex);
+    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::Ascii));
+    assert_eq!(state.write_mode, WriteMode::Ascii, "SetWriteMode should update state");
+    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::EucKr));
+    assert_eq!(state.write_mode, WriteMode::EucKr);
+    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::Hex));
+    assert_eq!(state.write_mode, WriteMode::Hex, "should be able to switch back");
+}

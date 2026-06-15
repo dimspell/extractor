@@ -36,6 +36,8 @@ pub enum HexEditorMessage {
     EditBackspace,
     /// Discard the active edit without writing.
     EditCancel,
+    /// In text write mode: write 0x00 at the current cursor and advance.
+    DeleteByteAtCursor,
     /// Commit the active draft. If `advance` is true, move the cursor +1
     /// byte and re-enter edit mode at the new address (Tab/Enter/auto on
     /// second digit). Otherwise just commit and stay put.

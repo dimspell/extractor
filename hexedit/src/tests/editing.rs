@@ -247,6 +247,45 @@ fn test_hex_mode_backspace_still_pops_nibble() {
 }
 
 #[test]
+fn test_text_mode_writes_on_empty_file_does_nothing() {
+    let mut state = make_state(vec![]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    send(&mut state, &config, HexEditorMessage::DeleteByteAtCursor);
+    assert!(state.provider.is_empty(), "should not modify empty file");
+}
+
+#[test]
+fn test_text_mode_delete_writes_zero_and_advances() {
+    let mut state = make_state(vec![0xAB, 0xCD, 0xEF]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    send(&mut state, &config, HexEditorMessage::DeleteByteAtCursor);
+    assert_eq!(state.provider.as_slice()[0], 0x00, "should write 0x00");
+    assert_eq!(state.selection.cursor, 1, "cursor should advance");
+    assert_eq!(state.provider.as_slice()[1], 0xCD, "other bytes unchanged");
+}
+
+#[test]
+fn test_text_mode_delete_at_max_addr_stays_put() {
+    let mut state = make_state(vec![0xAB]);
+    let config = default_config();
+    state.write_mode = WriteMode::Ascii;
+    send(&mut state, &config, HexEditorMessage::DeleteByteAtCursor);
+    assert_eq!(state.provider.as_slice()[0], 0x00);
+    assert_eq!(state.selection.cursor, 0, "cursor stays at last byte");
+}
+
+#[test]
+fn test_hex_mode_delete_does_nothing() {
+    let mut state = make_state(vec![0xAB]);
+    let config = default_config();
+    state.write_mode = WriteMode::Hex;
+    send(&mut state, &config, HexEditorMessage::DeleteByteAtCursor);
+    assert_eq!(state.provider.as_slice()[0], 0xAB, "byte unchanged (hex mode)");
+}
+
+#[test]
 fn test_text_mode_unencodable_shows_status() {
     let mut state = make_state(vec![0x00; 4]);
     let config = default_config();
