@@ -116,7 +116,12 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
     .show_decimal(state.show_decimal)
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .write_mode(state.write_mode)
-    .entropy_bands(state.row_entropies.as_ref().map(|c| c.rows.as_slice()))
+    .entropy_bands(
+        state
+            .show_entropy_band
+            .then(|| state.row_entropies.as_ref().map(|c| c.rows.as_slice()))
+            .flatten(),
+    )
     .into()
 }
 

@@ -70,6 +70,12 @@ pub fn update(
             if matches!(n, 8 | 16 | 32) {
                 state.bytes_per_row = n;
                 state.invalidate_stats();
+                // Recompute row entropies immediately so the gutter band stays
+                // visible after a row-width change.
+                if !state.provider.is_empty() {
+                    state.row_entropies =
+                        Some(compute_row_entropies(state.provider.as_slice(), n));
+                }
             }
         }
         HexEditorMessage::SelectAt(addr) => {
@@ -861,6 +867,9 @@ pub fn update(
         HexEditorMessage::SetDimNulls(v) => {
             state.dim_nulls = v;
         }
+        HexEditorMessage::SetShowEntropyBand(v) => {
+            state.show_entropy_band = v;
+        }
         HexEditorMessage::SetAddrFormat(decimal) => {
             state.show_decimal = decimal;
         }
@@ -869,6 +878,7 @@ pub fn update(
             state.dim_nulls = true;
             state.show_decimal = false;
             state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
+            state.show_entropy_band = true;
             state.status_msg = "Settings reset to defaults".to_string();
         }
 

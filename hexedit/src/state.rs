@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid;
 
-use super::domain::byte_stats::{ByteStatistics, RowEntropyCache};
+use super::domain::byte_stats::{compute_row_entropies, ByteStatistics, RowEntropyCache};
 use super::domain::export_config::ExportConfig;
 use super::domain::fill_dialog::FillDialog;
 use super::domain::panel::{default_pane_grid, HexPanel};
@@ -120,8 +120,10 @@ pub struct HexEditorState {
     pub file_stats: Option<ByteStatistics>,
     /// Cached selection-level byte statistics (computed on demand via `AnalyzeSelection`).
     pub selection_stats: Option<ByteStatistics>,
-    /// Pre-computed per-row entropy values for colour bands.
+    /// Pre-computed per-row entropy values for colour bands in the address gutter.
     pub row_entropies: Option<RowEntropyCache>,
+    /// Whether to render the entropy colour band in the address gutter.
+    pub show_entropy_band: bool,
 }
 
 impl HexEditorState {
@@ -132,9 +134,17 @@ impl HexEditorState {
             .unwrap_or("Unknown")
             .to_string();
 
-        let (provider, vanilla, error) = match std::fs::read(path) {
-            Ok(bytes) => (BufferProvider::from_bytes(bytes.clone()), Some(bytes), None),
-            Err(e) => (BufferProvider::default(), None, Some(e.to_string())),
+        let (provider, vanilla, row_entropies, error) = match std::fs::read(path) {
+            Ok(bytes) => {
+                let re = compute_row_entropies(&bytes, DEFAULT_BYTES_PER_ROW);
+                (
+                    BufferProvider::from_bytes(bytes.clone()),
+                    Some(bytes),
+                    Some(re),
+                    None,
+                )
+            }
+            Err(e) => (BufferProvider::default(), None, None, Some(e.to_string())),
         };
 
         let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
@@ -192,7 +202,8 @@ impl HexEditorState {
             show_stats: false,
             file_stats: None,
             selection_stats: None,
-            row_entropies: None,
+            row_entropies,
+            show_entropy_band: true,
         }
     }
 

@@ -130,6 +130,13 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .spacing(8)
     .align_y(iced::Alignment::Center);
 
+    // Entropy band toggle
+    let entropy_toggle = toggler(state.show_entropy_band)
+        .label("Entropy colour band in gutter")
+        .on_toggle(HexEditorMessage::SetShowEntropyBand)
+        .size(13)
+        .spacing(8);
+
     // ── Action buttons ─────────────────────────────────────────────────
     let reset_btn = button(text("Reset to Defaults").size(12))
         .padding([4, 14])
@@ -155,6 +162,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             display_label,
             addr_row,
             bpr_row,
+            entropy_toggle,
             sep(),
             action_row,
         ]

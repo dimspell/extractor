@@ -180,6 +180,8 @@ pub enum HexEditorMessage {
     SetColorScheme(crate::ui::coloring::ColorScheme),
     /// Enable/disable dim-nulls regardless of colour scheme.
     SetDimNulls(bool),
+    /// Show/hide the entropy colour band in the address gutter.
+    SetShowEntropyBand(bool),
 
     // ── Write mode / text encoding ──────────────────────────────────────
     /// Switch the active write mode (Hex, ASCII, UTF-8, Windows-1250,
