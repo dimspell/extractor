@@ -1,6 +1,6 @@
 # Rendering Logic
 
-## Map Rendering (`map.rs`)
+## Map Rendering (`src/map/`)
 The tool can render a full map into a single image (`render_map`).
 
 ### Isometric Projection
@@ -23,9 +23,9 @@ The map logic handles conversion between "Map Coords" (grid) and "Image Coords" 
     - **Tiled Objects**: Collections of tiles designated by `tiled_infos` (multi-tile structures).
 3.  **Roofs (BTL)**: Renders `btl_tiles`.
 
-## Sprite Rendering (`sprite.rs`)
+## Sprite Rendering (`src/sprite.rs`)
 - **Transparency**: Pixels with value `0` are skipped/transparent.
 - **Positioning**: Uses `origin_x`, `origin_y` relative to a calculated bounding box for animations.
 
-## Tile Rendering (`tileset.rs`)
+## Tile Rendering (`src/map/tileset.rs`)
 - **Masking**: Since the source data is a 32x32 square but the output is isometric, `create_mask` generates an offset array (`mask[0]` for start x, `mask[1]` for width) per line `y` to draw a diamond shape.
