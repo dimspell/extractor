@@ -4,7 +4,7 @@
 //! gap), ASCII gutter, scrollbar. Only rows in the viewport are touched per
 //! frame; everything else is virtual.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::{Duration, Instant};
 
@@ -90,6 +90,10 @@ pub struct State {
     /// Tracks whether cursor is over the minimap strip, to avoid unnecessary
     /// redraws.
     pub hovering_minimap: Cell<bool>,
+    /// Cached minimap pixel colors — avoids re-scanning the file every frame.
+    /// Invalidated automatically when any input to the pixel computation
+    /// changes (file size, colour scheme, patterns, dirty/diff sets).
+    pub minimap_cache: RefCell<Option<minimap::MinimapCache>>,
     /// Shift modifier state — held while scrolling redirects vertical wheel
     /// delta to horizontal scroll.
     pub shift_pressed: Cell<bool>,
@@ -1708,19 +1712,57 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 .position_over(content_bounds)
                 .map(|p| minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS).contains(p))
                 .unwrap_or(false);
+
+            // Compute or reuse the minimap pixel cache.
+            let h_px = viewport_h.max(1.0) as u32;
+            let mut cache = state.minimap_cache.borrow_mut();
+            let needs_recompute = match &*cache {
+                Some(c) => !minimap::minimap_cache_valid(
+                    c,
+                    total_len,
+                    h_px,
+                    self.color_scheme,
+                    self.dim_nulls,
+                    self.patterns,
+                    self.dirty,
+                    self.vanilla_diff,
+                ),
+                None => true,
+            };
+            if needs_recompute {
+                *cache = Some(minimap::MinimapCache {
+                    pixels: minimap::compute_block_pixels(
+                        self.bytes,
+                        total_len,
+                        h_px,
+                        self.patterns,
+                        &self.alternate_patterns,
+                        self.dirty,
+                        self.vanilla_diff,
+                        self.color_scheme,
+                        self.dim_nulls,
+                    ),
+                    total_len,
+                    h_px,
+                    color_scheme: self.color_scheme,
+                    dim_nulls: self.dim_nulls,
+                    pattern_hash: minimap::pattern_hash(self.patterns),
+                    dirty_count: self.dirty.len(),
+                    diff_count: self.vanilla_diff.len(),
+                });
+            }
+            let pixels = cache
+                .as_ref()
+                .map(|c| c.pixels.as_slice())
+                .unwrap_or(&[]);
+
             minimap::draw_minimap(
                 renderer,
                 content_bounds,
                 scroll,
                 total_h,
                 viewport_h,
-                self.bytes,
-                self.patterns,
-                &self.alternate_patterns,
-                self.dirty,
-                self.vanilla_diff,
-                self.color_scheme,
-                self.dim_nulls,
+                pixels,
                 self.search_match_starts,
                 self.selection.cursor,
                 total_len,

@@ -106,11 +106,95 @@ fn thumb_height(mm_rect: Rectangle, total_h: f32) -> f32 {
         .min(mm_rect.height)
 }
 
+/// Compute minimap pixel colors by block-averaging the file.
+///
+/// Each pixel row represents a block of bytes.  The block color is
+/// determined by priority: pattern → dirty → diff → mean byte value.
+///
+/// This is the cacheable part of minimap rendering — separated from the
+/// actual draw call so the caller can cache the result across frames.
+#[allow(clippy::too_many_arguments)]
+pub fn compute_block_pixels(
+    bytes: &[u8],
+    total_len: u64,
+    h_px: u32,
+    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
+    alternate_patterns: &BTreeSet<usize>,
+    dirty: &BTreeSet<u64>,
+    vanilla_diff: &BTreeSet<u64>,
+    color_scheme: ColorScheme,
+    dim_nulls: bool,
+) -> Vec<Color> {
+    if total_len == 0 || h_px == 0 {
+        return Vec::new();
+    }
+    let stride = total_len.div_ceil(h_px as u64);
+    let h = h_px as usize;
+    let mut pixels = Vec::with_capacity(h);
+
+    let dirties = color!(0x4a1f1a);
+    let diffs = color!(0x232f1f);
+
+    for i in 0..h {
+        let start = (i as u64).saturating_mul(stride).min(total_len);
+        let end = ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
+        let block_len = end - start;
+
+        // Scan the block with priority: pattern > dirty > diff.
+        let mut first_pattern: Option<(usize, u8)> = None;
+        let mut has_dirty = false;
+        let mut has_diff = false;
+        let mut sum: u64 = 0;
+
+        for addr in start..end {
+            if let Some(&(pid, color_idx)) = pattern_by_addr.get(&addr) {
+                first_pattern = Some((pid, color_idx));
+                break;
+            }
+            if !has_dirty && dirty.contains(&addr) {
+                has_dirty = true;
+            }
+            if !has_diff && vanilla_diff.contains(&addr) {
+                has_diff = true;
+            }
+            sum += bytes.get(addr as usize).copied().unwrap_or(0) as u64;
+        }
+
+        let pixel = if let Some((pid, color_idx)) = first_pattern {
+            let mut c = pattern_bg(color_idx);
+            if alternate_patterns.contains(&pid) {
+                c.r *= 0.5;
+                c.g *= 0.5;
+                c.b *= 0.5;
+            }
+            c
+        } else if has_dirty {
+            dirties
+        } else if has_diff {
+            diffs
+        } else {
+            let mean = if block_len > 0 {
+                sum.checked_div(block_len).unwrap_or(0) as u8
+            } else {
+                0
+            };
+            let (fg, _) = default_byte_colors(color_scheme, mean, dim_nulls);
+            let c = fg.unwrap_or(color!(0xd4cabd));
+            Color::from_rgb(c.r * 0.55, c.g * 0.55, c.b * 0.55)
+        };
+        pixels.push(pixel);
+    }
+    pixels
+}
+
 /// Draw the minimap overview strip.
 ///
-/// Renders the byte-value heatmap, viewport overlay, cursor marker, and
-/// search-match markers in the 40 px-wide strip between the hex content
+/// Renders the pre-computed pixel column, viewport overlay, cursor marker,
+/// and search-match markers in the 40 px-wide strip between the hex content
 /// and the vertical scrollbar.
+///
+/// `pixels` should contain one colour per pixel row (as returned by
+/// [`compute_block_pixels`]).
 #[allow(clippy::too_many_arguments)]
 pub fn draw_minimap(
     renderer: &mut iced::Renderer,
@@ -118,13 +202,7 @@ pub fn draw_minimap(
     scroll: f32,
     total_h: f32,
     viewport_h: f32,
-    bytes: &[u8],
-    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
-    alternate_patterns: &BTreeSet<usize>,
-    dirty: &BTreeSet<u64>,
-    vanilla_diff: &BTreeSet<u64>,
-    color_scheme: ColorScheme,
-    dim_nulls: bool,
+    pixels: &[Color],
     search_match_starts: &[u64],
     cursor_addr: u64,
     total_len: u64,
@@ -150,45 +228,42 @@ pub fn draw_minimap(
         Background::Color(color!(0x2a2218)),
     );
 
-    // ── Pixel column ───────────────────────────────────────────────
-    let h_px = mm_rect.height.max(1.0);
-    let stride = if total_len <= 1 || h_px <= 1.0 {
-        1
-    } else {
-        (total_len / h_px as u64).max(1)
-    };
-    for i in 0..(h_px as u64) {
-        let addr = (i * stride).min(bytes.len().saturating_sub(1) as u64);
-        let byte = bytes.get(addr as usize).copied().unwrap_or(0);
-
-        let pixel_color = if let Some((_, color_idx)) = pattern_by_addr.get(&addr) {
-            let mut c = pattern_bg(*color_idx);
-            // Zebra-stripe: darken every other pattern in a repeated group.
-            if let Some((pid, _)) = pattern_by_addr.get(&addr) {
-                if alternate_patterns.contains(pid) {
-                    c = Color::from_rgb(c.r * 0.5, c.g * 0.5, c.b * 0.5);
-                }
-            }
-            c
-        } else if dirty.contains(&addr) {
-            color!(0x4a1f1a)
-        } else if vanilla_diff.contains(&addr) {
-            color!(0x232f1f)
-        } else {
-            let (fg, _) = default_byte_colors(color_scheme, byte, dim_nulls);
-            let c = fg.unwrap_or(color!(0xd4cabd));
-            Color::from_rgb(c.r * 0.55, c.g * 0.55, c.b * 0.55)
-        };
-
-        let y = mm_rect.y + i as f32;
+    // ── Pixel column with smooth vertical transitions ──────────────
+    // Each pixel row blends with the next via a 2-px-high box filter:
+    //   color(i) = lerp(pixel[i], pixel[i+1], 0.5)
+    // drawn at y = mm_rect.y + i as f32, height = 2 px.
+    // The last pixel is drawn at its own colour, 1 px high.
+    let h_px = pixels.len();
+    if h_px > 0 {
+        for i in 0..h_px - 1 {
+            // Blended: average of adjacent pixel rows creates smooth
+            // vertical transitions.
+            let c = Color::from_rgb(
+                (pixels[i].r + pixels[i + 1].r) / 2.0,
+                (pixels[i].g + pixels[i + 1].g) / 2.0,
+                (pixels[i].b + pixels[i + 1].b) / 2.0,
+            );
+            let y = mm_rect.y + i as f32;
+            renderer.fill_quad(
+                quad(Rectangle {
+                    x: mm_rect.x + 2.0,
+                    y,
+                    width: mm_rect.width - 4.0,
+                    height: 2.0,
+                }),
+                Background::Color(c),
+            );
+        }
+        // Last pixel row: draw as-is, 1 px high.
+        let last = h_px - 1;
         renderer.fill_quad(
             quad(Rectangle {
                 x: mm_rect.x + 2.0,
-                y,
+                y: mm_rect.y + last as f32,
                 width: mm_rect.width - 4.0,
                 height: 1.0,
             }),
-            Background::Color(pixel_color),
+            Background::Color(pixels[last]),
         );
     }
 
@@ -198,6 +273,45 @@ pub fn draw_minimap(
         renderer.fill_quad(
             quad(thumb),
             Background::Color(Color::from_rgba(1.0, 1.0, 1.0, 0.12)),
+        );
+        // Brighter 1 px border so the overlay's edges are visible on
+        // both dark and light byte regions.
+        let bdr = Color::from_rgba(1.0, 1.0, 1.0, 0.35);
+        // Top
+        renderer.fill_quad(
+            quad(Rectangle {
+                x: thumb.x, y: thumb.y,
+                width: thumb.width, height: 1.0,
+            }),
+            Background::Color(bdr),
+        );
+        // Bottom
+        renderer.fill_quad(
+            quad(Rectangle {
+                x: thumb.x,
+                y: thumb.y + thumb.height - 1.0,
+                width: thumb.width,
+                height: 1.0,
+            }),
+            Background::Color(bdr),
+        );
+        // Left
+        renderer.fill_quad(
+            quad(Rectangle {
+                x: thumb.x, y: thumb.y,
+                width: 1.0, height: thumb.height,
+            }),
+            Background::Color(bdr),
+        );
+        // Right
+        renderer.fill_quad(
+            quad(Rectangle {
+                x: thumb.x + thumb.width - 1.0,
+                y: thumb.y,
+                width: 1.0,
+                height: thumb.height,
+            }),
+            Background::Color(bdr),
         );
     }
 
@@ -235,6 +349,64 @@ pub fn draw_minimap(
             Background::Color(color!(0xB97024)),
         );
     }
+}
+
+/// Cached minimap pixel colors to avoid re-scanning the file every frame.
+#[derive(Clone)]
+pub struct MinimapCache {
+    /// One pixel color per pixel row.
+    pub pixels: Vec<Color>,
+    /// File length when cached.
+    pub total_len: u64,
+    /// Number of pixel rows when cached.
+    pub h_px: u32,
+    /// Color scheme when cached.
+    pub color_scheme: ColorScheme,
+    /// Dim-nulls setting when cached.
+    pub dim_nulls: bool,
+    /// Hash of pattern_by_addr contents (*not* the full map — just a
+    /// checksum so we can cheaply detect changes).
+    pub pattern_hash: u64,
+    /// Number of dirty addresses when cached.
+    pub dirty_count: usize,
+    /// Number of diff addresses when cached.
+    pub diff_count: usize,
+}
+
+/// Quick (non-cryptographic) hash of a pattern_by_addr map.
+///
+/// Used to cheaply detect whether the pattern set has changed since the
+/// minimap cache was computed.
+pub fn pattern_hash(patterns: &BTreeMap<u64, (usize, u8)>) -> u64 {
+    let mut h: u64 = 0;
+    for (&addr, &(pid, col)) in patterns {
+        h = h.wrapping_mul(31).wrapping_add(addr);
+        h = h.wrapping_mul(31).wrapping_add(pid as u64);
+        h = h.wrapping_mul(31).wrapping_add(col as u64);
+    }
+    h
+}
+
+/// Check whether a cached minimap pixel array is still valid for the
+/// current file state.
+#[allow(clippy::too_many_arguments)]
+pub fn minimap_cache_valid(
+    cache: &MinimapCache,
+    total_len: u64,
+    h_px: u32,
+    color_scheme: ColorScheme,
+    dim_nulls: bool,
+    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
+    dirty: &BTreeSet<u64>,
+    vanilla_diff: &BTreeSet<u64>,
+) -> bool {
+    cache.total_len == total_len
+        && cache.h_px == h_px
+        && cache.color_scheme == color_scheme
+        && cache.dim_nulls == dim_nulls
+        && cache.pattern_hash == pattern_hash(pattern_by_addr)
+        && cache.dirty_count == dirty.len()
+        && cache.diff_count == vanilla_diff.len()
 }
 
 fn quad(bounds: Rectangle) -> iced::advanced::renderer::Quad {
@@ -479,6 +651,280 @@ mod tests {
             height: 284.0,
         };
         assert_eq!(minimap_pixel_to_scroll(50.0, mm, 100.0, 284.0), 0.0);
+    }
+
+    // ── compute_block_pixels —──────────────────────────────────────────
+
+    #[test]
+    fn compute_block_pixels_empty_file() {
+        let pixels = compute_block_pixels(
+            &[], 0, 10,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert!(pixels.is_empty());
+    }
+
+    #[test]
+    fn compute_block_pixels_zero_height() {
+        let pixels = compute_block_pixels(
+            &[0xFF; 100], 100, 0,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert!(pixels.is_empty());
+    }
+
+    #[test]
+    fn compute_block_pixels_uniform_bytes() {
+        let bytes = [0xFFu8; 200];
+        let pixels = compute_block_pixels(
+            &bytes, 200, 10,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let expected = Color::from_rgb(
+            0xD4 as f32 / 255.0 * 0.55,
+            0xCA as f32 / 255.0 * 0.55,
+            0xBD as f32 / 255.0 * 0.55,
+        );
+        for (i, &p) in pixels.iter().enumerate() {
+            assert!((p.r - expected.r).abs() < 0.0001, "pixel {i}: r");
+            assert!((p.g - expected.g).abs() < 0.0001, "pixel {i}: g");
+            assert!((p.b - expected.b).abs() < 0.0001, "pixel {i}: b");
+        }
+    }
+
+    #[test]
+    fn compute_block_pixels_pattern_dominates() {
+        let bytes = [0x00u8; 100];
+        let mut patterns = BTreeMap::new();
+        patterns.insert(5, (0usize, 3u8));
+        let pixels = compute_block_pixels(
+            &bytes, 100, 10,
+            &patterns, &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let expected = super::pattern_bg(3);
+        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_zebra_alternate_darkens() {
+        let bytes = [0x00u8; 100];
+        let mut patterns = BTreeMap::new();
+        patterns.insert(5, (17usize, 2u8));
+        let mut alternate = BTreeSet::new();
+        alternate.insert(17);
+        let pixels = compute_block_pixels(
+            &bytes, 100, 10,
+            &patterns, &alternate,
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let base = super::pattern_bg(2);
+        let expected = Color::from_rgb(base.r * 0.5, base.g * 0.5, base.b * 0.5);
+        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_dirty_over_diff() {
+        let bytes = [0x00u8; 100];
+        let mut dirty = BTreeSet::new();
+        dirty.insert(5);
+        let mut diff = BTreeSet::new();
+        diff.insert(5);
+        let pixels = compute_block_pixels(
+            &bytes, 100, 10,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &dirty, &diff,
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let dirty_c = Color::from_rgb(0x4A as f32 / 255.0, 0x1F as f32 / 255.0, 0x1A as f32 / 255.0);
+        assert!((pixels[0].r - dirty_c.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - dirty_c.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - dirty_c.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_diff_when_no_pattern_or_dirty() {
+        let bytes = [0x00u8; 100];
+        let mut diff = BTreeSet::new();
+        diff.insert(5);
+        let pixels = compute_block_pixels(
+            &bytes, 100, 10,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &diff,
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let diff_c = Color::from_rgb(0x23 as f32 / 255.0, 0x2F as f32 / 255.0, 0x1F as f32 / 255.0);
+        assert!((pixels[0].r - diff_c.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - diff_c.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - diff_c.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_priority_pattern_over_dirty_and_diff() {
+        let bytes = [0x00u8; 100];
+        let mut patterns = BTreeMap::new();
+        patterns.insert(5, (0usize, 1u8));
+        let mut dirty = BTreeSet::new();
+        dirty.insert(5);
+        let mut diff = BTreeSet::new();
+        diff.insert(5);
+        let pixels = compute_block_pixels(
+            &bytes, 100, 10,
+            &patterns, &BTreeSet::new(),
+            &dirty, &diff,
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let expected = super::pattern_bg(1);
+        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_stride_ceiling_covers_last_block() {
+        let bytes = vec![0x42u8; 101];
+        let pixels = compute_block_pixels(
+            &bytes, 101, 10,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 10);
+        let _ = pixels[9]; // last pixel should be valid
+    }
+
+    // ── pattern_hash —─────────────────────────────────────────────────
+
+    #[test]
+    fn pattern_hash_empty_map() {
+        assert_eq!(pattern_hash(&BTreeMap::new()), 0);
+    }
+
+    #[test]
+    fn pattern_hash_different_maps_different_hashes() {
+        let mut a = BTreeMap::new();
+        a.insert(0, (1usize, 2u8));
+        let mut b = BTreeMap::new();
+        b.insert(0, (1usize, 3u8)); // different color_idx
+        assert_ne!(pattern_hash(&a), pattern_hash(&b));
+    }
+
+    // ── minimap_cache_valid —────────────────────────────────────────────
+
+    #[test]
+    fn minimap_cache_valid_matches() {
+        let mut patterns = BTreeMap::new();
+        patterns.insert(10, (0usize, 1u8));
+        let cache = MinimapCache {
+            pixels: vec![Color::WHITE],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            pattern_hash: pattern_hash(&patterns),
+            dirty_count: 5,
+            diff_count: 3,
+        };
+        let mut dirty = BTreeSet::new();
+        for i in 0..5 { dirty.insert(i); }
+        let mut diff = BTreeSet::new();
+        for i in 0..3 { diff.insert(100 + i); }
+        assert!(minimap_cache_valid(
+            &cache, 100, 10, ColorScheme::Monochrome, false,
+            &patterns, &dirty, &diff,
+        ));
+    }
+
+    #[test]
+    fn minimap_cache_valid_detects_size_change() {
+        let cache = MinimapCache {
+            pixels: vec![Color::WHITE],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            pattern_hash: 0,
+            dirty_count: 0,
+            diff_count: 0,
+        };
+        assert!(!minimap_cache_valid(&cache, 200, 10, ColorScheme::Monochrome, false, &BTreeMap::new(), &BTreeSet::new(), &BTreeSet::new()));
+    }
+
+    #[test]
+    fn minimap_cache_valid_detects_scheme_change() {
+        let cache = MinimapCache {
+            pixels: vec![Color::WHITE],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            pattern_hash: 0,
+            dirty_count: 0,
+            diff_count: 0,
+        };
+        assert!(!minimap_cache_valid(&cache, 100, 10, ColorScheme::Nybble, false, &BTreeMap::new(), &BTreeSet::new(), &BTreeSet::new()));
+    }
+
+    #[test]
+    fn minimap_cache_valid_detects_dirty_count_change() {
+        let cache = MinimapCache {
+            pixels: vec![Color::WHITE],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            pattern_hash: 0,
+            dirty_count: 5,
+            diff_count: 0,
+        };
+        let dirty: BTreeSet<u64> = [1, 2, 3].into_iter().collect();
+        assert!(!minimap_cache_valid(&cache, 100, 10, ColorScheme::Monochrome, false, &BTreeMap::new(), &dirty, &BTreeSet::new()));
+    }
+
+    // ── compute_block_pixels —─────────────────────────────────────────
+
+    #[test]
+    fn compute_block_pixels_mean_of_mixed_values() {
+        let mut bytes = [0xFFu8; 20];
+        bytes[0..5].copy_from_slice(&[0x00, 0x10, 0x20, 0x30, 0x40]);
+        let pixels = compute_block_pixels(
+            &bytes, 20, 2,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 2);
+        // Block 0: mean = (0+16+32+48+64 + 5*255)/10 = 143.5 → 143
+        let mean0 = 143u8;
+        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, mean0, false);
+        let expected0 = Color::from_rgb(fg0.unwrap().r * 0.55, fg0.unwrap().g * 0.55, fg0.unwrap().b * 0.55);
+        assert!((pixels[0].r - expected0.r).abs() < 0.0001, "r");
+        assert!((pixels[0].g - expected0.g).abs() < 0.0001, "g");
+        assert!((pixels[0].b - expected0.b).abs() < 0.0001, "b");
+        // Block 1: all 0xFF → mean = 255
+        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 255, false);
+        let expected1 = Color::from_rgb(fg1.unwrap().r * 0.55, fg1.unwrap().g * 0.55, fg1.unwrap().b * 0.55);
+        assert!((pixels[1].r - expected1.r).abs() < 0.0001, "r");
+        assert!((pixels[1].g - expected1.g).abs() < 0.0001, "g");
+        assert!((pixels[1].b - expected1.b).abs() < 0.0001, "b");
     }
 
 }
