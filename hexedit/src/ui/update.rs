@@ -2,6 +2,7 @@ use iced::widget::pane_grid;
 use iced::{clipboard, Task};
 
 use crate::config::HexEditorConfig;
+use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
@@ -286,6 +287,88 @@ pub fn update(
                     }
                 }
             }
+        }
+
+        // ── Byte statistics / entropy panel ───────────────────────────────
+        HexEditorMessage::ToggleStats => {
+            // Check if a Statistics pane exists in the grid.
+            let existing: Option<pane_grid::Pane> = state
+                .panes
+                .iter()
+                .find_map(|(id, panel)| {
+                    if panel.content == crate::domain::panel::HexPanelContent::Statistics {
+                        Some(id)
+                    } else {
+                        None
+                    }
+                })
+                .copied();
+
+            if let Some(pane_id) = existing {
+                if state.panes.len() > 1 {
+                    if let Some((_, sibling)) = state.panes.close(pane_id) {
+                        state.pane_focus = sibling;
+                    }
+                }
+                state.show_stats = false;
+            } else {
+                let focus = state.pane_focus;
+                let can_split = state.panes.len() < 8;
+                if can_split {
+                    let _ = state.panes.split(
+                        iced::widget::pane_grid::Axis::Vertical,
+                        focus,
+                        HexPanel::new(crate::domain::panel::HexPanelContent::Statistics),
+                    );
+                }
+                state.show_stats = true;
+                // If stats haven't been computed yet, trigger analysis.
+                if state.file_stats.is_none() && !state.provider.is_empty() {
+                    let bytes = state.provider.as_slice().to_vec();
+                    return Task::perform(async move {
+                        let stats = compute_statistics(&bytes);
+                        HexEditorMessage::FileAnalyzed(Box::new(stats))
+                    }, std::convert::identity);
+                }
+            }
+        }
+        HexEditorMessage::AnalyzeFile => {
+            if !state.provider.is_empty() {
+                let bytes = state.provider.as_slice().to_vec();
+                return Task::perform(async move {
+                    let stats = compute_statistics(&bytes);
+                    HexEditorMessage::FileAnalyzed(Box::new(stats))
+                }, std::convert::identity);
+            }
+        }
+        HexEditorMessage::AnalyzeSelection => {
+            if !state.provider.is_empty() && !state.selection.is_single() {
+                let start = state.selection.start();
+                let end = state.selection.end();
+                let bytes = state.provider.read(start..end.saturating_add(1)).to_vec();
+                return Task::perform(async move {
+                    let stats = compute_statistics(&bytes);
+                    HexEditorMessage::SelectionAnalyzed(Box::new(stats))
+                }, std::convert::identity);
+            }
+        }
+        HexEditorMessage::FileAnalyzed(stats) => {
+            state.file_stats = Some(*stats);
+            // Also recompute row entropies for the full file.
+            if !state.provider.is_empty() {
+                let bytes = state.provider.as_slice().to_vec();
+                let bpr = state.bytes_per_row;
+                return Task::perform(async move {
+                    let entropies = compute_row_entropies(&bytes, bpr);
+                    HexEditorMessage::RowEntropiesComputed(Box::new(entropies))
+                }, std::convert::identity);
+            }
+        }
+        HexEditorMessage::SelectionAnalyzed(stats) => {
+            state.selection_stats = Some(*stats);
+        }
+        HexEditorMessage::RowEntropiesComputed(entropies) => {
+            state.row_entropies = Some(*entropies);
         }
 
         // ── Save ────────────────────────────────────────────────────────

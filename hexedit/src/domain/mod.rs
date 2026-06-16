@@ -1,3 +1,4 @@
+pub mod byte_stats;
 pub mod editing;
 pub mod export_config;
 pub mod fill_dialog;

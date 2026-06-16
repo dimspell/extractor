@@ -75,6 +75,10 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         custom_encodings: Vec::new(),
         encoding_settings_open: false,
         encoding_settings_selection: None,
+        show_stats: false,
+        file_stats: None,
+        selection_stats: None,
+        row_entropies: None,
     }
 }
 

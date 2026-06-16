@@ -220,9 +220,23 @@ pub enum HexEditorMessage {
     /// Async result: clipboard contents to paste as hex bytes.
     PasteContent(String),
 
-    // ── Export as text ──────────────────────────────────────────────────
-    /// Open the export config modal.
-    OpenExportConfig,
+        // ── Byte statistics / entropy panel ───────────────────────────────
+        /// Show/hide the byte statistics panel.
+        ToggleStats,
+        /// Trigger full-file analysis and update cached stats.
+        AnalyzeFile,
+        /// Trigger selection-only analysis.
+        AnalyzeSelection,
+        /// Async result: file-level statistics computed.
+        FileAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
+        /// Async result: selection-level statistics computed.
+        SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
+        /// Async result: per-row entropy cache computed.
+        RowEntropiesComputed(Box<crate::domain::byte_stats::RowEntropyCache>),
+
+        // ── Export as text ──────────────────────────────────────────────────
+        /// Open the export config modal.
+        OpenExportConfig,
     /// Close the export config modal without exporting.
     CloseExportConfig,
     /// Toggle the address-gutter checkbox in the export config modal.

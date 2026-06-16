@@ -48,6 +48,22 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::TogglePatternList);
 
+    // Byte statistics toggle.
+    let has_stats_pane = editor.panes.iter().any(|(_, p)| {
+        matches!(
+            p.content,
+            crate::domain::panel::HexPanelContent::Statistics
+        )
+    });
+    let stats_label = if has_stats_pane {
+        "Hide Stats"
+    } else {
+        "Stats"
+    };
+    let stats_btn = button(text(stats_label).size(11).font(Font::MONOSPACE))
+        .padding([3, 10])
+        .on_press(HexEditorMessage::ToggleStats);
+
     let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
         .on_press(HexEditorMessage::OpenExportConfig);
@@ -87,6 +103,7 @@ pub fn build_toolbar<'a>(
             goto_btn,
             inspector_btn,
             patterns_btn,
+            stats_btn,
             export_btn,
             settings_btn,
             row![

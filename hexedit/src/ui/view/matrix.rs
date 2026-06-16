@@ -147,6 +147,10 @@ pub struct HexMatrix<'a, Message> {
     dim_nulls: bool,
     /// Active write mode — controls which keystrokes are accepted.
     write_mode: WriteMode,
+    /// Pre-computed per-row entropy values for colour bands in the address
+    /// gutter. Each entry: `(row_start_addr, entropy)`. When `Some`, a thin
+    /// coloured bar is drawn on the left of each row in the gutter.
+    entropy_bands: Option<&'a [(u64, f64)]>,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -208,7 +212,14 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_paste: None,
             show_decimal: false,
             on_toggle_addr_format: None,
+            entropy_bands: None,
         }
+    }
+
+    /// Attach pre-computed per-row entropy bands for the address gutter.
+    pub fn entropy_bands(mut self, bands: Option<&'a [(u64, f64)]>) -> Self {
+        self.entropy_bands = bands;
+        self
     }
 
     pub fn on_select_at(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
@@ -1328,6 +1339,50 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         for row_idx in visible {
             let base_addr = row_idx * bpr as u64;
             let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
+
+            // ── Entropy colour band in the address gutter ────────────────
+            if let Some(bands) = self.entropy_bands {
+                if let Some(&(_, entropy)) = bands.get(row_idx as usize) {
+                    let norm = (entropy / 8.0).clamp(0.0, 1.0) as f32;
+                    // Blue (sparse) → Green (structured) → Red (compressed).
+                    let band_color = if norm < 0.3 {
+                        let u = norm / 0.3;
+                        Color::from_rgb(
+                            0.0 + u * 0.3,
+                            0.3 + u * 0.3,
+                            0.8 - u * 0.2,
+                        )
+                    } else if norm < 0.7 {
+                        let u = (norm - 0.3) / 0.4;
+                        Color::from_rgb(
+                            0.3 - u * 0.1,
+                            0.6 + u * 0.2,
+                            0.6 - u * 0.3,
+                        )
+                    } else {
+                        let u = (norm - 0.7) / 0.3;
+                        Color::from_rgb(
+                            0.2 + u * 0.6,
+                            0.8 - u * 0.6,
+                            0.3 - u * 0.1,
+                        )
+                    };
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: Rectangle {
+                                x: bounds.x,
+                                y,
+                                width: 4.0,
+                                height: ROW_HEIGHT,
+                            },
+                            border: Border::default(),
+                            shadow: Shadow::default(),
+                            snap: true,
+                        },
+                        Background::Color(band_color),
+                    );
+                }
+            }
 
             // Address gutter — right-aligned.
             let addr_str = if self.show_decimal {

@@ -17,6 +17,8 @@ pub enum HexPanelContent {
     Inspector,
     /// The pattern list with create/edit/delete/group operations.
     PatternList,
+    /// Byte statistics & entropy panel.
+    Statistics,
 }
 
 /// A single panel in the hex editor's pane grid.

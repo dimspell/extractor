@@ -11,6 +11,7 @@ pub mod patterns;
 pub mod repeat_modal;
 pub mod search_overlay;
 pub mod settings_modal;
+pub mod statistics;
 pub mod toolbar;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};

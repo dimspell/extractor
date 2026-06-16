@@ -47,6 +47,7 @@ pub fn pane_content<'a>(
         HexPanelContent::Matrix => matrix_content(state),
         HexPanelContent::Inspector => super::inspector::view(state, config),
         HexPanelContent::PatternList => super::patterns::view(state),
+        HexPanelContent::Statistics => super::statistics::view(state),
     }
 }
 
@@ -115,6 +116,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
     .show_decimal(state.show_decimal)
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .write_mode(state.write_mode)
+    .entropy_bands(state.row_entropies.as_ref().map(|c| c.rows.as_slice()))
     .into()
 }
 
@@ -139,6 +141,7 @@ pub fn title_bar<'a>(
         HexPanelContent::Matrix => "Hex Dump",
         HexPanelContent::Inspector => "Inspector",
         HexPanelContent::PatternList => "Patterns",
+        HexPanelContent::Statistics => "Statistics",
     };
 
     let can_close = pane_count > 1;
@@ -230,6 +233,7 @@ mod tests {
             HexPanelContent::Matrix => "Hex Dump",
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
+            HexPanelContent::Statistics => "Statistics",
         };
         assert_eq!(label, "Hex Dump");
     }
@@ -241,6 +245,7 @@ mod tests {
             HexPanelContent::Matrix => "Hex Dump",
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
+            HexPanelContent::Statistics => "Statistics",
         };
         assert_eq!(label, "Inspector");
     }
@@ -252,6 +257,7 @@ mod tests {
             HexPanelContent::Matrix => "Hex Dump",
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
+            HexPanelContent::Statistics => "Statistics",
         };
         assert_eq!(label, "Patterns");
     }
