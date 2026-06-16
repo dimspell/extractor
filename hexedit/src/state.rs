@@ -311,6 +311,14 @@ impl HexEditorState {
         }
     }
 
+    /// Clear cached byte statistics when file content or row width changes.
+    /// Call after every write mutation and after `bytes_per_row` changes.
+    pub fn invalidate_stats(&mut self) {
+        self.file_stats = None;
+        self.selection_stats = None;
+        self.row_entropies = None;
+    }
+
     /// Load all `.lua` scripts from a directory into the Lua engine.
     /// Errors are collected and returned; successfully loaded decoders are
     /// available via `lua_engine.entries()`.

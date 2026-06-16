@@ -69,6 +69,7 @@ pub fn update(
         HexEditorMessage::SetBytesPerRow(n) => {
             if matches!(n, 8 | 16 | 32) {
                 state.bytes_per_row = n;
+                state.invalidate_stats();
             }
         }
         HexEditorMessage::SelectAt(addr) => {
@@ -325,9 +326,14 @@ pub fn update(
                 // If stats haven't been computed yet, trigger analysis.
                 if state.file_stats.is_none() && !state.provider.is_empty() {
                     let bytes = state.provider.as_slice().to_vec();
+                    let bpr = state.bytes_per_row;
                     return Task::perform(async move {
                         let stats = compute_statistics(&bytes);
-                        HexEditorMessage::FileAnalyzed(Box::new(stats))
+                        let entropies = compute_row_entropies(&bytes, bpr);
+                        HexEditorMessage::FileAndRowEntropiesComputed(
+                            Box::new(stats),
+                            Box::new(entropies),
+                        )
                     }, std::convert::identity);
                 }
             }
@@ -335,9 +341,14 @@ pub fn update(
         HexEditorMessage::AnalyzeFile => {
             if !state.provider.is_empty() {
                 let bytes = state.provider.as_slice().to_vec();
+                let bpr = state.bytes_per_row;
                 return Task::perform(async move {
                     let stats = compute_statistics(&bytes);
-                    HexEditorMessage::FileAnalyzed(Box::new(stats))
+                    let entropies = compute_row_entropies(&bytes, bpr);
+                    HexEditorMessage::FileAndRowEntropiesComputed(
+                        Box::new(stats),
+                        Box::new(entropies),
+                    )
                 }, std::convert::identity);
             }
         }
@@ -352,23 +363,12 @@ pub fn update(
                 }, std::convert::identity);
             }
         }
-        HexEditorMessage::FileAnalyzed(stats) => {
+        HexEditorMessage::FileAndRowEntropiesComputed(stats, entropies) => {
             state.file_stats = Some(*stats);
-            // Also recompute row entropies for the full file.
-            if !state.provider.is_empty() {
-                let bytes = state.provider.as_slice().to_vec();
-                let bpr = state.bytes_per_row;
-                return Task::perform(async move {
-                    let entropies = compute_row_entropies(&bytes, bpr);
-                    HexEditorMessage::RowEntropiesComputed(Box::new(entropies))
-                }, std::convert::identity);
-            }
+            state.row_entropies = Some(*entropies);
         }
         HexEditorMessage::SelectionAnalyzed(stats) => {
             state.selection_stats = Some(*stats);
-        }
-        HexEditorMessage::RowEntropiesComputed(entropies) => {
-            state.row_entropies = Some(*entropies);
         }
 
         // ── Save ────────────────────────────────────────────────────────

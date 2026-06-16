@@ -47,7 +47,7 @@ pub use domain::provider::{BufferProvider, HexProvider};
 pub use domain::search::{SearchMode, SearchState};
 pub use domain::selection::{NavDir, Selection};
 pub use domain::vanilla_diff::compute_diff;
-pub use domain::byte_stats::{ByteStatistics, RowEntropyCache, StructureHeuristic};
+pub use domain::byte_stats::{ByteStatistics, RowEntropyCache, StructureHeuristic, entropy_to_color};
 pub use domain::write_mode::{EncodingEntry, WriteMode};
 
 // Type-level re-exports from ui.

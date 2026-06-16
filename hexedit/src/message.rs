@@ -227,12 +227,14 @@ pub enum HexEditorMessage {
         AnalyzeFile,
         /// Trigger selection-only analysis.
         AnalyzeSelection,
-        /// Async result: file-level statistics computed.
-        FileAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
+        /// Async result: file-level statistics + row entropies (computed together
+        /// to avoid double-copying the byte slice and a frame-race between messages).
+        FileAndRowEntropiesComputed(
+            Box<crate::domain::byte_stats::ByteStatistics>,
+            Box<crate::domain::byte_stats::RowEntropyCache>,
+        ),
         /// Async result: selection-level statistics computed.
         SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
-        /// Async result: per-row entropy cache computed.
-        RowEntropiesComputed(Box<crate::domain::byte_stats::RowEntropyCache>),
 
         // ── Export as text ──────────────────────────────────────────────────
         /// Open the export config modal.

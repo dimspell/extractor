@@ -54,20 +54,6 @@ pub enum StructureHeuristic {
     Mixed,
 }
 
-/// Information about detected string-like sequences.
-#[derive(Debug, Clone, Default)]
-pub struct StringInfo {
-    /// Number of null-terminated ASCII string runs found.
-    pub null_terminated_count: usize,
-    /// Total bytes accounted for by null-terminated strings.
-    pub null_terminated_bytes: u64,
-    /// Whether the region appears to be fixed-width string data
-    /// (uniform spacing between null terminators).
-    pub fixed_width_suspected: bool,
-    /// Detected fixed width if fixed_width_suspected is true.
-    pub fixed_width: Option<usize>,
-}
-
 // ── Public API ─────────────────────────────────────────────────────────────
 
 /// Compute full byte statistics for a byte slice.
@@ -180,75 +166,6 @@ pub fn compute_row_entropies(bytes: &[u8], bytes_per_row: u8) -> RowEntropyCache
         max_entropy: max_e,
         min_entropy: min_e,
     }
-}
-
-/// Detect null-terminated and fixed-width string patterns in the byte slice.
-pub fn detect_strings(bytes: &[u8]) -> StringInfo {
-    if bytes.is_empty() {
-        return StringInfo::default();
-    }
-
-    // Scan for null-terminated printable ASCII runs.
-    let mut null_term_count = 0usize;
-    let mut null_term_bytes = 0u64;
-    let mut i = 0;
-    let mut null_positions = Vec::new();
-
-    while i < bytes.len() {
-        // Skip non-printable / non-null prefix.
-        if bytes[i] != 0x00 && !bytes[i].is_ascii_graphic() && bytes[i] != b' ' {
-            i += 1;
-            continue;
-        }
-        // Find a null-terminated run: printable chars followed by 0x00.
-        let run_start = i;
-        while i < bytes.len() && (bytes[i] == b' ' || bytes[i].is_ascii_graphic()) {
-            i += 1;
-        }
-        let run_len = i - run_start;
-        if run_len >= 2 && i < bytes.len() && bytes[i] == 0x00 {
-            null_term_count += 1;
-            null_term_bytes += run_len as u64 + 1;
-            null_positions.push(i);
-        }
-        i += 1;
-    }
-
-    // Check whether null terminators are evenly spaced (fixed-width heuristic).
-    let fixed_width_suspected;
-    let fixed_width;
-    if null_positions.len() >= 3 {
-        let gaps: Vec<usize> = null_positions
-            .windows(2)
-            .map(|w| w[1] - w[0])
-            .collect();
-        let first_gap = gaps[0];
-        let uniform = gaps.iter().all(|&g| g == first_gap);
-        if uniform && (4..=256).contains(&first_gap) {
-            fixed_width_suspected = true;
-            fixed_width = Some(first_gap);
-        } else {
-            fixed_width_suspected = false;
-            fixed_width = None;
-        }
-    } else {
-        fixed_width_suspected = false;
-        fixed_width = None;
-    }
-
-    StringInfo {
-        null_terminated_count: null_term_count,
-        null_terminated_bytes: null_term_bytes,
-        fixed_width_suspected,
-        fixed_width,
-    }
-}
-
-/// Map an entropy value to a normalised `0.0..=1.0` score.
-/// Entropy of actual data in practice rarely exceeds 8.0 (max for 256 symbols
-/// is log₂(256) = 8.0).
-pub fn normalise_entropy(entropy: f64) -> f64 {
-    (entropy / 8.0).clamp(0.0, 1.0)
 }
 
 /// Classify a byte region's structure.
@@ -542,31 +459,6 @@ mod tests {
         assert!(r2 > b2, "high entropy → red-dominant");
         let (r0, _g0, b0) = entropy_to_color(0.0);
         assert!(b0 > r0, "low entropy → blue-dominant");
-    }
-
-    #[test]
-    fn detect_strings_empty() {
-        let info = detect_strings(&[]);
-        assert_eq!(info.null_terminated_count, 0);
-    }
-
-    #[test]
-    fn detect_strings_finds_ascii() {
-        let bytes = b"Hello\x00World\x00\x00\x00".to_vec();
-        let info = detect_strings(&bytes);
-        assert_eq!(info.null_terminated_count, 2);
-    }
-
-    #[test]
-    fn detect_strings_fixed_width() {
-        // Three null-terminated strings at 16-byte intervals.
-        let mut bytes = vec![0u8; 48];
-        bytes[0..4].copy_from_slice(b"ABC\x00");
-        bytes[16..20].copy_from_slice(b"DEF\x00");
-        bytes[32..36].copy_from_slice(b"GHI\x00");
-        let info = detect_strings(&bytes);
-        assert!(info.fixed_width_suspected);
-        assert_eq!(info.fixed_width, Some(16));
     }
 
     #[test]

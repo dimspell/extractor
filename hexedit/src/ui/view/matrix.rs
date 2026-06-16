@@ -22,6 +22,7 @@ use iced::{
 };
 
 use crate::coloring::{default_byte_colors, ColorScheme};
+use crate::domain::byte_stats::entropy_to_color;
 use crate::domain::write_mode::WriteMode;
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
@@ -1343,44 +1344,25 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             // ── Entropy colour band in the address gutter ────────────────
             if let Some(bands) = self.entropy_bands {
                 if let Some(&(_, entropy)) = bands.get(row_idx as usize) {
-                    let norm = (entropy / 8.0).clamp(0.0, 1.0) as f32;
-                    // Blue (sparse) → Green (structured) → Red (compressed).
-                    let band_color = if norm < 0.3 {
-                        let u = norm / 0.3;
-                        Color::from_rgb(
-                            0.0 + u * 0.3,
-                            0.3 + u * 0.3,
-                            0.8 - u * 0.2,
-                        )
-                    } else if norm < 0.7 {
-                        let u = (norm - 0.3) / 0.4;
-                        Color::from_rgb(
-                            0.3 - u * 0.1,
-                            0.6 + u * 0.2,
-                            0.6 - u * 0.3,
-                        )
-                    } else {
-                        let u = (norm - 0.7) / 0.3;
-                        Color::from_rgb(
-                            0.2 + u * 0.6,
-                            0.8 - u * 0.6,
-                            0.3 - u * 0.1,
-                        )
+                    let (r, g, b) = entropy_to_color(entropy);
+                    let band_color = Color::from_rgb(r, g, b);
+                    let band_rect = Rectangle {
+                        x: bounds.x,
+                        y,
+                        width: 4.0,
+                        height: ROW_HEIGHT,
                     };
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: Rectangle {
-                                x: bounds.x,
-                                y,
-                                width: 4.0,
-                                height: ROW_HEIGHT,
+                    if let Some(clipped) = content_clip.intersection(&band_rect) {
+                        renderer.fill_quad(
+                            renderer::Quad {
+                                bounds: clipped,
+                                border: Border::default(),
+                                shadow: Shadow::default(),
+                                snap: true,
                             },
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(band_color),
-                    );
+                            Background::Color(band_color),
+                        );
+                    }
                 }
             }
 
