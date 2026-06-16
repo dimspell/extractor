@@ -26,7 +26,7 @@ The tool focuses exclusively on **technical specifications** and does not includ
 | **Schema Generation** | Generate JSON schemas for file types |
 | **Template Generation** | Create minimal JSON templates for editing |
 | **Dialogue Support** | Parse and extract `.dlg` and `.pgp` dialogue files |
-| **GUI Editor** | Full-featured graphical editor with 27 editor types |
+| **GUI Editor** | Full-featured graphical editor with 38+ editor types |
 
 ## 🚀 Installation & Usage
 
@@ -49,13 +49,17 @@ cargo build
 ### Running Commands
 
 ```bash
-# View help
+# View help (build first, then run)
+cargo build --release
 ./target/release/dispel-extractor --help
 
+# Or skip the explicit build — `cargo run` compiles on the fly
+cargo run -- --help
+
 # View command-specific help
-./target/release/dispel-extractor extract --help
-./target/release/dispel-extractor patch --help
-./target/release/dispel-extractor validate --help
+cargo run -- extract --help
+cargo run -- patch --help
+cargo run -- validate --help
 ```
 
 ### Running the GUI
