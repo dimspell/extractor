@@ -182,6 +182,8 @@ pub enum HexEditorMessage {
     SetDimNulls(bool),
     /// Show/hide the entropy colour band in the address gutter.
     SetShowEntropyBand(bool),
+    /// Show/hide the minimap overview strip.
+    SetShowMinimapEnabled(bool),
 
     // ── Write mode / text encoding ──────────────────────────────────────
     /// Switch the active write mode (Hex, ASCII, UTF-8, Windows-1250,

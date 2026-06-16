@@ -80,6 +80,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         selection_stats: None,
         row_entropies: None,
         show_entropy_band: true,
+        show_minimap: true,
     }
 }
 

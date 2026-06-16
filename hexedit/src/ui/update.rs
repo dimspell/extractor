@@ -870,6 +870,9 @@ pub fn update(
         HexEditorMessage::SetShowEntropyBand(v) => {
             state.show_entropy_band = v;
         }
+        HexEditorMessage::SetShowMinimapEnabled(v) => {
+            state.show_minimap = v;
+        }
         HexEditorMessage::SetAddrFormat(decimal) => {
             state.show_decimal = decimal;
         }

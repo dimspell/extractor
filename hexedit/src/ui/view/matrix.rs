@@ -26,6 +26,7 @@ use crate::domain::byte_stats::entropy_to_color;
 use crate::domain::write_mode::WriteMode;
 use crate::pattern::{pattern_bg, pattern_fg};
 use crate::selection::{NavDir, Selection};
+use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 type Paragraph = GraphicsParagraph;
@@ -80,6 +81,15 @@ pub struct State {
     /// Tracks whether cursor is over either scrollbar, to avoid unnecessary
     /// redraws during cursor movement.
     pub hovering_scrollbar: Cell<bool>,
+    /// True while the user is actively drag-scrolling on the minimap.
+    pub dragging_minimap: bool,
+    /// Cursor Y when the minimap drag started.
+    pub drag_start_minimap_y: f32,
+    /// Scroll offset when the minimap drag started.
+    pub drag_start_minimap_scroll: f32,
+    /// Tracks whether cursor is over the minimap strip, to avoid unnecessary
+    /// redraws.
+    pub hovering_minimap: Cell<bool>,
     /// Shift modifier state — held while scrolling redirects vertical wheel
     /// delta to horizontal scroll.
     pub shift_pressed: Cell<bool>,
@@ -152,6 +162,8 @@ pub struct HexMatrix<'a, Message> {
     /// gutter. Each entry: `(row_start_addr, entropy)`. When `Some`, a thin
     /// coloured bar is drawn on the left of each row in the gutter.
     entropy_bands: Option<&'a [(u64, f64)]>,
+    /// Whether the minimap overview strip is visible.
+    show_minimap: bool,
 }
 
 impl<'a, Message> HexMatrix<'a, Message> {
@@ -214,7 +226,14 @@ impl<'a, Message> HexMatrix<'a, Message> {
             show_decimal: false,
             on_toggle_addr_format: None,
             entropy_bands: None,
+            show_minimap: true,
         }
+    }
+
+    /// Enable or disable the minimap overview strip.
+    pub fn show_minimap(mut self, v: bool) -> Self {
+        self.show_minimap = v;
+        self
     }
 
     /// Attach pre-computed per-row entropy bands for the address gutter.
@@ -389,14 +408,24 @@ impl<'a, Message> HexMatrix<'a, Message> {
     }
 
     /// Viewport height available for content rows (below the fixed column
-    /// header), accounting for horizontal scrollbar.
+    /// header), accounting for horizontal scrollbar and minimap.
     fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {
-        let needs_hscroll = self.total_content_width() > bounds_w - SCROLLBAR_THICKNESS;
+        let right_reserved = self.right_strip();
+        let needs_hscroll = self.total_content_width() > bounds_w - right_reserved;
         let header_h = HEADER_HEIGHT;
         if needs_hscroll {
             (bounds_h - header_h - SCROLLBAR_THICKNESS).max(0.0)
         } else {
             (bounds_h - header_h).max(0.0)
+        }
+    }
+
+    /// Total width reserved on the right side (scrollbar + optional minimap).
+    fn right_strip(&self) -> f32 {
+        if self.show_minimap {
+            SCROLLBAR_THICKNESS + MINIMAP_WIDTH
+        } else {
+            SCROLLBAR_THICKNESS
         }
     }
 }
@@ -739,6 +768,27 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     return;
                 }
 
+                // Minimap hit-test (when enabled, sits between content and scrollbar).
+                if self.show_minimap && total_h > viewport_h {
+                    let mm_rect = minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    if mm_rect.contains(p) {
+                        let thumb_r = minimap::minimap_thumb_rect(mm_rect, state.scroll_offset.get(), total_h, viewport_h);
+                        if thumb_r.contains(p) {
+                            state.dragging_minimap = true;
+                            state.drag_start_minimap_y = p.y;
+                            state.drag_start_minimap_scroll = state.scroll_offset.get();
+                        } else {
+                            let new_scroll = minimap::minimap_scroll_from_y(
+                                p.y, mm_rect, total_h, viewport_h,
+                            );
+                            let clamped = clamp_scroll(new_scroll, total_h, viewport_h);
+                            state.scroll_offset.set(clamped);
+                        }
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
                 // Gutter click → toggle address format.
                 if p.x >= bounds.x && p.x < bounds.x + self.addr_col_width() {
                     if let Some(cb) = &self.on_toggle_addr_format {
@@ -821,7 +871,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     height: viewport_h,
                 };
 
-                // Repaint on hover transitions over scrollbar tracks.
+                // Repaint on hover transitions over scrollbar tracks and minimap.
                 if cursor.is_over(bounds) {
                     if let Some(p) = cursor.position() {
                         let vtrack = scrollbar_track(content_bounds, viewport_h);
@@ -830,6 +880,15 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                         if now_hovering != state.hovering_scrollbar.get() {
                             state.hovering_scrollbar.set(now_hovering);
                             shell.request_redraw();
+                        }
+                        // Minimap hover.
+                        if self.show_minimap && total_h > viewport_h {
+                            let mm_rect = minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                            let now_mm_hover = mm_rect.contains(p);
+                            if now_mm_hover != state.hovering_minimap.get() {
+                                state.hovering_minimap.set(now_mm_hover);
+                                shell.request_redraw();
+                            }
                         }
                     }
                 }
@@ -856,6 +915,19 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     let max_off = (total_h - viewport_h).max(1.0);
                     let dy = p.y - state.drag_start_cursor_y;
                     let new = state.drag_start_offset + dy * (max_off / travel);
+                    state
+                        .scroll_offset
+                        .set(clamp_scroll(new, total_h, content_bounds.height));
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
+                }
+                if state.dragging_minimap {
+                    let Some(p) = cursor.position() else { return };
+                    let mm_rect = minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    let dy = p.y - state.drag_start_minimap_y;
+                    let new = state.drag_start_minimap_scroll
+                        + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
                     state
                         .scroll_offset
                         .set(clamp_scroll(new, total_h, content_bounds.height));
@@ -894,6 +966,10 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
                 if state.dragging_scrollbar_x {
                     state.dragging_scrollbar_x = false;
+                    consumed = true;
+                }
+                if state.dragging_minimap {
+                    state.dragging_minimap = false;
                     consumed = true;
                 }
                 if state.selecting {
@@ -1175,13 +1251,13 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         };
 
         // Clip the content rows to the visible portion of the content area
-        // (below header, excluding the vertical scrollbar strip).
+        // (below header, excluding the vertical scrollbar and minimap strip).
         let content_clip_y = content_top.max(full_clip.y);
         let content_clip_bottom = (content_top + viewport_h).min(full_clip.y + full_clip.height);
         let content_clip = Rectangle {
             x: full_clip.x,
             y: content_clip_y,
-            width: (full_clip.width - SCROLLBAR_THICKNESS).max(0.0),
+            width: (full_clip.width - self.right_strip()).max(0.0),
             height: (content_clip_bottom - content_clip_y).max(0.0),
         };
 
@@ -1624,9 +1700,35 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
             );
         }
 
-        // Scrollbar with search-match and cursor-position markers.
+        // Minimap overview strip (between content and scrollbar).
         let total_len = self.bytes.len() as u64;
         let needs_vscroll = total_h > viewport_h;
+        if needs_vscroll && self.show_minimap {
+            let hovering = cursor
+                .position_over(content_bounds)
+                .map(|p| minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS).contains(p))
+                .unwrap_or(false);
+            minimap::draw_minimap(
+                renderer,
+                content_bounds,
+                scroll,
+                total_h,
+                viewport_h,
+                self.bytes,
+                self.patterns,
+                &self.alternate_patterns,
+                self.dirty,
+                self.vanilla_diff,
+                self.color_scheme,
+                self.dim_nulls,
+                self.search_match_starts,
+                self.selection.cursor,
+                total_len,
+                state.dragging_minimap || hovering,
+            );
+        }
+
+        // Scrollbar with search-match and cursor-position markers.
         if needs_vscroll {
             let hovering = cursor
                 .position_over(content_bounds)

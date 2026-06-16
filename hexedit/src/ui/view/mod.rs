@@ -6,6 +6,7 @@ pub mod goto_modal;
 pub mod inspector;
 pub mod inspector_modal;
 pub mod matrix;
+pub mod minimap;
 pub mod panel;
 pub mod patterns;
 pub mod repeat_modal;

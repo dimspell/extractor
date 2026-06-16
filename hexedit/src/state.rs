@@ -124,6 +124,8 @@ pub struct HexEditorState {
     pub row_entropies: Option<RowEntropyCache>,
     /// Whether to render the entropy colour band in the address gutter.
     pub show_entropy_band: bool,
+    /// Whether the minimap overview strip is visible.
+    pub show_minimap: bool,
 }
 
 impl HexEditorState {
@@ -204,6 +206,7 @@ impl HexEditorState {
             selection_stats: None,
             row_entropies,
             show_entropy_band: true,
+            show_minimap: true,
         }
     }
 

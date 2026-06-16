@@ -137,6 +137,13 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .size(13)
         .spacing(8);
 
+    // Minimap toggle
+    let minimap_toggle = toggler(state.show_minimap)
+        .label("Minimap overview strip")
+        .on_toggle(HexEditorMessage::SetShowMinimapEnabled)
+        .size(13)
+        .spacing(8);
+
     // ── Action buttons ─────────────────────────────────────────────────
     let reset_btn = button(text("Reset to Defaults").size(12))
         .padding([4, 14])
@@ -163,6 +170,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             addr_row,
             bpr_row,
             entropy_toggle,
+            minimap_toggle,
             sep(),
             action_row,
         ]

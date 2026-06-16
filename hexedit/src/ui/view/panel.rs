@@ -116,6 +116,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
     .show_decimal(state.show_decimal)
     .on_toggle_addr_format(|| HexEditorMessage::ToggleAddrFormat)
     .write_mode(state.write_mode)
+    .show_minimap(state.show_minimap)
     .entropy_bands(
         state
             .show_entropy_band
