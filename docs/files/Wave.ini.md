@@ -1,12 +1,6 @@
 # Wave.ini Documentation
 
-## File Format: Audio/Sound Effect References
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted audio content, sound files, or proprietary assets. All references to sound effects are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -138,6 +132,21 @@ The file follows a consistent CSV format where each line represents a sound effe
 - **Flag System**: Playback behavior indicators
 - **ID System**: Sequential numerical identifiers
 - **Naming**: Consistent patterns within categories
+ 
+### Notes
+
+- File uses Windows-style line endings (\r\n)
+- All sound IDs are used (no gaps in sequence)
+- Comments are in Korean (EUC-KR encoding)
+- unknown_flag values suggest priority/channel system
+- File is complete and well-organized by functional categories
+- **No copyrighted audio content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted audio content, sound files, or proprietary assets. All references to sound effects are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
 
 ### Legal Compliance
 
@@ -147,15 +156,6 @@ This documentation:
 - Uses **generic descriptions** of sound categories
 - Focuses on **technical organization**, not creative content
 - Maintains **nominal fair use** for trademark references
-
-### Notes
-
-- File uses Windows-style line endings (\r\n)
-- All sound IDs are used (no gaps in sequence)
-- Comments are in Korean (EUC-KR encoding)
-- unknown_flag values suggest priority/channel system
-- File is complete and well-organized by functional categories
-- **No copyrighted audio content** is reproduced or distributed
 
 ## Extractor
 

@@ -1,12 +1,6 @@
 # Monster.ini Documentation
 
-## File Format: Monster Visual and Animation References
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary artwork. All references to monster types are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -165,15 +159,6 @@ pub struct MonsterIni {
 - **Encoding**: WINDOWS-1250 for Central European characters
 - **Format**: Strict CSV with consistent field order
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any SPR files or game artwork
-- Focuses on **technical organization and animation systems**
-- Uses **generic examples** of monster structures
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
@@ -181,6 +166,21 @@ This documentation:
 - Animation sequences link to SPR file frame indices
 - Integrated with monster placement and combat systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary artwork. All references to monster types are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any SPR files or game artwork
+- Focuses on **technical organization and animation systems**
+- Uses **generic examples** of monster structures
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

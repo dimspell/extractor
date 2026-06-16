@@ -1,12 +1,6 @@
 # Extra.ini Documentation
 
-## File Format: Interactive Object Definitions
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary artwork. All references to interactive objects are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -138,15 +132,6 @@ pub struct Extra {
 - **Comment Organization**: Logical grouping by object type
 - **Encoding**: EUC-KR with Korean descriptions
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any SPR/SPX files or game artwork
-- Focuses on **technical organization and interaction systems**
-- Uses **generic examples** of object structures
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
@@ -154,6 +139,21 @@ This documentation:
 - Descriptions use EUC-KR encoding for international characters
 - Integrated with map placement and interaction systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary artwork. All references to interactive objects are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any SPR/SPX files or game artwork
+- Focuses on **technical organization and interaction systems**
+- Uses **generic examples** of object structures
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

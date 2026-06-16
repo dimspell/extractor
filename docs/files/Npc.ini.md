@@ -1,12 +1,6 @@
 # Npc.ini Documentation
 
-## File Format: NPC Visual References
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary content. All references to NPC types are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -81,6 +75,20 @@ id,sprite_filename,description
 4. Displays descriptions in appropriate contexts
 5. Manages NPC interactions based on type
 
+### Notes
+
+- Some entries have "null" sprite filenames (IDs 0, 12, 29, etc.)
+- Descriptions are in Korean (EUC-KR encoding)
+- File uses Windows-style line endings (\r\n)
+- IDs appear to be sequential but with some gaps (45-50, 64-66, etc.)
+- **No copyrighted game content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game assets, sprite files, or proprietary content. All references to NPC types are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
 ### Legal Compliance
 
 This documentation:
@@ -89,14 +97,6 @@ This documentation:
 - Uses **generic placeholders** for descriptions
 - Focuses on **technical organization**, not creative content
 - Maintains **nominal fair use** for trademark references
-
-### Notes
-
-- Some entries have "null" sprite filenames (IDs 0, 12, 29, etc.)
-- Descriptions are in Korean (EUC-KR encoding)
-- File uses Windows-style line endings (\r\n)
-- IDs appear to be sequential but with some gaps (45-50, 64-66, etc.)
-- **No copyrighted game content** is reproduced or distributed
 
 ## Extractor
 

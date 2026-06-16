@@ -1,12 +1,6 @@
 # EventItem.db Documentation
 
-## File Format: Quest Item Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, quest data, or proprietary assets. All references to item systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -139,15 +133,6 @@ Record 1:
 - Efficient database storage
 - Simple binary format for quick loading
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any quest data or game content
-- Focuses on **technical organization and binary structure**
-- Explains **database systems and quest item mechanics**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses binary format with WINDOWS-1250 text encoding
@@ -155,6 +140,21 @@ This documentation:
 - Fixed record size enables efficient parsing
 - Integrated with quest progression systems
 - **No copyrighted game content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, quest data, or proprietary assets. All references to item systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any quest data or game content
+- Focuses on **technical organization and binary structure**
+- Explains **database systems and quest item mechanics**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

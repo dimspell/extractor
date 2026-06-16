@@ -1,12 +1,6 @@
 # MiscItem.db Documentation
 
-## File Format: Generic Items Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, item data, or proprietary assets. All references to item systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -148,15 +142,6 @@ Offset | Size | Field | Description
 - Simple binary format for quick loading
 - Minimal processing requirements
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any item data or game content
-- Focuses on **technical organization and item systems**
-- Explains **generic item mechanics and structure**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses binary format with mixed text encodings
@@ -195,6 +180,21 @@ MiscItem.db serves as a comprehensive database for:
 - Miscellaneous game objects
 
 The file provides a simple but flexible system for managing all types of generic items in the game, supporting both functional utility items and narrative quest objects.
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, item data, or proprietary assets. All references to item systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any item data or game content
+- Focuses on **technical organization and item systems**
+- Explains **generic item mechanics and structure**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

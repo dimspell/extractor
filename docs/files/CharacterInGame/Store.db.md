@@ -1,12 +1,6 @@
 # Store.db Documentation
 
-## File Format: Shop & Inn Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, shop data, or proprietary assets. All references to commerce systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -178,15 +172,6 @@ haggle_fail: "No discounts!" (128 bytes)
 - Separate product table
 - Dialogue text optimization
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any shop data or game content
-- Focuses on **technical organization and commerce systems**
-- Explains **store mechanics and economic structures**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses complex binary format with union types
@@ -219,6 +204,21 @@ Store.db serves as a comprehensive database for:
 - Quest-related commerce locations
 
 The file provides a sophisticated system for managing all commerce-related entities in the game, supporting both simple inns and complex shops with extensive inventories and interactive dialogue.
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, shop data, or proprietary assets. All references to commerce systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any shop data or game content
+- Focuses on **technical organization and commerce systems**
+- Explains **store mechanics and economic structures**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

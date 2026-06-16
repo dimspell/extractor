@@ -1,12 +1,6 @@
 # Event.ini Documentation
 
-## File Format: Event Script Mappings
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, script files, or proprietary assets. All references to event systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -156,15 +150,6 @@ The system supports complex event sequences:
 - **Encoding**: EUC-KR with Korean comments
 - **Format**: Strict CSV structure
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any script files or game content
-- Focuses on **technical organization and event system design**
-- Uses **generic examples** of event structures
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
@@ -172,6 +157,21 @@ This documentation:
 - Event system forms core of game progression mechanics
 - Integrated with multiple game subsystems
 - **No copyrighted game content** is reproduced or distributed
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, script files, or proprietary assets. All references to event systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any script files or game content
+- Focuses on **technical organization and event system design**
+- Uses **generic examples** of event structures
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

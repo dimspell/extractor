@@ -1,20 +1,12 @@
 # Mondun/Monmap Files - Monster Placement References
 
-## Legal Notice
+## File Information
 
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to monster types and placements are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Overview
+- **Location**: `MonsterInGame/` directory
+- **Encoding**: Binary (Little-Endian)
+- **Record Size**: 56 bytes per monster entry
 
 Binary files that define monster placements, coordinates, event triggers, and loot configurations for game maps.
-
-## File Structure
-
-**Location**: `MonsterInGame/` directory
-**Encoding**: Binary (Little-Endian)
-**Record Size**: 56 bytes per monster entry
 
 ## File Types
 
@@ -165,7 +157,13 @@ cargo run -- database import "fixtures/Dispel/"
 - Origin typically at top-left of map
 - Y-axis increases downward
 
-## Legal Compliance
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to monster types and placements are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+### Legal Compliance
 
 This documentation:
 - Describes **file format specifications only**

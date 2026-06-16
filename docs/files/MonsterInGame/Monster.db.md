@@ -1,12 +1,6 @@
 # Monster.db Documentation
 
-## File Format: Monster Statistics Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to creature systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -277,15 +271,6 @@ Offset | Size | Field | Description
 - Detection and range mechanics
 - Special abilities
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any monster data or game content
-- Focuses on **technical organization and combat systems**
-- Explains **statistical mechanics and AI behaviors**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses binary format with EUC-KR text encoding
@@ -318,6 +303,21 @@ Monster.db serves as a comprehensive database for:
 - Balanced difficulty progression
 
 The file provides a sophisticated system for managing all monster types in the game, supporting diverse combat encounters with varied statistics, behaviors, and reward structures.
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, monster data, or proprietary assets. All references to creature systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+### Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any monster data or game content
+- Focuses on **technical organization and combat systems**
+- Explains **statistical mechanics and AI behaviors**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

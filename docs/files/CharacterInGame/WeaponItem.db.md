@@ -1,12 +1,6 @@
 # WeaponItem.db Documentation
 
-## File Format: Weapons & Armor Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, weapon data, or proprietary assets. All references to equipment systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -232,16 +226,6 @@ Offset | Size | Field | Description
 - Equipment longevity
 - Economic considerations
 
-### Legal Compliance
-
-This documentation:
-
-- Describes **file format specifications only**
-- Does **not** distribute any weapon data or game content
-- Focuses on **technical organization and equipment systems**
-- Explains **statistical mechanics and combat properties**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses binary format with WINDOWS-1250 text encoding
@@ -277,6 +261,22 @@ WeaponItem.db serves as a comprehensive database for:
 - Shop and inventory management
 
 The file provides a sophisticated system for managing all character equipment in the game, supporting both simple weapons and complex armor sets with extensive statistical properties and requirement systems.
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, weapon data, or proprietary assets. All references to equipment systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+
+- Describes **file format specifications only**
+- Does **not** distribute any weapon data or game content
+- Focuses on **technical organization and equipment systems**
+- Explains **statistical mechanics and combat properties**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

@@ -1,12 +1,6 @@
 # HealItem.db Documentation
 
-## File Format: Consumable Healing Items Database
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, item data, or proprietary assets. All references to healing systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -206,15 +200,6 @@ The game supports sophisticated healing mechanics:
 - Polymorph reversals
 - Specialized healing
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any item data or game content
-- Focuses on **technical organization and healing systems**
-- Explains **consumable item mechanics and effects**
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses binary format with mixed text encodings
@@ -236,6 +221,21 @@ This documentation:
 - **EventItem.db**: Quest/lore items only
 - **HealItem.db**: Gameplay mechanics
 - **EventItem.db**: Story progression
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, item data, or proprietary assets. All references to healing systems are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any item data or game content
+- Focuses on **technical organization and healing systems**
+- Explains **consumable item mechanics and effects**
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

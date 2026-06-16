@@ -1,12 +1,6 @@
 # ExtraInGame/Ext*.ref Documentation
 
-## File Format: Interactive Object Placements
-
-### Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, assets, or proprietary data. All references are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+## File Information
 
 ### Overview
 
@@ -230,15 +224,6 @@ These files define interactive object placements with exact coordinates, require
 - **Container Support**: Built-in gold and item storage
 - **Key System**: Dual key requirement system (lower/upper bounds)
 
-### Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any game content or assets
-- Uses **generic descriptions** of objects and behaviors
-- Focuses on **technical organization**, not creative content
-- Maintains **nominal fair use** for trademark references
-
 ### Notes
 
 - File uses little-endian byte order throughout
@@ -249,6 +234,21 @@ This documentation:
 - Door objects may require specific keys defined by `required_item_*` fields
 - Magic objects (type 7) likely represent spell-related interactables
 - The dual key system (`required_item_id`/`required_item_id2`) may support key ranges or multiple key types
+
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, assets, or proprietary data. All references are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+## Legal Compliance
+
+This documentation:
+- Describes **file format specifications only**
+- Does **not** distribute any game content or assets
+- Uses **generic descriptions** of objects and behaviors
+- Focuses on **technical organization**, not creative content
+- Maintains **nominal fair use** for trademark references
 
 ## Extractor
 

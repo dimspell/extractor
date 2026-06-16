@@ -1,19 +1,13 @@
 # Map.ini Documentation
 
-## Legal Notice
+## File Information
 
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, map data, or proprietary assets. All references to map configurations are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Overview
-`Map.ini` is a map initialization data file used by the game engine to configure individual map properties, starting positions, and associated resources.
-
-## File Format
+- **Location**: `Dispel/Ref/Map.ini` (relative to game installation directory)
 - **Encoding**: EUC-KR
 - **Format**: CSV (Comma-Separated Values)
 - **Comment lines**: Lines starting with `;` are ignored
-- **Location**: `Dispel/Ref/Map.ini` (relative to game installation directory)
+
+`Map.ini` is a map initialization data file used by the game engine to configure individual map properties, starting positions, and associated resources.
 
 ## Structure
 Each line represents one map initialization record with the following fields:
@@ -69,7 +63,13 @@ The game engine uses this data during map loading to:
 - Play the correct background music
 - Handle map transitions and camera events
 
-## Legal Compliance
+## Legal Notice
+
+⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, map data, or proprietary assets. All references to map configurations are for **educational and research purposes** to document file organization and data structures.
+
+**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
+
+### Legal Compliance
 
 This documentation:
 - Describes **file format specifications only**
