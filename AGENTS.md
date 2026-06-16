@@ -467,7 +467,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 
 ### Makefile targets
 - `fmt`, `cargo_test`, `clippy`, `run`, `help` — basic dev
-- `iced_test` — `cargo test -p dispel-gui --features "iced_test app::tests"`
+- `iced_test` — `cargo test -p dispel-gui --features "iced_test app::tests"` (equivalent: `rtk cargo test -p dispel-gui --features "iced_test app::tests"`)
 - `sound`, `sprite-sprite`, `sprite-animation`, `map-render`, `map-atlas-gtl/btl` — extraction/render tests
 - `extract-*` (18 targets) — extract individual game files to JSON
 - `database-import` — SQLite import
@@ -477,7 +477,7 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - `.github/workflows/release.yml` — Release on tag `v*.*.*`: 5 builds (CLI Win/Linux, GUI Win/Linux/macOS ARM), archives with SHA256, uploads to GitHub release (draft)
 
 ### Release script
-`scripts/release.sh` automates: validate semver, master branch, clean tree → `cargo fmt --all --check` + `cargo test --workspace --all-features` → bump version in all workspace `Cargo.toml` → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions.
+`scripts/release.sh` automates: validate semver, master branch, clean tree → `cargo fmt --all --check` + `cargo test --workspace --all-features` (script uses bare commands internally) → bump version in all workspace `Cargo.toml` → regen `Cargo.lock` → commit + tag `v{major}.{minor}.{patch}` → print push instructions.
 
 ---
 
@@ -494,8 +494,8 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - Always use `Task::perform` for async work — never block
 
 ### Code Quality
-- Clippy: zero warnings (`cargo clippy --workspace --all-features  --test -- -D warnings`)
-- Compiler warnings: use `cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
+- Clippy: zero warnings (`rtk cargo clippy --workspace --all-features --test -- -D warnings`)
+- Compiler warnings: use `rtk cargo test --workspace --all-features --no-run` to compile all crates (including tests) and surface any compiler warnings without waiting for tests to execute — useful as a fast pre-commit check
 - Format: `cargo fmt --all` before commit
 - Validate all binary bounds before indexing
 
@@ -509,11 +509,11 @@ Always read the relevant `docs/files/*.md` before modifying a parser.
 - **Test naming**: `test_${scenario}_${condition}` e.g. `test_undo_weapon_editor_empty_history`
 - **Test helpers**: tests in `$module/tests.rs` (co-located), separate `recording_tests.rs` for recording
 - **Property tests**: use `proptest` for invariants
-- Run before every commit: `cargo test --workspace --all-features`
+- Run before every commit: `rtk cargo test --workspace --all-features`
 
 ### Tools
 - `cargo check --message-format=short`: fast compile errors
-- `rtk cargo test`: optimized test runs
+- **Always use `rtk` prefix** for cargo/git operations (see [rtk section](#rtk-rust-token-killer) above for the full list)
 - `ripgrep` / `rg`: fast code search
 - `fd`: faster than `find`
 - `rust-analyzer`: essential LSP
@@ -589,6 +589,24 @@ cargo fmt --all                                      # Format
 cargo check -p dispel-gui --message-format=short     # Fast GUI errors
 cargo run -p dispel-gui                              # Launch GUI
 make iced_test                                       # Iced UI simulation tests
+```
+
+### rtk (Rust Token Killer)
+
+**Always use `rtk` instead of the bare command** when running these operations. It compresses output by 60-90%, saving significant context window for real work.
+
+Note: the rtk hook only applies to Bash tool calls — built-in tools like `Read`, `Grep`, and `Glob` bypass it. For token-efficient file access, prefer shell commands through `rtk read`, `rtk grep`, `rtk ls` instead of the built-in tools.
+
+```bash
+rtk cargo test -v [cargo test args...]              # Tests with compact output (failures only, ~-90%)
+rtk cargo build                                     # Build output filtered (~-80%)
+rtk cargo clippy                                    # Clippy warnings grouped (~-80%)
+rtk git status                                      # Compact status
+rtk git diff                                        # Condensed diff
+rtk git log -n 10                                   # One-line commits
+rtk ls .                                            # Token-optimized directory tree
+rtk grep "pattern" .                                # Grouped search results
+rtk read file.rs                                    # Smart file reading
 ```
 
 ---
