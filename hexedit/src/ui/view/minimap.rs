@@ -130,37 +130,24 @@ pub fn compute_block_pixels(
     }
     let stride = total_len.div_ceil(h_px as u64);
     let h = h_px as usize;
+    let last_valid = bytes.len().saturating_sub(1) as u64;
     let mut pixels = Vec::with_capacity(h);
 
-    let dirties = color!(0x4a1f1a);
-    let diffs = color!(0x232f1f);
-
     for i in 0..h {
-        let start = (i as u64).saturating_mul(stride).min(total_len);
-        let end = ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
-        let block_len = end - start;
+        let block_start = (i as u64).saturating_mul(stride).min(total_len);
+        let block_end =
+            ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
+        let block_len = block_end - block_start;
 
-        // Scan the block with priority: pattern > dirty > diff.
-        let mut first_pattern: Option<(usize, u8)> = None;
-        let mut has_dirty = false;
-        let mut has_diff = false;
-        let mut sum: u64 = 0;
+        // Sample the byte at the middle of the block.
+        let sample_addr = if block_len > 0 {
+            (block_start + block_len / 2).min(last_valid)
+        } else {
+            block_start.min(last_valid)
+        };
+        let byte = bytes.get(sample_addr as usize).copied().unwrap_or(0);
 
-        for addr in start..end {
-            if let Some(&(pid, color_idx)) = pattern_by_addr.get(&addr) {
-                first_pattern = Some((pid, color_idx));
-                break;
-            }
-            if !has_dirty && dirty.contains(&addr) {
-                has_dirty = true;
-            }
-            if !has_diff && vanilla_diff.contains(&addr) {
-                has_diff = true;
-            }
-            sum += bytes.get(addr as usize).copied().unwrap_or(0) as u64;
-        }
-
-        let pixel = if let Some((pid, color_idx)) = first_pattern {
+        let pixel = if let Some(&(pid, color_idx)) = pattern_by_addr.get(&sample_addr) {
             let mut c = pattern_bg(color_idx);
             if alternate_patterns.contains(&pid) {
                 c.r *= 0.5;
@@ -168,17 +155,12 @@ pub fn compute_block_pixels(
                 c.b *= 0.5;
             }
             c
-        } else if has_dirty {
-            dirties
-        } else if has_diff {
-            diffs
+        } else if dirty.contains(&sample_addr) {
+            color!(0x4a1f1a)
+        } else if vanilla_diff.contains(&sample_addr) {
+            color!(0x232f1f)
         } else {
-            let mean = if block_len > 0 {
-                sum.checked_div(block_len).unwrap_or(0) as u8
-            } else {
-                0
-            };
-            let (fg, _) = default_byte_colors(color_scheme, mean, dim_nulls);
+            let (fg, _) = default_byte_colors(color_scheme, byte, dim_nulls);
             let c = fg.unwrap_or(color!(0xd4cabd));
             Color::from_rgb(c.r * 0.55, c.g * 0.55, c.b * 0.55)
         };
@@ -228,42 +210,17 @@ pub fn draw_minimap(
         Background::Color(color!(0x2a2218)),
     );
 
-    // ── Pixel column with smooth vertical transitions ──────────────
-    // Each pixel row blends with the next via a 2-px-high box filter:
-    //   color(i) = lerp(pixel[i], pixel[i+1], 0.5)
-    // drawn at y = mm_rect.y + i as f32, height = 2 px.
-    // The last pixel is drawn at its own colour, 1 px high.
-    let h_px = pixels.len();
-    if h_px > 0 {
-        for i in 0..h_px - 1 {
-            // Blended: average of adjacent pixel rows creates smooth
-            // vertical transitions.
-            let c = Color::from_rgb(
-                (pixels[i].r + pixels[i + 1].r) / 2.0,
-                (pixels[i].g + pixels[i + 1].g) / 2.0,
-                (pixels[i].b + pixels[i + 1].b) / 2.0,
-            );
-            let y = mm_rect.y + i as f32;
-            renderer.fill_quad(
-                quad(Rectangle {
-                    x: mm_rect.x + 2.0,
-                    y,
-                    width: mm_rect.width - 4.0,
-                    height: 2.0,
-                }),
-                Background::Color(c),
-            );
-        }
-        // Last pixel row: draw as-is, 1 px high.
-        let last = h_px - 1;
+    // ── Pixel column ───────────────────────────────────────────────
+    for (i, &c) in pixels.iter().enumerate() {
+        let y = mm_rect.y + i as f32;
         renderer.fill_quad(
             quad(Rectangle {
                 x: mm_rect.x + 2.0,
-                y: mm_rect.y + last as f32,
+                y,
                 width: mm_rect.width - 4.0,
                 height: 1.0,
             }),
-            Background::Color(pixels[last]),
+            Background::Color(c),
         );
     }
 
@@ -902,9 +859,14 @@ mod tests {
     // ── compute_block_pixels —─────────────────────────────────────────
 
     #[test]
-    fn compute_block_pixels_mean_of_mixed_values() {
-        let mut bytes = [0xFFu8; 20];
-        bytes[0..5].copy_from_slice(&[0x00, 0x10, 0x20, 0x30, 0x40]);
+    fn compute_block_pixels_midpoint_sampling() {
+        // 20 bytes, 2 pixels, stride = 10.
+        // Block 0 [0..10): bytes 0-4 = 0x00, bytes 5-9 = 0xFF. Midpoint = 5 → 0xFF.
+        // Block 1 [10..20): all 0x00. Midpoint = 15 → 0x00.
+        let mut bytes = [0x00u8; 20];
+        for i in 5..10 {
+            bytes[i] = 0xFF;
+        }
         let pixels = compute_block_pixels(
             &bytes, 20, 2,
             &BTreeMap::new(), &BTreeSet::new(),
@@ -912,19 +874,22 @@ mod tests {
             ColorScheme::Monochrome, false,
         );
         assert_eq!(pixels.len(), 2);
-        // Block 0: mean = (0+16+32+48+64 + 5*255)/10 = 143.5 → 143
-        let mean0 = 143u8;
-        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, mean0, false);
-        let expected0 = Color::from_rgb(fg0.unwrap().r * 0.55, fg0.unwrap().g * 0.55, fg0.unwrap().b * 0.55);
-        assert!((pixels[0].r - expected0.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - expected0.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - expected0.b).abs() < 0.0001, "b");
-        // Block 1: all 0xFF → mean = 255
-        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 255, false);
-        let expected1 = Color::from_rgb(fg1.unwrap().r * 0.55, fg1.unwrap().g * 0.55, fg1.unwrap().b * 0.55);
-        assert!((pixels[1].r - expected1.r).abs() < 0.0001, "r");
-        assert!((pixels[1].g - expected1.g).abs() < 0.0001, "g");
-        assert!((pixels[1].b - expected1.b).abs() < 0.0001, "b");
+        // Pixel 0: sampled byte at addr 5 = 0xFF
+        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, 0xFF, false);
+        let expected0 =
+            Color::from_rgb(fg0.unwrap().r * 0.55, fg0.unwrap().g * 0.55, fg0.unwrap().b * 0.55);
+        let d0 = (pixels[0].r - expected0.r).abs()
+            + (pixels[0].g - expected0.g).abs()
+            + (pixels[0].b - expected0.b).abs();
+        assert!(d0 < 0.001, "pixel 0: diff={d0}");
+        // Pixel 1: sampled byte at addr 15 = 0x00
+        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
+        let expected1 =
+            Color::from_rgb(fg1.unwrap().r * 0.55, fg1.unwrap().g * 0.55, fg1.unwrap().b * 0.55);
+        let d1 = (pixels[1].r - expected1.r).abs()
+            + (pixels[1].g - expected1.g).abs()
+            + (pixels[1].b - expected1.b).abs();
+        assert!(d1 < 0.001, "pixel 1: diff={d1}");
     }
 
 }
