@@ -244,18 +244,28 @@ pub fn draw_minimap(
         Background::Color(color!(0x2a2218)),
     );
 
-    // ── Pixel column ───────────────────────────────────────────────
-    for (i, &c) in pixels.iter().enumerate() {
-        let y = mm_rect.y + i as f32;
+    // ── Pixel column (batched by colour) ──────────────────────────
+    // Consecutive same-colour rows are merged into a single taller
+    // quad to reduce fill_quad calls — a 600 px minimap goes from
+    // ~600 quads to ~10-40 quads depending on file structure.
+    let mut i = 0;
+    while i < pixels.len() {
+        let c = pixels[i];
+        let mut j = i + 1;
+        while j < pixels.len() && pixels[j] == c {
+            j += 1;
+        }
+        let run_h = (j - i) as f32;
         renderer.fill_quad(
             quad(Rectangle {
                 x: mm_rect.x + 2.0,
-                y,
+                y: mm_rect.y + i as f32,
                 width: mm_rect.width - 4.0,
-                height: 1.0,
+                height: run_h,
             }),
             Background::Color(c),
         );
+        i = j;
     }
 
     // ── Viewport overlay ───────────────────────────────────────────
