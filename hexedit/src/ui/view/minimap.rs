@@ -139,15 +139,36 @@ pub fn compute_block_pixels(
             ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
         let block_len = block_end - block_start;
 
-        // Sample the byte at the middle of the block.
-        let sample_addr = if block_len > 0 {
-            (block_start + block_len / 2).min(last_valid)
-        } else {
-            block_start.min(last_valid)
-        };
-        let byte = bytes.get(sample_addr as usize).copied().unwrap_or(0);
+        // ── Sample 3 positions: 25 %, 50 %, 75 % of the block ─────────
+        // This gives better pattern/dirty/diff detection than a single
+        // midpoint, while the variance between samples adds a natural
+        // brightness heatmap (uniform blocks recede, varied blocks pop).
+        let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
 
-        let pixel = if let Some(&(pid, color_idx)) = pattern_by_addr.get(&sample_addr) {
+        let p0 = if block_len > 0 { block_start + block_len / 4 } else { block_start };
+        let p1 = if block_len >= 2 { block_start + block_len / 2 } else { p0 };
+        let p2 = if block_len >= 3 { block_start + block_len * 3 / 4 } else { p1 };
+        let v0 = get(p0);
+        let v1 = get(p1);
+        let v2 = get(p2);
+
+        // Priority: any sample in pattern → full-brightness pattern_bg.
+        let mut pattern_hit = None;
+        let mut dirty_hit = false;
+        let mut diff_hit = false;
+        for &addr in &[p0, p1, p2] {
+            if pattern_hit.is_none() {
+                pattern_hit = pattern_by_addr.get(&addr);
+            }
+            if !dirty_hit {
+                dirty_hit = dirty.contains(&addr);
+            }
+            if !diff_hit {
+                diff_hit = vanilla_diff.contains(&addr);
+            }
+        }
+
+        let pixel = if let Some(&(pid, color_idx)) = pattern_hit {
             let mut c = pattern_bg(color_idx);
             if alternate_patterns.contains(&pid) {
                 c.r *= 0.5;
@@ -155,14 +176,31 @@ pub fn compute_block_pixels(
                 c.b *= 0.5;
             }
             c
-        } else if dirty.contains(&sample_addr) {
+        } else if dirty_hit {
             color!(0x4a1f1a)
-        } else if vanilla_diff.contains(&sample_addr) {
+        } else if diff_hit {
             color!(0x232f1f)
         } else {
-            let (fg, _) = default_byte_colors(color_scheme, byte, dim_nulls);
+            // Variance-based brightness: uniform blocks stay dim, mixed
+            // blocks bloom to full brightness.  Normalised so max variance
+            // (~14 450 for alternating 0x00/0xFF) maps to brightness ≈ 1.
+            let vf0 = v0 as f32;
+            let vf1 = v1 as f32;
+            let vf2 = v2 as f32;
+            let mean_f = (vf0 + vf1 + vf2) / 3.0;
+            let var = ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2))
+                / 3.0;
+            let norm = (var / 15_000.0).clamp(0.0, 1.0);
+            let brightness = 0.30 + norm * 0.70;
+
+            let mean_byte = mean_f.round() as u8;
+            let (fg, _) = default_byte_colors(color_scheme, mean_byte, dim_nulls);
             let c = fg.unwrap_or(color!(0xd4cabd));
-            Color::from_rgb(c.r * 0.55, c.g * 0.55, c.b * 0.55)
+            Color::from_rgb(
+                c.r * 0.55 * brightness,
+                c.g * 0.55 * brightness,
+                c.b * 0.55 * brightness,
+            )
         };
         pixels.push(pixel);
     }
@@ -636,6 +674,7 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_uniform_bytes() {
+        // Uniform 0xFF → no variance → brightness = 0.30 (minimum).
         let bytes = [0xFFu8; 200];
         let pixels = compute_block_pixels(
             &bytes, 200, 10,
@@ -644,10 +683,11 @@ mod tests {
             ColorScheme::Monochrome, false,
         );
         assert_eq!(pixels.len(), 10);
+        let brightness = 0.30_f32;
         let expected = Color::from_rgb(
-            0xD4 as f32 / 255.0 * 0.55,
-            0xCA as f32 / 255.0 * 0.55,
-            0xBD as f32 / 255.0 * 0.55,
+            0xD4 as f32 / 255.0 * 0.55 * brightness,
+            0xCA as f32 / 255.0 * 0.55 * brightness,
+            0xBD as f32 / 255.0 * 0.55 * brightness,
         );
         for (i, &p) in pixels.iter().enumerate() {
             assert!((p.r - expected.r).abs() < 0.0001, "pixel {i}: r");
@@ -859,10 +899,14 @@ mod tests {
     // ── compute_block_pixels —─────────────────────────────────────────
 
     #[test]
-    fn compute_block_pixels_midpoint_sampling() {
+    fn compute_block_pixels_multi_sample_and_variance() {
         // 20 bytes, 2 pixels, stride = 10.
-        // Block 0 [0..10): bytes 0-4 = 0x00, bytes 5-9 = 0xFF. Midpoint = 5 → 0xFF.
-        // Block 1 [10..20): all 0x00. Midpoint = 15 → 0x00.
+        // Block 0 [0..10): bytes 0-4 = 0x00, bytes 5-9 = 0xFF.
+        //   Samples: 25%=2(0x00), 50%=5(0xFF), 75%=7(0xFF)
+        //   Mean = 170, variance ≈ 14 450, brightness ≈ 0.974.
+        // Block 1 [10..20): all 0x00.
+        //   Samples: 25%=12(0x00), 50%=15(0x00), 75%=17(0x00)
+        //   Mean = 0, variance = 0, brightness = 0.30.
         let mut bytes = [0x00u8; 20];
         for i in 5..10 {
             bytes[i] = 0xFF;
@@ -874,22 +918,73 @@ mod tests {
             ColorScheme::Monochrome, false,
         );
         assert_eq!(pixels.len(), 2);
-        // Pixel 0: sampled byte at addr 5 = 0xFF
-        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, 0xFF, false);
+
+        // Brightness computation (replicated from the implementation for
+        // self-consistency — catches logic errors, not float drift).
+        fn brightness_for(v0: u8, v1: u8, v2: u8) -> f32 {
+            let (vf0, vf1, vf2) = (v0 as f32, v1 as f32, v2 as f32);
+            let mean_f = (vf0 + vf1 + vf2) / 3.0;
+            let var =
+                ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2)) / 3.0;
+            0.30 + (var / 15_000.0).clamp(0.0, 1.0) * 0.70
+        }
+
+        // Pixel 0: mixed block → high variance → nearly full brightness.
+        let b0 = brightness_for(0x00, 0xFF, 0xFF);
+        assert!((b0 - 0.974).abs() < 0.005, "pixel 0 brightness {}", b0);
+        let mean0 = 170u8;
+        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, mean0, false);
+        let base0 = fg0.unwrap();
         let expected0 =
-            Color::from_rgb(fg0.unwrap().r * 0.55, fg0.unwrap().g * 0.55, fg0.unwrap().b * 0.55);
+            Color::from_rgb(base0.r * 0.55 * b0, base0.g * 0.55 * b0, base0.b * 0.55 * b0);
         let d0 = (pixels[0].r - expected0.r).abs()
             + (pixels[0].g - expected0.g).abs()
             + (pixels[0].b - expected0.b).abs();
         assert!(d0 < 0.001, "pixel 0: diff={d0}");
-        // Pixel 1: sampled byte at addr 15 = 0x00
-        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
+
+        // Pixel 1: uniform block → zero variance → dim.
+        let b1 = brightness_for(0x00, 0x00, 0x00);
+        assert!((b1 - 0.30).abs() < 0.001, "pixel 1 brightness {}", b1);
+        let mean1 = 0u8;
+        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, mean1, false);
+        let base1 = fg1.unwrap();
         let expected1 =
-            Color::from_rgb(fg1.unwrap().r * 0.55, fg1.unwrap().g * 0.55, fg1.unwrap().b * 0.55);
+            Color::from_rgb(base1.r * 0.55 * b1, base1.g * 0.55 * b1, base1.b * 0.55 * b1);
         let d1 = (pixels[1].r - expected1.r).abs()
             + (pixels[1].g - expected1.g).abs()
             + (pixels[1].b - expected1.b).abs();
         assert!(d1 < 0.001, "pixel 1: diff={d1}");
+    }
+
+    #[test]
+    fn compute_block_pixels_variance_mixed_brighter_than_uniform() {
+        // Two blocks with the same mean byte but different variance.
+        // The mixed block must be visibly brighter.
+        let mut mixed = [0x00u8; 20];
+        for b in &mut mixed[5..15] {
+            *b = 0xFF;
+        } // alternating block: 0s followed by 0xFFs → high variance
+        let mut uniform = [0x80u8; 20]; // all same → zero variance
+
+        let p_mixed = compute_block_pixels(
+            &mixed, 20, 2,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        let p_uniform = compute_block_pixels(
+            &uniform, 20, 2,
+            &BTreeMap::new(), &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        // Mixed block should have at least one pixel brighter than uniform.
+        let lum_mixed = p_mixed.iter().map(|c| c.r + c.g + c.b).sum::<f32>();
+        let lum_uniform = p_uniform.iter().map(|c| c.r + c.g + c.b).sum::<f32>();
+        assert!(
+            lum_mixed > lum_uniform + 0.5,
+            "mixed lum {lum_mixed} should be > uniform lum {lum_uniform}"
+        );
     }
 
 }
