@@ -136,18 +136,6 @@ See `docs/file_formats.md` and per-file `docs/files/*.md` for detailed specs.
 
 ## dispel-core Architecture
 
-### Top-level modules (declared in `src/lib.rs`)
-
-```rust
-pub mod database;        // SQLite schema bootstrap
-pub mod localization;    // TextEncoding, Localizable trait, CSV/PO export
-pub mod map;             // .map parser + isometric renderer
-pub mod modding;         // Mod authoring pipeline
-pub mod references;      // 30 game data file parsers
-pub mod snf;             // .snf audio parser
-pub mod sprite;          // .spr sprite parser
-```
-
 ### Key traits
 
 | Trait | File | Purpose |
@@ -159,7 +147,7 @@ pub mod sprite;          // .spr sprite parser
 
 ### Modding pipeline (`src/modding/`)
 
-14 files: `apply.rs` (`apply_all`, `revert_to_vanilla`, `ApplyReport`), `bsdiff.rs` (binary delta), `change.rs` (`ChangeOp`, `ChangeAction`, `BlobKind`), `changelog.rs` (`ChangeLog`, 50-entry cap), `conflicts.rs` (detection), `manifest.rs` (`ModManifest`, `MANIFEST_VERSION`), `package.rs` (ZIP read/write), `patcher.rs` (`RecordPatcher`), `patchers/*.rs` (per-type patcher impls), `registry.rs` (`PatcherRegistry`), `resolution.rs` (`FieldKey`, `ResolutionMap`), `value.rs` (`Value` enum), `vanilla.rs` (`VanillaStore`), `workspace.rs` (`InstalledMod`, `Workspace`).
+14 files: `apply`, `bsdiff`, `change`, `changelog`, `conflicts`, `manifest`, `package`, `patcher` (+ per-type), `registry`, `resolution`, `value`, `vanilla`, `workspace`.
 
 ### Error types
 - `ModdingError` (thiserror, in `modding/error.rs`): `Io`, `Zip`, `Json`, `Malformed(String)`, `MissingEntry(String)`, `UnsupportedManifestVersion(u32)`
@@ -174,7 +162,7 @@ pub mod sprite;          // .spr sprite parser
 70 SQL files: 37 `create_table_*.sql` (schema DDL) + 33 parameterized `insert_*.sql`. Run by `database.rs` to drop and recreate the schema.
 
 ### Tests
-**55+ `#[cfg(test)]` blocks** across the codebase. Every parser has `parse_single_*` / `parse_two_*` / `serialize_round_trip` tests. Plus integration tests in workspace `tests/` (round_trip, integration_weapon_item).
+**55+ `#[cfg(test)]` blocks** across the crate. Every parser has `parse_single_*` / `parse_two_*` / `serialize_round_trip` tests.
 
 ---
 
@@ -213,25 +201,7 @@ pub mod sprite;          // .spr sprite parser
 
 Standalone library + 2 binaries (`hexedit-bin`, `bin/hexedit`). 20+ source files. Iced 0.14 with optional `lua` feature (default on, Lua 5.4 vendored via `mlua`).
 
-| Module | Purpose |
-|---|---|
-| `state.rs` | `HexEditorState` — selection, editing, vanilla_diff, patterns, goto, search, lua engine, paragraph cache |
-| `config.rs` | `HexEditorConfig` — `OnSaveFn`, `save_label`, `can_save`, `save_hint`, `extra_entries` |
-| `message.rs` | 40+ `HexEditorMessage` variants (navigation, inline edit, inspector, save, patterns, goto, search) |
-| `update.rs` / `view/mod.rs` | Pure `update(state, config, msg) -> Task<HM>` + `view(state, config) -> Element` |
-| `provider.rs` | `HexProvider` trait + `BufferProvider` — byte source abstraction with dirty tracking |
-| `selection.rs` | `Selection { anchor, cursor }`, `NavDir`, `nav_target()` navigation pure function |
-| `editing.rs` | `EditState` (hex digit editing), `InspectorEditState` |
-| `inspector.rs` | Built-in decoders (u8/u16/u32/i32/float/hex/ascii) + `InspectorEntry` |
-| `pattern.rs` | `Pattern { id, start, end, color_idx }` — byte range highlights |
-| `search.rs` | `SearchState` + `SearchMode` — hex/ASCII search with match iteration |
-| `goto.rs` | `GotoState` — hex/decimal/offset parse |
-| `coloring.rs` | `CellColorProvider` trait — custom byte-coloring strategy |
-| `vanilla_diff.rs` | `compute_diff()` — BTreeSet of addresses differing from original |
-| `lua_engine.rs` | `LuaScriptEngine` — custom inspector decoders via Lua scripting |
-| `view/{matrix,inspector,inspector_modal,goto_modal,search_overlay,patterns,footer}.rs` | View components |
-
-**Heavily tested:** 11 modules have unit tests (provider, selection, editing, goto, inspector, layout, coloring, vanilla_diff, search, view/matrix, view/footer).
+20+ files in `state`, `config`, `message`, `update`, `view/*`, `provider`, `selection`, `editing`, `inspector`, `pattern`, `search`, `goto`, `coloring`, `vanilla_diff`, `lua_engine`. **11 have unit tests.**
 
 **Used by `dispel-gui`:** stored as `HashMap<usize, HexEditorState>` in `EditorRegistry`, rendered in tabs, with save wired to mod packager via `OnSaveFn`.
 
@@ -365,12 +335,12 @@ pub struct Workspace {
 
 | Function | Location | Renders |
 |---|---|---|
-| `App::view()` | `view/mod.rs:30` | Top-level dispatch: start page or editor view |
-| `App::view_start_page()` | `view/start_page.rs:57` | Game path selection card with recent paths |
-| `App::view_editor()` | `view/mod.rs:37` | Full pane grid (sidebar + tab bar + editor + history) |
-| `App::view_sidebar()` | `view/mod.rs:354` | File tree + tools section |
-| `App::view_recent_files()` | `view/mod.rs:425` | Recent files list (10 most recent) |
-| `view_history_panel()` | `view/history_panel.rs:6` | Undo/redo stack display |
+| `App::view()` | `view/mod.rs` | Top-level dispatch: start page or editor view |
+| `App::view_start_page()` | `view/start_page.rs` | Game path selection card with recent paths |
+| `App::view_editor()` | `view/mod.rs` | Full pane grid (sidebar + tab bar + editor + history) |
+| `App::view_sidebar()` | `view/mod.rs` | File tree + tools section |
+| `App::view_recent_files()` | `view/mod.rs` | Recent files list (10 most recent) |
+| `view_history_panel()` | `view/history_panel.rs` | Undo/redo stack display |
 | Per-editor `view()` | `editors/*/view.rs` | Editor-specific content (38 editors) |
 
 ### Mod Recording
@@ -388,22 +358,6 @@ pub struct Workspace {
 - `indexation_service.rs` — `IndexationService` background file scanning
 - `search_index.rs` — `SearchIndex` nucleo-matcher full-text search with persistence
 - `tests.rs` — Indexation tests
-
-### Tests
-
-**Writing effective tests:** The goal is finding real bugs, not just confirming compilation. Prefer integration tests (iced_test) that simulate real user flows — they catch behavioral regressions, state corruption, and edge cases that unit tests miss.
-
-| Location | Coverage |
-|---|---|
-| `workspace/tests.rs` | 40+ iced_test integration tests: open/close tabs, `EditorType::from_path()` for every extension, serialization, timestamps, `clear_editor_states()` |
-| `update/tests.rs` + `update/system.rs` inline | System message handlers: `ClearWorkspace`, `Undo`/`Redo` on weapon editor, edge cases |
-| `recording_tests.rs` | 12 iced_test integration tests: `observe_field_change`, weapon, wave_ini, store, npc_ref, chest (known gap) |
-| `components/generic_editor/mod.rs` inline | Undo/redo |
-| `message/ext.rs` inline | Message constructor tests |
-| `indexation/tests.rs` | Indexation |
-| `components/field_coverage.rs` | Verifies all fields have coverage |
-| Workspace `tests/round_trip.rs` + `tests/round_trip/*.rs` (31 files) | Read → parse → write → byte-for-byte verify |
-| `tests/integration_weapon_item.rs` | End-to-end load → edit → save |
 
 ### Adding a New Editor
 
@@ -440,14 +394,7 @@ pub struct Workspace {
 - **SQLite**: only `DbViewer`. Other editors read/write game files directly.
 - **Enums over booleans**: e.g. `LoadingState<T> { Idle, Loading, Loaded(T), Failed(String) }`
 - **Editor state lives on `EditorRegistry`, not `AppState`**.
-
-### Iced 0.14 Lessons
-
-| Problem | Fix |
-|---------|-----|
-| Views in both `app.rs` and `view/mod.rs` | Keep only in `view/*.rs` |
-| `center_x()` compile error | Use `container(...).align_x(Horizontal::Center)` |
-| Deprecated patterns | Check Iced 0.14 docs |
+- **Iced 0.14**: `center_x()` → `container(...).align_x(Horizontal::Center)`. Check Iced 0.14 docs for deprecated patterns.
 
 ---
 
@@ -455,7 +402,7 @@ pub struct Workspace {
 
 | Path | Contents |
 |---|---|
-| `docs/overview.md` | High-level project intro (a bit dated — old module layout) |
+| `docs/overview.md` | High-level project intro |
 | `docs/file_formats.md` | Binary format specs for SNF, map, tileset, sprite |
 | `docs/rendering.md` | Isometric map rendering: coordinate transforms, layer ordering, painter's algorithm, sprite transparency |
 | `docs/database_and_references.md` | SQLite schema overview |
@@ -574,7 +521,7 @@ Subcommands defined in `src/cli.rs`: extract, patch, validate, list, schema, spr
 - **Text encoding**: Check encoding table before reading — wrong codec = corruption
 - **Map memory**: Never load full rendered map (~300MB); use viewport + LRU cache
 - **Macros have no unit tests**: `dispel-macros` is verified only via dependent crate's tests
-- **Editor count changes**: AGENTS.md previously said 27 editors — actual is 39 (8 standard + 17 custom boxed + 5 tabbed + 4 single-instance + 5 per-tab HashMap)
+- **Editor count drifts**: Verify editor count against `EditorRegistry` and `EditorType` if unsure
 
 ---
 
