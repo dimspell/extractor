@@ -139,10 +139,22 @@ pub fn compute_block_pixels(
             ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
         let block_len = block_end - block_start;
 
-        // ── Sample 3 positions: 25 %, 50 %, 75 % of the block ─────────
-        // This gives better pattern/dirty/diff detection than a single
-        // midpoint, while the variance between samples adds a natural
-        // brightness heatmap (uniform blocks recede, varied blocks pop).
+        // ── Detect pattern / dirty / diff via range queries ─────────
+        // `BTreeMap::range` / `BTreeSet::range` are O(log n) per check
+        // and find *any* address in the block — not just sample points.
+        // This guarantees every pattern is visible regardless of its
+        // position within the block.
+
+        let has_pattern = if block_len > 0 {
+            pattern_by_addr.range(block_start..block_end).next()
+                .map(|(&addr, &(pid, ci))| (addr, (pid, ci)))
+        } else {
+            None
+        };
+        let has_dirty = block_len > 0 && dirty.range(block_start..block_end).next().is_some();
+        let has_diff = block_len > 0 && vanilla_diff.range(block_start..block_end).next().is_some();
+
+        // ── 3-sample byte values (for default-case colour + variance) ──
         let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
 
         let p0 = if block_len > 0 { block_start + block_len / 4 } else { block_start };
@@ -152,23 +164,7 @@ pub fn compute_block_pixels(
         let v1 = get(p1);
         let v2 = get(p2);
 
-        // Priority: any sample in pattern → full-brightness pattern_bg.
-        let mut pattern_hit = None;
-        let mut dirty_hit = false;
-        let mut diff_hit = false;
-        for &addr in &[p0, p1, p2] {
-            if pattern_hit.is_none() {
-                pattern_hit = pattern_by_addr.get(&addr);
-            }
-            if !dirty_hit {
-                dirty_hit = dirty.contains(&addr);
-            }
-            if !diff_hit {
-                diff_hit = vanilla_diff.contains(&addr);
-            }
-        }
-
-        let pixel = if let Some(&(pid, color_idx)) = pattern_hit {
+        let pixel = if let Some((_addr, (pid, color_idx))) = has_pattern {
             let mut c = pattern_bg(color_idx);
             if alternate_patterns.contains(&pid) {
                 c.r *= 0.5;
@@ -176,9 +172,9 @@ pub fn compute_block_pixels(
                 c.b *= 0.5;
             }
             c
-        } else if dirty_hit {
+        } else if has_dirty {
             color!(0x4a1f1a)
-        } else if diff_hit {
+        } else if has_diff {
             color!(0x232f1f)
         } else {
             // Variance-based brightness: uniform blocks stay dim, mixed
@@ -712,6 +708,27 @@ mod tests {
         assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
         assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
         assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+    }
+
+    #[test]
+    fn compute_block_pixels_pattern_not_at_sample_point() {
+        // Pattern at addr 7, but the block spans the whole file.
+        // Sample points (25 %, 50 %, 75 %) are at 25, 50, 75 —
+        // none hit addr 7.  Range query catches it.
+        let bytes = [0x00u8; 100];
+        let mut patterns = BTreeMap::new();
+        patterns.insert(7, (0usize, 4u8));
+        let pixels = compute_block_pixels(
+            &bytes, 100, 1,
+            &patterns, &BTreeSet::new(),
+            &BTreeSet::new(), &BTreeSet::new(),
+            ColorScheme::Monochrome, false,
+        );
+        assert_eq!(pixels.len(), 1);
+        let expected = super::pattern_bg(4);
+        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r diff={}", pixels[0].r - expected.r);
+        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g diff={}", pixels[0].g - expected.g);
+        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b diff={}", pixels[0].b - expected.b);
     }
 
     #[test]
