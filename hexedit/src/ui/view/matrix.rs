@@ -637,6 +637,12 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         let total_h = self.total_height();
         let total_len = self.bytes.len() as u64;
         let viewport_h = self.content_viewport_h(bounds.height, bounds.width);
+    let content_bounds = Rectangle {
+        x: bounds.x,
+        y: bounds.y + HEADER_HEIGHT,
+        width: bounds.width,
+        height: viewport_h,
+    };
 
         match event {
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
@@ -811,7 +817,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 // Cell click → selection (and maybe edit on double-click).
                 if let Some(addr) = addr_at(
                     p,
-                    bounds,
+                    content_bounds,
                     state.scroll_offset.get(),
                     state.scroll_x.get(),
                     self.bytes_per_row,
@@ -854,7 +860,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 }
                 if let Some(addr) = addr_at(
                     p,
-                    bounds,
+                    content_bounds,
                     state.scroll_offset.get(),
                     state.scroll_x.get(),
                     self.bytes_per_row,
@@ -947,7 +953,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     }
                     if let Some(addr) = addr_at(
                         p,
-                        bounds,
+                        content_bounds,
                         state.scroll_offset.get(),
                         state.scroll_x.get(),
                         self.bytes_per_row,
