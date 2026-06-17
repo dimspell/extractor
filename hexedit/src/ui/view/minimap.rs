@@ -1,9 +1,11 @@
 //! Minimap / overview strip for the hex matrix.
 //!
-//! A 40 px-wide strip between the hex content area and the scrollbar showing
-//! the entire file as a column of coloured pixels.  Each pixel row represents
-//! a block of bytes, coloured using the same scheme as the matrix.
-//! Click or drag on the minimap to scroll.
+//! A 36 px-wide strip between the hex content area and the scrollbar showing
+//! three independent columns of coloured pixels per viewport row.  Each
+//! column represents a distinct file block, giving 3× the vertical
+//! resolution of a single-column minimap.  Click or drag to scroll.
+//!
+//! Layout: `| content | col0(11) | col1(11) | col2(11) | scrollbar |`
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -15,17 +17,20 @@ use iced::{
 use crate::ui::coloring::{default_byte_colors, ColorScheme};
 
 /// Width of the minimap strip in pixels.
-pub const MINIMAP_WIDTH: f32 = 40.0;
+pub const MINIMAP_WIDTH: f32 = 36.0;
 
-/// Size of search / cursor marker dots on the minimap.
-pub const MINIMAP_MARKER_SIZE: f32 = 3.0;
+/// Number of sub-columns per pixel row.
+pub const MINIMAP_COLS: usize = 3;
+
+/// Width of each sub-column in pixels.
+pub const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 11.0
 
 /// Compute the minimap rectangle.
 ///
 /// The minimap sits to the *left* of the vertical scrollbar.
 ///
 /// | content | minimap | scrollbar |
-/// |         |  40 px  |   10 px   |
+/// |         |  36 px  |   10 px   |
 pub fn minimap_rect(
     content_bounds: Rectangle,
     viewport_h: f32,
@@ -124,93 +129,108 @@ pub fn compute_block_pixels(
     vanilla_diff: &BTreeSet<u64>,
     color_scheme: ColorScheme,
     dim_nulls: bool,
-) -> Vec<Color> {
+) -> [Vec<Color>; 3] {
     if total_len == 0 || h_px == 0 {
-        return Vec::new();
+        return Default::default();
     }
-    let stride = total_len.div_ceil(h_px as u64);
-    let h = h_px as usize;
+    let n = h_px as usize;
+    let total_blocks = (MINIMAP_COLS as u64) * h_px as u64;
+    let stride = total_len.div_ceil(total_blocks);
     let last_valid = bytes.len().saturating_sub(1) as u64;
-    let mut pixels = Vec::with_capacity(h);
 
-    for i in 0..h {
-        let block_start = (i as u64).saturating_mul(stride).min(total_len);
-        let block_end =
-            ((i as u64 + 1).saturating_mul(stride)).min(total_len).min(bytes.len() as u64);
-        let block_len = block_end - block_start;
+    let mut cols: [Vec<Color>; 3] = [
+        Vec::with_capacity(n),
+        Vec::with_capacity(n),
+        Vec::with_capacity(n),
+    ];
 
-        // ── Detect pattern / dirty / diff via range queries ─────────
-        // `BTreeMap::range` / `BTreeSet::range` are O(log n) per check
-        // and find *any* address in the block — not just sample points.
-        // This guarantees every pattern is visible regardless of its
-        // position within the block.
-
-        let has_pattern = if block_len > 0 {
-            pattern_by_addr.range(block_start..block_end).next()
-                .map(|(&addr, &(pid, ci))| (addr, (pid, ci)))
-        } else {
-            None
-        };
-        let has_dirty = block_len > 0 && dirty.range(block_start..block_end).next().is_some();
-        let has_diff = block_len > 0 && vanilla_diff.range(block_start..block_end).next().is_some();
-
-        // ── 3-sample byte values (for default-case colour + variance) ──
-        let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
-
-        let p0 = if block_len > 0 { block_start + block_len / 4 } else { block_start };
-        let p1 = if block_len >= 2 { block_start + block_len / 2 } else { p0 };
-        let p2 = if block_len >= 3 { block_start + block_len * 3 / 4 } else { p1 };
-        let v0 = get(p0);
-        let v1 = get(p1);
-        let v2 = get(p2);
-
-        let pixel = if let Some((_addr, (pid, color_idx))) = has_pattern {
-            let mut c = pattern_bg(color_idx);
-            if alternate_patterns.contains(&pid) {
-                c.r *= 0.5;
-                c.g *= 0.5;
-                c.b *= 0.5;
-            }
-            c
-        } else if has_dirty {
-            color!(0x4a1f1a)
-        } else if has_diff {
-            color!(0x232f1f)
-        } else {
-            // Variance-based brightness: uniform blocks stay dim, mixed
-            // blocks bloom to full brightness.  Normalised so max variance
-            // (~14 450 for alternating 0x00/0xFF) maps to brightness ≈ 1.
-            let vf0 = v0 as f32;
-            let vf1 = v1 as f32;
-            let vf2 = v2 as f32;
-            let mean_f = (vf0 + vf1 + vf2) / 3.0;
-            let var = ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2))
-                / 3.0;
-            let norm = (var / 15_000.0).clamp(0.0, 1.0);
-            let brightness = 0.30 + norm * 0.70;
-
-            let mean_byte = mean_f.round() as u8;
-            let (fg, _) = default_byte_colors(color_scheme, mean_byte, dim_nulls);
-            let c = fg.unwrap_or(color!(0xd4cabd));
-            Color::from_rgb(
-                c.r * 0.55 * brightness,
-                c.g * 0.55 * brightness,
-                c.b * 0.55 * brightness,
-            )
-        };
-        pixels.push(pixel);
+    for block_idx in 0..total_blocks as usize {
+        let start = (block_idx as u64).saturating_mul(stride).min(total_len);
+        let end = ((block_idx as u64 + 1).saturating_mul(stride))
+            .min(total_len)
+            .min(bytes.len() as u64);
+        cols[block_idx % MINIMAP_COLS].push(block_color(
+            start, end, bytes, last_valid,
+            pattern_by_addr, alternate_patterns, dirty, vanilla_diff,
+            color_scheme, dim_nulls,
+        ));
     }
-    pixels
+    cols
+}
+
+/// Per-block colour logic shared by all 3 sub-columns.  The same priority
+/// applies: pattern → dirty → diff → mean+variance brightness.
+#[allow(clippy::too_many_arguments)]
+fn block_color(
+    block_start: u64,
+    block_end: u64,
+    bytes: &[u8],
+    last_valid: u64,
+    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
+    alternate_patterns: &BTreeSet<usize>,
+    dirty: &BTreeSet<u64>,
+    vanilla_diff: &BTreeSet<u64>,
+    color_scheme: ColorScheme,
+    dim_nulls: bool,
+) -> Color {
+    let block_len = block_end - block_start;
+
+    let has_pattern = if block_len > 0 {
+        pattern_by_addr.range(block_start..block_end).next()
+            .map(|(&addr, &(pid, ci))| (addr, (pid, ci)))
+    } else {
+        None
+    };
+    let has_dirty = block_len > 0 && dirty.range(block_start..block_end).next().is_some();
+    let has_diff = block_len > 0 && vanilla_diff.range(block_start..block_end).next().is_some();
+
+    let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
+
+    let p0 = if block_len > 0 { block_start + block_len / 4 } else { block_start };
+    let p1 = if block_len >= 2 { block_start + block_len / 2 } else { p0 };
+    let p2 = if block_len >= 3 { block_start + block_len * 3 / 4 } else { p1 };
+    let v0 = get(p0);
+    let v1 = get(p1);
+    let v2 = get(p2);
+
+    if let Some((_addr, (pid, color_idx))) = has_pattern {
+        let mut c = pattern_bg(color_idx);
+        if alternate_patterns.contains(&pid) {
+            c.r *= 0.5;
+            c.g *= 0.5;
+            c.b *= 0.5;
+        }
+        c
+    } else if has_dirty {
+        color!(0x4a1f1a)
+    } else if has_diff {
+        color!(0x232f1f)
+    } else {
+        let vf0 = v0 as f32;
+        let vf1 = v1 as f32;
+        let vf2 = v2 as f32;
+        let mean_f = (vf0 + vf1 + vf2) / 3.0;
+        let var = ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2))
+            / 3.0;
+        let norm = (var / 15_000.0).clamp(0.0, 1.0);
+        let brightness = 0.30 + norm * 0.70;
+
+        let mean_byte = mean_f.round() as u8;
+        let (fg, _) = default_byte_colors(color_scheme, mean_byte, dim_nulls);
+        let c = fg.unwrap_or(color!(0xd4cabd));
+        Color::from_rgb(
+            c.r * 0.55 * brightness,
+            c.g * 0.55 * brightness,
+            c.b * 0.55 * brightness,
+        )
+    }
 }
 
 /// Draw the minimap overview strip.
 ///
-/// Renders the pre-computed pixel column, viewport overlay, cursor marker,
-/// and search-match markers in the 40 px-wide strip between the hex content
-/// and the vertical scrollbar.
-///
-/// `pixels` should contain one colour per pixel row (as returned by
-/// [`compute_block_pixels`]).
+/// Renders 3 independent sub-columns side by side, each showing a distinct
+/// ⅓ of the file blocks.  Viewport overlay, selection-range band, and
+/// cursor-position marker are drawn on top.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_minimap(
     renderer: &mut iced::Renderer,
@@ -218,22 +238,18 @@ pub fn draw_minimap(
     scroll: f32,
     total_h: f32,
     viewport_h: f32,
-    pixels: &[Color],
-    search_match_starts: &[u64],
+    columns: &[Vec<Color>; 3],
+    selection_start: u64,
+    selection_end: u64,
     cursor_addr: u64,
     total_len: u64,
     _active: bool,
 ) {
-    let right_strip = 10.0; // SCROLLBAR_THICKNESS
+    let right_strip = 10.0;
     let mm_rect = minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, right_strip);
 
-    // Track background (same colour as scrollbar track).
-    renderer.fill_quad(
-        quad(mm_rect),
-        Background::Color(color!(0x141210)),
-    );
+    renderer.fill_quad(quad(mm_rect), Background::Color(color!(0x141210)));
 
-    // ── Left border (1 px separator from content area) ──────────────
     renderer.fill_quad(
         quad(Rectangle {
             x: mm_rect.x,
@@ -244,28 +260,28 @@ pub fn draw_minimap(
         Background::Color(color!(0x2a2218)),
     );
 
-    // ── Pixel column (batched by colour) ──────────────────────────
-    // Consecutive same-colour rows are merged into a single taller
-    // quad to reduce fill_quad calls — a 600 px minimap goes from
-    // ~600 quads to ~10-40 quads depending on file structure.
-    let mut i = 0;
-    while i < pixels.len() {
-        let c = pixels[i];
-        let mut j = i + 1;
-        while j < pixels.len() && pixels[j] == c {
-            j += 1;
+    // ── Three sub-columns (batched by colour) ──────────────────────
+    let inner_x = mm_rect.x + 2.0;
+    for (col, col_data) in columns.iter().enumerate() {
+        let cx = inner_x + col as f32 * MINIMAP_COL_WIDTH;
+        let mut i = 0;
+        while i < col_data.len() {
+            let c = col_data[i];
+            let mut j = i + 1;
+            while j < col_data.len() && col_data[j] == c {
+                j += 1;
+            }
+            renderer.fill_quad(
+                quad(Rectangle {
+                    x: cx,
+                    y: mm_rect.y + i as f32,
+                    width: MINIMAP_COL_WIDTH,
+                    height: (j - i) as f32,
+                }),
+                Background::Color(c),
+            );
+            i = j;
         }
-        let run_h = (j - i) as f32;
-        renderer.fill_quad(
-            quad(Rectangle {
-                x: mm_rect.x + 2.0,
-                y: mm_rect.y + i as f32,
-                width: mm_rect.width - 4.0,
-                height: run_h,
-            }),
-            Background::Color(c),
-        );
-        i = j;
     }
 
     // ── Viewport overlay ───────────────────────────────────────────
@@ -316,23 +332,24 @@ pub fn draw_minimap(
         );
     }
 
-    // ── Search-match markers (green dots) ──────────────────────────
-    let marker_sz = MINIMAP_MARKER_SIZE;
-    for &match_start in search_match_starts {
-        let frac = if total_len > 0 {
-            (match_start as f32) / (total_len as f32)
-        } else {
-            0.0
-        };
-        let my = mm_rect.y + frac * mm_rect.height;
+    // ── Selection-range band (translucent blue) ─────────────────────
+    // When a multi-byte selection is active, show its file-span as a
+    // translucent overlay spanning the full minimap width.
+    if total_len > 0 && selection_start != selection_end {
+        let sel_lo = selection_start.min(selection_end);
+        let sel_hi = selection_start.max(selection_end);
+        let frac_lo = (sel_lo as f32) / (total_len as f32);
+        let frac_hi = (sel_hi as f32) / (total_len as f32);
+        let band_y = mm_rect.y + frac_lo * mm_rect.height;
+        let band_h = (frac_hi - frac_lo) * mm_rect.height;
         renderer.fill_quad(
             quad(Rectangle {
-                x: mm_rect.x + (mm_rect.width - marker_sz) / 2.0,
-                y: my - marker_sz / 2.0,
-                width: marker_sz,
-                height: marker_sz,
+                x: mm_rect.x + 1.0,
+                y: band_y,
+                width: mm_rect.width - 1.0,
+                height: band_h.max(1.0),
             }),
-            Background::Color(color!(0x4a7a2a)),
+            Background::Color(Color::from_rgba(0.25, 0.45, 0.80, 0.20)),
         );
     }
 
@@ -342,10 +359,10 @@ pub fn draw_minimap(
         let cy = mm_rect.y + frac * mm_rect.height;
         renderer.fill_quad(
             quad(Rectangle {
-                x: mm_rect.x + (mm_rect.width - marker_sz) / 2.0,
-                y: cy - marker_sz / 2.0,
-                width: marker_sz,
-                height: marker_sz,
+                x: mm_rect.x + (mm_rect.width - 3.0) / 2.0,
+                y: cy - 1.5,
+                width: 3.0,
+                height: 3.0,
             }),
             Background::Color(color!(0xB97024)),
         );
@@ -355,8 +372,8 @@ pub fn draw_minimap(
 /// Cached minimap pixel colors to avoid re-scanning the file every frame.
 #[derive(Clone)]
 pub struct MinimapCache {
-    /// One pixel color per pixel row.
-    pub pixels: Vec<Color>,
+    /// Three pixel arrays, one per sub-column.  Each has `h_px` entries.
+    pub columns: [Vec<Color>; 3],
     /// File length when cached.
     pub total_len: u64,
     /// Number of pixel rows when cached.
@@ -658,87 +675,92 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_empty_file() {
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &[], 0, 10,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert!(pixels.is_empty());
+        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty());
     }
 
     #[test]
     fn compute_block_pixels_zero_height() {
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &[0xFF; 100], 100, 0,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert!(pixels.is_empty());
+        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty());
     }
 
     #[test]
     fn compute_block_pixels_uniform_bytes() {
-        // Uniform 0xFF → no variance → brightness = 0.30 (minimum).
         let bytes = [0xFFu8; 200];
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 200, 10,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[0].len(), 10);
+        assert_eq!(cols[1].len(), 10);
+        assert_eq!(cols[2].len(), 10);
         let brightness = 0.30_f32;
         let expected = Color::from_rgb(
             0xD4 as f32 / 255.0 * 0.55 * brightness,
             0xCA as f32 / 255.0 * 0.55 * brightness,
             0xBD as f32 / 255.0 * 0.55 * brightness,
         );
-        for (i, &p) in pixels.iter().enumerate() {
-            assert!((p.r - expected.r).abs() < 0.0001, "pixel {i}: r");
-            assert!((p.g - expected.g).abs() < 0.0001, "pixel {i}: g");
-            assert!((p.b - expected.b).abs() < 0.0001, "pixel {i}: b");
+        for col in 0..3 {
+            for (i, &p) in cols[col].iter().enumerate() {
+                assert!((p.r - expected.r).abs() < 0.0001, "col {col} pixel {i}: r");
+                assert!((p.g - expected.g).abs() < 0.0001, "col {col} pixel {i}: g");
+                assert!((p.b - expected.b).abs() < 0.0001, "col {col} pixel {i}: b");
+            }
         }
     }
 
     #[test]
     fn compute_block_pixels_pattern_dominates() {
+        // Pattern at addr 5.  With 100 bytes, 10 rows → 30 blocks,
+        // stride = 4.  Block 1 covers [4,8) which includes addr 5.
+        // Block 1 → col 1, row 0.
         let bytes = [0x00u8; 100];
         let mut patterns = BTreeMap::new();
         patterns.insert(5, (0usize, 3u8));
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 10,
             &patterns, &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[1].len(), 10);
         let expected = super::pattern_bg(3);
-        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+        assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
+        assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
+        assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
     }
 
     #[test]
     fn compute_block_pixels_pattern_not_at_sample_point() {
-        // Pattern at addr 7, but the block spans the whole file.
-        // Sample points (25 %, 50 %, 75 %) are at 25, 50, 75 —
-        // none hit addr 7.  Range query catches it.
+        // Pattern at addr 7, 100 bytes, 1 row → 3 blocks, stride = 34.
+        // Block 0 covers [0,34) → col 0.  Range query catches addr 7.
         let bytes = [0x00u8; 100];
         let mut patterns = BTreeMap::new();
         patterns.insert(7, (0usize, 4u8));
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 1,
             &patterns, &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 1);
+        assert_eq!(cols[0].len(), 1);
         let expected = super::pattern_bg(4);
-        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r diff={}", pixels[0].r - expected.r);
-        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g diff={}", pixels[0].g - expected.g);
-        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b diff={}", pixels[0].b - expected.b);
+        assert!((cols[0][0].r - expected.r).abs() < 0.0001, "r");
+        assert!((cols[0][0].g - expected.g).abs() < 0.0001, "g");
+        assert!((cols[0][0].b - expected.b).abs() < 0.0001, "b");
     }
 
     #[test]
@@ -748,18 +770,18 @@ mod tests {
         patterns.insert(5, (17usize, 2u8));
         let mut alternate = BTreeSet::new();
         alternate.insert(17);
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 10,
             &patterns, &alternate,
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[1].len(), 10);
         let base = super::pattern_bg(2);
         let expected = Color::from_rgb(base.r * 0.5, base.g * 0.5, base.b * 0.5);
-        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+        assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
+        assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
+        assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
     }
 
     #[test]
@@ -769,17 +791,17 @@ mod tests {
         dirty.insert(5);
         let mut diff = BTreeSet::new();
         diff.insert(5);
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 10,
             &BTreeMap::new(), &BTreeSet::new(),
             &dirty, &diff,
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[1].len(), 10);
         let dirty_c = Color::from_rgb(0x4A as f32 / 255.0, 0x1F as f32 / 255.0, 0x1A as f32 / 255.0);
-        assert!((pixels[0].r - dirty_c.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - dirty_c.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - dirty_c.b).abs() < 0.0001, "b");
+        assert!((cols[1][0].r - dirty_c.r).abs() < 0.0001, "r");
+        assert!((cols[1][0].g - dirty_c.g).abs() < 0.0001, "g");
+        assert!((cols[1][0].b - dirty_c.b).abs() < 0.0001, "b");
     }
 
     #[test]
@@ -787,17 +809,17 @@ mod tests {
         let bytes = [0x00u8; 100];
         let mut diff = BTreeSet::new();
         diff.insert(5);
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 10,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &diff,
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[1].len(), 10);
         let diff_c = Color::from_rgb(0x23 as f32 / 255.0, 0x2F as f32 / 255.0, 0x1F as f32 / 255.0);
-        assert!((pixels[0].r - diff_c.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - diff_c.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - diff_c.b).abs() < 0.0001, "b");
+        assert!((cols[1][0].r - diff_c.r).abs() < 0.0001, "r");
+        assert!((cols[1][0].g - diff_c.g).abs() < 0.0001, "g");
+        assert!((cols[1][0].b - diff_c.b).abs() < 0.0001, "b");
     }
 
     #[test]
@@ -809,30 +831,32 @@ mod tests {
         dirty.insert(5);
         let mut diff = BTreeSet::new();
         diff.insert(5);
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 100, 10,
             &patterns, &BTreeSet::new(),
             &dirty, &diff,
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
+        assert_eq!(cols[1].len(), 10);
         let expected = super::pattern_bg(1);
-        assert!((pixels[0].r - expected.r).abs() < 0.0001, "r");
-        assert!((pixels[0].g - expected.g).abs() < 0.0001, "g");
-        assert!((pixels[0].b - expected.b).abs() < 0.0001, "b");
+        assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
+        assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
+        assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
     }
 
     #[test]
     fn compute_block_pixels_stride_ceiling_covers_last_block() {
         let bytes = vec![0x42u8; 101];
-        let pixels = compute_block_pixels(
+        let cols = compute_block_pixels(
             &bytes, 101, 10,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 10);
-        let _ = pixels[9]; // last pixel should be valid
+        assert_eq!(cols[0].len(), 10);
+        assert_eq!(cols[2].len(), 10);
+        let _ = cols[0][9]; // last pixel in col 0 should be valid
+        let _ = cols[2][9]; // last pixel in col 2 should be valid
     }
 
     // ── pattern_hash —─────────────────────────────────────────────────
@@ -858,7 +882,7 @@ mod tests {
         let mut patterns = BTreeMap::new();
         patterns.insert(10, (0usize, 1u8));
         let cache = MinimapCache {
-            pixels: vec![Color::WHITE],
+            columns: [vec![Color::WHITE], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -880,7 +904,7 @@ mod tests {
     #[test]
     fn minimap_cache_valid_detects_size_change() {
         let cache = MinimapCache {
-            pixels: vec![Color::WHITE],
+            columns: [vec![Color::WHITE], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -895,7 +919,7 @@ mod tests {
     #[test]
     fn minimap_cache_valid_detects_scheme_change() {
         let cache = MinimapCache {
-            pixels: vec![Color::WHITE],
+            columns: [vec![Color::WHITE], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -910,7 +934,7 @@ mod tests {
     #[test]
     fn minimap_cache_valid_detects_dirty_count_change() {
         let cache = MinimapCache {
-            pixels: vec![Color::WHITE],
+            columns: [vec![Color::WHITE], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -927,87 +951,69 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_multi_sample_and_variance() {
-        // 20 bytes, 2 pixels, stride = 10.
-        // Block 0 [0..10): bytes 0-4 = 0x00, bytes 5-9 = 0xFF.
-        //   Samples: 25%=2(0x00), 50%=5(0xFF), 75%=7(0xFF)
-        //   Mean = 170, variance ≈ 14 450, brightness ≈ 0.974.
-        // Block 1 [10..20): all 0x00.
-        //   Samples: 25%=12(0x00), 50%=15(0x00), 75%=17(0x00)
-        //   Mean = 0, variance = 0, brightness = 0.30.
-        let mut bytes = [0x00u8; 20];
-        for i in 5..10 {
-            bytes[i] = 0xFF;
-        }
-        let pixels = compute_block_pixels(
-            &bytes, 20, 2,
+        // 9 bytes, 3 rows → 9 blocks, stride = 1.  Each block is 1 byte.
+        // Col 0: blocks 0, 3, 6  → bytes 0, 3, 6 = 0x00, 0xFF, 0x00
+        // Col 1: blocks 1, 4, 7  → bytes 1, 4, 7 = 0x00, 0xFF, 0x00
+        // Col 2: blocks 2, 5, 8  → bytes 2, 5, 8 = 0x00, 0xFF, 0x00
+        // All three cols are uniform per-block (single byte → variance=0,
+        // brightness=0.30) but alternate between dim 0x00 and brighter 0xFF.
+        let bytes = [0x00u8, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00];
+        let cols = compute_block_pixels(
+            &bytes, 9, 3,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        assert_eq!(pixels.len(), 2);
+        assert_eq!(cols[0].len(), 3);
+        assert_eq!(cols[1].len(), 3);
+        assert_eq!(cols[2].len(), 3);
 
-        // Brightness computation (replicated from the implementation for
-        // self-consistency — catches logic errors, not float drift).
-        fn brightness_for(v0: u8, v1: u8, v2: u8) -> f32 {
-            let (vf0, vf1, vf2) = (v0 as f32, v1 as f32, v2 as f32);
-            let mean_f = (vf0 + vf1 + vf2) / 3.0;
-            let var =
-                ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2)) / 3.0;
-            0.30 + (var / 15_000.0).clamp(0.0, 1.0) * 0.70
-        }
+        let brightness = 0.30_f32;
+        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
+        let c0 = fg0.unwrap();
+        let dim = Color::from_rgb(c0.r * 0.55 * brightness, c0.g * 0.55 * brightness, c0.b * 0.55 * brightness);
 
-        // Pixel 0: mixed block → high variance → nearly full brightness.
-        let b0 = brightness_for(0x00, 0xFF, 0xFF);
-        assert!((b0 - 0.974).abs() < 0.005, "pixel 0 brightness {}", b0);
-        let mean0 = 170u8;
-        let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, mean0, false);
-        let base0 = fg0.unwrap();
-        let expected0 =
-            Color::from_rgb(base0.r * 0.55 * b0, base0.g * 0.55 * b0, base0.b * 0.55 * b0);
-        let d0 = (pixels[0].r - expected0.r).abs()
-            + (pixels[0].g - expected0.g).abs()
-            + (pixels[0].b - expected0.b).abs();
-        assert!(d0 < 0.001, "pixel 0: diff={d0}");
+        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, 0xFF, false);
+        let c1 = fg1.unwrap();
+        let bright = Color::from_rgb(c1.r * 0.55 * brightness, c1.g * 0.55 * brightness, c1.b * 0.55 * brightness);
 
-        // Pixel 1: uniform block → zero variance → dim.
-        let b1 = brightness_for(0x00, 0x00, 0x00);
-        assert!((b1 - 0.30).abs() < 0.001, "pixel 1 brightness {}", b1);
-        let mean1 = 0u8;
-        let (fg1, _) = default_byte_colors(ColorScheme::Monochrome, mean1, false);
-        let base1 = fg1.unwrap();
-        let expected1 =
-            Color::from_rgb(base1.r * 0.55 * b1, base1.g * 0.55 * b1, base1.b * 0.55 * b1);
-        let d1 = (pixels[1].r - expected1.r).abs()
-            + (pixels[1].g - expected1.g).abs()
-            + (pixels[1].b - expected1.b).abs();
-        assert!(d1 < 0.001, "pixel 1: diff={d1}");
+        // All 3 cols have the same pattern: dim, bright, dim
+        let d0 = (cols[0][0].r - dim.r).abs() + (cols[0][0].g - dim.g).abs() + (cols[0][0].b - dim.b).abs();
+        assert!(d0 < 0.001, "col 0 row 0 = {}, expected dim", d0);
+        let b0 = (cols[0][1].r - bright.r).abs() + (cols[0][1].g - bright.g).abs() + (cols[0][1].b - bright.b).abs();
+        assert!(b0 < 0.001, "col 0 row 1 = {}, expected bright", b0);
     }
 
     #[test]
-    fn compute_block_pixels_variance_mixed_brighter_than_uniform() {
-        // Two blocks with the same mean byte but different variance.
-        // The mixed block must be visibly brighter.
-        let mut mixed = [0x00u8; 20];
-        for b in &mut mixed[5..15] {
-            *b = 0xFF;
-        } // alternating block: 0s followed by 0xFFs → high variance
-        let mut uniform = [0x80u8; 20]; // all same → zero variance
+    fn compute_block_pixels_variance_one_col_mixed_brighter_than_uniform() {
+        // With stride=1 (single byte blocks), variance is always 0.
+        // Use stride=4 to get multi-byte blocks with variance.
+        // 24 bytes, 2 rows → 6 blocks, stride = 4.
+        // Only col 0 has multiple blocks: blocks 0 and 3.
+        // Block 0: [0,4) = 0x00, 0x00, 0x00, 0xFF → mixed
+        // Block 3: [12,16) = 0x00, 0x00, 0x00, 0xFF → mixed (same data)
+        let mut bytes = [0x00u8; 24];
+        bytes[3] = 0xFF;
+        bytes[15] = 0xFF;
+
+        // Uniform blocks: all same → zero variance
+        let uniform_bytes = [0x80u8; 24];
 
         let p_mixed = compute_block_pixels(
-            &mixed, 20, 2,
+            &bytes, 24, 2,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
         let p_uniform = compute_block_pixels(
-            &uniform, 20, 2,
+            &uniform_bytes, 24, 2,
             &BTreeMap::new(), &BTreeSet::new(),
             &BTreeSet::new(), &BTreeSet::new(),
             ColorScheme::Monochrome, false,
         );
-        // Mixed block should have at least one pixel brighter than uniform.
-        let lum_mixed = p_mixed.iter().map(|c| c.r + c.g + c.b).sum::<f32>();
-        let lum_uniform = p_uniform.iter().map(|c| c.r + c.g + c.b).sum::<f32>();
+        // Mixed col should have at least one pixel brighter than uniform.
+        let lum_mixed: f32 = p_mixed[0].iter().map(|c| c.r + c.g + c.b).sum();
+        let lum_uniform: f32 = p_uniform[0].iter().map(|c| c.r + c.g + c.b).sum();
         assert!(
             lum_mixed > lum_uniform + 0.5,
             "mixed lum {lum_mixed} should be > uniform lum {lum_uniform}"

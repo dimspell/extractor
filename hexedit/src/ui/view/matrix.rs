@@ -1736,18 +1736,19 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 None => true,
             };
             if needs_recompute {
+                let cols = minimap::compute_block_pixels(
+                    self.bytes,
+                    total_len,
+                    h_px,
+                    self.patterns,
+                    &self.alternate_patterns,
+                    self.dirty,
+                    self.vanilla_diff,
+                    self.color_scheme,
+                    self.dim_nulls,
+                );
                 *cache = Some(minimap::MinimapCache {
-                    pixels: minimap::compute_block_pixels(
-                        self.bytes,
-                        total_len,
-                        h_px,
-                        self.patterns,
-                        &self.alternate_patterns,
-                        self.dirty,
-                        self.vanilla_diff,
-                        self.color_scheme,
-                        self.dim_nulls,
-                    ),
+                    columns: cols,
                     total_len,
                     h_px,
                     color_scheme: self.color_scheme,
@@ -1757,10 +1758,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                     diff_count: self.vanilla_diff.len(),
                 });
             }
-            let pixels = cache
-                .as_ref()
-                .map(|c| c.pixels.as_slice())
-                .unwrap_or(&[]);
+            // Safety: cache is always Some here — either it was already
+            // valid or we just recomputed it above.
+            let columns = &cache.as_ref().unwrap().columns;
 
             minimap::draw_minimap(
                 renderer,
@@ -1768,8 +1768,9 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 scroll,
                 total_h,
                 viewport_h,
-                pixels,
-                self.search_match_starts,
+                columns,
+                self.selection.start(),
+                self.selection.end(),
                 self.selection.cursor,
                 total_len,
                 state.dragging_minimap || hovering,
