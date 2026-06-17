@@ -1721,32 +1721,23 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
 
             // Compute or reuse the minimap pixel cache.
             let h_px = viewport_h.max(1.0) as u32;
+            let ctx = minimap::BlockContext {
+                bytes: self.bytes,
+                total_len,
+                pattern_by_addr: self.patterns,
+                alternate_patterns: &self.alternate_patterns,
+                dirty: self.dirty,
+                vanilla_diff: self.vanilla_diff,
+                color_scheme: self.color_scheme,
+                dim_nulls: self.dim_nulls,
+            };
             let mut cache = state.minimap_cache.borrow_mut();
             let needs_recompute = match &*cache {
-                Some(c) => !minimap::minimap_cache_valid(
-                    c,
-                    total_len,
-                    h_px,
-                    self.color_scheme,
-                    self.dim_nulls,
-                    self.patterns,
-                    self.dirty,
-                    self.vanilla_diff,
-                ),
+                Some(c) => !minimap::minimap_cache_valid(c, h_px, &ctx),
                 None => true,
             };
             if needs_recompute {
-                let cols = minimap::compute_block_pixels(
-                    self.bytes,
-                    total_len,
-                    h_px,
-                    self.patterns,
-                    &self.alternate_patterns,
-                    self.dirty,
-                    self.vanilla_diff,
-                    self.color_scheme,
-                    self.dim_nulls,
-                );
+                let cols = minimap::compute_block_pixels(h_px, &ctx);
                 *cache = Some(minimap::MinimapCache {
                     columns: cols,
                     total_len,

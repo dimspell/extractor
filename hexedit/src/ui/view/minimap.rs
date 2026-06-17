@@ -1,13 +1,14 @@
 //! Minimap / overview strip for the hex matrix.
 //!
-//! A 36 px-wide strip between the hex content area and the scrollbar showing
-//! three independent columns of coloured pixels per viewport row.  Each
-//! column represents a distinct file block, giving 3× the vertical
+//! A 35 px-wide strip between the hex content area and the scrollbar showing
+//! four independent columns of coloured pixels per viewport row.  Each
+//! column represents a distinct file block, giving 4× the vertical
 //! resolution of a single-column minimap.  Click or drag to scroll.
 //!
-//! Layout: `| content | col0(11) | col1(11) | col2(11) | scrollbar |`
+//! Layout: `| content | col0(8) | col1(8) | col2(8) | col3(8) | scrollbar |`
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use iced::advanced::Renderer as _;
 use iced::{
@@ -17,20 +18,20 @@ use iced::{
 use crate::ui::coloring::{default_byte_colors, ColorScheme};
 
 /// Width of the minimap strip in pixels.
-pub const MINIMAP_WIDTH: f32 = 36.0;
+pub const MINIMAP_WIDTH: f32 = 35.0;
 
 /// Number of sub-columns per pixel row.
-pub const MINIMAP_COLS: usize = 3;
+pub const MINIMAP_COLS: usize = 4;
 
 /// Width of each sub-column in pixels.
-pub const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 11.0
+pub const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 8.0
 
 /// Compute the minimap rectangle.
 ///
 /// The minimap sits to the *left* of the vertical scrollbar.
 ///
 /// | content | minimap | scrollbar |
-/// |         |  36 px  |   10 px   |
+/// |         |  35 px  |   10 px   |
 pub fn minimap_rect(
     content_bounds: Rectangle,
     viewport_h: f32,
@@ -111,6 +112,21 @@ fn thumb_height(mm_rect: Rectangle, total_h: f32) -> f32 {
         .min(mm_rect.height)
 }
 
+/// Context bundle for minimap block-colour computation.
+///
+/// Groups the parameters that rarely change frame-to-frame so they can be
+/// passed as a single value through the computation pipeline.
+pub struct BlockContext<'a> {
+    pub bytes: &'a [u8],
+    pub total_len: u64,
+    pub pattern_by_addr: &'a BTreeMap<u64, (usize, u8)>,
+    pub alternate_patterns: &'a BTreeSet<usize>,
+    pub dirty: &'a BTreeSet<u64>,
+    pub vanilla_diff: &'a BTreeSet<u64>,
+    pub color_scheme: ColorScheme,
+    pub dim_nulls: bool,
+}
+
 /// Compute minimap pixel colors by block-averaging the file.
 ///
 /// Each pixel row represents a block of bytes.  The block color is
@@ -118,71 +134,56 @@ fn thumb_height(mm_rect: Rectangle, total_h: f32) -> f32 {
 ///
 /// This is the cacheable part of minimap rendering — separated from the
 /// actual draw call so the caller can cache the result across frames.
-#[allow(clippy::too_many_arguments)]
 pub fn compute_block_pixels(
-    bytes: &[u8],
-    total_len: u64,
     h_px: u32,
-    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
-    alternate_patterns: &BTreeSet<usize>,
-    dirty: &BTreeSet<u64>,
-    vanilla_diff: &BTreeSet<u64>,
-    color_scheme: ColorScheme,
-    dim_nulls: bool,
-) -> [Vec<Color>; 3] {
-    if total_len == 0 || h_px == 0 {
+    ctx: &BlockContext,
+) -> [Vec<Color>; 4] {
+    if ctx.total_len == 0 || h_px == 0 {
         return Default::default();
     }
     let n = h_px as usize;
     let total_blocks = (MINIMAP_COLS as u64) * h_px as u64;
-    let stride = total_len.div_ceil(total_blocks);
-    let last_valid = bytes.len().saturating_sub(1) as u64;
+    let stride = ctx.total_len.div_ceil(total_blocks);
+    let last_valid = ctx.bytes.len().saturating_sub(1) as u64;
 
-    let mut cols: [Vec<Color>; 3] = [
+    let mut cols: [Vec<Color>; 4] = [
+        Vec::with_capacity(n),
         Vec::with_capacity(n),
         Vec::with_capacity(n),
         Vec::with_capacity(n),
     ];
 
     for block_idx in 0..total_blocks as usize {
-        let start = (block_idx as u64).saturating_mul(stride).min(total_len);
+        let start = (block_idx as u64).saturating_mul(stride).min(ctx.total_len);
         let end = ((block_idx as u64 + 1).saturating_mul(stride))
-            .min(total_len)
-            .min(bytes.len() as u64);
+            .min(ctx.total_len)
+            .min(ctx.bytes.len() as u64);
         cols[block_idx % MINIMAP_COLS].push(block_color(
-            start, end, bytes, last_valid,
-            pattern_by_addr, alternate_patterns, dirty, vanilla_diff,
-            color_scheme, dim_nulls,
+            start, end, ctx.bytes, last_valid, ctx,
         ));
     }
     cols
 }
 
-/// Per-block colour logic shared by all 3 sub-columns.  The same priority
+/// Per-block colour logic shared by all 4 sub-columns.  The same priority
 /// applies: pattern → dirty → diff → mean+variance brightness.
-#[allow(clippy::too_many_arguments)]
 fn block_color(
     block_start: u64,
     block_end: u64,
     bytes: &[u8],
     last_valid: u64,
-    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
-    alternate_patterns: &BTreeSet<usize>,
-    dirty: &BTreeSet<u64>,
-    vanilla_diff: &BTreeSet<u64>,
-    color_scheme: ColorScheme,
-    dim_nulls: bool,
+    ctx: &BlockContext,
 ) -> Color {
     let block_len = block_end - block_start;
 
     let has_pattern = if block_len > 0 {
-        pattern_by_addr.range(block_start..block_end).next()
+        ctx.pattern_by_addr.range(block_start..block_end).next()
             .map(|(&addr, &(pid, ci))| (addr, (pid, ci)))
     } else {
         None
     };
-    let has_dirty = block_len > 0 && dirty.range(block_start..block_end).next().is_some();
-    let has_diff = block_len > 0 && vanilla_diff.range(block_start..block_end).next().is_some();
+    let has_dirty = block_len > 0 && ctx.dirty.range(block_start..block_end).next().is_some();
+    let has_diff = block_len > 0 && ctx.vanilla_diff.range(block_start..block_end).next().is_some();
 
     let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
 
@@ -195,7 +196,7 @@ fn block_color(
 
     if let Some((_addr, (pid, color_idx))) = has_pattern {
         let mut c = pattern_bg(color_idx);
-        if alternate_patterns.contains(&pid) {
+        if ctx.alternate_patterns.contains(&pid) {
             c.r *= 0.5;
             c.g *= 0.5;
             c.b *= 0.5;
@@ -216,7 +217,7 @@ fn block_color(
         let brightness = 0.30 + norm * 0.70;
 
         let mean_byte = mean_f.round() as u8;
-        let (fg, _) = default_byte_colors(color_scheme, mean_byte, dim_nulls);
+        let (fg, _) = default_byte_colors(ctx.color_scheme, mean_byte, ctx.dim_nulls);
         let c = fg.unwrap_or(color!(0xd4cabd));
         Color::from_rgb(
             c.r * 0.55 * brightness,
@@ -228,8 +229,8 @@ fn block_color(
 
 /// Draw the minimap overview strip.
 ///
-/// Renders 3 independent sub-columns side by side, each showing a distinct
-/// ⅓ of the file blocks.  Viewport overlay, selection-range band, and
+/// Renders 4 independent sub-columns side by side, each showing a distinct
+/// ¼ of the file blocks.  Viewport overlay, selection-range band, and
 /// cursor-position marker are drawn on top.
 #[allow(clippy::too_many_arguments)]
 pub fn draw_minimap(
@@ -238,7 +239,7 @@ pub fn draw_minimap(
     scroll: f32,
     total_h: f32,
     viewport_h: f32,
-    columns: &[Vec<Color>; 3],
+    columns: &[Vec<Color>; 4],
     selection_start: u64,
     selection_end: u64,
     cursor_addr: u64,
@@ -260,7 +261,7 @@ pub fn draw_minimap(
         Background::Color(color!(0x2a2218)),
     );
 
-    // ── Three sub-columns (batched by colour) ──────────────────────
+    // ── Four sub-columns (batched by colour) ───────────────────────
     let inner_x = mm_rect.x + 2.0;
     for (col, col_data) in columns.iter().enumerate() {
         let cx = inner_x + col as f32 * MINIMAP_COL_WIDTH;
@@ -335,34 +336,30 @@ pub fn draw_minimap(
     // ── Selection-range band (translucent blue) ─────────────────────
     // When a multi-byte selection is active, show its file-span as a
     // translucent overlay spanning the full minimap width.
-    if total_len > 0 && selection_start != selection_end {
-        let sel_lo = selection_start.min(selection_end);
-        let sel_hi = selection_start.max(selection_end);
-        let frac_lo = (sel_lo as f32) / (total_len as f32);
-        let frac_hi = (sel_hi as f32) / (total_len as f32);
-        let band_y = mm_rect.y + frac_lo * mm_rect.height;
-        let band_h = (frac_hi - frac_lo) * mm_rect.height;
+    if let Some((raw_y, raw_h)) = minimap_selection_band(mm_rect, total_len, selection_start, selection_end) {
+        let band_y = (mm_rect.y + raw_y).clamp(mm_rect.y, mm_rect.y + mm_rect.height);
+        let band_h = raw_h.max(1.0).min(mm_rect.y + mm_rect.height - band_y);
         renderer.fill_quad(
             quad(Rectangle {
                 x: mm_rect.x + 1.0,
                 y: band_y,
                 width: mm_rect.width - 1.0,
-                height: band_h.max(1.0),
+                height: band_h,
             }),
             Background::Color(Color::from_rgba(0.25, 0.45, 0.80, 0.20)),
         );
     }
 
-    // ── Cursor-position marker (amber dot) ─────────────────────────
+    // ── Cursor-position marker (amber line) ─────────────────────────
     if total_len > 0 {
         let frac = (cursor_addr as f32) / (total_len as f32);
         let cy = mm_rect.y + frac * mm_rect.height;
         renderer.fill_quad(
             quad(Rectangle {
-                x: mm_rect.x + (mm_rect.width - 3.0) / 2.0,
-                y: cy - 1.5,
-                width: 3.0,
-                height: 3.0,
+                x: mm_rect.x + 1.0,
+                y: cy,
+                width: mm_rect.width - 2.0,
+                height: 1.0,
             }),
             Background::Color(color!(0xB97024)),
         );
@@ -372,8 +369,8 @@ pub fn draw_minimap(
 /// Cached minimap pixel colors to avoid re-scanning the file every frame.
 #[derive(Clone)]
 pub struct MinimapCache {
-    /// Three pixel arrays, one per sub-column.  Each has `h_px` entries.
-    pub columns: [Vec<Color>; 3],
+    /// Four pixel arrays, one per sub-column.  Each has `h_px` entries.
+    pub columns: [Vec<Color>; 4],
     /// File length when cached.
     pub total_len: u64,
     /// Number of pixel rows when cached.
@@ -396,35 +393,50 @@ pub struct MinimapCache {
 /// Used to cheaply detect whether the pattern set has changed since the
 /// minimap cache was computed.
 pub fn pattern_hash(patterns: &BTreeMap<u64, (usize, u8)>) -> u64 {
-    let mut h: u64 = 0;
+    let mut h = DefaultHasher::new();
     for (&addr, &(pid, col)) in patterns {
-        h = h.wrapping_mul(31).wrapping_add(addr);
-        h = h.wrapping_mul(31).wrapping_add(pid as u64);
-        h = h.wrapping_mul(31).wrapping_add(col as u64);
+        addr.hash(&mut h);
+        pid.hash(&mut h);
+        col.hash(&mut h);
     }
-    h
+    h.finish()
 }
 
 /// Check whether a cached minimap pixel array is still valid for the
 /// current file state.
-#[allow(clippy::too_many_arguments)]
 pub fn minimap_cache_valid(
     cache: &MinimapCache,
-    total_len: u64,
     h_px: u32,
-    color_scheme: ColorScheme,
-    dim_nulls: bool,
-    pattern_by_addr: &BTreeMap<u64, (usize, u8)>,
-    dirty: &BTreeSet<u64>,
-    vanilla_diff: &BTreeSet<u64>,
+    ctx: &BlockContext,
 ) -> bool {
-    cache.total_len == total_len
+    cache.total_len == ctx.total_len
         && cache.h_px == h_px
-        && cache.color_scheme == color_scheme
-        && cache.dim_nulls == dim_nulls
-        && cache.pattern_hash == pattern_hash(pattern_by_addr)
-        && cache.dirty_count == dirty.len()
-        && cache.diff_count == vanilla_diff.len()
+        && cache.color_scheme == ctx.color_scheme
+        && cache.dim_nulls == ctx.dim_nulls
+        && cache.pattern_hash == pattern_hash(ctx.pattern_by_addr)
+        && cache.dirty_count == ctx.dirty.len()
+        && cache.diff_count == ctx.vanilla_diff.len()
+}
+
+/// Compute the y-offset and height of the selection-range band on the
+/// minimap.  Returns `None` when the file is empty or no selection is active.
+///
+/// The returned `(y_offset, height)` are relative to the minimap top
+/// (`mm_rect.y`).  Callers should clamp them to the minimap bounds.
+pub fn minimap_selection_band(
+    mm_rect: Rectangle,
+    total_len: u64,
+    selection_start: u64,
+    selection_end: u64,
+) -> Option<(f32, f32)> {
+    if total_len == 0 || selection_start == selection_end {
+        return None;
+    }
+    let sel_lo = selection_start.min(selection_end);
+    let sel_hi = selection_start.max(selection_end);
+    let frac_lo = (sel_lo as f32) / (total_len as f32);
+    let frac_hi = (sel_hi as f32) / (total_len as f32);
+    Some((frac_lo * mm_rect.height, (frac_hi - frac_lo) * mm_rect.height))
 }
 
 fn quad(bounds: Rectangle) -> iced::advanced::renderer::Quad {
@@ -472,10 +484,10 @@ mod tests {
             width: 800.0,
             height: 284.0,
         };
-        let r = minimap_rect(cb, 284.0, 40.0, 10.0);
-        assert_eq!(r.x, 750.0);
+        let r = minimap_rect(cb, 284.0, MINIMAP_WIDTH, 10.0);
+        assert_eq!(r.x, 755.0);
         assert_eq!(r.y, 16.0);
-        assert_eq!(r.width, 40.0);
+        assert_eq!(r.width, 35.0);
         assert_eq!(r.height, 284.0);
     }
 
@@ -487,7 +499,7 @@ mod tests {
             width: 800.0,
             height: 0.0,
         };
-        let r = minimap_rect(cb, 0.0, 40.0, 10.0);
+        let r = minimap_rect(cb, 0.0, MINIMAP_WIDTH, 10.0);
         assert_eq!(r.height, 0.0);
     }
 
@@ -675,45 +687,52 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_empty_file() {
-        let cols = compute_block_pixels(
-            &[], 0, 10,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
-        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty());
+        let ctx = BlockContext {
+            bytes: &[], total_len: 0,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
+        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty() && cols[3].is_empty());
     }
 
     #[test]
     fn compute_block_pixels_zero_height() {
-        let cols = compute_block_pixels(
-            &[0xFF; 100], 100, 0,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
-        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty());
+        let ctx = BlockContext {
+            bytes: &[0xFF; 100], total_len: 100,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(0, &ctx);
+        assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty() && cols[3].is_empty());
     }
 
     #[test]
     fn compute_block_pixels_uniform_bytes() {
         let bytes = [0xFFu8; 200];
-        let cols = compute_block_pixels(
-            &bytes, 200, 10,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 200,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[0].len(), 10);
         assert_eq!(cols[1].len(), 10);
         assert_eq!(cols[2].len(), 10);
+        assert_eq!(cols[3].len(), 10);
         let brightness = 0.30_f32;
         let expected = Color::from_rgb(
             0xD4 as f32 / 255.0 * 0.55 * brightness,
             0xCA as f32 / 255.0 * 0.55 * brightness,
             0xBD as f32 / 255.0 * 0.55 * brightness,
         );
-        for col in 0..3 {
+        for col in 0..4 {
             for (i, &p) in cols[col].iter().enumerate() {
                 assert!((p.r - expected.r).abs() < 0.0001, "col {col} pixel {i}: r");
                 assert!((p.g - expected.g).abs() < 0.0001, "col {col} pixel {i}: g");
@@ -724,18 +743,19 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_pattern_dominates() {
-        // Pattern at addr 5.  With 100 bytes, 10 rows → 30 blocks,
-        // stride = 4.  Block 1 covers [4,8) which includes addr 5.
-        // Block 1 → col 1, row 0.
-        let bytes = [0x00u8; 100];
+        // total_len = MINIMAP_COLS * h_px = 40 → stride = 1.
+        // Pattern at addr 1 → block 1 → col 1, row 0.
+        let bytes = [0x00u8; 40];
         let mut patterns = BTreeMap::new();
-        patterns.insert(5, (0usize, 3u8));
-        let cols = compute_block_pixels(
-            &bytes, 100, 10,
-            &patterns, &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
+        patterns.insert(1, (0usize, 3u8));
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &patterns,
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
         let expected = super::pattern_bg(3);
         assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
@@ -745,37 +765,43 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_pattern_not_at_sample_point() {
-        // Pattern at addr 7, 100 bytes, 1 row → 3 blocks, stride = 34.
-        // Block 0 covers [0,34) → col 0.  Range query catches addr 7.
-        let bytes = [0x00u8; 100];
+        // total_len = MINIMAP_COLS * h_px = 40 → stride = 1.
+        // Pattern at addr 3 → block 3 → col 3, row 0.
+        let bytes = [0x00u8; 40];
         let mut patterns = BTreeMap::new();
-        patterns.insert(7, (0usize, 4u8));
-        let cols = compute_block_pixels(
-            &bytes, 100, 1,
-            &patterns, &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
-        assert_eq!(cols[0].len(), 1);
+        patterns.insert(3, (0usize, 4u8));
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &patterns,
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
+        assert_eq!(cols[3].len(), 10);
         let expected = super::pattern_bg(4);
-        assert!((cols[0][0].r - expected.r).abs() < 0.0001, "r");
-        assert!((cols[0][0].g - expected.g).abs() < 0.0001, "g");
-        assert!((cols[0][0].b - expected.b).abs() < 0.0001, "b");
+        assert!((cols[3][0].r - expected.r).abs() < 0.0001, "r");
+        assert!((cols[3][0].g - expected.g).abs() < 0.0001, "g");
+        assert!((cols[3][0].b - expected.b).abs() < 0.0001, "b");
     }
 
     #[test]
     fn compute_block_pixels_zebra_alternate_darkens() {
-        let bytes = [0x00u8; 100];
+        // total_len = 40, h_px = 10 → stride = 1.
+        // Pattern at addr 1 → block 1 → col 1, row 0.
+        let bytes = [0x00u8; 40];
         let mut patterns = BTreeMap::new();
-        patterns.insert(5, (17usize, 2u8));
+        patterns.insert(1, (17usize, 2u8));
         let mut alternate = BTreeSet::new();
         alternate.insert(17);
-        let cols = compute_block_pixels(
-            &bytes, 100, 10,
-            &patterns, &alternate,
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &patterns,
+            alternate_patterns: &alternate,
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
         let base = super::pattern_bg(2);
         let expected = Color::from_rgb(base.r * 0.5, base.g * 0.5, base.b * 0.5);
@@ -786,17 +812,21 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_dirty_over_diff() {
-        let bytes = [0x00u8; 100];
+        // total_len = 40, h_px = 10 → stride = 1.
+        // Dirty and diff at addr 1 → block 1 → col 1, row 0.
+        let bytes = [0x00u8; 40];
         let mut dirty = BTreeSet::new();
-        dirty.insert(5);
+        dirty.insert(1);
         let mut diff = BTreeSet::new();
-        diff.insert(5);
-        let cols = compute_block_pixels(
-            &bytes, 100, 10,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &dirty, &diff,
-            ColorScheme::Monochrome, false,
-        );
+        diff.insert(1);
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &dirty, vanilla_diff: &diff,
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
         let dirty_c = Color::from_rgb(0x4A as f32 / 255.0, 0x1F as f32 / 255.0, 0x1A as f32 / 255.0);
         assert!((cols[1][0].r - dirty_c.r).abs() < 0.0001, "r");
@@ -806,15 +836,19 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_diff_when_no_pattern_or_dirty() {
-        let bytes = [0x00u8; 100];
+        // total_len = 40, h_px = 10 → stride = 1.
+        // Diff at addr 1 → block 1 → col 1, row 0.
+        let bytes = [0x00u8; 40];
         let mut diff = BTreeSet::new();
-        diff.insert(5);
-        let cols = compute_block_pixels(
-            &bytes, 100, 10,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &diff,
-            ColorScheme::Monochrome, false,
-        );
+        diff.insert(1);
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &diff,
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
         let diff_c = Color::from_rgb(0x23 as f32 / 255.0, 0x2F as f32 / 255.0, 0x1F as f32 / 255.0);
         assert!((cols[1][0].r - diff_c.r).abs() < 0.0001, "r");
@@ -824,19 +858,23 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_priority_pattern_over_dirty_and_diff() {
-        let bytes = [0x00u8; 100];
+        // total_len = 40, h_px = 10 → stride = 1.
+        // Pattern, dirty, diff at addr 1 → block 1 → col 1, row 0.
+        let bytes = [0x00u8; 40];
         let mut patterns = BTreeMap::new();
-        patterns.insert(5, (0usize, 1u8));
+        patterns.insert(1, (0usize, 1u8));
         let mut dirty = BTreeSet::new();
-        dirty.insert(5);
+        dirty.insert(1);
         let mut diff = BTreeSet::new();
-        diff.insert(5);
-        let cols = compute_block_pixels(
-            &bytes, 100, 10,
-            &patterns, &BTreeSet::new(),
-            &dirty, &diff,
-            ColorScheme::Monochrome, false,
-        );
+        diff.insert(1);
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 40,
+            pattern_by_addr: &patterns,
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &dirty, vanilla_diff: &diff,
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
         let expected = super::pattern_bg(1);
         assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
@@ -846,24 +884,31 @@ mod tests {
 
     #[test]
     fn compute_block_pixels_stride_ceiling_covers_last_block() {
+        // 101 bytes, h_px=10 → total_blocks=40, stride=ceil(101/40)=3.
+        // Last block 39 covers [117,120) → clamped to 101 → col 3, row 9.
         let bytes = vec![0x42u8; 101];
-        let cols = compute_block_pixels(
-            &bytes, 101, 10,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 101,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[0].len(), 10);
-        assert_eq!(cols[2].len(), 10);
+        assert_eq!(cols[3].len(), 10);
         let _ = cols[0][9]; // last pixel in col 0 should be valid
-        let _ = cols[2][9]; // last pixel in col 2 should be valid
+        let _ = cols[3][9]; // last pixel in col 3 should be valid
     }
 
     // ── pattern_hash —─────────────────────────────────────────────────
 
     #[test]
     fn pattern_hash_empty_map() {
-        assert_eq!(pattern_hash(&BTreeMap::new()), 0);
+        // DefaultHasher does not guarantee zero for the empty map; just
+        // check that calling it on two empty maps gives the same result.
+        let p = pattern_hash(&BTreeMap::new());
+        assert_eq!(p, pattern_hash(&BTreeMap::new()));
     }
 
     #[test]
@@ -882,7 +927,7 @@ mod tests {
         let mut patterns = BTreeMap::new();
         patterns.insert(10, (0usize, 1u8));
         let cache = MinimapCache {
-            columns: [vec![Color::WHITE], vec![], vec![]],
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -895,16 +940,20 @@ mod tests {
         for i in 0..5 { dirty.insert(i); }
         let mut diff = BTreeSet::new();
         for i in 0..3 { diff.insert(100 + i); }
-        assert!(minimap_cache_valid(
-            &cache, 100, 10, ColorScheme::Monochrome, false,
-            &patterns, &dirty, &diff,
-        ));
+        let ctx = BlockContext {
+            bytes: &[], total_len: 100,
+            pattern_by_addr: &patterns,
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &dirty, vanilla_diff: &diff,
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        assert!(minimap_cache_valid(&cache, 10, &ctx));
     }
 
     #[test]
     fn minimap_cache_valid_detects_size_change() {
         let cache = MinimapCache {
-            columns: [vec![Color::WHITE], vec![], vec![]],
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -913,13 +962,20 @@ mod tests {
             dirty_count: 0,
             diff_count: 0,
         };
-        assert!(!minimap_cache_valid(&cache, 200, 10, ColorScheme::Monochrome, false, &BTreeMap::new(), &BTreeSet::new(), &BTreeSet::new()));
+        let ctx = BlockContext {
+            bytes: &[], total_len: 200,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
 
     #[test]
     fn minimap_cache_valid_detects_scheme_change() {
         let cache = MinimapCache {
-            columns: [vec![Color::WHITE], vec![], vec![]],
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -928,13 +984,20 @@ mod tests {
             dirty_count: 0,
             diff_count: 0,
         };
-        assert!(!minimap_cache_valid(&cache, 100, 10, ColorScheme::Nybble, false, &BTreeMap::new(), &BTreeSet::new(), &BTreeSet::new()));
+        let ctx = BlockContext {
+            bytes: &[], total_len: 100,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Nybble, dim_nulls: false,
+        };
+        assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
 
     #[test]
     fn minimap_cache_valid_detects_dirty_count_change() {
         let cache = MinimapCache {
-            columns: [vec![Color::WHITE], vec![], vec![]],
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
             h_px: 10,
             color_scheme: ColorScheme::Monochrome,
@@ -944,7 +1007,14 @@ mod tests {
             diff_count: 0,
         };
         let dirty: BTreeSet<u64> = [1, 2, 3].into_iter().collect();
-        assert!(!minimap_cache_valid(&cache, 100, 10, ColorScheme::Monochrome, false, &BTreeMap::new(), &dirty, &BTreeSet::new()));
+        let ctx = BlockContext {
+            bytes: &[], total_len: 100,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &dirty, vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
 
     // ── compute_block_pixels —─────────────────────────────────────────
@@ -958,15 +1028,18 @@ mod tests {
         // All three cols are uniform per-block (single byte → variance=0,
         // brightness=0.30) but alternate between dim 0x00 and brighter 0xFF.
         let bytes = [0x00u8, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00];
-        let cols = compute_block_pixels(
-            &bytes, 9, 3,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
+        let ctx = BlockContext {
+            bytes: &bytes, total_len: 9,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let cols = compute_block_pixels(3, &ctx);
         assert_eq!(cols[0].len(), 3);
         assert_eq!(cols[1].len(), 3);
         assert_eq!(cols[2].len(), 3);
+        assert_eq!(cols[3].len(), 3);
 
         let brightness = 0.30_f32;
         let (fg0, _) = default_byte_colors(ColorScheme::Monochrome, 0x00, false);
@@ -977,7 +1050,7 @@ mod tests {
         let c1 = fg1.unwrap();
         let bright = Color::from_rgb(c1.r * 0.55 * brightness, c1.g * 0.55 * brightness, c1.b * 0.55 * brightness);
 
-        // All 3 cols have the same pattern: dim, bright, dim
+        // All 4 cols have the same pattern: dim, bright, dim
         let d0 = (cols[0][0].r - dim.r).abs() + (cols[0][0].g - dim.g).abs() + (cols[0][0].b - dim.b).abs();
         assert!(d0 < 0.001, "col 0 row 0 = {}, expected dim", d0);
         let b0 = (cols[0][1].r - bright.r).abs() + (cols[0][1].g - bright.g).abs() + (cols[0][1].b - bright.b).abs();
@@ -987,11 +1060,11 @@ mod tests {
     #[test]
     fn compute_block_pixels_variance_one_col_mixed_brighter_than_uniform() {
         // With stride=1 (single byte blocks), variance is always 0.
-        // Use stride=4 to get multi-byte blocks with variance.
-        // 24 bytes, 2 rows → 6 blocks, stride = 4.
-        // Only col 0 has multiple blocks: blocks 0 and 3.
-        // Block 0: [0,4) = 0x00, 0x00, 0x00, 0xFF → mixed
-        // Block 3: [12,16) = 0x00, 0x00, 0x00, 0xFF → mixed (same data)
+        // Use stride=3 to get multi-byte blocks with variance.
+        // 24 bytes, 2 rows → 8 blocks (4 cols × 2 rows), stride = 3.
+        // Col 1 has blocks 1 and 5.
+        // Block 1: [3,6) = 0xFF, 0x00, 0x00 → mixed
+        // Block 5: [15,18) = 0xFF, 0x00, 0x00 → mixed (same data)
         let mut bytes = [0x00u8; 24];
         bytes[3] = 0xFF;
         bytes[15] = 0xFF;
@@ -999,21 +1072,27 @@ mod tests {
         // Uniform blocks: all same → zero variance
         let uniform_bytes = [0x80u8; 24];
 
-        let p_mixed = compute_block_pixels(
-            &bytes, 24, 2,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
-        let p_uniform = compute_block_pixels(
-            &uniform_bytes, 24, 2,
-            &BTreeMap::new(), &BTreeSet::new(),
-            &BTreeSet::new(), &BTreeSet::new(),
-            ColorScheme::Monochrome, false,
-        );
-        // Mixed col should have at least one pixel brighter than uniform.
-        let lum_mixed: f32 = p_mixed[0].iter().map(|c| c.r + c.g + c.b).sum();
-        let lum_uniform: f32 = p_uniform[0].iter().map(|c| c.r + c.g + c.b).sum();
+        let ctx_mixed = BlockContext {
+            bytes: &bytes, total_len: 24,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let ctx_uniform = BlockContext {
+            bytes: &uniform_bytes, total_len: 24,
+            pattern_by_addr: &BTreeMap::new(),
+            alternate_patterns: &BTreeSet::new(),
+            dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
+            color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+        };
+        let p_mixed = compute_block_pixels(2, &ctx_mixed);
+        let p_uniform = compute_block_pixels(2, &ctx_uniform);
+        // Mixed col (col 1) should have at least one pixel brighter than uniform.
+        // With stride=3 and 24 bytes, blocks 1 and 5 contain 0xFF+0x00 → mixed,
+        // and they both land in col 1 (1 % 4 = 1, 5 % 4 = 1).
+        let lum_mixed: f32 = p_mixed[1].iter().map(|c| c.r + c.g + c.b).sum();
+        let lum_uniform: f32 = p_uniform[1].iter().map(|c| c.r + c.g + c.b).sum();
         assert!(
             lum_mixed > lum_uniform + 0.5,
             "mixed lum {lum_mixed} should be > uniform lum {lum_uniform}"
