@@ -82,10 +82,11 @@ pub fn page_rows(viewport_height: f32) -> u64 {
 /// Adjust `scroll` so `addr` is centered in the viewport. Returns the new
 /// scroll offset (clamped to valid range).
 ///
-/// Kept for explicit "goto" / "center cursor" actions; prefer
-/// [`scroll_to_make_visible`] for smooth navigation.
+/// Use for explicit "goto address", search-result navigation, or any action
+/// where the target should land in the middle of the screen. Prefer
+/// [`scroll_to_make_visible`] for smooth keyboard/scrolling navigation.
 #[allow(dead_code)]
-pub fn ensure_visible(
+pub fn center_scroll_on(
     scroll: f32,
     addr: u64,
     bytes_per_row: u64,

@@ -563,20 +563,20 @@ mod tests {
     }
 
     #[test]
-    fn ensure_visible_no_op_when_already_visible() {
-        let scroll = ensure_visible(0.0, 5 * 16, 16, 320.0, 1000.0);
+    fn center_scroll_on_no_op_when_already_visible() {
+        let scroll = center_scroll_on(0.0, 5 * 16, 16, 320.0, 1000.0);
         assert_eq!(scroll, 0.0);
     }
 
     #[test]
-    fn ensure_visible_scrolls_down_when_target_below() {
-        let scroll = ensure_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
+    fn center_scroll_on_scrolls_down_when_target_below() {
+        let scroll = center_scroll_on(0.0, 100 * 16, 16, 320.0, 100_000.0);
         assert_eq!(scroll, 1448.0);
     }
 
     #[test]
-    fn ensure_visible_scrolls_up_when_target_above() {
-        let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
+    fn center_scroll_on_scrolls_up_when_target_above() {
+        let scroll = center_scroll_on(1000.0, 5 * 16, 16, 320.0, 100_000.0);
         assert_eq!(scroll, 0.0);
     }
 

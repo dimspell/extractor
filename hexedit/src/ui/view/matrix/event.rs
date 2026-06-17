@@ -11,7 +11,7 @@ use iced::advanced::layout::Layout;
 use iced::advanced::Shell;
 use iced::keyboard::{self, key};
 use iced::mouse;
-use iced::{Event, Rectangle};
+use iced::{Event, Point, Rectangle};
 
 use crate::domain::write_mode::WriteMode;
 use crate::selection::NavDir;
@@ -363,8 +363,15 @@ pub fn handle_event<'a, Message>(
                 if p.y < bounds.y + HEADER_HEIGHT {
                     return;
                 }
+                // Clamp the y-coordinate to the content area so the selection
+                // still extends when the mouse is dragged below the canvas.
+                let clamped_y = p.y.clamp(
+                    content_bounds.y,
+                    content_bounds.y + content_bounds.height - 1.0,
+                );
+                let clamped = Point::new(p.x, clamped_y);
                 if let Some(addr) = addr_at(
-                    p, content_bounds,
+                    clamped, content_bounds,
                     state.scroll_offset.get(), state.scroll_x.get(),
                     widget.bytes_per_row, total_len,
                     widget.addr_col_width(),
