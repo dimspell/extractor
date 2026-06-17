@@ -17,10 +17,9 @@
 
 use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
-use iced::{color, Element, Fill, Font, Length};
+use iced::{Element, Fill, Font, Length};
 
 use crate::domain::pattern_layout::{compute_pattern_rows, GutterGlyph, PatternRow};
-use crate::pattern::{pattern_bg, pattern_fg};
 use crate::state::HexEditorState;
 use crate::HexEditorMessage;
 
@@ -102,9 +101,9 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     container(column![header, body])
         .width(Fill)
         .style(|_: &iced::Theme| container::Style {
-            background: Some(iced::Background::Color(color!(0x1e1e1e))),
+            background: Some(iced::Background::Color(editor.theme.pattern_panel_bg)),
             border: iced::Border {
-                color: color!(0x3d3d3d),
+                color: editor.theme.pattern_panel_border,
                 width: 1.0,
                 radius: 0.into(),
             },
@@ -125,7 +124,10 @@ fn group_header_row<'a>(gid: usize, editor: &'a HexEditorState) -> Element<'a, H
         None => return text("").into(),
     };
 
-    let (bg, fg) = (pattern_bg(grp.color_idx), pattern_fg(grp.color_idx));
+    let (bg, fg) = (
+        editor.theme.pattern_bg_palette[grp.color_idx as usize % 16],
+        editor.theme.pattern_fg_palette[grp.color_idx as usize % 16],
+    );
 
     let swatch = container(text("  ").size(8))
         .width(Length::Fixed(14.0))
@@ -177,7 +179,7 @@ fn group_header_row<'a>(gid: usize, editor: &'a HexEditorState) -> Element<'a, H
         .count();
     let count_text = text(format!("({})", pattern_count))
         .size(10)
-        .color(color!(0x8a7a6a))
+        .color(editor.theme.pattern_count_fg)
         .font(Font::MONOSPACE);
 
     let remove_btn = button(text("✕").size(9).font(Font::MONOSPACE))
@@ -222,7 +224,10 @@ fn pattern_row<'a>(
         None => return text("").into(),
     };
 
-    let (bg, fg) = (pattern_bg(pattern.color_idx), pattern_fg(pattern.color_idx));
+    let (bg, fg) = (
+        editor.theme.pattern_bg_palette[pattern.color_idx as usize % 16],
+        editor.theme.pattern_fg_palette[pattern.color_idx as usize % 16],
+    );
 
     // ── Gutter glyph ─────────────────────────────────────────────────────
     let glyph_char = match row_info.glyph {
@@ -317,7 +322,7 @@ fn pattern_row<'a>(
         .style(move |_: &iced::Theme| {
             if is_active {
                 container::Style {
-                    background: Some(iced::Background::Color(color!(0x3b2a18))),
+                    background: Some(iced::Background::Color(editor.theme.pattern_active_highlight)),
                     ..Default::default()
                 }
             } else {

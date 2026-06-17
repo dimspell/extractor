@@ -112,7 +112,7 @@ pub fn view<'a>(
     .height(Fill);
 
     let search_section: Element<'a, HexEditorMessage> = if state.search.is_visible() {
-        search_overlay::view(&state.search)
+        search_overlay::view(&state.search, state.theme)
     } else {
         Space::default().height(0).into()
     };
@@ -138,7 +138,7 @@ pub fn view<'a>(
     let base = if let Some(ref ie) = state.inspector_edit {
         modal(
             base,
-            inspector_modal::view(ie),
+            inspector_modal::view(ie, state.theme),
             || HexEditorMessage::CloseInspectorEdit,
             0.4,
         )
@@ -149,7 +149,7 @@ pub fn view<'a>(
     let base = if let Some(ref g) = state.goto {
         modal(
             base,
-            goto_modal::view(g),
+            goto_modal::view(g, state.theme),
             || HexEditorMessage::CloseGotoDialog,
             0.3,
         )
@@ -160,7 +160,7 @@ pub fn view<'a>(
     let mut base = if let Some(ref rp) = state.repeat_pattern {
         modal(
             base,
-            repeat_modal::view(rp),
+            repeat_modal::view(rp, state.theme),
             || HexEditorMessage::CloseRepeatedPattern,
             0.3,
         )
@@ -198,7 +198,7 @@ pub fn view<'a>(
     if let Some(ref dlg) = state.fill_dialog {
         base = modal(
             base,
-            fill_modal::view(dlg),
+            fill_modal::view(dlg, state.theme),
             || HexEditorMessage::CloseFill,
             0.3,
         );

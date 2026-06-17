@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use iced::{color, Element, Task, Theme};
+use iced::{Element, Task, Theme};
 
 use hexedit::{view, EncodingEntry, HexEditorConfig, HexEditorMessage, HexEditorState, WriteMode};
+use hexedit::ui::theme::DARK_THEME;
 
 /// Settings persisted to `~/.config/hexedit/settings.json`.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -43,12 +44,12 @@ fn main() -> iced::Result {
             Theme::custom(
                 "HexEdit",
                 iced::theme::Palette {
-                    background: color!(0x2a2a2a),
-                    text: color!(0xeae0c8),
-                    primary: color!(0x8b5a2b),
-                    success: color!(0x2d5a27),
-                    danger: color!(0x800000),
-                    warning: color!(0x8b8b00),
+                    background: DARK_THEME.iced_bg,
+                    text: DARK_THEME.iced_text,
+                    primary: DARK_THEME.iced_primary,
+                    success: DARK_THEME.iced_success,
+                    danger: DARK_THEME.iced_danger,
+                    warning: DARK_THEME.iced_warning,
                 },
             )
         })

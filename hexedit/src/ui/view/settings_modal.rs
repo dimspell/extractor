@@ -1,14 +1,15 @@
 use iced::widget::{button, column, container, pick_list, row, text, toggler};
-use iced::{color, Color, Element, Font, Length};
+use iced::{Color, Element, Font, Length};
 
 use crate::ui::coloring::{default_byte_colors, ColorScheme};
+use crate::ui::theme::DARK_THEME;
 use crate::HexEditorMessage;
 use crate::HexEditorState;
 
 /// Colour for section heading text.
-const HEADING_COLOR: Color = color!(0xa0907a);
+const HEADING_COLOR: Color = DARK_THEME.modal_heading_fg;
 /// Colour for lighter secondary text.
-const MUTED_COLOR: Color = color!(0x7a6f64);
+const MUTED_COLOR: Color = DARK_THEME.modal_muted_fg;
 
 /// A horizontal rule separator.
 fn sep() -> iced::widget::rule::Rule<'static, iced::Theme> {
@@ -64,7 +65,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .map(|i| {
             let b = (i * 17) as u8;
             let (fg_opt, _) = default_byte_colors(state.color_scheme, b, state.dim_nulls);
-            let fg = fg_opt.unwrap_or(color!(0xd4cabd));
+            let fg = fg_opt.unwrap_or(state.theme.hex_fg);
             container(text("  ").size(10))
                 .style(move |_: &_| container::Style {
                     background: Some(iced::Background::Color(fg)),
@@ -180,9 +181,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .padding(16)
     .width(Length::Fixed(420.0))
     .style(|_: &_| container::Style {
-        background: Some(iced::Background::Color(color!(0x201b18))),
+        background: Some(iced::Background::Color(state.theme.modal_bg)),
         border: iced::Border {
-            color: color!(0x4a3f35),
+            color: state.theme.modal_border,
             width: 1.0,
             radius: 6.0.into(),
         },

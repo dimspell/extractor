@@ -1,11 +1,12 @@
 use iced::widget::{button, container, row, text, text_input};
-use iced::{color, Element, Fill, Font, Length};
+use iced::{Element, Fill, Font, Length};
 
 use crate::search::{SearchMode, SearchState};
+use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Search overlay bar rendered above the hex matrix.
-pub fn view(state: &SearchState) -> Element<'_, HexEditorMessage> {
+pub fn view<'a>(state: &'a SearchState, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let mode_label = match state.mode {
         SearchMode::Hex => "HEX",
         SearchMode::Ascii => "TXT",
@@ -63,9 +64,9 @@ pub fn view(state: &SearchState) -> Element<'_, HexEditorMessage> {
         .padding([4, 12])
         .width(Fill)
         .style(|_: &iced::Theme| container::Style {
-            background: Some(color!(0x1e1e1e).into()),
+            background: Some(theme.search_overlay_bg.into()),
             border: iced::Border {
-                color: color!(0x3d3d3d),
+                color: theme.search_overlay_border,
                 width: 1.0,
                 radius: 0.into(),
             },

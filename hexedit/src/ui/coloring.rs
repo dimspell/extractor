@@ -13,6 +13,8 @@ use std::ops::RangeInclusive;
 
 use iced::Color;
 
+use crate::ui::theme::DARK_THEME;
+
 use crate::selection::Selection;
 
 /// One layer of the coloring chain. Each provider sees `(addr, byte)` for a
@@ -200,18 +202,14 @@ pub fn contrast_ratio(a: &Color, b: &Color) -> f32 {
 /// Deliberately very dim (CR~1.9 against the matrix background) so null
 /// bytes visually recede. Users who need better legibility can disable
 /// `dim_nulls` in the settings.
-pub const DEFAULT_NULL_DIM: Color = Color::from_rgb(
-    0x4A as f32 / 255.0,
-    0x43 as f32 / 255.0,
-    0x39 as f32 / 255.0,
-);
+///
+/// Delegates to [`DARK_THEME`] so the palette lives in a single place.
+pub const DEFAULT_NULL_DIM: Color = DARK_THEME.default_null_dim;
 
 /// The matrix background colour — used for contrast-threshold assertions.
-pub const MATRIX_BG: Color = Color::from_rgb(
-    0x14 as f32 / 255.0,
-    0x11 as f32 / 255.0,
-    0x0F as f32 / 255.0,
-);
+///
+/// Delegates to [`DARK_THEME`] so the palette lives in a single place.
+pub const MATRIX_BG: Color = DARK_THEME.matrix_bg;
 
 // ── Built-in colour functions ────────────────────────────────────────────
 
@@ -371,7 +369,6 @@ impl CellColorProvider for DimNullsProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use iced::Color;
 
     // ── helpers ─────────────────────────────────────────────────────────
 

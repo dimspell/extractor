@@ -18,6 +18,7 @@ use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
 use super::ui::coloring::ColorScheme;
+use super::ui::theme::{HexEditorTheme, DARK_THEME};
 use super::vanilla_diff::compute_diff;
 
 /// Default cell width — 16 bytes per row matches every other hex editor on
@@ -131,6 +132,10 @@ pub struct HexEditorState {
     /// the next frame. The view reads this via `Cell::take()` and passes it
     /// to the widget; the draw function clears it after one frame.
     pub pending_center_on: Cell<Option<u64>>,
+
+    /// Active colour theme. Defaults to [`DARK_THEME`]; switch to
+    /// [`LIGHT_THEME`] via the settings modal.
+    pub theme: &'static HexEditorTheme,
 }
 
 impl HexEditorState {
@@ -213,6 +218,7 @@ impl HexEditorState {
             show_entropy_band: true,
             show_minimap: true,
             pending_center_on: Cell::new(None),
+            theme: &DARK_THEME,
         }
     }
 

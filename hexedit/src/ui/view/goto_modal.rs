@@ -1,11 +1,12 @@
 use iced::widget::{button, column, container, row, text, text_input};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::goto::GotoState;
+use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Modal body shown when Ctrl+G is pressed.
-pub fn view(state: &GotoState) -> Element<'_, HexEditorMessage> {
+pub fn view<'a>(state: &'a GotoState, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let title = text("Go to address").size(13).font(Font::MONOSPACE);
 
     let input = text_input("0x100, 255, +10, -5", &state.draft)
@@ -18,7 +19,7 @@ pub fn view(state: &GotoState) -> Element<'_, HexEditorMessage> {
     let error: Element<'_, HexEditorMessage> = if let Some(err) = &state.error {
         text(err.clone())
             .size(11)
-            .color(color!(0xff8a6e))
+            .color(theme.modal_error_fg)
             .font(Font::MONOSPACE)
             .into()
     } else {
@@ -27,7 +28,7 @@ pub fn view(state: &GotoState) -> Element<'_, HexEditorMessage> {
 
     let hint = text("hex (0xFF), dec (255), relative (+10, -5)")
         .size(10)
-        .color(color!(0x7a6f64))
+        .color(theme.modal_muted_fg)
         .font(Font::MONOSPACE);
 
     let buttons = row![
@@ -44,9 +45,9 @@ pub fn view(state: &GotoState) -> Element<'_, HexEditorMessage> {
         .padding(16)
         .width(Length::Fixed(360.0))
         .style(|_: &_| container::Style {
-            background: Some(iced::Background::Color(color!(0x201b18))),
+            background: Some(iced::Background::Color(theme.modal_bg)),
             border: iced::Border {
-                color: color!(0x4a3f35),
+                color: theme.modal_border,
                 width: 1.0,
                 radius: 6.0.into(),
             },

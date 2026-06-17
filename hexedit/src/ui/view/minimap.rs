@@ -12,10 +12,11 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use iced::advanced::Renderer as _;
 use iced::{
-    color, Background, Border, Color, Rectangle, Shadow,
+    Background, Border, Color, Rectangle, Shadow,
 };
 
 use crate::ui::coloring::{default_byte_colors, ColorScheme};
+use crate::ui::theme::HexEditorTheme;
 
 /// Width of the minimap strip in pixels.
 pub const MINIMAP_WIDTH: f32 = 35.0;
@@ -140,6 +141,7 @@ pub struct BlockContext<'a> {
     pub vanilla_diff: &'a BTreeSet<u64>,
     pub color_scheme: ColorScheme,
     pub dim_nulls: bool,
+    pub theme: &'static HexEditorTheme,
 }
 
 /// Compute minimap pixel colors by block-averaging the file.
@@ -196,7 +198,7 @@ fn block_color(
     let has_diff = block_len > 0 && ctx.vanilla_diff.range(block_start..block_end).next().is_some();
 
     if let Some((_addr, (pid, color_idx))) = has_pattern {
-        let mut c = pattern_bg(color_idx);
+        let mut c = ctx.theme.pattern_bg_palette[color_idx as usize % 16];
         if ctx.alternate_patterns.contains(&pid) {
             c.r *= 0.5;
             c.g *= 0.5;
@@ -204,9 +206,9 @@ fn block_color(
         }
         c
     } else if has_dirty {
-        color!(0x4a1f1a)
+        ctx.theme.dirty_bg
     } else if has_diff {
-        color!(0x232f1f)
+        ctx.theme.diff_bg
     } else {
         block_mean_variance_color(block_start, block_end, ctx)
     }
@@ -234,7 +236,7 @@ fn block_mean_variance_color(
     if n == 0.0 {
         // Block outside the mapped range → fall back to dim default.
         let (fg, _) = default_byte_colors(ctx.color_scheme, 0, ctx.dim_nulls);
-        let c = fg.unwrap_or(color!(0xd4cabd));
+        let c = fg.unwrap_or(ctx.theme.monochrome_fg);
         return Color::from_rgb(
             c.r * 0.55 * MINIMAP_MIN_BRIGHTNESS,
             c.g * 0.55 * MINIMAP_MIN_BRIGHTNESS,
@@ -257,7 +259,7 @@ fn block_mean_variance_color(
 
     let mean_byte = mean_f.round() as u8;
     let (fg, _) = default_byte_colors(ctx.color_scheme, mean_byte, ctx.dim_nulls);
-    let c = fg.unwrap_or(color!(0xd4cabd));
+    let c = fg.unwrap_or(ctx.theme.monochrome_fg);
     Color::from_rgb(
         c.r * 0.55 * brightness,
         c.g * 0.55 * brightness,
@@ -287,10 +289,11 @@ pub fn draw_minimap(
     cursor_addr: u64,
     total_len: u64,
     _active: bool,
+    theme: &HexEditorTheme,
 ) {
     let mm_rect = minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, scrollbar_w);
 
-    renderer.fill_quad(quad(mm_rect), Background::Color(color!(0x141210)));
+    renderer.fill_quad(quad(mm_rect), Background::Color(theme.minimap_bg));
 
     renderer.fill_quad(
         quad(Rectangle {
@@ -299,7 +302,7 @@ pub fn draw_minimap(
             width: 1.0,
             height: mm_rect.height,
         }),
-        Background::Color(color!(0x2a2218)),
+        Background::Color(theme.minimap_separator),
     );
 
     // ── Four sub-columns (batched by colour) ───────────────────────
@@ -391,7 +394,7 @@ pub fn draw_minimap(
         );
     }
 
-    // ── Cursor-position marker (amber line) ─────────────────────────
+    // ── Cursor-position marker ─────────────────────────────────────
     if total_len > 0 {
         let frac = (cursor_addr as f32) / (total_len as f32);
         let cy = mm_rect.y + frac * mm_rect.height;
@@ -402,7 +405,7 @@ pub fn draw_minimap(
                 width: mm_rect.width - 2.0,
                 height: 1.0,
             }),
-            Background::Color(color!(0xB97024)),
+            Background::Color(theme.minimap_cursor_marker),
         );
     }
 }
@@ -489,31 +492,10 @@ fn quad(bounds: Rectangle) -> iced::advanced::renderer::Quad {
     }
 }
 
-fn pattern_bg(idx: u8) -> Color {
-    match idx % 16 {
-        0 => color!(0x1a3a4f),
-        1 => color!(0x4f2e1a),
-        2 => color!(0x1a4f2e),
-        3 => color!(0x3b1a4f),
-        4 => color!(0x4f4a1a),
-        5 => color!(0x2e1a4f),
-        6 => color!(0x4f1a1a),
-        7 => color!(0x1a3b3b),
-        8 => color!(0x3b2e1a),
-        9 => color!(0x2e4f1a),
-        10 => color!(0x4f2e3b),
-        11 => color!(0x1a4f4f),
-        12 => color!(0x4f251a),
-        13 => color!(0x1a3b25),
-        14 => color!(0x3b3b1a),
-        15 => color!(0x251a4f),
-        _ => color!(0x1a3a4f),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::theme::DARK_THEME;
 
     // ── minimap_rect ────────────────────────────────────────────────────
 
@@ -734,6 +716,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty() && cols[3].is_empty());
@@ -747,6 +730,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(0, &ctx);
         assert!(cols[0].is_empty() && cols[1].is_empty() && cols[2].is_empty() && cols[3].is_empty());
@@ -761,6 +745,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[0].len(), 10);
@@ -795,10 +780,11 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
-        let expected = super::pattern_bg(3);
+        let expected = DARK_THEME.pattern_bg_palette[3];
         assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
         assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
         assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
@@ -817,10 +803,11 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[3].len(), 10);
-        let expected = super::pattern_bg(4);
+        let expected = DARK_THEME.pattern_bg_palette[4];
         assert!((cols[3][0].r - expected.r).abs() < 0.0001, "r");
         assert!((cols[3][0].g - expected.g).abs() < 0.0001, "g");
         assert!((cols[3][0].b - expected.b).abs() < 0.0001, "b");
@@ -841,10 +828,11 @@ mod tests {
             alternate_patterns: &alternate,
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
-        let base = super::pattern_bg(2);
+        let base = DARK_THEME.pattern_bg_palette[2];
         let expected = Color::from_rgb(base.r * 0.5, base.g * 0.5, base.b * 0.5);
         assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
         assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
@@ -866,6 +854,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &dirty, vanilla_diff: &diff,
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
@@ -888,6 +877,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &diff,
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
@@ -914,10 +904,11 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &dirty, vanilla_diff: &diff,
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[1].len(), 10);
-        let expected = super::pattern_bg(1);
+        let expected = DARK_THEME.pattern_bg_palette[1];
         assert!((cols[1][0].r - expected.r).abs() < 0.0001, "r");
         assert!((cols[1][0].g - expected.g).abs() < 0.0001, "g");
         assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
@@ -934,6 +925,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(10, &ctx);
         assert_eq!(cols[0].len(), 10);
@@ -987,6 +979,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &dirty, vanilla_diff: &diff,
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         assert!(minimap_cache_valid(&cache, 10, &ctx));
     }
@@ -1009,6 +1002,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
@@ -1031,6 +1025,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Nybble, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
@@ -1054,6 +1049,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &dirty, vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         assert!(!minimap_cache_valid(&cache, 10, &ctx));
     }
@@ -1075,6 +1071,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let cols = compute_block_pixels(3, &ctx);
         assert_eq!(cols[0].len(), 3);
@@ -1179,6 +1176,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let ctx_uniform = BlockContext {
             bytes: &uniform_bytes, total_len: 24,
@@ -1186,6 +1184,7 @@ mod tests {
             alternate_patterns: &BTreeSet::new(),
             dirty: &BTreeSet::new(), vanilla_diff: &BTreeSet::new(),
             color_scheme: ColorScheme::Monochrome, dim_nulls: false,
+            theme: &DARK_THEME,
         };
         let p_mixed = compute_block_pixels(2, &ctx_mixed);
         let p_uniform = compute_block_pixels(2, &ctx_uniform);

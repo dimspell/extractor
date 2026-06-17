@@ -5,7 +5,7 @@
 //! longer need.  Changes take effect immediately in the write-mode pick list.
 
 use iced::widget::{button, column, container, pick_list, row, scrollable, text};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::domain::write_mode::COMMON_ENCODINGS;
 use crate::{HexEditorMessage, HexEditorState};
@@ -22,7 +22,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         items.push(
             text("No custom encodings added yet.")
                 .size(11)
-                .color(color!(0x7a6f64))
+                .color(state.theme.modal_muted_fg)
                 .into(),
         );
     } else {
@@ -92,9 +92,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .padding(16)
     .width(Length::Fixed(460.0))
     .style(|_: &_| container::Style {
-        background: Some(iced::Background::Color(color!(0x201b18))),
+        background: Some(iced::Background::Color(state.theme.modal_bg)),
         border: iced::Border {
-            color: color!(0x4a3f35),
+            color: state.theme.modal_border,
             width: 1.0,
             radius: 6.0.into(),
         },

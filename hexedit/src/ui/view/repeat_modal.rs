@@ -5,14 +5,15 @@
 //! creates a named group with that many pattern repetitions.
 
 use iced::widget::{button, column, container, row, text, text_input};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::domain::pattern::RepeatPatternDialog;
+use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Modal body shown when "Add Repeated Pattern" is selected from the context
 /// menu with an active multi-byte selection.
-pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
+pub fn view<'a>(dlg: &'a RepeatPatternDialog, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let title = text("Add Repeated Pattern").size(13).font(Font::MONOSPACE);
 
     let block_info = text(format!(
@@ -20,7 +21,7 @@ pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
         dlg.block_size, dlg.block_start
     ))
     .size(11)
-    .color(color!(0x7a6f64))
+    .color(theme.modal_muted_fg)
     .font(Font::MONOSPACE);
 
     // ── Label input ──────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
 
     let label_hint = text("Name for this pattern group")
         .size(10)
-        .color(color!(0x7a6f64))
+        .color(theme.modal_muted_fg)
         .font(Font::MONOSPACE);
 
     // ── Repeat count input ───────────────────────────────────────────────
@@ -44,13 +45,13 @@ pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
 
     let count_hint = text("How many times to repeat the selected block")
         .size(10)
-        .color(color!(0x7a6f64))
+        .color(theme.modal_muted_fg)
         .font(Font::MONOSPACE);
 
     let error: Element<'_, HexEditorMessage> = if let Some(err) = &dlg.error {
         text(err.clone())
             .size(11)
-            .color(color!(0xff8a6e))
+            .color(theme.modal_error_fg)
             .font(Font::MONOSPACE)
             .into()
     } else {
@@ -83,9 +84,9 @@ pub fn view(dlg: &RepeatPatternDialog) -> Element<'_, HexEditorMessage> {
     .padding(16)
     .width(Length::Fixed(380.0))
     .style(|_: &_| container::Style {
-        background: Some(iced::Background::Color(color!(0x201b18))),
+        background: Some(iced::Background::Color(theme.modal_bg)),
         border: iced::Border {
-            color: color!(0x4a3f35),
+            color: theme.modal_border,
             width: 1.0,
             radius: 6.0.into(),
         },

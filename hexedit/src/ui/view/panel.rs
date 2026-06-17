@@ -97,6 +97,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
         cache,
         state.color_scheme,
         state.dim_nulls,
+        state.theme,
     )
     .on_select_at(HexEditorMessage::SelectAt)
     .on_extend_to(HexEditorMessage::ExtendTo)

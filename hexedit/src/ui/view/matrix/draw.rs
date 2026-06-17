@@ -9,13 +9,14 @@ use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::Renderer as _;
 use iced::mouse;
-use iced::{alignment, color, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
+use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
 
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 use crate::coloring::default_byte_colors;
+use crate::ui::theme::HexEditorTheme;
 use crate::domain::byte_stats::entropy_to_color;
-use crate::pattern::{pattern_bg, pattern_fg};
+
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::layout::{
@@ -53,7 +54,7 @@ pub fn draw_matrix<'a, Message>(
             shadow: Shadow::default(),
             snap: true,
         },
-        Background::Color(color!(0x14110f)),
+        Background::Color(widget.theme.matrix_bg),
     );
 
     // ── Geometry for the content area below the column header ──────
@@ -126,24 +127,25 @@ pub fn draw_matrix<'a, Message>(
 
     let visible = visible_row_range(scroll, viewport_h, ROW_HEIGHT, total_rows, OVERSCAN);
 
+    let theme = widget.theme;
     let font = Font::MONOSPACE;
-    let addr_color = color!(0x7a6f64);
-    let hex_color = color!(0xd4cabd);
-    let ascii_color = color!(0xb8a898);
-    let header_color = color!(0x8a7a6a);
-    let header_bg = color!(0x1a1614);
-    let header_separator = color!(0x2a2218);
-    let group_separator_color = color!(0x251f1a);
-    let selection_bg = color!(0x3b2a18);
-    let cursor_bg = color!(0x6a4a26);
-    let selection_text = color!(0xfff4e0);
-    let dirty_bg = color!(0x4a1f1a);
-    let dirty_text = color!(0xff9d6e);
-    let diff_bg = color!(0x232f1f);
-    let diff_text = color!(0x9bd07a);
-    let edit_bg = color!(0xc25e1c);
-    let edit_text = color!(0xfff8ee);
-    let caret_color = color!(0xfff4e0);
+    let addr_color = theme.address_fg;
+    let hex_color = theme.hex_fg;
+    let ascii_color = theme.ascii_fg;
+    let header_color = theme.header_fg;
+    let header_bg = theme.header_bg;
+    let header_separator = theme.header_separator;
+    let group_separator_color = theme.group_separator;
+    let selection_bg = theme.selection_bg;
+    let cursor_bg = theme.cursor_bg;
+    let selection_text = theme.selection_fg;
+    let dirty_bg = theme.dirty_bg;
+    let dirty_text = theme.dirty_fg;
+    let diff_bg = theme.diff_bg;
+    let diff_text = theme.diff_fg;
+    let edit_bg = theme.edit_bg;
+    let edit_text = theme.edit_fg;
+    let caret_color = theme.caret;
 
     let hex_start_x = content_bounds.x + widget.addr_col_width() - scroll_x;
     let ascii_start_x = widget.ascii_start_x(content_bounds.x) - scroll_x;
@@ -164,7 +166,7 @@ pub fn draw_matrix<'a, Message>(
             shadow: Shadow::default(),
             snap: true,
         },
-        Background::Color(color!(0x14110f)),
+        Background::Color(theme.address_gutter_bg),
     );
 
     // ── Column header ─────────────────────────────────────────────────
@@ -312,7 +314,7 @@ pub fn draw_matrix<'a, Message>(
                     selection_bg
                 })
             } else if let Some((pid, color_idx)) = pat_entry {
-                let mut bg = pattern_bg(color_idx);
+                let mut bg = theme.pattern_bg_palette[color_idx as usize % 16];
                 if widget.alternate_patterns.contains(&pid) {
                     bg.r *= 0.5;
                     bg.g *= 0.5;
@@ -337,7 +339,7 @@ pub fn draw_matrix<'a, Message>(
             } else if in_sel {
                 selection_text
             } else if let Some((_, color_idx)) = pat_entry {
-                pattern_fg(color_idx)
+                theme.pattern_fg_palette[color_idx as usize % 16]
             } else if is_dirty {
                 dirty_text
             } else if is_diff {
@@ -350,7 +352,7 @@ pub fn draw_matrix<'a, Message>(
             } else if in_sel {
                 selection_text
             } else if let Some((_, color_idx)) = pat_entry {
-                pattern_fg(color_idx)
+                theme.pattern_fg_palette[color_idx as usize % 16]
             } else if is_dirty {
                 dirty_text
             } else if is_diff {
@@ -368,16 +370,16 @@ pub fn draw_matrix<'a, Message>(
                 .map(|cur| addr >= cur && addr < cur + widget.search_query_len)
                 .unwrap_or(false);
             let bg = if in_current_match {
-                Some(color!(0x4a6a2a))
+                Some(theme.search_current_bg)
             } else if in_search {
-                Some(color!(0x2a4a2a))
+                Some(theme.search_match_bg)
             } else {
                 base_bg
             };
             let text_color = if in_current_match {
-                color!(0xfff8ee)
+                theme.search_current_fg
             } else if in_search {
-                color!(0xfff4e0)
+                theme.search_match_fg
             } else {
                 text_color
             };
@@ -453,9 +455,9 @@ pub fn draw_matrix<'a, Message>(
             for (i, (pat_id, text)) in segments.iter().enumerate() {
                 let is_active = widget.active_patterns.contains(pat_id);
                 let color = if is_active {
-                    color!(0xd4cabd)
+                    theme.annotation_fg
                 } else {
-                    color!(0x6a6050)
+                    theme.annotation_inactive
                 };
                 if i > 0 {
                     let cell = Rectangle {
@@ -474,7 +476,7 @@ pub fn draw_matrix<'a, Message>(
                             renderer,
                             &sep_para,
                             pos,
-                            color!(0x6a6050),
+                            theme.annotation_separator,
                             cell_clip,
                         );
                     }
@@ -545,6 +547,7 @@ pub fn draw_matrix<'a, Message>(
             vanilla_diff: widget.vanilla_diff,
             color_scheme: widget.color_scheme,
             dim_nulls: widget.dim_nulls,
+            theme: widget.theme,
         };
         let mut cache = state.minimap_cache.borrow_mut();
         let needs_recompute = match &*cache {
@@ -579,6 +582,7 @@ pub fn draw_matrix<'a, Message>(
             widget.selection.cursor,
             total_len,
             state.dragging_minimap || hovering,
+            theme,
         );
     }
 
@@ -598,6 +602,7 @@ pub fn draw_matrix<'a, Message>(
             widget.search_match_starts,
             widget.selection.cursor,
             total_len,
+            theme,
         );
     }
 
@@ -618,6 +623,7 @@ pub fn draw_matrix<'a, Message>(
             content_w,
             avail_w,
             state.dragging_scrollbar_x || hovering,
+            theme,
         );
     }
 }
@@ -860,6 +866,7 @@ fn draw_vscrollbar(
     search_match_starts: &[u64],
     cursor_addr: u64,
     total_len: u64,
+    theme: &HexEditorTheme,
 ) {
     let track = scrollbar_track(bounds, viewport_h);
     let thumb = scrollbar_thumb(track, scroll, total_h);
@@ -872,13 +879,13 @@ fn draw_vscrollbar(
             shadow: Shadow::default(),
             snap: true,
         },
-        Background::Color(color!(0x141210)),
+        Background::Color(theme.scrollbar_bg),
     );
 
     let thumb_color = if active {
-        color!(0xB97024)
+        theme.scrollbar_thumb_hover
     } else {
-        color!(0x5d4037)
+        theme.scrollbar_thumb
     };
 
     // Search-match markers (small green dots).
@@ -896,7 +903,7 @@ fn draw_vscrollbar(
                 shadow: Shadow::default(),
                 snap: true,
             },
-            Background::Color(color!(0x4a7a2a)),
+            Background::Color(theme.scrollbar_search_dot),
         );
     }
 
@@ -914,7 +921,7 @@ fn draw_vscrollbar(
             shadow: Shadow::default(),
             snap: true,
         },
-        Background::Color(color!(0xB97024)),
+        Background::Color(theme.scrollbar_cursor_dot),
     );
 
     // Thumb.
@@ -941,6 +948,7 @@ fn draw_hscrollbar(
     content_w: f32,
     avail_w: f32,
     active: bool,
+    theme: &HexEditorTheme,
 ) {
     let thumb = hscrollbar_thumb(track, scroll_x, content_w, avail_w);
 
@@ -951,13 +959,13 @@ fn draw_hscrollbar(
             shadow: Shadow::default(),
             snap: true,
         },
-        Background::Color(color!(0x141210)),
+        Background::Color(theme.scrollbar_bg),
     );
 
     let thumb_color = if active {
-        color!(0xB97024)
+        theme.scrollbar_thumb_hover
     } else {
-        color!(0x5d4037)
+        theme.scrollbar_thumb
     };
 
     renderer.fill_quad(

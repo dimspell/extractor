@@ -31,6 +31,7 @@ use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
 
+use crate::ui::theme::HexEditorTheme;
 use crate::coloring::ColorScheme;
 use crate::domain::write_mode::WriteMode;
 use crate::selection::{NavDir, Selection};
@@ -89,6 +90,9 @@ pub struct HexMatrix<'a, Message> {
     /// this address using [`center_scroll_on`]. Set by the view function
     /// from [`HexEditorState::pending_center_on`] via [`Cell::take`].
     pub(super) pending_center_on: Option<u64>,
+
+    /// Active colour theme.
+    pub(super) theme: &'static HexEditorTheme,
 }
 
 // ── Constructor ───────────────────────────────────────────────────────
@@ -113,6 +117,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
         cache: ParagraphCache,
         color_scheme: ColorScheme,
         dim_nulls: bool,
+        theme: &'static HexEditorTheme,
     ) -> Self {
         HexMatrix {
             bytes,
@@ -155,6 +160,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             entropy_bands: None,
             show_minimap: true,
             pending_center_on: None,
+            theme,
         }
     }
 }

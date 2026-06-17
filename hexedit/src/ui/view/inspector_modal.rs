@@ -1,12 +1,13 @@
 use iced::widget::{button, column, container, row, text, text_input};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::editing::InspectorEditState;
 use crate::inspector::ENTRIES;
+use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Modal body shown when an inspector "Edit" button is pressed.
-pub fn view(state: &InspectorEditState) -> Element<'_, HexEditorMessage> {
+pub fn view<'a>(state: &'a InspectorEditState, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let entry_name = ENTRIES
         .get(state.entry_idx)
         .map(|e| e.name.as_str())
@@ -22,7 +23,7 @@ pub fn view(state: &InspectorEditState) -> Element<'_, HexEditorMessage> {
     let error: Element<'_, HexEditorMessage> = if let Some(err) = &state.error {
         text(err.clone())
             .size(11)
-            .color(color!(0xff8a6e))
+            .color(theme.modal_error_fg)
             .font(Font::MONOSPACE)
             .into()
     } else {
@@ -51,9 +52,9 @@ pub fn view(state: &InspectorEditState) -> Element<'_, HexEditorMessage> {
     .padding(16)
     .width(Length::Fixed(360.0))
     .style(|_: &_| container::Style {
-        background: Some(iced::Background::Color(color!(0x201b18))),
+        background: Some(iced::Background::Color(theme.modal_bg)),
         border: iced::Border {
-            color: color!(0x4a3f35),
+            color: theme.modal_border,
             width: 1.0,
             radius: 6.0.into(),
         },

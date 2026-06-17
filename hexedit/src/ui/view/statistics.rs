@@ -5,18 +5,20 @@
 
 use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text};
-use iced::{color, Element, Fill, Font, Length};
+use iced::{Element, Fill, Font, Length};
 
 use crate::domain::byte_stats::{
     ByteStatistics, RowEntropyCache, StructureHeuristic,
 };
 use crate::state::HexEditorState;
+use crate::ui::theme::HexEditorTheme;
 use crate::{HexEditorMessage, HexProvider};
 
 /// Width of the histogram bar area in "█" character widths.
 const HIST_BAR_WIDTH: usize = 30;
 
 pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
+    let theme = editor.theme;
     let header = header_row(editor);
     let header = container(header).padding([4, 12]).width(Fill);
 
@@ -28,10 +30,10 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
         // ── File-level stats ─────────────────────────────────────────────
         match &editor.file_stats {
             Some(stats) => {
-                col = col.push(stats_section(stats));
+                col = col.push(section_inner("File", stats, theme));
             }
             None => {
-                col = col.push(hint_row("Click \"Analyze File\" to compute statistics"));
+                col = col.push(hint_row("Click \"Analyze File\" to compute statistics", theme));
             }
         }
 
@@ -39,18 +41,18 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
         if !editor.selection.is_single() {
             match &editor.selection_stats {
                 Some(stats) => {
-                    col = col.push(selection_section(stats));
+                    col = col.push(section_inner("Selection", stats, theme));
                 }
                 None => {
                     col = col
-                        .push(hint_row("Click \"Analyze Selection\" for selection-only stats"));
+                        .push(hint_row("Click \"Analyze Selection\" for selection-only stats", theme));
                 }
             }
         }
 
         // ── Row entropies overview ──────────────────────────────────────
         if let Some(ref re) = editor.row_entropies {
-            col = col.push(row_entropy_summary(re));
+            col = col.push(row_entropy_summary(re, theme));
         }
 
         col.into()
@@ -94,18 +96,8 @@ fn header_row(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .into()
 }
 
-/// Render the file-level statistics section.
-fn stats_section(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
-    section_inner("File", stats)
-}
-
-/// Render the selection-level statistics section.
-fn selection_section(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
-    section_inner("Selection", stats)
-}
-
 /// Shared renderer for a statistics group.
-fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, HexEditorMessage> {
+fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let mut col = column![].spacing(2);
 
     // Section label.
@@ -113,7 +105,7 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, H
         text(format!("── {label} ──"))
             .size(9)
             .font(Font::MONOSPACE)
-            .color(color!(0x8a7a6a)),
+            .color(theme.stats_heading_fg),
     );
 
     // Top-level metrics in a compact grid.
@@ -124,10 +116,10 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, H
 
     col = col.push(
         row![
-            metric("Total", total_str),
-            metric("Entropy", entropy_str),
-            metric("Min", min_str),
-            metric("Max", max_str),
+            metric("Total", total_str, theme),
+            metric("Entropy", entropy_str, theme),
+            metric("Min", min_str, theme),
+            metric("Max", max_str, theme),
         ]
         .spacing(12),
     );
@@ -147,16 +139,16 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, H
 
     col = col.push(
         row![
-            metric("Mean", mean_str),
-            metric("Median", median_str),
-            metric("Nulls", nulls_str),
-            metric("Printable", printable_str),
+            metric("Mean", mean_str, theme),
+            metric("Median", median_str, theme),
+            metric("Nulls", nulls_str, theme),
+            metric("Printable", printable_str, theme),
         ]
         .spacing(12),
     );
 
     // Structure heuristic.
-    col = col.push(structure_row(&stats.structure));
+    col = col.push(structure_row(&stats.structure, theme));
 
     // High-ASCII count.
     let high_ascii_str = format!(
@@ -164,7 +156,7 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, H
         stats.high_ascii_count,
         stats.high_ascii_count as f64 / stats.total.max(1) as f64 * 100.0
     );
-    col = col.push(metric_row("High ASCII (0x80+)", high_ascii_str));
+    col = col.push(metric_row("High ASCII (0x80+)", high_ascii_str, theme));
 
     // Entropy classification badge.
     let classification = if stats.entropy > 7.2 {
@@ -183,14 +175,14 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics) -> Element<'a, H
     );
 
     // Byte frequency histogram.
-    col = col.push(histogram_view(stats));
+    col = col.push(histogram_view(stats, theme));
 
     col.into()
 }
 
 /// Render a simplified byte histogram showing the distribution across 16 groups
 /// (high nybbles).
-fn histogram_view(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
+fn histogram_view<'a>(stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     if stats.total == 0 {
         return text("").into();
     }
@@ -208,7 +200,7 @@ fn histogram_view(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
         text("Byte distribution (high nybble)")
             .size(9)
             .font(Font::MONOSPACE)
-            .color(color!(0x8a7a6a)),
+            .color(theme.stats_heading_fg),
     );
 
     for (nybble, &count) in groups.iter().enumerate() {
@@ -221,8 +213,8 @@ fn histogram_view(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
         col = col.push(
             row![
                 text(label).size(9).font(Font::MONOSPACE).width(36),
-                text(bar).size(9).font(Font::MONOSPACE).color(bar_color(nybble)),
-                text(pct).size(9).font(Font::MONOSPACE).color(color!(0x7a6f64)),
+                text(bar).size(9).font(Font::MONOSPACE).color(bar_color(nybble, theme)),
+                text(pct).size(9).font(Font::MONOSPACE).color(theme.stats_muted_fg),
             ]
             .spacing(4)
             .align_y(iced::Alignment::Center),
@@ -233,35 +225,35 @@ fn histogram_view(stats: &ByteStatistics) -> Element<'_, HexEditorMessage> {
 }
 
 /// Colour for a histogram bar based on nybble range.
-fn bar_color(nybble: usize) -> iced::Color {
+fn bar_color(nybble: usize, theme: &HexEditorTheme) -> iced::Color {
     match nybble {
-        0 => color!(0x6a5a4a),    // sparse/padding
-        1..=3 => color!(0x7a8a5a), // low values
-        4..=7 => color!(0x5a8a7a), // mid-low
-        8..=11 => color!(0x8a7a4a), // mid-high
-        12..=15 => color!(0xaa5a4a), // high values
-        _ => color!(0x8a7a6a),
+        0 => theme.stats_bar_padding,       // sparse/padding
+        1..=3 => theme.stats_bar_low,        // low values
+        4..=7 => theme.stats_bar_mid_low,    // mid-low
+        8..=11 => theme.stats_bar_mid_high,  // mid-high
+        12..=15 => theme.stats_bar_high,     // high values
+        _ => theme.stats_bar_default,
     }
 }
 
 /// Render the entropy classification as a colour-coded row.
-fn structure_row(structure: &StructureHeuristic) -> Element<'_, HexEditorMessage> {
+fn structure_row<'a>(structure: &'a StructureHeuristic, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let (label, color_val) = match structure {
         StructureHeuristic::Uniform(val) => (
             format!("Structure: Uniform (all bytes = 0x{val:02X})"),
-            color!(0x6a8a5a),
+            theme.stats_structure_uniform,
         ),
         StructureHeuristic::HighEntropy => (
             "Structure: High entropy — likely compressed/encrypted".to_string(),
-            color!(0xaa4a3a),
+            theme.stats_structure_high_entropy,
         ),
         StructureHeuristic::LowEntropy => (
             "Structure: Low entropy — likely sparse/padding".to_string(),
-            color!(0x5a7a8a),
+            theme.stats_structure_low_entropy,
         ),
         StructureHeuristic::Mixed => (
             "Structure: Mixed — typical structured file".to_string(),
-            color!(0x8a7a6a),
+            theme.stats_structure_mixed,
         ),
     };
 
@@ -273,7 +265,7 @@ fn structure_row(structure: &StructureHeuristic) -> Element<'_, HexEditorMessage
 }
 
 /// Summary of per-row entropy values.
-fn row_entropy_summary(cache: &RowEntropyCache) -> Element<'_, HexEditorMessage> {
+fn row_entropy_summary<'a>(cache: &'a RowEntropyCache, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let avg: f64 = if cache.rows.is_empty() {
         0.0
     } else {
@@ -289,12 +281,12 @@ fn row_entropy_summary(cache: &RowEntropyCache) -> Element<'_, HexEditorMessage>
         text("── Row Entropy ──")
             .size(9)
             .font(Font::MONOSPACE)
-            .color(color!(0x8a7a6a)),
+            .color(theme.stats_heading_fg),
         row![
-            metric("Rows", rows_str),
-            metric("Min row", min_str),
-            metric("Max row", max_str),
-            metric("Avg row", avg_str),
+            metric("Rows", rows_str, theme),
+            metric("Min row", min_str, theme),
+            metric("Max row", max_str, theme),
+            metric("Avg row", avg_str, theme),
         ]
         .spacing(12),
     ]
@@ -304,21 +296,21 @@ fn row_entropy_summary(cache: &RowEntropyCache) -> Element<'_, HexEditorMessage>
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
-fn metric(label: &str, value: String) -> Element<'_, HexEditorMessage> {
+fn metric<'a>(label: &'a str, value: String, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     column![
-        text(label).size(8).font(Font::MONOSPACE).color(color!(0x7a6f64)),
+        text(label).size(8).font(Font::MONOSPACE).color(theme.stats_muted_fg),
         text(value).size(10).font(Font::MONOSPACE),
     ]
     .spacing(0)
     .into()
 }
 
-fn metric_row(label: &str, value: String) -> Element<'_, HexEditorMessage> {
+fn metric_row<'a>(label: &'a str, value: String, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     row![
         text(label)
             .size(10)
             .font(Font::MONOSPACE)
-            .color(color!(0x7a6f64))
+            .color(theme.stats_muted_fg)
             .width(160),
         text(value).size(10).font(Font::MONOSPACE),
     ]
@@ -326,10 +318,10 @@ fn metric_row(label: &str, value: String) -> Element<'_, HexEditorMessage> {
     .into()
 }
 
-fn hint_row(msg: &str) -> Element<'_, HexEditorMessage> {
+fn hint_row<'a>(msg: &'a str, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     text(msg)
         .size(10)
         .font(Font::MONOSPACE)
-        .color(color!(0x7a6f64))
+        .color(theme.stats_muted_fg)
         .into()
 }

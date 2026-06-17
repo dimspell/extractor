@@ -5,13 +5,14 @@
 //! will be repeated across the selected range.
 
 use iced::widget::{button, column, container, row, text, text_input};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::domain::fill_dialog::FillDialog;
+use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Modal body shown when "Fill…" is selected from the context menu.
-pub fn view(dlg: &FillDialog) -> Element<'_, HexEditorMessage> {
+pub fn view<'a>(dlg: &'a FillDialog, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
     let title = text("Fill Selection").size(13).font(Font::MONOSPACE);
 
     let input = text_input("00 FF AA BB …", &dlg.draft)
@@ -21,10 +22,10 @@ pub fn view(dlg: &FillDialog) -> Element<'_, HexEditorMessage> {
         .padding(6)
         .size(13);
 
-    let error: Element<'_, HexEditorMessage> = if let Some(err) = &dlg.error {
+    let error: Element<'a, HexEditorMessage> = if let Some(err) = &dlg.error {
         text(err.clone())
             .size(11)
-            .color(color!(0xff8a6e))
+            .color(theme.modal_error_fg)
             .font(Font::MONOSPACE)
             .into()
     } else {
@@ -33,7 +34,7 @@ pub fn view(dlg: &FillDialog) -> Element<'_, HexEditorMessage> {
 
     let hint = text("Enter hex bytes to repeat across the selection")
         .size(10)
-        .color(color!(0x7a6f64))
+        .color(theme.modal_muted_fg)
         .font(Font::MONOSPACE);
 
     let buttons = row![
@@ -50,9 +51,9 @@ pub fn view(dlg: &FillDialog) -> Element<'_, HexEditorMessage> {
         .padding(16)
         .width(Length::Fixed(360.0))
         .style(|_: &_| container::Style {
-            background: Some(iced::Background::Color(color!(0x201b18))),
+            background: Some(iced::Background::Color(theme.modal_bg)),
             border: iced::Border {
-                color: color!(0x4a3f35),
+                color: theme.modal_border,
                 width: 1.0,
                 radius: 6.0.into(),
             },

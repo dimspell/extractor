@@ -1,5 +1,5 @@
 use iced::widget::{button, column, container, row, scrollable, text, toggler};
-use iced::{color, Element, Font, Length};
+use iced::{Element, Font, Length};
 
 use crate::domain::provider::HexProvider;
 use crate::message::HexEditorMessage;
@@ -74,7 +74,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let info = if total == 0 {
         text("File is empty — nothing to export")
             .size(11)
-            .color(color!(0x7a6f64))
+            .color(state.theme.modal_muted_fg)
             .font(Font::MONOSPACE)
     } else if total_rows as usize <= PREVIEW_ROWS {
         text(format!("All {total_rows} row(s) — {total} bytes"))
@@ -103,9 +103,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             )
             .padding(8)
             .style(|_: &_| container::Style {
-                background: Some(iced::Background::Color(color!(0x15110e))),
+                background: Some(iced::Background::Color(state.theme.export_preview_bg)),
                 border: iced::Border {
-                    color: color!(0x3a3026),
+                    color: state.theme.export_preview_border,
                     width: 1.0,
                     radius: 4.0.into(),
                 },
@@ -129,9 +129,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .padding(16)
         .width(Length::Fixed(700.0))
         .style(|_: &_| container::Style {
-            background: Some(iced::Background::Color(color!(0x201b18))),
+            background: Some(iced::Background::Color(state.theme.modal_bg)),
             border: iced::Border {
-                color: color!(0x4a3f35),
+                color: state.theme.modal_border,
                 width: 1.0,
                 radius: 6.0.into(),
             },
