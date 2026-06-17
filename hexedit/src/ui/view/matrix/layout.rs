@@ -81,6 +81,10 @@ pub fn page_rows(viewport_height: f32) -> u64 {
 
 /// Adjust `scroll` so `addr` is centered in the viewport. Returns the new
 /// scroll offset (clamped to valid range).
+///
+/// Kept for explicit "goto" / "center cursor" actions; prefer
+/// [`scroll_to_make_visible`] for smooth navigation.
+#[allow(dead_code)]
 pub fn ensure_visible(
     scroll: f32,
     addr: u64,
@@ -97,6 +101,34 @@ pub fn ensure_visible(
     }
     let center = row_top - (viewport_height - ROW_HEIGHT) / 2.0;
     clamp_scroll(center, total_height, viewport_height)
+}
+
+/// Adjust `scroll` the minimum amount so `addr` is barely visible.
+///
+/// Unlike [`ensure_visible`], this does **not** centre the target — it only
+/// scrolls enough to bring the target row into the viewport, placing it at
+/// the top edge when it's above or at the bottom edge when it's below.
+pub fn scroll_to_make_visible(
+    scroll: f32,
+    addr: u64,
+    bytes_per_row: u64,
+    viewport_height: f32,
+    total_height: f32,
+) -> f32 {
+    let bpr = bytes_per_row.max(1);
+    let row = addr / bpr;
+    let row_top = row as f32 * ROW_HEIGHT;
+    let row_bot = row_top + ROW_HEIGHT;
+
+    if row_top >= scroll && row_bot <= scroll + viewport_height {
+        return clamp_scroll(scroll, total_height, viewport_height);
+    }
+
+    if row_top < scroll {
+        clamp_scroll(row_top, total_height, viewport_height)
+    } else {
+        clamp_scroll(row_bot - viewport_height, total_height, viewport_height)
+    }
 }
 
 /// Hit-test: convert a screen point inside `bounds` to a byte address.

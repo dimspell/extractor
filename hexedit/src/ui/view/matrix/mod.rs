@@ -388,7 +388,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             layout::page_rows(viewport_h),
             max_addr,
         );
-        let new_scroll = layout::ensure_visible(
+        let new_scroll = layout::scroll_to_make_visible(
             state.scroll_offset.get(),
             target,
             bpr,
@@ -578,6 +578,35 @@ mod tests {
     fn ensure_visible_scrolls_up_when_target_above() {
         let scroll = ensure_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
         assert_eq!(scroll, 0.0);
+    }
+
+    #[test]
+    fn scroll_to_make_visible_no_op_when_already_visible() {
+        let scroll = scroll_to_make_visible(0.0, 5 * 16, 16, 320.0, 1000.0);
+        assert_eq!(scroll, 0.0);
+    }
+
+    #[test]
+    fn scroll_to_make_visible_scrolls_just_enough_when_below() {
+        // row_top=1600, row_bot=1616, bottom of viewport scroll+vh=320
+        // scroll needed = 1616 - 320 = 1296
+        let scroll = scroll_to_make_visible(0.0, 100 * 16, 16, 320.0, 100_000.0);
+        assert_eq!(scroll, 1296.0);
+    }
+
+    #[test]
+    fn scroll_to_make_visible_scrolls_to_top_when_above() {
+        // row_top=80, currently scrolled to 1000, so row is above viewport
+        // scroll needed = 80
+        let scroll = scroll_to_make_visible(1000.0, 5 * 16, 16, 320.0, 100_000.0);
+        assert_eq!(scroll, 80.0);
+    }
+
+    #[test]
+    fn scroll_to_make_visible_clamps_to_valid_range() {
+        // Target past EOF, clamp_scroll should keep within bounds.
+        let scroll = scroll_to_make_visible(20000.0, 500 * 16, 16, 320.0, 100.0);
+        assert_eq!(scroll, 0.0); // total_h < viewport_h → max_offset = 0
     }
 
     #[test]

@@ -19,7 +19,7 @@ use crate::pattern::{pattern_bg, pattern_fg};
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::layout::{
-    clamp_scroll, ensure_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
+    scroll_to_make_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
     HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
 };
 use super::state::State;
@@ -101,7 +101,7 @@ pub fn draw_matrix<'a, Message>(
 
         if last != Some(cursor_row) {
             state.last_cursor_row.set(Some(cursor_row));
-            ensure_visible(
+            scroll_to_make_visible(
                 state.scroll_offset.get(),
                 cursor,
                 bpr64,
