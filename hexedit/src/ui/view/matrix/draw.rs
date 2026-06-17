@@ -19,8 +19,8 @@ use crate::pattern::{pattern_bg, pattern_fg};
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::layout::{
-    clamp_scroll, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP, HEADER_HEIGHT,
-    HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
+    clamp_scroll, ensure_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
+    HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
 };
 use super::state::State;
 use super::HexMatrix;
@@ -616,28 +616,9 @@ pub fn draw_matrix<'a, Message>(
 
 // ── Private helper functions (unchanged from original) ────────────────
 
-/// Ensure `cursor` is centered in the viewport, adjusting scroll if needed.
-fn ensure_visible(
-    scroll: f32,
-    addr: u64,
-    bytes_per_row: u64,
-    viewport_height: f32,
-    total_height: f32,
-) -> f32 {
-    let bpr = bytes_per_row.max(1);
-    let row = addr / bpr;
-    let row_top = row as f32 * ROW_HEIGHT;
-    let row_bot = row_top + ROW_HEIGHT;
-    if row_top >= scroll && row_bot <= scroll + viewport_height {
-        return clamp_scroll(scroll, total_height, viewport_height);
-    }
-    let center = row_top - (viewport_height - ROW_HEIGHT) / 2.0;
-    clamp_scroll(center, total_height, viewport_height)
-}
-
 /// Lift a hex character to its rendered glyph. Falls back to a blank for
 /// non-hex input (which the message handler also rejects).
-pub(crate) fn char_to_glyph(c: char) -> &'static str {
+pub(super) fn char_to_glyph(c: char) -> &'static str {
     match c.to_ascii_uppercase() {
         '0' => "0",
         '1' => "1",

@@ -30,9 +30,6 @@ pub struct State {
     /// Last single-click address + timestamp, for double-click detection.
     pub last_click_addr: Option<u64>,
     pub last_click_at: Option<Instant>,
-    /// Selection cursor from the previous frame, used to detect external
-    /// selection changes (e.g. via NavigateToPattern).
-    pub last_cursor: Cell<Option<u64>>,
     /// Row of the cursor that we've already scrolled to.
     pub last_cursor_row: Cell<Option<u64>>,
     /// Tracks whether cursor is over either scrollbar, to avoid unnecessary

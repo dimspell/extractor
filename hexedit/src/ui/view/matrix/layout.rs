@@ -62,13 +62,13 @@ pub fn visible_row_range(
 
 /// Clamp vertical scroll offset so the last row doesn't scroll past the
 /// viewport bottom.
-pub fn clamp_scroll(scroll: f32, total_height: f32, viewport_height: f32) -> f32 {
+pub(super) fn clamp_scroll(scroll: f32, total_height: f32, viewport_height: f32) -> f32 {
     let max_off = (total_height - viewport_height).max(0.0);
     scroll.clamp(0.0, max_off)
 }
 
 /// Clamp horizontal scroll offset.
-pub fn clamp_scroll_x(scroll: f32, content_w: f32, view_w: f32) -> f32 {
+pub(super) fn clamp_scroll_x(scroll: f32, content_w: f32, view_w: f32) -> f32 {
     let max_off = (content_w - view_w).max(0.0);
     scroll.clamp(0.0, max_off)
 }
