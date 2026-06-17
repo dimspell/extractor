@@ -7,6 +7,7 @@
 //!
 //! Shared helpers are defined here and re-used by all sub-modules.
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
@@ -81,6 +82,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         row_entropies: None,
         show_entropy_band: true,
         show_minimap: true,
+        pending_center_on: Cell::new(None),
     }
 }
 

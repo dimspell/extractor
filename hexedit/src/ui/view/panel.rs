@@ -123,6 +123,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
             .then(|| state.row_entropies.as_ref().map(|c| c.rows.as_slice()))
             .flatten(),
     )
+    .center_on(state.pending_center_on.take())
     .into()
 }
 

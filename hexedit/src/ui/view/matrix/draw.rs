@@ -19,7 +19,7 @@ use crate::pattern::{pattern_bg, pattern_fg};
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::layout::{
-    scroll_to_make_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
+    center_scroll_on, scroll_to_make_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
     HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
 };
 use super::state::State;
@@ -92,7 +92,15 @@ pub fn draw_matrix<'a, Message>(
     let total_h = widget.total_height();
     let bpr64 = bpr as u64;
 
-    let scroll = if total_h <= viewport_h || total_rows == 0 {
+    let scroll = if let Some(center_addr) = widget.pending_center_on {
+        center_scroll_on(
+            state.scroll_offset.get(),
+            center_addr,
+            bpr64,
+            viewport_h,
+            total_h,
+        )
+    } else if total_h <= viewport_h || total_rows == 0 {
         0.0
     } else {
         let cursor = widget.selection.cursor;

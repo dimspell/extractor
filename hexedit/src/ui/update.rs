@@ -407,6 +407,7 @@ pub fn update(
             state.search.execute(state.provider.as_slice());
             if let Some(addr) = state.search.current_addr() {
                 state.selection.select(addr.min(max_addr), max_addr);
+                state.pending_center_on.set(Some(addr.min(max_addr)));
             }
         }
         HexEditorMessage::ToggleSearchMode => {
@@ -415,6 +416,7 @@ pub fn update(
                 state.search.execute(state.provider.as_slice());
                 if let Some(addr) = state.search.current_addr() {
                     state.selection.select(addr.min(max_addr), max_addr);
+                    state.pending_center_on.set(Some(addr.min(max_addr)));
                 }
             }
         }
@@ -422,12 +424,14 @@ pub fn update(
             state.search.next_match();
             if let Some(addr) = state.search.current_addr() {
                 state.selection.select(addr.min(max_addr), max_addr);
+                state.pending_center_on.set(Some(addr.min(max_addr)));
             }
         }
         HexEditorMessage::SearchPrev => {
             state.search.prev_match();
             if let Some(addr) = state.search.current_addr() {
                 state.selection.select(addr.min(max_addr), max_addr);
+                state.pending_center_on.set(Some(addr.min(max_addr)));
             }
         }
         HexEditorMessage::CloseSearch => {
@@ -453,6 +457,7 @@ pub fn update(
             match parse_result {
                 Some(Ok(addr)) => {
                     state.selection.select(addr, max_addr);
+                    state.pending_center_on.set(Some(addr));
                     state.goto = None;
                 }
                 Some(Err(msg)) => {

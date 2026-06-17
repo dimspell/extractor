@@ -85,6 +85,10 @@ pub struct HexMatrix<'a, Message> {
     pub(super) write_mode: WriteMode,
     pub(super) entropy_bands: Option<&'a [(u64, f64)]>,
     pub(super) show_minimap: bool,
+    /// When `Some(addr)`, the draw function will centre the viewport on
+    /// this address using [`center_scroll_on`]. Set by the view function
+    /// from [`HexEditorState::pending_center_on`] via [`Cell::take`].
+    pub(super) pending_center_on: Option<u64>,
 }
 
 // ── Constructor ───────────────────────────────────────────────────────
@@ -150,6 +154,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_toggle_addr_format: None,
             entropy_bands: None,
             show_minimap: true,
+            pending_center_on: None,
         }
     }
 }
@@ -264,6 +269,11 @@ impl<'a, Message> HexMatrix<'a, Message> {
 
     pub fn on_toggle_addr_format(mut self, f: impl Fn() -> Message + 'a) -> Self {
         self.on_toggle_addr_format = Some(Box::new(f));
+        self
+    }
+
+    pub fn center_on(mut self, addr: Option<u64>) -> Self {
+        self.pending_center_on = addr;
         self
     }
 }

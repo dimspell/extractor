@@ -360,14 +360,13 @@ pub fn handle_event<'a, Message>(
             }
             if state.selecting {
                 let Some(p) = cursor.position() else { return };
-                if p.y < bounds.y + HEADER_HEIGHT {
-                    return;
-                }
-                // Clamp the y-coordinate to the content area so the selection
-                // still extends when the mouse is dragged below the canvas.
+                // Clamp y to the content area so the selection extends even
+                // when the mouse is dragged above (first visible row) or
+                // below (last visible row) the canvas.
                 let clamped_y = p.y.clamp(
                     content_bounds.y,
-                    content_bounds.y + content_bounds.height - 1.0,
+                    (content_bounds.y + content_bounds.height - 1.0)
+                        .max(content_bounds.y),
                 );
                 let clamped = Point::new(p.x, clamped_y);
                 if let Some(addr) = addr_at(

@@ -1,3 +1,4 @@
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -126,6 +127,10 @@ pub struct HexEditorState {
     pub show_entropy_band: bool,
     /// Whether the minimap overview strip is visible.
     pub show_minimap: bool,
+    /// When set, the hex matrix will center the viewport on this address on
+    /// the next frame. The view reads this via `Cell::take()` and passes it
+    /// to the widget; the draw function clears it after one frame.
+    pub pending_center_on: Cell<Option<u64>>,
 }
 
 impl HexEditorState {
@@ -207,6 +212,7 @@ impl HexEditorState {
             row_entropies,
             show_entropy_band: true,
             show_minimap: true,
+            pending_center_on: Cell::new(None),
         }
     }
 
