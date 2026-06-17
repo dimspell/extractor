@@ -1759,6 +1759,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
                 scroll,
                 total_h,
                 viewport_h,
+                SCROLLBAR_THICKNESS,
                 columns,
                 self.selection.start(),
                 self.selection.end(),

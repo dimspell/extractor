@@ -26,6 +26,21 @@ pub const MINIMAP_COLS: usize = 4;
 /// Width of each sub-column in pixels.
 pub const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 8.0
 
+// ── Brightness calculation constants ──────────────────────────────────
+/// Base brightness for a block with uniform bytes (variance = 0).
+/// Scaled by the byte colour — a higher value makes the minimap baseline
+/// brighter overall.
+const MINIMAP_MIN_BRIGHTNESS: f32 = 0.30;
+
+/// How much byte-value variance contributes to block brightness.
+/// Multiplied by the normalised variance (0..1) and added to the base.
+const MINIMAP_VARIANCE_BOOST: f32 = 0.70;
+
+/// Normaliser for raw variance.  A variance of this magnitude maps to 1.0,
+/// meaning the brightness boost from variance is capped at VARIANCE_BOOST.
+/// Tuned by eye on typical mixed game-data files.
+const MINIMAP_VARIANCE_NORMALIZER: f32 = 15_000.0;
+
 /// Compute the minimap rectangle.
 ///
 /// The minimap sits to the *left* of the vertical scrollbar.
@@ -144,7 +159,6 @@ pub fn compute_block_pixels(
     let n = h_px as usize;
     let total_blocks = (MINIMAP_COLS as u64) * h_px as u64;
     let stride = ctx.total_len.div_ceil(total_blocks);
-    let last_valid = ctx.bytes.len().saturating_sub(1) as u64;
 
     let mut cols: [Vec<Color>; 4] = [
         Vec::with_capacity(n),
@@ -158,9 +172,7 @@ pub fn compute_block_pixels(
         let end = ((block_idx as u64 + 1).saturating_mul(stride))
             .min(ctx.total_len)
             .min(ctx.bytes.len() as u64);
-        cols[block_idx % MINIMAP_COLS].push(block_color(
-            start, end, ctx.bytes, last_valid, ctx,
-        ));
+        cols[block_idx % MINIMAP_COLS].push(block_color(start, end, ctx));
     }
     cols
 }
@@ -170,8 +182,6 @@ pub fn compute_block_pixels(
 fn block_color(
     block_start: u64,
     block_end: u64,
-    bytes: &[u8],
-    last_valid: u64,
     ctx: &BlockContext,
 ) -> Color {
     let block_len = block_end - block_start;
@@ -184,15 +194,6 @@ fn block_color(
     };
     let has_dirty = block_len > 0 && ctx.dirty.range(block_start..block_end).next().is_some();
     let has_diff = block_len > 0 && ctx.vanilla_diff.range(block_start..block_end).next().is_some();
-
-    let get = |addr: u64| bytes.get(addr.min(last_valid) as usize).copied().unwrap_or(0u8);
-
-    let p0 = if block_len > 0 { block_start + block_len / 4 } else { block_start };
-    let p1 = if block_len >= 2 { block_start + block_len / 2 } else { p0 };
-    let p2 = if block_len >= 3 { block_start + block_len * 3 / 4 } else { p1 };
-    let v0 = get(p0);
-    let v1 = get(p1);
-    let v2 = get(p2);
 
     if let Some((_addr, (pid, color_idx))) = has_pattern {
         let mut c = pattern_bg(color_idx);
@@ -207,24 +208,61 @@ fn block_color(
     } else if has_diff {
         color!(0x232f1f)
     } else {
-        let vf0 = v0 as f32;
-        let vf1 = v1 as f32;
-        let vf2 = v2 as f32;
-        let mean_f = (vf0 + vf1 + vf2) / 3.0;
-        let var = ((vf0 - mean_f).powi(2) + (vf1 - mean_f).powi(2) + (vf2 - mean_f).powi(2))
-            / 3.0;
-        let norm = (var / 15_000.0).clamp(0.0, 1.0);
-        let brightness = 0.30 + norm * 0.70;
-
-        let mean_byte = mean_f.round() as u8;
-        let (fg, _) = default_byte_colors(ctx.color_scheme, mean_byte, ctx.dim_nulls);
-        let c = fg.unwrap_or(color!(0xd4cabd));
-        Color::from_rgb(
-            c.r * 0.55 * brightness,
-            c.g * 0.55 * brightness,
-            c.b * 0.55 * brightness,
-        )
+        block_mean_variance_color(block_start, block_end, ctx)
     }
+}
+
+/// Compute the block colour from the full-byte mean and variance.
+///
+/// Iterates every byte in `[block_start, block_end)` that falls within the
+/// mapped buffer to compute the true mean and variance.  This is called only
+/// during minimap cache rebuild (not every frame), so the O(block_len) cost
+/// is acceptable.
+fn block_mean_variance_color(
+    block_start: u64,
+    block_end: u64,
+    ctx: &BlockContext,
+) -> Color {
+    let last_valid = ctx.bytes.len().saturating_sub(1) as u64;
+    // Clamp the range to available bytes (handle partial mappings where
+    // total_len > bytes.len()).
+    let lo = block_start.min(last_valid) as usize;
+    let hi = ((block_end - 1).min(last_valid) + 1) as usize;
+    let slice = &ctx.bytes[lo..hi.min(ctx.bytes.len())];
+    let n = slice.len() as f32;
+
+    if n == 0.0 {
+        // Block outside the mapped range → fall back to dim default.
+        let (fg, _) = default_byte_colors(ctx.color_scheme, 0, ctx.dim_nulls);
+        let c = fg.unwrap_or(color!(0xd4cabd));
+        return Color::from_rgb(
+            c.r * 0.55 * MINIMAP_MIN_BRIGHTNESS,
+            c.g * 0.55 * MINIMAP_MIN_BRIGHTNESS,
+            c.b * 0.55 * MINIMAP_MIN_BRIGHTNESS,
+        );
+    }
+
+    let sum: u32 = slice.iter().map(|&b| b as u32).sum();
+    let mean_f = sum as f32 / n;
+
+    let mut var_sum = 0.0_f32;
+    for &b in slice {
+        let d = b as f32 - mean_f;
+        var_sum += d * d;
+    }
+    let var = var_sum / n;
+
+    let norm = (var / MINIMAP_VARIANCE_NORMALIZER).clamp(0.0, 1.0);
+    let brightness = MINIMAP_MIN_BRIGHTNESS + norm * MINIMAP_VARIANCE_BOOST;
+
+    let mean_byte = mean_f.round() as u8;
+    let (fg, _) = default_byte_colors(ctx.color_scheme, mean_byte, ctx.dim_nulls);
+    let c = fg.unwrap_or(color!(0xd4cabd));
+    Color::from_rgb(
+        c.r * 0.55 * brightness,
+        c.g * 0.55 * brightness,
+        c.b * 0.55 * brightness,
+    )
 }
 
 /// Draw the minimap overview strip.
@@ -232,6 +270,9 @@ fn block_color(
 /// Renders 4 independent sub-columns side by side, each showing a distinct
 /// ¼ of the file blocks.  Viewport overlay, selection-range band, and
 /// cursor-position marker are drawn on top.
+///
+/// `scrollbar_w` is the vertical scrollbar thickness (passed from the caller
+/// so the minimap rectangle aligns precisely with the scrollbar track).
 #[allow(clippy::too_many_arguments)]
 pub fn draw_minimap(
     renderer: &mut iced::Renderer,
@@ -239,6 +280,7 @@ pub fn draw_minimap(
     scroll: f32,
     total_h: f32,
     viewport_h: f32,
+    scrollbar_w: f32,
     columns: &[Vec<Color>; 4],
     selection_start: u64,
     selection_end: u64,
@@ -246,8 +288,7 @@ pub fn draw_minimap(
     total_len: u64,
     _active: bool,
 ) {
-    let right_strip = 10.0;
-    let mm_rect = minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, right_strip);
+    let mm_rect = minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, scrollbar_w);
 
     renderer.fill_quad(quad(mm_rect), Background::Color(color!(0x141210)));
 
@@ -1056,6 +1097,66 @@ mod tests {
         let b0 = (cols[0][1].r - bright.r).abs() + (cols[0][1].g - bright.g).abs() + (cols[0][1].b - bright.b).abs();
         assert!(b0 < 0.001, "col 0 row 1 = {}, expected bright", b0);
     }
+
+    // ── minimap_selection_band ─────────────────────────────────────────
+
+    #[test]
+    fn minimap_selection_band_empty_file_returns_none() {
+        let mm = Rectangle { x: 0.0, y: 0.0, width: 35.0, height: 200.0 };
+        assert!(minimap_selection_band(mm, 0, 0, 0).is_none());
+        assert!(minimap_selection_band(mm, 0, 5, 10).is_none());
+    }
+
+    #[test]
+    fn minimap_selection_band_no_selection_returns_none() {
+        let mm = Rectangle { x: 0.0, y: 0.0, width: 35.0, height: 200.0 };
+        assert!(minimap_selection_band(mm, 100, 0, 0).is_none());
+        assert!(minimap_selection_band(mm, 100, 50, 50).is_none());
+    }
+
+    #[test]
+    fn minimap_selection_band_values_stay_within_mm_rect_height() {
+        let mm = Rectangle { x: 10.0, y: 20.0, width: 35.0, height: 200.0 };
+        // Selection covers the entire file → band spans full height.
+        let Some((y_off, h)) = minimap_selection_band(mm, 100, 0, 99) else {
+            panic!("expected selection band");
+        };
+        assert!(y_off >= 0.0 && y_off <= mm.height, "y_off {y_off}");
+        assert!(h >= 0.0 && y_off + h <= mm.height + 0.001, "y_off+h {} > {}", y_off + h, mm.height);
+    }
+
+    #[test]
+    fn minimap_selection_band_reversed_range() {
+        let mm = Rectangle { x: 0.0, y: 0.0, width: 35.0, height: 200.0 };
+        // start > end — should normalise internally.
+        let (y_a, h_a) = minimap_selection_band(mm, 100, 80, 20).unwrap();
+        let (y_b, h_b) = minimap_selection_band(mm, 100, 20, 80).unwrap();
+        assert!((y_a - y_b).abs() < 0.001, "y_a {y_a} != y_b {y_b}");
+        assert!((h_a - h_b).abs() < 0.001, "h_a {h_a} != h_b {h_b}");
+    }
+
+    // ── minimap_thumb_rect within bounds ──────────────────────────────
+
+    #[test]
+    fn minimap_thumb_never_exceeds_mm_rect() {
+        // Verify that the thumb rectangle never extends past the minimap
+        // bounds, even at extreme scroll values (regression guard).
+        let mm = Rectangle { x: 750.0, y: 16.0, width: 40.0, height: 284.0 };
+        let total_h = 284.0 * 10.0;
+        let viewport_h = 284.0;
+
+        // Scroll way past the end.
+        let r = minimap_thumb_rect(mm, total_h, total_h, viewport_h);
+        assert!(r.y >= mm.y, "thumb above minimap");
+        assert!(r.y + r.height <= mm.y + mm.height + 0.001, "thumb below minimap");
+
+        // Scroll before the start.
+        let r = minimap_thumb_rect(mm, -50.0, total_h, viewport_h);
+        assert!(r.y >= mm.y, "thumb above minimap at negative scroll");
+        assert!(r.y + r.height <= mm.y + mm.height + 0.001);
+    }
+
+    // ── Luminance change with full-block variance ─────────────────────
 
     #[test]
     fn compute_block_pixels_variance_one_col_mixed_brighter_than_uniform() {
