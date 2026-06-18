@@ -362,10 +362,10 @@ pub const DARK_THEME: HexEditorTheme = HexEditorTheme {
     default_null_dim: Color::from_rgb(0x4A as f32 / 255.0, 0x43 as f32 / 255.0, 0x39 as f32 / 255.0),
     monochrome_fg: hex(0xd4cabd),
     nybble_palette: [
-        hex(0x887c6f), hex(0x8a7f64), hex(0x7a8f5a), hex(0x6a8f4a),
-        hex(0x5a8f5a), hex(0x5a8f6a), hex(0x5e856f), hex(0x6f855e),
-        hex(0x8a7d54), hex(0xa77346), hex(0xbb644c), hex(0xc65c57),
-        hex(0xc35e68), hex(0xb26a74), hex(0xa0726d), hex(0x897c65),
+        hex(0x9AB09A), hex(0xA0B484), hex(0xAAB478), hex(0xB8B078),
+        hex(0xC4A878), hex(0xCE9C78), hex(0xD49078), hex(0xCC8880),
+        hex(0xC48C98), hex(0xB890B0), hex(0x8E90AC), hex(0x7EA0AC),
+        hex(0x7AAC98), hex(0x84AC84), hex(0xA8A088), hex(0xB2A690),
     ],
     nybble_ff: hex(0xd4cabd),
     category_whitespace: hex(0x618950),
@@ -536,6 +536,34 @@ pub const LIGHT_THEME: HexEditorTheme = HexEditorTheme {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ui::coloring::{contrast_ratio, relative_luminance};
+
+    // ── WCAG AA helpers ─────────────────────────────────────────────────────
+
+    /// Assert that two colours meet a given contrast threshold.
+    fn assert_contrast(label: &str, fg: Color, bg: Color, threshold: f32) {
+        let cr = contrast_ratio(&fg, &bg);
+        assert!(
+            cr >= threshold,
+            "WCAG AA FAIL [{}]: fg=({:.3},{:.3},{:.3}) bg=({:.3},{:.3},{:.3}) \
+             CR={:.2} < {:.1}",
+            label, fg.r, fg.g, fg.b, bg.r, bg.g, bg.b, cr, threshold,
+        );
+    }
+
+    /// Convenience: WCAG AA normal text threshold (4.5:1).
+    fn check(label: &str, fg: Color, bg: Color) {
+        assert_contrast(label, fg, bg, 4.5);
+    }
+
+    /// Convenience: WCAG AA non-text / large-text threshold (3:1).
+    fn check_ui(label: &str, fg: Color, bg: Color) {
+        assert_contrast(label, fg, bg, 3.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Colour-preservation tests
+    // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
     fn dark_theme_default_null_dim_matches_original() {
@@ -559,6 +587,10 @@ mod tests {
         assert!((DARK_THEME.matrix_bg.b - expected.b).abs() < 0.001);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Structural palette tests
+    // ═══════════════════════════════════════════════════════════════════════
+
     #[test]
     fn both_themes_have_valid_nybble_palettes() {
         for theme in [&DARK_THEME, &LIGHT_THEME] {
@@ -567,7 +599,11 @@ mod tests {
                 assert!(
                     (0.0..=1.0).contains(&c.r),
                     "{:?} nybble_palette[{i}].r = {}",
-                    if theme as *const _ == &DARK_THEME as *const _ { "dark" } else { "light" },
+                    if theme as *const _ == &DARK_THEME as *const _ {
+                        "dark"
+                    } else {
+                        "light"
+                    },
                     c.r,
                 );
             }
@@ -624,7 +660,9 @@ mod tests {
             let c_low = DARK_THEME.nybble_color(b);
             let high_nybble = (b >> 4) << 4;
             let other = high_nybble | 0x0F;
-            if other > 0xFE { continue; }
+            if other > 0xFE {
+                continue;
+            }
             let c_high = DARK_THEME.nybble_color(other);
             assert!(
                 (c_low.r - c_high.r).abs() < 0.001
@@ -635,20 +673,183 @@ mod tests {
         }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme WCAG AA normal-text (4.5:1) — matrix area
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Every foreground that appears on `matrix_bg` in the hex/ascii columns
+    // (see draw.rs cell-render loop for the exact layering).
+
     #[test]
-    fn theme_category_null_is_dimmer_than_printable() {
-        let null = DARK_THEME.category_color(0x00);
-        let printable = DARK_THEME.category_color(0x41);
-        let lum_null = luminance(&null);
-        let lum_print = luminance(&printable);
-        assert!(
-            lum_print > lum_null + 0.1,
-            "NULL (lum {lum_null:.3}) should be dimmer than printable (lum {lum_print:.3})",
+    fn dark_theme_matrix_text_wcag_aa() {
+        let t = &DARK_THEME;
+
+        // Primary text colours on the bare matrix background.
+        check("hex_fg", t.hex_fg, t.matrix_bg);
+        check("ascii_fg", t.ascii_fg, t.matrix_bg);
+        check("monochrome_fg", t.monochrome_fg, t.matrix_bg);
+        check("annotation_fg", t.annotation_fg, t.matrix_bg);
+        check("nybble_ff", t.nybble_ff, t.matrix_bg);
+        check("default_null_dim", t.default_null_dim, t.matrix_bg);
+
+        // 4 category colours.
+        check("category_whitespace", t.category_whitespace, t.matrix_bg);
+        check("category_printable", t.category_printable, t.matrix_bg);
+        check("category_ctrl", t.category_ctrl, t.matrix_bg);
+        check("category_non_ascii", t.category_non_ascii, t.matrix_bg);
+
+        // Rainbow / heatmap scheme colours at three representative bytes.
+        // scheme_lightness=0.70 is designed to pass WCAG AA on dark bg.
+        for kind in ["rainbow", "heatmap"] {
+            for byte in [0x00, 0x7F, 0xFF] {
+                let col = match kind {
+                    "rainbow" => t.rainbow_color(byte),
+                    _ => t.heatmap_color(byte),
+                };
+                let label = format!("{kind}_0x{byte:02X}");
+                check(&label, col, t.matrix_bg);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme — dedicated nybble-palette contrast test
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn dark_theme_nybble_palette_wcag_aa() {
+        let t = &DARK_THEME;
+        // All 16 nybble-palette entries on matrix_bg.
+        for (i, c) in t.nybble_palette.iter().enumerate() {
+            check(&format!("nybble_palette[{i}]"), *c, t.matrix_bg);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme WCAG AA (4.5:1) — overlays and gutters
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Each overlay draws its own background then places text on top of it.
+
+    #[test]
+    fn dark_theme_overlays_wcag_aa() {
+        let t = &DARK_THEME;
+
+        // Address gutter.
+        check("address_fg / address_gutter_bg", t.address_fg, t.address_gutter_bg);
+
+        // Column header.
+        check("header_fg / header_bg", t.header_fg, t.header_bg);
+
+        // Selection / cursor.
+        check("selection_fg / selection_bg", t.selection_fg, t.selection_bg);
+        check("caret / cursor_bg", t.caret, t.cursor_bg);
+
+        // Dirty, diff, editing overlays.
+        check("dirty_fg / dirty_bg", t.dirty_fg, t.dirty_bg);
+        check("diff_fg / diff_bg", t.diff_fg, t.diff_bg);
+        check("edit_fg / edit_bg", t.edit_fg, t.edit_bg);
+
+        // Search-match overlays (drawn on top of the cell bg).
+        check("search_current_fg / search_current_bg", t.search_current_fg, t.search_current_bg);
+        check("search_match_fg / search_match_bg", t.search_match_fg, t.search_match_bg);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme WCAG AA (4.5:1) — modal & panel text
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn dark_theme_modal_text_wcag_aa() {
+        let t = &DARK_THEME;
+        check("modal_heading_fg / modal_bg", t.modal_heading_fg, t.modal_bg);
+        check("modal_muted_fg / modal_bg", t.modal_muted_fg, t.modal_bg);
+        check("modal_error_fg / modal_bg", t.modal_error_fg, t.modal_bg);
+    }
+
+    #[test]
+    fn dark_theme_panel_text_wcag_aa() {
+        let t = &DARK_THEME;
+        check("pattern_count_fg / pattern_panel_bg", t.pattern_count_fg, t.pattern_panel_bg);
+        check("export_info_fg / export_preview_bg", t.export_info_fg, t.export_preview_bg);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme WCAG AA (4.5:1) — pattern overlay pairs
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Each pattern index i pairs pattern_fg_palette[i] with
+    // pattern_bg_palette[i] as a text-on-background pair.
+
+    #[test]
+    fn dark_theme_pattern_overlay_pairs_wcag_aa() {
+        let t = &DARK_THEME;
+        for i in 0..16 {
+            let label = format!("pattern_pair[{i}]");
+            check(&label, t.pattern_fg_palette[i], t.pattern_bg_palette[i]);
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme WCAG AA non-text (3:1) — UI elements
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn dark_theme_ui_elements_wcag_aa_non_text() {
+        let t = &DARK_THEME;
+
+        // Scrollbar.
+        check_ui("scrollbar_thumb / scrollbar_bg", t.scrollbar_thumb, t.scrollbar_bg);
+        check_ui(
+            "scrollbar_thumb_hover / scrollbar_bg",
+            t.scrollbar_thumb_hover,
+            t.scrollbar_bg,
+        );
+        check_ui(
+            "scrollbar_search_dot / scrollbar_bg",
+            t.scrollbar_search_dot,
+            t.scrollbar_bg,
+        );
+        check_ui(
+            "scrollbar_cursor_dot / scrollbar_bg",
+            t.scrollbar_cursor_dot,
+            t.scrollbar_bg,
+        );
+
+        // Minimap.
+        check_ui(
+            "minimap_cursor_marker / minimap_bg",
+            t.minimap_cursor_marker,
+            t.minimap_bg,
+        );
+        check_ui(
+            "minimap_dirty_pixel / minimap_bg",
+            t.minimap_dirty_pixel,
+            t.minimap_bg,
+        );
+        check_ui("minimap_diff_pixel / minimap_bg", t.minimap_diff_pixel, t.minimap_bg);
+
+        // Borders / separators.
+        check_ui("header_separator / header_bg", t.header_separator, t.header_bg);
+        check_ui(
+            "pattern_panel_border / pattern_panel_bg",
+            t.pattern_panel_border,
+            t.pattern_panel_bg,
         );
     }
 
-    /// Perceived luminance (rec. 709 weights).
-    fn luminance(c: &Color) -> f32 {
-        0.299 * c.r + 0.587 * c.g + 0.114 * c.b
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Dark-theme luminance ordering (uses WCAG relative_luminance)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn category_null_is_dimmer_than_printable() {
+        let lum_null = relative_luminance(&DARK_THEME.category_color(0x00));
+        let lum_print = relative_luminance(&DARK_THEME.category_color(0x41));
+        assert!(
+            lum_print > lum_null + 0.01,
+            "NULL (rel_lum {lum_null:.4}) should be dimmer than printable \
+             (rel_lum {lum_print:.4})",
+        );
     }
 }

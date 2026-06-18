@@ -1,0 +1,46 @@
+#A8C8B0 — muted sage green (teal undertone)
+#B0B898 — muted yellow-green
+#98B888 — muted green
+#88B888 — green
+#88B8A0 — teal
+#90A898 — grey-green
+#A0A890 — olive
+#B8A888 — tan
+#C8A080 — warm tan
+#D09878 — peach/salmon
+#D08880 — coral
+#C88890 — pink
+#B898A0 — muted pink
+#B0A098 — warm grey
+#A8A898 — grey
+#B8B0A0 — warm grey
+
+0x10: #70C8B8 (teal)
+0x20: #80C870 (green)
+0x30: #A0C870 (lime)
+0x40: #C8C870 (yellow)
+0x50: #C8A070 (orange)
+0x60: #C88070 (coral)
+0x70: #C87070 (salmon)
+0x80: #C87098 (pink)
+0x90: #A870C8 (purple)
+0xA0: #8870C8 (violet)
+0xB0: #7098C8 (blue)
+0xC0: #70B8C8 (sky)
+0xD0: #70C8A8 (mint)
+0xE0: #88C878 (light green)
+0xF0: #B8B090 (warm grey)
+0xFF hinybble: #B8A890 (beige)
+
+
+    nybble_palette: [
+        // removed
+        hex(0x887c6f), hex(0x8a7f64), hex(0x7a8f5a), hex(0x6a8f4a),
+        hex(0x5a8f5a), hex(0x5a8f6a), hex(0x5e856f), hex(0x6f855e),
+        hex(0x8a7d54), hex(0xa77346), hex(0xbb644c), hex(0xc65c57),
+        hex(0xc35e68), hex(0xb26a74), hex(0xa0726d), hex(0x897c65),
+        // added
+        hex(0x9AB09A), hex(0xA0B484), hex(0xAAB478), hex(0xB8B078),
+        hex(0xC4A878), hex(0xCE9C78), hex(0xD49078), hex(0xCC8880),
+        hex(0xC48C98), hex(0xB890B0), hex(0x8E90AC), hex(0x7EA0AC),
+        hex(0x7AAC98), hex(0x84AC84), hex(0xA8A088), hex(0xB2A690),
