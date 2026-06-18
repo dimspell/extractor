@@ -27,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
 use iced::advanced::widget::{tree, Tree, Widget};
-use iced::advanced::{Clipboard, Shell};
+use iced::advanced::Shell;
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
 
@@ -429,7 +429,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         tree::State::new(state::State::default())
     }
 
-    fn diff(&self, _tree: &mut Tree) {
+    fn diff(&mut self, _tree: &mut Tree) {
         // State is simple enough that the default diff is fine.
     }
 
@@ -448,7 +448,6 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for HexMatrix<'a
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &iced::Renderer,
-        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {

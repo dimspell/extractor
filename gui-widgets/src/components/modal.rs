@@ -1,6 +1,6 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
-use iced::advanced::{self, overlay, renderer, Clipboard, Shell};
+use iced::advanced::{self, overlay, renderer, Shell};
 use iced::alignment::Alignment;
 use iced::keyboard::key;
 use iced::{
@@ -61,15 +61,8 @@ impl<Message, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Renderer: advanced::Renderer,
 {
-    fn children(&self) -> Vec<widget::Tree> {
-        vec![
-            widget::Tree::new(&self.base),
-            widget::Tree::new(&self.modal),
-        ]
-    }
-
-    fn diff(&self, tree: &mut widget::Tree) {
-        tree.diff_children(&[&self.base, &self.modal]);
+    fn diff(&mut self, tree: &mut widget::Tree) {
+        tree.diff_children(&mut [&mut self.base, &mut self.modal]);
     }
 
     fn size(&self) -> Size<Length> {
@@ -94,7 +87,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
@@ -108,7 +100,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             shell,
             viewport,
         );
@@ -171,7 +162,7 @@ where
         state: &mut widget::Tree,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<()>,
+        operation: &mut dyn widget::Operation,
     ) {
         self.base
             .as_widget_mut()
@@ -227,7 +218,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
         match event {
@@ -255,7 +245,6 @@ where
             layout.children().next().unwrap(),
             cursor,
             renderer,
-            clipboard,
             shell,
             &layout.bounds(),
         );
@@ -304,7 +293,7 @@ where
         &mut self,
         layout: Layout<'_>,
         renderer: &Renderer,
-        operation: &mut dyn widget::Operation<()>,
+        operation: &mut dyn widget::Operation,
     ) {
         self.content.as_widget_mut().operate(
             self.tree,

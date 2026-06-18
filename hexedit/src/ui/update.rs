@@ -220,7 +220,8 @@ pub fn update(
                 if len - cursor >= entry.min_size as u64 {
                     let decoded = (entry.decode)(bytes);
                     state.status_msg = format!("Copied: {decoded}");
-                    return clipboard::write(decoded);
+                    return clipboard::write(decoded)
+                        .map(|_| HexEditorMessage::ClipboardWriteResult);
                 }
             }
         }
@@ -403,6 +404,7 @@ pub fn update(
         HexEditorMessage::ClearStatus => {
             state.status_msg.clear();
         }
+        HexEditorMessage::ClipboardWriteResult => {}
 
         // ── Search & Find/Replace ──────────────────────────────────────
         HexEditorMessage::OpenSearch => {
@@ -971,15 +973,19 @@ pub fn update(
                 .join(" ");
             let n = bytes.len();
             state.status_msg = format!("Copied {} byte(s) to clipboard", n);
-            return clipboard::write(hex_str);
+            return clipboard::write(hex_str)
+                .map(|_| HexEditorMessage::ClipboardWriteResult);
         }
 
         HexEditorMessage::Paste => {
             if state.provider.is_empty() {
                 return Task::none();
             }
-            return clipboard::read()
-                .map(|contents| HexEditorMessage::PasteContent(contents.unwrap_or_default()));
+            return clipboard::read_text()
+                .map(|contents| {
+                    let text = contents.unwrap_or_default();
+                    HexEditorMessage::PasteContent(text.to_string())
+                });
         }
 
         HexEditorMessage::PasteContent(contents) => {

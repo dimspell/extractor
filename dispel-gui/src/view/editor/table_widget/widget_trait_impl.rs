@@ -10,7 +10,7 @@ use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::widget::{tree, Tree, Widget};
-use iced::advanced::{Clipboard, Renderer as _, Shell};
+use iced::advanced::{Renderer as _, Shell};
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{
@@ -47,7 +47,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &iced::Renderer,
-        _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
     ) {
@@ -493,6 +492,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         align_y: alignment::Vertical::Top,
                         shaping: text::Shaping::Advanced,
                         wrapping: text::Wrapping::None,
+                    ellipsis: text::Ellipsis::None,
+                    hint_factor: None,
                     })
                 });
 
@@ -599,9 +600,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     align_x: text::Alignment::Default,
                     align_y: alignment::Vertical::Top,
                     shaping: text::Shaping::Advanced,
-                    wrapping: text::Wrapping::None,
-                })
-            });
+                wrapping: text::Wrapping::None,
+                    ellipsis: text::Ellipsis::None,
+                    hint_factor: None,
+                    })
+                });
             let id_inner = Rectangle {
                 x: id_x + self.cell_padding_x,
                 y,
@@ -754,6 +757,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         align_y: alignment::Vertical::Top,
                         shaping: text::Shaping::Advanced,
                         wrapping: text::Wrapping::None,
+                        ellipsis: text::Ellipsis::None,
+                        hint_factor: None,
                     })
                 });
                 let inner = Rectangle {
@@ -880,6 +885,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 align_y: alignment::Vertical::Top,
                 shaping: text::Shaping::Advanced,
                 wrapping: text::Wrapping::None,
+                ellipsis: text::Ellipsis::None,
+                hint_factor: None,
             })
         });
         let id_inner = Rectangle {
@@ -939,6 +946,8 @@ fn draw_centered_glyph(
             align_y: alignment::Vertical::Top,
             shaping: text::Shaping::Advanced,
             wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: None,
         })
     });
     let pos = bounds.anchor(

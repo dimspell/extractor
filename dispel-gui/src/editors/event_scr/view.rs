@@ -729,11 +729,12 @@ fn render_action_row<'a>(
             row![
                 indent_guides(depth),
                 badge("FUNC", "func"),
-                pick_list(prefix_options, Some(current_prefix.clone()), move |v| {
-                    let opt = if v == "(none)" { None } else { Some(v) };
-                    EventScrEditorMessage::ActionPrefixPicked(index, opt)
-                },)
-                .text_size(12)
+                pick_list(Some(current_prefix.clone()), prefix_options, String::clone)
+                    .on_select(move |v| {
+                        let opt = if v == "(none)" { None } else { Some(v) };
+                        EventScrEditorMessage::ActionPrefixPicked(index, opt)
+                    })
+                    .text_size(12)
                 .padding([2, 6]),
                 text("~").size(13).style(style::subtle_text),
                 text_input("function", &act.function_name)

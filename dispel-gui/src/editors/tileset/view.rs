@@ -161,7 +161,8 @@ fn view_tile_grid(editor: &TilesetEditorState) -> Element<'_, Message> {
             })
             .collect();
 
-        column(rows).spacing(2).padding([8, 8]).into()
+        let result: Element<'_, Message> = column(rows).spacing(2).padding([8, 8]).into();
+        result
     })
     .into();
 

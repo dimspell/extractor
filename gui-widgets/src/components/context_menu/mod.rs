@@ -6,11 +6,9 @@ pub mod state;
 #[cfg(test)]
 mod tests;
 
-use std::slice;
-
 use iced::advanced::overlay as iced_overlay;
 use iced::advanced::widget::tree;
-use iced::advanced::{layout, renderer, widget, Clipboard, Layout, Shell, Widget};
+use iced::advanced::{layout, renderer, widget, Layout, Shell, Widget};
 use iced::{mouse, Element, Event, Point, Rectangle, Vector};
 
 pub use entry::Entry;
@@ -81,10 +79,6 @@ where
         self.base.as_widget().size()
     }
 
-    fn size_hint(&self) -> iced::Size<iced::Length> {
-        self.base.as_widget().size_hint()
-    }
-
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -93,12 +87,8 @@ where
         tree::State::new(State::default())
     }
 
-    fn children(&self) -> Vec<widget::Tree> {
-        vec![widget::Tree::new(&self.base)]
-    }
-
-    fn diff(&self, tree: &mut widget::Tree) {
-        tree.diff_children(slice::from_ref(&self.base));
+    fn diff(&mut self, tree: &mut widget::Tree) {
+        tree.diff_children(std::slice::from_mut(&mut self.base));
     }
 
     fn layout(
@@ -140,7 +130,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
@@ -150,7 +139,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             shell,
             viewport,
         );
@@ -236,8 +224,8 @@ where
 
         let context_overlay = match state.status {
             Status::Open { position } => {
-                let menu = popup::build_menu(&self.entries, state.hovered_idx);
-                state.menu_tree.diff(&menu);
+                let mut menu = popup::build_menu(&self.entries, state.hovered_idx);
+                state.menu_tree.diff(&mut menu);
                 Some(iced_overlay::Element::new(Box::new(MenuOverlay {
                     menu,
                     menu_tree: &mut state.menu_tree,

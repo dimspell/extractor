@@ -146,7 +146,8 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
                 row(btns).spacing(4).into()
             })
             .collect();
-        column(rows).spacing(4).into()
+        let result: Element<'_, Message> = column(rows).spacing(4).into();
+        result
     })
     .into();
 

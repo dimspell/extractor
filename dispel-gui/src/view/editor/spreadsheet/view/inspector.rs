@@ -140,18 +140,19 @@ fn build_inspector_field<'a>(
                     .iter()
                     .map(|(id, name)| (name.clone(), id.clone()))
                     .collect();
-                pick_list(options_vec, selected, move |selected_name| {
-                    let selected_id = name_to_id
-                        .get(selected_name.as_str())
-                        .cloned()
-                        .unwrap_or_default();
-                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                        orig_idx,
-                        field_name.clone(),
-                        selected_id,
-                    ))
-                })
-                .width(Length::Fill)
+                pick_list(selected, options_vec, String::clone)
+                    .on_select(move |selected_name| {
+                        let selected_id = name_to_id
+                            .get(selected_name.as_str())
+                            .cloned()
+                            .unwrap_or_default();
+                        spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                            orig_idx,
+                            field_name.clone(),
+                            selected_id,
+                        ))
+                    })
+                    .width(Length::Fill)
                 .into()
             } else {
                 text_input("", &value)
@@ -164,14 +165,15 @@ fn build_inspector_field<'a>(
         FieldKind::Enum { variants } => {
             let field_name = descriptor.name.to_string();
             let selected = variants.iter().find(|&&v| v == value).copied();
-            pick_list(*variants, selected, move |selected_variant| {
-                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                    orig_idx,
-                    field_name.clone(),
-                    selected_variant.to_string(),
-                ))
-            })
-            .width(Length::Fill)
+            pick_list(selected, *variants, |v| v.to_string())
+                .on_select(move |selected_variant| {
+                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        selected_variant.to_string(),
+                    ))
+                })
+                .width(Length::Fill)
             .into()
         }
         FieldKind::CompositeItem {

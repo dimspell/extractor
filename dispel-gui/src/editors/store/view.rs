@@ -397,10 +397,11 @@ fn product_modal<'a>(
         row![
             text("Type").size(12).width(70),
             pick_list(
-                ProductTypeOption::all(),
                 Some(ProductTypeOption::from_id(editor.modal_edit_type)),
-                |selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id()))
+                ProductTypeOption::all(),
+                |v| v.to_string(),
             )
+            .on_select(|selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id())))
             .padding(6)
             .width(Fill),
         ]

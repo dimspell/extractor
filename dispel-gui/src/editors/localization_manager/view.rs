@@ -80,14 +80,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|f| FileFilter::File(f.clone()))
         .unwrap_or(FileFilter::All);
 
-    let file_filter = pick_list(filter_options, Some(current_filter), |sel| {
-        let opt = match sel {
-            FileFilter::All => None,
-            FileFilter::File(f) => Some(f),
-        };
-        Message::localization(LocalizationMessage::FilterFile(opt))
-    })
-    .width(Length::Fixed(160.0));
+    let file_filter = pick_list(Some(current_filter), filter_options, |f| f.to_string())
+        .on_select(|sel| {
+            let opt = match sel {
+                FileFilter::All => None,
+                FileFilter::File(f) => Some(f),
+            };
+            Message::localization(LocalizationMessage::FilterFile(opt))
+        })
+        .width(Length::Fixed(160.0));
 
     let search_input = text_input("Search…", &state.search_query)
         .on_input(|v| Message::localization(LocalizationMessage::SearchChanged(v)))

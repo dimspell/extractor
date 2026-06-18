@@ -97,35 +97,37 @@ pub fn composite_item_picker(
         let oc = on_change.clone();
         let current_id = current_id.clone();
         pick_list(
-            type_labels,
             Some(current_type_label),
-            move |selected_label| {
-                let type_byte = type_labels_for_picker
-                    .iter()
-                    .position(|l| l == &selected_label)
-                    .and_then(|i| item_types.get(i))
-                    .map(|t| u8::from(*t))
-                    .unwrap_or(255);
-                // Preserve the item ID when switching type so the user doesn't
-                // lose their selection. The setter macro receives the full
-                // composite key and updates both fields.
-                oc(format!("{}:{}", type_byte, current_id))
-            },
+            type_labels,
+            |v| v.to_string(),
         )
+        .on_select(move |selected_label| {
+            let type_byte = type_labels_for_picker
+                .iter()
+                .position(|l| l == &selected_label)
+                .and_then(|i| item_types.get(i))
+                .map(|t| u8::from(*t))
+                .unwrap_or(255);
+            // Preserve the item ID when switching type so the user doesn't
+            // lose their selection. The setter macro receives the full
+            // composite key and updates both fields.
+            oc(format!("{}:{}", type_byte, current_id))
+        })
         .width(Length::Fill)
         .into()
     };
 
     let item_picker: Element<'static, Message> = {
-        pick_list(item_options, selected_item, move |selected_name| {
-            let composite_key = filtered_items
-                .iter()
-                .find(|(_, name)| name == &selected_name)
-                .map(|(key, _)| key.clone())
-                .unwrap_or_default();
-            on_change(composite_key)
-        })
-        .width(Length::Fill)
+        pick_list(selected_item, item_options, |v| v.to_string())
+            .on_select(move |selected_name| {
+                let composite_key = filtered_items
+                    .iter()
+                    .find(|(_, name)| name == &selected_name)
+                    .map(|(key, _)| key.clone())
+                    .unwrap_or_default();
+                on_change(composite_key)
+            })
+            .width(Length::Fill)
         .into()
     };
 

@@ -32,7 +32,7 @@ pub fn main() -> iced::Result {
         .theme(|_: &App| {
             Theme::custom(
                 "Medieval",
-                iced::theme::Palette {
+                iced::theme::palette::Seed {
                     background: color!(0x2a2a2a),
                     text: color!(0xeae0c8),
                     primary: color!(0x8b5a2b),

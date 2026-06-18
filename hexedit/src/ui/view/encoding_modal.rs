@@ -50,7 +50,12 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .and_then(|idx| COMMON_ENCODINGS.get(idx))
         .map(|(l, _)| *l);
 
-    let encoding_picker = pick_list(labels, pick_list_selection, |label| {
+    let encoding_picker = pick_list(
+        pick_list_selection,
+        labels,
+        |label| label.to_string(),
+    )
+    .on_select(|label| {
         // Find the index of the selected label.
         let idx = COMMON_ENCODINGS
             .iter()
