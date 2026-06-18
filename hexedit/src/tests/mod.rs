@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use iced_test::simulator;
 
 use gui_widgets::components::paragraph_cache::ParagraphCache;
-use crate::ui::theme::DARK_THEME;
+use crate::ui::theme::{ThemeVariant, DARK_THEME};
 
 use crate::config::HexEditorConfig;
 use crate::domain::write_mode::WriteMode;
@@ -84,6 +84,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         show_entropy_band: true,
         show_minimap: true,
         theme: &DARK_THEME,
+        theme_variant: ThemeVariant::Dark,
         pending_center_on: Cell::new(None),
     }
 }

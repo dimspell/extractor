@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::ui::coloring::ColorScheme;
-use crate::ui::theme::DARK_THEME;
+use crate::ui::theme::{ThemeVariant, DARK_THEME};
 use crate::LuaScriptEngine;
 
 /// Write a Lua script to the temp dir and return its path.
@@ -580,6 +580,7 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         show_entropy_band: true,
         show_minimap: true,
         theme: &DARK_THEME,
+        theme_variant: ThemeVariant::Dark,
         pending_center_on: Cell::new(None),
     };
     let errors = state.load_lua_scripts(&dir);
@@ -644,6 +645,7 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         show_entropy_band: true,
         show_minimap: true,
         theme: &DARK_THEME,
+        theme_variant: ThemeVariant::Dark,
         pending_center_on: Cell::new(None),
     };
     let errors = state.load_lua_scripts(&std::path::PathBuf::from("/nonexistent/lua/dir"));
@@ -739,6 +741,7 @@ return {
         show_entropy_band: true,
         show_minimap: true,
         theme: &DARK_THEME,
+        theme_variant: ThemeVariant::Dark,
         pending_center_on: Cell::new(None),
     };
     // Verify the decode works

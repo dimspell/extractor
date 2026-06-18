@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, pick_list, row, text, toggler};
 use iced::{Color, Element, Font, Length};
 
 use crate::ui::coloring::{default_byte_colors, ColorScheme};
-use crate::ui::theme::DARK_THEME;
+use crate::ui::theme::{ThemeVariant, DARK_THEME};
 use crate::HexEditorMessage;
 use crate::HexEditorState;
 
@@ -145,6 +145,26 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .size(13)
         .spacing(8);
 
+    // ── Appearance section ─────────────────────────────────────────────
+    let appearance_label = section_label("Appearance");
+
+    // Theme pick list
+    let theme_pick = pick_list(
+        &ThemeVariant::ALL[..],
+        Some(state.theme_variant),
+        HexEditorMessage::SetTheme,
+    )
+    .font(Font::MONOSPACE)
+    .text_size(12)
+    .padding([2, 6]);
+
+    let theme_row = row![
+        text("Theme").size(12).width(Length::Fill),
+        theme_pick,
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center);
+
     // ── Action buttons ─────────────────────────────────────────────────
     let reset_btn = button(text("Reset to Defaults").size(12))
         .padding([4, 14])
@@ -172,6 +192,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
             bpr_row,
             entropy_toggle,
             minimap_toggle,
+            sep(),
+            appearance_label,
+            theme_row,
             sep(),
             action_row,
         ]

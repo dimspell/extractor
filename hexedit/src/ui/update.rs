@@ -7,6 +7,7 @@ use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
 use crate::ui::coloring::ColorScheme;
+use crate::ui::theme::ThemeVariant;
 
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
@@ -866,6 +867,10 @@ pub fn update(
         HexEditorMessage::CloseSettings => {
             state.settings_open = false;
         }
+        HexEditorMessage::SetTheme(variant) => {
+            state.theme_variant = variant;
+            state.theme = variant.theme();
+        }
         HexEditorMessage::SetColorScheme(scheme) => {
             state.color_scheme = scheme;
         }
@@ -887,6 +892,8 @@ pub fn update(
             state.show_decimal = false;
             state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
             state.show_entropy_band = true;
+            state.theme_variant = ThemeVariant::Dark;
+            state.theme = ThemeVariant::Dark.theme();
             state.status_msg = "Settings reset to defaults".to_string();
         }
 

@@ -176,6 +176,8 @@ pub enum HexEditorMessage {
     OpenSettings,
     /// Close the settings modal.
     CloseSettings,
+    /// Switch the active colour theme (dark / light).
+    SetTheme(crate::ui::theme::ThemeVariant),
     /// Switch the default byte-colouring scheme.
     SetColorScheme(crate::ui::coloring::ColorScheme),
     /// Enable/disable dim-nulls regardless of colour scheme.

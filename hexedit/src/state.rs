@@ -18,7 +18,7 @@ use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
 use super::ui::coloring::ColorScheme;
-use super::ui::theme::{HexEditorTheme, DARK_THEME};
+use super::ui::theme::{HexEditorTheme, ThemeVariant, DARK_THEME};
 use super::vanilla_diff::compute_diff;
 
 /// Default cell width — 16 bytes per row matches every other hex editor on
@@ -136,6 +136,10 @@ pub struct HexEditorState {
     /// Active colour theme. Defaults to [`DARK_THEME`]; switch to
     /// [`LIGHT_THEME`] via the settings modal.
     pub theme: &'static HexEditorTheme,
+    /// Which variant of the theme is active — used by the settings modal
+    /// picker to display the current selection and by `SetTheme` to
+    /// update `theme`.
+    pub theme_variant: ThemeVariant,
 }
 
 impl HexEditorState {
@@ -219,6 +223,7 @@ impl HexEditorState {
             show_minimap: true,
             pending_center_on: Cell::new(None),
             theme: &DARK_THEME,
+            theme_variant: ThemeVariant::Dark,
         }
     }
 

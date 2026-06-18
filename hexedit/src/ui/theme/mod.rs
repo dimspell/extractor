@@ -5,7 +5,48 @@
 //! [`DARK_THEME`] (the original look) and [`LIGHT_THEME`] (parchment
 //! background for accessibility / bright environments).
 
+use std::fmt;
+
 use iced::Color;
+
+/// Which built-in colour theme is currently active.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThemeVariant {
+    /// Dark leather/amber theme (the original).
+    #[default]
+    Dark,
+    /// Warm parchment light theme.
+    Light,
+}
+
+impl ThemeVariant {
+    /// All variants, in display order.
+    pub const ALL: [ThemeVariant; 2] = [ThemeVariant::Dark, ThemeVariant::Light];
+
+    /// Human-readable label for the variant.
+    #[must_use]
+    pub const fn label(&self) -> &'static str {
+        match self {
+            ThemeVariant::Dark => "Dark",
+            ThemeVariant::Light => "Light",
+        }
+    }
+
+    /// Return the static theme constant for this variant.
+    #[must_use]
+    pub const fn theme(&self) -> &'static HexEditorTheme {
+        match self {
+            ThemeVariant::Dark => &DARK_THEME,
+            ThemeVariant::Light => &LIGHT_THEME,
+        }
+    }
+}
+
+impl fmt::Display for ThemeVariant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
 
 // ── Const helper ────────────────────────────────────────────────────────────
 
