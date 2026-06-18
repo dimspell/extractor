@@ -1,4 +1,4 @@
-use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell};
+use iced::advanced::{layout, overlay, renderer, widget, Layout, Shell};
 use iced::widget::{button, column, container, row, text};
 use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size};
 
@@ -171,7 +171,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
         match event {
@@ -204,7 +203,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             shell,
             &layout.bounds(),
         );
@@ -230,7 +228,7 @@ where
         &mut self,
         layout: Layout<'_>,
         renderer: &iced::Renderer,
-        operation: &mut dyn widget::Operation<()>,
+        operation: &mut dyn widget::Operation,
     ) {
         self.menu
             .as_widget_mut()

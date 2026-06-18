@@ -43,7 +43,7 @@ fn main() -> iced::Result {
         .theme(|_: &App| {
             Theme::custom(
                 "HexEdit",
-                iced::theme::Palette {
+                iced::theme::palette::Seed {
                     background: DARK_THEME.iced_bg,
                     text: DARK_THEME.iced_text,
                     primary: DARK_THEME.iced_primary,

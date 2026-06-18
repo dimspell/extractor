@@ -88,20 +88,21 @@ pub fn inspector_field_row<'a>(
                 .map(|(_, display)| display.clone());
 
             let field_widget: Element<'a, Message> = if !options.is_empty() {
-                pick_list(options, selected, move |v: String| {
-                    let id = entries
-                        .iter()
-                        .find(|(_, d)| d == &v)
-                        .map(|(id, _)| id.clone())
-                        .unwrap_or_default();
-                    Message::map_editor(MapEditorMessage::EntityFieldChanged(
-                        tab_id,
-                        sel,
-                        name.to_string(),
-                        id,
-                    ))
-                })
-                .width(Fill)
+                pick_list(selected, options, String::clone)
+                    .on_select(move |v: String| {
+                        let id = entries
+                            .iter()
+                            .find(|(_, d)| d == &v)
+                            .map(|(id, _)| id.clone())
+                            .unwrap_or_default();
+                        Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                            tab_id,
+                            sel,
+                            name.to_string(),
+                            id,
+                        ))
+                    })
+                    .width(Fill)
                 .padding(4)
                 .text_size(11)
                 .into()
@@ -144,15 +145,16 @@ pub fn inspector_field_row<'a>(
                     .size(11)
                     .width(LABEL_W)
                     .style(style::subtle_text),
-                pick_list(options, selected, move |v: &'static str| {
-                    Message::map_editor(MapEditorMessage::EntityFieldChanged(
-                        tab_id,
-                        sel,
-                        name.to_string(),
-                        v.to_string(),
-                    ))
-                })
-                .width(Fill)
+                pick_list(selected, options, |v| v.to_string())
+                    .on_select(move |v: &'static str| {
+                        Message::map_editor(MapEditorMessage::EntityFieldChanged(
+                            tab_id,
+                            sel,
+                            name.to_string(),
+                            v.to_string(),
+                        ))
+                    })
+                    .width(Fill)
                 .padding(4)
                 .text_size(11),
             ]

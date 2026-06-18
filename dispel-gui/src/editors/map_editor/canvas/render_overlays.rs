@@ -124,8 +124,10 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 align_y: alignment::Vertical::Bottom,
                                 shaping: iced::widget::text::Shaping::Basic,
                                 line_height: iced::widget::text::LineHeight::default(),
-                                max_width: f32::INFINITY,
-                            });
+                                    max_width: f32::INFINITY,
+                                    ellipsis: iced::widget::text::Ellipsis::None,
+                                    wrapping: iced::widget::text::Wrapping::None,
+                                });
                         }
                     }
 
@@ -153,6 +155,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                     shaping: iced::widget::text::Shaping::Basic,
                                     line_height: iced::widget::text::LineHeight::default(),
                                     max_width: f32::INFINITY,
+                                    ellipsis: iced::widget::text::Ellipsis::None,
+                                    wrapping: iced::widget::text::Wrapping::None,
                                 });
                             }
                         }
@@ -260,6 +264,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                     shaping: iced::widget::text::Shaping::Basic,
                                     line_height: iced::widget::text::LineHeight::default(),
                                     max_width: f32::INFINITY,
+                                    ellipsis: iced::widget::text::Ellipsis::None,
+                                    wrapping: iced::widget::text::Wrapping::None,
                                 });
                             }
                         }
@@ -434,6 +440,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 shaping: iced::widget::text::Shaping::Basic,
                 line_height: iced::widget::text::LineHeight::default(),
                 max_width: f32::INFINITY,
+                ellipsis: iced::widget::text::Ellipsis::None,
+                wrapping: iced::widget::text::Wrapping::None,
             });
             cursor_frame.fill_text(CanvasText {
                 content: label,
@@ -446,6 +454,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 shaping: iced::widget::text::Shaping::Basic,
                 line_height: iced::widget::text::LineHeight::default(),
                 max_width: f32::INFINITY,
+                ellipsis: iced::widget::text::Ellipsis::None,
+                wrapping: iced::widget::text::Wrapping::None,
             });
         }
 

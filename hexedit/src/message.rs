@@ -225,6 +225,8 @@ pub enum HexEditorMessage {
     Paste,
     /// Async result: clipboard contents to paste as hex bytes.
     PasteContent(String),
+    /// Async result from clipboard write (always succeeds — we don't surface errors).
+    ClipboardWriteResult,
 
     // ── Byte statistics / entropy panel ───────────────────────────────
     /// Show/hide the byte statistics panel.

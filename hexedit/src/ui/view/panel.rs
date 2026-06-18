@@ -211,7 +211,7 @@ pub fn title_bar<'a>(
         .always_show_controls()
         .padding([4, 6])
         .style(move |theme: &iced::Theme| {
-            let palette = theme.extended_palette();
+            let palette = theme.palette();
 
             if is_focused {
                 container::Style {

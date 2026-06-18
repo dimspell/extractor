@@ -39,10 +39,11 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     let scheme_row = row![
         text("Scheme").size(12).width(Length::Fill),
         pick_list(
-            &ColorScheme::ALL[..],
             Some(state.color_scheme),
-            HexEditorMessage::SetColorScheme,
+            &ColorScheme::ALL[..],
+            |cs| cs.to_string(),
         )
+        .on_select(HexEditorMessage::SetColorScheme)
         .font(Font::MONOSPACE)
         .text_size(12)
         .padding([2, 6]),
@@ -98,12 +99,13 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     } else {
         ADDR_OPTIONS[0]
     };
-    let addr_pick = pick_list(&ADDR_OPTIONS[..], Some(addr_current), |selected| {
-        HexEditorMessage::SetAddrFormat(selected == ADDR_OPTIONS[1])
-    })
-    .font(Font::MONOSPACE)
-    .text_size(12)
-    .padding([2, 6]);
+    let addr_pick = pick_list(Some(addr_current), &ADDR_OPTIONS[..], |s| s.to_string())
+        .on_select(|selected| {
+            HexEditorMessage::SetAddrFormat(selected == ADDR_OPTIONS[1])
+        })
+        .font(Font::MONOSPACE)
+        .text_size(12)
+        .padding([2, 6]);
 
     let addr_row = row![
         text("Address format").size(12).width(Length::Fill),
@@ -150,10 +152,11 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
 
     // Theme pick list
     let theme_pick = pick_list(
-        &ThemeVariant::ALL[..],
         Some(state.theme_variant),
-        HexEditorMessage::SetTheme,
+        &ThemeVariant::ALL[..],
+        |tv| tv.to_string(),
     )
+    .on_select(HexEditorMessage::SetTheme)
     .font(Font::MONOSPACE)
     .text_size(12)
     .padding([2, 6]);

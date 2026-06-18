@@ -4,7 +4,7 @@ version = "0.8.0"
 edition = "2021"
 
 [dependencies]
-iced = { version = "0.14", default-features = false, features = ["advanced", "thread-pool"] }
+iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool"] }
 lru = "0.12"
 
 [target.'cfg(target_os = "macos")'.dependencies]

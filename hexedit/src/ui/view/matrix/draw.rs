@@ -680,6 +680,8 @@ fn shape_glyph(cache: &ParagraphCache, glyph: &str, font: Font) -> Paragraph {
             align_y: alignment::Vertical::Top,
             shaping: text::Shaping::Basic,
             wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: None,
         })
     })
 }
@@ -782,6 +784,8 @@ fn draw_glyph_string(
             align_y: alignment::Vertical::Top,
             shaping: text::Shaping::Basic,
             wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: None,
         })
     });
     let pos = bounds.anchor(
