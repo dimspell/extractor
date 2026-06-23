@@ -103,9 +103,9 @@ pub fn inspector_field_row<'a>(
                         ))
                     })
                     .width(Fill)
-                .padding(4)
-                .text_size(11)
-                .into()
+                    .padding(4)
+                    .text_size(11)
+                    .into()
             } else {
                 text_input("", value)
                     .on_input(move |v| {
@@ -155,8 +155,8 @@ pub fn inspector_field_row<'a>(
                         ))
                     })
                     .width(Fill)
-                .padding(4)
-                .text_size(11),
+                    .padding(4)
+                    .text_size(11),
             ]
             .spacing(6)
             .align_y(iced::Alignment::Center)

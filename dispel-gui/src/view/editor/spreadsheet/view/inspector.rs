@@ -153,7 +153,7 @@ fn build_inspector_field<'a>(
                         ))
                     })
                     .width(Length::Fill)
-                .into()
+                    .into()
             } else {
                 text_input("", &value)
                     .padding(4)
@@ -174,7 +174,7 @@ fn build_inspector_field<'a>(
                     ))
                 })
                 .width(Length::Fill)
-            .into()
+                .into()
         }
         FieldKind::CompositeItem {
             lookup_key,

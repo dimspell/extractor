@@ -124,10 +124,10 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 align_y: alignment::Vertical::Bottom,
                                 shaping: iced::widget::text::Shaping::Basic,
                                 line_height: iced::widget::text::LineHeight::default(),
-                                    max_width: f32::INFINITY,
-                                    ellipsis: iced::widget::text::Ellipsis::None,
-                                    wrapping: iced::widget::text::Wrapping::None,
-                                });
+                                max_width: f32::INFINITY,
+                                ellipsis: iced::widget::text::Ellipsis::None,
+                                wrapping: iced::widget::text::Wrapping::None,
+                            });
                         }
                     }
 

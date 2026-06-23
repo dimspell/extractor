@@ -973,19 +973,17 @@ pub fn update(
                 .join(" ");
             let n = bytes.len();
             state.status_msg = format!("Copied {} byte(s) to clipboard", n);
-            return clipboard::write(hex_str)
-                .map(|_| HexEditorMessage::ClipboardWriteResult);
+            return clipboard::write(hex_str).map(|_| HexEditorMessage::ClipboardWriteResult);
         }
 
         HexEditorMessage::Paste => {
             if state.provider.is_empty() {
                 return Task::none();
             }
-            return clipboard::read_text()
-                .map(|contents| {
-                    let text = contents.unwrap_or_default();
-                    HexEditorMessage::PasteContent(text.to_string())
-                });
+            return clipboard::read_text().map(|contents| {
+                let text = contents.unwrap_or_default();
+                HexEditorMessage::PasteContent(text.to_string())
+            });
         }
 
         HexEditorMessage::PasteContent(contents) => {
