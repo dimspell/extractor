@@ -106,9 +106,8 @@ impl InventoryItem {
     /// printable character are skipped — they are likely binary junk that
     /// happens to fall in the printable range (e.g. `%`, `2`, `=`).
     fn extract_text(buf: &[u8]) -> String {
-        let is_text_byte = |&b: &u8| -> bool {
-            b.is_ascii_graphic() || b == b' ' || b == b'\t' || b >= 0x80
-        };
+        let is_text_byte =
+            |&b: &u8| -> bool { b.is_ascii_graphic() || b == b' ' || b == b'\t' || b >= 0x80 };
 
         let i = 0;
         let mut i = i;
@@ -121,11 +120,9 @@ impl InventoryItem {
                 let seg_len = i - seg_start;
                 // Accept segments >= 2 chars whose first byte looks like a
                 // text character (alphabetic or extended Latin).
-                if seg_len >= 2
-                    && (buf[seg_start].is_ascii_alphabetic() || buf[seg_start] >= 0x80)
+                if seg_len >= 2 && (buf[seg_start].is_ascii_alphabetic() || buf[seg_start] >= 0x80)
                 {
-                    let (decoded, _, _) =
-                        WINDOWS_1250.decode(&buf[seg_start..seg_start + seg_len]);
+                    let (decoded, _, _) = WINDOWS_1250.decode(&buf[seg_start..seg_start + seg_len]);
                     return decoded.trim().to_string();
                 }
             } else {
@@ -457,7 +454,7 @@ impl EventScript {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JournalEntry {
     pub counter: u8,
-    pub name: String,   // 32 bytes null-terminated WINDOWS-1250
+    pub name: String, // 32 bytes null-terminated WINDOWS-1250
     pub flags: u32,
 }
 
@@ -585,10 +582,10 @@ pub struct SaveFile {
     pub dungeon_objects: Vec<ExtraObjectRecord>,
 
     pub sprite_paths: Vec<String>,
-    pub character_details: Vec<u8>,          // 40 bytes
+    pub character_details: Vec<u8>, // 40 bytes
     pub player_attributes: PlayerAttributes,
-    pub extra_character_data: Vec<u8>,       // 46 bytes (2 u16s + 42 bytes)
-    pub character_unknown_block: Vec<u8>,    // 96 bytes before character name
+    pub extra_character_data: Vec<u8>, // 46 bytes (2 u16s + 42 bytes)
+    pub character_unknown_block: Vec<u8>, // 96 bytes before character name
     pub player_name: String,
     pub player_class_id: i16,
     pub player_class_name: String,
@@ -596,9 +593,9 @@ pub struct SaveFile {
     pub inventory_items: Vec<InventoryItem>,
 
     pub events: Vec<EventScript>,
-    pub journal_main: Vec<JournalEntry>,   // 100 entries
-    pub journal_side: Vec<JournalEntry>,   // 100 entries
-    pub journal_trade: Vec<JournalEntry>,  // 100 entries
+    pub journal_main: Vec<JournalEntry>,  // 100 entries
+    pub journal_side: Vec<JournalEntry>,  // 100 entries
+    pub journal_trade: Vec<JournalEntry>, // 100 entries
 }
 
 impl SaveFile {
@@ -664,12 +661,24 @@ impl SaveFile {
 
         // Try to extract player identity (name + class) and tail sections.
         // This is best-effort — failures silently leave fields at defaults.
-        Self::extract_player_identity(&remaining_data, &mut player_name,
-            &mut player_class_id, &mut player_class_name);
-        Self::extract_tail_sections(&remaining_data,
-            &mut events, &mut journal_main, &mut journal_side, &mut journal_trade,
-            &mut character_details, &mut player_attributes, &mut extra_character_data,
-            &mut character_unknown_block, &mut inventory_items);
+        Self::extract_player_identity(
+            &remaining_data,
+            &mut player_name,
+            &mut player_class_id,
+            &mut player_class_name,
+        );
+        Self::extract_tail_sections(
+            &remaining_data,
+            &mut events,
+            &mut journal_main,
+            &mut journal_side,
+            &mut journal_trade,
+            &mut character_details,
+            &mut player_attributes,
+            &mut extra_character_data,
+            &mut character_unknown_block,
+            &mut inventory_items,
+        );
 
         let draw_items_data = Vec::new();
         let dungeon_header_data = Vec::new();
@@ -715,7 +724,12 @@ impl SaveFile {
     ///
     /// We scan BACKWARD from the end because the player identity block is always
     /// the LAST section before events_start — the closest match to the end wins.
-    fn extract_player_identity(data: &[u8], name: &mut String, class_id: &mut i16, class_name: &mut String) {
+    fn extract_player_identity(
+        data: &[u8],
+        name: &mut String,
+        class_id: &mut i16,
+        class_name: &mut String,
+    ) {
         if data.len() < 150 {
             return;
         }
@@ -723,7 +737,10 @@ impl SaveFile {
         let max = data.len().saturating_sub(120);
         for offset in (0..=max).rev() {
             // Look for 96 bytes where ≥72 are zero (stricter than 70 to filter noise)
-            let zero_count = data[offset..offset + 96].iter().filter(|&&b| b == 0).count();
+            let zero_count = data[offset..offset + 96]
+                .iter()
+                .filter(|&&b| b == 0)
+                .count();
             if zero_count >= 72 {
                 let after_block = &data[offset + 96..];
                 // 11-byte name field (null-terminated WINDOWS-1250)
@@ -733,7 +750,10 @@ impl SaveFile {
                     // Name must start with ASCII uppercase letter (A-Z)
                     if name_raw[0] >= 0x41 && name_raw[0] <= 0x5A {
                         // Name chars: printable ASCII or extended Latin
-                        if name_raw[..name_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                        if name_raw[..name_len]
+                            .iter()
+                            .all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80)
+                        {
                             // class_id: i16 at offset 11
                             let cid = i16::from_le_bytes([after_block[11], after_block[12]]);
                             if cid >= 1 && cid <= 12 {
@@ -741,10 +761,15 @@ impl SaveFile {
                                 let cls_raw = &after_block[13..24];
                                 let cls_len = cls_raw.iter().position(|&b| b == 0).unwrap_or(11);
                                 if cls_len >= 3 && cls_len <= 10 {
-                                    if cls_raw[..cls_len].iter().all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80) {
+                                    if cls_raw[..cls_len]
+                                        .iter()
+                                        .all(|&b| b >= 0x20 && b <= 0x7E || b >= 0x80)
+                                    {
                                         // Found! Decode and populate.
-                                        let (decoded_name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
-                                        let (decoded_cls, _, _) = WINDOWS_1250.decode(&cls_raw[..cls_len]);
+                                        let (decoded_name, _, _) =
+                                            WINDOWS_1250.decode(&name_raw[..name_len]);
+                                        let (decoded_cls, _, _) =
+                                            WINDOWS_1250.decode(&cls_raw[..cls_len]);
                                         *name = decoded_name.to_string();
                                         *class_id = cid;
                                         *class_name = decoded_cls.to_string();
@@ -814,9 +839,7 @@ impl SaveFile {
                 let after = &data[pos + 96..];
                 let name_raw = &after[..11];
                 let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(11);
-                if name_len >= 3 && name_len <= 10
-                    && name_raw[0] >= 0x41 && name_raw[0] <= 0x5A
-                {
+                if name_len >= 3 && name_len <= 10 && name_raw[0] >= 0x41 && name_raw[0] <= 0x5A {
                     let cid = i16::from_le_bytes([after[11], after[12]]);
                     if cid >= 1 && cid <= 12 {
                         return Some(pos);
@@ -871,9 +894,7 @@ impl SaveFile {
 
             // Try standard item: 272B record, 4B type (must be 1-5)
             if pos + INVENTORY_RECORD_SIZE <= inv.len() {
-                let type_val = u32::from_le_bytes(
-                    inv[pos..pos + 4].try_into().unwrap(),
-                );
+                let type_val = u32::from_le_bytes(inv[pos..pos + 4].try_into().unwrap());
                 let item_type_id = (type_val & 0xFF) as u8;
 
                 if (1..=5).contains(&item_type_id) {
@@ -887,8 +908,9 @@ impl SaveFile {
                         let description = InventoryItem::extract_text(desc_buf);
 
                         // Extract price (i32 at end of record)
-                        let price_bytes: [u8; 4] = inv[pos + 4 + 30 + 234
-                            ..pos + 4 + 30 + 234 + 4].try_into().unwrap();
+                        let price_bytes: [u8; 4] = inv[pos + 4 + 30 + 234..pos + 4 + 30 + 234 + 4]
+                            .try_into()
+                            .unwrap();
                         let price = i32::from_le_bytes(price_bytes);
 
                         items.push(InventoryItem {
@@ -944,18 +966,20 @@ impl SaveFile {
     ///   Struct:  STR/DEX/WIS/CON/LCK/HP_CUR/HP_MAX/MP_CUR/MP_MAX(9×u16=18B) + XP(u32=4B) + LVL(u16=2B) + GOLD(u32=4B) = 28B
     ///
     /// We manually map because the struct expects MP fields between HP and XP.
-    fn extract_character_data(data: &[u8], start: usize,
+    fn extract_character_data(
+        data: &[u8],
+        start: usize,
         character_details: &mut Vec<u8>,
         player_attributes: &mut PlayerAttributes,
         extra_character_data: &mut Vec<u8>,
-        character_unknown_block: &mut Vec<u8>)
-    {
+        character_unknown_block: &mut Vec<u8>,
+    ) {
         if start + 114 > data.len() {
             return;
         }
         *character_unknown_block = Vec::new(); // not populated yet
-        // 4 bytes padding (skip)
-        // 40 bytes character details
+                                               // 4 bytes padding (skip)
+                                               // 40 bytes character details
         let mut details = vec![0u8; 40];
         details.copy_from_slice(&data[start + 4..start + 44]);
         *character_details = details;
@@ -970,9 +994,19 @@ impl SaveFile {
         pa.hp_current = u16::from_le_bytes([save_attrs[10], save_attrs[11]]);
         pa.hp_maximum = u16::from_le_bytes([save_attrs[12], save_attrs[13]]);
         // Save has no MP fields; XP at bytes 14-17 as u32, LVL at bytes 18-19, GOLD at bytes 20-23 as u32
-        pa.xp_current = u32::from_le_bytes([save_attrs[14], save_attrs[15], save_attrs[16], save_attrs[17]]);
+        pa.xp_current = u32::from_le_bytes([
+            save_attrs[14],
+            save_attrs[15],
+            save_attrs[16],
+            save_attrs[17],
+        ]);
         pa.level = u16::from_le_bytes([save_attrs[18], save_attrs[19]]);
-        pa.gold = u32::from_le_bytes([save_attrs[20], save_attrs[21], save_attrs[22], save_attrs[23]]);
+        pa.gold = u32::from_le_bytes([
+            save_attrs[20],
+            save_attrs[21],
+            save_attrs[22],
+            save_attrs[23],
+        ]);
         // MP fields stay at 0 (not present in save attrs block)
         *player_attributes = pa;
         // 46 bytes extra character data (unknown structure)
@@ -994,7 +1028,8 @@ impl SaveFile {
     /// The pre-events area has: `[section_table var][sprite_paths 244B][character_data var]`
     /// where character_data begins with:
     ///   `[4B padding][40B details][26B attributes][46B extra][inventory var][96B zero][name+class]`
-    fn extract_tail_sections(data: &[u8],
+    fn extract_tail_sections(
+        data: &[u8],
         events: &mut Vec<EventScript>,
         journal_main: &mut Vec<JournalEntry>,
         journal_side: &mut Vec<JournalEntry>,
@@ -1003,8 +1038,8 @@ impl SaveFile {
         player_attributes: &mut PlayerAttributes,
         extra_character_data: &mut Vec<u8>,
         character_unknown_block: &mut Vec<u8>,
-        inventory_items: &mut Vec<InventoryItem>)
-    {
+        inventory_items: &mut Vec<InventoryItem>,
+    ) {
         const JOURNAL_SIZE: usize = 3 * 100 * 37; // 11,100
         const UNKNOWN_SIZE: usize = 114;
         const EVENT_SIZE: usize = 284;
@@ -1028,7 +1063,12 @@ impl SaveFile {
         let mut parsed = Vec::with_capacity(2251);
         let all_ok = (0..2251).all(|i| {
             let chunk = &data[pos + i * EVENT_SIZE..pos + (i + 1) * EVENT_SIZE];
-            EventScript::parse(chunk).map(|e| { parsed.push(e); true }).unwrap_or(false)
+            EventScript::parse(chunk)
+                .map(|e| {
+                    parsed.push(e);
+                    true
+                })
+                .unwrap_or(false)
         });
         if !all_ok || parsed.is_empty() {
             return;
@@ -1047,9 +1087,14 @@ impl SaveFile {
             *journal_trade = t;
             // Character data extraction (best-effort)
             if let Some(cd_start) = Self::find_character_data_start(data, pos) {
-                Self::extract_character_data(data, cd_start,
-                    character_details, player_attributes,
-                    extra_character_data, character_unknown_block);
+                Self::extract_character_data(
+                    data,
+                    cd_start,
+                    character_details,
+                    player_attributes,
+                    extra_character_data,
+                    character_unknown_block,
+                );
                 // Inventory parsing (best-effort)
                 *inventory_items = Self::parse_inventory(data, cd_start);
             }
@@ -1401,10 +1446,9 @@ mod tests {
     // ── Round-trip tests against actual save files ──
 
     fn run_round_trip(path: &str) {
-        let original = std::fs::read(path)
-            .unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
-        let save = SaveFile::parse(&original)
-            .unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
+        let original = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+        let save =
+            SaveFile::parse(&original).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
 
         let mut output = Vec::new();
         SaveFile::to_writer(&[save], &mut output)
@@ -1418,8 +1462,11 @@ mod tests {
             output.len(),
         );
 
-        if let Some((i, (a, b))) =
-            original.iter().zip(output.iter()).enumerate().find(|(_, (a, b))| a != b)
+        if let Some((i, (a, b))) = original
+            .iter()
+            .zip(output.iter())
+            .enumerate()
+            .find(|(_, (a, b))| a != b)
         {
             panic!(
                 "Byte mismatch at {i:#x} in {path}: \
@@ -1447,31 +1494,111 @@ mod tests {
     #[test]
     fn test_character_extraction_all_saves() {
         let files = [
-            ("nuno-0.sav", "Nuno ", "Wojownik", 1u16, 7u16, 21u16, 10u16, 12u16,
-                42u16, 14u16, 14u16, 0u16, 0u16, 729u32, 5u16, 1181u32),
-            ("0.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 20u16, 1200u16,
-                1200u16, 670u16, 700u16, 0u16, 0u16, 123074u32, 16u16, 24965u32),
-            ("2.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 10u16, 991u16,
-                1200u16, 675u16, 700u16, 0u16, 0u16, 122266u32, 16u16, 24832u32),
-            ("1.sav", "Cristoforo", "Mag", 3u16, 220u16, 220u16, 10u16, 1200u16,
-                1200u16, 670u16, 700u16, 0u16, 0u16, 122974u32, 16u16, 24965u32),
+            (
+                "nuno-0.sav",
+                "Nuno ",
+                "Wojownik",
+                1u16,
+                7u16,
+                21u16,
+                10u16,
+                12u16,
+                42u16,
+                14u16,
+                14u16,
+                0u16,
+                0u16,
+                729u32,
+                5u16,
+                1181u32,
+            ),
+            (
+                "0.sav",
+                "Cristoforo",
+                "Mag",
+                3u16,
+                220u16,
+                220u16,
+                20u16,
+                1200u16,
+                1200u16,
+                670u16,
+                700u16,
+                0u16,
+                0u16,
+                123074u32,
+                16u16,
+                24965u32,
+            ),
+            (
+                "2.sav",
+                "Cristoforo",
+                "Mag",
+                3u16,
+                220u16,
+                220u16,
+                10u16,
+                991u16,
+                1200u16,
+                675u16,
+                700u16,
+                0u16,
+                0u16,
+                122266u32,
+                16u16,
+                24832u32,
+            ),
+            (
+                "1.sav",
+                "Cristoforo",
+                "Mag",
+                3u16,
+                220u16,
+                220u16,
+                10u16,
+                1200u16,
+                1200u16,
+                670u16,
+                700u16,
+                0u16,
+                0u16,
+                122974u32,
+                16u16,
+                24965u32,
+            ),
         ];
-        for &(path, exp_name, exp_class, exp_cid,
-              exp_str, exp_dex, exp_wis, exp_con, exp_unk,
-              exp_hp_cur, exp_hp_max, exp_mp_cur, exp_mp_max,
-              exp_xp, exp_lvl, exp_gold) in &files
+        for &(
+            path,
+            exp_name,
+            exp_class,
+            exp_cid,
+            exp_str,
+            exp_dex,
+            exp_wis,
+            exp_con,
+            exp_unk,
+            exp_hp_cur,
+            exp_hp_max,
+            exp_mp_cur,
+            exp_mp_max,
+            exp_xp,
+            exp_lvl,
+            exp_gold,
+        ) in &files
         {
-            let data = std::fs::read(path)
-                .unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
-            let save = SaveFile::parse(&data)
-                .unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
+            let data = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+            let save =
+                SaveFile::parse(&data).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
 
-            assert_eq!(save.player_name, exp_name,
-                "{path}: player_name mismatch");
-            assert_eq!(save.player_class_name, exp_class,
-                "{path}: class_name mismatch");
-            assert_eq!(save.player_class_id, exp_cid as i16,
-                "{path}: class_id mismatch");
+            assert_eq!(save.player_name, exp_name, "{path}: player_name mismatch");
+            assert_eq!(
+                save.player_class_name, exp_class,
+                "{path}: class_name mismatch"
+            );
+            assert_eq!(
+                save.player_class_id, exp_cid as i16,
+                "{path}: class_id mismatch"
+            );
 
             let pa = &save.player_attributes;
             assert_eq!(pa.strength, exp_str, "{path}: STR mismatch");
@@ -1494,15 +1621,25 @@ mod tests {
             assert_eq!(save.journal_trade.len(), 100, "{path}: journal_trade wrong");
 
             // Inventory: verify at least some items parsed
-            assert!(!save.inventory_items.is_empty(),
-                "{path}: no inventory items extracted");
+            assert!(
+                !save.inventory_items.is_empty(),
+                "{path}: no inventory items extracted"
+            );
             // First item should be a quest item (Event type)
-            assert!(save.inventory_items[0].is_quest,
-                "{path}: first item should be quest item");
+            assert!(
+                save.inventory_items[0].is_quest,
+                "{path}: first item should be quest item"
+            );
 
-            eprintln!("  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
-                save.player_name, save.player_class_name, save.player_class_id,
-                pa.strength, save.events.len(), save.inventory_items.len());
+            eprintln!(
+                "  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
+                save.player_name,
+                save.player_class_name,
+                save.player_class_id,
+                pa.strength,
+                save.events.len(),
+                save.inventory_items.len()
+            );
         }
     }
 }
