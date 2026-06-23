@@ -74,8 +74,7 @@ pub fn update(
                 // Recompute row entropies immediately so the gutter band stays
                 // visible after a row-width change.
                 if !state.provider.is_empty() {
-                    state.row_entropies =
-                        Some(compute_row_entropies(state.provider.as_slice(), n));
+                    state.row_entropies = Some(compute_row_entropies(state.provider.as_slice(), n));
                 }
             }
         }
@@ -122,10 +121,8 @@ pub fn update(
                 let text: String = c.into();
                 let encoded = encode_text(&text, state.write_mode, &state.custom_encodings);
                 if encoded.is_empty() {
-                    state.status_msg = format!(
-                        "Cannot encode '{c}' in {} mode",
-                        state.write_mode.label(),
-                    );
+                    state.status_msg =
+                        format!("Cannot encode '{c}' in {} mode", state.write_mode.label(),);
                     return Task::none();
                 }
                 let addr = state.selection.cursor;
@@ -334,14 +331,17 @@ pub fn update(
                 if state.file_stats.is_none() && !state.provider.is_empty() {
                     let bytes = state.provider.as_slice().to_vec();
                     let bpr = state.bytes_per_row;
-                    return Task::perform(async move {
-                        let stats = compute_statistics(&bytes);
-                        let entropies = compute_row_entropies(&bytes, bpr);
-                        HexEditorMessage::FileAndRowEntropiesComputed(
-                            Box::new(stats),
-                            Box::new(entropies),
-                        )
-                    }, std::convert::identity);
+                    return Task::perform(
+                        async move {
+                            let stats = compute_statistics(&bytes);
+                            let entropies = compute_row_entropies(&bytes, bpr);
+                            HexEditorMessage::FileAndRowEntropiesComputed(
+                                Box::new(stats),
+                                Box::new(entropies),
+                            )
+                        },
+                        std::convert::identity,
+                    );
                 }
             }
         }
@@ -349,14 +349,17 @@ pub fn update(
             if !state.provider.is_empty() {
                 let bytes = state.provider.as_slice().to_vec();
                 let bpr = state.bytes_per_row;
-                return Task::perform(async move {
-                    let stats = compute_statistics(&bytes);
-                    let entropies = compute_row_entropies(&bytes, bpr);
-                    HexEditorMessage::FileAndRowEntropiesComputed(
-                        Box::new(stats),
-                        Box::new(entropies),
-                    )
-                }, std::convert::identity);
+                return Task::perform(
+                    async move {
+                        let stats = compute_statistics(&bytes);
+                        let entropies = compute_row_entropies(&bytes, bpr);
+                        HexEditorMessage::FileAndRowEntropiesComputed(
+                            Box::new(stats),
+                            Box::new(entropies),
+                        )
+                    },
+                    std::convert::identity,
+                );
             }
         }
         HexEditorMessage::AnalyzeSelection => {
@@ -364,10 +367,13 @@ pub fn update(
                 let start = state.selection.start();
                 let end = state.selection.end();
                 let bytes = state.provider.read(start..end.saturating_add(1)).to_vec();
-                return Task::perform(async move {
-                    let stats = compute_statistics(&bytes);
-                    HexEditorMessage::SelectionAnalyzed(Box::new(stats))
-                }, std::convert::identity);
+                return Task::perform(
+                    async move {
+                        let stats = compute_statistics(&bytes);
+                        HexEditorMessage::SelectionAnalyzed(Box::new(stats))
+                    },
+                    std::convert::identity,
+                );
             }
         }
         HexEditorMessage::FileAndRowEntropiesComputed(stats, entropies) => {
@@ -919,11 +925,17 @@ pub fn update(
                 crate::domain::write_mode::COMMON_ENCODINGS.get(common_idx)
             {
                 // Avoid duplicates.
-                if !state.custom_encodings.iter().any(|e| e.encoding_name == *enc_name) {
-                    state.custom_encodings.push(crate::domain::write_mode::EncodingEntry {
-                        label: label.to_string(),
-                        encoding_name: enc_name.to_string(),
-                    });
+                if !state
+                    .custom_encodings
+                    .iter()
+                    .any(|e| e.encoding_name == *enc_name)
+                {
+                    state
+                        .custom_encodings
+                        .push(crate::domain::write_mode::EncodingEntry {
+                            label: label.to_string(),
+                            encoding_name: enc_name.to_string(),
+                        });
                     state.status_msg = format!("Added encoding: {label}");
                 } else {
                     state.status_msg = format!("Encoding already added: {label}");
@@ -1026,20 +1038,15 @@ pub fn update(
                         // Repeat the pattern across the selected range.
                         let mut offset = 0u64;
                         while offset < range_len {
-                            let chunk_end =
-                                (offset + pattern_len).min(range_len) as usize;
+                            let chunk_end = (offset + pattern_len).min(range_len) as usize;
                             let chunk = &pattern[..chunk_end - offset as usize];
-                            state
-                                .provider
-                                .write(start + offset, chunk);
+                            state.provider.write(start + offset, chunk);
                             offset += pattern_len;
                         }
                         state.recompute_vanilla_diff();
                         let written = range_len;
-                        state.status_msg = format!(
-                            "Filled {} byte(s) with {:02X?}",
-                            written, pattern
-                        );
+                        state.status_msg =
+                            format!("Filled {} byte(s) with {:02X?}", written, pattern);
                     } else {
                         state.status_msg = "No bytes to fill — empty pattern".to_string();
                     }

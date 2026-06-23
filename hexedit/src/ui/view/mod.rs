@@ -277,10 +277,7 @@ pub(crate) fn build_pattern_menu_entries(
     ));
     entries.push(MenuEntry::separator());
     if has_selection_range {
-        entries.push(MenuEntry::item(
-            "Fill…",
-            HexEditorMessage::BeginFill,
-        ));
+        entries.push(MenuEntry::item("Fill…", HexEditorMessage::BeginFill));
     } else {
         entries.push(MenuEntry::disabled("Fill…"));
     }

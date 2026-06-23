@@ -158,12 +158,9 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
     .text_size(12)
     .padding([2, 6]);
 
-    let theme_row = row![
-        text("Theme").size(12).width(Length::Fill),
-        theme_pick,
-    ]
-    .spacing(8)
-    .align_y(iced::Alignment::Center);
+    let theme_row = row![text("Theme").size(12).width(Length::Fill), theme_pick,]
+        .spacing(8)
+        .align_y(iced::Alignment::Center);
 
     // ── Action buttons ─────────────────────────────────────────────────
     let reset_btn = button(text("Reset to Defaults").size(12))

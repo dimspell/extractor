@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use iced::{Element, Task, Theme};
 
-use hexedit::{view, EncodingEntry, HexEditorConfig, HexEditorMessage, HexEditorState, WriteMode};
 use hexedit::ui::theme::DARK_THEME;
+use hexedit::{view, EncodingEntry, HexEditorConfig, HexEditorMessage, HexEditorState, WriteMode};
 
 /// Settings persisted to `~/.config/hexedit/settings.json`.
 #[derive(serde::Serialize, serde::Deserialize)]

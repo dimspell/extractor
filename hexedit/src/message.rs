@@ -226,25 +226,25 @@ pub enum HexEditorMessage {
     /// Async result: clipboard contents to paste as hex bytes.
     PasteContent(String),
 
-        // ── Byte statistics / entropy panel ───────────────────────────────
-        /// Show/hide the byte statistics panel.
-        ToggleStats,
-        /// Trigger full-file analysis and update cached stats.
-        AnalyzeFile,
-        /// Trigger selection-only analysis.
-        AnalyzeSelection,
-        /// Async result: file-level statistics + row entropies (computed together
-        /// to avoid double-copying the byte slice and a frame-race between messages).
-        FileAndRowEntropiesComputed(
-            Box<crate::domain::byte_stats::ByteStatistics>,
-            Box<crate::domain::byte_stats::RowEntropyCache>,
-        ),
-        /// Async result: selection-level statistics computed.
-        SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
+    // ── Byte statistics / entropy panel ───────────────────────────────
+    /// Show/hide the byte statistics panel.
+    ToggleStats,
+    /// Trigger full-file analysis and update cached stats.
+    AnalyzeFile,
+    /// Trigger selection-only analysis.
+    AnalyzeSelection,
+    /// Async result: file-level statistics + row entropies (computed together
+    /// to avoid double-copying the byte slice and a frame-race between messages).
+    FileAndRowEntropiesComputed(
+        Box<crate::domain::byte_stats::ByteStatistics>,
+        Box<crate::domain::byte_stats::RowEntropyCache>,
+    ),
+    /// Async result: selection-level statistics computed.
+    SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
 
-        // ── Export as text ──────────────────────────────────────────────────
-        /// Open the export config modal.
-        OpenExportConfig,
+    // ── Export as text ──────────────────────────────────────────────────
+    /// Open the export config modal.
+    OpenExportConfig,
     /// Close the export config modal without exporting.
     CloseExportConfig,
     /// Toggle the address-gutter checkbox in the export config modal.

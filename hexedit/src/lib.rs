@@ -38,6 +38,9 @@ pub use ui::update::update;
 pub use ui::view::view;
 
 // Type-level re-exports from domain.
+pub use domain::byte_stats::{
+    entropy_to_color, ByteStatistics, RowEntropyCache, StructureHeuristic,
+};
 pub use domain::editing::{EditState, InspectorEditState};
 pub use domain::fill_dialog::FillDialog;
 pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
@@ -47,7 +50,6 @@ pub use domain::provider::{BufferProvider, HexProvider};
 pub use domain::search::{SearchMode, SearchState};
 pub use domain::selection::{NavDir, Selection};
 pub use domain::vanilla_diff::compute_diff;
-pub use domain::byte_stats::{ByteStatistics, RowEntropyCache, StructureHeuristic, entropy_to_color};
 pub use domain::write_mode::{EncodingEntry, WriteMode};
 
 // Type-level re-exports from ui.
@@ -57,7 +59,10 @@ pub use ui::inspector::{EncodeFn, InspectorEntry};
 
 // Module-level re-exports — allow `hexedit::selection::NavDir` and
 // `crate::selection::*` to keep working inside the crate.
-pub use domain::{byte_stats, editing, goto, layout, pattern, provider, search, selection, vanilla_diff, write_mode};
+pub use domain::{
+    byte_stats, editing, goto, layout, pattern, provider, search, selection, vanilla_diff,
+    write_mode,
+};
 pub use ui::{coloring, inspector, update, view};
 
 #[cfg(test)]

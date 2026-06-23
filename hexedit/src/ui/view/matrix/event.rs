@@ -63,8 +63,7 @@ pub fn handle_event<'a, Message>(
                         let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                         let sx = state.scroll_x.get();
                         let horiz = if *x != 0.0 { *x } else { *y };
-                        let nsx =
-                            clamp_scroll_x(sx - horiz * ROW_HEIGHT * 3.0, content_w, avail_w);
+                        let nsx = clamp_scroll_x(sx - horiz * ROW_HEIGHT * 3.0, content_w, avail_w);
                         if (nsx - sx).abs() > f32::EPSILON {
                             state.scroll_x.set(nsx);
                             shell.request_redraw();
@@ -82,8 +81,7 @@ pub fn handle_event<'a, Message>(
                         let content_w = widget.total_content_width();
                         let avail_w = bounds.width - SCROLLBAR_THICKNESS;
                         let sx = state.scroll_x.get();
-                        let nsx =
-                            clamp_scroll_x(sx - x * ROW_HEIGHT * 3.0, content_w, avail_w);
+                        let nsx = clamp_scroll_x(sx - x * ROW_HEIGHT * 3.0, content_w, avail_w);
                         if (nsx - sx).abs() > f32::EPSILON {
                             state.scroll_x.set(nsx);
                             shell.request_redraw();
@@ -135,19 +133,15 @@ pub fn handle_event<'a, Message>(
             let avail_w = bounds.width - SCROLLBAR_THICKNESS;
             let needs_hscroll = content_w > avail_w;
             if needs_hscroll && htrack.contains(p) {
-                let hthumb =
-                    hscrollbar_thumb(htrack, state.scroll_x.get(), content_w, avail_w);
+                let hthumb = hscrollbar_thumb(htrack, state.scroll_x.get(), content_w, avail_w);
                 if hthumb.contains(p) {
                     state.dragging_scrollbar_x = true;
                     state.drag_start_cursor_x = p.x;
                     state.drag_start_offset_x = state.scroll_x.get();
                 } else {
                     let dir = if p.x < hthumb.x { -1.0 } else { 1.0 };
-                    let nsx = clamp_scroll_x(
-                        state.scroll_x.get() + dir * avail_w,
-                        content_w,
-                        avail_w,
-                    );
+                    let nsx =
+                        clamp_scroll_x(state.scroll_x.get() + dir * avail_w, content_w, avail_w);
                     if (nsx - state.scroll_x.get()).abs() > f32::EPSILON {
                         state.scroll_x.set(nsx);
                         shell.request_redraw();
@@ -199,12 +193,8 @@ pub fn handle_event<'a, Message>(
                         state.drag_start_minimap_y = p.y;
                         state.drag_start_minimap_scroll = state.scroll_offset.get();
                     } else {
-                        let new_scroll = minimap::minimap_scroll_from_y(
-                            p.y,
-                            mm_rect,
-                            total_h,
-                            viewport_h,
-                        );
+                        let new_scroll =
+                            minimap::minimap_scroll_from_y(p.y, mm_rect, total_h, viewport_h);
                         let clamped = clamp_scroll(new_scroll, total_h, viewport_h);
                         state.scroll_offset.set(clamped);
                     }
@@ -340,7 +330,9 @@ pub fn handle_event<'a, Message>(
                 let max_off = (total_h - viewport_h).max(1.0);
                 let dy = p.y - state.drag_start_cursor_y;
                 let new = state.drag_start_offset + dy * (max_off / travel);
-                state.scroll_offset.set(clamp_scroll(new, total_h, content_bounds.height));
+                state
+                    .scroll_offset
+                    .set(clamp_scroll(new, total_h, content_bounds.height));
                 shell.request_redraw();
                 shell.capture_event();
                 return;
@@ -348,12 +340,17 @@ pub fn handle_event<'a, Message>(
             if state.dragging_minimap {
                 let Some(p) = cursor.position() else { return };
                 let mm_rect = minimap::minimap_rect(
-                    content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS,
+                    content_bounds,
+                    viewport_h,
+                    MINIMAP_WIDTH,
+                    SCROLLBAR_THICKNESS,
                 );
                 let dy = p.y - state.drag_start_minimap_y;
                 let new = state.drag_start_minimap_scroll
                     + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
-                state.scroll_offset.set(clamp_scroll(new, total_h, content_bounds.height));
+                state
+                    .scroll_offset
+                    .set(clamp_scroll(new, total_h, content_bounds.height));
                 shell.request_redraw();
                 shell.capture_event();
                 return;
@@ -365,14 +362,16 @@ pub fn handle_event<'a, Message>(
                 // below (last visible row) the canvas.
                 let clamped_y = p.y.clamp(
                     content_bounds.y,
-                    (content_bounds.y + content_bounds.height - 1.0)
-                        .max(content_bounds.y),
+                    (content_bounds.y + content_bounds.height - 1.0).max(content_bounds.y),
                 );
                 let clamped = Point::new(p.x, clamped_y);
                 if let Some(addr) = addr_at(
-                    clamped, content_bounds,
-                    state.scroll_offset.get(), state.scroll_x.get(),
-                    widget.bytes_per_row, total_len,
+                    clamped,
+                    content_bounds,
+                    state.scroll_offset.get(),
+                    state.scroll_x.get(),
+                    widget.bytes_per_row,
+                    total_len,
                     widget.addr_col_width(),
                 ) {
                     if let Some(cb) = &widget.on_extend_to {
@@ -409,7 +408,10 @@ pub fn handle_event<'a, Message>(
             state.shift_pressed.set(modifiers.shift());
         }
         Event::Keyboard(keyboard::Event::KeyPressed {
-            key, modifiers, text, ..
+            key,
+            modifiers,
+            text,
+            ..
         }) => {
             if !cursor.is_over(bounds) {
                 return;

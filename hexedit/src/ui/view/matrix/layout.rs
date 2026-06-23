@@ -158,8 +158,7 @@ pub fn addr_at(
 
     let hex_start = bounds.x + addr_col_width - scroll_x;
     let bpr_usize = bytes_per_row.max(1) as usize;
-    let hex_end =
-        hex_start + bpr * HEX_CELL_WIDTH + group_count(bpr_usize) as f32 * GROUP_GAP;
+    let hex_end = hex_start + bpr * HEX_CELL_WIDTH + group_count(bpr_usize) as f32 * GROUP_GAP;
     let ascii_start = hex_end + COLUMN_GAP;
     let ascii_end = ascii_start + bpr * ASCII_CELL_WIDTH;
 

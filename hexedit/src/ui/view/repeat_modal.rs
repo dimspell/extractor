@@ -13,7 +13,10 @@ use crate::HexEditorMessage;
 
 /// Modal body shown when "Add Repeated Pattern" is selected from the context
 /// menu with an active multi-byte selection.
-pub fn view<'a>(dlg: &'a RepeatPatternDialog, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+pub fn view<'a>(
+    dlg: &'a RepeatPatternDialog,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     let title = text("Add Repeated Pattern").size(13).font(Font::MONOSPACE);
 
     let block_info = text(format!(

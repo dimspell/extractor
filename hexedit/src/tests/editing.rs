@@ -220,8 +220,15 @@ fn test_text_mode_backspace_moves_cursor_left() {
     send(&mut state, &config, HexEditorMessage::EditTypeChar('B'));
     assert_eq!(state.selection.cursor, 2);
     send(&mut state, &config, HexEditorMessage::EditBackspace);
-    assert_eq!(state.selection.cursor, 1, "backspace should move cursor left");
-    assert_eq!(state.provider.as_slice()[1], b'B', "byte at addr 1 should be unchanged");
+    assert_eq!(
+        state.selection.cursor, 1,
+        "backspace should move cursor left"
+    );
+    assert_eq!(
+        state.provider.as_slice()[1],
+        b'B',
+        "byte at addr 1 should be unchanged"
+    );
 }
 
 #[test]
@@ -230,7 +237,10 @@ fn test_text_mode_backspace_at_zero_stays_at_zero() {
     let config = default_config();
     state.write_mode = WriteMode::Ascii;
     send(&mut state, &config, HexEditorMessage::EditBackspace);
-    assert_eq!(state.selection.cursor, 0, "backspace at zero should stay at zero");
+    assert_eq!(
+        state.selection.cursor, 0,
+        "backspace at zero should stay at zero"
+    );
 }
 
 #[test]
@@ -282,7 +292,11 @@ fn test_hex_mode_delete_does_nothing() {
     let config = default_config();
     state.write_mode = WriteMode::Hex;
     send(&mut state, &config, HexEditorMessage::DeleteByteAtCursor);
-    assert_eq!(state.provider.as_slice()[0], 0xAB, "byte unchanged (hex mode)");
+    assert_eq!(
+        state.provider.as_slice()[0],
+        0xAB,
+        "byte unchanged (hex mode)"
+    );
 }
 
 #[test]

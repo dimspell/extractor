@@ -35,9 +35,7 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
                 WriteMode::Utf8 => "UTF-8".into(),
                 WriteMode::Windows1250 => "Windows-1250".into(),
                 WriteMode::EucKr => "EUC-KR".into(),
-                WriteMode::Custom(idx) => {
-                    custom_mode_label(&editor.custom_encodings, *idx)
-                }
+                WriteMode::Custom(idx) => custom_mode_label(&editor.custom_encodings, *idx),
             },
         })
         .collect();
@@ -45,19 +43,16 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .iter()
         .find(|o| o.mode == editor.write_mode)
         .cloned();
-    let mode_pick = pick_list(
-        mode_options,
-        selected,
-        |opt| HexEditorMessage::SetWriteMode(opt.mode),
-    )
+    let mode_pick = pick_list(mode_options, selected, |opt| {
+        HexEditorMessage::SetWriteMode(opt.mode)
+    })
     .font(Font::MONOSPACE)
     .text_size(11)
     .padding([2, 6]);
 
     container(
         row![
-            container(text(format_footer(editor)).size(11).font(Font::MONOSPACE))
-                .width(Fill),
+            container(text(format_footer(editor)).size(11).font(Font::MONOSPACE)).width(Fill),
             mode_pick,
         ]
         .align_y(iced::Alignment::Center),

@@ -6,7 +6,10 @@ use crate::ui::theme::HexEditorTheme;
 use crate::HexEditorMessage;
 
 /// Search overlay bar rendered above the hex matrix.
-pub fn view<'a>(state: &'a SearchState, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+pub fn view<'a>(
+    state: &'a SearchState,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     let mode_label = match state.mode {
         SearchMode::Hex => "HEX",
         SearchMode::Ascii => "TXT",

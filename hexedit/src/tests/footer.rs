@@ -120,10 +120,30 @@ fn test_set_write_mode_changes_state() {
     let mut state = make_state(vec![]);
     let config = default_config();
     assert_eq!(state.write_mode, WriteMode::Hex);
-    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::Ascii));
-    assert_eq!(state.write_mode, WriteMode::Ascii, "SetWriteMode should update state");
-    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::EucKr));
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetWriteMode(WriteMode::Ascii),
+    );
+    assert_eq!(
+        state.write_mode,
+        WriteMode::Ascii,
+        "SetWriteMode should update state"
+    );
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetWriteMode(WriteMode::EucKr),
+    );
     assert_eq!(state.write_mode, WriteMode::EucKr);
-    send(&mut state, &config, HexEditorMessage::SetWriteMode(WriteMode::Hex));
-    assert_eq!(state.write_mode, WriteMode::Hex, "should be able to switch back");
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetWriteMode(WriteMode::Hex),
+    );
+    assert_eq!(
+        state.write_mode,
+        WriteMode::Hex,
+        "should be able to switch back"
+    );
 }

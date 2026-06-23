@@ -359,13 +359,29 @@ pub const DARK_THEME: HexEditorTheme = HexEditorTheme {
     stats_structure_mixed: hex(0x8a7a6a),
 
     // ── Byte-colouring schemes ──────────────────────────────────────────
-    default_null_dim: Color::from_rgb(0x4A as f32 / 255.0, 0x43 as f32 / 255.0, 0x39 as f32 / 255.0),
+    default_null_dim: Color::from_rgb(
+        0x4A as f32 / 255.0,
+        0x43 as f32 / 255.0,
+        0x39 as f32 / 255.0,
+    ),
     monochrome_fg: hex(0xd4cabd),
     nybble_palette: [
-        hex(0x887c6f), hex(0x8a7f64), hex(0x7a8f5a), hex(0x6a8f4a),
-        hex(0x5a8f5a), hex(0x5a8f6a), hex(0x5e856f), hex(0x6f855e),
-        hex(0x8a7d54), hex(0xa77346), hex(0xbb644c), hex(0xc65c57),
-        hex(0xc35e68), hex(0xb26a74), hex(0xa0726d), hex(0x897c65),
+        hex(0x887c6f),
+        hex(0x8a7f64),
+        hex(0x7a8f5a),
+        hex(0x6a8f4a),
+        hex(0x5a8f5a),
+        hex(0x5a8f6a),
+        hex(0x5e856f),
+        hex(0x6f855e),
+        hex(0x8a7d54),
+        hex(0xa77346),
+        hex(0xbb644c),
+        hex(0xc65c57),
+        hex(0xc35e68),
+        hex(0xb26a74),
+        hex(0xa0726d),
+        hex(0x897c65),
     ],
     nybble_ff: hex(0xd4cabd),
     category_whitespace: hex(0x618950),
@@ -377,16 +393,40 @@ pub const DARK_THEME: HexEditorTheme = HexEditorTheme {
 
     // ── Pattern palettes ────────────────────────────────────────────────
     pattern_bg_palette: [
-        hex(0x1a3a4f), hex(0x4f2e1a), hex(0x1a4f2e), hex(0x3b1a4f),
-        hex(0x4f4a1a), hex(0x2e1a4f), hex(0x4f1a1a), hex(0x1a3b3b),
-        hex(0x3b2e1a), hex(0x2e4f1a), hex(0x4f2e3b), hex(0x1a4f4f),
-        hex(0x4f251a), hex(0x1a3b25), hex(0x3b3b1a), hex(0x251a4f),
+        hex(0x1a3a4f),
+        hex(0x4f2e1a),
+        hex(0x1a4f2e),
+        hex(0x3b1a4f),
+        hex(0x4f4a1a),
+        hex(0x2e1a4f),
+        hex(0x4f1a1a),
+        hex(0x1a3b3b),
+        hex(0x3b2e1a),
+        hex(0x2e4f1a),
+        hex(0x4f2e3b),
+        hex(0x1a4f4f),
+        hex(0x4f251a),
+        hex(0x1a3b25),
+        hex(0x3b3b1a),
+        hex(0x251a4f),
     ],
     pattern_fg_palette: [
-        hex(0x6ab0d0), hex(0xd08a6a), hex(0x6ad08a), hex(0xa06ad0),
-        hex(0xd0cb6a), hex(0x8a6ad0), hex(0xd06a6a), hex(0x6ad0d0),
-        hex(0xd0af6a), hex(0x8ad06a), hex(0xd06a9a), hex(0x6ad0af),
-        hex(0xd0856a), hex(0x6ad085), hex(0xafd06a), hex(0x856ad0),
+        hex(0x6ab0d0),
+        hex(0xd08a6a),
+        hex(0x6ad08a),
+        hex(0xa06ad0),
+        hex(0xd0cb6a),
+        hex(0x8a6ad0),
+        hex(0xd06a6a),
+        hex(0x6ad0d0),
+        hex(0xd0af6a),
+        hex(0x8ad06a),
+        hex(0xd06a9a),
+        hex(0x6ad0af),
+        hex(0xd0856a),
+        hex(0x6ad085),
+        hex(0xafd06a),
+        hex(0x856ad0),
     ],
 
     // ── Iced application palette ────────────────────────────────────────
@@ -497,10 +537,22 @@ pub const LIGHT_THEME: HexEditorTheme = HexEditorTheme {
     default_null_dim: hex(0xA09080),
     monochrome_fg: hex(0x3A3228),
     nybble_palette: [
-        hex(0x887c6f), hex(0x7a8f5a), hex(0x6a8f4a), hex(0x5a8f5a),
-        hex(0x4a8f6a), hex(0x5e856f), hex(0x6f855e), hex(0x8a7d54),
-        hex(0xa07346), hex(0xb36a46), hex(0xbb644c), hex(0xc35e68),
-        hex(0xb26a74), hex(0xa0726d), hex(0x897c65), hex(0x7a8f5a),
+        hex(0x887c6f),
+        hex(0x7a8f5a),
+        hex(0x6a8f4a),
+        hex(0x5a8f5a),
+        hex(0x4a8f6a),
+        hex(0x5e856f),
+        hex(0x6f855e),
+        hex(0x8a7d54),
+        hex(0xa07346),
+        hex(0xb36a46),
+        hex(0xbb644c),
+        hex(0xc35e68),
+        hex(0xb26a74),
+        hex(0xa0726d),
+        hex(0x897c65),
+        hex(0x7a8f5a),
     ],
     nybble_ff: hex(0x3A3228),
     category_whitespace: hex(0x166534),
@@ -512,16 +564,40 @@ pub const LIGHT_THEME: HexEditorTheme = HexEditorTheme {
 
     // ── Pattern palettes ────────────────────────────────────────────────
     pattern_bg_palette: [
-        hex(0x93C5FD), hex(0xFCA5A5), hex(0x86EFAC), hex(0xC4B5FD),
-        hex(0xFDE68A), hex(0xA5B4FC), hex(0xFECACA), hex(0x99F6E4),
-        hex(0xFDBA74), hex(0xBBF7D0), hex(0xF9A8D4), hex(0x67E8F9),
-        hex(0xFBBF24), hex(0x6EE7B7), hex(0xFCD34D), hex(0xDDD6FE),
+        hex(0x93C5FD),
+        hex(0xFCA5A5),
+        hex(0x86EFAC),
+        hex(0xC4B5FD),
+        hex(0xFDE68A),
+        hex(0xA5B4FC),
+        hex(0xFECACA),
+        hex(0x99F6E4),
+        hex(0xFDBA74),
+        hex(0xBBF7D0),
+        hex(0xF9A8D4),
+        hex(0x67E8F9),
+        hex(0xFBBF24),
+        hex(0x6EE7B7),
+        hex(0xFCD34D),
+        hex(0xDDD6FE),
     ],
     pattern_fg_palette: [
-        hex(0x1E3A5F), hex(0x7F1D1D), hex(0x166534), hex(0x3B0764),
-        hex(0x713F12), hex(0x312E81), hex(0x7F1D1D), hex(0x0F766E),
-        hex(0x7C2D12), hex(0x14532D), hex(0x831843), hex(0x164E63),
-        hex(0x78350F), hex(0x134E4A), hex(0x713F12), hex(0x4A1D96),
+        hex(0x1E3A5F),
+        hex(0x7F1D1D),
+        hex(0x166534),
+        hex(0x3B0764),
+        hex(0x713F12),
+        hex(0x312E81),
+        hex(0x7F1D1D),
+        hex(0x0F766E),
+        hex(0x7C2D12),
+        hex(0x14532D),
+        hex(0x831843),
+        hex(0x164E63),
+        hex(0x78350F),
+        hex(0x134E4A),
+        hex(0x713F12),
+        hex(0x4A1D96),
     ],
 
     // ── Iced application palette ────────────────────────────────────────
@@ -567,7 +643,11 @@ mod tests {
                 assert!(
                     (0.0..=1.0).contains(&c.r),
                     "{:?} nybble_palette[{i}].r = {}",
-                    if theme as *const _ == &DARK_THEME as *const _ { "dark" } else { "light" },
+                    if theme as *const _ == &DARK_THEME as *const _ {
+                        "dark"
+                    } else {
+                        "light"
+                    },
                     c.r,
                 );
             }
@@ -624,7 +704,9 @@ mod tests {
             let c_low = DARK_THEME.nybble_color(b);
             let high_nybble = (b >> 4) << 4;
             let other = high_nybble | 0x0F;
-            if other > 0xFE { continue; }
+            if other > 0xFE {
+                continue;
+            }
             let c_high = DARK_THEME.nybble_color(other);
             assert!(
                 (c_low.r - c_high.r).abs() < 0.001

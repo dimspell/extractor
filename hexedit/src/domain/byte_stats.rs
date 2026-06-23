@@ -209,8 +209,7 @@ fn detect_structure(
     if (8..=10_000_000).contains(&total) {
         // Test periods 1..=64 (powers of 2 + small primes) for speed.
         let candidates = [
-            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32,
-            36, 40, 48, 56, 64,
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 56, 64,
         ];
         let max_period = bytes.len() / 2;
         for &period in &candidates {
@@ -259,10 +258,7 @@ fn check_repeating_period(bytes: &[u8], period: usize) -> Option<f64> {
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-fn summarise_histogram(
-    hist: &[u64; 256],
-    total: u64,
-) -> (u8, u8, f64, u64, u64, u64) {
+fn summarise_histogram(hist: &[u64; 256], total: u64) -> (u8, u8, f64, u64, u64, u64) {
     let mut min = 0xFFu8;
     let mut max = 0x00u8;
     let mut sum = 0u64;
@@ -327,27 +323,15 @@ pub fn entropy_to_color(entropy: f64) -> (f32, f32, f32) {
     if t < 0.3 {
         // Blue-to-cyan gradient (low entropy → structured).
         let u = t / 0.3;
-        (
-            0.0 + u * 0.3,
-            0.3 + u * 0.3,
-            0.8 - u * 0.2,
-        )
+        (0.0 + u * 0.3, 0.3 + u * 0.3, 0.8 - u * 0.2)
     } else if t < 0.7 {
         // Cyan-to-green gradient (structured → typical).
         let u = (t - 0.3) / 0.4;
-        (
-            0.3 - u * 0.1,
-            0.6 + u * 0.2,
-            0.6 - u * 0.3,
-        )
+        (0.3 - u * 0.1, 0.6 + u * 0.2, 0.6 - u * 0.3)
     } else {
         // Green-to-red gradient (typical → high entropy).
         let u = (t - 0.7) / 0.3;
-        (
-            0.2 + u * 0.6,
-            0.8 - u * 0.6,
-            0.3 - u * 0.1,
-        )
+        (0.2 + u * 0.6, 0.8 - u * 0.6, 0.3 - u * 0.1)
     }
 }
 

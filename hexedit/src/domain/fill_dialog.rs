@@ -40,9 +40,7 @@ impl FillDialog {
         }
 
         match parse_hex_query(s) {
-            Some(bytes) if bytes.is_empty() => {
-                Err(format!("Could not parse \"{s}\" as hex bytes"))
-            }
+            Some(bytes) if bytes.is_empty() => Err(format!("Could not parse \"{s}\" as hex bytes")),
             Some(bytes) => Ok(bytes),
             None => Err(format!("Invalid hex input: \"{s}\"")),
         }

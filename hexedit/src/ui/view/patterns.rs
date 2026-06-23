@@ -322,7 +322,9 @@ fn pattern_row<'a>(
         .style(move |_: &iced::Theme| {
             if is_active {
                 container::Style {
-                    background: Some(iced::Background::Color(editor.theme.pattern_active_highlight)),
+                    background: Some(iced::Background::Color(
+                        editor.theme.pattern_active_highlight,
+                    )),
                     ..Default::default()
                 }
             } else {

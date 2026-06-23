@@ -123,9 +123,10 @@ impl<'de> serde::Deserialize<'de> for WriteMode {
             "Windows-1250" => Ok(WriteMode::Windows1250),
             "EUC-KR" => Ok(WriteMode::EucKr),
             "Custom" => Ok(WriteMode::Custom(0)), // index resolved at load
-            other => Err(serde::de::Error::unknown_variant(other, &[
-                "Hex", "ASCII", "UTF-8", "Windows-1250", "EUC-KR", "Custom",
-            ])),
+            other => Err(serde::de::Error::unknown_variant(
+                other,
+                &["Hex", "ASCII", "UTF-8", "Windows-1250", "EUC-KR", "Custom"],
+            )),
         }
     }
 }

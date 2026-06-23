@@ -14,14 +14,14 @@ use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 use crate::coloring::default_byte_colors;
-use crate::ui::theme::HexEditorTheme;
 use crate::domain::byte_stats::entropy_to_color;
+use crate::ui::theme::HexEditorTheme;
 
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::layout::{
-    center_scroll_on, scroll_to_make_visible, group_count, visible_row_range, ASCII_CELL_WIDTH, GROUP_GAP,
-    HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
+    center_scroll_on, group_count, scroll_to_make_visible, visible_row_range, ASCII_CELL_WIDTH,
+    GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
 };
 use super::state::State;
 use super::HexMatrix;
@@ -293,8 +293,7 @@ pub fn draw_matrix<'a, Message>(
         for (col, &b) in row_bytes.iter().enumerate() {
             let addr = base_addr + col as u64;
             let group = col / 8;
-            let cell_x =
-                hex_start_x + col as f32 * HEX_CELL_WIDTH + group as f32 * GROUP_GAP;
+            let cell_x = hex_start_x + col as f32 * HEX_CELL_WIDTH + group as f32 * GROUP_GAP;
             let ax = ascii_start_x + col as f32 * ASCII_CELL_WIDTH;
 
             let in_sel = sel_range.contains(&addr);
@@ -330,8 +329,7 @@ pub fn draw_matrix<'a, Message>(
             };
 
             // Default foreground via the shared provider chain.
-            let (default_fg, _) =
-                default_byte_colors(widget.color_scheme, b, widget.dim_nulls);
+            let (default_fg, _) = default_byte_colors(widget.color_scheme, b, widget.dim_nulls);
             let default_fg = default_fg.unwrap_or(hex_color);
 
             let text_color = if is_editing {
@@ -435,8 +433,7 @@ pub fn draw_matrix<'a, Message>(
                 paint_glyph(renderer, &ascii, ax, y, ascii_col, cell_clip);
             } else {
                 let hi = shape_glyph(&widget.cache, HEX_DIGITS[(b >> 4) as usize], font);
-                let lo =
-                    shape_glyph(&widget.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
+                let lo = shape_glyph(&widget.cache, HEX_DIGITS[(b & 0x0F) as usize], font);
                 paint_glyph(renderer, &hi, cell_x, y, text_color, cell_clip);
                 paint_glyph(renderer, &lo, cell_x + 8.0, y, text_color, cell_clip);
 
@@ -531,8 +528,13 @@ pub fn draw_matrix<'a, Message>(
         let hovering = cursor
             .position_over(content_bounds)
             .map(|p| {
-                minimap::minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS)
-                    .contains(p)
+                minimap::minimap_rect(
+                    content_bounds,
+                    viewport_h,
+                    MINIMAP_WIDTH,
+                    SCROLLBAR_THICKNESS,
+                )
+                .contains(p)
             })
             .unwrap_or(false);
 
@@ -839,7 +841,12 @@ pub(super) fn hthumb_len(track: Rectangle, content_w: f32, _avail_w: f32) -> f32
     (track.width / content_w * track.width).max(20.0)
 }
 
-pub(super) fn hscrollbar_thumb(track: Rectangle, scroll_x: f32, content_w: f32, avail_w: f32) -> Rectangle {
+pub(super) fn hscrollbar_thumb(
+    track: Rectangle,
+    scroll_x: f32,
+    content_w: f32,
+    avail_w: f32,
+) -> Rectangle {
     let w = hthumb_len(track, content_w, avail_w);
     let max_off = (content_w - avail_w).max(1.0);
     let x = track.x + (scroll_x / max_off) * (track.width - w);

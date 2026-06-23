@@ -49,12 +49,10 @@ pub fn build_toolbar<'a>(
         .on_press(HexEditorMessage::TogglePatternList);
 
     // Byte statistics toggle.
-    let has_stats_pane = editor.panes.iter().any(|(_, p)| {
-        matches!(
-            p.content,
-            crate::domain::panel::HexPanelContent::Statistics
-        )
-    });
+    let has_stats_pane = editor
+        .panes
+        .iter()
+        .any(|(_, p)| matches!(p.content, crate::domain::panel::HexPanelContent::Statistics));
     let stats_label = if has_stats_pane {
         "Hide Stats"
     } else {

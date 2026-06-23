@@ -14,13 +14,13 @@
 //! This root module owns the [`HexMatrix`] struct definition, the `Widget`
 //! trait implementation (with thin delegation to submodules), and unit tests.
 
-mod state;
-mod layout;
 mod draw;
 mod event;
+mod layout;
+mod state;
 
-pub use state::{EditView, State};
 pub use draw::{first_hex_char, first_printable_char};
+pub use state::{EditView, State};
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -31,10 +31,10 @@ use iced::advanced::{Clipboard, Shell};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
 
-use crate::ui::theme::HexEditorTheme;
 use crate::coloring::ColorScheme;
 use crate::domain::write_mode::WriteMode;
 use crate::selection::{NavDir, Selection};
+use crate::ui::theme::HexEditorTheme;
 use crate::ui::view::minimap::MINIMAP_WIDTH;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
@@ -503,8 +503,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::layout::*;
     use super::draw::*;
+    use super::layout::*;
     use iced::{Point, Rectangle};
 
     const TEST_ADDR_COL_WIDTH: f32 = 88.0;
@@ -763,7 +763,8 @@ mod tests {
     #[test]
     fn header_does_not_affect_addr_at_after_content_bounds() {
         let bpr: u8 = 16;
-        let aw = bpr as f32 * HEX_CELL_WIDTH + group_count(bpr as usize) as f32 * GROUP_GAP
+        let aw = bpr as f32 * HEX_CELL_WIDTH
+            + group_count(bpr as usize) as f32 * GROUP_GAP
             + TEST_ADDR_COL_WIDTH
             + COLUMN_GAP
             + bpr as f32 * ASCII_CELL_WIDTH;
@@ -775,13 +776,29 @@ mod tests {
         };
         let hex_x = TEST_ADDR_COL_WIDTH + 4.0;
         assert!(
-            addr_at(Point::new(hex_x, 0.0), bounds, 0.0, 0.0, bpr, 1024, TEST_ADDR_COL_WIDTH)
-                .is_none(),
+            addr_at(
+                Point::new(hex_x, 0.0),
+                bounds,
+                0.0,
+                0.0,
+                bpr,
+                1024,
+                TEST_ADDR_COL_WIDTH
+            )
+            .is_none(),
             "click at y=0 (in header) should be rejected by content bounds"
         );
         assert!(
-            addr_at(Point::new(hex_x, HEADER_HEIGHT + 4.0), bounds, 0.0, 0.0, bpr, 1024, TEST_ADDR_COL_WIDTH)
-                .is_some(),
+            addr_at(
+                Point::new(hex_x, HEADER_HEIGHT + 4.0),
+                bounds,
+                0.0,
+                0.0,
+                bpr,
+                1024,
+                TEST_ADDR_COL_WIDTH
+            )
+            .is_some(),
             "click within content bounds should resolve"
         );
     }

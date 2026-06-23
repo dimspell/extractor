@@ -13,8 +13,8 @@ use std::path::PathBuf;
 
 use iced_test::simulator;
 
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use crate::ui::theme::{ThemeVariant, DARK_THEME};
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use crate::config::HexEditorConfig;
 use crate::domain::write_mode::WriteMode;

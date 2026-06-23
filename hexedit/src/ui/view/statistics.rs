@@ -7,9 +7,7 @@ use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill, Font, Length};
 
-use crate::domain::byte_stats::{
-    ByteStatistics, RowEntropyCache, StructureHeuristic,
-};
+use crate::domain::byte_stats::{ByteStatistics, RowEntropyCache, StructureHeuristic};
 use crate::state::HexEditorState;
 use crate::ui::theme::HexEditorTheme;
 use crate::{HexEditorMessage, HexProvider};
@@ -33,7 +31,10 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
                 col = col.push(section_inner("File", stats, theme));
             }
             None => {
-                col = col.push(hint_row("Click \"Analyze File\" to compute statistics", theme));
+                col = col.push(hint_row(
+                    "Click \"Analyze File\" to compute statistics",
+                    theme,
+                ));
             }
         }
 
@@ -44,8 +45,10 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
                     col = col.push(section_inner("Selection", stats, theme));
                 }
                 None => {
-                    col = col
-                        .push(hint_row("Click \"Analyze Selection\" for selection-only stats", theme));
+                    col = col.push(hint_row(
+                        "Click \"Analyze Selection\" for selection-only stats",
+                        theme,
+                    ));
                 }
             }
         }
@@ -97,7 +100,11 @@ fn header_row(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
 }
 
 /// Shared renderer for a statistics group.
-fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn section_inner<'a>(
+    label: &'a str,
+    stats: &'a ByteStatistics,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     let mut col = column![].spacing(2);
 
     // Section label.
@@ -168,11 +175,7 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics, theme: &'a HexEd
     } else {
         "[OK]   Structured / text data"
     };
-    col = col.push(
-        text(classification)
-            .size(10)
-            .font(Font::MONOSPACE),
-    );
+    col = col.push(text(classification).size(10).font(Font::MONOSPACE));
 
     // Byte frequency histogram.
     col = col.push(histogram_view(stats, theme));
@@ -182,7 +185,10 @@ fn section_inner<'a>(label: &'a str, stats: &'a ByteStatistics, theme: &'a HexEd
 
 /// Render a simplified byte histogram showing the distribution across 16 groups
 /// (high nybbles).
-fn histogram_view<'a>(stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn histogram_view<'a>(
+    stats: &'a ByteStatistics,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     if stats.total == 0 {
         return text("").into();
     }
@@ -213,8 +219,14 @@ fn histogram_view<'a>(stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> E
         col = col.push(
             row![
                 text(label).size(9).font(Font::MONOSPACE).width(36),
-                text(bar).size(9).font(Font::MONOSPACE).color(bar_color(nybble, theme)),
-                text(pct).size(9).font(Font::MONOSPACE).color(theme.stats_muted_fg),
+                text(bar)
+                    .size(9)
+                    .font(Font::MONOSPACE)
+                    .color(bar_color(nybble, theme)),
+                text(pct)
+                    .size(9)
+                    .font(Font::MONOSPACE)
+                    .color(theme.stats_muted_fg),
             ]
             .spacing(4)
             .align_y(iced::Alignment::Center),
@@ -228,16 +240,19 @@ fn histogram_view<'a>(stats: &'a ByteStatistics, theme: &'a HexEditorTheme) -> E
 fn bar_color(nybble: usize, theme: &HexEditorTheme) -> iced::Color {
     match nybble {
         0 => theme.stats_bar_padding,       // sparse/padding
-        1..=3 => theme.stats_bar_low,        // low values
-        4..=7 => theme.stats_bar_mid_low,    // mid-low
-        8..=11 => theme.stats_bar_mid_high,  // mid-high
-        12..=15 => theme.stats_bar_high,     // high values
+        1..=3 => theme.stats_bar_low,       // low values
+        4..=7 => theme.stats_bar_mid_low,   // mid-low
+        8..=11 => theme.stats_bar_mid_high, // mid-high
+        12..=15 => theme.stats_bar_high,    // high values
         _ => theme.stats_bar_default,
     }
 }
 
 /// Render the entropy classification as a colour-coded row.
-fn structure_row<'a>(structure: &'a StructureHeuristic, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn structure_row<'a>(
+    structure: &'a StructureHeuristic,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     let (label, color_val) = match structure {
         StructureHeuristic::Uniform(val) => (
             format!("Structure: Uniform (all bytes = 0x{val:02X})"),
@@ -265,7 +280,10 @@ fn structure_row<'a>(structure: &'a StructureHeuristic, theme: &'a HexEditorThem
 }
 
 /// Summary of per-row entropy values.
-fn row_entropy_summary<'a>(cache: &'a RowEntropyCache, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn row_entropy_summary<'a>(
+    cache: &'a RowEntropyCache,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     let avg: f64 = if cache.rows.is_empty() {
         0.0
     } else {
@@ -296,16 +314,27 @@ fn row_entropy_summary<'a>(cache: &'a RowEntropyCache, theme: &'a HexEditorTheme
 
 // ── Small helpers ──────────────────────────────────────────────────────────
 
-fn metric<'a>(label: &'a str, value: String, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn metric<'a>(
+    label: &'a str,
+    value: String,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     column![
-        text(label).size(8).font(Font::MONOSPACE).color(theme.stats_muted_fg),
+        text(label)
+            .size(8)
+            .font(Font::MONOSPACE)
+            .color(theme.stats_muted_fg),
         text(value).size(10).font(Font::MONOSPACE),
     ]
     .spacing(0)
     .into()
 }
 
-fn metric_row<'a>(label: &'a str, value: String, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {
+fn metric_row<'a>(
+    label: &'a str,
+    value: String,
+    theme: &'a HexEditorTheme,
+) -> Element<'a, HexEditorMessage> {
     row![
         text(label)
             .size(10)
