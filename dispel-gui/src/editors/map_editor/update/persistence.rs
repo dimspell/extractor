@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::editors::map_editor::MapEditorMessage;
+use crate::editors::mod_packager::recording::record_file_replace;
 use crate::message::{Message, MessageExt};
 use dispel_core::map::writer::write_map_to_path;
 use dispel_core::references::extractor::Extractor;
@@ -91,12 +92,47 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
     let npc_path = state.data.npc_ref_path.clone();
     let extra_path = state.data.extra_ref_path.clone();
 
+    // Capture recording session info for recording integration.
+    let recording_info: Option<(std::path::PathBuf, String)> =
+        app.state.recording.as_ref().map(|s| {
+            (s.workspace_root.clone(), s.mod_slug.clone())
+        });
+
     Task::perform(
         async move {
             let mut saved: Vec<String> = Vec::new();
             let mut errors: Vec<String> = Vec::new();
 
-            // Save entity .ref files.
+            // ── Pre-commit validation ────────────────────────────────────────
+            if !map_path.exists() {
+                errors.push(format!("Map file not found: {}", map_path.display()));
+            }
+
+            // Validate map file size is compatible with expected end-block size.
+            let w = map_handle.0.model.tiled_map_width;
+            let h = map_handle.0.model.tiled_map_height;
+            let expected_blocks = (w * h * 4) as u64 * 3;
+            match std::fs::metadata(&map_path) {
+                Ok(meta) => {
+                    let file_len = meta.len();
+                    if file_len < expected_blocks {
+                        errors.push(format!(
+                            "Map file too small: {} bytes, need at least {} for {w}×{h} map",
+                            file_len, expected_blocks
+                        ));
+                    }
+                }
+                Err(e) => {
+                    errors.push(format!("Cannot read map file metadata: {e}"));
+                }
+            }
+
+            // Note: event_id is i16 so range is guaranteed by the type. No
+            // explicit range validation needed here.
+            // Other potential checks: verify vanilla file size hasn't changed
+            // since load (would require storing original_len on MapDataState).
+
+            // ── Save entity .ref files ───────────────────────────────────────
             macro_rules! save_type {
                 ($T:ty, $records:expr, $path:expr) => {
                     if let Some(p) = $path {
@@ -121,7 +157,7 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
             save_type!(dispel_core::NPC, &npcs, npc_path);
             save_type!(dispel_core::ExtraRef, &extra_refs, extra_path);
 
-            // Save DrawItems: merge into the global DRAWITEM.ref.
+            // ── Save DrawItems ──────────────────────────────────────────────
             if let Some(map_id) = all_map_id {
                 if let Some(ref gp) = game_path {
                     let draw_item_path = gp.join("Ref").join("DRAWITEM.ref");
@@ -139,22 +175,67 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
 
-            // Save .map binary (collisions + events).
-            match write_map_to_path(&map_path, &map_handle.0) {
-                Ok(()) => saved.push(
-                    map_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "map".to_string()),
-                ),
-                Err(e) => errors.push(format!(
-                    "{}: {}",
-                    map_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_default(),
-                    e
-                )),
+            // ── Save .map binary (collisions + events) with recording ────────
+            if errors.is_empty() {
+                // Read old bytes before write (for recording delta).
+                let old_map_bytes = std::fs::read(&map_path).ok();
+
+                match write_map_to_path(&map_path, &map_handle.0) {
+                    Ok(()) => {
+                        let map_name = map_path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_else(|| "map".to_string());
+                        saved.push(map_name);
+
+                        // Recording integration — append ChangeAction
+                        // to the active mod workspace when recording is active.
+                        if let Some((ref ws_root, ref mod_slug)) = recording_info {
+                            if let Some(ref game_dir) = game_path {
+                                if let Some(old) = old_map_bytes {
+                                    if let Ok(new_bytes) = std::fs::read(&map_path) {
+                                        if old != new_bytes {
+                                            let relative = map_path
+                                                .strip_prefix(game_dir)
+                                                .map(|p| {
+                                                    p.to_string_lossy().replace('\\', "/")
+                                                })
+                                                .unwrap_or_else(|_| {
+                                                    map_path
+                                                        .file_name()
+                                                        .map(|n| {
+                                                            n.to_string_lossy().to_string()
+                                                        })
+                                                        .unwrap_or_default()
+                                                });
+                                            if let Err(e) = record_file_replace(
+                                                ws_root,
+                                                game_dir,
+                                                mod_slug,
+                                                &relative,
+                                                &new_bytes,
+                                            ) {
+                                                errors.push(format!("Recording: {e}"));
+                                            } else {
+                                                saved.push(format!(
+                                                    "→ recorded in `{mod_slug}`"
+                                                ));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => errors.push(format!(
+                        "{}: {}",
+                        map_path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default(),
+                        e
+                    )),
+                }
             }
 
             if !errors.is_empty() {
