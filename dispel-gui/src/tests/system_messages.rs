@@ -44,10 +44,10 @@ mod undo_redo_save_edges {
     }
 
     #[test]
-    fn save_on_sprite_viewer_is_noop() {
+    fn save_on_sprite_viewer_produces_task() {
         let mut app = app_with_tab(EditorType::SpriteViewer);
         let task = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(task.units(), 0, "SpriteViewer Save is no-op");
+        assert!(task.units() > 0, "SpriteViewer Save produces task");
     }
 
     #[test]

@@ -1,10 +1,12 @@
 use crate::app::App;
 use crate::components::utils::horizontal_rule;
-use crate::editors::sprite_browser::{
-    ExportDialogState, ExportFormat, ExportStatus, SpriteViewerMessage, SpriteViewerState,
+use crate::editors::sprite_editor::{
+    ExportDialogState, ExportFormat, ExportStatus, SpriteFrame, SpriteViewerMessage,
+    SpriteViewerState,
 };
 use crate::message::{Message, MessageExt};
 use crate::style;
+use gui_widgets::components::context_menu::{ContextMenu, Entry};
 use gui_widgets::components::modal::modal;
 use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
@@ -65,6 +67,8 @@ fn view_main(viewer: &SpriteViewerState) -> Element<'_, Message> {
     let header = view_header(viewer);
     let sequence_row = view_sequence_chips(viewer);
     let preview = view_preview(viewer);
+    let zoom_controls = view_zoom_controls(viewer);
+    let edit_toolbar = view_edit_toolbar(viewer);
     let frame_strip = view_frame_strip(viewer);
     let scrubber = view_scrubber(viewer);
     let controls = view_playback_controls(viewer);
@@ -75,8 +79,11 @@ fn view_main(viewer: &SpriteViewerState) -> Element<'_, Message> {
         sequence_row,
         horizontal_rule(1),
         preview,
+        zoom_controls,
         horizontal_rule(1),
         frame_strip,
+        edit_toolbar,
+        horizontal_rule(1),
         scrubber,
         horizontal_rule(1),
         controls,
@@ -89,16 +96,61 @@ fn view_main(viewer: &SpriteViewerState) -> Element<'_, Message> {
 // ── Header bar ────────────────────────────────────────────────────────────────
 
 fn view_header(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    let title = text(&viewer.name).size(13).style(style::primary_text);
+    let title: Element<'_, Message> = if viewer.dirty {
+        row![
+            text(&viewer.name).size(13).style(style::primary_text),
+            text(" *").size(13).style(style::primary_text),
+        ]
+        .spacing(0)
+        .align_y(Alignment::Center)
+        .into()
+    } else {
+        text(&viewer.name).size(13).style(style::primary_text).into()
+    };
+
+    // Undo/Redo buttons
+    let undo_btn = button(text("↩").size(12))
+        .on_press_maybe(if viewer.can_undo() {
+            Some(sv(SpriteViewerMessage::Undo))
+        } else {
+            None
+        })
+        .padding([3, 7])
+        .style(style::playback_button);
+
+    let redo_btn = button(text("↪").size(12))
+        .on_press_maybe(if viewer.can_redo() {
+            Some(sv(SpriteViewerMessage::Redo))
+        } else {
+            None
+        })
+        .padding([3, 7])
+        .style(style::playback_button);
+
+    // Save button
+    let save_label = if viewer.dirty { "Save *" } else { "Save" };
+    let save_btn = button(text(save_label).size(12))
+        .on_press(sv(SpriteViewerMessage::Save))
+        .padding([4, 10])
+        .style(style::export_button);
+
     let export_btn = button(text("Export…").size(12))
         .on_press(sv(SpriteViewerMessage::ShowExportDialog))
         .padding([4, 10])
         .style(style::export_button);
 
     container(
-        row![title, Space::new().width(Fill), export_btn]
-            .spacing(8)
-            .align_y(Alignment::Center),
+        row![
+            title,
+            Space::new().width(Fill),
+            undo_btn,
+            redo_btn,
+            Space::new().width(4),
+            save_btn,
+            export_btn,
+        ]
+        .spacing(8)
+        .align_y(Alignment::Center),
     )
     .padding([6, 12])
     .width(Fill)
@@ -146,8 +198,7 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
                 row(btns).spacing(4).into()
             })
             .collect();
-        let result: Element<'_, Message> = column(rows).spacing(4).into();
-        result
+        column(rows).spacing(4).into()
     })
     .into();
 
@@ -160,11 +211,13 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
 // ── Main preview ──────────────────────────────────────────────────────────────
 
 fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    let inner: Element<'_, Message> = if let Some(frame) = viewer.frames.get(viewer.selected_frame)
+    let inner: Element<'_, Message> = if let Some(frame) = viewer.frames.get(viewer.selected_frame_global())
     {
+        let w = (frame.width as f32 * viewer.zoom).ceil();
+        let h = (frame.height as f32 * viewer.zoom).ceil();
         image(frame.image.clone())
-            .width(Length::Shrink)
-            .height(Length::Shrink)
+            .width(Length::Fixed(w))
+            .height(Length::Fixed(h))
             .into()
     } else {
         text("No frames loaded")
@@ -182,6 +235,51 @@ fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .into()
 }
 
+// ── Zoom controls ─────────────────────────────────────────────────────────────
+
+fn view_zoom_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
+    let zoom_in = button(text("+").size(12))
+        .on_press(sv(SpriteViewerMessage::ZoomIn))
+        .padding([2, 7])
+        .style(style::chip);
+
+    let zoom_out = button(text("−").size(12))
+        .on_press(sv(SpriteViewerMessage::ZoomOut))
+        .padding([2, 7])
+        .style(style::chip);
+
+    let zoom_reset = button(text("1:1").size(10))
+        .on_press(sv(SpriteViewerMessage::ZoomReset))
+        .padding([2, 6])
+        .style(style::chip);
+
+    let zoom_fit = button(text("Fit").size(10))
+        .on_press(sv(SpriteViewerMessage::ZoomToFit))
+        .padding([2, 6])
+        .style(style::chip);
+
+    let zoom_label = text(format!("{}%", (viewer.zoom * 100.0).round() as u32))
+        .size(11)
+        .style(style::subtle_text);
+
+    container(
+        row![
+            zoom_out,
+            zoom_in,
+            Space::new().width(4),
+            zoom_reset,
+            zoom_fit,
+            Space::new().width(4),
+            zoom_label,
+        ]
+        .spacing(2)
+        .padding([2, 8])
+        .align_y(Alignment::Center),
+    )
+    .width(Fill)
+    .into()
+}
+
 // ── Frame thumbnail strip ─────────────────────────────────────────────────────
 
 fn view_frame_strip(viewer: &SpriteViewerState) -> Element<'_, Message> {
@@ -189,13 +287,20 @@ fn view_frame_strip(viewer: &SpriteViewerState) -> Element<'_, Message> {
         return Space::new().into();
     }
 
+    let seq_idx = viewer.selected_sequence;
     let selected = viewer.selected_frame;
-    let thumbs: Vec<Element<'_, Message>> = viewer
+    let sequence_frames: Vec<&SpriteFrame> = viewer
         .frames
+        .iter()
+        .filter(|f| f.sequence_idx == seq_idx)
+        .collect();
+
+    let max_frames = sequence_frames.len();
+    let thumbs: Vec<Element<'_, Message>> = sequence_frames
         .iter()
         .enumerate()
         .map(|(i, frame)| {
-            button(
+            let thumb_btn: Element<'_, Message> = button(
                 image(frame.image.clone())
                     .width(Length::Fixed(48.0))
                     .height(Length::Fixed(48.0)),
@@ -207,7 +312,21 @@ fn view_frame_strip(viewer: &SpriteViewerState) -> Element<'_, Message> {
             } else {
                 style::chip
             })
-            .into()
+            .into();
+
+            // Right-click context menu on each thumbnail
+            let context_entries = vec![
+                Entry::item("Insert Frame", sv(SpriteViewerMessage::InsertFrame)),
+                Entry::item("Duplicate Frame", sv(SpriteViewerMessage::DuplicateFrame)),
+                Entry::separator(),
+                if max_frames > 1 {
+                    Entry::item("Delete Frame", sv(SpriteViewerMessage::DeleteFrame))
+                } else {
+                    Entry::disabled("Delete Frame")
+                },
+            ];
+
+            ContextMenu::new(thumb_btn, context_entries).into()
         })
         .collect();
 
@@ -225,15 +344,119 @@ fn view_frame_strip(viewer: &SpriteViewerState) -> Element<'_, Message> {
     .into()
 }
 
+// ── Editing toolbar ───────────────────────────────────────────────────────────
+
+fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
+    let has_frames = viewer.sprite_file.is_some()
+        && viewer
+            .frame_counts
+            .get(viewer.selected_sequence)
+            .copied()
+            .unwrap_or(0)
+            > 0;
+
+    let insert_btn = if has_frames {
+        button(text("+ Insert").size(11))
+            .on_press(sv(SpriteViewerMessage::InsertFrame))
+            .padding([3, 8])
+            .style(style::chip)
+    } else {
+        button(text("+ Insert").size(11))
+            .padding([3, 8])
+            .style(style::chip)
+    };
+
+    let dup_btn = if has_frames {
+        button(text("⧉ Dup").size(11))
+            .on_press(sv(SpriteViewerMessage::DuplicateFrame))
+            .padding([3, 8])
+            .style(style::chip)
+    } else {
+        button(text("⧉ Dup").size(11))
+            .padding([3, 8])
+            .style(style::chip)
+    };
+
+    let del_btn = if has_frames {
+        button(text("✕ Del").size(11))
+            .on_press(sv(SpriteViewerMessage::DeleteFrame))
+            .padding([3, 8])
+            .style(style::chip)
+    } else {
+        button(text("✕ Del").size(11))
+            .padding([3, 8])
+            .style(style::chip)
+    };
+
+    // Move left/right buttons
+    let move_left_btn = if has_frames && viewer.selected_frame > 0 {
+        button(text("◀").size(11))
+            .on_press(sv(SpriteViewerMessage::MoveFrameLeft))
+            .padding([3, 7])
+            .style(style::chip)
+    } else {
+        button(text("◀").size(11))
+            .padding([3, 7])
+            .style(style::chip)
+    };
+
+    let move_right_btn = if has_frames {
+        let max_frames = viewer.frame_counts.get(viewer.selected_sequence).copied().unwrap_or(0);
+        if viewer.selected_frame + 1 < max_frames {
+            button(text("▶").size(11))
+                .on_press(sv(SpriteViewerMessage::MoveFrameRight))
+                .padding([3, 7])
+                .style(style::chip)
+        } else {
+            button(text("▶").size(11))
+                .padding([3, 7])
+                .style(style::chip)
+        }
+    } else {
+        button(text("▶").size(11))
+            .padding([3, 7])
+            .style(style::chip)
+    };
+
+    let import_btn = if viewer.sprite_file.is_some() {
+        button(text("📷 Import…").size(11))
+            .on_press(sv(SpriteViewerMessage::ImportPngFrame))
+            .padding([3, 8])
+            .style(style::export_button)
+    } else {
+        button(text("📷 Import…").size(11))
+            .padding([3, 8])
+            .style(style::chip)
+    };
+
+    container(
+        row![
+            insert_btn,
+            dup_btn,
+            del_btn,
+            Space::new().width(4),
+            move_left_btn,
+            move_right_btn,
+            Space::new().width(Fill),
+            import_btn,
+        ]
+        .spacing(4)
+        .padding([4, 8])
+        .align_y(Alignment::Center),
+    )
+    .width(Fill)
+    .into()
+}
+
 // ── Timeline scrubber ─────────────────────────────────────────────────────────
 
 fn view_scrubber(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    let total = viewer.frames.len();
-    if total <= 1 {
+    let seq_frames = viewer.frames_in_sequence();
+    if seq_frames <= 1 {
         return Space::new().into();
     }
 
-    let max = (total - 1) as u32;
+    let max = (seq_frames - 1) as u32;
     let current = viewer.selected_frame as u32;
 
     let scrub = slider(0u32..=max, current, |v| {
@@ -241,9 +464,14 @@ fn view_scrubber(viewer: &SpriteViewerState) -> Element<'_, Message> {
     })
     .width(Fill);
 
-    let label = text(format!("Frame {}/{}", viewer.selected_frame + 1, total))
-        .size(11)
-        .style(style::subtle_text);
+    let label = text(format!(
+        "Frame {}/{} (seq {})",
+        viewer.selected_frame + 1,
+        seq_frames,
+        viewer.selected_sequence
+    ))
+    .size(11)
+    .style(style::subtle_text);
 
     container(
         row![scrub, label]

@@ -9,8 +9,10 @@ mod sprite_viewer_tests {
         SpriteFrame {
             sequence_idx: 0,
             frame_idx,
-            image: iced::widget::image::Handle::from_bytes(vec![]),
-            png_bytes: vec![],
+            image: iced::widget::image::Handle::from_rgba(1, 1, vec![0, 0, 0, 0]),
+            rgba_bytes: vec![],
+            width: 1,
+            height: 1,
         }
     }
 
@@ -43,8 +45,14 @@ mod sprite_viewer_tests {
                 frames: vec![],
                 export_dialog: None,
                 path: PathBuf::new(),
+                save_path: PathBuf::new(),
                 name: "test.spr".into(),
                 error: None,
+                sprite_file: None,
+                dirty: false,
+                undo_stack: Vec::new(),
+                redo_stack: Vec::new(),
+                zoom: 1.0,
             },
         );
         app
@@ -79,12 +87,18 @@ mod sprite_viewer_tests {
                 frames: (0..10).map(dummy_frame).collect(),
                 export_dialog: None,
                 path: PathBuf::new(),
+                save_path: PathBuf::new(),
                 name: "test.spr".into(),
                 error: None,
+                sprite_file: None,
+                dirty: false,
+                undo_stack: Vec::new(),
+                redo_stack: Vec::new(),
+                zoom: 1.0,
             },
         );
         app
-    }
+}
 
     // ── Navigation ───────────────────────────────────────────────────────────
 

@@ -76,11 +76,13 @@ mod save_dispatch_tests {
     }
 
     #[test]
-    fn test_save_non_saving_tab_shows_correct_status() {
-        // SpriteViewer does not support saving.
+    fn test_save_sprite_viewer_returns_task() {
+        // SpriteViewer now supports saving.
         let mut app = app_with_tab(EditorType::SpriteViewer);
-        let _ = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(app.state.status_msg, "This editor does not support saving");
+        let task = app.update(Message::System(SystemMessage::Save));
+        assert!(task.units() > 0, "SpriteViewer Save produces task");
+        // Status message is not the "no save" error.
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
