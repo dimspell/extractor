@@ -96,25 +96,21 @@ pub fn composite_item_picker(
     let type_picker: Element<'static, Message> = {
         let oc = on_change.clone();
         let current_id = current_id.clone();
-        pick_list(
-            Some(current_type_label),
-            type_labels,
-            |v| v.to_string(),
-        )
-        .on_select(move |selected_label| {
-            let type_byte = type_labels_for_picker
-                .iter()
-                .position(|l| l == &selected_label)
-                .and_then(|i| item_types.get(i))
-                .map(|t| u8::from(*t))
-                .unwrap_or(255);
-            // Preserve the item ID when switching type so the user doesn't
-            // lose their selection. The setter macro receives the full
-            // composite key and updates both fields.
-            oc(format!("{}:{}", type_byte, current_id))
-        })
-        .width(Length::Fill)
-        .into()
+        pick_list(Some(current_type_label), type_labels, |v| v.to_string())
+            .on_select(move |selected_label| {
+                let type_byte = type_labels_for_picker
+                    .iter()
+                    .position(|l| l == &selected_label)
+                    .and_then(|i| item_types.get(i))
+                    .map(|t| u8::from(*t))
+                    .unwrap_or(255);
+                // Preserve the item ID when switching type so the user doesn't
+                // lose their selection. The setter macro receives the full
+                // composite key and updates both fields.
+                oc(format!("{}:{}", type_byte, current_id))
+            })
+            .width(Length::Fill)
+            .into()
     };
 
     let item_picker: Element<'static, Message> = {
@@ -128,7 +124,7 @@ pub fn composite_item_picker(
                 on_change(composite_key)
             })
             .width(Length::Fill)
-        .into()
+            .into()
     };
 
     col![

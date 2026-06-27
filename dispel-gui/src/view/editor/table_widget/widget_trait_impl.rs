@@ -492,8 +492,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         align_y: alignment::Vertical::Top,
                         shaping: text::Shaping::Advanced,
                         wrapping: text::Wrapping::None,
-                    ellipsis: text::Ellipsis::None,
-                    hint_factor: None,
+                        ellipsis: text::Ellipsis::None,
+                        hint_factor: None,
                     })
                 });
 
@@ -600,11 +600,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     align_x: text::Alignment::Default,
                     align_y: alignment::Vertical::Top,
                     shaping: text::Shaping::Advanced,
-                wrapping: text::Wrapping::None,
+                    wrapping: text::Wrapping::None,
                     ellipsis: text::Ellipsis::None,
                     hint_factor: None,
-                    })
-                });
+                })
+            });
             let id_inner = Rectangle {
                 x: id_x + self.cell_padding_x,
                 y,

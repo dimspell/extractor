@@ -93,10 +93,11 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
     let extra_path = state.data.extra_ref_path.clone();
 
     // Capture recording session info for recording integration.
-    let recording_info: Option<(std::path::PathBuf, String)> =
-        app.state.recording.as_ref().map(|s| {
-            (s.workspace_root.clone(), s.mod_slug.clone())
-        });
+    let recording_info: Option<(std::path::PathBuf, String)> = app
+        .state
+        .recording
+        .as_ref()
+        .map(|s| (s.workspace_root.clone(), s.mod_slug.clone()));
 
     Task::perform(
         async move {
@@ -197,29 +198,19 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
                                         if old != new_bytes {
                                             let relative = map_path
                                                 .strip_prefix(game_dir)
-                                                .map(|p| {
-                                                    p.to_string_lossy().replace('\\', "/")
-                                                })
+                                                .map(|p| p.to_string_lossy().replace('\\', "/"))
                                                 .unwrap_or_else(|_| {
                                                     map_path
                                                         .file_name()
-                                                        .map(|n| {
-                                                            n.to_string_lossy().to_string()
-                                                        })
+                                                        .map(|n| n.to_string_lossy().to_string())
                                                         .unwrap_or_default()
                                                 });
                                             if let Err(e) = record_file_replace(
-                                                ws_root,
-                                                game_dir,
-                                                mod_slug,
-                                                &relative,
-                                                &new_bytes,
+                                                ws_root, game_dir, mod_slug, &relative, &new_bytes,
                                             ) {
                                                 errors.push(format!("Recording: {e}"));
                                             } else {
-                                                saved.push(format!(
-                                                    "→ recorded in `{mod_slug}`"
-                                                ));
+                                                saved.push(format!("→ recorded in `{mod_slug}`"));
                                             }
                                         }
                                     }

@@ -735,7 +735,7 @@ fn render_action_row<'a>(
                         EventScrEditorMessage::ActionPrefixPicked(index, opt)
                     })
                     .text_size(12)
-                .padding([2, 6]),
+                    .padding([2, 6]),
                 text("~").size(13).style(style::subtle_text),
                 text_input("function", &act.function_name)
                     .on_input(move |s| { EventScrEditorMessage::ActionFunctionChanged(index, s) })

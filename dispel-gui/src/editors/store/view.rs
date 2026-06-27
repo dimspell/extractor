@@ -401,7 +401,9 @@ fn product_modal<'a>(
                 ProductTypeOption::all(),
                 |v| v.to_string(),
             )
-            .on_select(|selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id())))
+            .on_select(
+                |selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id()))
+            )
             .padding(6)
             .width(Fill),
         ]
