@@ -20,10 +20,10 @@ use crate::ui::theme::HexEditorTheme;
 pub const MINIMAP_WIDTH: f32 = 35.0;
 
 /// Number of sub-columns per pixel row.
-pub const MINIMAP_COLS: usize = 4;
+pub(crate) const MINIMAP_COLS: usize = 4;
 
 /// Width of each sub-column in pixels.
-pub const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 8.0
+pub(crate) const MINIMAP_COL_WIDTH: f32 = (MINIMAP_WIDTH - 3.0) / MINIMAP_COLS as f32; // 8.0
 
 // ── Brightness calculation constants ──────────────────────────────────
 /// Base brightness for a block with uniform bytes (variance = 0).
@@ -132,6 +132,19 @@ pub struct BlockContext<'a> {
     pub theme: &'static HexEditorTheme,
 }
 
+/// Number of bytes per pixel block, rounded up so every byte in the file
+/// maps to exactly one pixel in one of the four sub-columns.
+///
+/// Extracted as a standalone helper so the stride formula is the single
+/// source of truth for both production code and tests.
+pub(crate) fn pixel_stride(total_len: u64, h_px: u32) -> u64 {
+    if total_len == 0 || h_px == 0 {
+        return 0;
+    }
+    let total_blocks = (MINIMAP_COLS as u64) * h_px as u64;
+    total_len.div_ceil(total_blocks)
+}
+
 /// Compute minimap pixel colors by block-averaging the file.
 ///
 /// Each pixel row represents a block of bytes.  The block color is
@@ -144,8 +157,8 @@ pub fn compute_block_pixels(h_px: u32, ctx: &BlockContext) -> [Vec<Color>; 4] {
         return Default::default();
     }
     let n = h_px as usize;
+    let stride = pixel_stride(ctx.total_len, h_px);
     let total_blocks = (MINIMAP_COLS as u64) * h_px as u64;
-    let stride = ctx.total_len.div_ceil(total_blocks);
 
     let mut cols: [Vec<Color>; 4] = [
         Vec::with_capacity(n),
@@ -272,7 +285,6 @@ pub fn draw_minimap(
     selection_end: u64,
     cursor_addr: u64,
     total_len: u64,
-    _active: bool,
     theme: &HexEditorTheme,
 ) {
     let mm_rect = minimap_rect(content_bounds, viewport_h, MINIMAP_WIDTH, scrollbar_w);
@@ -289,8 +301,22 @@ pub fn draw_minimap(
         Background::Color(theme.minimap_separator),
     );
 
-    // ── Four sub-columns (batched by colour) ───────────────────────
+    // ── Inter-column separators (1 px at each column boundary) ─────
     let inner_x = mm_rect.x + 2.0;
+    for i in 1..MINIMAP_COLS {
+        let sx = inner_x + i as f32 * MINIMAP_COL_WIDTH;
+        renderer.fill_quad(
+            quad(Rectangle {
+                x: sx,
+                y: mm_rect.y,
+                width: 1.0,
+                height: mm_rect.height,
+            }),
+            Background::Color(theme.minimap_separator),
+        );
+    }
+
+    // ── Four sub-columns (batched by colour) ───────────────────────
     for (col, col_data) in columns.iter().enumerate() {
         let cx = inner_x + col as f32 * MINIMAP_COL_WIDTH;
         let mut i = 0;
@@ -402,7 +428,7 @@ pub fn draw_minimap(
 
 /// Cached minimap pixel colors to avoid re-scanning the file every frame.
 #[derive(Clone)]
-pub struct MinimapCache {
+pub(crate) struct MinimapCache {
     /// Four pixel arrays, one per sub-column.  Each has `h_px` entries.
     pub columns: [Vec<Color>; 4],
     /// File length when cached.
@@ -416,17 +442,22 @@ pub struct MinimapCache {
     /// Hash of pattern_by_addr contents (*not* the full map — just a
     /// checksum so we can cheaply detect changes).
     pub pattern_hash: u64,
-    /// Number of dirty addresses when cached.
-    pub dirty_count: usize,
-    /// Number of diff addresses when cached.
-    pub diff_count: usize,
+    /// Fingerprint of dirty addresses — catches swapped edits that
+    /// a simple count would miss (hash of len + first + last).
+    pub dirty_fingerprint: u64,
+    /// Fingerprint of diff addresses — same rationale as dirty.
+    pub diff_fingerprint: u64,
+    /// Raw pointer of the byte slice that was used to build the cache.
+    /// Catches external file modifications that don't change the other
+    /// cache keys (total_len, patterns, dirty/diff sets).
+    pub content_ptr: usize,
 }
 
 /// Quick (non-cryptographic) hash of a pattern_by_addr map.
 ///
 /// Used to cheaply detect whether the pattern set has changed since the
 /// minimap cache was computed.
-pub fn pattern_hash(patterns: &BTreeMap<u64, (usize, u8)>) -> u64 {
+pub(crate) fn pattern_hash(patterns: &BTreeMap<u64, (usize, u8)>) -> u64 {
     let mut h = DefaultHasher::new();
     for (&addr, &(pid, col)) in patterns {
         addr.hash(&mut h);
@@ -436,16 +467,32 @@ pub fn pattern_hash(patterns: &BTreeMap<u64, (usize, u8)>) -> u64 {
     h.finish()
 }
 
+/// Compute a cheap fingerprint for a set of addresses by hashing
+/// `(len, first, last)`.  Used instead of a plain count so that swapping
+/// addresses invalidates the cache (issue #5).
+pub(crate) fn set_fingerprint(set: &BTreeSet<u64>) -> u64 {
+    let mut h = DefaultHasher::new();
+    set.len().hash(&mut h);
+    if let Some(&first) = set.first() {
+        first.hash(&mut h);
+    }
+    if let Some(&last) = set.last() {
+        last.hash(&mut h);
+    }
+    h.finish()
+}
+
 /// Check whether a cached minimap pixel array is still valid for the
 /// current file state.
-pub fn minimap_cache_valid(cache: &MinimapCache, h_px: u32, ctx: &BlockContext) -> bool {
+pub(crate) fn minimap_cache_valid(cache: &MinimapCache, h_px: u32, ctx: &BlockContext) -> bool {
     cache.total_len == ctx.total_len
         && cache.h_px == h_px
         && cache.color_scheme == ctx.color_scheme
         && cache.dim_nulls == ctx.dim_nulls
         && cache.pattern_hash == pattern_hash(ctx.pattern_by_addr)
-        && cache.dirty_count == ctx.dirty.len()
-        && cache.diff_count == ctx.vanilla_diff.len()
+        && cache.dirty_fingerprint == set_fingerprint(ctx.dirty)
+        && cache.diff_fingerprint == set_fingerprint(ctx.vanilla_diff)
+        && cache.content_ptr == ctx.bytes.as_ptr() as usize
 }
 
 /// Compute the y-offset and height of the selection-range band on the
@@ -957,10 +1004,41 @@ mod tests {
         assert!((cols[1][0].b - expected.b).abs() < 0.0001, "b");
     }
 
+    // ── pixel_stride —───────────────────────────────────────────────────
+
+    #[test]
+    fn pixel_stride_zero_total_len() {
+        assert_eq!(pixel_stride(0, 10), 0);
+    }
+
+    #[test]
+    fn pixel_stride_zero_h_px() {
+        assert_eq!(pixel_stride(100, 0), 0);
+    }
+
+    #[test]
+    fn pixel_stride_exact_division() {
+        // 40 bytes ÷ 40 blocks = 1 byte/block.
+        assert_eq!(pixel_stride(40, 10), 1);
+    }
+
+    #[test]
+    fn pixel_stride_ceil_division() {
+        // 101 bytes ÷ 40 blocks → ceil(2.525) = 3 bytes/block.
+        assert_eq!(pixel_stride(101, 10), 3);
+    }
+
+    #[test]
+    fn pixel_stride_large_file() {
+        // 1 MiB ÷ (4 × 600) → ceil(436.9) = 437 bytes/block.
+        assert_eq!(pixel_stride(1_048_576, 600), 437);
+    }
+
     #[test]
     fn compute_block_pixels_stride_ceiling_covers_last_block() {
-        // 101 bytes, h_px=10 → total_blocks=40, stride=ceil(101/40)=3.
-        // Last block 39 covers [117,120) → clamped to 101 → col 3, row 9.
+        // 101 bytes ÷ 40 blocks → stride=3.  Last block 39 covers [117,120)
+        // → clamped to 101 → col 3, row 9.  Verified via pixel_stride().
+        assert_eq!(pixel_stride(101, 10), 3);
         let bytes = vec![0x42u8; 101];
         let ctx = BlockContext {
             bytes: &bytes,
@@ -1005,16 +1083,6 @@ mod tests {
     fn minimap_cache_valid_matches() {
         let mut patterns = BTreeMap::new();
         patterns.insert(10, (0usize, 1u8));
-        let cache = MinimapCache {
-            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
-            total_len: 100,
-            h_px: 10,
-            color_scheme: ColorScheme::Monochrome,
-            dim_nulls: false,
-            pattern_hash: pattern_hash(&patterns),
-            dirty_count: 5,
-            diff_count: 3,
-        };
         let mut dirty = BTreeSet::new();
         for i in 0..5 {
             dirty.insert(i);
@@ -1023,8 +1091,20 @@ mod tests {
         for i in 0..3 {
             diff.insert(100 + i);
         }
+        let cache_bytes: &[u8] = &[];
+        let cache = MinimapCache {
+            columns: [vec![Color::WHITE], vec![], vec![], vec![]],
+            total_len: 100,
+            h_px: 10,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: false,
+            pattern_hash: pattern_hash(&patterns),
+            dirty_fingerprint: set_fingerprint(&dirty),
+            diff_fingerprint: set_fingerprint(&diff),
+            content_ptr: cache_bytes.as_ptr() as usize,
+        };
         let ctx = BlockContext {
-            bytes: &[],
+            bytes: cache_bytes,
             total_len: 100,
             pattern_by_addr: &patterns,
             alternate_patterns: &BTreeSet::new(),
@@ -1039,6 +1119,8 @@ mod tests {
 
     #[test]
     fn minimap_cache_valid_detects_size_change() {
+        let empty: BTreeSet<u64> = BTreeSet::new();
+        let empty_ptr = (&[] as &[u8]).as_ptr() as usize;
         let cache = MinimapCache {
             columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
@@ -1046,16 +1128,17 @@ mod tests {
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
             pattern_hash: 0,
-            dirty_count: 0,
-            diff_count: 0,
+            dirty_fingerprint: set_fingerprint(&empty),
+            diff_fingerprint: set_fingerprint(&empty),
+            content_ptr: empty_ptr,
         };
         let ctx = BlockContext {
             bytes: &[],
             total_len: 200,
             pattern_by_addr: &BTreeMap::new(),
             alternate_patterns: &BTreeSet::new(),
-            dirty: &BTreeSet::new(),
-            vanilla_diff: &BTreeSet::new(),
+            dirty: &empty,
+            vanilla_diff: &empty,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
             theme: &DARK_THEME,
@@ -1065,6 +1148,8 @@ mod tests {
 
     #[test]
     fn minimap_cache_valid_detects_scheme_change() {
+        let empty: BTreeSet<u64> = BTreeSet::new();
+        let empty_ptr = (&[] as &[u8]).as_ptr() as usize;
         let cache = MinimapCache {
             columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
@@ -1072,16 +1157,17 @@ mod tests {
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
             pattern_hash: 0,
-            dirty_count: 0,
-            diff_count: 0,
+            dirty_fingerprint: set_fingerprint(&empty),
+            diff_fingerprint: set_fingerprint(&empty),
+            content_ptr: empty_ptr,
         };
         let ctx = BlockContext {
             bytes: &[],
             total_len: 100,
             pattern_by_addr: &BTreeMap::new(),
             alternate_patterns: &BTreeSet::new(),
-            dirty: &BTreeSet::new(),
-            vanilla_diff: &BTreeSet::new(),
+            dirty: &empty,
+            vanilla_diff: &empty,
             color_scheme: ColorScheme::Nybble,
             dim_nulls: false,
             theme: &DARK_THEME,
@@ -1090,7 +1176,9 @@ mod tests {
     }
 
     #[test]
-    fn minimap_cache_valid_detects_dirty_count_change() {
+    fn minimap_cache_valid_detects_dirty_fingerprint_change() {
+        let empty: BTreeSet<u64> = BTreeSet::new();
+        let empty_ptr = (&[] as &[u8]).as_ptr() as usize;
         let cache = MinimapCache {
             columns: [vec![Color::WHITE], vec![], vec![], vec![]],
             total_len: 100,
@@ -1098,8 +1186,9 @@ mod tests {
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
             pattern_hash: 0,
-            dirty_count: 5,
-            diff_count: 0,
+            dirty_fingerprint: set_fingerprint(&empty),
+            diff_fingerprint: set_fingerprint(&empty),
+            content_ptr: empty_ptr,
         };
         let dirty: BTreeSet<u64> = [1, 2, 3].into_iter().collect();
         let ctx = BlockContext {
@@ -1108,7 +1197,7 @@ mod tests {
             pattern_by_addr: &BTreeMap::new(),
             alternate_patterns: &BTreeSet::new(),
             dirty: &dirty,
-            vanilla_diff: &BTreeSet::new(),
+            vanilla_diff: &empty,
             color_scheme: ColorScheme::Monochrome,
             dim_nulls: false,
             theme: &DARK_THEME,

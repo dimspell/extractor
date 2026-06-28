@@ -17,7 +17,7 @@ use crate::coloring::default_byte_colors;
 use crate::domain::byte_stats::entropy_to_color;
 use crate::ui::theme::HexEditorTheme;
 
-use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
+use crate::ui::view::minimap::{self};
 
 use super::layout::{
     center_scroll_on, group_count, scroll_to_make_visible, visible_row_range, ASCII_CELL_WIDTH,
@@ -525,19 +525,6 @@ pub fn draw_matrix<'a, Message>(
     let total_len = widget.bytes.len() as u64;
     let needs_vscroll = total_h > viewport_h;
     if needs_vscroll && widget.show_minimap {
-        let hovering = cursor
-            .position_over(content_bounds)
-            .map(|p| {
-                minimap::minimap_rect(
-                    content_bounds,
-                    viewport_h,
-                    MINIMAP_WIDTH,
-                    SCROLLBAR_THICKNESS,
-                )
-                .contains(p)
-            })
-            .unwrap_or(false);
-
         // Compute or reuse the minimap pixel cache.
         let h_px = viewport_h.max(1.0) as u32;
         let ctx = minimap::BlockContext {
@@ -565,8 +552,9 @@ pub fn draw_matrix<'a, Message>(
                 color_scheme: widget.color_scheme,
                 dim_nulls: widget.dim_nulls,
                 pattern_hash: minimap::pattern_hash(widget.patterns),
-                dirty_count: widget.dirty.len(),
-                diff_count: widget.vanilla_diff.len(),
+                dirty_fingerprint: minimap::set_fingerprint(widget.dirty),
+                diff_fingerprint: minimap::set_fingerprint(widget.vanilla_diff),
+                content_ptr: widget.bytes.as_ptr() as usize,
             });
         }
         let columns = &cache.as_ref().unwrap().columns;
@@ -583,7 +571,6 @@ pub fn draw_matrix<'a, Message>(
             widget.selection.end(),
             widget.selection.cursor,
             total_len,
-            state.dragging_minimap || hovering,
             theme,
         );
     }
