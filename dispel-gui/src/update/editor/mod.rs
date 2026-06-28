@@ -3,9 +3,9 @@ use crate::app::App;
 use crate::editors::{
     all_map_ini, chdata, chest, dialogue_paragraph, dialogue_script, draw_item, edit_item,
     event_ini, event_item, event_npc_ref, event_scr, extra_ini, extra_ref, heal_item,
-    localization_manager, magic, map_editor, map_ini, message_scr, misc_item, mod_packager,
-    monster, monster_ini, monster_ref, npc_ini, npc_ref, party_ini, party_level_db, party_ref,
-    quest_scr, snf_editor, sprite_editor, store, tileset, wave_ini, weapon,
+    hex_wrapper, localization_manager, magic, map_editor, map_ini, message_scr, misc_item,
+    mod_packager, monster, monster_ini, monster_ref, npc_ini, npc_ref, party_ini, party_level_db,
+    party_ref, quest_scr, snf_editor, sprite_editor, store, tileset, wave_ini, weapon,
 };
 use crate::message::editor::EditorMessage;
 use crate::message::{Message, MessageExt};
@@ -49,23 +49,7 @@ pub fn handle(message: EditorMessage, app: &mut App) -> Task<crate::message::Mes
         EditorMessage::Snf(msg) => snf_editor::handle(msg, app),
         EditorMessage::ModPackager(msg) => mod_packager::handle(msg, app),
         EditorMessage::Localization(msg) => localization_manager::handle(msg, app),
-        EditorMessage::HexEditor(msg) => {
-            let tab_id = app
-                .state
-                .workspace
-                .active()
-                .map(|t| t.id)
-                .unwrap_or(usize::MAX);
-            let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
-                return Task::none();
-            };
-            let config = crate::app::build_hex_config(
-                &app.state.recording,
-                &app.state.workspace.game_path,
-                state,
-            );
-            hexedit::update(state, &config, msg).map(Message::hex_editor)
-        }
+        EditorMessage::HexEditor(msg) => hex_wrapper::handle(msg, app),
     }
 }
 

@@ -25,6 +25,7 @@ pub(crate) mod capability_crosscheck;
 pub(crate) mod chest_editor;
 pub(crate) mod clear_all;
 pub(crate) mod command_palette;
+pub(crate) mod common;
 pub(crate) mod draft;
 pub(crate) mod editor_field_edit;
 pub(crate) mod editor_registry;

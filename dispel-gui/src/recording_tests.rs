@@ -24,31 +24,13 @@ use crate::editors::npc_ref::{self, NpcRefEditorMessage};
 use crate::editors::store::{self, StoreEditorMessage};
 use crate::editors::wave_ini::{self, WaveIniEditorMessage};
 use crate::editors::weapon::{self, WeaponEditorMessage};
-use crate::state::{RecordingKey, RecordingSession};
+use crate::state::RecordingKey;
+use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dispel_core::modding::Value;
 use dispel_core::{ExtraRef, Store, WaveIni, WeaponItem, NPC};
 use std::path::PathBuf;
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-fn app_with_recording() -> App {
-    let mut app = App::test_new(Workspace::new());
-    app.state.recording = Some(RecordingSession {
-        workspace_root: std::env::temp_dir(),
-        mod_slug: "test_mod".to_string(),
-        mod_name: "Test Mod".to_string(),
-        ..Default::default()
-    });
-    app
-}
-
-fn app_without_recording() -> App {
-    App::test_new(Workspace::new())
-}
 
 // ============================================================================
 // observe_field_change  (core recording primitive)

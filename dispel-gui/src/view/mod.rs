@@ -129,27 +129,7 @@ impl App {
                                 crate::editors::localization_manager::view(self)
                             }
                             Some(EditorType::HexEditor) => {
-                                let tab_id = self
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                match self.state.editors.hex_editors.get(&tab_id) {
-                                    Some(state) => {
-                                        let config = crate::app::build_hex_config(
-                                            &self.state.recording,
-                                            &self.state.workspace.game_path,
-                                            state,
-                                        );
-                                        hexedit::view(state, &config).map(Message::hex_editor)
-                                    }
-                                    None => container(text("Hex editor not loaded").size(14))
-                                        .width(Fill)
-                                        .height(Fill)
-                                        .padding(16)
-                                        .into(),
-                                }
+                                crate::editors::hex_wrapper::view(self)
                             }
                             Some(EditorType::Unknown) | None => {
                                 let content: Element<'_, Message> =
