@@ -138,7 +138,7 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                                 if let Some(parent) = output_path.parent() {
                                     let _ = std::fs::create_dir_all(parent);
                                 }
-                                let snf_path = App::find_snf_file(&game_path, &snf_filename);
+                                let snf_path = crate::platform::find_snf_file(&game_path, &snf_filename);
                                 dispel_core::snf::extract(&snf_path, &output_path)
                                     .map(|_| output_path.to_string_lossy().to_string())
                                     .map_err(|e| e.to_string())

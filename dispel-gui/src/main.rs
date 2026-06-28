@@ -4,6 +4,7 @@ use iced::Theme;
 pub mod app;
 pub mod auto_save;
 pub mod dispatch_table;
+pub mod subscriptions;
 pub mod components;
 pub mod editor_registry;
 pub mod editors;
@@ -44,7 +45,7 @@ pub fn main() -> iced::Result {
             )
         })
         .title("Dispel Extractor")
-        .subscription(App::subscription)
+        .subscription(|app: &App| crate::subscriptions::subscription(app))
         .window_size((1100.0, 800.0))
         .run()
 }

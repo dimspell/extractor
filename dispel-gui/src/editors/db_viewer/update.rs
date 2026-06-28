@@ -65,7 +65,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.editing_cell = None;
             app.state.editors.viewer.sql_mode = false;
             app.state.editors.viewer.sql_query = format!("SELECT * FROM \"{}\"", table);
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
             // ----
 
             // // Select table and load its data
@@ -144,7 +144,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
 
             app.state.editors.viewer.search = query;
             app.state.editors.viewer.page = 0;
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
         }
         ViewerMessage::SortColumn(column_index) => {
             // Sort by specified column
@@ -155,14 +155,14 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 app.state.editors.viewer.sort_dir = db::SortDir::Asc;
             }
             app.state.editors.viewer.page = 0;
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
         }
         ViewerMessage::NextPage => {
             // Navigate to next page
             let max_page = app.state.editors.viewer.total_rows.saturating_sub(1) / PAGE_SIZE;
             if app.state.editors.viewer.page < max_page {
                 app.state.editors.viewer.page += 1;
-                return app.fetch_viewer_data();
+                return crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer);
             }
             Task::none()
         }
@@ -170,7 +170,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Navigate to previous page
             if app.state.editors.viewer.page > 0 {
                 app.state.editors.viewer.page -= 1;
-                return app.fetch_viewer_data();
+                return crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer);
             }
             Task::none()
         }
@@ -322,7 +322,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.page = 0;
             app.state.editors.viewer.pending_edits.clear();
             app.state.editors.viewer.editing_cell = None;
-            app.fetch_viewer_data_sql()
+            crate::editors::db_viewer::fetch::fetch_sql_data(&mut app.state.editors.viewer)
 
             // AI:
             // Execute SQL query

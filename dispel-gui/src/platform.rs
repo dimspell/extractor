@@ -29,3 +29,30 @@ pub fn open_in_file_manager(path: &Path) {
         }
     }
 }
+
+/// Search for an SNF audio file in the game directory or a `Sound/` subdirectory,
+/// falling back to a recursive subdirectory search.
+pub fn find_snf_file(game_path: &str, snf_filename: &str) -> std::path::PathBuf {
+    let direct = std::path::PathBuf::from(game_path).join(snf_filename);
+    if direct.exists() {
+        return direct;
+    }
+
+    let candidate = std::path::PathBuf::from(game_path).join("Sound").join(snf_filename);
+    if candidate.exists() {
+        return candidate;
+    }
+
+    if let Ok(entries) = std::fs::read_dir(game_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let candidate = path.join(snf_filename);
+                if candidate.exists() {
+                    return candidate;
+                }
+            }
+        }
+    }
+    direct
+}
