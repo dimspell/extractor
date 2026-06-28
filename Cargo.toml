@@ -3,8 +3,8 @@ members = [".", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
 resolver = "2"
 
 [workspace.dependencies]
-iced = { git = "https://github.com/dimspell/iced", rev = "d7f5627", default-features = false }
-iced_test = { git = "https://github.com/dimspell/iced", rev = "d7f5627" }
+iced = { path = "../iced", default-features = false }
+iced_test = { path = "../iced/test" }
 
 [workspace.metadata]
 features = ["iced_test"]

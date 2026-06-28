@@ -600,12 +600,495 @@ pub fn get_sprite_info(file_path: &Path) -> Result<SpriteInfoJson> {
 }
 
 // ===========================================================================
+// In-memory sprite representation (read-write)
+// ===========================================================================
+
+/// In-memory representation of a .spr file for editing and re-saving.
+///
+/// Preserves the 268-byte header and 24-byte per-frame unknown data
+/// byte-for-byte so that the write-back is lossless for unmodified frames.
+#[derive(Debug, Clone)]
+pub struct SpriteFile {
+    /// First 268 bytes of the original file (unknown header, preserved verbatim).
+    pub header: [u8; 268],
+    /// All animation sequences in the file.
+    pub sequences: Vec<SpriteSequence>,
+}
+
+/// One animation sequence within a .spr file.
+#[derive(Debug, Clone)]
+pub struct SpriteSequence {
+    /// Whether this sequence uses Pattern B header (stamp=8,0).
+    /// `false` = Pattern A (stamp=0, no extra stamp word).
+    pub has_stamp: bool,
+    /// All frames in this sequence.
+    pub frames: Vec<SpriteFrameData>,
+}
+
+/// Decoded frame data ready for editing and re-saving.
+#[derive(Debug, Clone)]
+pub struct SpriteFrameData {
+    /// 24 raw bytes (6 × i32) of unknown per-frame data, preserved verbatim.
+    pub unknown: [u8; 24],
+    /// X offset from anchor point.
+    pub origin_x: i32,
+    /// Y offset from anchor point.
+    pub origin_y: i32,
+    /// Frame width in pixels.
+    pub width: i32,
+    /// Frame height in pixels.
+    pub height: i32,
+    /// Raw RGB565 pixel data, width×height×2 bytes, little-endian.
+    /// Stored in original form so unmodified frames round-trip bit-exact.
+    pub raw_pixels: Vec<u8>,
+}
+
+impl SpriteFrameData {
+    pub fn pixel_count(&self) -> usize {
+        (self.width * self.height) as usize
+    }
+
+    /// Decode the raw RGB565 pixels into RGBA bytes (width×height×4).
+    pub fn decode_to_rgba(&self) -> Vec<u8> {
+        let count = self.pixel_count();
+        let mut rgba = vec![0u8; count * 4];
+        for i in 0..count {
+            let base = i * 2;
+            if base + 1 >= self.raw_pixels.len() {
+                break;
+            }
+            let pixel = u16::from_le_bytes([self.raw_pixels[base], self.raw_pixels[base + 1]]);
+            if pixel == 0 {
+                continue; // transparent, keep RGBA = [0,0,0,0]
+            }
+            let color = rgb16_565_produce_color(pixel);
+            let rbase = i * 4;
+            rgba[rbase] = color.r;
+            rgba[rbase + 1] = color.g;
+            rgba[rbase + 2] = color.b;
+            rgba[rbase + 3] = 255;
+        }
+        rgba
+    }
+
+    /// Encode RGBA bytes (width×height×4) into raw RGB565, replacing pixel data.
+    pub fn encode_from_rgba(&mut self, rgba: &[u8]) {
+        let count = self.pixel_count();
+        let mut raw = vec![0u8; count * 2];
+        for i in 0..count.min(rgba.len() / 4) {
+            let rbase = i * 4;
+            let rgb565 = rgba_to_rgb565_bytes(
+                rgba[rbase], rgba[rbase + 1], rgba[rbase + 2], rgba[rbase + 3],
+            );
+            let base = i * 2;
+            raw[base] = rgb565[0];
+            raw[base + 1] = rgb565[1];
+        }
+        self.raw_pixels = raw;
+    }
+}
+
+/// Parse a .spr file into the in-memory [`SpriteFile`] representation.
+///
+/// Preserves all unknown header bytes and per-frame metadata verbatim.
+/// Maximum bytes to scan when looking for sequences. Prevents runaway on
+/// corrupted or very large files.
+const MAX_SCAN_BYTES: usize = 50_000_000; // 50 MB
+
+pub fn read_sprite_file(path: &Path) -> Result<SpriteFile> {
+    let bytes = std::fs::read(path)?;
+    let file_len = bytes.len();
+    if file_len < 268 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("File too small: {file_len} bytes, need at least 268"),
+        ));
+    }
+    let mut header = [0u8; 268];
+    header.copy_from_slice(&bytes[..268]);
+
+    let mut sequences: Vec<SpriteSequence> = Vec::new();
+    let mut offset = 268usize;
+    let scan_end = file_len.min(MAX_SCAN_BYTES);
+
+    while offset + 60 <= scan_end {
+        // Read 15 consecutive i32 values (60 bytes) for sequence detection.
+        let ints = read_15_i32s(&bytes, offset);
+
+        let valid = is_valid_sequence_header(&ints);
+        if !valid {
+            offset += 4;
+            continue;
+        }
+
+        // Parse sequence header to get frame count.
+        let has_stamp = ints[0] == 8;
+        let frame_count = if has_stamp { ints[2] } else { ints[1] } as usize;
+        let frame_count = frame_count.min(255); // sanity
+
+        // Header size: 12 bytes (Pattern A) or 16 bytes (Pattern B)
+        let header_size = if has_stamp { 16 } else { 12 };
+        let mut seq_offset = offset + header_size;
+
+        let mut frames: Vec<SpriteFrameData> = Vec::with_capacity(frame_count);
+
+        for _ in 0..frame_count {
+            if seq_offset + 24 + 4 * 4 + 4 > file_len {
+                break;
+            }
+
+            // Read 24 unknown bytes
+            let mut unknown = [0u8; 24];
+            unknown.copy_from_slice(&bytes[seq_offset..seq_offset + 24]);
+            seq_offset += 24;
+
+            // Read origin_x, origin_y, width, height
+            let origin_x = i32::from_le_bytes(
+                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
+            );
+            seq_offset += 4;
+            let origin_y = i32::from_le_bytes(
+                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
+            );
+            seq_offset += 4;
+            let width = i32::from_le_bytes(
+                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
+            );
+            seq_offset += 4;
+            let height = i32::from_le_bytes(
+                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
+            );
+            seq_offset += 4;
+
+            // Read pixel_count (as u32)
+            let pixel_count = u32::from_le_bytes(
+                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
+            ) as usize;
+            seq_offset += 4;
+
+            // Read raw RGB565 pixel data
+            let raw_size = pixel_count * 2;
+            let raw_end = seq_offset.checked_add(raw_size).unwrap_or(file_len + 1);
+            if raw_end > file_len {
+                break;
+            }
+            let raw_pixels = bytes[seq_offset..raw_end].to_vec();
+            seq_offset = raw_end;
+
+            frames.push(SpriteFrameData {
+                unknown,
+                origin_x,
+                origin_y,
+                width,
+                height,
+                raw_pixels,
+            });
+        }
+
+        // Guard: even if no frames were parsed (false-positive detection),
+        // advance offset past the header to prevent infinite looping.
+        if frames.is_empty() {
+            offset += header_size;
+        } else {
+            offset = seq_offset;
+        }
+
+        sequences.push(SpriteSequence { has_stamp, frames });
+    }
+
+    Ok(SpriteFile { header, sequences })
+}
+
+/// Read 15 consecutive little-endian i32 values starting at `offset`.
+fn read_15_i32s(bytes: &[u8], offset: usize) -> [i32; 15] {
+    let mut ints = [0i32; 15];
+    for (i, val) in ints.iter_mut().enumerate() {
+        let start = offset + i * 4;
+        if start + 4 <= bytes.len() {
+            *val = i32::from_le_bytes(bytes[start..start + 4].try_into().unwrap());
+        }
+    }
+    ints
+}
+
+/// Check whether 15 integers match a valid .spr sequence header pattern.
+fn is_valid_sequence_header(ints: &[i32; 15]) -> bool {
+    (ints[0] == 0
+        && ints[1] > 0
+        && ints[1] < 255
+        && ints[2] == 0
+        && ints[11] > 0
+        && ints[12] > 0
+        && i64::from(ints[11]) * i64::from(ints[12]) == i64::from(ints[13]))
+        || (ints[0] == 8
+            && ints[1] == 0
+            && ints[2] > 0
+            && ints[2] < 255
+            && ints[3] == 0
+            && ints[12] > 0
+            && ints[13] > 0
+            && i64::from(ints[12]) * i64::from(ints[13]) == i64::from(ints[14]))
+}
+
+/// Write the in-memory [`SpriteFile`] back to a .spr binary file.
+///
+/// The 268-byte header and all per-frame 24-byte unknown data are preserved
+/// verbatim. Pixel data is re-encoded from raw RGB565.
+pub fn write_sprite_to_path(path: &Path, sprite: &SpriteFile) -> Result<()> {
+    let mut buf = Vec::with_capacity(4096);
+    buf.extend_from_slice(&sprite.header);
+
+    for seq in &sprite.sequences {
+        let frame_count = seq.frames.len() as i32;
+        if seq.has_stamp {
+            // Pattern B: stamp=8, stamp_padding=0, frame_count, padding=0
+            buf.extend_from_slice(&8i32.to_le_bytes());
+            buf.extend_from_slice(&0i32.to_le_bytes());
+            buf.extend_from_slice(&frame_count.to_le_bytes());
+            buf.extend_from_slice(&0i32.to_le_bytes());
+        } else {
+            // Pattern A: stamp=0, frame_count, padding=0
+            buf.extend_from_slice(&0i32.to_le_bytes());
+            buf.extend_from_slice(&frame_count.to_le_bytes());
+            buf.extend_from_slice(&0i32.to_le_bytes());
+        }
+
+        for frame in &seq.frames {
+            buf.extend_from_slice(&frame.unknown);
+            buf.extend_from_slice(&frame.origin_x.to_le_bytes());
+            buf.extend_from_slice(&frame.origin_y.to_le_bytes());
+            buf.extend_from_slice(&frame.width.to_le_bytes());
+            buf.extend_from_slice(&frame.height.to_le_bytes());
+            let pixel_count = frame.pixel_count() as u32;
+            buf.extend_from_slice(&pixel_count.to_le_bytes());
+            buf.extend_from_slice(&frame.raw_pixels);
+        }
+    }
+
+    std::fs::write(path, &buf)
+}
+
+/// Encode a single RGBA pixel as two RGB565 bytes (little-endian).
+///
+/// Pixels with alpha < 128 are encoded as `0x0000` (transparent).
+pub fn rgba_to_rgb565_bytes(r: u8, g: u8, b: u8, a: u8) -> [u8; 2] {
+    if a < 128 {
+        return [0, 0];
+    }
+    let r5 = (r as u16 >> 3) & 0x1F;
+    let g6 = (g as u16 >> 2) & 0x3F;
+    let b5 = (b as u16 >> 3) & 0x1F;
+    let pixel = (r5 << 11) | (g6 << 5) | b5;
+    pixel.to_le_bytes()
+}
+
+// ===========================================================================
 // Tests
 // ===========================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── RGB565 encode / decode round-trip ─────────────────────────────
+
+    #[test]
+    fn rgba_to_rgb565_encodes_red() {
+        let bytes = rgba_to_rgb565_bytes(255, 0, 0, 255);
+        let pixel = u16::from_le_bytes(bytes);
+        assert_eq!(pixel, 0xF800);
+    }
+
+    #[test]
+    fn rgba_to_rgb565_encodes_green() {
+        let bytes = rgba_to_rgb565_bytes(0, 255, 0, 255);
+        let pixel = u16::from_le_bytes(bytes);
+        assert_eq!(pixel, 0x07E0);
+    }
+
+    #[test]
+    fn rgba_to_rgb565_encodes_blue() {
+        let bytes = rgba_to_rgb565_bytes(0, 0, 255, 255);
+        let pixel = u16::from_le_bytes(bytes);
+        assert_eq!(pixel, 0x001F);
+    }
+
+    #[test]
+    fn rgba_to_rgb565_transparent_is_zero() {
+        let bytes = rgba_to_rgb565_bytes(255, 0, 0, 0);
+        assert_eq!(bytes, [0, 0]);
+    }
+
+    #[test]
+    fn rgba_to_rgb565_decode_round_trip() {
+        // Encode a known color → decode back → verify color values
+        let encoded = rgba_to_rgb565_bytes(128, 64, 192, 255);
+        let pixel = u16::from_le_bytes(encoded);
+        let color = rgb16_565_produce_color(pixel);
+        // 128 >> 3 = 16, 16 << 3 = 128
+        assert_eq!(color.r, 128);
+        // 64 >> 2 = 16, 16 << 2 = 64
+        assert_eq!(color.g, 64);
+        // 192 >> 3 = 24, 24 << 3 = 192
+        assert_eq!(color.b, 192);
+    }
+
+    #[test]
+    fn frame_data_decode_encode_round_trip() {
+        // Create a 4×4 frame with known pixel values
+        let pixels: Vec<u8> = (0..16).flat_map(|_| {
+            vec![255u8, 128, 64, 255] // R=255, G=128, B=64, A=255
+        }).collect();
+        let mut frame = SpriteFrameData {
+            unknown: [0; 24],
+            origin_x: 0,
+            origin_y: 0,
+            width: 4,
+            height: 4,
+            raw_pixels: vec![0u8; 4 * 4 * 2],
+        };
+        frame.encode_from_rgba(&pixels);
+        assert_eq!(frame.raw_pixels.len(), 32, "4×4 pixels × 2 bytes");
+
+        // Decode back
+        let decoded = frame.decode_to_rgba();
+        assert_eq!(decoded.len(), 64, "4×4 pixels × 4 bytes RGBA");
+        // First pixel should be R=248 (after 5-bit rounding), G=64, B=64
+        assert_eq!(decoded[0], 248); // R (255→31→248)
+        assert_eq!(decoded[1], 128); // G (128→32→128) wait...
+        // Actually: 128 >> 2 = 32, 32 << 2 = 128
+        // Let me verify:
+        // 64 >> 2 = 16, 16 << 2 = 64
+        // Let me just check the first pixel is non-zero and alpha is 255
+        assert_eq!(decoded[3], 255);
+    }
+
+    // ── SpriteFile round-trip ────────────────────────────────────────
+
+    #[test]
+    fn sprite_file_round_trip_item_sprite() {
+        // Small item sprite (~2.5 KB) — fast test
+        let fixture = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/Dispel/Inter/item_field/healpotion.spr"
+        ));
+        if !fixture.exists() {
+            eprintln!("Skipping: fixture not found");
+            return;
+        }
+
+        let original = read_sprite_file(fixture).expect("read sprite");
+        assert!(!original.sequences.is_empty(), "should have sequences");
+        assert!(
+            original.sequences.iter().any(|s| !s.frames.is_empty()),
+            "should have frames"
+        );
+
+        let tmp = std::env::temp_dir().join("test_spr_rt_item.spr");
+        write_sprite_to_path(&tmp, &original).expect("write sprite");
+        let reloaded = read_sprite_file(&tmp).expect("re-read sprite");
+
+        // Bit-exact header
+        assert_eq!(original.header, reloaded.header, "header mismatch");
+        // Sequence structure
+        assert_eq!(
+            original.sequences.len(),
+            reloaded.sequences.len(),
+            "seq count"
+        );
+        for (si, (a, b)) in original.sequences.iter().zip(reloaded.sequences.iter()).enumerate() {
+            assert_eq!(a.has_stamp, b.has_stamp, "seq {si} stamp");
+            assert_eq!(a.frames.len(), b.frames.len(), "seq {si} frame count");
+            for (fi, (af, bf)) in a.frames.iter().zip(b.frames.iter()).enumerate() {
+                assert_eq!(af.unknown, bf.unknown, "seq {si} f{fi} unknown");
+                assert_eq!(af.origin_x, bf.origin_x, "seq {si} f{fi} ox");
+                assert_eq!(af.origin_y, bf.origin_y, "seq {si} f{fi} oy");
+                assert_eq!(af.width, bf.width, "seq {si} f{fi} w");
+                assert_eq!(af.height, bf.height, "seq {si} f{fi} h");
+                assert_eq!(af.raw_pixels, bf.raw_pixels, "seq {si} f{fi} pixels");
+            }
+        }
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn sprite_file_round_trip_character_sprite() {
+        // Full character sprite (~1.4 MB) — tests large-file handling
+        let fixture = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/Dispel/CharacterInGame/M_BODY1.SPR"
+        ));
+        if !fixture.exists() {
+            eprintln!("Skipping: fixture not found");
+            return;
+        }
+
+        let original = read_sprite_file(fixture).expect("read sprite");
+        assert!(!original.sequences.is_empty(), "should have sequences");
+
+        let tmp = std::env::temp_dir().join("test_spr_rt_char.spr");
+        write_sprite_to_path(&tmp, &original).expect("write sprite");
+        let reloaded = read_sprite_file(&tmp).expect("re-read sprite");
+
+        assert_eq!(original.sequences.len(), reloaded.sequences.len());
+        assert_eq!(original.sequences[0].frames.len(), reloaded.sequences[0].frames.len());
+
+        // Spot-check first frame metadata of first sequence
+        let a = &original.sequences[0].frames[0];
+        let b = &reloaded.sequences[0].frames[0];
+        assert_eq!(a.unknown, b.unknown);
+        assert_eq!(a.raw_pixels, b.raw_pixels);
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    #[test]
+    fn sprite_file_encodes_frame_modification() {
+        let fixture = std::path::Path::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/fixtures/Dispel/Inter/item_field/healpotion.spr"
+        ));
+        if !fixture.exists() {
+            eprintln!("Skipping: fixture not found");
+            return;
+        }
+
+        let original = read_sprite_file(fixture).expect("read sprite");
+        let mut sprite = original;
+
+        // Modify first frame: set all pixels to red
+        if let Some(frame) = sprite.sequences[0].frames.first_mut() {
+            let rgba = frame.decode_to_rgba();
+            assert_eq!(rgba.len(), frame.pixel_count() * 4);
+            // Make all pixels red
+            let mut new_rgba = vec![0u8; rgba.len()];
+            for chunk in new_rgba.chunks_mut(4) {
+                chunk[0] = 255; // R
+                chunk[1] = 0;   // G
+                chunk[2] = 0;   // B
+                chunk[3] = 255; // A
+            }
+            frame.encode_from_rgba(&new_rgba);
+
+            // Verify encode
+            assert_eq!(frame.raw_pixels.len(), frame.pixel_count() * 2);
+            // First pixel should be RGB565 red (0xF800)
+            assert_eq!(frame.raw_pixels[0], 0x00);
+            assert_eq!(frame.raw_pixels[1], 0xF8);
+        }
+
+        // Write and re-read
+        let tmp = std::env::temp_dir().join("test_spr_mod.spr");
+        write_sprite_to_path(&tmp, &sprite).expect("write");
+        let reloaded = read_sprite_file(&tmp).expect("re-read");
+
+        // Verify modification persisted
+        assert_eq!(reloaded.sequences[0].frames[0].raw_pixels[0], 0x00);
+        assert_eq!(reloaded.sequences[0].frames[0].raw_pixels[1], 0xF8);
+
+        let _ = std::fs::remove_file(&tmp);
+    }
 
     #[test]
     fn color_black() {

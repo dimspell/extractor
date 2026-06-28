@@ -15,7 +15,7 @@ define_message_ext! {
     store:          Store(crate::editors::store::StoreEditorMessage),
     party_ref:      PartyRef(crate::editors::party_ref::PartyRefEditorMessage),
     party_ini:      PartyIni(crate::editors::party_ini::PartyIniEditorMessage),
-    sprite_viewer:  SpriteViewer(crate::editors::sprite_browser::SpriteViewerMessage),
+    sprite_viewer:  SpriteViewer(crate::editors::sprite_editor::SpriteViewerMessage),
     monster_ref:    MonsterRef(crate::editors::monster_ref::MonsterRefEditorMessage),
     all_map_ini:    AllMapIni(crate::editors::all_map_ini::AllMapIniEditorMessage),
     dialogue_script: DialogueScript(crate::editors::dialogue_script::DialogueScriptEditorMessage),

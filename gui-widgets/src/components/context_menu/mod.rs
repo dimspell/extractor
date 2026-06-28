@@ -220,7 +220,11 @@ where
             translation,
         );
 
-        let state = tree.state.downcast_mut::<State>();
+        // Gracefully handle uninitialized state (e.g. in pane_grid overlays)
+        let tree::State::Some(state) = &mut tree.state else {
+            return base_overlay;
+        };
+        let state = state.downcast_mut::<State>().expect("ContextMenu state");
 
         let context_overlay = match state.status {
             Status::Open { position } => {

@@ -53,7 +53,6 @@ impl fmt::Display for ThemeVariant {
 /// Parse a hex RGB colour (e.g. `0x14110f`) into an Iced [`Color`].
 ///
 /// This is a `const fn` so the theme constants can be computed at compile time.
-#[must_use]
 pub const fn hex(c: u32) -> Color {
     Color::from_rgb(
         ((c >> 16) & 0xFF) as f32 / 255.0,
@@ -199,7 +198,6 @@ pub struct HexEditorTheme {
 
 impl HexEditorTheme {
     /// Pick the colour for a single byte under the given scheme.
-    #[must_use]
     pub fn scheme_color(&self, scheme: super::coloring::ColorScheme, b: u8) -> Color {
         match scheme {
             super::coloring::ColorScheme::Monochrome => self.monochrome_fg,

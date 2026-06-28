@@ -105,10 +105,7 @@ fn view_header(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .align_y(Alignment::Center)
         .into()
     } else {
-        text(&viewer.name)
-            .size(13)
-            .style(style::primary_text)
-            .into()
+        text(&viewer.name).size(13).style(style::primary_text).into()
     };
 
     // Undo/Redo buttons
@@ -201,7 +198,7 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
                 row(btns).spacing(4).into()
             })
             .collect();
-        column(rows).spacing(4).into()
+        iced::Element::new(column(rows).spacing(4))
     })
     .into();
 
@@ -214,20 +211,20 @@ fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
 // ── Main preview ──────────────────────────────────────────────────────────────
 
 fn view_preview(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    let inner: Element<'_, Message> =
-        if let Some(frame) = viewer.frames.get(viewer.selected_frame_global()) {
-            let w = (frame.width as f32 * viewer.zoom).ceil();
-            let h = (frame.height as f32 * viewer.zoom).ceil();
-            image(frame.image.clone())
-                .width(Length::Fixed(w))
-                .height(Length::Fixed(h))
-                .into()
-        } else {
-            text("No frames loaded")
-                .size(12)
-                .style(style::subtle_text)
-                .into()
-        };
+    let inner: Element<'_, Message> = if let Some(frame) = viewer.frames.get(viewer.selected_frame_global())
+    {
+        let w = (frame.width as f32 * viewer.zoom).ceil();
+        let h = (frame.height as f32 * viewer.zoom).ceil();
+        image(frame.image.clone())
+            .width(Length::Fixed(w))
+            .height(Length::Fixed(h))
+            .into()
+    } else {
+        text("No frames loaded")
+            .size(12)
+            .style(style::subtle_text)
+            .into()
+    };
 
     container(inner)
         .width(Fill)
@@ -404,11 +401,7 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
     };
 
     let move_right_btn = if has_frames {
-        let max_frames = viewer
-            .frame_counts
-            .get(viewer.selected_sequence)
-            .copied()
-            .unwrap_or(0);
+        let max_frames = viewer.frame_counts.get(viewer.selected_sequence).copied().unwrap_or(0);
         if viewer.selected_frame + 1 < max_frames {
             button(text("▶").size(11))
                 .on_press(sv(SpriteViewerMessage::MoveFrameRight))

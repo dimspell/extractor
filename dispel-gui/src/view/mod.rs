@@ -45,7 +45,7 @@ impl App {
                             Some(EditorType::ChestEditor) => crate::editors::chest::view(self),
                             Some(EditorType::WeaponEditor) => crate::editors::weapon::view(self),
                             Some(EditorType::SpriteViewer) => {
-                                crate::editors::sprite_browser::view(self)
+                                crate::editors::sprite_editor::view(self)
                             }
                             Some(EditorType::HealItemEditor) => {
                                 crate::editors::heal_item::view(self)

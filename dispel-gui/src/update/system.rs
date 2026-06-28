@@ -73,6 +73,11 @@ fn save_task_for_editor(
         EditorType::ChestEditor => Message::chest(ChestEditorMessage::Save),
         EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
 
+        // Sprite editor
+        EditorType::SpriteViewer => {
+            Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
+        }
+
         // Map editor uses SaveEntities with tab_id
         EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
 

@@ -19,6 +19,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 
 [[package]]
+name = "accesskit"
+version = "0.24.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3b7f7f85a7e5f68090000ed7622545829afd484d210358702ae4cb97dd0c320"
+dependencies = [
+ "uuid",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -221,7 +230,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
  "wl-clipboard-rs",
  "x11rb",
 ]
@@ -2089,7 +2098,6 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -2105,7 +2113,6 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "bitflags 2.12.1",
  "bytes",
@@ -2123,7 +2130,6 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2133,7 +2139,6 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "futures",
  "iced_core",
@@ -2147,7 +2152,6 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "bitflags 2.12.1",
  "bytemuck",
@@ -2168,7 +2172,6 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2177,7 +2180,6 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2189,7 +2191,6 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "bytes",
  "iced_core",
@@ -2200,7 +2201,6 @@ dependencies = [
 [[package]]
 name = "iced_selector"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_core",
 ]
@@ -2208,8 +2208,8 @@ dependencies = [
 [[package]]
 name = "iced_test"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
+ "accesskit",
  "iced_futures",
  "iced_program",
  "iced_renderer",
@@ -2224,7 +2224,6 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2240,7 +2239,6 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "bitflags 2.12.1",
  "bytemuck",
@@ -2259,7 +2257,6 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "iced_renderer",
  "iced_runtime",
@@ -2274,7 +2271,6 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?rev=d7f5627#d7f5627a7581e92e4c928f7f1a180061dc6c7eb5"
 dependencies = [
  "arboard",
  "iced_debug",
@@ -2282,6 +2278,7 @@ dependencies = [
  "iced_runtime",
  "log",
  "objc2 0.5.2",
+ "objc2-app-kit 0.2.2",
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
  "tracing",

@@ -39,7 +39,7 @@ pub mod party_level_db;
 pub mod party_ref;
 pub mod quest_scr;
 pub mod snf_editor;
-pub mod sprite_browser;
+pub mod sprite_editor;
 pub mod store;
 pub mod tileset;
 pub mod wave_ini;

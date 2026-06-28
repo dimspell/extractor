@@ -46,29 +46,29 @@ mod undo_redo_save_edges {
     #[test]
     fn save_on_sprite_viewer_produces_task() {
         let mut app = app_with_tab(EditorType::SpriteViewer);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "SpriteViewer Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_event_scr_returns_task() {
         let mut app = app_with_tab(EditorType::EventScrEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "EventScrEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_map_editor_returns_task() {
         let mut app = app_with_tab(EditorType::MapEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "MapEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_weapon_editor_returns_task() {
         let mut app = app_with_tab(EditorType::WeaponEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "WeaponEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 }
 
@@ -122,10 +122,14 @@ mod index_messages {
 
         let mut idx = SearchIndex::new();
         idx.game_path = Some("/fake/path".to_string());
-        let task = app.update(Message::System(SystemMessage::IndexLoaded(Ok(idx))));
+        let _task = app.update(Message::System(SystemMessage::IndexLoaded(Ok(idx))));
 
-        assert!(task.units() > 0, "IndexLoaded triggers IndexSaveRequested");
         assert_eq!(app.state.status_msg, "Search index loaded");
+        assert_eq!(
+            app.search_index.game_path,
+            Some("/fake/path".to_string()),
+            "index game_path should be set"
+        );
     }
 
     #[test]

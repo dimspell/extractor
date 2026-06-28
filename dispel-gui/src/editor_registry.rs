@@ -23,7 +23,7 @@ use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
 use crate::editors::snf_editor::SnfEditorState;
-use crate::editors::sprite_browser::SpriteViewerState;
+use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
@@ -115,6 +115,15 @@ macro_rules! undo_redo_dispatch {
 
             // Custom-layout editor (undo/redo without lookups)
             EditorType::StoreEditor => $self.store_editor.$action(),
+
+            // Sprite editor — uses its own snapshot-based undo/redo
+            EditorType::SpriteViewer => $self
+                .sprite_viewers
+                .get_mut(&$tab_id)
+                .map(|viewer| {
+                    viewer.$action();
+                    String::new() // no status message needed
+                }),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
             EditorType::MonsterRefEditor => $self

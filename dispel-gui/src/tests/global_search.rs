@@ -191,10 +191,11 @@ mod global_search_confirm_tests {
             });
         app.global_search.selected_index = 0;
 
-        let task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
+        let _task = app.update(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm));
         // With a game path + valid result, it should return an open-file task
-        assert!(task.units() > 0, "should open file on confirm");
+        // (Open dispatches via Task::done which has units=0, so check side effects)
         assert!(!app.global_search.is_visible, "search closed");
+        assert!(app.state.workspace.tabs.len() > 0, "tab should be opened");
     }
 
     #[test]

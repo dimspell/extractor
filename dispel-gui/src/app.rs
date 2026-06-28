@@ -6,7 +6,7 @@ use crate::editors::chest::ChestEditorMessage;
 use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::PAGE_SIZE;
 use crate::editors::snf_editor::SnfEditorState;
-use crate::editors::sprite_browser::SpriteViewerState;
+use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::message::{Message, MessageExt, SystemMessage, ViewerMessage, WorkspaceMessage};
 use crate::state::AppState;
@@ -315,7 +315,7 @@ impl App {
             .values()
             .any(|v| v.is_playing)
         {
-            use crate::editors::sprite_browser::SpriteViewerMessage;
+            use crate::editors::sprite_editor::SpriteViewerMessage;
             let anim = iced::time::every(std::time::Duration::from_millis(16))
                 .map(|_| Message::sprite_viewer(SpriteViewerMessage::Tick));
             subscriptions.push(anim);

@@ -134,8 +134,7 @@ impl EditorType {
     pub fn supports_save(&self) -> bool {
         !matches!(
             self,
-            EditorType::SpriteViewer
-                | EditorType::SnfEditor
+            EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor
                 | EditorType::ModPackager
@@ -153,7 +152,6 @@ impl EditorType {
         !matches!(
             self,
             EditorType::EventScrEditor
-                | EditorType::SpriteViewer
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor
@@ -176,8 +174,8 @@ impl EditorType {
                 | EditorType::MonsterEditor
                 | EditorType::MonsterIniEditor
                 | EditorType::NpcIniEditor
-                | EditorType::ChestEditor
                 | EditorType::SpriteViewer
+                | EditorType::ChestEditor
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor
