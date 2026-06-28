@@ -46,7 +46,7 @@ pub fn build_hex_config(
     }
 }
 
-pub fn handle(msg: hexedit::Message, app: &mut App) -> Task<Message> {
+pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
     let tab_id = app
         .state
         .workspace

@@ -3,6 +3,7 @@ use iced::Theme;
 
 pub mod app;
 pub mod auto_save;
+pub mod dispatch_table;
 pub mod components;
 pub mod editor_registry;
 pub mod editors;

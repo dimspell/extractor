@@ -42,74 +42,6 @@ impl App {
                     PaneContent::MainContent => {
                         let content = match self.state.workspace.active().map(|t| t.editor_type) {
                             Some(EditorType::DbViewer) => self.view_db_viewer(),
-                            Some(EditorType::ChestEditor) => crate::editors::chest::view(self),
-                            Some(EditorType::WeaponEditor) => crate::editors::weapon::view(self),
-                            Some(EditorType::SpriteViewer) => {
-                                crate::editors::sprite_editor::view(self)
-                            }
-                            Some(EditorType::HealItemEditor) => {
-                                crate::editors::heal_item::view(self)
-                            }
-                            Some(EditorType::MiscItemEditor) => {
-                                crate::editors::misc_item::view(self)
-                            }
-                            Some(EditorType::EditItemEditor) => {
-                                crate::editors::edit_item::view(self)
-                            }
-                            Some(EditorType::EventItemEditor) => {
-                                crate::editors::event_item::view(self)
-                            }
-                            Some(EditorType::MonsterEditor) => crate::editors::monster::view(self),
-                            Some(EditorType::MonsterIniEditor) => {
-                                crate::editors::monster_ini::view(self)
-                            }
-                            Some(EditorType::NpcIniEditor) => crate::editors::npc_ini::view(self),
-                            Some(EditorType::MagicEditor) => crate::editors::magic::view(self),
-                            Some(EditorType::StoreEditor) => crate::editors::store::view(self),
-                            Some(EditorType::PartyRefEditor) => {
-                                crate::editors::party_ref::view(self)
-                            }
-                            Some(EditorType::PartyIniEditor) => {
-                                crate::editors::party_ini::view(self)
-                            }
-                            Some(EditorType::MonsterRefEditor) => {
-                                crate::editors::monster_ref::view(self)
-                            }
-                            Some(EditorType::AllMapIniEditor) => {
-                                crate::editors::all_map_ini::view(self)
-                            }
-                            Some(EditorType::DialogueScriptEditor) => {
-                                crate::editors::dialogue_script::view(self)
-                            }
-                            Some(EditorType::DialogueTextEditor) => {
-                                crate::editors::dialogue_paragraph::view(self)
-                            }
-                            Some(EditorType::DrawItemEditor) => {
-                                crate::editors::draw_item::view(self)
-                            }
-                            Some(EditorType::EventIniEditor) => {
-                                crate::editors::event_ini::view(self)
-                            }
-                            Some(EditorType::EventNpcRefEditor) => {
-                                crate::editors::event_npc_ref::view(self)
-                            }
-                            Some(EditorType::ExtraIniEditor) => {
-                                crate::editors::extra_ini::view(self)
-                            }
-                            Some(EditorType::ExtraRefEditor) => {
-                                crate::editors::extra_ref::view(self)
-                            }
-                            Some(EditorType::MapIniEditor) => crate::editors::map_ini::view(self),
-                            Some(EditorType::MessageScrEditor) => {
-                                crate::editors::message_scr::view(self)
-                            }
-                            Some(EditorType::NpcRefEditor) => crate::editors::npc_ref::view(self),
-                            Some(EditorType::PartyLevelDbEditor) => {
-                                crate::editors::party_level_db::view(self)
-                            }
-                            Some(EditorType::QuestScrEditor) => {
-                                crate::editors::quest_scr::view(self)
-                            }
                             Some(EditorType::EventScrEditor) => {
                                 crate::editors::event_scr::view(self).map(|msg| {
                                     crate::message::Message::Editor(
@@ -117,56 +49,48 @@ impl App {
                                     )
                                 })
                             }
-                            Some(EditorType::WaveIniEditor) => crate::editors::wave_ini::view(self),
-                            Some(EditorType::ChDataEditor) => crate::editors::chdata::view(self),
-                            Some(EditorType::TilesetEditor) => crate::editors::tileset::view(self),
-                            Some(EditorType::MapEditor) => crate::editors::map_editor::view(self),
-                            Some(EditorType::SnfEditor) => crate::editors::snf_editor::view(self),
-                            Some(EditorType::ModPackager) => {
-                                crate::editors::mod_packager::view(self)
-                            }
-                            Some(EditorType::LocalizationManager) => {
-                                crate::editors::localization_manager::view(self)
-                            }
-                            Some(EditorType::HexEditor) => {
-                                crate::editors::hex_wrapper::view(self)
-                            }
-                            Some(EditorType::Unknown) | None => {
-                                let content: Element<'_, Message> =
-                                    if self.state.recent_files.is_empty() {
-                                        column![text("Select a file to edit")
-                                            .size(16)
-                                            .style(style::subtle_text),]
-                                        .align_x(iced::Alignment::Center)
-                                        .into()
-                                    } else {
-                                        column![
-                                            text("Select a file to edit")
-                                                .size(16)
-                                                .style(style::subtle_text),
-                                            vertical_space().height(20),
-                                            container(
+                            et => {
+                                match crate::dispatch_table::dispatch_view(et, self) {
+                                    Some(view) => view,
+                                    None => {
+                                        // Fallback for Unknown/None
+                                        let content: Element<'_, Message> =
+                                            if self.state.recent_files.is_empty() {
+                                                column![text("Select a file to edit")
+                                                    .size(16)
+                                                    .style(style::subtle_text),]
+                                                .align_x(iced::Alignment::Center)
+                                                .into()
+                                            } else {
                                                 column![
-                                                    text("Recent Files")
-                                                        .size(14)
+                                                    text("Select a file to edit")
+                                                        .size(16)
                                                         .style(style::subtle_text),
-                                                    vertical_space().height(10),
-                                                    self.view_recent_files(),
+                                                    vertical_space().height(20),
+                                                    container(
+                                                        column![
+                                                            text("Recent Files")
+                                                                .size(14)
+                                                                .style(style::subtle_text),
+                                                            vertical_space().height(10),
+                                                            self.view_recent_files(),
+                                                        ]
+                                                        .spacing(4)
+                                                    )
+                                                    .max_width(400),
                                                 ]
-                                                .spacing(4)
-                                            )
-                                            .max_width(400),
-                                        ]
-                                        .align_x(iced::Alignment::Center)
-                                        .into()
-                                    };
+                                                .align_x(iced::Alignment::Center)
+                                                .into()
+                                            };
 
-                                container(content)
-                                    .center_x(Fill)
-                                    .center_y(Fill)
-                                    .height(Length::Fill)
-                                    .width(Length::Fill)
-                                    .into()
+                                        container(content)
+                                            .center_x(Fill)
+                                            .center_y(Fill)
+                                            .height(Length::Fill)
+                                            .width(Length::Fill)
+                                            .into()
+                                    }
+                                }
                             }
                         };
                         let tab_bar =
