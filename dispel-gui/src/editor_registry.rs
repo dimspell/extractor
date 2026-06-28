@@ -117,13 +117,10 @@ macro_rules! undo_redo_dispatch {
             EditorType::StoreEditor => $self.store_editor.$action(),
 
             // Sprite editor — uses its own snapshot-based undo/redo
-            EditorType::SpriteViewer => $self
-                .sprite_viewers
-                .get_mut(&$tab_id)
-                .map(|viewer| {
-                    viewer.$action();
-                    String::new() // no status message needed
-                }),
+            EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
+                viewer.$action();
+                String::new() // no status message needed
+            }),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
             EditorType::MonsterRefEditor => $self

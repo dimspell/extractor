@@ -136,14 +136,19 @@ impl SpriteViewerState {
     }
 
     pub fn select_frame(&mut self, frame_idx: usize) {
-        let max_frames = self.frame_counts.get(self.selected_sequence).copied().unwrap_or(0);
+        let max_frames = self
+            .frame_counts
+            .get(self.selected_sequence)
+            .copied()
+            .unwrap_or(0);
         self.selected_frame = frame_idx.min(max_frames.saturating_sub(1));
         self.ms_accumulated = 0.0;
     }
 
     /// Global index into `self.frames` for `(selected_sequence, selected_frame)`.
     pub fn selected_frame_global(&self) -> usize {
-        let offset: usize = self.frame_counts[..self.selected_sequence.min(self.frame_counts.len())]
+        let offset: usize = self.frame_counts
+            [..self.selected_sequence.min(self.frame_counts.len())]
             .iter()
             .sum();
         offset + self.selected_frame
@@ -151,7 +156,10 @@ impl SpriteViewerState {
 
     /// Number of frames in the currently selected sequence.
     pub fn frames_in_sequence(&self) -> usize {
-        self.frame_counts.get(self.selected_sequence).copied().unwrap_or(0)
+        self.frame_counts
+            .get(self.selected_sequence)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// Returns the playback speed as an `f32` multiplier (e.g. 1.0, 2.0).
@@ -170,7 +178,11 @@ impl SpriteViewerState {
 
         while self.ms_accumulated >= frame_ms {
             self.ms_accumulated -= frame_ms;
-            let max_frames = self.frame_counts.get(self.selected_sequence).copied().unwrap_or(0);
+            let max_frames = self
+                .frame_counts
+                .get(self.selected_sequence)
+                .copied()
+                .unwrap_or(0);
             if max_frames == 0 {
                 return;
             }
@@ -234,7 +246,11 @@ impl SpriteViewerState {
         if self.selected_sequence >= self.sequence_count {
             self.selected_sequence = self.sequence_count.saturating_sub(1);
         }
-        let max_frames = self.frame_counts.get(self.selected_sequence).copied().unwrap_or(0);
+        let max_frames = self
+            .frame_counts
+            .get(self.selected_sequence)
+            .copied()
+            .unwrap_or(0);
         self.selected_frame = self.selected_frame.min(max_frames.saturating_sub(1));
     }
 

@@ -105,10 +105,8 @@ mod sprite_viewer_tests {
     #[test]
     fn test_sprite_viewer_select_sequence() {
         let mut app = app_with_sprite_viewer();
-        let task = crate::editors::sprite_editor::handle(
-            SpriteViewerMessage::SelectSequence(1),
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_editor::handle(SpriteViewerMessage::SelectSequence(1), &mut app);
         assert_eq!(task.units(), 0);
         assert_eq!(app.state.editors.sprite_viewers[&0].selected_sequence, 1);
         // Frame resets to 0 when sequence changes
@@ -171,8 +169,7 @@ mod sprite_viewer_tests {
         let mut app = app_with_sprite_viewer();
         assert!(app.state.editors.sprite_viewers[&0].is_looping);
 
-        let task =
-            crate::editors::sprite_editor::handle(SpriteViewerMessage::ToggleLoop, &mut app);
+        let task = crate::editors::sprite_editor::handle(SpriteViewerMessage::ToggleLoop, &mut app);
         assert_eq!(task.units(), 0);
         assert!(!app.state.editors.sprite_viewers[&0].is_looping);
     }
@@ -230,8 +227,7 @@ mod sprite_viewer_tests {
             viewer.is_playing = true;
         }
 
-        let task =
-            crate::editors::sprite_editor::handle(SpriteViewerMessage::ScrubTo(3), &mut app);
+        let task = crate::editors::sprite_editor::handle(SpriteViewerMessage::ScrubTo(3), &mut app);
         assert_eq!(task.units(), 0);
         assert_eq!(app.state.editors.sprite_viewers[&0].selected_frame, 3);
         assert!(
@@ -255,10 +251,8 @@ mod sprite_viewer_tests {
             "export dialog shown"
         );
 
-        let task = crate::editors::sprite_editor::handle(
-            SpriteViewerMessage::CloseExportDialog,
-            &mut app,
-        );
+        let task =
+            crate::editors::sprite_editor::handle(SpriteViewerMessage::CloseExportDialog, &mut app);
         assert_eq!(task.units(), 0);
         assert!(
             app.state.editors.sprite_viewers[&0].export_dialog.is_none(),

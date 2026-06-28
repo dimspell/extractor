@@ -60,15 +60,13 @@ mod crosscheck {
             let _task = app.update(Message::System(SystemMessage::Save));
             if et.supports_save() {
                 assert_ne!(
-                    app.state.status_msg,
-                    "This editor does not support saving",
+                    app.state.status_msg, "This editor does not support saving",
                     "EditorType::{:?} supports_save() but Save rejected it",
                     et
                 );
             } else {
                 assert_eq!(
-                    app.state.status_msg,
-                    "This editor does not support saving",
+                    app.state.status_msg, "This editor does not support saving",
                     "EditorType::{:?} !supports_save() but Save was accepted",
                     et
                 );

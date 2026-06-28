@@ -1010,7 +1010,13 @@ fn party_level_db_editor_records_when_session_active() {
     );
 
     assert_eq!(
-        app.state.editors.party_level_db_level_editor.catalog.as_ref().unwrap()[0].strength,
+        app.state
+            .editors
+            .party_level_db_level_editor
+            .catalog
+            .as_ref()
+            .unwrap()[0]
+            .strength,
         20,
         "field value updated"
     );

@@ -678,7 +678,10 @@ impl SpriteFrameData {
         for i in 0..count.min(rgba.len() / 4) {
             let rbase = i * 4;
             let rgb565 = rgba_to_rgb565_bytes(
-                rgba[rbase], rgba[rbase + 1], rgba[rbase + 2], rgba[rbase + 3],
+                rgba[rbase],
+                rgba[rbase + 1],
+                rgba[rbase + 2],
+                rgba[rbase + 3],
             );
             let base = i * 2;
             raw[base] = rgb565[0];
@@ -743,27 +746,20 @@ pub fn read_sprite_file(path: &Path) -> Result<SpriteFile> {
             seq_offset += 24;
 
             // Read origin_x, origin_y, width, height
-            let origin_x = i32::from_le_bytes(
-                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
-            );
+            let origin_x =
+                i32::from_le_bytes(bytes[seq_offset..seq_offset + 4].try_into().unwrap());
             seq_offset += 4;
-            let origin_y = i32::from_le_bytes(
-                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
-            );
+            let origin_y =
+                i32::from_le_bytes(bytes[seq_offset..seq_offset + 4].try_into().unwrap());
             seq_offset += 4;
-            let width = i32::from_le_bytes(
-                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
-            );
+            let width = i32::from_le_bytes(bytes[seq_offset..seq_offset + 4].try_into().unwrap());
             seq_offset += 4;
-            let height = i32::from_le_bytes(
-                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
-            );
+            let height = i32::from_le_bytes(bytes[seq_offset..seq_offset + 4].try_into().unwrap());
             seq_offset += 4;
 
             // Read pixel_count (as u32)
-            let pixel_count = u32::from_le_bytes(
-                bytes[seq_offset..seq_offset + 4].try_into().unwrap(),
-            ) as usize;
+            let pixel_count =
+                u32::from_le_bytes(bytes[seq_offset..seq_offset + 4].try_into().unwrap()) as usize;
             seq_offset += 4;
 
             // Read raw RGB565 pixel data
@@ -936,9 +932,11 @@ mod tests {
     #[test]
     fn frame_data_decode_encode_round_trip() {
         // Create a 4×4 frame with known pixel values
-        let pixels: Vec<u8> = (0..16).flat_map(|_| {
-            vec![255u8, 128, 64, 255] // R=255, G=128, B=64, A=255
-        }).collect();
+        let pixels: Vec<u8> = (0..16)
+            .flat_map(|_| {
+                vec![255u8, 128, 64, 255] // R=255, G=128, B=64, A=255
+            })
+            .collect();
         let mut frame = SpriteFrameData {
             unknown: [0; 24],
             origin_x: 0,
@@ -956,10 +954,10 @@ mod tests {
         // First pixel should be R=248 (after 5-bit rounding), G=64, B=64
         assert_eq!(decoded[0], 248); // R (255→31→248)
         assert_eq!(decoded[1], 128); // G (128→32→128) wait...
-        // Actually: 128 >> 2 = 32, 32 << 2 = 128
-        // Let me verify:
-        // 64 >> 2 = 16, 16 << 2 = 64
-        // Let me just check the first pixel is non-zero and alpha is 255
+                                     // Actually: 128 >> 2 = 32, 32 << 2 = 128
+                                     // Let me verify:
+                                     // 64 >> 2 = 16, 16 << 2 = 64
+                                     // Let me just check the first pixel is non-zero and alpha is 255
         assert_eq!(decoded[3], 255);
     }
 
@@ -996,7 +994,12 @@ mod tests {
             reloaded.sequences.len(),
             "seq count"
         );
-        for (si, (a, b)) in original.sequences.iter().zip(reloaded.sequences.iter()).enumerate() {
+        for (si, (a, b)) in original
+            .sequences
+            .iter()
+            .zip(reloaded.sequences.iter())
+            .enumerate()
+        {
             assert_eq!(a.has_stamp, b.has_stamp, "seq {si} stamp");
             assert_eq!(a.frames.len(), b.frames.len(), "seq {si} frame count");
             for (fi, (af, bf)) in a.frames.iter().zip(b.frames.iter()).enumerate() {
@@ -1032,7 +1035,10 @@ mod tests {
         let reloaded = read_sprite_file(&tmp).expect("re-read sprite");
 
         assert_eq!(original.sequences.len(), reloaded.sequences.len());
-        assert_eq!(original.sequences[0].frames.len(), reloaded.sequences[0].frames.len());
+        assert_eq!(
+            original.sequences[0].frames.len(),
+            reloaded.sequences[0].frames.len()
+        );
 
         // Spot-check first frame metadata of first sequence
         let a = &original.sequences[0].frames[0];
@@ -1065,8 +1071,8 @@ mod tests {
             let mut new_rgba = vec![0u8; rgba.len()];
             for chunk in new_rgba.chunks_mut(4) {
                 chunk[0] = 255; // R
-                chunk[1] = 0;   // G
-                chunk[2] = 0;   // B
+                chunk[1] = 0; // G
+                chunk[2] = 0; // B
                 chunk[3] = 255; // A
             }
             frame.encode_from_rgba(&new_rgba);

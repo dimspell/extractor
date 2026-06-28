@@ -73,11 +73,11 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let sf = viewer.sprite_file.clone();
             let recording = app.state.recording.as_ref().map(|session| {
                 let game_path = std::path::PathBuf::from(&app.state.shared_game_path);
-                let rel = crate::editors::sprite_editor::message::RecordingParams::relative_path_for(
-                    &path,
-                    &game_path,
-                )
-                .unwrap_or_default();
+                let rel =
+                    crate::editors::sprite_editor::message::RecordingParams::relative_path_for(
+                        &path, &game_path,
+                    )
+                    .unwrap_or_default();
                 crate::editors::sprite_editor::message::RecordingParams {
                     workspace_root: session.workspace_root.clone(),
                     game_path,
@@ -98,7 +98,8 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             match result {
                 Ok(_msg) => {
                     viewer.mark_clean();
-                    if let Some(tab) = app.state.workspace.tabs.iter_mut().find(|t| t.id == tab_id) {
+                    if let Some(tab) = app.state.workspace.tabs.iter_mut().find(|t| t.id == tab_id)
+                    {
                         tab.modified = false;
                     }
                     // Keep path fresh
@@ -191,11 +192,12 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let frame_idx = viewer.selected_frame;
             // Check frame count without mutable borrow
             let can_delete = viewer.sprite_file.as_ref().is_some_and(|sf| {
-                sf.sequences.get(seq_idx).is_some_and(|seq| seq.frames.len() > 1)
+                sf.sequences
+                    .get(seq_idx)
+                    .is_some_and(|seq| seq.frames.len() > 1)
             });
             if !can_delete {
-                viewer.error =
-                    Some("Cannot delete the last frame in a sequence".to_string());
+                viewer.error = Some("Cannot delete the last frame in a sequence".to_string());
                 return Task::none();
             }
             viewer.push_undo();
@@ -241,7 +243,9 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let frame_idx = viewer.selected_frame;
             // Check bounds without mutable borrow
             let can_move = viewer.sprite_file.as_ref().is_some_and(|sf| {
-                sf.sequences.get(seq_idx).is_some_and(|seq| frame_idx + 1 < seq.frames.len())
+                sf.sequences
+                    .get(seq_idx)
+                    .is_some_and(|seq| frame_idx + 1 < seq.frames.len())
             });
             if !can_move {
                 return Task::none();
@@ -284,7 +288,9 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let frame_idx = viewer.selected_frame;
             // Check bounds without mutable borrow
             let can_move = viewer.sprite_file.as_ref().is_some_and(|sf| {
-                sf.sequences.get(seq_idx).is_some_and(|seq| frame_idx + 1 < seq.frames.len())
+                sf.sequences
+                    .get(seq_idx)
+                    .is_some_and(|seq| frame_idx + 1 < seq.frames.len())
             });
             if !can_move {
                 return Task::none();
@@ -298,7 +304,12 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             }
             // After moving the frame to the end, select the last position.
             // Use current frame_counts which was accurate before the edit.
-            viewer.selected_frame = viewer.frame_counts.get(seq_idx).copied().unwrap_or(0).saturating_sub(1);
+            viewer.selected_frame = viewer
+                .frame_counts
+                .get(seq_idx)
+                .copied()
+                .unwrap_or(0)
+                .saturating_sub(1);
             viewer.rebuild_preview_frames();
             viewer.mark_dirty();
             if let Some(tab) = app.state.workspace.tabs.iter_mut().find(|t| t.id == tab_id) {
@@ -320,12 +331,8 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                     };
                     let bytes = file.read().await;
                     match decode_png_to_rgba(&bytes) {
-                        Ok((rgba, w, h)) => {
-                            SpriteViewerMessage::PngImportReady(Ok((rgba, w, h)))
-                        }
-                        Err(e) => {
-                            SpriteViewerMessage::PngImportReady(Err(e))
-                        }
+                        Ok((rgba, w, h)) => SpriteViewerMessage::PngImportReady(Ok((rgba, w, h))),
+                        Err(e) => SpriteViewerMessage::PngImportReady(Err(e)),
                     }
                 },
                 |msg| {
@@ -353,7 +360,10 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             for i in 0..pixel_count.min(rgba.len() / 4) {
                 let rbase = i * 4;
                 let rgb565 = dispel_core::sprite::rgba_to_rgb565_bytes(
-                    rgba[rbase], rgba[rbase + 1], rgba[rbase + 2], rgba[rbase + 3],
+                    rgba[rbase],
+                    rgba[rbase + 1],
+                    rgba[rbase + 2],
+                    rgba[rbase + 3],
                 );
                 let base = i * 2;
                 raw_pixels[base] = rgb565[0];
