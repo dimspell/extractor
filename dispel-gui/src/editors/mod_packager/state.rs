@@ -11,6 +11,7 @@ pub enum ModManagerTab {
     Library,
     Detail,
     Conflicts,
+    Review,
 }
 
 /// Legacy struct kept for `localization_manager`. New code should use

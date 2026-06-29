@@ -3,7 +3,8 @@ use iced::{Color, Element};
 
 use dispel_core::modding::{ChangeAction, ChangeOp, Value};
 
-use crate::message::Message;
+use crate::editors::mod_packager::ModPackagerMessage;
+use crate::message::{Message, MessageExt};
 
 /// Render the expanded diff panel for a single changelog entry.
 pub fn view<'a>(action: &'a ChangeAction) -> Element<'a, Message> {
@@ -75,10 +76,12 @@ fn binary_delta_panel<'a>(
     ))
     .size(11);
 
-    // Disabled placeholder — will be wired in Phase 2.3.
     let open_btn = button(text("Open Hex Diff").size(11))
         .style(button::secondary)
-        .padding([4, 8]);
+        .padding([4, 8])
+        .on_press(Message::mod_packager(ModPackagerMessage::OpenHexDiff(
+            action.id,
+        )));
 
     let inner = column![header, open_btn].spacing(4);
 
@@ -105,7 +108,10 @@ fn file_replace_panel<'a>(
 
     let open_btn = button(text("Open Hex Diff").size(11))
         .style(button::secondary)
-        .padding([4, 8]);
+        .padding([4, 8])
+        .on_press(Message::mod_packager(ModPackagerMessage::OpenHexDiff(
+            action.id,
+        )));
 
     let inner = column![header, open_btn].spacing(4);
 

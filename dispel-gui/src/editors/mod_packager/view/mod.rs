@@ -12,6 +12,7 @@ mod conflicts;
 mod detail;
 mod diff_panel;
 mod library;
+mod review;
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let state = &app.state.editors.mod_packager_editor;
@@ -27,6 +28,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ModManagerTab::Library => library::view(app),
         ModManagerTab::Detail => detail::view(app),
         ModManagerTab::Conflicts => conflicts::view(app),
+        ModManagerTab::Review => review::view(app),
     };
 
     let status = text(state.status_msg.as_str()).size(12);
@@ -109,6 +111,7 @@ fn build_header(
         tab_btn("Library".to_owned(), ModManagerTab::Library),
         tab_btn("Detail".to_owned(), ModManagerTab::Detail),
         tab_btn(conflicts_label, ModManagerTab::Conflicts),
+        tab_btn("Review".to_owned(), ModManagerTab::Review),
         horizontal_space().width(Length::Fill),
         open_workspace_btn,
     ]

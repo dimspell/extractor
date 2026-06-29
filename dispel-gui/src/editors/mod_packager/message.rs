@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use dispel_core::modding::{ChangeAction, Conflict, FieldKey, InstalledMod, ModManifest};
 
+use uuid::Uuid;
+
 use super::recording::ObservedAction;
 use super::state::ModManagerTab;
 
@@ -72,6 +74,19 @@ pub enum ModPackagerMessage {
     // Change detail (expandable rows in changelog)
     ShowChangeDetail(usize),
     HideChangeDetail,
+
+    // Review tab — revert individual changes
+    RevertChange(Uuid),
+    ChangeReverted(Result<(), String>),
+
+    // Hex diff integration
+    OpenHexDiff(Uuid),
+    HexDiffReady {
+        file_path: String,
+        patched_bytes: Vec<u8>,
+        vanilla_bytes: Option<Vec<u8>>,
+    },
+    HexDiffFailed(String),
 
     // Import / export
     ImportZip,
