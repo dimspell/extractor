@@ -69,6 +69,10 @@ pub enum ModPackagerMessage {
         key: FieldKey,
     },
 
+    // Change detail (expandable rows in changelog)
+    ShowChangeDetail(usize),
+    HideChangeDetail,
+
     // Import / export
     ImportZip,
     ImportPicked(Option<PathBuf>),

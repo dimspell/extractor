@@ -412,6 +412,22 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
 
+        // ----- Change detail (expandable rows) ---------------------------
+        ModPackagerMessage::ShowChangeDetail(idx) => {
+            let state = &mut app.state.editors.mod_packager_editor;
+            // Toggle — clicking the same row collapses it.
+            if state.selected_change_idx == Some(idx) {
+                state.selected_change_idx = None;
+            } else {
+                state.selected_change_idx = Some(idx);
+            }
+            Task::none()
+        }
+        ModPackagerMessage::HideChangeDetail => {
+            app.state.editors.mod_packager_editor.selected_change_idx = None;
+            Task::none()
+        }
+
         // ----- Conflict resolution ---------------------------------------
         ModPackagerMessage::PinConflict { key, mod_slug } => {
             let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {

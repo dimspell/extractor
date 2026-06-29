@@ -10,6 +10,7 @@ use crate::message::{Message, MessageExt};
 
 mod conflicts;
 mod detail;
+mod diff_panel;
 mod library;
 
 pub fn view(app: &App) -> Element<'_, Message> {

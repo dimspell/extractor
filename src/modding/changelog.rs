@@ -30,6 +30,19 @@ impl ChangeLog {
         self.enforce_cap();
     }
 
+    /// Remove a change action by its [`Uuid`]. Returns `true` if found and
+    /// removed, `false` if no action with that id existed.
+    pub fn remove_by_id(&mut self, id: uuid::Uuid) -> bool {
+        let before = self.actions.len();
+        self.actions.retain(|a| a.id != id);
+        if self.actions.len() < before {
+            self.flatten_field_deltas();
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn actions(&self) -> &[ChangeAction] {
         &self.actions
     }

@@ -143,6 +143,87 @@ pub struct HexEditorState {
 }
 
 impl HexEditorState {
+    /// Create a [`HexEditorState`] from raw byte buffers instead of loading
+    /// from disk. Useful for diff views where the "file" is a reconstructed
+    /// or patched buffer.
+    ///
+    /// `data` becomes the editor buffer (what the user sees and edits).
+    /// `vanilla` is the original baseline (used for the diff overlay).
+    /// `path` is an optional filesystem path (used for save-back logic; pass
+    /// `None` when the buffer has no real file counterpart).
+    pub fn from_bytes(
+        name: impl Into<String>,
+        data: Vec<u8>,
+        vanilla: Option<Vec<u8>>,
+        path: Option<PathBuf>,
+    ) -> Self {
+        let name = name.into();
+        let path = path.unwrap_or_else(|| PathBuf::from(&name));
+        let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
+        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
+        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
+        let panes = default_pane_grid();
+        let pane_focus = *panes
+            .iter()
+            .next()
+            .map(|(id, _)| id)
+            .expect("default_pane_grid always has at least one pane");
+
+        let mut state = Self {
+            path,
+            name,
+            panes,
+            pane_focus,
+            provider: BufferProvider::from_bytes(data),
+            bytes_per_row: DEFAULT_BYTES_PER_ROW,
+            selection: Selection::default(),
+            edit_mode: None,
+            inspector_edit: None,
+            vanilla,
+            vanilla_diff: BTreeSet::new(),
+            patterns: Vec::new(),
+            pattern_by_addr: BTreeMap::new(),
+            show_pattern_list: false,
+            next_pattern_id: 0,
+            groups: Vec::new(),
+            next_group_id: 0,
+            collapsed_groups: BTreeSet::new(),
+            row_annotations: BTreeMap::new(),
+            active_patterns: BTreeSet::new(),
+            renaming_group: None,
+            renaming_group_draft: String::new(),
+            context_menu_addr: None,
+            goto: None,
+            export_config: None,
+            fill_dialog: None,
+            search: SearchState::new(),
+            show_decimal: false,
+            status_msg: String::new(),
+            error: None,
+            repeat_pattern: None,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: true,
+            settings_open: false,
+            cache: ParagraphCache::default(),
+            lua_engine,
+            write_mode: WriteMode::Hex,
+            custom_encodings: Vec::new(),
+            encoding_settings_open: false,
+            encoding_settings_selection: None,
+            show_stats: false,
+            file_stats: None,
+            selection_stats: None,
+            row_entropies: Some(row_entropies),
+            show_entropy_band: true,
+            show_minimap: true,
+            pending_center_on: Cell::new(None),
+            theme: &DARK_THEME,
+            theme_variant: ThemeVariant::Dark,
+        };
+        state.recompute_vanilla_diff();
+        state
+    }
+
     pub fn load_from_path(path: &Path) -> Self {
         let name = path
             .file_name()

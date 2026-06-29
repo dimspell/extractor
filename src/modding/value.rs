@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// Scalar value carried in a [`FieldDelta`](super::change::ChangeOp::FieldDelta).
@@ -13,6 +15,36 @@ pub enum Value {
     Bool(bool),
     Bytes(Vec<u8>),
     Null,
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::String(s) => write!(f, "{s}"),
+            Value::I64(i) => write!(f, "{i}"),
+            Value::F64(n) => write!(f, "{n}"),
+            Value::Bool(b) => write!(f, "{b}"),
+            Value::Bytes(bytes) => {
+                write!(f, "<{} bytes>", bytes.len())?;
+                if !bytes.is_empty() {
+                    let preview_len = bytes.len().min(16);
+                    write!(f, " [")?;
+                    for (i, byte) in bytes[..preview_len].iter().enumerate() {
+                        if i > 0 {
+                            write!(f, " ")?;
+                        }
+                        write!(f, "{byte:02X}")?;
+                    }
+                    if preview_len < bytes.len() {
+                        write!(f, " …")?;
+                    }
+                    write!(f, "]")?;
+                }
+                Ok(())
+            }
+            Value::Null => write!(f, "(null)"),
+        }
+    }
 }
 
 impl Value {
