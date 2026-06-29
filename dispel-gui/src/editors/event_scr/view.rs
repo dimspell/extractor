@@ -255,7 +255,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         let picker_content: Element<'_, EventScrEditorMessage> =
             container(view_function_picker(state))
                 .style(style::modal_container)
-                .max_width(520)
+                .width(520)
                 .into();
         gui_widgets::components::modal::modal(
             base,
@@ -569,7 +569,7 @@ fn render_inline_suggestions<'a>(
     container(column(items).spacing(1))
         .style(style::modal_container)
         .padding([4, 8])
-        .max_width(400)
+        .width(400)
         .into()
 }
 

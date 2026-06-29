@@ -9,6 +9,9 @@ iced_test = { path = "../iced/test" }
 [workspace.metadata]
 features = ["iced_test"]
 
+[patch.crates-io]
+winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed" }
+
 [lib]
 name = "dispel_core"
 path = "src/lib.rs"

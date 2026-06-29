@@ -258,6 +258,6 @@ pub fn view_dialog_preview<'a>(
         .height(iced::Length::Shrink),
     )
     .style(style::toolbar_container)
-    .max_height(550.0)
+    .height(550.0)
     .into()
 }

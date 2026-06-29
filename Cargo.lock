@@ -19,6 +19,69 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 
 [[package]]
+name = "accesskit"
+version = "0.24.1"
+dependencies = [
+ "uuid",
+]
+
+[[package]]
+name = "accesskit_consumer"
+version = "0.37.0"
+dependencies = [
+ "accesskit",
+ "hashbrown 0.16.1",
+]
+
+[[package]]
+name = "accesskit_ios"
+version = "0.1.1"
+dependencies = [
+ "accesskit",
+ "accesskit_consumer",
+ "hashbrown 0.16.1",
+ "objc2 0.5.2",
+ "objc2-foundation 0.2.2",
+ "objc2-ui-kit",
+]
+
+[[package]]
+name = "accesskit_macos"
+version = "0.26.2"
+dependencies = [
+ "accesskit",
+ "accesskit_consumer",
+ "hashbrown 0.16.1",
+ "objc2 0.5.2",
+ "objc2-app-kit 0.2.2",
+ "objc2-foundation 0.2.2",
+]
+
+[[package]]
+name = "accesskit_windows"
+version = "0.33.1"
+dependencies = [
+ "accesskit",
+ "accesskit_consumer",
+ "hashbrown 0.16.1",
+ "static_assertions",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
+name = "accesskit_winit"
+version = "0.33.1"
+dependencies = [
+ "accesskit",
+ "accesskit_ios",
+ "accesskit_macos",
+ "accesskit_windows",
+ "raw-window-handle",
+ "winit",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2106,6 +2169,7 @@ dependencies = [
 name = "iced_core"
 version = "0.15.0-dev"
 dependencies = [
+ "accesskit",
  "bitflags 2.12.1",
  "bytes",
  "glam",
@@ -2201,6 +2265,7 @@ dependencies = [
 name = "iced_test"
 version = "0.15.0-dev"
 dependencies = [
+ "accesskit",
  "iced_futures",
  "iced_program",
  "iced_renderer",
@@ -2249,6 +2314,7 @@ dependencies = [
 name = "iced_widget"
 version = "0.15.0-dev"
 dependencies = [
+ "accesskit",
  "iced_renderer",
  "iced_runtime",
  "log",
@@ -2263,12 +2329,14 @@ dependencies = [
 name = "iced_winit"
 version = "0.15.0-dev"
 dependencies = [
+ "accesskit_winit",
  "arboard",
  "iced_debug",
  "iced_program",
  "iced_runtime",
  "log",
  "objc2 0.5.2",
+ "objc2-app-kit 0.2.2",
  "rustc-hash 2.1.2",
  "thiserror 2.0.18",
  "tracing",

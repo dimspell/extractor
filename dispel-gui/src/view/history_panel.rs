@@ -62,5 +62,6 @@ pub fn view_history_panel(history: &EditHistory) -> Element<'_, crate::message::
         .height(Fill)
         .width(280)
         .style(crate::style::sidebar_container)
+        .accessible_label("Edit history")
         .into()
 }

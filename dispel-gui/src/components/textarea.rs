@@ -38,7 +38,7 @@ where
         .on_action(on_action)
         .padding([8, 10])
         .size(12)
-        .min_height(80.0)
+        .height(80.0)
         .wrapping(Wrapping::WordOrGlyph)
         .style(textarea_style)
         .into()

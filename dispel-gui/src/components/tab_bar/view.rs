@@ -43,7 +43,8 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
                     button(text("✕").size(10))
                         .on_press(TabBarMessage::CloseTab(idx))
                         .style(style::chip)
-                        .padding([2, 4]),
+                        .padding([2, 4])
+                        .accessible_label("Close tab"),
                 );
             }
 

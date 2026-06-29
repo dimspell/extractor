@@ -295,7 +295,8 @@ impl FileTree {
         let search_bar = text_input("Filter files...", &self.state.search_query)
             .on_input(FileTreeMessage::Search)
             .padding([4, 8])
-            .size(11);
+            .size(11)
+            .accessible_label("Filter file tree");
 
         let header = container(search_bar).padding([6, 4]);
 

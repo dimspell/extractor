@@ -610,7 +610,8 @@ impl CommandPalette {
         let input = text_input("Search commands...", &self.input_value)
             .id(Self::input_id())
             .on_input(|s| Message::Workspace(WorkspaceMessage::CommandPaletteInput(s)))
-            .padding(12);
+            .padding(12)
+            .accessible_label("Command palette");
 
         let commands: Vec<Element<_>> = self
             .filtered_commands
@@ -651,7 +652,7 @@ impl CommandPalette {
         let content = column![input, list].spacing(8).padding(16);
 
         container(content)
-            .max_width(500)
+            .width(500)
             .style(style::modal_container)
             .into()
     }

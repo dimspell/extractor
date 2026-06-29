@@ -77,7 +77,7 @@ impl App {
                                                         ]
                                                         .spacing(4)
                                                     )
-                                                    .max_width(400),
+                                                    .width(400),
                                                 ]
                                                 .align_x(iced::Alignment::Center)
                                                 .into()
@@ -98,6 +98,7 @@ impl App {
                         column![self.view_shared_game_path_toolbar(), tab_bar, content]
                             .spacing(0)
                             .height(Fill)
+                            .accessible_label("Editor content")
                             .into()
                     }
                     PaneContent::HistoryPanel => {
@@ -195,7 +196,7 @@ impl App {
                 .padding(20),
             )
             .style(style::modal_container)
-            .max_width(480);
+            .width(480);
 
             return modal(
                 main_container,
