@@ -3,6 +3,8 @@ use super::{FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH, SCROLLBA
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::advanced::Shell;
 use iced::{Font, Length, Point, Rectangle, Size, Vector};
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 type ScrollCallback<'a, Message> = Box<dyn Fn(f32, f32, f32) -> Message + 'a>;
 
@@ -39,6 +41,12 @@ pub struct TableWidget<'a, Message> {
     pub(crate) on_prev_highlight: Option<Box<dyn Fn() -> Message + 'a>>,
     pub(crate) on_escape: Option<Box<dyn Fn() -> Message + 'a>>,
     pub(crate) on_quick_filter: Option<Box<dyn Fn(usize, String) -> Message + 'a>>,
+    /// Accessible label for the table grid (used by screen readers).
+    pub(crate) accessible_label: Option<String>,
+    /// NodeId → (visible_row_idx, col) mapping built during `accessibility()`
+    /// and consumed by `accessibility_action()`. Stored in a `RefCell` because
+    /// the trait gives `&self` for building but `&mut self` for handling actions.
+    pub(crate) cell_node_map: RefCell<HashMap<u64, (usize, usize)>>,
 }
 
 impl<'a, Message> TableWidget<'a, Message> {
@@ -76,6 +84,8 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_prev_highlight: None,
             on_escape: None,
             on_quick_filter: None,
+            accessible_label: None,
+            cell_node_map: RefCell::new(HashMap::new()),
         }
     }
 
@@ -154,6 +164,11 @@ impl<'a, Message> TableWidget<'a, Message> {
         self
     }
 
+    pub fn accessible_label(mut self, label: impl Into<String>) -> Self {
+        self.accessible_label = Some(label.into());
+        self
+    }
+
     pub(crate) fn n_rows(&self) -> usize {
         self.filtered_indices.len()
     }
@@ -169,6 +184,18 @@ impl<'a, Message> TableWidget<'a, Message> {
         } else {
             self.columns[col_idx - 1].width_px
         }
+    }
+
+    pub(crate) fn col_positions(&self) -> Vec<f32> {
+        let n = self.n_cols();
+        let mut positions = Vec::with_capacity(n + 1);
+        let mut acc = 0.0;
+        positions.push(0.0);
+        for c in 0..n {
+            acc += self.col_width(c);
+            positions.push(acc);
+        }
+        positions
     }
 
     pub(crate) fn total_width(&self) -> f32 {

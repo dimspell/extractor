@@ -419,13 +419,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             (((off.y + body.height) / self.row_height).ceil() as usize).min(self.n_rows());
 
         let n_cols = self.n_cols();
-        let mut col_x: Vec<f32> = Vec::with_capacity(n_cols + 1);
-        let mut acc = 0.0f32;
-        col_x.push(0.0);
-        for c in 0..n_cols {
-            acc += self.col_width(c);
-            col_x.push(acc);
-        }
+        let col_x = self.col_positions();
         let first_col = col_x
             .partition_point(|&x| x <= off.x)
             .saturating_sub(1)
@@ -918,6 +912,229 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             self.total_height(),
             active_axis,
         );
+    }
+
+    fn accessibility(
+        &self,
+        layout: Layout<'_>,
+        tree: &Tree,
+        nodes: &mut Vec<(accesskit::NodeId, accesskit::Node)>,
+        id_counter: &mut u64,
+    ) -> Option<accesskit::NodeId> {
+        use accesskit::Role;
+
+        // Inline helpers for accessibility node construction. The iced
+        // `iced::core::accessibility` module is not publicly accessible,
+        // so we reimplement its simple helpers here.
+        let non_empty = |r: Rectangle| Rectangle {
+            width: r.width.max(1.0),
+            height: r.height.max(1.0),
+            ..r
+        };
+        let to_ak_rect =
+            |r: Rectangle| accesskit::Rect {
+                x0: r.x as f64,
+                y0: r.y as f64,
+                x1: (r.x + r.width) as f64,
+                y1: (r.y + r.height) as f64,
+            };
+        let union_rect = |a: Rectangle, b: Rectangle| Rectangle {
+            x: a.x.min(b.x),
+            y: a.y.min(b.y),
+            width: (a.x + a.width).max(b.x + b.width) - a.x.min(b.x),
+            height: (a.y + a.height).max(b.y + b.height) - a.y.min(b.y),
+        };
+        let set_bounds = |tree: &Tree, node: &mut accesskit::Node, bounds: Rectangle| {
+            let b = non_empty(bounds);
+            tree.set_accesskit_bounds(b);
+            node.set_bounds(to_ak_rect(b));
+        };
+
+        let n_rows = self.n_rows();
+        let n_cols = self.n_cols();
+        if n_rows == 0 || n_cols == 0 {
+            return None;
+        }
+
+        // Reset the action-routing map.
+        self.cell_node_map.borrow_mut().clear();
+
+        let bounds = layout.bounds();
+        let body = self.body_bounds(bounds);
+        let off = tree.state.downcast_ref::<State>().scroll_offset;
+        let col_pos = self.col_positions();
+
+        // Visible row range — same as draw().
+        let first_row = ((off.y / self.row_height).floor() as usize).min(n_rows);
+        let last_row = (((off.y + body.height) / self.row_height).ceil() as usize).min(n_rows);
+
+        // ---- Column-header row (ColumnHeader cells) ----
+        let mut header_cell_ids: Vec<accesskit::NodeId> = Vec::with_capacity(n_cols);
+        let mut header_row_bounds: Option<Rectangle> = None;
+        let header_y = body.y - self.header_height();
+
+        for col in 0..n_cols {
+            let cell_id = accesskit::NodeId(*id_counter);
+            *id_counter += 1;
+
+            let cell_bounds = Rectangle {
+                x: bounds.x + col_pos[col] - off.x,
+                y: header_y,
+                width: self.col_width(col),
+                height: self.header_height(),
+            };
+
+            let mut cell = accesskit::Node::new(Role::ColumnHeader);
+            cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
+            cell.set_row_index(0);
+            cell.set_column_index(col as usize);
+            cell.set_row_span(1_usize);
+            cell.set_column_span(1_usize);
+
+            if col == 0 {
+                cell.set_label("#");
+            } else if let Some(c) = self.columns.get(col - 1) {
+                cell.set_label(c.label.as_str());
+                if let Some(asc) = c.sort {
+                    cell.set_description(if asc { "sorted ascending" } else { "sorted descending" });
+                }
+            }
+
+            header_row_bounds = Some(
+                header_row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)),
+            );
+
+            nodes.push((cell_id, cell));
+            header_cell_ids.push(cell_id);
+        }
+
+        let header_row_id = accesskit::NodeId(*id_counter);
+        *id_counter += 1;
+        let mut header_row = accesskit::Node::new(Role::Row);
+        header_row.set_row_index(0);
+        header_row.set_column_index(0);
+        header_row.set_column_span(n_cols);
+        if let Some(bounds) = header_row_bounds {
+            header_row.set_bounds(to_ak_rect(non_empty(bounds)));
+        }
+        for id in &header_cell_ids {
+            header_row.push_child(*id);
+        }
+        nodes.push((header_row_id, header_row));
+
+        // ---- Data rows (Cell cells) ----
+        let mut row_ids: Vec<accesskit::NodeId> = Vec::new();
+
+        for row_idx in first_row..last_row {
+            let mut cell_ids: Vec<accesskit::NodeId> = Vec::with_capacity(n_cols);
+            let mut row_bounds: Option<Rectangle> = None;
+            let row_y = body.y + (row_idx as f32 * self.row_height) - off.y;
+
+            for col in 0..n_cols {
+                let cell_id = accesskit::NodeId(*id_counter);
+                *id_counter += 1;
+
+                let cell_bounds = Rectangle {
+                    x: bounds.x + col_pos[col] - off.x,
+                    y: row_y,
+                    width: self.col_width(col),
+                    height: self.row_height,
+                };
+
+                let mut cell = accesskit::Node::new(Role::Cell);
+                cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
+            cell.set_row_index(row_idx + 1);
+            cell.set_column_index(col as usize);
+                cell.set_row_span(1);
+                cell.set_column_span(1);
+
+                if let Some(val) = self.cell_value(row_idx, col) {
+                    // Set both value and label so every screen reader picks it up.
+                    cell.set_value(val.as_str());
+                    cell.set_label(val.as_str());
+                }
+
+                // Register in the action-routing map so accessibility_action()
+                // can look up which (row, col) a Focus/Activate targets.
+                self.cell_node_map
+                    .borrow_mut()
+                    .insert(cell_id.0, (row_idx, col));
+
+                row_bounds = Some(
+                    row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)),
+                );
+
+                nodes.push((cell_id, cell));
+                cell_ids.push(cell_id);
+            }
+
+            // Wrap cells in a Row node.
+            let row_id = accesskit::NodeId(*id_counter);
+            *id_counter += 1;
+            let mut row = accesskit::Node::new(Role::Row);
+            row.set_row_index(row_idx + 1);
+            row.set_column_index(0);
+            row.set_column_span(n_cols);
+            if let Some(bounds) = row_bounds {
+                row.set_bounds(to_ak_rect(non_empty(bounds)));
+            }
+            let flags = (self.row_flags)(row_idx);
+            if flags.selected {
+                row.set_selected(true);
+            }
+            for id in &cell_ids {
+                row.push_child(*id);
+            }
+            nodes.push((row_id, row));
+            row_ids.push(row_id);
+        }
+
+        // ---- Grid node ----
+        let grid_id = accesskit::NodeId(*id_counter);
+        *id_counter += 1;
+        let mut grid = accesskit::Node::new(Role::Grid);
+        set_bounds(tree, &mut grid, bounds);
+        grid.set_row_count(n_rows + 1);
+        grid.set_column_count(n_cols);
+        grid.set_multiselectable();
+        if let Some(label) = &self.accessible_label {
+            grid.set_label(label.as_str());
+        }
+        grid.push_child(header_row_id);
+        for id in &row_ids {
+            grid.push_child(*id);
+        }
+        nodes.push((grid_id, grid));
+
+        Some(grid_id)
+    }
+
+    fn accessibility_action(
+        &mut self,
+        _tree: &mut Tree,
+        _layout: Layout<'_>,
+        action: &accesskit::ActionRequest,
+        shell: &mut Shell<'_, Message>,
+    ) {
+        use accesskit;
+
+        // When the screen reader focuses/activates a cell, look up the
+        // (row, col) from the map built in accessibility() and select that row.
+        let row = match action.action {
+            accesskit::Action::Focus | accesskit::Action::ScrollIntoView => {
+                self.cell_node_map
+                    .borrow()
+                    .get(&action.target_node.0)
+                    .map(|&(row, _col)| row)
+            }
+            _ => None,
+        };
+
+        if let Some(row) = row {
+            if let Some(cb) = &self.on_select {
+                shell.publish(cb(row));
+            }
+        }
     }
 }
 

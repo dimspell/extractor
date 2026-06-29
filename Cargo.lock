@@ -1315,6 +1315,7 @@ dependencies = [
 name = "dispel-gui"
 version = "0.8.0"
 dependencies = [
+ "accesskit",
  "bincode",
  "chrono",
  "csv",

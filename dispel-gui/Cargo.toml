@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 iced = { workspace = true, default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland", "accessibility"] }
+accesskit = { path = "../../iced/vendor/accesskit" }
 image = { version = "0.25", features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "fs", "sync", "time"] }
 rfd = "0.16"
