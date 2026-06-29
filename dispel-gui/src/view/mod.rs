@@ -324,6 +324,7 @@ impl App {
         container(sidebar_content)
             .height(Fill)
             .style(style::sidebar_container)
+            .accessible_label("Sidebar")
             .into()
     }
 
