@@ -31,7 +31,8 @@ impl App {
             .padding(10),
         )
         .width(Fill)
-        .style(style::toolbar_container);
+        .style(style::toolbar_container)
+        .accessible_label("Database connection toolbar");
 
         // ── Table selector chips ──
         let table_chips: Vec<Element<Message>> = v
@@ -113,7 +114,8 @@ impl App {
             .padding(8),
         )
         .width(Fill)
-        .style(style::toolbar_container);
+        .style(style::toolbar_container)
+        .accessible_label("Database action toolbar");
 
         // ── SQL editor (collapsible) ──
         let sql_area: Element<Message> = if v.sql_mode {
@@ -183,7 +185,8 @@ impl App {
             .padding([6, 12]),
         )
         .width(Fill)
-        .style(style::status_bar);
+        .style(style::status_bar)
+        .accessible_label("Database viewer status");
 
         column![conn_row, table_row, action_row, sql_area, grid, status_row]
             .spacing(0)

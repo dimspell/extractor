@@ -298,7 +298,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(0),
             )
             .width(Fill)
-            .style(style::toolbar_container);
+            .style(style::toolbar_container)
+            .accessible_label("Map editor toolbar");
 
             // ── Canvas for tile layers, sprites (images) ───────────────────────
             let tiles_canvas = canvas(MapCanvasTilesLayer { state, tab_id })

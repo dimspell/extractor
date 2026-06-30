@@ -139,5 +139,6 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
     .padding([8, 12])
     .spacing(8)
     .align_y(iced::Alignment::Center)
+    .accessible_label("Filter bar")
     .into()
 }

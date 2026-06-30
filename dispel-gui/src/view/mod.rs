@@ -245,6 +245,7 @@ impl App {
         )
         .width(Fill)
         .style(style::toolbar_container)
+        .accessible_label("Game path toolbar")
         .into()
     }
 

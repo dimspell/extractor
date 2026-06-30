@@ -54,5 +54,6 @@ pub fn build_status_bar<'a, R: EditableRecord>(
     )
     .width(Fill)
     .style(style::status_bar)
+    .accessible_label("Status bar")
     .into()
 }

@@ -925,6 +925,7 @@ fn view_status_bar(state: &EventScriptEditorState) -> Element<'static, EventScrE
     .style(style::status_bar)
     .padding([4, 12])
     .width(Length::Fill)
+    .accessible_label("Event script editor status")
     .into()
 }
 

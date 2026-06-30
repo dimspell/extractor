@@ -11,6 +11,7 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
     if workspace.tabs.is_empty() {
         return container(text("No file opened").size(12).style(style::subtle_text))
             .padding(8)
+            .accessible_label("Tab bar")
             .into();
     }
 
@@ -88,5 +89,6 @@ pub fn view_tab_bar(workspace: &Workspace) -> Element<'_, TabBarMessage> {
         )),
     )
     .width(Length::Fill)
+    .accessible_label("Tab bar")
     .into()
 }

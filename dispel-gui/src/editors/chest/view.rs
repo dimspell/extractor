@@ -32,7 +32,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .align_y(iced::Alignment::Center),
     )
     .width(Fill)
-    .style(style::status_bar);
+    .style(style::status_bar)
+    .accessible_label("Chest editor status");
 
     let map_list: Vec<Element<Message>> = editor
         .map_files
