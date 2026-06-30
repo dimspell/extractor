@@ -1074,6 +1074,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     .borrow_mut()
                     .insert(cell_id.0, (row_idx, col));
 
+                // WCAG H43 / H63: Explicitly associate the data cell with its
+                // column header so screen readers can announce the header name
+                // when navigating cells, regardless of platform adapter support.
+                cell.push_labelled_by(header_cell_ids[col]);
+
                 row_bounds = Some(
                     row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)),
                 );
