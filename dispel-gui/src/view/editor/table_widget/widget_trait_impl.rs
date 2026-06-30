@@ -1106,7 +1106,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         // ---- Grid node ----
         let grid_id = accesskit::NodeId(*id_counter);
         *id_counter += 1;
-        let mut grid = accesskit::Node::new(Role::Grid);
+        let mut grid = accesskit::Node::new(Role::Table);
         set_bounds(tree, &mut grid, bounds);
         grid.set_row_count(n_rows + 1);
         grid.set_column_count(n_cols);
