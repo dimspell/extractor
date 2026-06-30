@@ -26,6 +26,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("NPC reference editor")
         .into();
     };
 
@@ -44,5 +45,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |pane| Message::npc_ref(NpcRefEditorMessage::PaneClicked(pane)),
         Some(Message::npc_ref(NpcRefEditorMessage::AddEntry)),
         Some(|idx| Message::npc_ref(NpcRefEditorMessage::RemoveEntry(idx))),
+        "NPC reference editor",
     )
 }

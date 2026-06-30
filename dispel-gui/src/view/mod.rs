@@ -88,6 +88,7 @@ impl App {
                                             .center_y(Fill)
                                             .height(Length::Fill)
                                             .width(Length::Fill)
+                                            .accessible_label("Select a file")
                                             .into()
                                     }
                                 }
@@ -127,7 +128,8 @@ impl App {
         let main_container = container(pane_grid)
             .width(Fill)
             .height(Fill)
-            .style(style::root_container);
+            .style(style::root_container)
+            .accessible_label("Editor workspace");
 
         if let Some(ref palette) = self.command_palette {
             let palette_view = palette.view();

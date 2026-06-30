@@ -59,6 +59,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             |pane| Message::party_level_db(PartyLevelDbEditorMessage::PaneClicked(pane)),
             None,
             None,
+            "Party level editor",
         )
     } else {
         container(

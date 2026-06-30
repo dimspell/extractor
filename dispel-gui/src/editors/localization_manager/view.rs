@@ -410,7 +410,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill);
 
-    container(content).width(Fill).height(Fill).into()
+    container(content)
+        .width(Fill)
+        .height(Fill)
+        .accessible_label("Localization manager")
+        .into()
 }
 
 fn placeholder_panel<'a>() -> Element<'a, Message> {

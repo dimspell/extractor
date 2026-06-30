@@ -43,7 +43,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
     col = col.push(body).push(status);
 
-    container(col).width(Fill).height(Fill).into()
+    container(col)
+        .width(Fill)
+        .height(Fill)
+        .accessible_label("Mod manager")
+        .into()
 }
 
 fn recording_banner(app: &App) -> Option<Element<'_, Message>> {

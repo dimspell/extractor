@@ -165,7 +165,8 @@ impl App {
                 .width(Length::Fixed(540.0)),
         )
         .style(card_style)
-        .padding(48);
+        .padding(48)
+        .accessible_label("Game path selection");
 
         // ── Full screen centered layout ───────────────────────────────────────
         container(card)

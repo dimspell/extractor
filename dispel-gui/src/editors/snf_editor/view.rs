@@ -19,6 +19,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .padding(16)
+            .accessible_label("SNF audio editor")
             .into();
     };
 
@@ -29,11 +30,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("SNF audio editor")
         .into();
     }
 
     let Some(ref snf) = editor.snf else {
-        return container(text("Loading…").size(12)).padding(16).into();
+        return container(text("Loading…").size(12))
+            .padding(16)
+            .accessible_label("SNF audio editor")
+            .into();
     };
 
     // Header row with filename and export button
@@ -151,5 +156,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
     column![header, meta, waveform, timeline, controls, status_row,]
         .spacing(0)
         .height(Fill)
+        .accessible_label("SNF audio editor")
         .into()
 }

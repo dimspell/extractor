@@ -235,6 +235,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 view_status_bar(state),
             ]
             .spacing(10)
+            .accessible_label("Event script editor")
             .into()
         }
         LoadingState::Failed(err) => container(column![
@@ -247,6 +248,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
+        .accessible_label("Event script editor")
         .into(),
         LoadingState::Idle | LoadingState::Loading => empty_editor(),
     };
@@ -1016,5 +1018,6 @@ fn empty_editor<'a>() -> Element<'a, EventScrEditorMessage> {
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
+        .accessible_label("Event script editor")
         .into()
 }

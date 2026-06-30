@@ -198,5 +198,6 @@ pub fn view(app: &App) -> iced::Element<'_, crate::message::Message> {
         |pane| crate::message::Message::wave_ini(WaveIniEditorMessage::PaneClicked(pane)),
         None,
         None,
+        "Wave INI editor",
     )
 }

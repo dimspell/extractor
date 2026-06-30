@@ -915,6 +915,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         );
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn accessibility(
         &self,
         layout: Layout<'_>,
@@ -965,9 +966,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let off = tree.state.downcast_ref::<State>().scroll_offset;
         let col_pos = self.col_positions();
 
-        // Visible row range — same as draw().
-        let first_row = ((off.y / self.row_height).floor() as usize).min(n_rows);
-        let last_row = (((off.y + body.height) / self.row_height).ceil() as usize).min(n_rows);
+        // Generate nodes for ALL rows so VoiceOver can navigate the full logical
+        // table, not just the visible viewport. Bounds for off-screen rows will
+        // be outside the parent's visible area — the platform accessibility layer
+        // clips them naturally.
+        let first_row = 0;
+        let last_row = n_rows;
 
         // ---- Column-header row (ColumnHeader cells) ----
         let mut header_cell_ids: Vec<accesskit::NodeId> = Vec::with_capacity(n_cols);
@@ -988,7 +992,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             let mut cell = accesskit::Node::new(Role::ColumnHeader);
             cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
             cell.set_row_index(0);
-            cell.set_column_index(col as usize);
+            cell.set_column_index(col);
             cell.set_row_span(1_usize);
             cell.set_column_span(1_usize);
 
@@ -1045,7 +1049,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 let mut cell = accesskit::Node::new(Role::Cell);
                 cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
                 cell.set_row_index(row_idx + 1);
-                cell.set_column_index(col as usize);
+                cell.set_column_index(col);
                 cell.set_row_span(1);
                 cell.set_column_span(1);
 

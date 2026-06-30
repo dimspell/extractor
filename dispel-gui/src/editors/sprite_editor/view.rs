@@ -29,6 +29,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .padding(16)
+            .accessible_label("Sprite viewer")
             .into();
     };
 
@@ -43,6 +44,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("Sprite viewer")
         .into();
     }
 
@@ -90,6 +92,7 @@ fn view_main(viewer: &SpriteViewerState) -> Element<'_, Message> {
     ]
     .spacing(0)
     .height(Fill)
+    .accessible_label("Sprite viewer")
     .into()
 }
 

@@ -141,6 +141,7 @@ macro_rules! define_standard_editor {
                     |pane| $crate::message::Message::$name([<$Name EditorMessage>]::PaneClicked(pane)),
                     None,
                     None,
+                    concat!(stringify!($name), " editor"),
                 )
             }
         }

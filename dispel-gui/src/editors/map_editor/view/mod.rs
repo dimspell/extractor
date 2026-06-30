@@ -28,6 +28,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     .style(style::subtle_text),
             )
             .padding(24)
+            .accessible_label("Map editor")
             .into()
         }
     };
@@ -39,6 +40,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .style(style::subtle_text),
         )
         .padding(24)
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Loading => container(
@@ -50,6 +52,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .padding(24),
         )
         .width(Fill)
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Failed(err) => container(
@@ -62,6 +65,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .spacing(8)
             .padding(24),
         )
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Loaded(map_handle) => {
@@ -369,6 +373,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(0)
                 .width(Fill)
                 .height(Fill)
+                .accessible_label("Map editor")
                 .into();
 
             // Wrap in dialog preview modal if open

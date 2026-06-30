@@ -501,6 +501,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .spacing(10)
         .padding(16)
         .height(Length::Fill)
+        .accessible_label("Store editor")
         .into();
 
     if editor.show_product_modal {

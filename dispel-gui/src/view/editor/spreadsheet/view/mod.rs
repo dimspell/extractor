@@ -33,6 +33,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
     pane_clicked_msg: fn(Pane) -> Message,
     add_msg: Option<Message>,
     remove_msg: Option<fn(usize) -> Message>,
+    accessible_label: &'a str,
 ) -> Element<'a, Message> {
     let descriptors = R::field_descriptors();
 
@@ -78,6 +79,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         ]
         .spacing(0)
         .height(Fill)
+        .accessible_label(accessible_label)
         .into()
     } else {
         let table = table::build_table_content(descriptors, catalog, spreadsheet, spreadsheet_msg);
@@ -90,6 +92,7 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
         ]
         .spacing(0)
         .height(Fill)
+        .accessible_label(accessible_label)
         .into()
     };
 

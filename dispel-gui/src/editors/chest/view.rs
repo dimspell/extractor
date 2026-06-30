@@ -219,5 +219,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
     .spacing(0)
     .height(Fill);
 
-    column![main_content, status_row,].spacing(0).into()
+    column![main_content, status_row,]
+        .spacing(0)
+        .accessible_label("Chest editor")
+        .into()
 }

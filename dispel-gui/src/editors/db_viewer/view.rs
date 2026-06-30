@@ -189,6 +189,7 @@ impl App {
             .spacing(0)
             .width(Fill)
             .height(Fill)
+            .accessible_label("Database viewer")
             .into()
     }
 

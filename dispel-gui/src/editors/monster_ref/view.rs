@@ -30,6 +30,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("Monster reference editor")
         .into();
     };
 
@@ -50,5 +51,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |pane| Message::monster_ref(MonsterRefEditorMessage::PaneClicked(pane)),
         Some(Message::monster_ref(MonsterRefEditorMessage::AddEntry)),
         Some(|idx| Message::monster_ref(MonsterRefEditorMessage::RemoveEntry(idx))),
+        "Monster reference editor",
     )
 }

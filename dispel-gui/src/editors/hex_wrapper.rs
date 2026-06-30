@@ -84,6 +84,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .padding(16)
+            .accessible_label("Hex editor")
             .into(),
     }
 }
