@@ -17,6 +17,7 @@ use iced::{
     alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Rectangle,
     Shadow, Size, Vector,
 };
+use std::borrow::Cow;
 
 type Paragraph = GraphicsParagraph;
 
@@ -1043,15 +1044,24 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
                 let mut cell = accesskit::Node::new(Role::Cell);
                 cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
-            cell.set_row_index(row_idx + 1);
-            cell.set_column_index(col as usize);
+                cell.set_row_index(row_idx + 1);
+                cell.set_column_index(col as usize);
                 cell.set_row_span(1);
                 cell.set_column_span(1);
 
                 if let Some(val) = self.cell_value(row_idx, col) {
-                    // Set both value and label so every screen reader picks it up.
                     cell.set_value(val.as_str());
-                    cell.set_label(val.as_str());
+                    // Compose a label that includes the column name so VoiceOver
+                    // announces e.g. "Name: Iron Sword" instead of merely "Iron Sword"
+                    // or "column 1".
+                    let label = if col == 0 {
+                        Cow::Owned(format!("#: {}", val))
+                    } else if let Some(c) = self.columns.get(col - 1) {
+                        Cow::Owned(format!("{}: {}", c.label, val))
+                    } else {
+                        Cow::Borrowed(val.as_str())
+                    };
+                    cell.set_label(label.as_ref());
                 }
 
                 // Register in the action-routing map so accessibility_action()
@@ -1111,8 +1121,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
     fn accessibility_action(
         &mut self,
-        _tree: &mut Tree,
-        _layout: Layout<'_>,
+        tree: &mut Tree,
+        layout: Layout<'_>,
         action: &accesskit::ActionRequest,
         shell: &mut Shell<'_, Message>,
     ) {
@@ -1131,6 +1141,19 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         };
 
         if let Some(row) = row {
+            // Scroll to the focused row so VoiceOver sees it in the viewport.
+            let state = tree.state.downcast_mut::<State>();
+            let bounds = layout.bounds();
+            let body = self.body_bounds(bounds);
+            let target_y = row as f32 * self.row_height;
+            let clamped_y = target_y.clamp(0.0, (self.total_height() - body.height).max(0.0));
+            if (clamped_y - state.scroll_offset.y).abs() > f32::EPSILON {
+                state.scroll_offset.y = clamped_y;
+                state.last_external = Some(state.scroll_offset);
+                shell.request_redraw();
+            }
+
+            // Select the row.
             if let Some(cb) = &self.on_select {
                 shell.publish(cb(row));
             }
