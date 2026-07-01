@@ -1,6 +1,6 @@
 INSERT OR REPLACE INTO monster_refs(file_id,
-                         id,
-                         file_id,
+                          id,
+                          record_id,
                          mon_id,
                          pos_x,
                          pos_y,
