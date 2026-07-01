@@ -231,13 +231,13 @@ pub fn read_npc_ref(source_path: &Path) -> std::io::Result<Vec<NPC>> {
     NPC::read_file(source_path)
 }
 
-pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -> Result<()> {
+pub fn save_npc_refs(conn: &mut Connection, file_id: i32, npc_refs: &[NPC]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ref.sql"))?;
         for npc in npc_refs {
             stmt.execute(params![
-                file_path,
+                file_id,
                 npc.index,
                 npc.id,
                 if npc.npc_id == 0 { None } else { Some(npc.npc_id) },

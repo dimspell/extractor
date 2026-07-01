@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO npc_refs(file_path,
+INSERT OR REPLACE INTO npc_refs(file_id,
                      row_id,
                      id,
                      npc_id,

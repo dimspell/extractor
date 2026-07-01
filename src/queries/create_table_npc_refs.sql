@@ -1,6 +1,6 @@
 CREATE TABLE npc_refs
 (
-    file_path         TEXT,
+    file_id           INTEGER NOT NULL REFERENCES npc_ref_files(id),
     row_id            INTEGER,
     id                INTEGER,
     npc_id            INTEGER REFERENCES npc_inis(id) ON DELETE SET NULL,

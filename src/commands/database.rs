@@ -381,10 +381,21 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
         "NpcInGame/Npcmap3.ref",
     ];
     println!("Saving npcrefs...");
-    for npc_ref_file in npc_ref_files {
+    {
+        let mut stmt = conn.prepare(include_str!("../queries/insert_npc_ref_file.sql"))?;
+        for (file_id, npc_ref_file) in npc_ref_files.iter().enumerate() {
+            let map_name = std::path::Path::new(npc_ref_file)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.strip_prefix("Npc").or_else(|| s.strip_prefix("npc")))
+                .map(|s| s.to_string());
+            stmt.execute(params![file_id as i32, npc_ref_file, map_name])?;
+        }
+    }
+    for (file_id, npc_ref_file) in npc_ref_files.iter().enumerate() {
         let npcrefs =
             dispel_core::references::npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?;
-        save_npc_refs(conn, npc_ref_file, &npcrefs)?;
+        save_npc_refs(conn, file_id as i32, &npcrefs)?;
     }
 
     println!("Saving event_npc_refs...");

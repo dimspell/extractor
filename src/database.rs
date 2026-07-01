@@ -43,6 +43,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "monster_refs",
         "monsters",
         "npc_inis",
+        "npc_ref_files",
         "npc_refs",
         "party_inis",
         "party_levels",
@@ -62,7 +63,6 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         conn.execute(&format!("DROP TABLE IF EXISTS {}", table), [])?;
     }
 
-    conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monster_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
@@ -80,6 +80,8 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_maps.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monster_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_npc_inis.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_npc_ref_files.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_wave_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
