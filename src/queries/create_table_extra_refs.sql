@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS extra_refs
 (
-    file_path                TEXT,
+    file_id   INTEGER NOT NULL REFERENCES extra_ref_files(id),
     id                       INTEGER,
     number_in_file           INTEGER,
     unknown1                 INTEGER,

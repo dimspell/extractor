@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO extra_refs(file_path,
+INSERT OR REPLACE INTO extra_refs(file_id,
                        id,
                        number_in_file,
                        unknown1,

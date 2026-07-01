@@ -487,10 +487,21 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
         "ExtraInGame/Extmap3.ref",
     ];
     println!("Saving extra_refs...");
-    for extra_ref_file in extra_ref_files {
+    {
+        let mut stmt = conn.prepare(include_str!("../queries/insert_extra_ref_file.sql"))?;
+        for (file_id, extra_ref_file) in extra_ref_files.iter().enumerate() {
+            let map_name = std::path::Path::new(extra_ref_file)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.strip_prefix("Ext"))
+                .map(|s| s.to_string());
+            stmt.execute(params![file_id as i32, extra_ref_file, map_name])?;
+        }
+    }
+    for (file_id, extra_ref_file) in extra_ref_files.iter().enumerate() {
         let extra_refs =
             dispel_core::references::extra_ref::read_extra_ref(&main_path.join(extra_ref_file))?;
-        save_extra_refs(conn, extra_ref_file, &extra_refs)?;
+        save_extra_refs(conn, file_id as i32, &extra_refs)?;
     }
     Ok(())
 }

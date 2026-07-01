@@ -27,6 +27,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "event_variables",
         "events",
         "extra_refs",
+        "extra_ref_files",
         "extras",
         "heal_items",
         "magic_spells",
@@ -69,6 +70,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extras.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_extra_ref_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extra_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_weapons.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_edit_items.sql"))?;

@@ -171,7 +171,7 @@ pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
 
 pub fn save_extra_refs(
     conn: &mut Connection,
-    file_path: &str,
+    file_id: i32,
     extra_refs: &[ExtraRef],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -179,7 +179,7 @@ pub fn save_extra_refs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_extra_ref.sql"))?;
         for extra_ref in extra_refs {
             stmt.execute(params![
-                file_path,                                    // 1
+                file_id,                                      // 1
                 extra_ref.id,                                 // 2
                 extra_ref.number_in_file,                     // 3
                 extra_ref.unknown1,                           // 4
