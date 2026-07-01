@@ -64,6 +64,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monster_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extra_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_weapons.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_edit_items.sql"))?;
@@ -75,7 +76,6 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_store_products.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monsters.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_maps.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_events.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_extras.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monster_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_npc_inis.sql"))?;
