@@ -3,9 +3,10 @@
 use rusqlite::{Connection, Result};
 
 pub fn initialize_database(conn: &Connection) -> Result<()> {
-    // Optimization PRAGMAs
+    // Optimization and safety PRAGMAs
     conn.execute_batch(
-        "PRAGMA journal_mode = WAL;
+        "PRAGMA foreign_keys = ON;
+         PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
          PRAGMA cache_size = -64000;
          PRAGMA temp_store = MEMORY;
@@ -47,9 +48,9 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "party_pgps",
         "party_refs",
         "quests",
-        "sprite_files",
         "sprite_frames",
         "sprite_sequences",
+        "sprite_files",
         "store_products",
         "stores",
         "wave_inis",

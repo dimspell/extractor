@@ -81,10 +81,12 @@ fn with_connection(
 }
 
 fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
-    eprintln!("Saving all data...");
+    eprintln!("Creating the tables...");
 
     let mut conn = Connection::open(db_path)?;
     initialize_database(&conn)?;
+
+    eprintln!("Saving all data...");
 
     import_refs(game_path, &mut conn)?;
     import_rest(game_path, &mut conn)?;
@@ -92,7 +94,7 @@ fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
     import_databases(game_path, &mut conn)?;
     import_event_scripts(game_path, &mut conn)?;
     import_maps(game_path, &mut conn)?;
-    import_sprite_files(game_path, &mut conn)?;
+    // import_sprite_files(game_path, &mut conn)?;
 
     let _ = conn.close();
     Ok(())
