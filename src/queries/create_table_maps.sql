@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS maps
 (
-    id           INTEGER,
+    id           INTEGER PRIMARY KEY,
     map_filename TEXT,
     map_name     TEXT,
     pgp_filename TEXT,
