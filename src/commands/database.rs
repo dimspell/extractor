@@ -436,11 +436,22 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
         "MonsterInGame/Monmap3.ref",
     ];
     println!("Saving monster_refs...");
-    for monster_ref_file in monster_ref_files {
+    {
+        let mut stmt = conn.prepare(include_str!("../queries/insert_monster_ref_file.sql"))?;
+        for (file_id, monster_ref_file) in monster_ref_files.iter().enumerate() {
+            let map_name = std::path::Path::new(monster_ref_file)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.strip_prefix("Mon").or_else(|| s.strip_prefix("mon")))
+                .map(|s| s.to_string());
+            stmt.execute(params![file_id as i32, monster_ref_file, map_name])?;
+        }
+    }
+    for (file_id, monster_ref_file) in monster_ref_files.iter().enumerate() {
         let monster_refs = dispel_core::references::monster_ref::read_monster_ref(
             &main_path.join(monster_ref_file),
         )?;
-        save_monster_refs(conn, monster_ref_file, &monster_refs)?;
+        save_monster_refs(conn, file_id as i32, &monster_refs)?;
     }
 
     let extra_ref_files = [

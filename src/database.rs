@@ -40,6 +40,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         "messages",
         "misc_items",
         "monster_inis",
+        "monster_ref_files",
         "monster_refs",
         "monsters",
         "npc_inis",
@@ -63,6 +64,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
         conn.execute(&format!("DROP TABLE IF EXISTS {}", table), [])?;
     }
 
+    conn.execute_batch(include_str!("queries/create_table_monster_ref_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_monster_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_messages.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_events.sql"))?;

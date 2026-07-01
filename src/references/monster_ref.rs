@@ -164,7 +164,7 @@ pub fn read_monster_ref(source_path: &Path) -> std::io::Result<Vec<MonsterRef>> 
 
 pub fn save_monster_refs(
     conn: &mut Connection,
-    file_path: &str,
+    file_id: i32,
     monster_refs: &[MonsterRef],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -172,7 +172,7 @@ pub fn save_monster_refs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ref.sql"))?;
         for monster_ref in monster_refs {
             stmt.execute(params![
-                file_path,
+                file_id,
                 monster_ref.index,
                 monster_ref.file_id,
                 monster_ref.mon_id,

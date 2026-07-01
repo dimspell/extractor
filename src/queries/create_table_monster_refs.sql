@@ -1,6 +1,6 @@
 CREATE TABLE monster_refs
 (
-    file_path       TEXT,
+    file_id         INTEGER NOT NULL REFERENCES monster_ref_files(id),
     id              INTEGER,
     file_id         INTEGER,
     mon_id          INTEGER,

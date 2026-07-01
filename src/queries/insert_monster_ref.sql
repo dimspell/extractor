@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO monster_refs(file_path,
+INSERT OR REPLACE INTO monster_refs(file_id,
                          id,
                          file_id,
                          mon_id,
