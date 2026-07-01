@@ -15,6 +15,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
 
     let tables = vec![
         "dialogue_paragraphs",
+        "dialogue_script_files",
         "dialogue_scripts",
         "draw_items",
         "edit_items",
@@ -83,6 +84,7 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_draw_items.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_dialogue_script_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_scripts.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;

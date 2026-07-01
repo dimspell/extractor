@@ -28,7 +28,7 @@ use dispel_core::references::quest_scr::save_quests;
 use dispel_core::references::store_db::save_stores;
 use dispel_core::references::wave_ini::save_wave_inis;
 use dispel_core::references::weapons_db::save_weapons;
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use std::error::Error;
 use std::path::Path;
 
@@ -231,11 +231,23 @@ fn import_dialogues_paragraphs(
         "NpcInGame/Dlgmap3.dlg",
         "NpcInGame/PartyDlg.dlg",
     ];
+    println!("Saving dialogue_script_files...");
+    {
+        let mut stmt = conn.prepare(include_str!("../queries/insert_dialogue_script_file.sql"))?;
+        for (file_id, dialog_file) in dialog_files.iter().enumerate() {
+            let map_name = std::path::Path::new(dialog_file)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(|s| s.strip_prefix("Dlg"))
+                .map(|s| s.to_string());
+            stmt.execute(params![dialog_file, file_id as i32, map_name])?;
+        }
+    }
     println!("Saving dialogs...");
-    for dialog_file in dialog_files {
+    for (file_id, dialog_file) in dialog_files.iter().enumerate() {
         let dialogs =
             dispel_core::references::dialogue_script::read_dialogs(&main_path.join(dialog_file))?;
-        save_dialogs(conn, dialog_file, &dialogs)?;
+        save_dialogs(conn, file_id as i32, &dialogs)?;
     }
 
     let pgp_files = [

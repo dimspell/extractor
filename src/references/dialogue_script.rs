@@ -185,7 +185,7 @@ pub fn read_dialogs(source_path: &Path) -> std::io::Result<Vec<DialogueScript>> 
 
 pub fn save_dialogs(
     conn: &mut Connection,
-    dialog_file: &str,
+    dialog_file_id: i32,
     dialogs: &[DialogueScript],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -193,7 +193,7 @@ pub fn save_dialogs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_scripts.sql"))?;
         for dialog in dialogs {
             stmt.execute(params![
-                dialog_file,
+                dialog_file_id,
                 dialog.id,
                 dialog.required_event_id,
                 dialog.next_dialog_to_check,

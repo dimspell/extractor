@@ -1,5 +1,5 @@
 INSERT OR REPLACE INTO dialogue_scripts(
-    dialog_file,
+    dialog_file_id,
     id,
     required_event_id,
     next_dialog_to_check,
