@@ -212,7 +212,7 @@ pub fn save_extra_refs(
                 i32::from(extra_ref.unknown13),               // 31
                 extra_ref.unknown14,                          // 32
                 extra_ref.event_id,                           // 33
-                extra_ref.message_id,                         // 34
+                if extra_ref.message_id > 0 { Some(extra_ref.message_id) } else { None },  // 34
                 i32::from(extra_ref.unknown15),               // 35
                 i32::from(extra_ref.unknown16),               // 36
                 extra_ref.unknown17,                          // 37

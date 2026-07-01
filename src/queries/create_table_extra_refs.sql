@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS extra_refs
     unknown13                INTEGER,
     unknown14                BLOB,
     event_id                 INTEGER,
-    message_id               INTEGER,
+    message_id               INTEGER REFERENCES messages(id) ON DELETE SET NULL,
     unknown15                INTEGER,
     unknown16                INTEGER,
     unknown17                INTEGER,
