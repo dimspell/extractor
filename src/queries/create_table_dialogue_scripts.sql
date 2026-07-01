@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS dialogue_scripts(
     next_dialog_id3 INTEGER,
     triggered_event_id INTEGER,
     PRIMARY KEY (dialog_file_id, id),
+    FOREIGN KEY (dialog_file_id, dialog_id) REFERENCES dialogue_paragraphs(file_id, id),
     FOREIGN KEY (dialog_file_id, next_dialog_id1) REFERENCES dialogue_scripts(dialog_file_id, id),
     FOREIGN KEY (dialog_file_id, next_dialog_id2) REFERENCES dialogue_scripts(dialog_file_id, id),
     FOREIGN KEY (dialog_file_id, next_dialog_id3) REFERENCES dialogue_scripts(dialog_file_id, id)
