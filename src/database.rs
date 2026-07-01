@@ -88,10 +88,10 @@ pub fn initialize_database(conn: &Connection) -> Result<()> {
     conn.execute_batch(include_str!("queries/create_table_npc_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_wave_inis.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_inis.sql"))?;
-    conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_draw_items.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_script_files.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_dialogue_scripts.sql"))?;
+    conn.execute_batch(include_str!("queries/create_table_party_refs.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_tiles.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_objects.sql"))?;
     conn.execute_batch(include_str!("queries/create_table_map_sprites.sql"))?;

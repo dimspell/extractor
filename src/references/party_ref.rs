@@ -88,6 +88,14 @@ pub fn read_part_refs(source_path: &Path) -> std::io::Result<Vec<PartyRef>> {
 
 pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result<()> {
     let tx = conn.transaction()?;
+    // Look up the PartyDlg.dlg file_id from the dialogue_script_files registry.
+    let party_dlg_file_id: i32 = tx
+        .query_row(
+            "SELECT id FROM dialogue_script_files WHERE file_path = 'NpcInGame/PartyDlg.dlg'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_party_ref.sql"))?;
         for party_ref in party_refs {
@@ -97,8 +105,9 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
                 party_ref.job_name,
                 party_ref.root_map_id,
                 party_ref.npc_id,
-                party_ref.dlg_when_not_in_party,
-                party_ref.dlg_when_in_party,
+                party_dlg_file_id,
+                if party_ref.dlg_when_not_in_party == 0 { None } else { Some(party_ref.dlg_when_not_in_party) },
+                if party_ref.dlg_when_in_party == 0 { None } else { Some(party_ref.dlg_when_in_party) },
                 i32::from(party_ref.ghost_face_id),
             ])?;
         }
