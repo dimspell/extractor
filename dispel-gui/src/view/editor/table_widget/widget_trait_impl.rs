@@ -990,6 +990,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             };
 
             let mut cell = accesskit::Node::new(Role::ColumnHeader);
+            cell.add_action(accesskit::Action::Focus);
+            cell.add_action(accesskit::Action::ScrollIntoView);
             cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
             cell.set_row_index(0);
             cell.set_column_index(col);
@@ -1047,6 +1049,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 };
 
                 let mut cell = accesskit::Node::new(Role::Cell);
+                cell.add_action(accesskit::Action::Focus);
+                cell.add_action(accesskit::Action::ScrollIntoView);
                 cell.set_bounds(to_ak_rect(non_empty(cell_bounds)));
                 cell.set_row_index(row_idx + 1);
                 cell.set_column_index(col);
@@ -1091,6 +1095,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             let row_id = accesskit::NodeId(*id_counter);
             *id_counter += 1;
             let mut row = accesskit::Node::new(Role::Row);
+            row.add_action(accesskit::Action::Focus);
+            row.add_action(accesskit::Action::ScrollIntoView);
             row.set_row_index(row_idx + 1);
             row.set_column_index(0);
             row.set_column_span(n_cols);
@@ -1101,6 +1107,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             if flags.selected {
                 row.set_selected(true);
             }
+            // Register row in the action-routing map too, so focusing the
+            // Row node itself (not just its cells) can scroll-to-row.
+            self.cell_node_map
+                .borrow_mut()
+                .insert(row_id.0, (row_idx, 0));
             for id in &cell_ids {
                 row.push_child(*id);
             }
@@ -1112,6 +1123,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let grid_id = accesskit::NodeId(*id_counter);
         *id_counter += 1;
         let mut grid = accesskit::Node::new(Role::Table);
+        // Report scroll position so macOS knows how far we've scrolled,
+        // but do NOT set clips_children() — we generate ALL rows so
+        // VoiceOver can still navigate off-screen elements via ScrollIntoView.
+        grid.set_scroll_y(off.y as f64);
+        grid.set_scroll_x(off.x as f64);
         set_bounds(tree, &mut grid, bounds);
         grid.set_row_count(n_rows + 1);
         grid.set_column_count(n_cols);
@@ -1125,6 +1141,15 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         }
         nodes.push((grid_id, grid));
 
+        // Register ALL custom child node IDs so Iced's action dispatch
+        // (Focus, ScrollIntoView) can route back to this widget.
+        let all_custom_ids: Vec<accesskit::NodeId> = nodes
+            .iter()
+            .map(|(id, _node)| *id)
+            .filter(|id| *id != grid_id)
+            .collect();
+        tree.register_custom_accesskit_ids(&all_custom_ids);
+
         Some(grid_id)
     }
 
@@ -1137,14 +1162,21 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) {
         use accesskit;
 
+        eprintln!(
+            "[VO DEBUG] accessibility_action called action={:?} target={}",
+            action.action, action.target_node.0,
+        );
+
         // When the screen reader focuses/activates a cell, look up the
         // (row, col) from the map built in accessibility() and select that row.
         let row = match action.action {
             accesskit::Action::Focus | accesskit::Action::ScrollIntoView => {
-                self.cell_node_map
-                    .borrow()
-                    .get(&action.target_node.0)
-                    .map(|&(row, _col)| row)
+                let found = self.cell_node_map.borrow().get(&action.target_node.0).copied();
+                eprintln!(
+                    "[VO DEBUG] accessibility_action lookup target={} -> {:?}",
+                    action.target_node.0, found,
+                );
+                found.map(|(row, _col)| row)
             }
             _ => None,
         };
