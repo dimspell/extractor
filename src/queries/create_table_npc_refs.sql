@@ -3,7 +3,7 @@ CREATE TABLE npc_refs
     file_path         TEXT,
     row_id            INTEGER,
     id                INTEGER,
-    npc_id            INTEGER,
+    npc_id            INTEGER REFERENCES npc_inis(id) ON DELETE SET NULL,
     name              TEXT,
     description       TEXT,
     party_script_id   INTEGER,

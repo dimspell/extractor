@@ -240,7 +240,7 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -
                 file_path,
                 npc.index,
                 npc.id,
-                npc.npc_id,
+                if npc.npc_id == 0 { None } else { Some(npc.npc_id) },
                 npc.name,
                 npc.description,
                 npc.party_script_id,
