@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS extra_refs
     id                       INTEGER,
     number_in_file           INTEGER,
     unknown1                 INTEGER,
-    ext_id                   INTEGER,
+    ext_id                   INTEGER REFERENCES extras(id) ON DELETE SET NULL,
     name                     TEXT,
     object_type              INTEGER,
     x_pos                    INTEGER,

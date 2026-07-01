@@ -183,7 +183,7 @@ pub fn save_extra_refs(
                 extra_ref.id,                                 // 2
                 extra_ref.number_in_file,                     // 3
                 extra_ref.unknown1,                           // 4
-                extra_ref.ext_id,                             // 5
+                if extra_ref.ext_id > 0 { Some(extra_ref.ext_id) } else { None },  // 5
                 extra_ref.name,                               // 6
                 u8::from(extra_ref.object_type),              // 7
                 extra_ref.x_pos,                              // 8
