@@ -7,7 +7,7 @@ CREATE TABLE npc_refs
     name              TEXT,
     description       TEXT,
     party_script_id   INTEGER,
-    show_on_event     INTEGER,
+    show_on_event     INTEGER REFERENCES events(event_id) ON DELETE SET NULL,
     unknown_1         INTEGER,
     goto1_filled      INTEGER,
     goto2_filled      INTEGER,

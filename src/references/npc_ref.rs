@@ -244,7 +244,7 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -
                 npc.name,
                 npc.description,
                 npc.party_script_id,
-                npc.show_on_event,
+                if npc.show_on_event == 0 { None } else { Some(npc.show_on_event) },
                 i32::from(npc.unknown_1),
                 i32::from(npc.goto1_filled),
                 i32::from(npc.goto2_filled),
