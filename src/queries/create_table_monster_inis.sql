@@ -1,11 +1,11 @@
 CREATE TABLE IF NOT EXISTS monster_inis
 (
-    id,
-    name,
-    sprite_filename,
-    attack,
-    hit,
-    death,
-    walking,
-    casting_magic
+    id              INTEGER PRIMARY KEY,
+    name            TEXT,
+    sprite_filename TEXT,
+    attack          INTEGER,
+    hit             INTEGER,
+    death           INTEGER,
+    walking         INTEGER,
+    casting_magic   INTEGER
 )

@@ -3,7 +3,7 @@ CREATE TABLE monster_refs
     file_id         INTEGER NOT NULL REFERENCES monster_ref_files(id),
     id              INTEGER,
     file_id         INTEGER,
-    mon_id          INTEGER,
+    mon_id          INTEGER REFERENCES monster_inis(id) ON DELETE SET NULL,
     pos_x           INTEGER,
     pos_y           INTEGER,
     padding1        INTEGER,
