@@ -178,7 +178,7 @@ pub fn read_dialogue_paragraphs(source_path: &Path) -> std::io::Result<Vec<Dialo
 
 pub fn save_dialogue_paragraphs(
     conn: &mut Connection,
-    file_name: &str,
+    file_id: i32,
     texts: &[DialogueParagraph],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -186,7 +186,7 @@ pub fn save_dialogue_paragraphs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
         for text in texts {
             stmt.execute(params![
-                file_name,
+                file_id,
                 text.id,
                 text.text,
                 text.comment,

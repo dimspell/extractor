@@ -29,6 +29,7 @@ use dispel_core::references::store_db::save_stores;
 use dispel_core::references::wave_ini::save_wave_inis;
 use dispel_core::references::weapons_db::save_weapons;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
@@ -232,6 +233,7 @@ fn import_dialogues_paragraphs(
         "NpcInGame/PartyDlg.dlg",
     ];
     println!("Saving dialogue_script_files...");
+    let mut pgp_to_file_id: HashMap<String, i32> = HashMap::new();
     {
         let mut stmt = conn.prepare(include_str!("../queries/insert_dialogue_script_file.sql"))?;
         for (file_id, dialog_file) in dialog_files.iter().enumerate() {
@@ -240,7 +242,15 @@ fn import_dialogues_paragraphs(
                 .and_then(|s| s.to_str())
                 .and_then(|s| s.strip_prefix("Dlg"))
                 .map(|s| s.to_string());
-            stmt.execute(params![dialog_file, file_id as i32, map_name])?;
+            let pgp_path = {
+                let path = std::path::Path::new(dialog_file);
+                let stem = path.file_stem().unwrap().to_str().unwrap();
+                let pgp_stem = stem.replace("Dlg", "Pgp");
+                let parent = path.parent().unwrap_or_else(|| std::path::Path::new(""));
+                format!("{}/{}.pgp", parent.display(), pgp_stem)
+            };
+            stmt.execute(params![file_id as i32, dialog_file, pgp_path, map_name])?;
+            pgp_to_file_id.insert(pgp_path, file_id as i32);
         }
     }
     println!("Saving dialogs...");
@@ -272,7 +282,10 @@ fn import_dialogues_paragraphs(
         let texts = dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs(
             &main_path.join(pgp_file),
         )?;
-        save_dialogue_paragraphs(conn, pgp_file, &texts)?;
+        let file_id = pgp_to_file_id.get(pgp_file).copied().unwrap_or_else(|| {
+            panic!("No dialogue_script_files entry found for PGP file: {}", pgp_file)
+        });
+        save_dialogue_paragraphs(conn, file_id, &texts)?;
     }
     Ok(())
 }
