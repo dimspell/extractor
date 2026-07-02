@@ -1,7 +1,6 @@
 use iced::widget::button;
 use iced::{color, Background, Border, Color, Shadow, Theme, Vector};
 
-
 pub fn tab_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),

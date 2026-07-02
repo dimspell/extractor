@@ -396,5 +396,4 @@ impl App {
         let idx = self.state.workspace.active_tab?;
         self.state.workspace.tabs.get(idx).map(|t| t.id)
     }
-
 }

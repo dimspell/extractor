@@ -169,65 +169,73 @@ pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
     ExtraRef::read_file(source_path)
 }
 
-pub fn save_extra_refs(
-    conn: &mut Connection,
-    file_id: i32,
-    extra_refs: &[ExtraRef],
-) -> Result<()> {
+pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraRef]) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_extra_ref.sql"))?;
         for extra_ref in extra_refs {
             stmt.execute(params![
-                file_id,                                      // 1
-                extra_ref.id,                                 // 2
-                extra_ref.number_in_file,                     // 3
-                extra_ref.unknown1,                           // 4
-                if extra_ref.ext_id > 0 { Some(extra_ref.ext_id) } else { None },  // 5
-                extra_ref.name,                               // 6
-                u8::from(extra_ref.object_type),              // 7
-                extra_ref.x_pos,                              // 8
-                extra_ref.y_pos,                              // 9
-                extra_ref.rotation,                           // 10
-                extra_ref.unknown2,                           // 11
-                extra_ref.unknown3,                           // 12
-                i32::from(extra_ref.closed),                  // 13
-                extra_ref.required_item_id,                   // 14
-                u8::from(extra_ref.required_item_type_id),    // 15
-                extra_ref.unknown4,                           // 16
-                extra_ref.required_item_id2,                  // 17
-                u8::from(extra_ref.required_item_type_id2),   // 18
-                extra_ref.unknown5,                           // 19
-                i32::from(extra_ref.unknown6),                // 20
-                i32::from(extra_ref.unknown7),                // 21
-                i32::from(extra_ref.unknown8),                // 22
-                i32::from(extra_ref.unknown9),                // 23
-                extra_ref.gold_amount,                        // 24
-                extra_ref.item_id,                            // 25
-                u8::from(extra_ref.item_type_id),             // 26
-                extra_ref.unknown10,                          // 27
-                extra_ref.item_count,                         // 28
-                i32::from(extra_ref.unknown11),               // 29
-                i32::from(extra_ref.unknown12),               // 30
-                i32::from(extra_ref.unknown13),               // 31
-                extra_ref.unknown14,                          // 32
-                if extra_ref.event_id > 0 { Some(extra_ref.event_id) } else { None },  // 33
-                if extra_ref.message_id > 0 { Some(extra_ref.message_id) } else { None },  // 34
-                i32::from(extra_ref.unknown15),               // 35
-                i32::from(extra_ref.unknown16),               // 36
-                extra_ref.unknown17,                          // 37
+                file_id,                  // 1
+                extra_ref.id,             // 2
+                extra_ref.number_in_file, // 3
+                extra_ref.unknown1,       // 4
+                if extra_ref.ext_id > 0 {
+                    Some(extra_ref.ext_id)
+                } else {
+                    None
+                }, // 5
+                extra_ref.name,           // 6
+                u8::from(extra_ref.object_type), // 7
+                extra_ref.x_pos,          // 8
+                extra_ref.y_pos,          // 9
+                extra_ref.rotation,       // 10
+                extra_ref.unknown2,       // 11
+                extra_ref.unknown3,       // 12
+                i32::from(extra_ref.closed), // 13
+                extra_ref.required_item_id, // 14
+                u8::from(extra_ref.required_item_type_id), // 15
+                extra_ref.unknown4,       // 16
+                extra_ref.required_item_id2, // 17
+                u8::from(extra_ref.required_item_type_id2), // 18
+                extra_ref.unknown5,       // 19
+                i32::from(extra_ref.unknown6), // 20
+                i32::from(extra_ref.unknown7), // 21
+                i32::from(extra_ref.unknown8), // 22
+                i32::from(extra_ref.unknown9), // 23
+                extra_ref.gold_amount,    // 24
+                extra_ref.item_id,        // 25
+                u8::from(extra_ref.item_type_id), // 26
+                extra_ref.unknown10,      // 27
+                extra_ref.item_count,     // 28
+                i32::from(extra_ref.unknown11), // 29
+                i32::from(extra_ref.unknown12), // 30
+                i32::from(extra_ref.unknown13), // 31
+                extra_ref.unknown14,      // 32
+                if extra_ref.event_id > 0 {
+                    Some(extra_ref.event_id)
+                } else {
+                    None
+                }, // 33
+                if extra_ref.message_id > 0 {
+                    Some(extra_ref.message_id)
+                } else {
+                    None
+                }, // 34
+                i32::from(extra_ref.unknown15), // 35
+                i32::from(extra_ref.unknown16), // 36
+                extra_ref.unknown17,      // 37
                 u8::from(extra_ref.interactive_element_type), // 38
-                extra_ref.unknown18,                          // 39
-                i32::from(extra_ref.is_quest_element),        // 40
-                i32::from(extra_ref.unknown20),               // 41
-                i32::from(extra_ref.unknown21),               // 42
-                extra_ref.unknown22,                          // 43
-                i32::from(extra_ref.unknown23),               // 44
-                u8::from(extra_ref.visibility),               // 45
-                i32::from(extra_ref.unknown24),               // 46
-                extra_ref.unknown25,                          // 47
-                i32::from(extra_ref.unknown26),               // 48
-                i32::from(extra_ref.unknown27),               // 49
+                extra_ref.unknown18,      // 39
+                i32::from(extra_ref.is_quest_element), // 40
+                i32::from(extra_ref.unknown20), // 41
+                i32::from(extra_ref.unknown21), // 42
+                extra_ref.unknown22,      // 43
+                i32::from(extra_ref.unknown23), // 44
+                u8::from(extra_ref.visibility), // 45
+                i32::from(extra_ref.unknown24), // 46
+                extra_ref.unknown25,      // 47
+                i32::from(extra_ref.unknown26), // 48
+                i32::from(extra_ref.unknown27), // 49
             ])?;
         }
     }

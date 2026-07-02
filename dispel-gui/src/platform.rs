@@ -38,7 +38,9 @@ pub fn find_snf_file(game_path: &str, snf_filename: &str) -> std::path::PathBuf 
         return direct;
     }
 
-    let candidate = std::path::PathBuf::from(game_path).join("Sound").join(snf_filename);
+    let candidate = std::path::PathBuf::from(game_path)
+        .join("Sound")
+        .join(snf_filename);
     if candidate.exists() {
         return candidate;
     }

@@ -3,13 +3,13 @@ use iced::Theme;
 
 pub mod app;
 pub mod auto_save;
-pub mod dispatch_table;
-pub mod subscriptions;
 pub mod components;
+pub mod dispatch_table;
 pub mod editor_registry;
 pub mod editors;
 pub mod indexation;
 pub mod message;
+pub mod subscriptions;
 
 pub mod platform;
 pub mod state;

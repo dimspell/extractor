@@ -1,7 +1,6 @@
 use iced::widget::container;
 use iced::{color, Background, Border, Color, Shadow, Theme, Vector};
 
-
 pub fn root_container(_theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(color!(0x2a2a2a))),

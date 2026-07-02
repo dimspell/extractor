@@ -466,9 +466,9 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
                     state.status_msg = "Change reverted.".into();
                     // Re-select the mod to refresh the changelog
                     if let Some(slug) = state.selected_slug.clone() {
-                        return Task::done(Message::mod_packager(
-                            ModPackagerMessage::SelectMod(slug),
-                        ));
+                        return Task::done(Message::mod_packager(ModPackagerMessage::SelectMod(
+                            slug,
+                        )));
                     }
                     Task::none()
                 }
@@ -482,8 +482,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
         // ----- Hex diff integration --------------------------------------
         ModPackagerMessage::OpenHexDiff(action_id) => {
             let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
-                app.state.editors.mod_packager_editor.status_msg =
-                    "Open a workspace first.".into();
+                app.state.editors.mod_packager_editor.status_msg = "Open a workspace first.".into();
                 return Task::none();
             };
             let game_dir = PathBuf::from(&app.state.shared_game_path);
@@ -514,39 +513,39 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
 
             Task::perform(
                 async move {
-                    tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
-                        let ws = Workspace::open(root).map_err(|e| e.to_string())?;
-                        let vanilla = ws
-                            .vanilla()
-                            .ensure_snapshot(&game_dir, &file_path)
-                            .map_err(|e| e.to_string())?
-                            .unwrap_or_default();
+                    tokio::task::spawn_blocking(
+                        move || -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+                            let ws = Workspace::open(root).map_err(|e| e.to_string())?;
+                            let vanilla = ws
+                                .vanilla()
+                                .ensure_snapshot(&game_dir, &file_path)
+                                .map_err(|e| e.to_string())?
+                                .unwrap_or_default();
 
-                        let patched = match &op {
-                            ChangeOp::BinaryDelta { patch_bytes } => {
-                                apply_delta(&vanilla, patch_bytes)
-                                    .map_err(|e| format!("apply delta: {e}"))?
-                            }
-                            ChangeOp::FileReplace { content } => content.clone(),
-                            _ => return Err("Unsupported operation for hex diff".into()),
-                        };
+                            let patched = match &op {
+                                ChangeOp::BinaryDelta { patch_bytes } => {
+                                    apply_delta(&vanilla, patch_bytes)
+                                        .map_err(|e| format!("apply delta: {e}"))?
+                                }
+                                ChangeOp::FileReplace { content } => content.clone(),
+                                _ => return Err("Unsupported operation for hex diff".into()),
+                            };
 
-                        Ok((patched, Some(vanilla)))
-                    })
+                            Ok((patched, Some(vanilla)))
+                        },
+                    )
                     .await
                     .unwrap_or_else(|e| Err(e.to_string()))
                 },
                 move |result| match result {
-                    Ok((patched_bytes, vanilla_bytes)) => Message::mod_packager(
-                        ModPackagerMessage::HexDiffReady {
+                    Ok((patched_bytes, vanilla_bytes)) => {
+                        Message::mod_packager(ModPackagerMessage::HexDiffReady {
                             file_path: file_path_for_msg,
                             patched_bytes,
                             vanilla_bytes,
-                        },
-                    ),
-                    Err(e) => {
-                        Message::mod_packager(ModPackagerMessage::HexDiffFailed(e))
+                        })
                     }
+                    Err(e) => Message::mod_packager(ModPackagerMessage::HexDiffFailed(e)),
                 },
             )
         }
@@ -581,8 +580,7 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         ModPackagerMessage::HexDiffFailed(e) => {
-            app.state.editors.mod_packager_editor.status_msg =
-                format!("Hex diff failed: {e}");
+            app.state.editors.mod_packager_editor.status_msg = format!("Hex diff failed: {e}");
             Task::none()
         }
 

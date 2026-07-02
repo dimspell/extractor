@@ -162,7 +162,9 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             let max_page = app.state.editors.viewer.total_rows.saturating_sub(1) / PAGE_SIZE;
             if app.state.editors.viewer.page < max_page {
                 app.state.editors.viewer.page += 1;
-                return crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer);
+                return crate::editors::db_viewer::fetch::fetch_table_data(
+                    &mut app.state.editors.viewer,
+                );
             }
             Task::none()
         }
@@ -170,7 +172,9 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Navigate to previous page
             if app.state.editors.viewer.page > 0 {
                 app.state.editors.viewer.page -= 1;
-                return crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer);
+                return crate::editors::db_viewer::fetch::fetch_table_data(
+                    &mut app.state.editors.viewer,
+                );
             }
             Task::none()
         }

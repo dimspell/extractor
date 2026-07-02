@@ -175,7 +175,11 @@ pub fn save_monster_refs(
                 file_id,
                 monster_ref.index,
                 monster_ref.file_id,
-                if monster_ref.mon_id == 0 { None } else { Some(monster_ref.mon_id) },
+                if monster_ref.mon_id == 0 {
+                    None
+                } else {
+                    Some(monster_ref.mon_id)
+                },
                 monster_ref.pos_x,
                 monster_ref.pos_y,
                 i32::from(monster_ref.padding1),

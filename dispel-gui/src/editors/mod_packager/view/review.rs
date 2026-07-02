@@ -24,13 +24,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
 
     if grouped.is_empty() {
-        return container(
-            text("No changes to review. Record edits to see them here.").size(12),
-        )
-        .padding(40)
-        .center_x(Fill)
-        .center_y(Fill)
-        .into();
+        return container(text("No changes to review. Record edits to see them here.").size(12))
+            .padding(40)
+            .center_x(Fill)
+            .center_y(Fill)
+            .into();
     }
 
     let mut sections = Vec::new();
@@ -89,12 +87,10 @@ fn change_card<'a>(action: &'a ChangeAction) -> Element<'a, Message> {
             .spacing(2);
             container(body).padding(6).width(Fill).into()
         }
-        ChangeOp::FileDelete => {
-            container(text("File deletion").size(11))
-                .padding(6)
-                .width(Fill)
-                .into()
-        }
+        ChangeOp::FileDelete => container(text("File deletion").size(11))
+            .padding(6)
+            .width(Fill)
+            .into(),
     }
 }
 

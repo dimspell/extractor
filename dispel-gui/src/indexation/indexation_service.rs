@@ -265,11 +265,7 @@ impl IndexationService {
                     Ok(metadata) => Some(metadata),
                     Err(e) => {
                         // Log the error but continue without metadata for this file
-                        log::warn!(
-                            "Failed to analyze sprite file '{}': {}",
-                            path.display(),
-                            e
-                        );
+                        log::warn!("Failed to analyze sprite file '{}': {}", path.display(), e);
                         None
                     }
                 }
@@ -304,11 +300,7 @@ impl IndexationService {
                 ) {
                     // Log the error but continue with other directories
                     if !e.is_cancelled() {
-                        log::warn!(
-                            "Error scanning directory '{}': {}",
-                            path.display(),
-                            e
-                        );
+                        log::warn!("Error scanning directory '{}': {}", path.display(), e);
                     } else {
                         return Err(e);
                     }
@@ -423,7 +415,6 @@ impl IndexationService {
     pub async fn get_latest_progress(&self) -> Option<IndexationProgress> {
         self.progress_history.lock().await.last().cloned()
     }
-
 }
 
 /// Indexation progress updates

@@ -183,7 +183,9 @@ pub fn spreadsheet_nav_msg(
     Some(match et {
         WeaponEditor => Message::weapon(weapon::WeaponEditorMessage::Spreadsheet(sm)),
         MonsterEditor => Message::monster(monster::MonsterEditorMessage::Spreadsheet(sm)),
-        MonsterIniEditor => Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm)),
+        MonsterIniEditor => {
+            Message::monster_ini(monster_ini::MonsterIniEditorMessage::Spreadsheet(sm))
+        }
         HealItemEditor => Message::heal_item(heal_item::HealItemEditorMessage::Spreadsheet(sm)),
         MiscItemEditor => Message::misc_item(misc_item::MiscItemEditorMessage::Spreadsheet(sm)),
         EditItemEditor => Message::edit_item(edit_item::EditItemEditorMessage::Spreadsheet(sm)),
@@ -192,23 +194,37 @@ pub fn spreadsheet_nav_msg(
         StoreEditor => return None, // Store editor has a custom layout, no generic spreadsheet
         NpcIniEditor => Message::npc_ini(npc_ini::NpcIniEditorMessage::Spreadsheet(sm)),
         NpcRefEditor => Message::npc_ref(npc_ref::NpcRefEditorMessage::Spreadsheet(sm)),
-        MonsterRefEditor => Message::monster_ref(monster_ref::MonsterRefEditorMessage::Spreadsheet(sm)),
+        MonsterRefEditor => {
+            Message::monster_ref(monster_ref::MonsterRefEditorMessage::Spreadsheet(sm))
+        }
         PartyRefEditor => Message::party_ref(party_ref::PartyRefEditorMessage::Spreadsheet(sm)),
         PartyIniEditor => Message::party_ini(party_ini::PartyIniEditorMessage::Spreadsheet(sm)),
-        AllMapIniEditor => Message::all_map_ini(all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm)),
+        AllMapIniEditor => {
+            Message::all_map_ini(all_map_ini::AllMapIniEditorMessage::Spreadsheet(sm))
+        }
         MapIniEditor => Message::map_ini(map_ini::MapIniEditorMessage::Spreadsheet(sm)),
         ExtraIniEditor => Message::extra_ini(extra_ini::ExtraIniEditorMessage::Spreadsheet(sm)),
         ExtraRefEditor => Message::extra_ref(extra_ref::ExtraRefEditorMessage::Spreadsheet(sm)),
         EventIniEditor => Message::event_ini(event_ini::EventIniEditorMessage::Spreadsheet(sm)),
-        EventNpcRefEditor => Message::event_npc_ref(event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm)),
+        EventNpcRefEditor => {
+            Message::event_npc_ref(event_npc_ref::EventNpcRefEditorMessage::Spreadsheet(sm))
+        }
         WaveIniEditor => Message::wave_ini(wave_ini::WaveIniEditorMessage::Spreadsheet(sm)),
         DrawItemEditor => Message::draw_item(draw_item::DrawItemEditorMessage::Spreadsheet(sm)),
-        MessageScrEditor => Message::message_scr(message_scr::MessageScrEditorMessage::Spreadsheet(sm)),
+        MessageScrEditor => {
+            Message::message_scr(message_scr::MessageScrEditorMessage::Spreadsheet(sm))
+        }
         QuestScrEditor => Message::quest_scr(quest_scr::QuestScrEditorMessage::Spreadsheet(sm)),
-        DialogueScriptEditor => Message::dialogue_script(dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm)),
-        DialogueTextEditor => Message::dialogue_paragraph(dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm)),
+        DialogueScriptEditor => Message::dialogue_script(
+            dialogue_script::DialogueScriptEditorMessage::Spreadsheet(sm),
+        ),
+        DialogueTextEditor => Message::dialogue_paragraph(
+            dialogue_paragraph::DialogueParagraphEditorMessage::Spreadsheet(sm),
+        ),
         ChDataEditor => Message::chdata(chdata::ChDataEditorMessage::Spreadsheet(sm)),
-        PartyLevelDbEditor => Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm)),
+        PartyLevelDbEditor => {
+            Message::party_level_db(party_level_db::PartyLevelDbEditorMessage::Spreadsheet(sm))
+        }
         _ => return None,
     })
 }

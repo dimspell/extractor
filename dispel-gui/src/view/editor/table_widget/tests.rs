@@ -117,16 +117,32 @@ fn col_positions_are_cumulative() {
     // n_cols = 1 (id) + 2 (data) = 3 → positions.len() = n_cols + 1 = 4
     assert_eq!(positions.len(), 4);
     assert!((positions[0] - 0.0).abs() < f32::EPSILON);
-    assert!((positions[1] - 42.0).abs() < f32::EPSILON, "expect id col width");
-    assert!((positions[2] - 142.0).abs() < f32::EPSILON, "expect id + 100");
-    assert!((positions[3] - 342.0).abs() < f32::EPSILON, "expect id + 100 + 200");
+    assert!(
+        (positions[1] - 42.0).abs() < f32::EPSILON,
+        "expect id col width"
+    );
+    assert!(
+        (positions[2] - 142.0).abs() < f32::EPSILON,
+        "expect id + 100"
+    );
+    assert!(
+        (positions[3] - 342.0).abs() < f32::EPSILON,
+        "expect id + 100 + 200"
+    );
 }
 
 #[test]
 fn col_positions_empty_only_id_col() {
     let cache = ParagraphCache::default();
-    let w: TableWidget<'_, ()> =
-        TableWidget::new(&[] as &[Vec<String>], &[], vec![], 42.0, no_flags, 24.0, cache);
+    let w: TableWidget<'_, ()> = TableWidget::new(
+        &[] as &[Vec<String>],
+        &[],
+        vec![],
+        42.0,
+        no_flags,
+        24.0,
+        cache,
+    );
 
     let positions = w.col_positions();
     // Only the id column → 1 position
@@ -139,8 +155,15 @@ fn col_positions_empty_only_id_col() {
 fn body_bounds_starts_after_header() {
     let cache = ParagraphCache::default();
     let cols = vec![named_col(100.0, "X")];
-    let w: TableWidget<'_, ()> =
-        TableWidget::new(&[] as &[Vec<String>], &[], cols, 42.0, no_flags, 24.0, cache);
+    let w: TableWidget<'_, ()> = TableWidget::new(
+        &[] as &[Vec<String>],
+        &[],
+        cols,
+        42.0,
+        no_flags,
+        24.0,
+        cache,
+    );
 
     let bounds = Rectangle {
         x: 10.0,
@@ -160,8 +183,15 @@ fn body_bounds_starts_after_header() {
 fn body_bounds_width_fits_without_scrollbar() {
     let cache = ParagraphCache::default();
     let cols = vec![named_col(100.0, "X")];
-    let w: TableWidget<'_, ()> =
-        TableWidget::new(&[] as &[Vec<String>], &[], cols, 42.0, no_flags, 24.0, cache);
+    let w: TableWidget<'_, ()> = TableWidget::new(
+        &[] as &[Vec<String>],
+        &[],
+        cols,
+        42.0,
+        no_flags,
+        24.0,
+        cache,
+    );
 
     // Total width = 142, bounds width = 500 → content fits → no scrollbar
     let bounds = Rectangle {
@@ -171,16 +201,25 @@ fn body_bounds_width_fits_without_scrollbar() {
         height: 100.0,
     };
     let body = w.body_bounds(bounds);
-    assert!((body.width - 500.0).abs() < f32::EPSILON,
-        "body width should equal bounds width when content fits");
+    assert!(
+        (body.width - 500.0).abs() < f32::EPSILON,
+        "body width should equal bounds width when content fits"
+    );
 }
 
 #[test]
 fn body_bounds_reserves_horizontal_scrollbar_in_height() {
     let cache = ParagraphCache::default();
     let cols = vec![named_col(600.0, "Wide")];
-    let w: TableWidget<'_, ()> =
-        TableWidget::new(&[] as &[Vec<String>], &[], cols, 42.0, no_flags, 24.0, cache);
+    let w: TableWidget<'_, ()> = TableWidget::new(
+        &[] as &[Vec<String>],
+        &[],
+        cols,
+        42.0,
+        no_flags,
+        24.0,
+        cache,
+    );
 
     // Total width = 642 > 200 → horizontal scrollbar needed
     // No vertical scrollbar (height fits) → width is bounds.width
@@ -193,12 +232,16 @@ fn body_bounds_reserves_horizontal_scrollbar_in_height() {
     };
     let body = w.body_bounds(bounds);
     // No vertical scrollbar → width unchanged
-    assert!((body.width - 200.0).abs() < f32::EPSILON,
-        "body width unchanged when vertical scrollbar not needed");
+    assert!(
+        (body.width - 200.0).abs() < f32::EPSILON,
+        "body width unchanged when vertical scrollbar not needed"
+    );
     // Horizontal scrollbar subtracted from height
     let expected_h = 100.0 - w.header_height() - super::SCROLLBAR_THICKNESS;
-    assert!((body.height - expected_h).abs() < f32::EPSILON,
-        "body height subtracts horizontal scrollbar thickness");
+    assert!(
+        (body.height - expected_h).abs() < f32::EPSILON,
+        "body height subtracts horizontal scrollbar thickness"
+    );
 }
 
 #[test]
@@ -248,7 +291,6 @@ fn cell_label_format_components() {
     assert_eq!(w.cell_value(1, 1).as_deref(), Some("Iron Shield"));
     assert_eq!(w.cell_value(1, 2).as_deref(), Some("8"));
     assert_eq!(w.cell_value(1, 3).as_deref(), Some("7.2"));
-
 }
 
 #[test]
@@ -262,14 +304,18 @@ fn scroll_target_y_clamps_to_content_height() {
 
     // Simulate the clamping that accessibility_action does:
     let row = 29usize;
-    let target_y = row as f32 * w.row_height;         // 29 × 24 = 696
+    let target_y = row as f32 * w.row_height; // 29 × 24 = 696
     let body_h = 240.0_f32;
     let max_scroll = (w.total_height() - body_h).max(0.0);
     let clamped = target_y.clamp(0.0, max_scroll);
 
     // total_height = 30 × 24 = 720, body_h = 240 → max_scroll = 480
-    assert!((max_scroll - 480.0).abs() < f32::EPSILON,
-        "max_scroll = total_height - body_height");
-    assert!((clamped - 480.0).abs() < f32::EPSILON,
-        "clamped to max_scroll when target exceeds it");
+    assert!(
+        (max_scroll - 480.0).abs() < f32::EPSILON,
+        "max_scroll = total_height - body_height"
+    );
+    assert!(
+        (clamped - 480.0).abs() < f32::EPSILON,
+        "clamped to max_scroll when target exceeds it"
+    );
 }

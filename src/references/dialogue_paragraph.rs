@@ -191,7 +191,11 @@ pub fn save_dialogue_paragraphs(
                 text.text,
                 text.comment,
                 text.param1,
-                if text.wave_ini_entry_id > 0 { Some(text.wave_ini_entry_id) } else { None },
+                if text.wave_ini_entry_id > 0 {
+                    Some(text.wave_ini_entry_id)
+                } else {
+                    None
+                },
             ])?;
         }
     }

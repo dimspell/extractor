@@ -56,11 +56,7 @@ pub fn handle(msg: hexedit::HexEditorMessage, app: &mut App) -> Task<Message> {
     let Some(state) = app.state.editors.hex_editors.get_mut(&tab_id) else {
         return Task::none();
     };
-    let config = build_hex_config(
-        &app.state.recording,
-        &app.state.workspace.game_path,
-        state,
-    );
+    let config = build_hex_config(&app.state.recording, &app.state.workspace.game_path, state);
     hexedit::update(state, &config, msg).map(Message::hex_editor)
 }
 
@@ -73,11 +69,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .unwrap_or(usize::MAX);
     match app.state.editors.hex_editors.get(&tab_id) {
         Some(state) => {
-            let config = build_hex_config(
-                &app.state.recording,
-                &app.state.workspace.game_path,
-                state,
-            );
+            let config =
+                build_hex_config(&app.state.recording, &app.state.workspace.game_path, state);
             hexedit::view(state, &config).map(Message::hex_editor)
         }
         None => container(text("Hex editor not loaded").size(14))

@@ -106,8 +106,16 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
                 party_ref.root_map_id,
                 party_ref.npc_id,
                 party_dlg_file_id,
-                if party_ref.dlg_when_not_in_party == 0 { None } else { Some(party_ref.dlg_when_not_in_party) },
-                if party_ref.dlg_when_in_party == 0 { None } else { Some(party_ref.dlg_when_in_party) },
+                if party_ref.dlg_when_not_in_party == 0 {
+                    None
+                } else {
+                    Some(party_ref.dlg_when_not_in_party)
+                },
+                if party_ref.dlg_when_in_party == 0 {
+                    None
+                } else {
+                    Some(party_ref.dlg_when_in_party)
+                },
                 i32::from(party_ref.ghost_face_id),
             ])?;
         }

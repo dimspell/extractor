@@ -1,7 +1,6 @@
 use iced::widget::{container, text_input};
 use iced::{color, Background, Border, Color, Theme};
 
-
 pub fn grid_header_cell(_theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(color!(0x3e2723))), // Dark wood header

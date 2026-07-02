@@ -41,14 +41,16 @@ fn field_delta_panel<'a>(
 
     let old_line = row![
         text("  - Old: ").size(11),
-        text(format_display_value(old)).size(11)
+        text(format_display_value(old))
+            .size(11)
             .color(Color::from_rgb(0.6, 0.2, 0.2)),
     ]
     .spacing(0);
 
     let new_line = row![
         text("  + New: ").size(11),
-        text(format_display_value(new)).size(11)
+        text(format_display_value(new))
+            .size(11)
             .color(Color::from_rgb(0.2, 0.5, 0.2)),
     ]
     .spacing(0);
@@ -65,10 +67,7 @@ fn field_delta_panel<'a>(
 // BinaryDelta
 // ---------------------------------------------------------------------------
 
-fn binary_delta_panel<'a>(
-    action: &'a ChangeAction,
-    patch_bytes: &[u8],
-) -> Element<'a, Message> {
+fn binary_delta_panel<'a>(action: &'a ChangeAction, patch_bytes: &[u8]) -> Element<'a, Message> {
     let header = text(format!(
         "{}  —  Binary delta — {} byte patch",
         action.file_path,
@@ -95,10 +94,7 @@ fn binary_delta_panel<'a>(
 // FileReplace
 // ---------------------------------------------------------------------------
 
-fn file_replace_panel<'a>(
-    action: &'a ChangeAction,
-    content: &[u8],
-) -> Element<'a, Message> {
+fn file_replace_panel<'a>(action: &'a ChangeAction, content: &[u8]) -> Element<'a, Message> {
     let header = text(format!(
         "{}  —  File replacement — {} bytes",
         action.file_path,

@@ -1,7 +1,6 @@
 use iced::widget::progress_bar;
 use iced::{color, Background, Border, Theme};
 
-
 pub fn loading_progress_bar(_theme: &Theme) -> progress_bar::Style {
     progress_bar::Style {
         background: Background::Color(color!(0x3d2b1f)),

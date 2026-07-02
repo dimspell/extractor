@@ -1,7 +1,6 @@
 use iced::widget::{button, container};
 use iced::{color, Background, Border, Color, Theme};
 
-
 pub fn badge_container(_theme: &Theme) -> container::Style {
     container::Style {
         background: Some(Background::Color(color!(0x3d2b1f))),

@@ -933,13 +933,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             height: r.height.max(1.0),
             ..r
         };
-        let to_ak_rect =
-            |r: Rectangle| accesskit::Rect {
-                x0: r.x as f64,
-                y0: r.y as f64,
-                x1: (r.x + r.width) as f64,
-                y1: (r.y + r.height) as f64,
-            };
+        let to_ak_rect = |r: Rectangle| accesskit::Rect {
+            x0: r.x as f64,
+            y0: r.y as f64,
+            x1: (r.x + r.width) as f64,
+            y1: (r.y + r.height) as f64,
+        };
         let union_rect = |a: Rectangle, b: Rectangle| Rectangle {
             x: a.x.min(b.x),
             y: a.y.min(b.y),
@@ -1003,13 +1002,16 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             } else if let Some(c) = self.columns.get(col - 1) {
                 cell.set_label(c.label.as_str());
                 if let Some(asc) = c.sort {
-                    cell.set_description(if asc { "sorted ascending" } else { "sorted descending" });
+                    cell.set_description(if asc {
+                        "sorted ascending"
+                    } else {
+                        "sorted descending"
+                    });
                 }
             }
 
-            header_row_bounds = Some(
-                header_row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)),
-            );
+            header_row_bounds =
+                Some(header_row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)));
 
             nodes.push((cell_id, cell));
             header_cell_ids.push(cell_id);
@@ -1083,9 +1085,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 // when navigating cells, regardless of platform adapter support.
                 cell.push_labelled_by(header_cell_ids[col]);
 
-                row_bounds = Some(
-                    row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)),
-                );
+                row_bounds = Some(row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)));
 
                 nodes.push((cell_id, cell));
                 cell_ids.push(cell_id);
@@ -1171,7 +1171,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         // (row, col) from the map built in accessibility() and select that row.
         let row = match action.action {
             accesskit::Action::Focus | accesskit::Action::ScrollIntoView => {
-                let found = self.cell_node_map.borrow().get(&action.target_node.0).copied();
+                let found = self
+                    .cell_node_map
+                    .borrow()
+                    .get(&action.target_node.0)
+                    .copied();
                 eprintln!(
                     "[VO DEBUG] accessibility_action lookup target={} -> {:?}",
                     action.target_node.0, found,

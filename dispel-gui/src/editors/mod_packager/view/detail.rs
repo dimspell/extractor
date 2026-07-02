@@ -6,8 +6,8 @@ use dispel_core::modding::{ChangeAction, ChangeOp};
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_space;
-use crate::editors::mod_packager::ModPackagerMessage;
 use crate::editors::mod_packager::view::diff_panel;
+use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
 
 pub fn view(app: &App) -> Element<'_, Message> {
@@ -19,8 +19,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     let manifest_section = manifest_form(state);
-    let changelog_section =
-        changelog_panel(&state.selected_changes, state.selected_change_idx);
+    let changelog_section = changelog_panel(&state.selected_changes, state.selected_change_idx);
 
     let is_recording_this = app
         .state
@@ -116,10 +115,7 @@ fn save_button(dirty: bool, busy: bool) -> button::Button<'static, Message> {
     }
 }
 
-fn changelog_panel(
-    changes: &[ChangeAction],
-    selected_idx: Option<usize>,
-) -> Element<'_, Message> {
+fn changelog_panel(changes: &[ChangeAction], selected_idx: Option<usize>) -> Element<'_, Message> {
     let header = text(format!("Change Log ({})", changes.len())).size(14);
 
     let body: Element<'_, Message> = if changes.is_empty() {

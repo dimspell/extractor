@@ -1,9 +1,9 @@
 //! Viewer data-fetching functions extracted from `app.rs`.
 
 use crate::editors::db_viewer::db;
+use crate::editors::db_viewer::DbViewerState;
 use crate::editors::db_viewer::PAGE_SIZE;
 use crate::message::{Message, ViewerMessage};
-use crate::editors::db_viewer::DbViewerState;
 use iced::Task;
 
 /// Fetch data using the built table query (filters + sorting).

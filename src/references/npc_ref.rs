@@ -245,11 +245,19 @@ pub fn save_npc_refs(
                 file_id,
                 npc.index,
                 npc.id,
-                if npc.npc_id == 0 { None } else { Some(npc.npc_id) },
+                if npc.npc_id == 0 {
+                    None
+                } else {
+                    Some(npc.npc_id)
+                },
                 npc.name,
                 npc.description,
                 npc.party_script_id,
-                if npc.show_on_event == 0 { None } else { Some(npc.show_on_event) },
+                if npc.show_on_event == 0 {
+                    None
+                } else {
+                    Some(npc.show_on_event)
+                },
                 i32::from(npc.unknown_1),
                 i32::from(npc.goto1_filled),
                 i32::from(npc.goto2_filled),
@@ -284,7 +292,11 @@ pub fn save_npc_refs(
                 u8::from(npc.unknown_item_type),
                 i32::from(npc.unknown_19),
                 dialog_file_id,
-                if npc.dialog_id == 0 { None } else { Some(npc.dialog_id) },
+                if npc.dialog_id == 0 {
+                    None
+                } else {
+                    Some(npc.dialog_id)
+                },
                 npc.dialogue_face_sprite_id,
             ])?;
         }

@@ -1,6 +1,6 @@
 use super::*;
-use crate::RepeatPatternDialog;
 use crate::domain::pattern::{Pattern, RepeatedPatternGroup};
+use crate::RepeatPatternDialog;
 
 // ============================================================================
 // Optimized helpers — direct state construction (no message pipeline)
@@ -19,13 +19,7 @@ fn seed_pattern(state: &mut HexEditorState, start: u64, end: u64) -> usize {
 
 /// Directly construct a group with repeated patterns and auto-annotations.
 /// Clamps block_end at `state.max_addr()` and stops when `block_start > max`.
-fn seed_group(
-    state: &mut HexEditorState,
-    label: &str,
-    count: u32,
-    base: u64,
-    size: u64,
-) -> usize {
+fn seed_group(state: &mut HexEditorState, label: &str, count: u32, base: u64, size: u64) -> usize {
     let gid = state.next_group_id;
     state.next_group_id += 1;
     let color_idx = (state.groups.len() % 16) as u8;
@@ -634,8 +628,14 @@ fn remove_group_recomputes_lookups() {
         HexEditorMessage::RemovePatternGroup(gid),
     );
 
-    assert!(state.pattern_by_addr.is_empty(), "pattern lookup should be rebuilt");
-    assert!(state.row_annotations.is_empty(), "row annotations should be recomputed");
+    assert!(
+        state.pattern_by_addr.is_empty(),
+        "pattern lookup should be rebuilt"
+    );
+    assert!(
+        state.row_annotations.is_empty(),
+        "row annotations should be recomputed"
+    );
 }
 
 #[test]
@@ -775,8 +775,16 @@ fn commit_repeated_pattern_zero_count_does_nothing() {
     });
     send(&mut state, &config, HexEditorMessage::CommitRepeatedPattern);
 
-    assert_eq!(state.patterns.len(), 0, "zero count should create no patterns");
-    assert_eq!(state.groups.len(), 0, "group should NOT be created for invalid count");
+    assert_eq!(
+        state.patterns.len(),
+        0,
+        "zero count should create no patterns"
+    );
+    assert_eq!(
+        state.groups.len(),
+        0,
+        "group should NOT be created for invalid count"
+    );
     assert!(state.repeat_pattern.is_some());
     assert!(state.repeat_pattern.unwrap().error.is_some());
 }
@@ -797,7 +805,10 @@ fn remove_last_pattern_in_group_removes_group() {
 
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
-    assert!(state.groups.is_empty(), "group should be removed when its last pattern is removed");
+    assert!(
+        state.groups.is_empty(),
+        "group should be removed when its last pattern is removed"
+    );
     assert!(state.patterns.is_empty(), "pattern should be gone");
 }
 
@@ -814,7 +825,11 @@ fn remove_some_but_not_all_patterns_keeps_group() {
 
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
-    assert_eq!(state.groups.len(), 1, "group should persist when patterns remain");
+    assert_eq!(
+        state.groups.len(),
+        1,
+        "group should persist when patterns remain"
+    );
     assert_eq!(state.patterns.len(), 2, "only one pattern removed");
     assert_eq!(state.groups[0].label, "Monster", "group label preserved");
 }
@@ -1014,7 +1029,10 @@ fn commit_rename_group_recomputes_row_annotations() {
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
-    assert!(has_annotation, "row_annotations should contain old annotation");
+    assert!(
+        has_annotation,
+        "row_annotations should contain old annotation"
+    );
 
     // Now rename the group
     send(&mut state, &config, HexEditorMessage::BeginRenameGroup(gid));
@@ -1029,12 +1047,18 @@ fn commit_rename_group_recomputes_row_annotations() {
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Enemy[0]"));
-    assert!(has_new, "row_annotations should contain updated annotation after rename");
+    assert!(
+        has_new,
+        "row_annotations should contain updated annotation after rename"
+    );
     let has_old = state
         .row_annotations
         .values()
         .any(|segments| segments.iter().any(|(_, ann)| ann == "Monster[0]"));
-    assert!(!has_old, "row_annotations should not contain stale old annotation");
+    assert!(
+        !has_old,
+        "row_annotations should not contain stale old annotation"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1054,13 +1078,19 @@ fn remove_pattern_cleans_up_collapsed_groups() {
         &config,
         HexEditorMessage::TogglePatternGroup(gid),
     );
-    assert!(state.collapsed_groups.contains(&gid), "group should be collapsed");
+    assert!(
+        state.collapsed_groups.contains(&gid),
+        "group should be collapsed"
+    );
 
     let pid = state.patterns[0].id;
     send(&mut state, &config, HexEditorMessage::RemovePattern(pid));
 
     assert!(state.groups.is_empty(), "orphan group removed");
-    assert!(!state.collapsed_groups.contains(&gid), "collapsed_groups should not contain stale orphaned group id");
+    assert!(
+        !state.collapsed_groups.contains(&gid),
+        "collapsed_groups should not contain stale orphaned group id"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -1076,9 +1106,15 @@ fn clear_patterns_cleans_up_active_patterns() {
     rebuild_lookups(&mut state);
 
     state.active_patterns.insert(999);
-    assert!(!state.active_patterns.is_empty(), "precondition: active_patterns populated");
+    assert!(
+        !state.active_patterns.is_empty(),
+        "precondition: active_patterns populated"
+    );
 
     send(&mut state, &config, HexEditorMessage::ClearAllPatterns);
 
-    assert!(state.active_patterns.is_empty(), "active_patterns should be cleared");
+    assert!(
+        state.active_patterns.is_empty(),
+        "active_patterns should be cleared"
+    );
 }

@@ -1,10 +1,10 @@
+use crate::components::tab_bar::TabBarMessage;
+use crate::dispatch_table::spreadsheet_nav_msg;
 use crate::message::Message;
+use crate::message::MessageExt;
 use crate::message::SystemMessage;
 use crate::message::WorkspaceMessage;
-use crate::components::tab_bar::TabBarMessage;
 use crate::workspace::EditorType;
-use crate::dispatch_table::spreadsheet_nav_msg;
-use crate::message::MessageExt;
 use iced::Subscription;
 
 pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
@@ -36,10 +36,18 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
             }
             if let Key::Named(named) = key.as_ref() {
                 match named {
-                    Named::Escape => Some(Message::Workspace(WorkspaceMessage::CommandPaletteClose)),
-                    Named::Enter => Some(Message::Workspace(WorkspaceMessage::CommandPaletteConfirm)),
-                    Named::ArrowUp => Some(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp)),
-                    Named::ArrowDown => Some(Message::Workspace(WorkspaceMessage::CommandPaletteArrowDown)),
+                    Named::Escape => {
+                        Some(Message::Workspace(WorkspaceMessage::CommandPaletteClose))
+                    }
+                    Named::Enter => {
+                        Some(Message::Workspace(WorkspaceMessage::CommandPaletteConfirm))
+                    }
+                    Named::ArrowUp => {
+                        Some(Message::Workspace(WorkspaceMessage::CommandPaletteArrowUp))
+                    }
+                    Named::ArrowDown => Some(Message::Workspace(
+                        WorkspaceMessage::CommandPaletteArrowDown,
+                    )),
                     _ => None,
                 }
             } else {
@@ -57,8 +65,12 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
                 match named {
                     Named::Escape => Some(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch)),
                     Named::Enter => Some(Message::Workspace(WorkspaceMessage::GlobalSearchConfirm)),
-                    Named::ArrowUp => Some(Message::Workspace(WorkspaceMessage::GlobalSearchArrowUp)),
-                    Named::ArrowDown => Some(Message::Workspace(WorkspaceMessage::GlobalSearchArrowDown)),
+                    Named::ArrowUp => {
+                        Some(Message::Workspace(WorkspaceMessage::GlobalSearchArrowUp))
+                    }
+                    Named::ArrowDown => {
+                        Some(Message::Workspace(WorkspaceMessage::GlobalSearchArrowDown))
+                    }
                     _ => None,
                 }
             } else {
@@ -76,7 +88,13 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
     }
 
     // Drive animation playback when any sprite viewer is playing.
-    if app.state.editors.sprite_viewers.values().any(|v| v.is_playing) {
+    if app
+        .state
+        .editors
+        .sprite_viewers
+        .values()
+        .any(|v| v.is_playing)
+    {
         use crate::editors::sprite_editor::SpriteViewerMessage;
         let anim = iced::time::every(std::time::Duration::from_millis(16))
             .map(|_| Message::sprite_viewer(SpriteViewerMessage::Tick));
@@ -84,7 +102,13 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
     }
 
     // Poll for SNF playback completion so the Play/Pause button stays in sync.
-    if app.state.editors.snf_editors.values().any(|e| e.playback.is_some()) {
+    if app
+        .state
+        .editors
+        .snf_editors
+        .values()
+        .any(|e| e.playback.is_some())
+    {
         use crate::editors::snf_editor::SnfEditorMessage;
         let snf_tick = iced::time::every(std::time::Duration::from_millis(250))
             .map(|_| Message::snf_editor(SnfEditorMessage::Tick));
@@ -96,8 +120,9 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
         app.state.editors.event_scr_editor.index_state,
         crate::editors::event_scr::FunctionIndexState::Indexing { .. }
     ) {
-        let index_tick = iced::time::every(std::time::Duration::from_millis(100))
-            .map(|_| Message::event_scr(crate::editors::event_scr::EventScrEditorMessage::IndexTick));
+        let index_tick = iced::time::every(std::time::Duration::from_millis(100)).map(|_| {
+            Message::event_scr(crate::editors::event_scr::EventScrEditorMessage::IndexTick)
+        });
         subscriptions.push(index_tick);
     }
 
@@ -137,23 +162,20 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
     }
 
     // Event Script Editor keyboard shortcuts.
-    if !palette_open
-        && !search_open
-        && active_et == Some(EditorType::EventScrEditor)
-    {
+    if !palette_open && !search_open && active_et == Some(EditorType::EventScrEditor) {
         use crate::editors::event_scr::{EventScrEditorMessage, KeyboardShortcut};
         let esc_sub = keyboard::listen().filter_map(|event| {
             if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
                 if modifiers.control() || modifiers.command() {
                     if let Key::Named(Named::Enter) = key.as_ref() {
-                        return Some(Message::event_scr(
-                            EventScrEditorMessage::KeyboardShortcut(KeyboardShortcut::InsertActionBelow),
-                        ));
+                        return Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                            KeyboardShortcut::InsertActionBelow,
+                        )));
                     }
                     if let Key::Named(Named::Space) = key.as_ref() {
-                        return Some(Message::event_scr(
-                            EventScrEditorMessage::KeyboardShortcut(KeyboardShortcut::TogglePicker),
-                        ));
+                        return Some(Message::event_scr(EventScrEditorMessage::KeyboardShortcut(
+                            KeyboardShortcut::TogglePicker,
+                        )));
                     }
                     return None;
                 }
@@ -161,12 +183,16 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
                     match named {
                         Named::ArrowUp => {
                             return Some(Message::event_scr(
-                                EventScrEditorMessage::KeyboardShortcut(KeyboardShortcut::MoveActionUp),
+                                EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::MoveActionUp,
+                                ),
                             ))
                         }
                         Named::ArrowDown => {
                             return Some(Message::event_scr(
-                                EventScrEditorMessage::KeyboardShortcut(KeyboardShortcut::MoveActionDown),
+                                EventScrEditorMessage::KeyboardShortcut(
+                                    KeyboardShortcut::MoveActionDown,
+                                ),
                             ))
                         }
                         _ => {}

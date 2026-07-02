@@ -1,7 +1,6 @@
 use iced::widget::text;
 use iced::{color, Theme};
 
-
 pub fn subtle_text(_theme: &Theme) -> text::Style {
     text::Style {
         color: Some(color!(0x8d6e63)), // Muted brown

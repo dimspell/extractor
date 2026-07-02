@@ -222,10 +222,10 @@ fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
                 let mut stmt = conn.prepare(include_str!("../queries/insert_event.sql"))?;
                 stmt.execute(params![
                     req_id,
-                    0,                            // required_event_id
-                    Option::<i32>::None,           // event_type_id
-                    Option::<String>::None,        // event_filename
-                    0,                             // counter
+                    0,                      // required_event_id
+                    Option::<i32>::None,    // event_type_id
+                    Option::<String>::None, // event_filename
+                    0,                      // counter
                 ])?;
             }
         }
@@ -310,15 +310,20 @@ fn import_dialogues_paragraphs(
             &main_path.join(pgp_file),
         )?;
         let file_id = pgp_to_file_id.get(*pgp_file).copied().unwrap_or_else(|| {
-            panic!("No dialogue_script_files entry found for PGP file: {}", pgp_file)
+            panic!(
+                "No dialogue_script_files entry found for PGP file: {}",
+                pgp_file
+            )
         });
         save_dialogue_paragraphs(conn, file_id, &texts)?;
     }
     // Parse all dialog scripts, insert stub rows for any forward-referenced
     // IDs (paragraphs, next_dialog_id*) that don't exist yet, then save.
     println!("Saving dialogs...");
-    let mut all_dialogs: Vec<(i32, Vec<dispel_core::references::dialogue_script::DialogueScript>)> =
-        Vec::new();
+    let mut all_dialogs: Vec<(
+        i32,
+        Vec<dispel_core::references::dialogue_script::DialogueScript>,
+    )> = Vec::new();
     for (file_id, dialog_file) in dialog_files.iter().enumerate() {
         let path = main_path.join(dialog_file);
         let dialogs = dispel_core::references::dialogue_script::read_dialogs(&path)?;
@@ -347,10 +352,10 @@ fn import_dialogues_paragraphs(
                 stmt.execute(params![
                     file_id_i32,
                     dialog_id,
-                    Option::<String>::None,  // text
-                    Option::<String>::None,  // comment
-                    0,                       // param1
-                    Option::<i32>::None,     // wave_ini_entry_id
+                    Option::<String>::None, // text
+                    Option::<String>::None, // comment
+                    0,                      // param1
+                    Option::<i32>::None,    // wave_ini_entry_id
                 ])?;
             }
         }
@@ -486,14 +491,18 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
         let npc_ids: Vec<i32> = party_refs.iter().map(|pr| pr.npc_id).collect();
         for &npc_id in &npc_ids {
             let exists: bool = conn
-                .query_row("SELECT 1 FROM npc_inis WHERE id = ?1", params![npc_id], |_| Ok(()))
+                .query_row(
+                    "SELECT 1 FROM npc_inis WHERE id = ?1",
+                    params![npc_id],
+                    |_| Ok(()),
+                )
                 .is_ok();
             if !exists {
                 let mut stmt = conn.prepare(include_str!("../queries/insert_npc_ini.sql"))?;
                 stmt.execute(params![
                     npc_id,
-                    Option::<String>::None,  // sprite_filename
-                    Option::<String>::None,  // description
+                    Option::<String>::None, // sprite_filename
+                    Option::<String>::None, // description
                 ])?;
             }
         }
@@ -962,12 +971,10 @@ mod tests {
             return;
         }
 
-        let mut conn =
-            Connection::open_in_memory().expect("Failed to create in-memory database");
+        let mut conn = Connection::open_in_memory().expect("Failed to create in-memory database");
 
         // Initialise the full schema (drops + recreates all tables).
-        initialize_database(&conn)
-            .expect("Failed to initialise database schema");
+        initialize_database(&conn).expect("Failed to initialise database schema");
 
         // Verify foreign keys were enabled by the initialisation PRAGMAs.
         let fk_enabled: i32 = conn
@@ -980,8 +987,7 @@ mod tests {
 
         // ── Import reference INI files ────────────────────────────────────
         if game_path.join("Extra.ini").exists() {
-            import_refs(game_path, &mut conn)
-                .expect("import_refs (INI files) should succeed");
+            import_refs(game_path, &mut conn).expect("import_refs (INI files) should succeed");
         } else {
             eprintln!("Skipping import_refs — fixtures not found");
         }
@@ -989,8 +995,7 @@ mod tests {
         // ── Import maps + map INIs (must be before import_rest because
         //    draw_items has a FK referencing maps(id)). ────────────────────
         if game_path.join("AllMap.ini").exists() {
-            import_maps(game_path, &mut conn)
-                .expect("import_maps should succeed");
+            import_maps(game_path, &mut conn).expect("import_maps should succeed");
         } else {
             eprintln!("Skipping import_maps — fixtures not found");
         }
@@ -998,8 +1003,7 @@ mod tests {
         // ── Import binary databases (.db) — must be before import_rest
         //    because extra_refs.message_id REFERENCES messages(id). ────────
         if game_path.join("CharacterInGame/weaponItem.db").exists() {
-            import_databases(game_path, &mut conn)
-                .expect("import_databases should succeed");
+            import_databases(game_path, &mut conn).expect("import_databases should succeed");
         } else {
             eprintln!("Skipping import_databases — fixtures not found");
         }
@@ -1023,8 +1027,7 @@ mod tests {
         // ── Import REF / binary placement files (must be last — depends on
         //    maps, messages, extras, events from earlier stages). ──────────
         if game_path.join("Ref/PartyRef.ref").exists() {
-            import_rest(game_path, &mut conn)
-                .expect("import_rest (REF files) should succeed");
+            import_rest(game_path, &mut conn).expect("import_rest (REF files) should succeed");
         } else {
             eprintln!("Skipping import_rest — fixtures not found");
         }
@@ -1077,22 +1080,16 @@ mod tests {
 
         if game_path.join("NpcInGame/Dlgcat1.dlg").exists() {
             let dlg_count: i32 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM dialogue_scripts",
-                    [],
-                    |row| row.get(0),
-                )
+                .query_row("SELECT COUNT(*) FROM dialogue_scripts", [], |row| {
+                    row.get(0)
+                })
                 .expect("Failed to query dialogue_scripts");
             assert!(dlg_count > 0, "dialogue_scripts table should be populated");
         }
 
         if game_path.join("Ref").exists() {
             let escr_count: i32 = conn
-                .query_row(
-                    "SELECT COUNT(*) FROM event_scripts",
-                    [],
-                    |row| row.get(0),
-                )
+                .query_row("SELECT COUNT(*) FROM event_scripts", [], |row| row.get(0))
                 .expect("Failed to query event_scripts");
             assert!(escr_count > 0, "event_scripts table should be populated");
         }
