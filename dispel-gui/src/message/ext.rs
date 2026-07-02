@@ -5,7 +5,6 @@ define_message_ext! {
     weapon:         Weapon(crate::editors::weapon::WeaponEditorMessage),
     monster:        Monster(crate::editors::monster::MonsterEditorMessage),
     monster_ini:    MonsterIni(crate::editors::monster_ini::MonsterIniEditorMessage),
-    chest:          Chest(crate::editors::chest::ChestEditorMessage),
     heal_item:      HealItem(crate::editors::heal_item::HealItemEditorMessage),
     misc_item:      MiscItem(crate::editors::misc_item::MiscItemEditorMessage),
     edit_item:      EditItem(crate::editors::edit_item::EditItemEditorMessage),

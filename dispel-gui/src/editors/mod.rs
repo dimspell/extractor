@@ -9,7 +9,6 @@
 
 pub mod all_map_ini;
 pub mod chdata;
-pub mod chest;
 pub mod db_viewer;
 pub mod dialogue_paragraph;
 pub mod dialogue_script;

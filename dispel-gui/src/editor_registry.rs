@@ -6,7 +6,6 @@ use crate::components::generic_editor::UndoRedo;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
-use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
@@ -43,7 +42,6 @@ use hexedit::HexEditorState;
 #[derive(Default)]
 pub struct EditorRegistry {
     pub viewer: Box<DbViewerState>,
-    pub chest_editor: Box<ChestEditorState>,
     pub weapon_editor: Box<StandardEditor<WeaponItem>>,
     pub heal_item_editor: Box<StandardEditor<HealItem>>,
     pub misc_item_editor: Box<StandardEditor<MiscItem>>,
@@ -405,7 +403,6 @@ impl EditorRegistry {
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();
         *self.viewer = Default::default();
-        *self.chest_editor = Default::default();
         *self.party_level_db_editor = Default::default();
         *self.party_level_db_level_editor = Default::default();
 

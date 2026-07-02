@@ -36,7 +36,6 @@ mod view_dispatch_tests {
             EventScrEditor,
             WaveIniEditor,
             AllMapIniEditor,
-            ChestEditor,
             SpriteViewer,
             SnfEditor,
             DbViewer,

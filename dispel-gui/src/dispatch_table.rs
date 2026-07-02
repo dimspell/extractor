@@ -75,7 +75,6 @@ define_update_dispatch! {
     (EventScr, event_scr),
     (WaveIni, wave_ini),
     (ChData, chdata),
-    (Chest, chest),
     (MapEditor, map_editor),
     (Tileset, tileset),
     (Snf, snf_editor),
@@ -115,7 +114,6 @@ define_view_dispatch! {
     // EventScrEditor intentionally omitted -- handled by caller with wrapping
     (WaveIniEditor, wave_ini),
     (ChDataEditor, chdata),
-    (ChestEditor, chest),
     (MapEditor, map_editor),
     (TilesetEditor, tileset),
     (SnfEditor, snf_editor),

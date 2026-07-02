@@ -1,7 +1,6 @@
 use crate::components::command_palette::CommandPalette;
 use crate::components::edit_history::EditHistory;
 use crate::components::file_tree::FileTree;
-use crate::editors::chest::ChestEditorMessage;
 use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::tileset::TilesetEditorState;
@@ -13,7 +12,7 @@ use crate::workspace::EditorType;
 use dispel_core::Extractor;
 use hexedit::HexEditorState;
 use iced::Task;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
@@ -396,31 +395,6 @@ impl App {
     fn active_tab_id(&self) -> Option<usize> {
         let idx = self.state.workspace.active_tab?;
         self.state.workspace.tabs.get(idx).map(|t| t.id)
-    }
-
-    pub fn refresh_chests(&mut self) {
-        let editor = &mut self.state.editors.chest_editor;
-        editor.filtered_chests = editor
-            .all_records
-            .iter()
-            .enumerate()
-            .filter(|(_, r)| r.object_type == dispel_core::ExtraObjectType::Chest)
-            .map(|(i, r)| (i, r.clone()))
-            .collect();
-    }
-
-    pub fn load_map_file(&mut self, path: PathBuf) -> Task<Message> {
-        self.state.editors.chest_editor.loading_state =
-            crate::components::loading_state::LoadingState::Loading;
-        Task::perform(
-            async move { dispel_core::ExtraRef::read_file(&path) },
-            |res: Result<Vec<dispel_core::ExtraRef>, std::io::Error>| {
-                let indexed = res.map(|vec| vec.into_iter().enumerate().collect());
-                Message::chest(ChestEditorMessage::MapLoaded(
-                    indexed.map_err(|e| e.to_string()),
-                ))
-            },
-        )
     }
 
 }

@@ -286,7 +286,6 @@ impl App {
         let tools_section = column![
             container(text("Tools").size(11).style(style::subtle_text)).padding([4, 16]),
             tool_btn("DB Viewer", EditorType::DbViewer),
-            tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
             tool_btn("Mod Manager", EditorType::ModPackager),
             tool_btn("Localization Packager", EditorType::LocalizationManager),

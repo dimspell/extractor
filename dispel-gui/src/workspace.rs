@@ -38,7 +38,6 @@ pub enum EditorType {
     EventScrEditor,
     WaveIniEditor,
     AllMapIniEditor,
-    ChestEditor,
     SpriteViewer,
     SnfEditor,
     DbViewer,
@@ -165,7 +164,6 @@ impl EditorType {
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
                 | EditorType::HexEditor
-                | EditorType::ChestEditor
                 | EditorType::Unknown
         )
     }
@@ -181,7 +179,6 @@ impl EditorType {
                 | EditorType::MonsterIniEditor
                 | EditorType::NpcIniEditor
                 | EditorType::SpriteViewer
-                | EditorType::ChestEditor
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor

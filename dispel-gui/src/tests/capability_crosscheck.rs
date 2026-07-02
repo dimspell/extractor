@@ -38,7 +38,6 @@ mod crosscheck {
             EditorType::EventScrEditor,
             EditorType::WaveIniEditor,
             EditorType::AllMapIniEditor,
-            EditorType::ChestEditor,
             EditorType::SpriteViewer,
             EditorType::SnfEditor,
             EditorType::DbViewer,

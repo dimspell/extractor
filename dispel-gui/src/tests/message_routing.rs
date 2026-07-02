@@ -47,24 +47,6 @@ mod message_routing_tests {
     }
 
     #[test]
-    fn test_open_tool_tab_without_game_path_works() {
-        let mut app = App::test_new(Workspace::new());
-
-        use crate::message::workspace::WorkspaceMessage;
-        let task = app.update(Message::Workspace(WorkspaceMessage::OpenToolTab(
-            EditorType::ChestEditor,
-        )));
-
-        assert_eq!(app.state.workspace.tabs.len(), 1);
-        assert_eq!(
-            app.state.workspace.tabs[0].editor_type,
-            EditorType::ChestEditor
-        );
-
-        let _ = task;
-    }
-
-    #[test]
     fn test_clear_workspace_system_message_is_idempotent() {
         let mut app = App::test_new(Workspace::new());
 

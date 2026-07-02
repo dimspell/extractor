@@ -86,14 +86,6 @@ impl Command {
                 action: || Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::DbViewer)),
             },
             Command {
-                id: "open-chest-editor",
-                label: "Open: Chest Editor",
-                shortcut: None,
-                action: || {
-                    Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::ChestEditor))
-                },
-            },
-            Command {
                 id: "open-store-editor",
                 label: "Open: Store Editor",
                 shortcut: None,

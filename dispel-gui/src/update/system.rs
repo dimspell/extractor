@@ -5,7 +5,6 @@ use crate::components::utils::browse_folder;
 use crate::components::FileTree;
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::chest::ChestEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
 use crate::editors::edit_item::EditItemEditorMessage;
 use crate::editors::event_ini::EventIniEditorMessage;
@@ -70,7 +69,6 @@ fn save_task_for_editor(
 
         // Custom editors with Save support
         EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
-        EditorType::ChestEditor => Message::chest(ChestEditorMessage::Save),
         EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
 
         // Sprite editor
@@ -242,8 +240,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     return Task::batch([file_tree_task, index_task]);
                 }
                 "viewer_db" => app.state.editors.viewer.db_path = s,
-                "chest_game_path" => app.state.shared_game_path = s,
-                "chest_map_file" => app.state.editors.chest_editor.current_map_file = s,
                 _ => {}
             }
             Task::none()

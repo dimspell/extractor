@@ -37,7 +37,6 @@ mod undo_redo_dispatch_tests {
     fn editors_without_undo() -> Vec<EditorType> {
         vec![
             StoreEditor,
-            ChestEditor,
             SpriteViewer,
             SnfEditor,
             DbViewer,
@@ -222,7 +221,6 @@ mod edit_history_tests {
             MonsterEditor,
             MonsterIniEditor,
             NpcIniEditor,
-            ChestEditor,
             SpriteViewer,
             SnfEditor,
             DbViewer,

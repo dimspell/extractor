@@ -5,7 +5,6 @@
 //! - Macro-generated editors (22) — tested via `weapon` representative
 //! - Custom editors: `wave_ini`, `store`
 //! - Tab-based editors (5) — tested via `npc_ref` representative
-//! - Known gap: `chest` editor does NOT record
 //!
 //! The test strategy relies on behavioral assertions (catalog values, pending
 //! entry counts, session state) rather than `Task::units()` because both
@@ -16,7 +15,6 @@
 use crate::app::App;
 
 use crate::components::generic_editor::{GenericEditorState, MultiFileEditorState};
-use crate::editors::chest::{self, ChestEditorMessage};
 use crate::editors::mod_packager;
 use crate::editors::mod_packager::recording::{observe_field_change, ObservedAction};
 use crate::editors::mod_packager::ModPackagerMessage;
@@ -1131,26 +1129,4 @@ fn party_level_db_no_recording_when_no_npc_selected() {
     );
 }
 
-// ============================================================================
-// Chest  (known gap — no recording wired)
-// ============================================================================
 
-#[test]
-fn chest_editor_does_not_record() {
-    let mut app = app_with_recording();
-    app.state.editors.chest_editor.all_records = vec![ExtraRef {
-        name: "OldChest".into(),
-        ..Default::default()
-    }];
-
-    let task = chest::handle(
-        ChestEditorMessage::FieldChanged(0, "name".into(), "NewChest".into()),
-        &mut app,
-    );
-
-    assert_eq!(
-        task.units(),
-        0,
-        "chest editor is a known gap — no recording wired"
-    );
-}

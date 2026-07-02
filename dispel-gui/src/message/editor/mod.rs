@@ -5,7 +5,6 @@
 
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::chest::ChestEditorMessage;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
@@ -45,7 +44,6 @@ use hexedit::HexEditorMessage;
 pub enum EditorMessage {
     Weapon(WeaponEditorMessage),
     Monster(MonsterEditorMessage),
-    Chest(ChestEditorMessage),
     HealItem(HealItemEditorMessage),
     MiscItem(MiscItemEditorMessage),
     EditItem(EditItemEditorMessage),
