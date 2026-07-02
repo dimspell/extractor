@@ -249,13 +249,19 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     export_btn.on_press(Message::map_editor(MapEditorMessage::ExportImage(tab_id)));
             }
 
+            let mut tmx_btn = button(text("Export TMX…").size(11)).padding([3, 8]);
+            if !state.data.is_exporting {
+                tmx_btn =
+                    tmx_btn.on_press(Message::map_editor(MapEditorMessage::ExportTmx(tab_id)));
+            }
+
             let status_text = if let Some(msg) = &state.data.status_msg {
                 text(msg.as_str()).size(10).style(style::subtle_text)
             } else {
                 text("").size(10).style(style::subtle_text)
             };
 
-            let action_row = row![save_btn, undo_btn, redo_btn, export_btn, status_text,]
+            let action_row = row![save_btn, undo_btn, redo_btn, export_btn, tmx_btn, status_text,]
                 .spacing(6)
                 .padding([4, 16])
                 .align_y(iced::Alignment::Center);

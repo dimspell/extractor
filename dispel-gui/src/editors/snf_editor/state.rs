@@ -58,6 +58,7 @@ pub struct SnfEditorState {
     pub is_looping: bool,
     pub volume: f32,
     pub export_status: ExportStatus,
+    pub modified: bool,
 }
 
 impl SnfEditorState {
@@ -81,6 +82,7 @@ impl SnfEditorState {
                     is_looping: false,
                     volume: 0.5,
                     export_status: ExportStatus::Idle,
+                    modified: false,
                 }
             }
             Err(e) => SnfEditorState {
@@ -93,6 +95,7 @@ impl SnfEditorState {
                 is_looping: false,
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
+                modified: false,
             },
         }
     }

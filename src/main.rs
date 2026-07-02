@@ -32,9 +32,8 @@ fn main() {
             info: *info,
         }
         .execute(),
-        Some(Commands::Sound { input, output }) => SoundCommand {
-            input: input.clone(),
-            output: output.clone(),
+        Some(Commands::Sound { command }) => SoundCommand {
+            command: command.clone(),
         }
         .execute(),
         Some(Commands::Dialog {

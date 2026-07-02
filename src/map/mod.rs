@@ -90,6 +90,7 @@ pub mod reader;
 pub mod render;
 pub mod sprite_loader;
 pub mod tileset;
+pub mod tmx;
 pub mod types;
 pub mod writer;
 

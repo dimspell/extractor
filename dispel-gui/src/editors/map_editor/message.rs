@@ -175,6 +175,10 @@ pub enum MapEditorMessage {
     ),
     /// Close the dialog preview modal.
     HideDialogPreview(usize),
+    /// Export the map to Tiled TMX format.
+    ExportTmx(usize),
+    /// Async TMX export completed. Ok carries the output path; Err the error.
+    TmxExportComplete(usize, Result<String, String>),
 }
 
 /// Which entity or tile is currently selected in the map editor inspector.

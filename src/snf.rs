@@ -47,6 +47,162 @@ impl SnfFile {
         }
     }
 
+    /// Parse WAV bytes into an SnfFile.
+    /// Validates RIFF/WAVE header, fmt chunk, data chunk.
+    pub fn from_wav_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        if bytes.len() < 12 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "WAV file too short: missing RIFF header",
+            ));
+        }
+        if &bytes[0..4] != b"RIFF" {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "not a RIFF file",
+            ));
+        }
+        if &bytes[8..12] != b"WAVE" {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "not a WAVE file",
+            ));
+        }
+
+        let mut pos = 12usize; // skip RIFF header
+        let mut fmt_tag: Option<i16> = None;
+        let mut num_channels: Option<i16> = None;
+        let mut sample_rate: Option<i32> = None;
+        let mut byte_rate: Option<i32> = None;
+        let mut block_align: Option<i16> = None;
+        let mut bits_per_sample: Option<i16> = None;
+        let mut pcm_data: Option<Vec<u8>> = None;
+
+        while pos + 8 <= bytes.len() {
+            let chunk_id = &bytes[pos..pos + 4];
+            let chunk_size = u32::from_le_bytes([
+                bytes[pos + 4],
+                bytes[pos + 5],
+                bytes[pos + 6],
+                bytes[pos + 7],
+            ]) as usize;
+
+            let chunk_end = pos + 8 + chunk_size;
+            if chunk_end > bytes.len() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "WAV chunk exceeds file bounds",
+                ));
+            }
+
+            match chunk_id {
+                b"fmt " => {
+                    if chunk_size < 16 {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "fmt chunk too small",
+                        ));
+                    }
+                    let fmt_start = pos + 8;
+                    let tag = i16::from_le_bytes([bytes[fmt_start], bytes[fmt_start + 1]]);
+                    if tag != 1 {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "only PCM (format tag 1) WAV files are supported",
+                        ));
+                    }
+                    fmt_tag = Some(tag);
+                    num_channels = Some(i16::from_le_bytes([
+                        bytes[fmt_start + 2],
+                        bytes[fmt_start + 3],
+                    ]));
+                    sample_rate = Some(i32::from_le_bytes([
+                        bytes[fmt_start + 4],
+                        bytes[fmt_start + 5],
+                        bytes[fmt_start + 6],
+                        bytes[fmt_start + 7],
+                    ]));
+                    byte_rate = Some(i32::from_le_bytes([
+                        bytes[fmt_start + 8],
+                        bytes[fmt_start + 9],
+                        bytes[fmt_start + 10],
+                        bytes[fmt_start + 11],
+                    ]));
+                    block_align = Some(i16::from_le_bytes([
+                        bytes[fmt_start + 12],
+                        bytes[fmt_start + 13],
+                    ]));
+                    bits_per_sample = Some(i16::from_le_bytes([
+                        bytes[fmt_start + 14],
+                        bytes[fmt_start + 15],
+                    ]));
+                }
+                b"data" => {
+                    let data_start = pos + 8;
+                    pcm_data = Some(bytes[data_start..data_start + chunk_size].to_vec());
+                }
+                _ => {
+                    // Unknown chunk — skip
+                }
+            }
+
+            // Advance to next chunk (chunks are padded to even byte boundary)
+            pos = chunk_end;
+            if pos % 2 != 0 {
+                pos += 1;
+            }
+        }
+
+        let pcmaudio_format = fmt_tag
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "missing fmt chunk"))?;
+        let number_of_channels = num_channels.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing channels in fmt chunk")
+        })?;
+        let sample_rate = sample_rate.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing sample rate in fmt chunk")
+        })?;
+        let byte_rate = byte_rate.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing byte rate in fmt chunk")
+        })?;
+        let block_align = block_align.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing block align in fmt chunk")
+        })?;
+        let bits_per_sample = bits_per_sample.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing bits per sample in fmt chunk")
+        })?;
+        let raw_data = pcm_data
+            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "missing data chunk"))?;
+
+        Ok(SnfFile {
+            pcmaudio_format,
+            number_of_channels,
+            sample_rate,
+            byte_rate,
+            block_align,
+            bits_per_sample,
+            data_size: raw_data.len() as i32,
+            pcm_data: raw_data,
+        })
+    }
+
+    /// Serialize SnfFile to SNF binary format (22-byte header + PCM data).
+    pub fn to_snf_bytes(&self) -> Vec<u8> {
+        let header_size = 22usize;
+        let mut out = Vec::with_capacity(header_size + self.pcm_data.len());
+
+        out.extend_from_slice(&self.data_size.to_le_bytes());
+        out.extend_from_slice(&self.pcmaudio_format.to_le_bytes());
+        out.extend_from_slice(&self.number_of_channels.to_le_bytes());
+        out.extend_from_slice(&self.sample_rate.to_le_bytes());
+        out.extend_from_slice(&self.byte_rate.to_le_bytes());
+        out.extend_from_slice(&self.block_align.to_le_bytes());
+        out.extend_from_slice(&self.bits_per_sample.to_le_bytes());
+        // Unknown field (value 8)
+        out.extend_from_slice(&8i16.to_le_bytes());
+        out.extend_from_slice(&self.pcm_data);
+        out
+    }
+
     pub fn to_wav_bytes(&self) -> Vec<u8> {
         // WAV layout: RIFF header (12) + fmt chunk (24) + data chunk header (8) + PCM data
         let wav_header_size = 44usize;
@@ -174,4 +330,113 @@ pub fn extract(from: &Path, to: &Path) -> Result<()> {
     out_file.flush()?;
 
     Ok(())
+}
+
+/// Read a WAV file and parse into SnfFile.
+pub fn read_wav(path: &Path) -> Result<SnfFile> {
+    let bytes = std::fs::read(path)?;
+    SnfFile::from_wav_bytes(&bytes)
+}
+
+/// Write SnfFile to disk in SNF format.
+pub fn save(path: &Path, snf: &SnfFile) -> Result<()> {
+    let mut file = File::create(path)?;
+    file.write_all(&snf.to_snf_bytes())?;
+    file.flush()?;
+    Ok(())
+}
+
+/// High-level: read WAV file → parse → write as SNF.
+pub fn import_wav(wav_path: &Path, snf_path: &Path) -> Result<()> {
+    let snf = read_wav(wav_path)?;
+    save(snf_path, &snf)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wav_round_trip() {
+        let original = SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 1,
+            sample_rate: 44100,
+            byte_rate: 88200,
+            block_align: 2,
+            bits_per_sample: 16,
+            data_size: 4,
+            pcm_data: vec![0u8, 0, 0, 0],
+        };
+
+        let wav_bytes = original.to_wav_bytes();
+        let parsed = SnfFile::from_wav_bytes(&wav_bytes).unwrap();
+
+        assert_eq!(original.pcmaudio_format, parsed.pcmaudio_format);
+        assert_eq!(original.number_of_channels, parsed.number_of_channels);
+        assert_eq!(original.sample_rate, parsed.sample_rate);
+        assert_eq!(original.byte_rate, parsed.byte_rate);
+        assert_eq!(original.block_align, parsed.block_align);
+        assert_eq!(original.bits_per_sample, parsed.bits_per_sample);
+        assert_eq!(original.data_size, parsed.data_size);
+        assert_eq!(original.pcm_data, parsed.pcm_data);
+    }
+
+    #[test]
+    fn snf_round_trip() {
+        let original = SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 1,
+            sample_rate: 22050,
+            byte_rate: 44100,
+            block_align: 2,
+            bits_per_sample: 16,
+            data_size: 6,
+            pcm_data: vec![0u8, 0, 0, 0, 0, 0],
+        };
+
+        let _snf_bytes = original.to_snf_bytes();
+        let tmp = std::env::temp_dir().join("test_snf_round_trip.snf");
+        save(&tmp, &original).unwrap();
+        let reloaded = read(&tmp).unwrap();
+        std::fs::remove_file(&tmp).ok();
+
+        assert_eq!(original.pcmaudio_format, reloaded.pcmaudio_format);
+        assert_eq!(original.number_of_channels, reloaded.number_of_channels);
+        assert_eq!(original.sample_rate, reloaded.sample_rate);
+        assert_eq!(original.byte_rate, reloaded.byte_rate);
+        assert_eq!(original.block_align, reloaded.block_align);
+        assert_eq!(original.bits_per_sample, reloaded.bits_per_sample);
+        assert_eq!(original.data_size, reloaded.data_size);
+        assert_eq!(original.pcm_data, reloaded.pcm_data);
+    }
+
+    #[test]
+    fn import_wav_export_snf() {
+        let original = SnfFile {
+            pcmaudio_format: 1,
+            number_of_channels: 2,
+            sample_rate: 48000,
+            byte_rate: 192000,
+            block_align: 4,
+            bits_per_sample: 16,
+            data_size: 8,
+            pcm_data: vec![0u8; 8],
+        };
+
+        let wav_path = std::env::temp_dir().join("test_import_export.wav");
+        let snf_path = std::env::temp_dir().join("test_import_export.snf");
+
+        std::fs::write(&wav_path, &original.to_wav_bytes()).unwrap();
+        import_wav(&wav_path, &snf_path).unwrap();
+        let reloaded = read(&snf_path).unwrap();
+
+        std::fs::remove_file(&wav_path).ok();
+        std::fs::remove_file(&snf_path).ok();
+
+        assert_eq!(original.pcmaudio_format, reloaded.pcmaudio_format);
+        assert_eq!(original.number_of_channels, reloaded.number_of_channels);
+        assert_eq!(original.sample_rate, reloaded.sample_rate);
+        assert_eq!(original.pcm_data, reloaded.pcm_data);
+    }
 }

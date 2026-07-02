@@ -41,12 +41,22 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .into();
     };
 
-    // Header row with filename and export button
+    // Header row with filename, import/save/export buttons
     let header = row![
         text(&editor.name).size(13),
         Space::new().width(Fill),
+        button(text("📂 Import WAV…").size(12))
+            .on_press(Message::snf_editor(SnfEditorMessage::ImportWav)),
         button(text("Export WAV…").size(12))
-            .on_press(Message::snf_editor(SnfEditorMessage::ExportWav))
+            .on_press(Message::snf_editor(SnfEditorMessage::ExportWav)),
+        if editor.modified {
+            button(text("💾 Save").size(12))
+                .style(crate::style::active_chip)
+                .on_press(Message::snf_editor(SnfEditorMessage::Save))
+        } else {
+            button(text("💾 Save").size(12))
+                .style(crate::style::chip)
+        }
     ]
     .spacing(8)
     .padding([6, 12])
