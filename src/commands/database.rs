@@ -90,11 +90,15 @@ fn save_all(game_path: &Path, db_path: &str) -> Result<(), Box<dyn Error>> {
     eprintln!("Saving all data...");
 
     import_refs(game_path, &mut conn)?;
-    import_rest(game_path, &mut conn)?;
-    import_dialogues_paragraphs(game_path, &mut conn)?;
-    import_databases(game_path, &mut conn)?;
-    import_event_scripts(game_path, &mut conn)?;
+    // Maps must be imported before import_rest because draw_items has a FK
+    // referencing maps(id) ON DELETE CASCADE.
     import_maps(game_path, &mut conn)?;
+    // Databases (especially messages) must be imported before import_rest
+    // because extra_refs.message_id REFERENCES messages(id) ON DELETE SET NULL.
+    import_databases(game_path, &mut conn)?;
+    import_dialogues_paragraphs(game_path, &mut conn)?;
+    import_event_scripts(game_path, &mut conn)?;
+    import_rest(game_path, &mut conn)?;
     // import_sprite_files(game_path, &mut conn)?;
 
     let _ = conn.close();
@@ -253,13 +257,8 @@ fn import_dialogues_paragraphs(
             pgp_to_file_id.insert(pgp_path, file_id as i32);
         }
     }
-    println!("Saving dialogs...");
-    for (file_id, dialog_file) in dialog_files.iter().enumerate() {
-        let dialogs =
-            dispel_core::references::dialogue_script::read_dialogs(&main_path.join(dialog_file))?;
-        save_dialogs(conn, file_id as i32, &dialogs)?;
-    }
-
+    // Dialogue paragraphs must be inserted before dialogue scripts,
+    // because dialogue_scripts has a FK referencing dialogue_paragraphs(file_id, id).
     let pgp_files = [
         "NpcInGame/PartyPgp.pgp",
         "NpcInGame/Pgpcat1.pgp",
@@ -278,14 +277,101 @@ fn import_dialogues_paragraphs(
         "NpcInGame/PartyPgp.pgp",
     ];
     println!("Saving dialogue texts...");
-    for pgp_file in pgp_files {
+    for pgp_file in &pgp_files {
         let texts = dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs(
             &main_path.join(pgp_file),
         )?;
-        let file_id = pgp_to_file_id.get(pgp_file).copied().unwrap_or_else(|| {
+        let file_id = pgp_to_file_id.get(*pgp_file).copied().unwrap_or_else(|| {
             panic!("No dialogue_script_files entry found for PGP file: {}", pgp_file)
         });
         save_dialogue_paragraphs(conn, file_id, &texts)?;
+    }
+    // Parse all dialog scripts, insert stub rows for any forward-referenced
+    // IDs (paragraphs, next_dialog_id*) that don't exist yet, then save.
+    println!("Saving dialogs...");
+    let mut all_dialogs: Vec<(i32, Vec<dispel_core::references::dialogue_script::DialogueScript>)> =
+        Vec::new();
+    for (file_id, dialog_file) in dialog_files.iter().enumerate() {
+        let path = main_path.join(dialog_file);
+        let dialogs = dispel_core::references::dialogue_script::read_dialogs(&path)?;
+        if dialogs.is_empty() {
+            continue;
+        }
+        let file_id_i32 = file_id as i32;
+
+        // ── Stub 1: missing dialogue_paragraphs rows ──────────────────────
+        let dialog_ids: Vec<i32> = dialogs
+            .iter()
+            .filter_map(|d| d.dialog_id)
+            .filter(|id| *id > 0)
+            .collect();
+        for &dialog_id in &dialog_ids {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT 1 FROM dialogue_paragraphs WHERE file_id = ?1 AND id = ?2",
+                    params![file_id_i32, dialog_id],
+                    |_| Ok(()),
+                )
+                .is_ok();
+            if !exists {
+                let mut stmt =
+                    conn.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
+                stmt.execute(params![
+                    file_id_i32,
+                    dialog_id,
+                    Option::<String>::None,  // text
+                    Option::<String>::None,  // comment
+                    0,                       // param1
+                    Option::<i32>::None,     // wave_ini_entry_id
+                ])?;
+            }
+        }
+
+        // ── Stub 2: forward-referenced dialogue_scripts rows ──────────────
+        // next_dialog_id1/2/3 may reference scripts that haven't been
+        // inserted yet (either in this file or across files).  Insert stub
+        // rows so the self-referential FK passes.  INSERT OR REPLACE in
+        // save_dialogs will overwrite them with real data.
+        let next_ids: Vec<i32> = dialogs
+            .iter()
+            .flat_map(|d| [d.next_dialog_id1, d.next_dialog_id2, d.next_dialog_id3])
+            .flatten()
+            .filter(|id| *id > 0)
+            .collect();
+        for &next_id in &next_ids {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT 1 FROM dialogue_scripts WHERE dialog_file_id = ?1 AND id = ?2",
+                    params![file_id_i32, next_id],
+                    |_| Ok(()),
+                )
+                .is_ok();
+            if !exists {
+                // Only the PK columns matter — other fields are nullable.
+                let mut stmt =
+                    conn.prepare(include_str!("../queries/insert_dialogue_scripts.sql"))?;
+                stmt.execute(params![
+                    file_id_i32,
+                    next_id,
+                    Option::<i32>::None, // required_event_id
+                    Option::<i32>::None, // next_dialog_to_check
+                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_owner
+                    Option::<i32>::None, // dialog_id
+                    Option::<i32>::None, // next_dialog_id1
+                    Option::<i32>::None, // next_dialog_id2
+                    Option::<i32>::None, // next_dialog_id3
+                    Option::<i32>::None, // triggered_event_id
+                ])?;
+            }
+        }
+
+        all_dialogs.push((file_id_i32, dialogs));
+    }
+    // Now save all dialog scripts — stubs guarantee FK compliance.
+    // INSERT OR REPLACE overwrites the stubs with real data.
+    for (file_id, dialogs) in &all_dialogs {
+        save_dialogs(conn, *file_id, dialogs)?;
     }
     Ok(())
 }
@@ -363,6 +449,24 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
     println!("Saving party_refs...");
     let party_refs =
         dispel_core::references::party_ref::read_part_refs(&main_path.join("Ref/PartyRef.ref"))?;
+    // Insert stub NPC entries for any npc_id referenced by party_refs that
+    // doesn't exist in the imported Npc.ini fixture.
+    {
+        let npc_ids: Vec<i32> = party_refs.iter().map(|pr| pr.npc_id).collect();
+        for &npc_id in &npc_ids {
+            let exists: bool = conn
+                .query_row("SELECT 1 FROM npc_inis WHERE id = ?1", params![npc_id], |_| Ok(()))
+                .is_ok();
+            if !exists {
+                let mut stmt = conn.prepare(include_str!("../queries/insert_npc_ini.sql"))?;
+                stmt.execute(params![
+                    npc_id,
+                    Option::<String>::None,  // sprite_filename
+                    Option::<String>::None,  // description
+                ])?;
+            }
+        }
+    }
     save_party_refs(conn, &party_refs)?;
     println!("Saving draw_items...");
     let draw_items =
@@ -744,4 +848,175 @@ fn visit_dirs(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dispel_core::database::initialize_database;
+    use std::path::Path;
+
+    /// Creates an in-memory SQLite database, initializes the full schema, and
+    /// runs every import stage (`import_refs`, `import_rest`,
+    /// `import_dialogues_paragraphs`, `import_databases`,
+    /// `import_event_scripts`, `import_maps`) using the game fixtures on disk.
+    ///
+    /// Each stage is guarded by a `.exists()` check so the test passes even
+    /// when fixtures are not present (e.g. on CI) — missing stages are skipped
+    /// with an `eprintln!` message.
+    ///
+    /// Verifies that:
+    /// - No panics or SQLite errors occur during any import stage.
+    /// - Foreign keys are enabled and `PRAGMA foreign_key_check` reports zero
+    ///   violations after all imports.
+    /// - Tables that were imported have at least one row.
+    #[test]
+    fn test_in_memory_database_import() {
+        let game_path = Path::new("fixtures/Dispel");
+
+        // Early exit when there are no fixtures at all — lets the test pass
+        // in environments where the binary game data hasn't been downloaded.
+        if !game_path.exists() {
+            eprintln!(
+                "Skipping test_in_memory_database_import: \
+                 fixtures not found at {game_path:?}"
+            );
+            return;
+        }
+
+        let mut conn =
+            Connection::open_in_memory().expect("Failed to create in-memory database");
+
+        // Initialise the full schema (drops + recreates all tables).
+        initialize_database(&conn)
+            .expect("Failed to initialise database schema");
+
+        // Verify foreign keys were enabled by the initialisation PRAGMAs.
+        let fk_enabled: i32 = conn
+            .query_row("PRAGMA foreign_keys", [], |row| row.get(0))
+            .expect("Failed to query foreign_keys pragma");
+        assert_eq!(
+            fk_enabled, 1,
+            "Foreign keys must be ON after initialise_database"
+        );
+
+        // ── Import reference INI files ────────────────────────────────────
+        if game_path.join("Extra.ini").exists() {
+            import_refs(game_path, &mut conn)
+                .expect("import_refs (INI files) should succeed");
+        } else {
+            eprintln!("Skipping import_refs — fixtures not found");
+        }
+
+        // ── Import maps + map INIs (must be before import_rest because
+        //    draw_items has a FK referencing maps(id)). ────────────────────
+        if game_path.join("AllMap.ini").exists() {
+            import_maps(game_path, &mut conn)
+                .expect("import_maps should succeed");
+        } else {
+            eprintln!("Skipping import_maps — fixtures not found");
+        }
+
+        // ── Import binary databases (.db) — must be before import_rest
+        //    because extra_refs.message_id REFERENCES messages(id). ────────
+        if game_path.join("CharacterInGame/weaponItem.db").exists() {
+            import_databases(game_path, &mut conn)
+                .expect("import_databases should succeed");
+        } else {
+            eprintln!("Skipping import_databases — fixtures not found");
+        }
+
+        // ── Import dialogue scripts + paragraphs ──────────────────────────
+        if game_path.join("NpcInGame/Dlgcat1.dlg").exists() {
+            import_dialogues_paragraphs(game_path, &mut conn)
+                .expect("import_dialogues_paragraphs should succeed");
+        } else {
+            eprintln!("Skipping import_dialogues_paragraphs — fixtures not found");
+        }
+
+        // ── Import event scripts (Ref/Event*.scr) ─────────────────────────
+        if game_path.join("Ref").exists() {
+            import_event_scripts(game_path, &mut conn)
+                .expect("import_event_scripts should succeed");
+        } else {
+            eprintln!("Skipping import_event_scripts — fixtures not found");
+        }
+
+        // ── Import REF / binary placement files (must be last — depends on
+        //    maps, messages, extras, events from earlier stages). ──────────
+        if game_path.join("Ref/PartyRef.ref").exists() {
+            import_rest(game_path, &mut conn)
+                .expect("import_rest (REF files) should succeed");
+        } else {
+            eprintln!("Skipping import_rest — fixtures not found");
+        }
+
+        // ── Foreign-key integrity check ────────────────────────────────────
+        // PRAGMA foreign_key_check returns one row per violation with columns
+        // (table, rowid, parent, fkid).  No rows = clean.
+        let fk_violations: Vec<String> = {
+            let mut stmt = conn
+                .prepare("PRAGMA foreign_key_check")
+                .expect("Failed to prepare foreign_key_check");
+            let rows = stmt
+                .query_map([], |row| {
+                    let table: String = row.get(0)?;
+                    let rowid: i64 = row.get(1)?;
+                    let parent: String = row.get(2)?;
+                    let fkid: i64 = row.get(3)?;
+                    Ok(format!("{table}.rowid={rowid} → {parent} (fkid={fkid})"))
+                })
+                .expect("foreign_key_check query failed");
+            rows.filter_map(|r| r.ok()).collect()
+        };
+        assert!(
+            fk_violations.is_empty(),
+            "Foreign key violations detected:\n  {}",
+            fk_violations.join("\n  ")
+        );
+
+        // ── Sanity checks — tables that were imported have data ────────────
+        if game_path.join("Extra.ini").exists() {
+            let extras_count: i32 = conn
+                .query_row("SELECT COUNT(*) FROM extras", [], |row| row.get(0))
+                .expect("Failed to query extras");
+            assert!(extras_count > 0, "extras table should be populated");
+        }
+
+        if game_path.join("AllMap.ini").exists() {
+            let map_count: i32 = conn
+                .query_row("SELECT COUNT(*) FROM maps", [], |row| row.get(0))
+                .expect("Failed to query maps");
+            assert!(map_count > 0, "maps table should be populated");
+        }
+
+        if game_path.join("CharacterInGame/weaponItem.db").exists() {
+            let weapon_count: i32 = conn
+                .query_row("SELECT COUNT(*) FROM weapons", [], |row| row.get(0))
+                .expect("Failed to query weapons");
+            assert!(weapon_count > 0, "weapons table should be populated");
+        }
+
+        if game_path.join("NpcInGame/Dlgcat1.dlg").exists() {
+            let dlg_count: i32 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM dialogue_scripts",
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("Failed to query dialogue_scripts");
+            assert!(dlg_count > 0, "dialogue_scripts table should be populated");
+        }
+
+        if game_path.join("Ref").exists() {
+            let escr_count: i32 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM event_scripts",
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("Failed to query event_scripts");
+            assert!(escr_count > 0, "event_scripts table should be populated");
+        }
+    }
 }
