@@ -202,6 +202,34 @@ fn import_refs(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
     save_extras(conn, &extras)?;
     println!("Saving events...");
     let events = dispel_core::references::event_ini::read_event_ini(&main_path.join("Event.ini"))?;
+    // Insert stub event rows for self-referencing and forward-referencing
+    // required_event_id values so the self-referential FK passes.
+    {
+        let req_ids: Vec<i32> = events
+            .iter()
+            .map(|e| e.required_event_id)
+            .filter(|id| *id > 0)
+            .collect();
+        for &req_id in &req_ids {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT 1 FROM events WHERE event_id = ?1",
+                    params![req_id],
+                    |_| Ok(()),
+                )
+                .is_ok();
+            if !exists {
+                let mut stmt = conn.prepare(include_str!("../queries/insert_event.sql"))?;
+                stmt.execute(params![
+                    req_id,
+                    0,                            // required_event_id
+                    Option::<i32>::None,           // event_type_id
+                    Option::<String>::None,        // event_filename
+                    0,                             // counter
+                ])?;
+            }
+        }
+    }
     save_events(conn, &events)?;
     println!("Saving monster_inis...");
     let monster_inis =
@@ -499,7 +527,54 @@ fn import_rest(main_path: &Path, conn: &mut Connection) -> Result<(), Box<dyn Er
     for (file_id, npc_ref_file) in npc_ref_files.iter().enumerate() {
         let npcrefs =
             dispel_core::references::npc_ref::read_npc_ref(&main_path.join(npc_ref_file))?;
-        save_npc_refs(conn, file_id as i32, &npcrefs)?;
+        // Resolve dialog_file_id from the map name shared between npc_ref_files
+        // and dialogue_script_files (e.g. Npcmap1.ref ↔ Dlgmap1.dlg both → map1).
+        let map_name = std::path::Path::new(npc_ref_file)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .and_then(|s| s.strip_prefix("Npc").or_else(|| s.strip_prefix("npc")))
+            .map(|s| s.to_string());
+        let dialog_file_id: i32 = conn
+            .query_row(
+                "SELECT id FROM dialogue_script_files WHERE map_name = ?1",
+                params![map_name],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        // Insert stub dialogue_scripts rows for any dialog_id that references
+        // a script not yet present in the target dialogue file.
+        let dialog_ids: Vec<i32> = npcrefs
+            .iter()
+            .map(|n| n.dialog_id)
+            .filter(|id| *id > 0)
+            .collect();
+        for &dialog_id in &dialog_ids {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT 1 FROM dialogue_scripts WHERE dialog_file_id = ?1 AND id = ?2",
+                    params![dialog_file_id, dialog_id],
+                    |_| Ok(()),
+                )
+                .is_ok();
+            if !exists {
+                let mut stmt =
+                    conn.prepare(include_str!("../queries/insert_dialogue_scripts.sql"))?;
+                stmt.execute(params![
+                    dialog_file_id,
+                    dialog_id,
+                    Option::<i32>::None, // required_event_id
+                    Option::<i32>::None, // next_dialog_to_check
+                    Option::<i32>::None, // dialog_type_id
+                    Option::<i32>::None, // dialog_owner
+                    Option::<i32>::None, // dialog_id
+                    Option::<i32>::None, // next_dialog_id1
+                    Option::<i32>::None, // next_dialog_id2
+                    Option::<i32>::None, // next_dialog_id3
+                    Option::<i32>::None, // triggered_event_id
+                ])?;
+            }
+        }
+        save_npc_refs(conn, file_id as i32, dialog_file_id, &npcrefs)?;
     }
 
     println!("Saving event_npc_refs...");

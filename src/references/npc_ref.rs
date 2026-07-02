@@ -231,7 +231,12 @@ pub fn read_npc_ref(source_path: &Path) -> std::io::Result<Vec<NPC>> {
     NPC::read_file(source_path)
 }
 
-pub fn save_npc_refs(conn: &mut Connection, file_id: i32, npc_refs: &[NPC]) -> Result<()> {
+pub fn save_npc_refs(
+    conn: &mut Connection,
+    file_id: i32,
+    dialog_file_id: i32,
+    npc_refs: &[NPC],
+) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ref.sql"))?;
@@ -278,7 +283,8 @@ pub fn save_npc_refs(conn: &mut Connection, file_id: i32, npc_refs: &[NPC]) -> R
                 npc.unknown_item_id,
                 u8::from(npc.unknown_item_type),
                 i32::from(npc.unknown_19),
-                npc.dialog_id,
+                dialog_file_id,
+                if npc.dialog_id == 0 { None } else { Some(npc.dialog_id) },
                 npc.dialogue_face_sprite_id,
             ])?;
         }
