@@ -415,11 +415,6 @@ fn import_databases(main_path: &Path, conn: &mut Connection) -> Result<(), Box<d
         &main_path.join("CharacterInGame/STORE.DB"),
     )?;
     save_stores(conn, &stores)?;
-    println!("Saving monsters...");
-    let monsters = dispel_core::references::monster_db::read_monster_db(
-        &main_path.join("MonsterInGame/Monster.db"),
-    )?;
-    save_monsters(conn, &monsters)?;
     println!("Saving misc_items...");
     let misc_items = dispel_core::references::misc_item_db::read_misc_item_db(
         &main_path.join("CharacterInGame/MiscItem.db"),
@@ -458,6 +453,14 @@ fn import_databases(main_path: &Path, conn: &mut Connection) -> Result<(), Box<d
     let magic_spells =
         dispel_core::references::magic_db::read_magic_db(&main_path.join("MagicInGame/Magic.db"))?;
     save_magic_spells(conn, &magic_spells)?;
+
+    // Monsters must be saved after magic_spells because
+    // known_spell_slot1/2/3 REFERENCES magic_spells(id).
+    println!("Saving monsters...");
+    let monsters = dispel_core::references::monster_db::read_monster_db(
+        &main_path.join("MonsterInGame/Monster.db"),
+    )?;
+    save_monsters(conn, &monsters)?;
 
     println!("Saving quests...");
     let quests =
