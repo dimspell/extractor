@@ -9,7 +9,7 @@
 
 use std::io::Cursor;
 
-use crate::modding::error::{ModdingError, Result};
+use crate::modding::error::Result;
 use crate::modding::patcher::{out_of_range, unknown_field, wrong_type, RecordPatcher};
 use crate::modding::value::Value;
 use crate::references::draw_item::DrawItem;
@@ -86,9 +86,6 @@ fn parse_u8(field: &str, new: &Value) -> Result<u8> {
         _ => Err(wrong_type(DrawItemPatcher::RECORD_NAME, field, "u8", new)),
     }
 }
-
-#[allow(dead_code)]
-fn _ensure_no_modding_error_unused(_: ModdingError) {}
 
 #[cfg(test)]
 mod tests {

@@ -27,7 +27,7 @@ use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dispel_core::modding::Value;
-use dispel_core::{ExtraRef, Store, WaveIni, WeaponItem, NPC};
+use dispel_core::{Store, WaveIni, WeaponItem, NPC};
 use std::path::PathBuf;
 
 // ============================================================================
@@ -1128,5 +1128,3 @@ fn party_level_db_no_recording_when_no_npc_selected() {
         "party_level_db should NOT record when no NPC selected"
     );
 }
-
-

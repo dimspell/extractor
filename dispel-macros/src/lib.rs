@@ -53,7 +53,7 @@ pub fn derive_extractor(input: TokenStream) -> TokenStream {
 ///
 /// Field-level attributes:
 /// - `#[extractor(field = N)]` - CSV field index (0-based)
-/// - `#[extractor(parse_null)]` - Field is Option<String>, uses parse_null()
+/// - `#[extractor(parse_null)]` - Field is `Option<String>`, uses parse_null()
 /// - `#[extractor(enum_from_i32(type = "EnumType"))]` - Parse as i32-based enum
 #[proc_macro_derive(TextExtractor, attributes(extractor))]
 pub fn derive_text_extractor(input: TokenStream) -> TokenStream {
@@ -61,7 +61,7 @@ pub fn derive_text_extractor(input: TokenStream) -> TokenStream {
     text_extractor_impl::expand(input).into()
 }
 
-/// Derive macro that generates a [`crate::modding::patcher::RecordPatcher`]
+/// Derive macro that generates a `RecordPatcher`
 /// implementation by *reusing* the `#[extractor(...)]` attributes already on
 /// the struct. Emits a unit struct named `<Struct>Patcher;` alongside the
 /// trait impl.
@@ -77,7 +77,7 @@ pub fn derive_record_patcher(input: TokenStream) -> TokenStream {
     record_patcher_impl::expand(input).into()
 }
 
-/// Derive macro that generates a [`crate::modding::patcher::RecordPatcher`]
+/// Derive macro that generates a `RecordPatcher`
 /// implementation for `TextExtractor`-based catalogs (CSV / pipe-delimited
 /// `.ini` / `.scr` files).
 #[proc_macro_derive(TextRecordPatcher, attributes(extractor, patcher))]

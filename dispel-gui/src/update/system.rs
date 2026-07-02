@@ -250,7 +250,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         SystemMessage::RebuildIndex => {
-            // TODO: Write information what it does
             if let Some(ref gp) = app.state.workspace.game_path {
                 app.search_index.clear();
                 app.search_index.game_path = Some(gp.to_string_lossy().to_string());

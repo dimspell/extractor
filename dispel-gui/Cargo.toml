@@ -18,7 +18,6 @@ dispel_core = { package = "dispel-extractor", path = ".." }
 nucleo-matcher = "0.3"
 bincode = "1.3.3"
 thiserror = "2.0.18"
-tempfile = "3.10.0"
 iced_test = { workspace = true, optional = true }
 env_logger = "0.10.0"
 rodio = { version = "0.22", default-features = false, features = ["wav", "playback"] }
@@ -56,3 +55,4 @@ features = ["bundled"]
 [dev-dependencies]
 proptest = "1.4"
 syn = { version = "2", features = ["full"] }
+tempfile = "3.10.0"

@@ -17,7 +17,6 @@ struct NpcInfo {
 /// Information about an event from the database
 #[derive(Debug, Clone)]
 struct EventInfo {
-    #[allow(dead_code)]
     event_id: i32,
     event_filename: Option<String>,
     actions: Vec<EventAction>,
@@ -150,9 +149,9 @@ fn load_event_information(db_path: &Path) -> SqlResult<HashMap<i32, EventInfo>> 
 
         // Get actions for this event
         let mut action_stmt = conn.prepare(
-            "SELECT action_order, function_name, parameters 
-             FROM event_actions 
-             WHERE event_id = ?1 
+            "SELECT action_order, function_name, parameters
+             FROM event_actions
+             WHERE event_id = ?1
              ORDER BY action_order",
         )?;
 

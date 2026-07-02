@@ -250,11 +250,11 @@ impl IndexationService {
                 Err(e) => {
                     // Log the error but continue with the file
                     let file_path = path.clone();
-                    Self::log_warning(&format!(
+                    log::warn!(
                         "Failed to get modified time for '{}': {}",
                         file_path.display(),
                         e
-                    ));
+                    );
                     0
                 }
             };
@@ -265,11 +265,11 @@ impl IndexationService {
                     Ok(metadata) => Some(metadata),
                     Err(e) => {
                         // Log the error but continue without metadata for this file
-                        Self::log_warning(&format!(
+                        log::warn!(
                             "Failed to analyze sprite file '{}': {}",
                             path.display(),
                             e
-                        ));
+                        );
                         None
                     }
                 }
@@ -304,11 +304,11 @@ impl IndexationService {
                 ) {
                     // Log the error but continue with other directories
                     if !e.is_cancelled() {
-                        Self::log_warning(&format!(
+                        log::warn!(
                             "Error scanning directory '{}': {}",
                             path.display(),
                             e
-                        ));
+                        );
                     } else {
                         return Err(e);
                     }
@@ -424,23 +424,6 @@ impl IndexationService {
         self.progress_history.lock().await.last().cloned()
     }
 
-    /// Log a warning message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_warning(message: &str) {
-        eprintln!("[IndexationService WARNING] {}", message);
-    }
-
-    /// Log an error message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_error(message: &str) {
-        eprintln!("[IndexationService ERROR] {}", message);
-    }
-
-    /// Log a debug message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_debug(message: &str) {
-        println!("[IndexationService DEBUG] {}", message);
-    }
 }
 
 /// Indexation progress updates
