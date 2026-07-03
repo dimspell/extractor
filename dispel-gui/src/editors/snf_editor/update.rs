@@ -1,15 +1,11 @@
 use crate::app::App;
-use crate::editors::snf_editor::{
-    ExportStatus, PlaybackHandle, SnfEditorMessage, ToastMessage,
-};
+use crate::editors::snf_editor::{ExportStatus, PlaybackHandle, SnfEditorMessage};
 use crate::message::MessageExt;
+use gui_widgets::components::toast;
 use iced::Task;
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
-
-/// Duration before a toast notification is auto-dismissed.
-const TOAST_DISMISS_SECS: u64 = 3;
 
 pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = app
@@ -165,20 +161,13 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             match result {
                 Ok(p) => {
                     editor.export_status = ExportStatus::Done(p.clone());
-                    editor.toast = Some(ToastMessage {
-                        text: format!("Exported: {}", p),
-                        is_error: false,
-                    });
+                    editor.toasts.push(toast::Toast::success("Exported", p));
                 }
                 Err(e) => {
                     editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toast = Some(ToastMessage {
-                        text: e,
-                        is_error: true,
-                    });
+                    editor.toasts.push(toast::Toast::error("Export failed", e));
                 }
             }
-            return dismiss_toast(tab_id);
         }
 
         SnfEditorMessage::ImportWav => {
@@ -220,20 +209,13 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                     editor.waveform = snf.waveform_points(1000);
                     editor.modified = true;
                     editor.export_status = ExportStatus::Done(format!("Imported: {}", path));
-                    editor.toast = Some(ToastMessage {
-                        text: format!("Imported: {}", path),
-                        is_error: false,
-                    });
+                    editor.toasts.push(toast::Toast::success("Imported", path));
                 }
                 Err(e) => {
                     editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toast = Some(ToastMessage {
-                        text: e,
-                        is_error: true,
-                    });
+                    editor.toasts.push(toast::Toast::error("Import failed", e));
                 }
             }
-            return dismiss_toast(tab_id);
         }
 
         SnfEditorMessage::Save => {
@@ -259,36 +241,21 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                 Ok(p) => {
                     editor.modified = false;
                     editor.export_status = ExportStatus::Done(format!("Saved: {}", p));
-                    editor.toast = Some(ToastMessage {
-                        text: format!("Saved: {}", p),
-                        is_error: false,
-                    });
+                    editor.toasts.push(toast::Toast::success("Saved", p));
                 }
                 Err(e) => {
                     editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toast = Some(ToastMessage {
-                        text: e,
-                        is_error: true,
-                    });
+                    editor.toasts.push(toast::Toast::error("Save failed", e));
                 }
             }
-            return dismiss_toast(tab_id);
         }
 
-        SnfEditorMessage::ClearToast => {
-            editor.toast = None;
+        SnfEditorMessage::DismissToast(index) => {
+            if index < editor.toasts.len() {
+                editor.toasts.remove(index);
+            }
         }
     }
 
     Task::none()
-}
-
-/// Spawn a delayed `ClearToast` message after `TOAST_DISMISS_SECS`.
-fn dismiss_toast(_tab_id: usize) -> Task<crate::message::Message> {
-    Task::perform(
-        async move {
-            tokio::time::sleep(std::time::Duration::from_secs(TOAST_DISMISS_SECS)).await;
-        },
-        move |()| crate::message::Message::snf_editor(SnfEditorMessage::ClearToast),
-    )
 }

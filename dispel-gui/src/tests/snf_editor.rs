@@ -34,7 +34,7 @@ mod snf_editor_tests {
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
                 modified: false,
-                toast: None,
+                toasts: Vec::new(),
             },
         );
 

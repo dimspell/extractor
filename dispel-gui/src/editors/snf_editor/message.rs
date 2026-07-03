@@ -17,7 +17,7 @@ pub enum SnfEditorMessage {
     Save,
     /// Async result of Save.
     SaveDone(Result<String, String>),
-    /// Auto-dismiss the toast notification.
-    ClearToast,
+    /// Dismiss a toast notification by index (triggered by close button or timeout).
+    DismissToast(usize),
     Tick,
 }
