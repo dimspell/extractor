@@ -11,7 +11,7 @@ pub(crate) struct MenuItem {
 
 /// Result of showing a native context menu.
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum NativeResult {
+pub enum NativeResult {
     /// User selected the item at this index.
     Selected(usize),
     /// Native menu was shown but the user cancelled (clicked outside).
@@ -26,7 +26,7 @@ pub(crate) enum NativeResult {
 ///   without a selection. Caller should **not** fall through to the custom overlay.
 /// - `None` — native menus are not available on this platform. Caller should
 ///   fall back to the custom-rendered overlay.
-pub(crate) fn try_show_native_menu<Message: Clone>(
+pub fn try_show_native_menu<Message: Clone>(
     entries: &[Entry<Message>],
 ) -> Option<NativeResult> {
     // Set FORCE_CUSTOM_CONTEXT_MENU=1 to skip native menus and use

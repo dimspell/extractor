@@ -94,8 +94,7 @@ impl App {
                                 }
                             }
                         };
-                        let tab_bar =
-                            tab_bar::view_tab_bar(&self.state.workspace).map(Message::tab_bar);
+                        let tab_bar = tab_bar::view_tab_bar(self);
                         column![self.view_shared_game_path_toolbar(), tab_bar, content]
                             .spacing(0)
                             .height(Fill)
