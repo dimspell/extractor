@@ -4,7 +4,7 @@ use crate::editors::snf_editor::ExportStatus;
 use crate::editors::snf_editor::SnfEditorMessage;
 use crate::message::{Message, MessageExt};
 use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
-use iced::{Alignment, Element, Fill, Length};
+use iced::{Alignment, Color, Element, Fill, Length};
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let tab_id = app
@@ -151,19 +151,38 @@ pub fn view(app: &App) -> Element<'_, Message> {
     )
     .width(Fill);
 
-    // Export status
-    let status_row = match &editor.export_status {
-        ExportStatus::Idle => row![],
-        ExportStatus::Done(p) => {
-            row![text(format!("Exported: {}", p)).size(11)]
+    // Toast notification bar (auto-dismissed after 3s)
+    let toast_bar: Element<'_, Message> = match &editor.toast {
+        Some(t) => {
+            let (bg, fg) = if t.is_error {
+                (Color::from_rgb(0.5, 0.1, 0.1), Color::from_rgb(1.0, 0.8, 0.8))
+            } else {
+                (Color::from_rgb(0.1, 0.4, 0.1), Color::from_rgb(0.8, 1.0, 0.8))
+            };
+            container(text(&t.text).size(12).color(fg))
+                .width(Fill)
+                .padding([6, 12])
+                .style(move |_theme| {
+                    iced::widget::container::Style::default()
+                        .background(iced::Background::Color(bg))
+                })
+                .into()
         }
-        ExportStatus::Error(e) => {
-            row![text(format!("Error: {}", e)).size(11)]
+        None => {
+            // Fall back to non-intrusive export_status when no toast is active
+            match &editor.export_status {
+                ExportStatus::Idle => Space::new().height(Length::Fixed(0.0)).into(),
+                ExportStatus::Done(p) => {
+                    row![text(p.as_str()).size(11)].padding([2, 12]).into()
+                }
+                ExportStatus::Error(e) => {
+                    row![text(e.as_str()).size(11)].padding([2, 12]).into()
+                }
+            }
         }
-    }
-    .padding([2, 12]);
+    };
 
-    column![header, meta, waveform, timeline, controls, status_row,]
+    column![header, meta, waveform, timeline, controls, toast_bar,]
         .spacing(0)
         .height(Fill)
         .accessible_label("SNF audio editor")

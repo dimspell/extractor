@@ -48,6 +48,13 @@ pub enum ExportStatus {
     Error(String),
 }
 
+/// A transient toast notification shown briefly then auto-dismissed.
+#[derive(Debug, Clone)]
+pub struct ToastMessage {
+    pub text: String,
+    pub is_error: bool,
+}
+
 pub struct SnfEditorState {
     pub path: PathBuf,
     pub name: String,
@@ -59,6 +66,8 @@ pub struct SnfEditorState {
     pub volume: f32,
     pub export_status: ExportStatus,
     pub modified: bool,
+    /// Transient toast notification shown briefly after save/import etc.
+    pub toast: Option<ToastMessage>,
 }
 
 impl SnfEditorState {
@@ -83,6 +92,7 @@ impl SnfEditorState {
                     volume: 0.5,
                     export_status: ExportStatus::Idle,
                     modified: false,
+                    toast: None,
                 }
             }
             Err(e) => SnfEditorState {
@@ -96,6 +106,7 @@ impl SnfEditorState {
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
                 modified: false,
+                toast: None,
             },
         }
     }
