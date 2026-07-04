@@ -8,11 +8,16 @@ use iced::advanced::renderer::Quad;
 use iced::advanced::text;
 use iced::alignment;
 use iced::{
-    Background, Border, Color, Pixels, Point, Rectangle, Size,
+    Background, Border, Color, Font, Pixels, Point, Rectangle, Size,
 };
+
+use lucide_icons::Icon;
 
 use super::style::{Status, Style};
 use super::TAB_HEIGHT;
+
+/// Font name for Lucide icon glyphs.
+const LUCIDE_FONT: Font = Font::new("lucide");
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
@@ -105,7 +110,7 @@ impl Tab {
     /// drag-source (placeholder), or drop-target.
     /// `style` is the resolved [`Style`] for the given `status`.
     /// `hovered_close` indicates whether the cursor is over the close button.
-    pub fn draw<Renderer: text::Renderer>(
+    pub fn draw<Renderer: text::Renderer<Font = iced::Font>>(
         &self,
         renderer: &mut Renderer,
         bounds: Rectangle,
@@ -154,7 +159,7 @@ impl Tab {
                 if !self.pinned {
                     // ── Drag handle (left) ────────────────────────────
                     renderer.fill_text(
-                        make_text("⋮⋮".to_string(), font, DRAG_HANDLE_WIDTH, text::Alignment::Left),
+                        make_text(String::from(char::from(Icon::GripVertical)), LUCIDE_FONT, DRAG_HANDLE_WIDTH, text::Alignment::Center),
                         Point::new(bounds.x + pad, bounds.center_y()),
                         style.drag_handle_color,
                         bounds,
@@ -168,7 +173,7 @@ impl Tab {
                         style.close_button_color
                     };
                     renderer.fill_text(
-                        make_text("✕".to_string(), font, CLOSE_BUTTON_WIDTH, text::Alignment::Center),
+                        make_text(String::from(char::from(Icon::X)), LUCIDE_FONT, CLOSE_BUTTON_WIDTH, text::Alignment::Center),
                         Point::new(close_x, bounds.center_y()),
                         close_color,
                         bounds,
@@ -210,7 +215,7 @@ impl Tab {
                 } else {
                     // ── Pinned tab: pin indicator + label ─────────────
                     renderer.fill_text(
-                        make_text("📌".to_string(), font, 16.0, text::Alignment::Left),
+                        make_text(String::from(char::from(Icon::Pin)), LUCIDE_FONT, 16.0, text::Alignment::Center),
                         Point::new(bounds.x + pad, bounds.center_y()),
                         style.pin_color,
                         bounds,

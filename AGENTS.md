@@ -557,6 +557,29 @@ rtk grep "pattern" .                                # Grouped search results
 rtk read file.rs                                    # Smart file reading
 ```
 
+## iced GUI patterns
+
+This project used the iced from the ../iced. It is a nightly version (v0.15-dev) with modifications to handle accesiblity features (like a VoiceOver screen reader).
+
+### Custom patterns
+
+Custom patterns are in the `gui-widgets` crate - `./gui-widgets/src`.
+
+### `min` and `max` methods for `Length`
+
+There are `min` and `max` methods to the `Length` type, allowing to define minimum and maximum constraints for any widget:
+
+```rs
+row![
+    container(sidebar).width(Fill.min(150).max(200)),
+    container(content).width(FillPortion(3).min(300)),
+]
+```
+
+### Notification on `scale_factor` change
+
+`window::Event::Resized` is notified when `scale_factor` changes.
+
 ---
 
 *Last updated: 2026-06-04*  

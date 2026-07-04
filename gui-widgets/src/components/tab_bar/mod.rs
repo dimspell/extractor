@@ -22,8 +22,12 @@ use iced::advanced::widget::Widget;
 use iced::advanced::{mouse, overlay as iced_overlay};
 use iced::advanced::text;
 use iced::{
-    Background, Border, Color, Element, Event, Length, Pixels, Point, Rectangle, Size, Vector,
+    Background, Border, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size, Vector,
 };
+use lucide_icons::Icon;
+
+/// Font name for Lucide icon glyphs.
+const LUCIDE_FONT: Font = Font::new("lucide");
 use tab::{CLOSE_BUTTON_WIDTH, LABEL_SIZE, TAB_PADDING};
 
 /// Deadband distance in logical pixels — the cursor must move this far
@@ -106,7 +110,7 @@ impl Default for TabBarState {
 pub struct TabBar<'a, Message, Theme = iced::Theme, Renderer = iced::Renderer>
 where
     Theme: style::Catalog,
-    Renderer: text::Renderer,
+    Renderer: text::Renderer<Font = iced::Font>,
 {
     tabs: Vec<Tab>,
     active_tab: Option<usize>,
@@ -120,7 +124,7 @@ where
 impl<'a, Message, Theme, Renderer> TabBar<'a, Message, Theme, Renderer>
 where
     Theme: style::Catalog,
-    Renderer: text::Renderer,
+    Renderer: text::Renderer<Font = iced::Font>,
 {
     /// Create a new [`TabBar`].
     pub fn new(tabs: Vec<Tab>, active_tab: Option<usize>) -> Self {
@@ -195,7 +199,7 @@ impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Message: 'a + Clone,
     Theme: style::Catalog + 'a,
-    Renderer: text::Renderer + 'a,
+    Renderer: text::Renderer<Font = iced::Font> + 'a,
 {
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<TabBarState>()
@@ -568,10 +572,11 @@ where
     ) {
         let state = tree.state.downcast_ref::<TabBarState>();
         let bounds = layout.bounds();
-        let default_font = renderer.default_font();
 
         // Resolve a baseline style once (bar background, separator, drop indicator)
         let idle_style = theme.style(&self.class, Status::Idle);
+
+        let _default_font = renderer.default_font();
 
         // Determine whether a drag is active (used for source de-emphasis and drop line)
         let drag_info = match state.action {
@@ -606,11 +611,11 @@ where
             };
             renderer.fill_text(
                 text::Text {
-                    content: "‹".to_string(),
+                    content: String::from(char::from(Icon::ChevronLeft)),
                     bounds: Size::new(SCROLL_BUTTON_WIDTH, TAB_HEIGHT),
                     size: LABEL_SIZE,
                     line_height: text::LineHeight::Relative(1.0),
-                    font: default_font,
+                    font: LUCIDE_FONT,
                     align_x: text::Alignment::Center,
                     align_y: alignment::Vertical::Center,
                     shaping: text::Shaping::Basic,
@@ -618,7 +623,7 @@ where
                     ellipsis: text::Ellipsis::None,
                     hint_factor: None,
                 },
-                Point::new(scroll_left_x, bounds.y + TAB_HEIGHT * 0.5),
+                btn_bounds.center(),
                 btn_color,
                 btn_bounds,
             );
@@ -636,11 +641,11 @@ where
             };
             renderer.fill_text(
                 text::Text {
-                    content: "›".to_string(),
+                    content: String::from(char::from(Icon::ChevronRight)),
                     bounds: Size::new(SCROLL_BUTTON_WIDTH, TAB_HEIGHT),
                     size: LABEL_SIZE,
                     line_height: text::LineHeight::Relative(1.0),
-                    font: default_font,
+                    font: LUCIDE_FONT,
                     align_x: text::Alignment::Center,
                     align_y: alignment::Vertical::Center,
                     shaping: text::Shaping::Basic,
@@ -648,7 +653,7 @@ where
                     ellipsis: text::Ellipsis::None,
                     hint_factor: None,
                 },
-                Point::new(scroll_right_x, bounds.y + TAB_HEIGHT * 0.5),
+                btn_bounds_r.center(),
                 btn_color_r,
                 btn_bounds_r,
             );
@@ -947,7 +952,7 @@ impl<'a, Message, Theme, Renderer> From<TabBar<'a, Message, Theme, Renderer>>
 where
     Message: 'a + Clone,
     Theme: style::Catalog + 'a,
-    Renderer: text::Renderer + 'a,
+    Renderer: text::Renderer<Font = iced::Font> + 'a,
 {
     fn from(tab_bar: TabBar<'a, Message, Theme, Renderer>) -> Self {
         Element::new(tab_bar)

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool"] }
 lru = "0.12"
+lucide-icons = "1.23"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

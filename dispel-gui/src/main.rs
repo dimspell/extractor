@@ -31,6 +31,7 @@ pub fn main() -> iced::Result {
     env_logger::init();
 
     iced::application(App::new, App::update, App::view)
+        .font(lucide_icons::LUCIDE_FONT_BYTES)
         .theme(|_: &App| {
             Theme::custom(
                 "Medieval",
