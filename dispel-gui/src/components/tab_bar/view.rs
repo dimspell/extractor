@@ -1,5 +1,5 @@
 use gui_widgets::components::context_menu::{platform, Entry};
-use gui_widgets::components::tab_bar::{TabBar, TabBarEvent, TabData};
+use gui_widgets::components::tab_bar::{Tab, TabBar, TabBarEvent};
 use iced::Element;
 
 use super::message::TabBarMessage;
@@ -57,16 +57,15 @@ fn try_native_context_menu(
 
 /// Render the workspace tab bar using the custom [`TabBar`] widget.
 pub fn view_tab_bar(app: &App) -> Element<'_, Message> {
-    let tabs: Vec<TabData> = app
+    let tabs: Vec<Tab> = app
         .state
         .workspace
         .tabs
         .iter()
-        .map(|t| TabData {
-            id: t.id,
-            label: t.label.clone(),
-            modified: t.modified,
-            pinned: t.pinned,
+        .map(|t| {
+            Tab::new(t.id, t.label.clone())
+                .modified(t.modified)
+                .pinned(t.pinned)
         })
         .collect();
 

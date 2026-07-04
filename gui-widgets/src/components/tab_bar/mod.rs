@@ -6,9 +6,11 @@
 
 mod event;
 mod style;
+mod tab;
 
 pub use event::TabBarEvent;
 pub use style::{Catalog, Status, Style};
+pub use tab::Tab;
 
 use std::marker::PhantomData;
 
@@ -22,42 +24,14 @@ use iced::advanced::text;
 use iced::{
     Background, Border, Color, Element, Event, Length, Pixels, Point, Rectangle, Size, Vector,
 };
+use tab::{CLOSE_BUTTON_WIDTH, LABEL_SIZE, TAB_PADDING};
 
 /// Deadband distance in logical pixels — the cursor must move this far
 /// from the press origin to transition from "click" to "drag".
 const DRAG_DEADBAND: f32 = 8.0;
 
 /// Fixed height of each tab in logical pixels.
-const TAB_HEIGHT: f32 = 30.0;
-
-/// Width reserved for the drag handle area (⋮⋮).
-const DRAG_HANDLE_WIDTH: f32 = 14.0;
-
-/// Width reserved for the close button (✕).
-const CLOSE_BUTTON_WIDTH: f32 = 16.0;
-
-/// Horizontal spacing between elements inside a tab.
-const INNER_SPACING: f32 = 4.0;
-
-/// Horizontal padding on each side of a tab.
-const TAB_PADDING: f32 = 6.0;
-
-/// The font size used for tab labels.
-const LABEL_SIZE: Pixels = Pixels(11.0);
-
-/// Approximate average character width (px) for the label font size.
-const CHAR_WIDTH_ESTIMATE: f32 = 7.0;
-
-// ── Public data types ─────────────────────────────────────────────────────────
-
-/// Describes a single tab to the widget.
-#[derive(Debug, Clone)]
-pub struct TabData {
-    pub id: usize,
-    pub label: String,
-    pub modified: bool,
-    pub pinned: bool,
-}
+pub(crate) const TAB_HEIGHT: f32 = 30.0;
 
 // ── Drag-action state (stored in widget Tree) ─────────────────────────────────
 
@@ -116,7 +90,7 @@ where
     Theme: style::Catalog,
     Renderer: text::Renderer,
 {
-    tabs: Vec<TabData>,
+    tabs: Vec<Tab>,
     active_tab: Option<usize>,
     spacing: f32,
     padding: f32,
@@ -131,7 +105,7 @@ where
     Renderer: text::Renderer,
 {
     /// Create a new [`TabBar`].
-    pub fn new(tabs: Vec<TabData>, active_tab: Option<usize>) -> Self {
+    pub fn new(tabs: Vec<Tab>, active_tab: Option<usize>) -> Self {
         Self {
             tabs,
             active_tab,
@@ -194,54 +168,6 @@ where
         }
     }
 
-    /// Compute the width of a single tab's contents.
-    fn tab_content_width(&self, tab: &TabData) -> f32 {
-        let label_width = tab.label.len() as f32 * CHAR_WIDTH_ESTIMATE;
-        let mut w = 0.0;
-
-        if !tab.pinned {
-            w += DRAG_HANDLE_WIDTH + INNER_SPACING;
-        } else {
-            w += 14.0 + INNER_SPACING;
-        }
-
-        w += label_width;
-
-        if tab.modified {
-            w += 8.0 + INNER_SPACING;
-        }
-
-        w += INNER_SPACING;
-
-        if !tab.pinned {
-            w += CLOSE_BUTTON_WIDTH;
-        }
-
-        w + TAB_PADDING * 2.0
-    }
-
-    /// Build a [`text::Text`] value with sensible defaults for tab labels.
-    fn make_text(
-        &self,
-        content: String,
-        font: Renderer::Font,
-        width: f32,
-        align_x: text::Alignment,
-    ) -> text::Text<String, Renderer::Font> {
-        text::Text {
-            content,
-            bounds: Size::new(width, TAB_HEIGHT),
-            size: LABEL_SIZE,
-            line_height: text::LineHeight::Relative(1.0),
-            font,
-            align_x,
-            align_y: alignment::Vertical::Center,
-            shaping: text::Shaping::Basic,
-            wrapping: text::Wrapping::None,
-            ellipsis: text::Ellipsis::None,
-            hint_factor: None,
-        }
-    }
 }
 
 // ── Widget trait implementation ───────────────────────────────────────────────
@@ -279,7 +205,7 @@ where
         let tab_widths: Vec<f32> = self
             .tabs
             .iter()
-            .map(|tab| self.tab_content_width(tab))
+            .map(|tab| tab.content_width())
             .collect();
 
         let total_width: f32 = tab_widths.iter().copied().sum::<f32>()
@@ -528,7 +454,7 @@ where
     ) {
         let state = tree.state.downcast_ref::<TabBarState>();
         let bounds = layout.bounds();
-        let default_font = renderer.default_font();
+        let _default_font = renderer.default_font();
 
         // Resolve a baseline style once (bar background, separator, drop indicator)
         let idle_style = theme.style(&self.class, Status::Idle);
@@ -611,120 +537,13 @@ where
                     tab_style.background,
                 );
 
-                let pad = TAB_PADDING;
-
-                if !tab.pinned {
-                    // Drag handle at left
-                    renderer.fill_text(
-                        self.make_text(
-                            "⋮⋮".to_string(),
-                            default_font,
-                            DRAG_HANDLE_WIDTH,
-                            text::Alignment::Left,
-                        ),
-                        Point::new(x + pad, tab_bounds.center_y()),
-                        tab_style.drag_handle_color,
-                        tab_bounds,
-                    );
-
-                    // Close button at right
-                    let close_hovered = is_hovered && state.hovered_close;
-                    let close_color = if close_hovered {
-                        tab_style.close_button_hovered_color
-                    } else {
-                        tab_style.close_button_color
-                    };
-                    renderer.fill_text(
-                        self.make_text(
-                            "✕".to_string(),
-                            default_font,
-                            CLOSE_BUTTON_WIDTH,
-                            text::Alignment::Center,
-                        ),
-                        Point::new(x + tab_w - pad - CLOSE_BUTTON_WIDTH, tab_bounds.center_y()),
-                        close_color,
-                        tab_bounds,
-                    );
-
-                    // Label after drag handle, before close button
-                    let label_x = x + pad + DRAG_HANDLE_WIDTH + INNER_SPACING;
-                    let label_max_w = tab_w - 2.0 * pad - DRAG_HANDLE_WIDTH - CLOSE_BUTTON_WIDTH - 2.0 * INNER_SPACING;
-                    renderer.fill_text(
-                        self.make_text(
-                            tab.label.clone(),
-                            default_font,
-                            label_max_w,
-                            text::Alignment::Left,
-                        ),
-                        Point::new(label_x, tab_bounds.center_y()),
-                        tab_style.text_color,
-                        tab_bounds,
-                    );
-
-                    // Modified dot
-                    if tab.modified {
-                        let label_w = tab.label.len() as f32 * CHAR_WIDTH_ESTIMATE;
-                        let dot_x = label_x + label_w + INNER_SPACING;
-                        let dot_y = tab_bounds.y + TAB_HEIGHT * 0.5 - 3.0;
-                        renderer.fill_quad(
-                            Quad {
-                                bounds: Rectangle {
-                                    x: dot_x,
-                                    y: dot_y,
-                                    width: 6.0,
-                                    height: 6.0,
-                                },
-                                border: Border::default().rounded(3.0),
-                                ..Quad::default()
-                            },
-                            Background::Color(tab_style.modified_dot_color),
-                        );
-                    }
-                } else {
-                    // Pinned tab: pin indicator + label
-                    renderer.fill_text(
-                        self.make_text(
-                            "📌".to_string(),
-                            default_font,
-                            16.0,
-                            text::Alignment::Left,
-                        ),
-                        Point::new(x + pad, tab_bounds.center_y()),
-                        tab_style.pin_color,
-                        tab_bounds,
-                    );
-                    let label_x = x + pad + 14.0 + INNER_SPACING;
-                    let label_max_w = tab_w - pad - 14.0 - INNER_SPACING - pad;
-                    renderer.fill_text(
-                        self.make_text(
-                            tab.label.clone(),
-                            default_font,
-                            label_max_w,
-                            text::Alignment::Left,
-                        ),
-                        Point::new(label_x, tab_bounds.center_y()),
-                        tab_style.text_color,
-                        tab_bounds,
-                    );
-                    if tab.modified {
-                        let label_w = tab.label.len() as f32 * CHAR_WIDTH_ESTIMATE;
-                        let dot_x = label_x + label_w + INNER_SPACING;
-                        let dot_y = tab_bounds.y + TAB_HEIGHT * 0.5 - 3.0;
-                        renderer.fill_quad(
-                            Quad {
-                                bounds: Rectangle {
-                                    x: dot_x,
-                                    y: dot_y,
-                                    width: 6.0,
-                                    height: 6.0,
-                                },
-                                border: Border::default().rounded(3.0),
-                                ..Quad::default()
-                            },
-                            Background::Color(tab_style.modified_dot_color),
-                        );
-                    }
-                }
+                tab.draw(
+                    renderer,
+                    tab_bounds,
+                    status,
+                    &tab_style,
+                    is_hovered && state.hovered_close,
+                );
             }
 
             x += tab_w + self.spacing;
@@ -941,13 +760,10 @@ where
 mod tests {
     use super::*;
 
-    fn make_tab(id: usize, label: &str, modified: bool, pinned: bool) -> TabData {
-        TabData {
-            id,
-            label: label.to_string(),
-            modified,
-            pinned,
-        }
+    fn make_tab(id: usize, label: &str, modified: bool, pinned: bool) -> Tab {
+        Tab::new(id, label.to_string())
+            .modified(modified)
+            .pinned(pinned)
     }
 
     #[test]
@@ -961,31 +777,23 @@ mod tests {
 
     #[test]
     fn test_tab_content_width() {
-        let tabs = vec![make_tab(0, "Hello", false, false)];
-        let tab_bar = TabBar::<(), iced::Theme>::new(tabs, None);
-        let w = tab_bar.tab_content_width(&tab_bar.tabs[0]);
+        let tab = make_tab(0, "Hello", false, false);
+        let w = tab.content_width();
         assert!(w > 0.0);
     }
 
     #[test]
     fn test_tab_content_width_pinned() {
-        let tabs = vec![make_tab(1, "Pinned", false, true)];
-        let tab_bar = TabBar::<(), iced::Theme>::new(tabs, None);
-        let w = tab_bar.tab_content_width(&tab_bar.tabs[0]);
+        let tab = make_tab(1, "Pinned", false, true);
+        let w = tab.content_width();
         assert!(w > 0.0);
     }
 
     #[test]
     fn test_tab_content_width_modified() {
-        let tabs = vec![make_tab(2, "Mod", true, false)];
-        let tab_bar = TabBar::<(), iced::Theme>::new(tabs, None);
-        let w_mod = tab_bar.tab_content_width(&tab_bar.tabs[0]);
-
-        let tabs2 = vec![make_tab(3, "Mod", false, false)];
-        let tab_bar2 = TabBar::<(), iced::Theme>::new(tabs2, None);
-        let w_norm = tab_bar2.tab_content_width(&tab_bar2.tabs[0]);
-
-        assert!(w_mod > w_norm);
+        let tab_mod = make_tab(2, "Mod", true, false);
+        let tab_norm = make_tab(3, "Mod", false, false);
+        assert!(tab_mod.content_width() > tab_norm.content_width());
     }
 
     #[test]
