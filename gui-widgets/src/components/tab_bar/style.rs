@@ -33,6 +33,10 @@ pub struct Style {
     // ── Tab bar background ────────────────────────────────────────
     pub bar_background: Background,
 
+    // ── Scroll buttons (overflow) ─────────────────────────────────
+    pub scroll_button_color: Color,
+    pub scroll_button_hovered_color: Color,
+
     // ── Separator lines between tabs ──────────────────────────────
     pub separator_color: Color,
     pub separator_width: f32,
@@ -62,6 +66,9 @@ impl Default for Style {
             border_width: 1.0,
 
             bar_background: Background::Color(Color::from_rgb(0.08, 0.08, 0.08)),
+
+            scroll_button_color: Color::from_rgb(0.5, 0.5, 0.5),
+            scroll_button_hovered_color: Color::from_rgb(0.9, 0.9, 0.9),
 
             separator_color: Color::from_rgba(0.3, 0.3, 0.3, 0.4),
             separator_width: 1.0,

@@ -161,7 +161,7 @@ impl Tab {
                     );
 
                     // ── Close button (right) ──────────────────────────
-                    let close_x = bounds.x + bounds.width - pad - CLOSE_BUTTON_WIDTH;
+                    let close_x = bounds.x + bounds.width - pad - CLOSE_BUTTON_WIDTH / 2.0;
                     let close_color = if hovered_close {
                         style.close_button_hovered_color
                     } else {

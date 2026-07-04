@@ -33,6 +33,12 @@ const DRAG_DEADBAND: f32 = 8.0;
 /// Fixed height of each tab in logical pixels.
 pub(crate) const TAB_HEIGHT: f32 = 30.0;
 
+/// Width of each scroll button (left/right arrows when tabs overflow).
+const SCROLL_BUTTON_WIDTH: f32 = 20.0;
+
+/// Pixels scrolled per mouse-wheel tick or button click.
+const SCROLL_STEP: f32 = 100.0;
+
 // ── Drag-action state (stored in widget Tree) ─────────────────────────────────
 
 #[derive(Debug, Clone, Copy)]
@@ -67,6 +73,14 @@ struct TabBarState {
     drop_target: Option<usize>,
     tab_widths: Vec<f32>,
     total_width: f32,
+    /// Horizontal scroll offset when tabs overflow the bar width.
+    scroll_offset: f32,
+    /// Maximum valid scroll_offset (0 when all tabs fit).
+    max_scroll: f32,
+    /// Whether the left scroll button is hovered.
+    hovered_scroll_left: bool,
+    /// Whether the right scroll button is hovered.
+    hovered_scroll_right: bool,
 }
 
 impl Default for TabBarState {
@@ -78,6 +92,10 @@ impl Default for TabBarState {
             drop_target: None,
             tab_widths: Vec::new(),
             total_width: 0.0,
+            scroll_offset: 0.0,
+            max_scroll: 0.0,
+            hovered_scroll_left: false,
+            hovered_scroll_right: false,
         }
     }
 }
@@ -215,6 +233,19 @@ where
         state.tab_widths = tab_widths;
         state.total_width = total_width;
 
+        // Available content width (excluding bar padding on each side)
+        let max_bounds = limits.max();
+        let available_content = max_bounds.width - self.padding * 2.0;
+        let overflow = total_width > available_content;
+
+        if overflow {
+            state.max_scroll = total_width - available_content;
+            state.scroll_offset = state.scroll_offset.clamp(0.0, state.max_scroll);
+        } else {
+            state.max_scroll = 0.0;
+            state.scroll_offset = 0.0;
+        }
+
         let total_height = TAB_HEIGHT + self.padding * 2.0;
         let children: Vec<layout::Node> = state
             .tab_widths
@@ -226,8 +257,13 @@ where
                 Some(node)
             })
             .collect();
-        let max_bounds = limits.max();
-        let width = max_bounds.width.min(total_width);
+
+        // Widget width: fill available width when overflow, otherwise fit content
+        let width = if overflow {
+            max_bounds.width
+        } else {
+            total_width + self.padding * 2.0
+        };
 
         layout::Node::with_children(Size::new(width, total_height), children)
             .move_to(Point::new(self.padding, self.padding))
@@ -245,6 +281,7 @@ where
         _viewport: &Rectangle,
     ) {
         let state = tree.state.downcast_mut::<TabBarState>();
+        let has_overflow = state.max_scroll > 0.0;
 
         let tab_at_x = |x: f32| -> Option<usize> {
             let mut cx = 0.0f32;
@@ -259,17 +296,27 @@ where
 
         let tab_at_cursor =
             |bounds: Rectangle, cursor_pos: Point| -> Option<usize> {
-                let x = cursor_pos.x - bounds.x;
+                // Convert widget-relative x to content-relative x via scroll_offset
+                let x = cursor_pos.x - bounds.x + state.scroll_offset;
                 let y = cursor_pos.y - bounds.y;
                 if y < 0.0 || y > TAB_HEIGHT {
                     return None;
+                }
+                // Skip hit when over scroll buttons
+                if has_overflow {
+                    let rel_x = cursor_pos.x - bounds.x;
+                    if rel_x < SCROLL_BUTTON_WIDTH
+                        || rel_x > bounds.width - SCROLL_BUTTON_WIDTH
+                    {
+                        return None;
+                    }
                 }
                 tab_at_x(x)
             };
 
         let close_at_cursor =
             |tab_idx: usize, bounds: Rectangle, cursor_pos: Point| -> bool {
-                let x = cursor_pos.x - bounds.x;
+                let x = cursor_pos.x - bounds.x + state.scroll_offset;
                 let y = cursor_pos.y - bounds.y;
                 if y < 0.0 || y > TAB_HEIGHT {
                     return false;
@@ -286,11 +333,34 @@ where
                 false
             };
 
+        let content_rel_x = |bounds: Rectangle, cursor_pos: Point| -> f32 {
+            cursor_pos.x - bounds.x + state.scroll_offset
+        };
+
         match event {
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let bounds = layout.bounds();
                 if let Some(cursor_pos) = cursor.position_over(bounds) {
                     shell.capture_event();
+
+                    // Check scroll buttons first
+                    if has_overflow {
+                        let rel_x = cursor_pos.x - bounds.x;
+                        if rel_x < SCROLL_BUTTON_WIDTH {
+                            // Left scroll
+                            state.scroll_offset =
+                                (state.scroll_offset - SCROLL_STEP).max(0.0);
+                            shell.request_redraw();
+                            return;
+                        }
+                        if rel_x > bounds.width - SCROLL_BUTTON_WIDTH {
+                            // Right scroll
+                            state.scroll_offset = (state.scroll_offset + SCROLL_STEP)
+                                .min(state.max_scroll);
+                            shell.request_redraw();
+                            return;
+                        }
+                    }
 
                     if let Some(tab_idx) = tab_at_cursor(bounds, cursor_pos) {
                         let tab = &self.tabs[tab_idx];
@@ -353,9 +423,7 @@ where
                         if let Some(cursor_pos) = cursor.position() {
                             if cursor_pos.distance(origin) > DRAG_DEADBAND {
                                 let bounds = layout.bounds();
-                                // Use the same gap-index computation as CursorMoved
-                                // so the drop position matches the indicator.
-                                let rel_x = cursor_pos.x - bounds.x;
+                                let rel_x = content_rel_x(bounds, cursor_pos);
                                 let gap = Self::insertion_index_at_x(
                                     rel_x,
                                     &state.tab_widths,
@@ -385,6 +453,24 @@ where
                 let bounds = layout.bounds();
 
                 if let Some(cursor_pos) = cursor.position_over(bounds) {
+                    let rel_x = cursor_pos.x - bounds.x;
+
+                    // Scroll button hover
+                    if has_overflow {
+                        state.hovered_scroll_left = rel_x < SCROLL_BUTTON_WIDTH;
+                        state.hovered_scroll_right =
+                            rel_x > bounds.width - SCROLL_BUTTON_WIDTH;
+                        if state.hovered_scroll_left || state.hovered_scroll_right {
+                            state.hovered_tab = None;
+                            state.hovered_close = false;
+                            shell.request_redraw();
+                            return;
+                        }
+                    } else {
+                        state.hovered_scroll_left = false;
+                        state.hovered_scroll_right = false;
+                    }
+
                     let tab_idx = tab_at_cursor(bounds, cursor_pos);
                     state.hovered_tab = tab_idx;
 
@@ -418,10 +504,10 @@ where
                                 origin,
                                 current_x: cursor_pos.x,
                             };
-                            // Compute drop-target gap from cursor x
-                            let rel_x = cursor_pos.x - bounds.x;
+                            // Compute drop-target gap from cursor x (content-relative)
+                            let content_x = content_rel_x(bounds, cursor_pos);
                             state.drop_target = Some(Self::insertion_index_at_x(
-                                rel_x,
+                                content_x,
                                 &state.tab_widths,
                                 self.spacing,
                             ));
@@ -432,8 +518,36 @@ where
                 } else {
                     state.hovered_tab = None;
                     state.hovered_close = false;
+                    state.hovered_scroll_left = false;
+                    state.hovered_scroll_right = false;
                     if matches!(state.action, Action::Dragging { .. }) {
                         state.drop_target = None;
+                    }
+                }
+            }
+
+            // ── Mouse wheel scrolling ────────────────────────────────
+            Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
+                let bounds = layout.bounds();
+                if cursor.is_over(bounds) {
+                    shell.capture_event();
+                    let pixels = match delta {
+                        iced::mouse::ScrollDelta::Lines { x, y } => {
+                            // Treat each line as ~SCROLL_STEP pixels
+                            let h = x + y;
+                            if h == 0.0 { return; }
+                            if h > 0.0 { -SCROLL_STEP } else { SCROLL_STEP }
+                        }
+                        iced::mouse::ScrollDelta::Pixels { x, y } => {
+                            let h = x + y;
+                            if h == 0.0 { return; }
+                            -h
+                        }
+                    };
+                    if has_overflow {
+                        state.scroll_offset =
+                            (state.scroll_offset + pixels).clamp(0.0, state.max_scroll);
+                        shell.request_redraw();
                     }
                 }
             }
@@ -454,20 +568,10 @@ where
     ) {
         let state = tree.state.downcast_ref::<TabBarState>();
         let bounds = layout.bounds();
-        let _default_font = renderer.default_font();
+        let default_font = renderer.default_font();
 
         // Resolve a baseline style once (bar background, separator, drop indicator)
         let idle_style = theme.style(&self.class, Status::Idle);
-
-        // Bar background
-        renderer.fill_quad(
-            Quad {
-                bounds,
-                border: Border::default(),
-                ..Quad::default()
-            },
-            idle_style.bar_background,
-        );
 
         // Determine whether a drag is active (used for source de-emphasis and drop line)
         let drag_info = match state.action {
@@ -482,121 +586,217 @@ where
             None
         };
 
-        // Draw each tab
-        let mut x = bounds.x;
-        for (i, tab) in self.tabs.iter().enumerate() {
-            let tab_w = state.tab_widths.get(i).copied().unwrap_or(100.0);
-            let tab_bounds = Rectangle {
-                x,
+        // ── Scroll buttons (visible when overflow) ────────────────────
+        let has_overflow = state.max_scroll > 0.0;
+        let scroll_left_x = bounds.x;
+        let scroll_right_x = bounds.x + bounds.width - SCROLL_BUTTON_WIDTH;
+
+        if has_overflow {
+            // Clamp button draws to within the bar's vertical bounds
+            let btn_bounds = Rectangle {
+                x: scroll_left_x,
                 y: bounds.y,
-                width: tab_w,
+                width: SCROLL_BUTTON_WIDTH,
                 height: TAB_HEIGHT,
             };
-
-            let is_active = self.active_tab == Some(i);
-            let is_hovered = state.hovered_tab == Some(i);
-            let is_drag_source = drag_info == Some(i);
-
-            // De-emphasize the source tab slot during drag
-            if is_drag_source && is_dragging {
-                // Draw the source slot as an empty placeholder
-                renderer.fill_quad(
-                    Quad {
-                        bounds: tab_bounds,
-                        border: Border::default()
-                            .rounded(iced::border::Radius::default()
-                                .top_left(idle_style.border_radius)
-                                .top_right(idle_style.border_radius)),
-                        ..Quad::default()
-                    },
-                    Background::Color(Color::from_rgba(0.15, 0.15, 0.15, 0.2)),
-                );
+            let btn_color = if state.hovered_scroll_left {
+                idle_style.scroll_button_hovered_color
             } else {
-                let status = if is_active {
-                    Status::Active
-                } else if is_hovered {
-                    Status::Hovered
-                } else {
-                    Status::Idle
-                };
+                idle_style.scroll_button_color
+            };
+            renderer.fill_text(
+                text::Text {
+                    content: "‹".to_string(),
+                    bounds: Size::new(SCROLL_BUTTON_WIDTH, TAB_HEIGHT),
+                    size: LABEL_SIZE,
+                    line_height: text::LineHeight::Relative(1.0),
+                    font: default_font,
+                    align_x: text::Alignment::Center,
+                    align_y: alignment::Vertical::Center,
+                    shaping: text::Shaping::Basic,
+                    wrapping: text::Wrapping::None,
+                    ellipsis: text::Ellipsis::None,
+                    hint_factor: None,
+                },
+                Point::new(scroll_left_x, bounds.y + TAB_HEIGHT * 0.5),
+                btn_color,
+                btn_bounds,
+            );
 
-                let tab_style = theme.style(&self.class, status);
-
-                // Tab background with top-only rounded corners
-                renderer.fill_quad(
-                    Quad {
-                        bounds: tab_bounds,
-                        border: Border::default()
-                            .color(tab_style.border_color)
-                            .width(tab_style.border_width)
-                            .rounded(iced::border::Radius::default()
-                                .top_left(tab_style.border_radius)
-                                .top_right(tab_style.border_radius)),
-                        ..Quad::default()
-                    },
-                    tab_style.background,
-                );
-
-                tab.draw(
-                    renderer,
-                    tab_bounds,
-                    status,
-                    &tab_style,
-                    is_hovered && state.hovered_close,
-                );
-            }
-
-            x += tab_w + self.spacing;
+            let btn_bounds_r = Rectangle {
+                x: scroll_right_x,
+                y: bounds.y,
+                width: SCROLL_BUTTON_WIDTH,
+                height: TAB_HEIGHT,
+            };
+            let btn_color_r = if state.hovered_scroll_right {
+                idle_style.scroll_button_hovered_color
+            } else {
+                idle_style.scroll_button_color
+            };
+            renderer.fill_text(
+                text::Text {
+                    content: "›".to_string(),
+                    bounds: Size::new(SCROLL_BUTTON_WIDTH, TAB_HEIGHT),
+                    size: LABEL_SIZE,
+                    line_height: text::LineHeight::Relative(1.0),
+                    font: default_font,
+                    align_x: text::Alignment::Center,
+                    align_y: alignment::Vertical::Center,
+                    shaping: text::Shaping::Basic,
+                    wrapping: text::Wrapping::None,
+                    ellipsis: text::Ellipsis::None,
+                    hint_factor: None,
+                },
+                Point::new(scroll_right_x, bounds.y + TAB_HEIGHT * 0.5),
+                btn_color_r,
+                btn_bounds_r,
+            );
         }
 
-        // ── Draw separator lines between tabs ──────────────────────────
-        if !is_dragging {
-            let mut sx = bounds.x;
-            for &tw in &state.tab_widths {
-                sx += tw; // right edge of this tab
-                let sep_x = sx;
+        // ── Scissor clip: prevent tabs from spilling past visible area ──
+        let content_left = if has_overflow {
+            bounds.x + SCROLL_BUTTON_WIDTH
+        } else {
+            bounds.x
+        };
+        let content_right = if has_overflow {
+            bounds.x + bounds.width - SCROLL_BUTTON_WIDTH
+        } else {
+            bounds.x + bounds.width
+        };
+        let content_bounds = Rectangle {
+            x: content_left,
+            y: bounds.y,
+            width: (content_right - content_left).max(0.0),
+            height: TAB_HEIGHT,
+        };
+
+        renderer.with_layer(content_bounds, |renderer| {
+            let scroll_offset = state.scroll_offset;
+            let mut x = bounds.x - scroll_offset;
+            for (i, tab) in self.tabs.iter().enumerate() {
+                let tab_w = state.tab_widths.get(i).copied().unwrap_or(100.0);
+                let tab_bounds = Rectangle {
+                    x,
+                    y: bounds.y,
+                    width: tab_w,
+                    height: TAB_HEIGHT,
+                };
+
+                // Skip tabs entirely outside the visible area
+                if x + tab_w < content_left || x > content_right {
+                    x += tab_w + self.spacing;
+                    continue;
+                }
+
+                let is_active = self.active_tab == Some(i);
+                let is_hovered = state.hovered_tab == Some(i);
+                let is_drag_source = drag_info == Some(i);
+
+                // De-emphasize the source tab slot during drag
+                if is_drag_source && is_dragging {
+                    renderer.fill_quad(
+                        Quad {
+                            bounds: tab_bounds,
+                            border: Border::default()
+                                .rounded(iced::border::Radius::default()
+                                    .top_left(idle_style.border_radius)
+                                    .top_right(idle_style.border_radius)),
+                            ..Quad::default()
+                        },
+                        Background::Color(Color::from_rgba(0.15, 0.15, 0.15, 0.2)),
+                    );
+                } else {
+                    let status = if is_active {
+                        Status::Active
+                    } else if is_hovered {
+                        Status::Hovered
+                    } else {
+                        Status::Idle
+                    };
+
+                    let tab_style = theme.style(&self.class, status);
+
+                    // Tab background with top-only rounded corners
+                    renderer.fill_quad(
+                        Quad {
+                            bounds: tab_bounds,
+                            border: Border::default()
+                                .color(tab_style.border_color)
+                                .width(tab_style.border_width)
+                                .rounded(iced::border::Radius::default()
+                                    .top_left(tab_style.border_radius)
+                                    .top_right(tab_style.border_radius)),
+                            ..Quad::default()
+                        },
+                        tab_style.background,
+                    );
+
+                    tab.draw(
+                        renderer,
+                        tab_bounds,
+                        status,
+                        &tab_style,
+                        is_hovered && state.hovered_close,
+                    );
+                }
+
+                x += tab_w + self.spacing;
+            }
+
+            // ── Draw separator lines between tabs (offset by scroll) ──
+            if !is_dragging {
+                let mut sx = bounds.x - scroll_offset;
+                for &tw in &state.tab_widths {
+                    sx += tw; // right edge of this tab
+                    let sep_x = sx;
+                    // Only draw separators within the visible content area
+                    if sep_x >= content_left && sep_x <= content_right {
+                        renderer.fill_quad(
+                            Quad {
+                                bounds: Rectangle {
+                                    x: sep_x,
+                                    y: bounds.y + 6.0,
+                                    width: idle_style.separator_width,
+                                    height: TAB_HEIGHT - 12.0,
+                                },
+                                border: Border::default(),
+                                ..Quad::default()
+                            },
+                            Background::Color(idle_style.separator_color),
+                        );
+                    }
+                    sx += self.spacing;
+                }
+            }
+
+            // ── Draw drop indicator line (offset by scroll) ───────────
+            if let Some(gap) = drop_gap {
+                let mut ix = bounds.x - scroll_offset;
+                let mut remaining = gap;
+                for &tw in &state.tab_widths {
+                    if remaining == 0 {
+                        break;
+                    }
+                    ix += tw + self.spacing;
+                    remaining -= 1;
+                }
                 renderer.fill_quad(
                     Quad {
                         bounds: Rectangle {
-                            x: sep_x,
-                            y: bounds.y + 6.0,
-                            width: idle_style.separator_width,
-                            height: TAB_HEIGHT - 12.0,
+                            x: ix - idle_style.drop_indicator_width * 0.5,
+                            y: bounds.y + 4.0,
+                            width: idle_style.drop_indicator_width,
+                            height: TAB_HEIGHT - 8.0,
                         },
-                        border: Border::default(),
+                        border: Border::default().rounded(1.0),
                         ..Quad::default()
                     },
-                    Background::Color(idle_style.separator_color),
+                    Background::Color(idle_style.drop_indicator_color),
                 );
-                sx += self.spacing;
             }
-        }
-
-        // ── Draw drop indicator line ───────────────────────────────────
-        if let Some(gap) = drop_gap {
-            let mut ix = bounds.x;
-            let mut remaining = gap;
-            for &tw in &state.tab_widths {
-                if remaining == 0 {
-                    break;
-                }
-                ix += tw + self.spacing;
-                remaining -= 1;
-            }
-            renderer.fill_quad(
-                Quad {
-                    bounds: Rectangle {
-                        x: ix - idle_style.drop_indicator_width * 0.5,
-                        y: bounds.y + 4.0,
-                        width: idle_style.drop_indicator_width,
-                        height: TAB_HEIGHT - 8.0,
-                    },
-                    border: Border::default().rounded(1.0),
-                    ..Quad::default()
-                },
-                Background::Color(idle_style.drop_indicator_color),
-            );
-        }
+        });
     }
 
     fn mouse_interaction(
