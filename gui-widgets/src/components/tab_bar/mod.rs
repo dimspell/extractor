@@ -243,7 +243,16 @@ where
         let overflow = total_width > available_content;
 
         if overflow {
-            state.max_scroll = total_width - available_content;
+            // Scroll buttons occupy SCROLL_BUTTON_WIDTH on each side. The
+            // visible content area width for tabs is therefore the widget
+            // width minus both scroll button widths.  Padding is NOT
+            // subtracted here because content_left and content_right in
+            // draw() are derived from bounds.x/bounds.width which already
+            // include the node's padding offset.  Subtracting it again
+            // would over-shrink the visible area and leave a gap on the
+            // right at max scroll.
+            let content_width = max_bounds.width - SCROLL_BUTTON_WIDTH * 2.0;
+            state.max_scroll = (total_width - content_width).max(0.0);
             state.scroll_offset = state.scroll_offset.clamp(0.0, state.max_scroll);
         } else {
             state.max_scroll = 0.0;
@@ -300,8 +309,10 @@ where
 
         let tab_at_cursor =
             |bounds: Rectangle, cursor_pos: Point| -> Option<usize> {
-                // Convert widget-relative x to content-relative x via scroll_offset
-                let x = cursor_pos.x - bounds.x + state.scroll_offset;
+                // Convert screen x to content-relative x via scroll_offset.
+                // Content starts after the left scroll button when overflow.
+                let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
+                let x = cursor_pos.x - content_left + state.scroll_offset;
                 let y = cursor_pos.y - bounds.y;
                 if y < 0.0 || y > TAB_HEIGHT {
                     return None;
@@ -320,7 +331,8 @@ where
 
         let close_at_cursor =
             |tab_idx: usize, bounds: Rectangle, cursor_pos: Point| -> bool {
-                let x = cursor_pos.x - bounds.x + state.scroll_offset;
+                let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
+                let x = cursor_pos.x - content_left + state.scroll_offset;
                 let y = cursor_pos.y - bounds.y;
                 if y < 0.0 || y > TAB_HEIGHT {
                     return false;
@@ -338,7 +350,8 @@ where
             };
 
         let content_rel_x = |bounds: Rectangle, cursor_pos: Point| -> f32 {
-            cursor_pos.x - bounds.x + state.scroll_offset
+            let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
+            cursor_pos.x - content_left + state.scroll_offset
         };
 
         match event {
@@ -679,7 +692,7 @@ where
 
         renderer.with_layer(content_bounds, |renderer| {
             let scroll_offset = state.scroll_offset;
-            let mut x = bounds.x - scroll_offset;
+            let mut x = content_left - scroll_offset;
             for (i, tab) in self.tabs.iter().enumerate() {
                 let tab_w = state.tab_widths.get(i).copied().unwrap_or(100.0);
                 let tab_bounds = Rectangle {
@@ -752,7 +765,7 @@ where
 
             // ── Draw separator lines between tabs (offset by scroll) ──
             if !is_dragging {
-                let mut sx = bounds.x - scroll_offset;
+                let mut sx = content_left - scroll_offset;
                 for &tw in &state.tab_widths {
                     sx += tw; // right edge of this tab
                     let sep_x = sx;
@@ -778,7 +791,7 @@ where
 
             // ── Draw drop indicator line (offset by scroll) ───────────
             if let Some(gap) = drop_gap {
-                let mut ix = bounds.x - scroll_offset;
+                let mut ix = content_left - scroll_offset;
                 let mut remaining = gap;
                 for &tw in &state.tab_widths {
                     if remaining == 0 {
