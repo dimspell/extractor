@@ -317,7 +317,7 @@ where
                 if y < 0.0 || y > TAB_HEIGHT {
                     return None;
                 }
-                // Skip hit when over scroll buttons
+                // Skip hit when over scroll button slots (always reserved space)
                 if has_overflow {
                     let rel_x = cursor_pos.x - bounds.x;
                     if rel_x < SCROLL_BUTTON_WIDTH
@@ -360,17 +360,19 @@ where
                 if let Some(cursor_pos) = cursor.position_over(bounds) {
                     shell.capture_event();
 
-                    // Check scroll buttons first
+                    // Check scroll buttons first (only respond when visible)
                     if has_overflow {
                         let rel_x = cursor_pos.x - bounds.x;
-                        if rel_x < SCROLL_BUTTON_WIDTH {
+                        if state.scroll_offset > 0.0 && rel_x < SCROLL_BUTTON_WIDTH {
                             // Left scroll
                             state.scroll_offset =
                                 (state.scroll_offset - SCROLL_STEP).max(0.0);
                             shell.request_redraw();
                             return;
                         }
-                        if rel_x > bounds.width - SCROLL_BUTTON_WIDTH {
+                        if state.scroll_offset < state.max_scroll
+                            && rel_x > bounds.width - SCROLL_BUTTON_WIDTH
+                        {
                             // Right scroll
                             state.scroll_offset = (state.scroll_offset + SCROLL_STEP)
                                 .min(state.max_scroll);
@@ -472,11 +474,12 @@ where
                 if let Some(cursor_pos) = cursor.position_over(bounds) {
                     let rel_x = cursor_pos.x - bounds.x;
 
-                    // Scroll button hover
+                    // Scroll button hover (only when button is visible)
                     if has_overflow {
-                        state.hovered_scroll_left = rel_x < SCROLL_BUTTON_WIDTH;
-                        state.hovered_scroll_right =
-                            rel_x > bounds.width - SCROLL_BUTTON_WIDTH;
+                        state.hovered_scroll_left = state.scroll_offset > 0.0
+                            && rel_x < SCROLL_BUTTON_WIDTH;
+                        state.hovered_scroll_right = state.scroll_offset < state.max_scroll
+                            && rel_x > bounds.width - SCROLL_BUTTON_WIDTH;
                         if state.hovered_scroll_left || state.hovered_scroll_right {
                             state.hovered_tab = None;
                             state.hovered_close = false;
@@ -607,13 +610,15 @@ where
             None
         };
 
-        // ── Scroll buttons (visible when overflow) ────────────────────
+        // ── Scroll buttons: only show when there's room to scroll ────
         let has_overflow = state.max_scroll > 0.0;
         let scroll_left_x = bounds.x;
         let scroll_right_x = bounds.x + bounds.width - SCROLL_BUTTON_WIDTH;
 
-        if has_overflow {
-            // Clamp button draws to within the bar's vertical bounds
+        let show_left = has_overflow && state.scroll_offset > 0.0;
+        let show_right = has_overflow && state.scroll_offset < state.max_scroll;
+
+        if show_left {
             let btn_bounds = Rectangle {
                 x: scroll_left_x,
                 y: bounds.y,
@@ -643,14 +648,15 @@ where
                 btn_color,
                 btn_bounds,
             );
-
-            let btn_bounds_r = Rectangle {
+        }
+        if show_right {
+            let btn_bounds = Rectangle {
                 x: scroll_right_x,
                 y: bounds.y,
                 width: SCROLL_BUTTON_WIDTH,
                 height: TAB_HEIGHT,
             };
-            let btn_color_r = if state.hovered_scroll_right {
+            let btn_color = if state.hovered_scroll_right {
                 idle_style.scroll_button_hovered_color
             } else {
                 idle_style.scroll_button_color
@@ -669,13 +675,14 @@ where
                     ellipsis: text::Ellipsis::None,
                     hint_factor: None,
                 },
-                btn_bounds_r.center(),
-                btn_color_r,
-                btn_bounds_r,
+                btn_bounds.center(),
+                btn_color,
+                btn_bounds,
             );
         }
 
         // ── Scissor clip: prevent tabs from spilling past visible area ──
+        // The scroll-button slots are always reserved so tabs never shift.
         let content_left = if has_overflow {
             bounds.x + SCROLL_BUTTON_WIDTH
         } else {
