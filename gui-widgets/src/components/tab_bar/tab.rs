@@ -172,6 +172,25 @@ impl Tab {
                     } else {
                         style.close_button_color
                     };
+
+                    // Red circle background on hover
+                    if hovered_close {
+                        let circle_size = CLOSE_BUTTON_WIDTH + 4.0;
+                        renderer.fill_quad(
+                            Quad {
+                                bounds: Rectangle {
+                                    x: close_x - circle_size * 0.5,
+                                    y: bounds.center_y() - circle_size * 0.5,
+                                    width: circle_size,
+                                    height: circle_size,
+                                },
+                                border: Border::default().rounded(circle_size * 0.5),
+                                ..Quad::default()
+                            },
+                            style.close_button_background,
+                        );
+                    }
+
                     renderer.fill_text(
                         make_text(String::from(char::from(Icon::X)), LUCIDE_FONT, CLOSE_BUTTON_WIDTH, text::Alignment::Center),
                         Point::new(close_x, bounds.center_y()),

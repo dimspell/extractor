@@ -23,6 +23,8 @@ pub struct Style {
     pub text_color: Color,
     pub close_button_color: Color,
     pub close_button_hovered_color: Color,
+    /// Background circle color behind the close X when hovered (transparent when idle).
+    pub close_button_background: Background,
     pub drag_handle_color: Color,
     pub pin_color: Color,
     pub modified_dot_color: Color,
@@ -58,6 +60,7 @@ impl Default for Style {
             text_color: Color::from_rgb(0.75, 0.75, 0.75),
             close_button_color: Color::from_rgb(0.5, 0.5, 0.5),
             close_button_hovered_color: Color::from_rgb(1.0, 0.3, 0.3),
+            close_button_background: Background::Color(Color::from_rgba(0.8, 0.2, 0.2, 0.35)),
             drag_handle_color: Color::from_rgb(0.4, 0.4, 0.4),
             pin_color: Color::from_rgb(0.7, 0.5, 0.2),
             modified_dot_color: Color::from_rgb(1.0, 0.8, 0.0),
@@ -94,12 +97,12 @@ impl Style {
         }
     }
 
-    /// Hovered tab: slightly lighter background.
+    /// Hovered tab: noticeably lighter background, white text, brighter border.
     pub fn hovered() -> Self {
         Self {
-            background: Background::Color(Color::from_rgb(0.22, 0.22, 0.22)),
-            text_color: Color::from_rgb(0.9, 0.9, 0.9),
-            border_color: Color::from_rgb(0.4, 0.4, 0.4),
+            background: Background::Color(Color::from_rgb(0.32, 0.32, 0.32)),
+            text_color: Color::from_rgb(1.0, 1.0, 1.0),
+            border_color: Color::from_rgb(0.55, 0.55, 0.55),
             ..Self::default()
         }
     }

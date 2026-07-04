@@ -530,13 +530,16 @@ where
                             ));
                             shell.request_redraw();
                         }
-                        Action::Idle => {}
+                        Action::Idle => {
+                            shell.request_redraw();
+                        }
                     }
                 } else {
                     state.hovered_tab = None;
                     state.hovered_close = false;
                     state.hovered_scroll_left = false;
                     state.hovered_scroll_right = false;
+                    shell.request_redraw();
                     if matches!(state.action, Action::Dragging { .. }) {
                         state.drop_target = None;
                     }
