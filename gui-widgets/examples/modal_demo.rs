@@ -5,7 +5,7 @@
 //!
 //! Run with:
 //! ```sh
-//! cargo run --example modal_demo -p dispel-gui
+//! cargo run --example modal_demo -p gui-widgets
 //! ```
 
 use gui_widgets::components::modal::modal;
