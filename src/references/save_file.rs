@@ -8,7 +8,7 @@ use encoding_rs::WINDOWS_1250;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 // use proptest::char::range;
-use super::extractor::Extractor;
+use super::extractor::{read_null_terminated_windows_1250, Extractor};
 
 /// Player attributes block from save file
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -612,7 +612,10 @@ impl SaveFile {
             let seek_cursor = reader.position();
 
             let map_idx = reader.read_u32::<LittleEndian>()?;
-            println!("map-iter: {} ({:?}), seek addr: {:?}", map_iter, map_idx, seek_cursor);
+            println!(
+                "map-iter: {} ({:?}), seek addr: {:?}",
+                map_iter, map_idx, seek_cursor
+            );
 
             // ── 2.1. MONSTERS ──
             let monster_count = reader.read_u32::<LittleEndian>()? as usize;
@@ -661,11 +664,6 @@ impl SaveFile {
             let mut draw_item_heal_data = vec![0u8; draw_item_heal_count * 264];
             reader.read_exact(&mut draw_item_heal_data)?;
 
-            if (map_iter == 4) {
-                let seek_cursor = reader.position();
-                println!("seek addr: {:?}", seek_cursor);
-            }
-
             // ── 2.8. ITEMS ON GROUND - Edit ──
             let draw_item_edit_count = reader.read_u16::<LittleEndian>()? as usize;
             let mut draw_item_edit_data = vec![0u8; draw_item_edit_count * 280];
@@ -676,29 +674,162 @@ impl SaveFile {
             let mut draw_item_misc_data = vec![0u8; draw_item_misc_count * 268];
             reader.read_exact(&mut draw_item_misc_data)?;
 
-
-
             // ── 2.10. ITEMS ON GROUND - Event ──
             let draw_item_event_count = reader.read_u16::<LittleEndian>()? as usize;
             let mut draw_item_event_data = vec![0u8; draw_item_event_count * 252];
             reader.read_exact(&mut draw_item_event_data)?;
 
-            // ── 2.11. UNKNOWN SEPARATOR ──
+            // ── 2.11. UNKNOWN SEPARATOR (end of array) ──
             let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
         }
 
         if jump_addr_after_maps != reader.position() as usize {
-            panic!("jump_addr_after_maps != reader.position()");
+            // 0.sav Christofor: 2 chests, +500 bytes
+            println!(
+                "jump_addr_after_maps ({:?}) != reader.position() {:?}",
+                jump_addr_after_maps,
+                reader.position() as usize
+            );
+
+            reader.set_position(jump_addr_after_maps as u64);
         }
 
-        // reader.set_position(jump_addr_after_maps as u64);
-        println!("jump_addr_after_maps: {}", jump_addr_after_maps);
+        // ── 3. Unknown block ──
+        // It could be some rendered image of the save preview?
+        // Let's jump by hardcoded number of bytes.
+
+        let mut unknown_block = vec![0u8; 10256]; // 0.sav Christoforo
+                                                  // let mut unknown_block = vec![0u8; 10196]; // 0.sav Nuno
+        reader.read_exact(&mut unknown_block)?;
+
+        // ── 4. Character sprite block ──
+        // It could be some rendered image of the save preview?
+        // Let's jump by hardcoded number of bytes.
+        for _ in 0..4 {
+            let mut sprite_path_cstr = vec![0u8; 60];
+            reader.read_exact(&mut sprite_path_cstr)?;
+        }
+
+        // ── 4. Unknown block ──
+        // IDs what is in the belt?
+        // Let's jump by hardcoded number of bytes.
+
+        let mut unknown_block = vec![0u8; 112]; // 0.sav Christoforo, 0.sav Nuno
+        reader.read_exact(&mut unknown_block)?;
+
+        // ── 5. Inventory ──
+        // IDs what is in the belt?
+        // Let's jump by hardcoded number of bytes.
+
+        // ── 5.1. ITEMS IN INVENTORY - Event ──
+        let inventory_event_count = reader.read_u16::<LittleEndian>()? as usize;
+        if inventory_event_count > 0 {
+            let mut inventory_event_data = vec![0u8; inventory_event_count * 244];
+            reader.read_exact(&mut inventory_event_data)?;
+        }
+
+        // ── 5.2. ITEMS IN INVENTORY - Misc ──
+        let inventory_misc_count = reader.read_u16::<LittleEndian>()? as usize;
+        if inventory_misc_count > 0 {
+            let mut inventory_misc_data = vec![0u8; inventory_misc_count * 264];
+            reader.read_exact(&mut inventory_misc_data)?;
+        }
+
+        // ── 5.3. ITEMS IN INVENTORY - Edit ──
+        let inventory_edit_count = reader.read_u16::<LittleEndian>()? as usize;
+        if inventory_edit_count > 0 {
+            let mut inventory_edit_data = vec![0u8; inventory_edit_count * 272];
+            reader.read_exact(&mut inventory_edit_data)?;
+        }
+
+        // ── 5.4. ITEMS IN INVENTORY - Weapon ──
+        let inventory_weapon_count = reader.read_u16::<LittleEndian>()? as usize;
+        if inventory_weapon_count > 0 {
+            let mut inventory_weapon_data = vec![0u8; inventory_weapon_count * 292];
+            reader.read_exact(&mut inventory_weapon_data)?;
+        }
+
+        // ── 5.5. ITEMS IN INVENTORY - Heal ──
+        let inventory_heal_count = reader.read_u16::<LittleEndian>()? as usize;
+        if inventory_heal_count > 0 {
+            let mut inventory_heal_data = vec![0u8; inventory_heal_count * 256];
+            reader.read_exact(&mut inventory_heal_data)?;
+        }
+
+        // ── 6. Character details ──
+
+        // 6.1. Unknown block of 88b
+        let mut unknown_block = vec![0u8; 88]; // 0.sav Christoforo, 0.sav Nuno
+        reader.read_exact(&mut unknown_block)?;
+
+        // 6.2 Character name
+        let mut name_raw = vec![0u8; 11];
+        reader.read_exact(&mut name_raw)?;
+        let character_name = read_null_terminated_windows_1250(name_raw.as_slice());
+
+        // 6.3 Character class
+        let character_class_id = reader.read_u16::<LittleEndian>()?;
+        let mut class_raw = vec![0u8; 11];
+        reader.read_exact(&mut class_raw)?;
+        let character_class_name = read_null_terminated_windows_1250(class_raw.as_slice());
+
+        println!(
+            "name: {:?}, class: {:?} ({:?})",
+            character_name, character_class_name, character_class_id
+        );
+
+        // 6.4. Character attributes
+        let mut unknown_block = vec![0u8; 4040]; // 0.sav Christoforo, 0.sav Nuno
+        reader.read_exact(&mut unknown_block)?;
+
+        // ── 7. Events ──
+        for _ in 0..2251 {
+            let mut event_raw = vec![0u8; 284];
+            reader.read_exact(&mut event_raw)?;
+            let _event = EventScript::parse(event_raw.as_slice())?;
+            // println!("event: {:?}", event.script_name);
+        }
 
         let seek_cursor = reader.position();
-        println!("seek addr: {:?}", seek_cursor);
+        println!("seek addr: {:?} - after events", seek_cursor);
 
+        // ── 8. Unknown block ──
+        // Not recognized why it is variable in size.
+        let mut unknown_block = vec![0u8; 12]; // 0.sav Christoforo
+        reader.read_exact(&mut unknown_block)?;
 
+        let unknown_counter = reader.read_u32::<LittleEndian>()? as usize;
+        let mut unknown_block = vec![0u8; unknown_counter * 24];
+        reader.read_exact(&mut unknown_block)?;
 
+        let mut unknown_block = vec![0u8; 98]; // 0.sav Christoforo
+        reader.read_exact(&mut unknown_block)?;
+
+        // ── 9. Journal ──
+
+        // 9.1. Main quests
+        let mut journal_raw = vec![0u8; 37 * 100];
+        reader.read_exact(&mut journal_raw)?;
+        let _journal_main = Self::parse_journal_entries(&journal_raw, 100);
+
+        let seek_cursor = reader.position();
+        println!("seek addr: {:?} - main end", seek_cursor);
+
+        // 9.2. Side quests
+        let mut journal_raw = vec![0u8; 37 * 100];
+        reader.read_exact(&mut journal_raw)?;
+        let _journal_side = Self::parse_journal_entries(&journal_raw, 100);
+
+        let seek_cursor = reader.position();
+        println!("seek addr: {:?} - side end", seek_cursor);
+
+        // 9.3. Trading offers
+        let mut journal_raw = vec![0u8; 37 * 100];
+        reader.read_exact(&mut journal_raw)?;
+        let _journal_trade = Self::parse_journal_entries(&journal_raw, 100);
+
+        let seek_cursor = reader.position();
+        println!("seek addr: {:?} - journal end", seek_cursor);
 
         // // ── 5. REMAINING DATA (everything after surface objects to EOF) ──
         // let remaining_start = reader.position() as usize;
