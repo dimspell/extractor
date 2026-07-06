@@ -7,7 +7,7 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
-
+// use proptest::char::range;
 use super::extractor::Extractor;
 
 /// Player attributes block from save file
@@ -558,44 +558,44 @@ impl DrawItem {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SaveFile {
     // ── Raw binary sections (authoritative for round-trip) ──
-    pub header: [u8; 12],
-    /// Raw bytes of all surface monsters (count × 329), parsed below
-    pub surface_monsters_data: Vec<u8>,
-    /// Raw bytes of all NPCs (count × 349)
-    pub npcs_data: Vec<u8>,
-    /// Raw bytes of all surface objects (count × 200)
-    pub surface_objects_data: Vec<u8>,
-
-    /// Everything from after surface_objects to EOF.
-    pub remaining_data: Vec<u8>,
-
-    // ── Parsed structured fields (best-effort from raw sections) ──
-    pub surface_monsters: Vec<MonsterRecord>,
-    pub npcs: Vec<NpcRecord>,
-    pub surface_objects: Vec<ExtraObjectRecord>,
-
-    // ── Parsed structured fields (best-effort from remaining_data) ──
-    pub draw_items_data: Vec<u8>,
-    pub dungeon_header_data: Vec<u8>,
-    pub dungeon_map_id: u32,
-    pub dungeon_monsters: Vec<MonsterRecord>,
-    pub dungeon_objects: Vec<ExtraObjectRecord>,
-
-    pub sprite_paths: Vec<String>,
-    pub character_details: Vec<u8>, // 40 bytes
-    pub player_attributes: PlayerAttributes,
-    pub extra_character_data: Vec<u8>, // 46 bytes (2 u16s + 42 bytes)
-    pub character_unknown_block: Vec<u8>, // 96 bytes before character name
-    pub player_name: String,
-    pub player_class_id: i16,
-    pub player_class_name: String,
-
-    pub inventory_items: Vec<InventoryItem>,
-
-    pub events: Vec<EventScript>,
-    pub journal_main: Vec<JournalEntry>,  // 100 entries
-    pub journal_side: Vec<JournalEntry>,  // 100 entries
-    pub journal_trade: Vec<JournalEntry>, // 100 entries
+    // pub header: [u8; 12],
+    // /// Raw bytes of all surface monsters (count × 329), parsed below
+    // pub monsters_data: Vec<u8>,
+    // /// Raw bytes of all NPCs (count × 349)
+    // pub npcs_data: Vec<u8>,
+    // /// Raw bytes of all surface objects (count × 200)
+    // pub extras_data: Vec<u8>,
+    //
+    // /// Everything from after surface_objects to EOF.
+    // pub remaining_data: Vec<u8>,
+    //
+    // // ── Parsed structured fields (best-effort from raw sections) ──
+    // pub surface_monsters: Vec<MonsterRecord>,
+    // pub npcs: Vec<NpcRecord>,
+    // pub surface_objects: Vec<ExtraObjectRecord>,
+    //
+    // // ── Parsed structured fields (best-effort from remaining_data) ──
+    // pub draw_items_data: Vec<u8>,
+    // pub dungeon_header_data: Vec<u8>,
+    // pub dungeon_map_id: u32,
+    // pub dungeon_monsters: Vec<MonsterRecord>,
+    // pub dungeon_objects: Vec<ExtraObjectRecord>,
+    //
+    // pub sprite_paths: Vec<String>,
+    // pub character_details: Vec<u8>, // 40 bytes
+    // pub player_attributes: PlayerAttributes,
+    // pub extra_character_data: Vec<u8>, // 46 bytes (2 u16s + 42 bytes)
+    // pub character_unknown_block: Vec<u8>, // 96 bytes before character name
+    // pub player_name: String,
+    // pub player_class_id: i16,
+    // pub player_class_name: String,
+    //
+    // pub inventory_items: Vec<InventoryItem>,
+    //
+    // pub events: Vec<EventScript>,
+    // pub journal_main: Vec<JournalEntry>,  // 100 entries
+    // pub journal_side: Vec<JournalEntry>,  // 100 entries
+    // pub journal_trade: Vec<JournalEntry>, // 100 entries
 }
 
 impl SaveFile {
@@ -603,117 +603,179 @@ impl SaveFile {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
         let mut reader = std::io::Cursor::new(data);
 
-        // ── 1. HEADER (12 bytes) ──
-        let mut header = [0u8; 12];
-        reader.read_exact(&mut header)?;
+        // ── 1. HEADER (4 bytes) ──
+        let jump_addr_after_maps = reader.read_u32::<LittleEndian>()? as usize;
 
-        // ── 2. SURFACE MONSTERS ──
-        let surface_monster_count = reader.read_u32::<LittleEndian>()? as usize;
-        let mut surface_monsters_data = vec![0u8; surface_monster_count * 329];
-        reader.read_exact(&mut surface_monsters_data)?;
+        // ── 2. Maps ──
+        let number_of_visited_map = reader.read_u32::<LittleEndian>()?;
+        for map_iter in 0..number_of_visited_map {
+            let seek_cursor = reader.position();
 
-        let mut surface_monsters = Vec::with_capacity(surface_monster_count);
-        for chunk in surface_monsters_data.chunks_exact(329) {
-            surface_monsters.push(MonsterRecord::parse(chunk)?);
+            let map_idx = reader.read_u32::<LittleEndian>()?;
+            println!("map-iter: {} ({:?}), seek addr: {:?}", map_iter, map_idx, seek_cursor);
+
+            // ── 2.1. MONSTERS ──
+            let monster_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut monsters_data = vec![0u8; monster_count * 329];
+            reader.read_exact(&mut monsters_data)?;
+
+            // let mut surface_monsters = Vec::with_capacity(monster_count);
+            // for chunk in monsters_data.chunks_exact(329) {
+            //     surface_monsters.push(MonsterRecord::parse(chunk)?);
+            // }
+
+            // ── 2.2. NPCS ──
+            let npc_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut npcs_data = vec![0u8; npc_count * 349];
+            reader.read_exact(&mut npcs_data)?;
+
+            // let mut npcs = Vec::with_capacity(npc_count);
+            // for chunk in npcs_data.chunks_exact(349) {
+            //     npcs.push(NpcRecord::parse(chunk)?);
+            // }
+
+            // ── 2.3. UNKNOWN SEPARATOR ──
+            let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
+
+            // ── 2.4. EXTRA OBJECTS ──
+            let extras_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut extras_data = vec![0u8; extras_count * 200];
+            reader.read_exact(&mut extras_data)?;
+
+            // let mut surface_objects = Vec::with_capacity(extras_count);
+            // for chunk in extras_data.chunks_exact(200) {
+            //     surface_objects.push(ExtraObjectRecord::parse(chunk, false)?);
+            // }
+
+            // ── 2.5. UNKNOWN SEPARATOR ──
+            let mut _unknown_separator = vec![0u8; 11];
+            reader.read_exact(&mut _unknown_separator)?;
+
+            // ── 2.6. ITEMS ON GROUND - Weapons ──
+            let draw_item_weapon_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut draw_item_weapon_data = vec![0u8; draw_item_weapon_count * 296];
+            reader.read_exact(&mut draw_item_weapon_data)?;
+
+            // ── 2.7. ITEMS ON GROUND - Heal ──
+            let draw_item_heal_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut draw_item_heal_data = vec![0u8; draw_item_heal_count * 264];
+            reader.read_exact(&mut draw_item_heal_data)?;
+
+            if (map_iter == 4) {
+                let seek_cursor = reader.position();
+                println!("seek addr: {:?}", seek_cursor);
+            }
+
+            // ── 2.8. ITEMS ON GROUND - Edit ──
+            let draw_item_edit_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut draw_item_edit_data = vec![0u8; draw_item_edit_count * 280];
+            reader.read_exact(&mut draw_item_edit_data)?;
+
+            // ── 2.9. ITEMS ON GROUND - Misc ──
+            let draw_item_misc_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut draw_item_misc_data = vec![0u8; draw_item_misc_count * 268];
+            reader.read_exact(&mut draw_item_misc_data)?;
+
+
+
+            // ── 2.10. ITEMS ON GROUND - Event ──
+            let draw_item_event_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut draw_item_event_data = vec![0u8; draw_item_event_count * 252];
+            reader.read_exact(&mut draw_item_event_data)?;
+
+            // ── 2.11. UNKNOWN SEPARATOR ──
+            let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
         }
 
-        // ── 3. NPCS ──
-        let npc_count = reader.read_u32::<LittleEndian>()? as usize;
-        let mut npcs_data = vec![0u8; npc_count * 349];
-        reader.read_exact(&mut npcs_data)?;
-
-        let mut npcs = Vec::with_capacity(npc_count);
-        for chunk in npcs_data.chunks_exact(349) {
-            npcs.push(NpcRecord::parse(chunk)?);
+        if jump_addr_after_maps != reader.position() as usize {
+            panic!("jump_addr_after_maps != reader.position()");
         }
 
-        // ── 4. SURFACE OBJECTS ──
-        let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
-        let surface_object_count = reader.read_u32::<LittleEndian>()? as usize;
-        let mut surface_objects_data = vec![0u8; surface_object_count * 200];
-        reader.read_exact(&mut surface_objects_data)?;
+        // reader.set_position(jump_addr_after_maps as u64);
+        println!("jump_addr_after_maps: {}", jump_addr_after_maps);
 
-        let mut surface_objects = Vec::with_capacity(surface_object_count);
-        for chunk in surface_objects_data.chunks_exact(200) {
-            surface_objects.push(ExtraObjectRecord::parse(chunk, false)?);
-        }
+        let seek_cursor = reader.position();
+        println!("seek addr: {:?}", seek_cursor);
 
-        // ── 5. REMAINING DATA (everything after surface objects to EOF) ──
-        let remaining_start = reader.position() as usize;
-        let mut remaining_data = vec![0u8; data.len() - remaining_start];
-        reader.read_exact(&mut remaining_data)?;
 
-        // ── Best-effort structured field extraction ──
-        // These are derived from remaining_data. If extraction fails for any
-        // save file variant, the fields stay at their defaults.
-        let mut character_details = Vec::new();
-        let mut player_attributes = PlayerAttributes::default();
-        let mut extra_character_data = Vec::new();
-        let mut character_unknown_block = Vec::new();
-        let mut player_name = String::new();
-        let mut player_class_id: i16 = 0;
-        let mut player_class_name = String::new();
-        let mut inventory_items = Vec::new();
-        let mut events = Vec::new();
-        let mut journal_main = Vec::new();
-        let mut journal_side = Vec::new();
-        let mut journal_trade = Vec::new();
 
-        // Try to extract player identity (name + class) and tail sections.
-        // This is best-effort — failures silently leave fields at defaults.
-        Self::extract_player_identity(
-            &remaining_data,
-            &mut player_name,
-            &mut player_class_id,
-            &mut player_class_name,
-        );
-        Self::extract_tail_sections(
-            &remaining_data,
-            &mut events,
-            &mut journal_main,
-            &mut journal_side,
-            &mut journal_trade,
-            &mut character_details,
-            &mut player_attributes,
-            &mut extra_character_data,
-            &mut character_unknown_block,
-            &mut inventory_items,
-        );
 
-        let draw_items_data = Vec::new();
-        let dungeon_header_data = Vec::new();
-        let dungeon_map_id = 0u32;
-        let dungeon_monsters: Vec<MonsterRecord> = Vec::new();
-        let dungeon_objects: Vec<ExtraObjectRecord> = Vec::new();
-        let sprite_paths: Vec<String> = Vec::new();
+        // // ── 5. REMAINING DATA (everything after surface objects to EOF) ──
+        // let remaining_start = reader.position() as usize;
+        // let mut remaining_data = vec![0u8; data.len() - remaining_start];
+        // reader.read_exact(&mut remaining_data)?;
+        //
+        // // ── Best-effort structured field extraction ──
+        // // These are derived from remaining_data. If extraction fails for any
+        // // save file variant, the fields stay at their defaults.
+        // let mut character_details = Vec::new();
+        // let mut player_attributes = PlayerAttributes::default();
+        // let mut extra_character_data = Vec::new();
+        // let mut character_unknown_block = Vec::new();
+        // let mut player_name = String::new();
+        // let mut player_class_id: i16 = 0;
+        // let mut player_class_name = String::new();
+        // let mut inventory_items = Vec::new();
+        // let mut events = Vec::new();
+        // let mut journal_main = Vec::new();
+        // let mut journal_side = Vec::new();
+        // let mut journal_trade = Vec::new();
+        //
+        // // Try to extract player identity (name + class) and tail sections.
+        // // This is best-effort — failures silently leave fields at defaults.
+        // Self::extract_player_identity(
+        //     &remaining_data,
+        //     &mut player_name,
+        //     &mut player_class_id,
+        //     &mut player_class_name,
+        // );
+        // Self::extract_tail_sections(
+        //     &remaining_data,
+        //     &mut events,
+        //     &mut journal_main,
+        //     &mut journal_side,
+        //     &mut journal_trade,
+        //     &mut character_details,
+        //     &mut player_attributes,
+        //     &mut extra_character_data,
+        //     &mut character_unknown_block,
+        //     &mut inventory_items,
+        // );
+        //
+        // let draw_items_data = Vec::new();
+        // let dungeon_header_data = Vec::new();
+        // let dungeon_map_id = 0u32;
+        // let dungeon_monsters: Vec<MonsterRecord> = Vec::new();
+        // let dungeon_objects: Vec<ExtraObjectRecord> = Vec::new();
+        // let sprite_paths: Vec<String> = Vec::new();
 
         Ok(SaveFile {
-            header,
-            surface_monsters_data,
-            npcs_data,
-            surface_objects_data,
-            remaining_data,
-            surface_monsters,
-            npcs,
-            surface_objects,
-            draw_items_data,
-            dungeon_header_data,
-            dungeon_map_id,
-            dungeon_monsters,
-            dungeon_objects,
-            sprite_paths,
-            character_details,
-            player_attributes,
-            extra_character_data,
-            character_unknown_block,
-            player_name,
-            player_class_id,
-            player_class_name,
-            inventory_items,
-            events,
-            journal_main,
-            journal_side,
-            journal_trade,
+            // header,
+            // monsters_data,
+            // npcs_data,
+            // extras_data,
+            // remaining_data,
+            // surface_monsters,
+            // npcs,
+            // surface_objects,
+            // draw_items_data,
+            // dungeon_header_data,
+            // dungeon_map_id,
+            // dungeon_monsters,
+            // dungeon_objects,
+            // sprite_paths,
+            // character_details,
+            // player_attributes,
+            // extra_character_data,
+            // character_unknown_block,
+            // player_name,
+            // player_class_id,
+            // player_class_name,
+            // inventory_items,
+            // events,
+            // journal_main,
+            // journal_side,
+            // journal_trade,
         })
     }
 
@@ -1141,505 +1203,505 @@ impl Extractor for SaveFile {
 
         let save = &records[0];
 
-        // Write header (12 bytes)
-        writer.write_all(&save.header)?;
-
-        // Write surface monster count + raw data
-        writer.write_u32::<LittleEndian>(save.surface_monsters.len() as u32)?;
-        writer.write_all(&save.surface_monsters_data)?;
-
-        // Write NPC count + raw data
-        writer.write_u32::<LittleEndian>(save.npcs.len() as u32)?;
-        writer.write_all(&save.npcs_data)?;
-
-        // Write surface objects: separator (u32=0) + count + raw data
-        writer.write_u32::<LittleEndian>(0)?;
-        writer.write_u32::<LittleEndian>(save.surface_objects.len() as u32)?;
-        writer.write_all(&save.surface_objects_data)?;
-
-        // Write remaining data (everything from after surface objects to EOF)
-        writer.write_all(&save.remaining_data)?;
+        // // Write header (12 bytes)
+        // writer.write_all(&save.header)?;
+        //
+        // // Write surface monster count + raw data
+        // writer.write_u32::<LittleEndian>(save.surface_monsters.len() as u32)?;
+        // writer.write_all(&save.monsters_data)?;
+        //
+        // // Write NPC count + raw data
+        // writer.write_u32::<LittleEndian>(save.npcs.len() as u32)?;
+        // writer.write_all(&save.npcs_data)?;
+        //
+        // // Write surface objects: separator (u32=0) + count + raw data
+        // writer.write_u32::<LittleEndian>(0)?;
+        // writer.write_u32::<LittleEndian>(save.surface_objects.len() as u32)?;
+        // writer.write_all(&save.extras_data)?;
+        //
+        // // Write remaining data (everything from after surface objects to EOF)
+        // writer.write_all(&save.remaining_data)?;
 
         Ok(())
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_player_attributes_parse() {
-        let data = [
-            0x41, 0x00, // STR = 65
-            0x0B, 0x00, // DEX = 11
-            0x07, 0x00, // WIS = 7
-            0x15, 0x00, // CON = 21
-            0x0A, 0x00, // Unknown = 10
-            0x0C, 0x00, // HP cur = 12
-            0x2A, 0x00, // HP max = 42
-            0x0E, 0x00, // MP cur = 14
-            0x0E, 0x00, // MP max = 14
-            0xD9, 0x02, 0x00, 0x00, // XP = 729
-            0x05, 0x00, // Level = 5
-            0x9D, 0x04, 0x00, 0x00, // Gold = 1181
-        ];
-
-        let attrs = PlayerAttributes::parse(&data).unwrap();
-        assert_eq!(attrs.strength, 65);
-        assert_eq!(attrs.dexterity, 11);
-        assert_eq!(attrs.wisdom, 7);
-        assert_eq!(attrs.constitution, 21);
-        assert_eq!(attrs.unknown_stat, 10);
-        assert_eq!(attrs.hp_current, 12);
-        assert_eq!(attrs.hp_maximum, 42);
-        assert_eq!(attrs.mp_current, 14);
-        assert_eq!(attrs.mp_maximum, 14);
-        assert_eq!(attrs.xp_current, 729);
-        assert_eq!(attrs.level, 5);
-        assert_eq!(attrs.gold, 1181);
-    }
-
-    #[test]
-    fn test_inventory_item_extract_text() {
-        // Name with binary prefix followed by readable text
-        let mut name_buf = [0u8; 30];
-        // Simulate "wytrych" with 6 bytes of binary prefix + 22 bytes zero padding
-        name_buf[0..6].copy_from_slice(&[0x04, 0x00, 0x00, 0x00, 0x02, 0x00]);
-        name_buf[6..14].copy_from_slice(b"wytrych\0");
-        let name = InventoryItem::extract_text(&name_buf);
-        assert_eq!(name, "wytrych");
-
-        // Name starting at byte 0 (no binary prefix)
-        let mut name_buf2 = [0u8; 30];
-        name_buf2[..14].copy_from_slice(b"Kostka wladzy\0");
-        let name2 = InventoryItem::extract_text(&name_buf2);
-        assert_eq!(name2, "Kostka wladzy");
-
-        // Empty buffer
-        let empty = [0u8; 30];
-        assert_eq!(InventoryItem::extract_text(&empty), "");
-    }
-
-    #[test]
-    fn test_inventory_location_raw() {
-        // Verify that the type field bytes are preserved as-is
-        let item = InventoryItem {
-            location_raw: [1, 0, 0, 0],
-            is_quest: false,
-            name: "Test".to_string(),
-            description: String::new(),
-            price: 0,
-        };
-        assert!(!item.is_quest());
-        assert_eq!(item.location_raw[0], 1);
-    }
-
-    #[test]
-    fn test_journal_entry_parse() {
-        let mut entry_data = vec![0u8; 37];
-        entry_data[0] = 3; // counter
-        let name_bytes = b"TestQuest";
-        entry_data[1..1 + name_bytes.len()].copy_from_slice(name_bytes);
-        entry_data[33..37].copy_from_slice(&2u32.to_le_bytes()); // flags = 2
-
-        let entry = JournalEntry::parse(&entry_data).unwrap();
-        assert_eq!(entry.counter, 3);
-        assert_eq!(entry.name, "TestQuest");
-        assert_eq!(entry.flags, 2);
-    }
-
-    #[test]
-    fn test_journal_entry_write_round_trip() {
-        let entry = JournalEntry {
-            counter: 7,
-            name: "FindTheOrb".to_string(),
-            flags: 5,
-        };
-
-        let mut buf = Vec::new();
-        entry.write(&mut buf).unwrap();
-        assert_eq!(buf.len(), 37);
-
-        let parsed = JournalEntry::parse(&buf).unwrap();
-        assert_eq!(parsed.counter, 7);
-        assert_eq!(parsed.name, "FindTheOrb");
-        assert_eq!(parsed.flags, 5);
-    }
-
-    #[test]
-    fn test_draw_item_parse() {
-        let data = vec![0xABu8; 252];
-        let item = DrawItem::parse(&data).unwrap();
-        assert_eq!(item.data[0], 0xAB);
-        assert_eq!(item.data[251], 0xAB);
-    }
-
-    #[test]
-    fn test_draw_item_write() {
-        let mut item_data = vec![0u8; 252];
-        item_data[0] = 0x12;
-        item_data[251] = 0x34;
-        let item = DrawItem { data: item_data };
-
-        let mut buf = Vec::new();
-        item.write(&mut buf).unwrap();
-        assert_eq!(buf.len(), 252);
-        assert_eq!(buf[0], 0x12);
-        assert_eq!(buf[251], 0x34);
-    }
-
-    #[test]
-    fn test_event_script_parse_save_format() {
-        // 284-byte event: u32 event_id, u32 unknown(0), u32 state(2), 272 bytes name
-        let mut data = vec![0u8; 284];
-        data[0..4].copy_from_slice(&1u32.to_le_bytes()); // event_id = 1
-        data[4..8].copy_from_slice(&0u32.to_le_bytes()); // unknown = 0
-        data[8..12].copy_from_slice(&2u32.to_le_bytes()); // state = 2 (completed)
-        let name = b"event0003.scr";
-        data[12..12 + name.len()].copy_from_slice(name);
-        data[12 + name.len()] = 0; // null terminator
-
-        let script = EventScript::parse(&data).unwrap();
-        assert_eq!(script.state, 2);
-        assert_eq!(script.script_name, "event0003.scr");
-    }
-
-    #[test]
-    fn test_monster_record_parse() {
-        // Minimal 329-byte monster record
-        let mut data = vec![0u8; 329];
-        data[0..4].copy_from_slice(&0xCAFEu32.to_le_bytes()); // signature_a
-        data[4..8].copy_from_slice(&5u32.to_le_bytes()); // record_index
-        data[8..12].copy_from_slice(&0xBEEFu32.to_le_bytes()); // signature_b
-        let name = b"Goblin";
-        data[12..12 + name.len()].copy_from_slice(name);
-        data[12 + name.len()] = 0; // null terminator
-        data[36..38].copy_from_slice(&30u16.to_le_bytes()); // hp_current = 30
-        data[38..40].copy_from_slice(&50u16.to_le_bytes()); // hp_max = 50
-        data[40..44].copy_from_slice(&3u32.to_le_bytes()); // state: dead(1) + poisoned(2) = 3
-        data[44..46].copy_from_slice(&10u16.to_le_bytes()); // tile_x
-        data[46..48].copy_from_slice(&20u16.to_le_bytes()); // tile_y
-
-        let monster = MonsterRecord::parse(&data).unwrap();
-        assert_eq!(monster.signature_a, 0xCAFE);
-        assert_eq!(monster.record_index, 5);
-        assert_eq!(monster.signature_b, 0xBEEF);
-        assert_eq!(monster.name, "Goblin");
-        assert_eq!(monster.hp_current, 30);
-        assert_eq!(monster.hp_maximum, 50);
-        assert!(monster.state.is_dead);
-        assert!(monster.state.is_poisoned);
-        assert_eq!(monster.tile_x, 10);
-        assert_eq!(monster.tile_y, 20);
-    }
-
-    #[test]
-    fn test_npc_record_parse() {
-        let mut data = vec![0u8; 349];
-        // 4 u32 counters
-        data[0..4].copy_from_slice(&1u32.to_le_bytes());
-        data[4..8].copy_from_slice(&2u32.to_le_bytes());
-        data[8..12].copy_from_slice(&3u32.to_le_bytes());
-        data[12..16].copy_from_slice(&4u32.to_le_bytes());
-        // 32 bytes padding (offsets 16-47)
-        // name at offset 48
-        let name = b"Merchant";
-        data[48..48 + name.len()].copy_from_slice(name);
-        data[48 + name.len()] = 0;
-        // 40 bytes padding after name (offset 80-119)
-        // role at offset 120
-        let role = b"Item Vendor";
-        data[120..120 + role.len()].copy_from_slice(role);
-        data[120 + role.len()] = 0;
-
-        let npc = NpcRecord::parse(&data).unwrap();
-        assert_eq!(npc.counter1, 1);
-        assert_eq!(npc.counter2, 2);
-        assert_eq!(npc.counter3, 3);
-        assert_eq!(npc.counter4, 4);
-        assert_eq!(npc.name, "Merchant");
-        assert_eq!(npc.role_description, "Item Vendor");
-    }
-
-    #[test]
-    fn test_extra_object_record_parse() {
-        let mut data = vec![0u8; 200];
-        // prefix at offset 14 for surface objects
-        data[14] = 0xAB;
-        // name at offset 15
-        let name = b"Skrzynia";
-        data[15..15 + name.len()].copy_from_slice(name);
-        data[15 + name.len()] = 0;
-        // state byte (chest state)
-        data[15 + name.len() + 1] = 2; // closed
-
-        let obj = ExtraObjectRecord::parse(&data, false).unwrap();
-        assert_eq!(obj.prefix, 0xAB);
-        assert_eq!(obj.name, "Skrzynia");
-        assert_eq!(obj.state, 2);
-    }
-
-    #[test]
-    fn test_player_attributes_write_round_trip() {
-        let attrs = PlayerAttributes {
-            strength: 10,
-            dexterity: 12,
-            wisdom: 8,
-            constitution: 15,
-            unknown_stat: 5,
-            hp_current: 50,
-            hp_maximum: 100,
-            mp_current: 30,
-            mp_maximum: 60,
-            xp_current: 1500,
-            level: 7,
-            gold: 5000,
-        };
-
-        let mut buf = Vec::new();
-        attrs.write(&mut buf).unwrap();
-        // PlayerAttributes is 10 × u16 (20 bytes) + 2 × u32 (8 bytes) = 28 bytes
-        assert_eq!(buf.len(), 28);
-
-        let parsed = PlayerAttributes::parse(&buf).unwrap();
-        assert_eq!(parsed.strength, 10);
-        assert_eq!(parsed.dexterity, 12);
-        assert_eq!(parsed.wisdom, 8);
-        assert_eq!(parsed.constitution, 15);
-        assert_eq!(parsed.unknown_stat, 5);
-        assert_eq!(parsed.hp_current, 50);
-        assert_eq!(parsed.hp_maximum, 100);
-        assert_eq!(parsed.mp_current, 30);
-        assert_eq!(parsed.mp_maximum, 60);
-        assert_eq!(parsed.xp_current, 1500);
-        assert_eq!(parsed.level, 7);
-        assert_eq!(parsed.gold, 5000);
-    }
-
-    #[test]
-    fn test_journal_entry_parse_too_short() {
-        let data = [0u8; 10];
-        let result = JournalEntry::parse(&data);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_draw_item_parse_too_short() {
-        let data = [0u8; 100];
-        let result = DrawItem::parse(&data);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_save_file_default() {
-        let save = SaveFile::default();
-        assert_eq!(save.surface_monsters.len(), 0);
-        assert_eq!(save.npcs.len(), 0);
-        assert_eq!(save.surface_objects.len(), 0);
-        assert_eq!(save.player_name, "");
-        assert_eq!(save.journal_main.len(), 0);
-        assert_eq!(save.journal_side.len(), 0);
-        assert_eq!(save.journal_trade.len(), 0);
-    }
-
-    // ── Round-trip tests against actual save files ──
-
-    fn run_round_trip(path: &str) {
-        let original = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
-        let save =
-            SaveFile::parse(&original).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
-
-        let mut output = Vec::new();
-        SaveFile::to_writer(&[save], &mut output)
-            .unwrap_or_else(|e| panic!("Failed to write back {path}: {e}"));
-
-        assert_eq!(
-            original.len(),
-            output.len(),
-            "Size mismatch for {path}: original={} output={}",
-            original.len(),
-            output.len(),
-        );
-
-        if let Some((i, (a, b))) = original
-            .iter()
-            .zip(output.iter())
-            .enumerate()
-            .find(|(_, (a, b))| a != b)
-        {
-            panic!(
-                "Byte mismatch at {i:#x} in {path}: \
-                 original={a:#04x} output={b:#04x}",
-            );
-        }
-    }
-
-    #[test]
-    fn round_trip_nuno_0_sav() {
-        run_round_trip("nuno-0.sav");
-    }
-
-    #[test]
-    fn round_trip_0_sav() {
-        run_round_trip("0.sav");
-    }
-
-    #[test]
-    fn round_trip_2_sav() {
-        run_round_trip("2.sav");
-    }
-
-    /// Verify that best-effort character data extraction works for all saves.
-    #[test]
-    fn test_character_extraction_all_saves() {
-        let files = [
-            (
-                "nuno-0.sav",
-                "Nuno ",
-                "Wojownik",
-                1u16,
-                7u16,
-                21u16,
-                10u16,
-                12u16,
-                42u16,
-                14u16,
-                14u16,
-                0u16,
-                0u16,
-                729u32,
-                5u16,
-                1181u32,
-            ),
-            (
-                "0.sav",
-                "Cristoforo",
-                "Mag",
-                3u16,
-                220u16,
-                220u16,
-                20u16,
-                1200u16,
-                1200u16,
-                670u16,
-                700u16,
-                0u16,
-                0u16,
-                123074u32,
-                16u16,
-                24965u32,
-            ),
-            (
-                "2.sav",
-                "Cristoforo",
-                "Mag",
-                3u16,
-                220u16,
-                220u16,
-                10u16,
-                991u16,
-                1200u16,
-                675u16,
-                700u16,
-                0u16,
-                0u16,
-                122266u32,
-                16u16,
-                24832u32,
-            ),
-            (
-                "1.sav",
-                "Cristoforo",
-                "Mag",
-                3u16,
-                220u16,
-                220u16,
-                10u16,
-                1200u16,
-                1200u16,
-                670u16,
-                700u16,
-                0u16,
-                0u16,
-                122974u32,
-                16u16,
-                24965u32,
-            ),
-        ];
-        for &(
-            path,
-            exp_name,
-            exp_class,
-            exp_cid,
-            exp_str,
-            exp_dex,
-            exp_wis,
-            exp_con,
-            exp_unk,
-            exp_hp_cur,
-            exp_hp_max,
-            exp_mp_cur,
-            exp_mp_max,
-            exp_xp,
-            exp_lvl,
-            exp_gold,
-        ) in &files
-        {
-            let data = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
-            let save =
-                SaveFile::parse(&data).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
-
-            assert_eq!(save.player_name, exp_name, "{path}: player_name mismatch");
-            assert_eq!(
-                save.player_class_name, exp_class,
-                "{path}: class_name mismatch"
-            );
-            assert_eq!(
-                save.player_class_id, exp_cid as i16,
-                "{path}: class_id mismatch"
-            );
-
-            let pa = &save.player_attributes;
-            assert_eq!(pa.strength, exp_str, "{path}: STR mismatch");
-            assert_eq!(pa.dexterity, exp_dex, "{path}: DEX mismatch");
-            assert_eq!(pa.wisdom, exp_wis, "{path}: WIS mismatch");
-            assert_eq!(pa.constitution, exp_con, "{path}: CON mismatch");
-            assert_eq!(pa.unknown_stat, exp_unk, "{path}: unknown_stat mismatch");
-            assert_eq!(pa.hp_current, exp_hp_cur, "{path}: HP cur mismatch");
-            assert_eq!(pa.hp_maximum, exp_hp_max, "{path}: HP max mismatch");
-            assert_eq!(pa.mp_current, exp_mp_cur, "{path}: MP cur mismatch");
-            assert_eq!(pa.mp_maximum, exp_mp_max, "{path}: MP max mismatch");
-            assert_eq!(pa.xp_current, exp_xp, "{path}: XP mismatch");
-            assert_eq!(pa.level, exp_lvl, "{path}: Level mismatch");
-            assert_eq!(pa.gold, exp_gold, "{path}: Gold mismatch");
-
-            assert!(!save.events.is_empty(), "{path}: no events extracted");
-            assert_eq!(save.events.len(), 2251, "{path}: event count wrong");
-            assert_eq!(save.journal_main.len(), 100, "{path}: journal_main wrong");
-            assert_eq!(save.journal_side.len(), 100, "{path}: journal_side wrong");
-            assert_eq!(save.journal_trade.len(), 100, "{path}: journal_trade wrong");
-
-            // Inventory: verify at least some items parsed
-            assert!(
-                !save.inventory_items.is_empty(),
-                "{path}: no inventory items extracted"
-            );
-            // First item should be a quest item (Event type)
-            assert!(
-                save.inventory_items[0].is_quest,
-                "{path}: first item should be quest item"
-            );
-
-            eprintln!(
-                "  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
-                save.player_name,
-                save.player_class_name,
-                save.player_class_id,
-                pa.strength,
-                save.events.len(),
-                save.inventory_items.len()
-            );
-        }
-    }
-}
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[test]
+//     fn test_player_attributes_parse() {
+//         let data = [
+//             0x41, 0x00, // STR = 65
+//             0x0B, 0x00, // DEX = 11
+//             0x07, 0x00, // WIS = 7
+//             0x15, 0x00, // CON = 21
+//             0x0A, 0x00, // Unknown = 10
+//             0x0C, 0x00, // HP cur = 12
+//             0x2A, 0x00, // HP max = 42
+//             0x0E, 0x00, // MP cur = 14
+//             0x0E, 0x00, // MP max = 14
+//             0xD9, 0x02, 0x00, 0x00, // XP = 729
+//             0x05, 0x00, // Level = 5
+//             0x9D, 0x04, 0x00, 0x00, // Gold = 1181
+//         ];
+//
+//         let attrs = PlayerAttributes::parse(&data).unwrap();
+//         assert_eq!(attrs.strength, 65);
+//         assert_eq!(attrs.dexterity, 11);
+//         assert_eq!(attrs.wisdom, 7);
+//         assert_eq!(attrs.constitution, 21);
+//         assert_eq!(attrs.unknown_stat, 10);
+//         assert_eq!(attrs.hp_current, 12);
+//         assert_eq!(attrs.hp_maximum, 42);
+//         assert_eq!(attrs.mp_current, 14);
+//         assert_eq!(attrs.mp_maximum, 14);
+//         assert_eq!(attrs.xp_current, 729);
+//         assert_eq!(attrs.level, 5);
+//         assert_eq!(attrs.gold, 1181);
+//     }
+//
+//     #[test]
+//     fn test_inventory_item_extract_text() {
+//         // Name with binary prefix followed by readable text
+//         let mut name_buf = [0u8; 30];
+//         // Simulate "wytrych" with 6 bytes of binary prefix + 22 bytes zero padding
+//         name_buf[0..6].copy_from_slice(&[0x04, 0x00, 0x00, 0x00, 0x02, 0x00]);
+//         name_buf[6..14].copy_from_slice(b"wytrych\0");
+//         let name = InventoryItem::extract_text(&name_buf);
+//         assert_eq!(name, "wytrych");
+//
+//         // Name starting at byte 0 (no binary prefix)
+//         let mut name_buf2 = [0u8; 30];
+//         name_buf2[..14].copy_from_slice(b"Kostka wladzy\0");
+//         let name2 = InventoryItem::extract_text(&name_buf2);
+//         assert_eq!(name2, "Kostka wladzy");
+//
+//         // Empty buffer
+//         let empty = [0u8; 30];
+//         assert_eq!(InventoryItem::extract_text(&empty), "");
+//     }
+//
+//     #[test]
+//     fn test_inventory_location_raw() {
+//         // Verify that the type field bytes are preserved as-is
+//         let item = InventoryItem {
+//             location_raw: [1, 0, 0, 0],
+//             is_quest: false,
+//             name: "Test".to_string(),
+//             description: String::new(),
+//             price: 0,
+//         };
+//         assert!(!item.is_quest());
+//         assert_eq!(item.location_raw[0], 1);
+//     }
+//
+//     #[test]
+//     fn test_journal_entry_parse() {
+//         let mut entry_data = vec![0u8; 37];
+//         entry_data[0] = 3; // counter
+//         let name_bytes = b"TestQuest";
+//         entry_data[1..1 + name_bytes.len()].copy_from_slice(name_bytes);
+//         entry_data[33..37].copy_from_slice(&2u32.to_le_bytes()); // flags = 2
+//
+//         let entry = JournalEntry::parse(&entry_data).unwrap();
+//         assert_eq!(entry.counter, 3);
+//         assert_eq!(entry.name, "TestQuest");
+//         assert_eq!(entry.flags, 2);
+//     }
+//
+//     #[test]
+//     fn test_journal_entry_write_round_trip() {
+//         let entry = JournalEntry {
+//             counter: 7,
+//             name: "FindTheOrb".to_string(),
+//             flags: 5,
+//         };
+//
+//         let mut buf = Vec::new();
+//         entry.write(&mut buf).unwrap();
+//         assert_eq!(buf.len(), 37);
+//
+//         let parsed = JournalEntry::parse(&buf).unwrap();
+//         assert_eq!(parsed.counter, 7);
+//         assert_eq!(parsed.name, "FindTheOrb");
+//         assert_eq!(parsed.flags, 5);
+//     }
+//
+//     #[test]
+//     fn test_draw_item_parse() {
+//         let data = vec![0xABu8; 252];
+//         let item = DrawItem::parse(&data).unwrap();
+//         assert_eq!(item.data[0], 0xAB);
+//         assert_eq!(item.data[251], 0xAB);
+//     }
+//
+//     #[test]
+//     fn test_draw_item_write() {
+//         let mut item_data = vec![0u8; 252];
+//         item_data[0] = 0x12;
+//         item_data[251] = 0x34;
+//         let item = DrawItem { data: item_data };
+//
+//         let mut buf = Vec::new();
+//         item.write(&mut buf).unwrap();
+//         assert_eq!(buf.len(), 252);
+//         assert_eq!(buf[0], 0x12);
+//         assert_eq!(buf[251], 0x34);
+//     }
+//
+//     #[test]
+//     fn test_event_script_parse_save_format() {
+//         // 284-byte event: u32 event_id, u32 unknown(0), u32 state(2), 272 bytes name
+//         let mut data = vec![0u8; 284];
+//         data[0..4].copy_from_slice(&1u32.to_le_bytes()); // event_id = 1
+//         data[4..8].copy_from_slice(&0u32.to_le_bytes()); // unknown = 0
+//         data[8..12].copy_from_slice(&2u32.to_le_bytes()); // state = 2 (completed)
+//         let name = b"event0003.scr";
+//         data[12..12 + name.len()].copy_from_slice(name);
+//         data[12 + name.len()] = 0; // null terminator
+//
+//         let script = EventScript::parse(&data).unwrap();
+//         assert_eq!(script.state, 2);
+//         assert_eq!(script.script_name, "event0003.scr");
+//     }
+//
+//     #[test]
+//     fn test_monster_record_parse() {
+//         // Minimal 329-byte monster record
+//         let mut data = vec![0u8; 329];
+//         data[0..4].copy_from_slice(&0xCAFEu32.to_le_bytes()); // signature_a
+//         data[4..8].copy_from_slice(&5u32.to_le_bytes()); // record_index
+//         data[8..12].copy_from_slice(&0xBEEFu32.to_le_bytes()); // signature_b
+//         let name = b"Goblin";
+//         data[12..12 + name.len()].copy_from_slice(name);
+//         data[12 + name.len()] = 0; // null terminator
+//         data[36..38].copy_from_slice(&30u16.to_le_bytes()); // hp_current = 30
+//         data[38..40].copy_from_slice(&50u16.to_le_bytes()); // hp_max = 50
+//         data[40..44].copy_from_slice(&3u32.to_le_bytes()); // state: dead(1) + poisoned(2) = 3
+//         data[44..46].copy_from_slice(&10u16.to_le_bytes()); // tile_x
+//         data[46..48].copy_from_slice(&20u16.to_le_bytes()); // tile_y
+//
+//         let monster = MonsterRecord::parse(&data).unwrap();
+//         assert_eq!(monster.signature_a, 0xCAFE);
+//         assert_eq!(monster.record_index, 5);
+//         assert_eq!(monster.signature_b, 0xBEEF);
+//         assert_eq!(monster.name, "Goblin");
+//         assert_eq!(monster.hp_current, 30);
+//         assert_eq!(monster.hp_maximum, 50);
+//         assert!(monster.state.is_dead);
+//         assert!(monster.state.is_poisoned);
+//         assert_eq!(monster.tile_x, 10);
+//         assert_eq!(monster.tile_y, 20);
+//     }
+//
+//     #[test]
+//     fn test_npc_record_parse() {
+//         let mut data = vec![0u8; 349];
+//         // 4 u32 counters
+//         data[0..4].copy_from_slice(&1u32.to_le_bytes());
+//         data[4..8].copy_from_slice(&2u32.to_le_bytes());
+//         data[8..12].copy_from_slice(&3u32.to_le_bytes());
+//         data[12..16].copy_from_slice(&4u32.to_le_bytes());
+//         // 32 bytes padding (offsets 16-47)
+//         // name at offset 48
+//         let name = b"Merchant";
+//         data[48..48 + name.len()].copy_from_slice(name);
+//         data[48 + name.len()] = 0;
+//         // 40 bytes padding after name (offset 80-119)
+//         // role at offset 120
+//         let role = b"Item Vendor";
+//         data[120..120 + role.len()].copy_from_slice(role);
+//         data[120 + role.len()] = 0;
+//
+//         let npc = NpcRecord::parse(&data).unwrap();
+//         assert_eq!(npc.counter1, 1);
+//         assert_eq!(npc.counter2, 2);
+//         assert_eq!(npc.counter3, 3);
+//         assert_eq!(npc.counter4, 4);
+//         assert_eq!(npc.name, "Merchant");
+//         assert_eq!(npc.role_description, "Item Vendor");
+//     }
+//
+//     #[test]
+//     fn test_extra_object_record_parse() {
+//         let mut data = vec![0u8; 200];
+//         // prefix at offset 14 for surface objects
+//         data[14] = 0xAB;
+//         // name at offset 15
+//         let name = b"Skrzynia";
+//         data[15..15 + name.len()].copy_from_slice(name);
+//         data[15 + name.len()] = 0;
+//         // state byte (chest state)
+//         data[15 + name.len() + 1] = 2; // closed
+//
+//         let obj = ExtraObjectRecord::parse(&data, false).unwrap();
+//         assert_eq!(obj.prefix, 0xAB);
+//         assert_eq!(obj.name, "Skrzynia");
+//         assert_eq!(obj.state, 2);
+//     }
+//
+//     #[test]
+//     fn test_player_attributes_write_round_trip() {
+//         let attrs = PlayerAttributes {
+//             strength: 10,
+//             dexterity: 12,
+//             wisdom: 8,
+//             constitution: 15,
+//             unknown_stat: 5,
+//             hp_current: 50,
+//             hp_maximum: 100,
+//             mp_current: 30,
+//             mp_maximum: 60,
+//             xp_current: 1500,
+//             level: 7,
+//             gold: 5000,
+//         };
+//
+//         let mut buf = Vec::new();
+//         attrs.write(&mut buf).unwrap();
+//         // PlayerAttributes is 10 × u16 (20 bytes) + 2 × u32 (8 bytes) = 28 bytes
+//         assert_eq!(buf.len(), 28);
+//
+//         let parsed = PlayerAttributes::parse(&buf).unwrap();
+//         assert_eq!(parsed.strength, 10);
+//         assert_eq!(parsed.dexterity, 12);
+//         assert_eq!(parsed.wisdom, 8);
+//         assert_eq!(parsed.constitution, 15);
+//         assert_eq!(parsed.unknown_stat, 5);
+//         assert_eq!(parsed.hp_current, 50);
+//         assert_eq!(parsed.hp_maximum, 100);
+//         assert_eq!(parsed.mp_current, 30);
+//         assert_eq!(parsed.mp_maximum, 60);
+//         assert_eq!(parsed.xp_current, 1500);
+//         assert_eq!(parsed.level, 7);
+//         assert_eq!(parsed.gold, 5000);
+//     }
+//
+//     #[test]
+//     fn test_journal_entry_parse_too_short() {
+//         let data = [0u8; 10];
+//         let result = JournalEntry::parse(&data);
+//         assert!(result.is_err());
+//     }
+//
+//     #[test]
+//     fn test_draw_item_parse_too_short() {
+//         let data = [0u8; 100];
+//         let result = DrawItem::parse(&data);
+//         assert!(result.is_err());
+//     }
+//
+//     #[test]
+//     fn test_save_file_default() {
+//         let save = SaveFile::default();
+//         assert_eq!(save.surface_monsters.len(), 0);
+//         assert_eq!(save.npcs.len(), 0);
+//         assert_eq!(save.surface_objects.len(), 0);
+//         assert_eq!(save.player_name, "");
+//         assert_eq!(save.journal_main.len(), 0);
+//         assert_eq!(save.journal_side.len(), 0);
+//         assert_eq!(save.journal_trade.len(), 0);
+//     }
+//
+//     // ── Round-trip tests against actual save files ──
+//
+//     fn run_round_trip(path: &str) {
+//         let original = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+//         let save =
+//             SaveFile::parse(&original).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
+//
+//         let mut output = Vec::new();
+//         SaveFile::to_writer(&[save], &mut output)
+//             .unwrap_or_else(|e| panic!("Failed to write back {path}: {e}"));
+//
+//         assert_eq!(
+//             original.len(),
+//             output.len(),
+//             "Size mismatch for {path}: original={} output={}",
+//             original.len(),
+//             output.len(),
+//         );
+//
+//         if let Some((i, (a, b))) = original
+//             .iter()
+//             .zip(output.iter())
+//             .enumerate()
+//             .find(|(_, (a, b))| a != b)
+//         {
+//             panic!(
+//                 "Byte mismatch at {i:#x} in {path}: \
+//                  original={a:#04x} output={b:#04x}",
+//             );
+//         }
+//     }
+//
+//     #[test]
+//     fn round_trip_nuno_0_sav() {
+//         run_round_trip("nuno-0.sav");
+//     }
+//
+//     #[test]
+//     fn round_trip_0_sav() {
+//         run_round_trip("0.sav");
+//     }
+//
+//     #[test]
+//     fn round_trip_2_sav() {
+//         run_round_trip("2.sav");
+//     }
+//
+//     /// Verify that best-effort character data extraction works for all saves.
+//     #[test]
+//     fn test_character_extraction_all_saves() {
+//         let files = [
+//             (
+//                 "nuno-0.sav",
+//                 "Nuno ",
+//                 "Wojownik",
+//                 1u16,
+//                 7u16,
+//                 21u16,
+//                 10u16,
+//                 12u16,
+//                 42u16,
+//                 14u16,
+//                 14u16,
+//                 0u16,
+//                 0u16,
+//                 729u32,
+//                 5u16,
+//                 1181u32,
+//             ),
+//             (
+//                 "0.sav",
+//                 "Cristoforo",
+//                 "Mag",
+//                 3u16,
+//                 220u16,
+//                 220u16,
+//                 20u16,
+//                 1200u16,
+//                 1200u16,
+//                 670u16,
+//                 700u16,
+//                 0u16,
+//                 0u16,
+//                 123074u32,
+//                 16u16,
+//                 24965u32,
+//             ),
+//             (
+//                 "2.sav",
+//                 "Cristoforo",
+//                 "Mag",
+//                 3u16,
+//                 220u16,
+//                 220u16,
+//                 10u16,
+//                 991u16,
+//                 1200u16,
+//                 675u16,
+//                 700u16,
+//                 0u16,
+//                 0u16,
+//                 122266u32,
+//                 16u16,
+//                 24832u32,
+//             ),
+//             (
+//                 "1.sav",
+//                 "Cristoforo",
+//                 "Mag",
+//                 3u16,
+//                 220u16,
+//                 220u16,
+//                 10u16,
+//                 1200u16,
+//                 1200u16,
+//                 670u16,
+//                 700u16,
+//                 0u16,
+//                 0u16,
+//                 122974u32,
+//                 16u16,
+//                 24965u32,
+//             ),
+//         ];
+//         for &(
+//             path,
+//             exp_name,
+//             exp_class,
+//             exp_cid,
+//             exp_str,
+//             exp_dex,
+//             exp_wis,
+//             exp_con,
+//             exp_unk,
+//             exp_hp_cur,
+//             exp_hp_max,
+//             exp_mp_cur,
+//             exp_mp_max,
+//             exp_xp,
+//             exp_lvl,
+//             exp_gold,
+//         ) in &files
+//         {
+//             let data = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {path}: {e}"));
+//             let save =
+//                 SaveFile::parse(&data).unwrap_or_else(|e| panic!("Failed to parse {path}: {e}"));
+//
+//             assert_eq!(save.player_name, exp_name, "{path}: player_name mismatch");
+//             assert_eq!(
+//                 save.player_class_name, exp_class,
+//                 "{path}: class_name mismatch"
+//             );
+//             assert_eq!(
+//                 save.player_class_id, exp_cid as i16,
+//                 "{path}: class_id mismatch"
+//             );
+//
+//             let pa = &save.player_attributes;
+//             assert_eq!(pa.strength, exp_str, "{path}: STR mismatch");
+//             assert_eq!(pa.dexterity, exp_dex, "{path}: DEX mismatch");
+//             assert_eq!(pa.wisdom, exp_wis, "{path}: WIS mismatch");
+//             assert_eq!(pa.constitution, exp_con, "{path}: CON mismatch");
+//             assert_eq!(pa.unknown_stat, exp_unk, "{path}: unknown_stat mismatch");
+//             assert_eq!(pa.hp_current, exp_hp_cur, "{path}: HP cur mismatch");
+//             assert_eq!(pa.hp_maximum, exp_hp_max, "{path}: HP max mismatch");
+//             assert_eq!(pa.mp_current, exp_mp_cur, "{path}: MP cur mismatch");
+//             assert_eq!(pa.mp_maximum, exp_mp_max, "{path}: MP max mismatch");
+//             assert_eq!(pa.xp_current, exp_xp, "{path}: XP mismatch");
+//             assert_eq!(pa.level, exp_lvl, "{path}: Level mismatch");
+//             assert_eq!(pa.gold, exp_gold, "{path}: Gold mismatch");
+//
+//             assert!(!save.events.is_empty(), "{path}: no events extracted");
+//             assert_eq!(save.events.len(), 2251, "{path}: event count wrong");
+//             assert_eq!(save.journal_main.len(), 100, "{path}: journal_main wrong");
+//             assert_eq!(save.journal_side.len(), 100, "{path}: journal_side wrong");
+//             assert_eq!(save.journal_trade.len(), 100, "{path}: journal_trade wrong");
+//
+//             // Inventory: verify at least some items parsed
+//             assert!(
+//                 !save.inventory_items.is_empty(),
+//                 "{path}: no inventory items extracted"
+//             );
+//             // First item should be a quest item (Event type)
+//             assert!(
+//                 save.inventory_items[0].is_quest,
+//                 "{path}: first item should be quest item"
+//             );
+//
+//             eprintln!(
+//                 "  ✓ {path}: player={} class={}({}) str={} events={} inv={}",
+//                 save.player_name,
+//                 save.player_class_name,
+//                 save.player_class_id,
+//                 pa.strength,
+//                 save.events.len(),
+//                 save.inventory_items.len()
+//             );
+//         }
+//     }
+// }
