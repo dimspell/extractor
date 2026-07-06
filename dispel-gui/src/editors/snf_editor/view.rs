@@ -55,8 +55,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .style(crate::style::active_chip)
                 .on_press(Message::snf_editor(SnfEditorMessage::Save))
         } else {
-            button(text("💾 Save").size(12))
-                .style(crate::style::chip)
+            button(text("💾 Save").size(12)).style(crate::style::chip)
         }
     ]
     .spacing(8)
@@ -158,18 +157,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ExportStatus::Error(e) => row![text(e.as_str()).size(11)].padding([2, 12]).into(),
     };
 
-    let content: Element<'_, Message> = column![
-        header,
-        meta,
-        waveform,
-        timeline,
-        controls,
-        status_line,
-    ]
-    .spacing(0)
-    .height(Fill)
-    .accessible_label("SNF audio editor")
-    .into();
+    let content: Element<'_, Message> =
+        column![header, meta, waveform, timeline, controls, status_line,]
+            .spacing(0)
+            .height(Fill)
+            .accessible_label("SNF audio editor")
+            .into();
 
     // Wrap in toast Manager — toasts auto-dismiss after 4 seconds
     toast::Manager::new(content, &editor.toasts, |i| {

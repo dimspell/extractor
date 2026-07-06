@@ -178,7 +178,9 @@ fn collect_matching_paths(
     query: &str,
     result: &mut HashSet<PathBuf>,
 ) -> bool {
-    let Some(node) = node else { return false; };
+    let Some(node) = node else {
+        return false;
+    };
     match node {
         TreeNode::Dir { path, children, .. } => {
             let mut any_child_matches = false;

@@ -26,9 +26,7 @@ pub enum NativeResult {
 ///   without a selection. Caller should **not** fall through to the custom overlay.
 /// - `None` — native menus are not available on this platform. Caller should
 ///   fall back to the custom-rendered overlay.
-pub fn try_show_native_menu<Message: Clone>(
-    entries: &[Entry<Message>],
-) -> Option<NativeResult> {
+pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Option<NativeResult> {
     // Set FORCE_CUSTOM_CONTEXT_MENU=1 to skip native menus and use
     // the Iced-rendered overlay instead (useful for debugging layout/style).
     if std::env::var("FORCE_CUSTOM_CONTEXT_MENU").is_ok() {

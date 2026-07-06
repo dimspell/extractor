@@ -261,10 +261,17 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 text("").size(10).style(style::subtle_text)
             };
 
-            let action_row = row![save_btn, undo_btn, redo_btn, export_btn, tmx_btn, status_text,]
-                .spacing(6)
-                .padding([4, 16])
-                .align_y(iced::Alignment::Center);
+            let action_row = row![
+                save_btn,
+                undo_btn,
+                redo_btn,
+                export_btn,
+                tmx_btn,
+                status_text,
+            ]
+            .spacing(6)
+            .padding([4, 16])
+            .align_y(iced::Alignment::Center);
 
             let mode_tab_row = row![
                 button(text("Map").size(11))

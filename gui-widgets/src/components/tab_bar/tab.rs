@@ -7,9 +7,7 @@
 use iced::advanced::renderer::Quad;
 use iced::advanced::text;
 use iced::alignment;
-use iced::{
-    Background, Border, Color, Font, Pixels, Point, Rectangle, Size,
-};
+use iced::{Background, Border, Color, Font, Pixels, Point, Rectangle, Size};
 
 use lucide_icons::Icon;
 
@@ -127,12 +125,11 @@ impl Tab {
                 renderer.fill_quad(
                     Quad {
                         bounds,
-                        border: Border::default()
-                            .rounded(
-                                iced::border::Radius::default()
-                                    .top_left(style.border_radius)
-                                    .top_right(style.border_radius),
-                            ),
+                        border: Border::default().rounded(
+                            iced::border::Radius::default()
+                                .top_left(style.border_radius)
+                                .top_right(style.border_radius),
+                        ),
                         ..Quad::default()
                     },
                     Background::Color(Color::from_rgba(0.15, 0.15, 0.15, 0.2)),
@@ -159,7 +156,12 @@ impl Tab {
                 if !self.pinned {
                     // ── Drag handle (left) ────────────────────────────
                     renderer.fill_text(
-                        make_text(String::from(char::from(Icon::GripVertical)), LUCIDE_FONT, DRAG_HANDLE_WIDTH, text::Alignment::Center),
+                        make_text(
+                            String::from(char::from(Icon::GripVertical)),
+                            LUCIDE_FONT,
+                            DRAG_HANDLE_WIDTH,
+                            text::Alignment::Center,
+                        ),
                         Point::new(bounds.x + pad, bounds.center_y()),
                         style.drag_handle_color,
                         bounds,
@@ -192,7 +194,12 @@ impl Tab {
                     }
 
                     renderer.fill_text(
-                        make_text(String::from(char::from(Icon::X)), LUCIDE_FONT, CLOSE_BUTTON_WIDTH, text::Alignment::Center),
+                        make_text(
+                            String::from(char::from(Icon::X)),
+                            LUCIDE_FONT,
+                            CLOSE_BUTTON_WIDTH,
+                            text::Alignment::Center,
+                        ),
                         Point::new(close_x, bounds.center_y()),
                         close_color,
                         bounds,
@@ -234,7 +241,12 @@ impl Tab {
                 } else {
                     // ── Pinned tab: pin indicator + label ─────────────
                     renderer.fill_text(
-                        make_text(String::from(char::from(Icon::Pin)), LUCIDE_FONT, 16.0, text::Alignment::Center),
+                        make_text(
+                            String::from(char::from(Icon::Pin)),
+                            LUCIDE_FONT,
+                            16.0,
+                            text::Alignment::Center,
+                        ),
                         Point::new(bounds.x + pad, bounds.center_y()),
                         style.pin_color,
                         bounds,
@@ -334,7 +346,9 @@ mod tests {
         let w = tab.content_width();
         assert!(w > 0.0);
         // Verify it's at least the sum of fixed elements
-        assert!(w >= TAB_PADDING * 2.0 + DRAG_HANDLE_WIDTH + CLOSE_BUTTON_WIDTH + 2.0 * INNER_SPACING);
+        assert!(
+            w >= TAB_PADDING * 2.0 + DRAG_HANDLE_WIDTH + CLOSE_BUTTON_WIDTH + 2.0 * INNER_SPACING
+        );
     }
 
     #[test]

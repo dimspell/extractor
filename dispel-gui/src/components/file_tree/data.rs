@@ -46,7 +46,6 @@ impl FileTree {
     pub fn is_loading(&self) -> bool {
         self.state.is_loading
     }
-
 }
 
 impl FileTree {
@@ -111,9 +110,7 @@ impl FileTree {
     }
 
     /// Async version of scan
-    pub async fn scan_async(
-        path: &Path,
-    ) -> super::filter::FileTreeResult<Self> {
+    pub async fn scan_async(path: &Path) -> super::filter::FileTreeResult<Self> {
         let root = scan_dir_async(path, 0).await?;
         Ok(Self {
             data: FileTreeData {
@@ -527,10 +524,7 @@ fn create_highlighted_text<'a>(name: &'a str, query: &str) -> Element<'a, FileTr
 }
 
 /// Async version of scan_dir
-async fn scan_dir_async(
-    path: &Path,
-    depth: usize,
-) -> FileTreeResult<Option<TreeNode>> {
+async fn scan_dir_async(path: &Path, depth: usize) -> FileTreeResult<Option<TreeNode>> {
     // Skip system files like .DS_STORE
     if let Some(name) = path.file_name() {
         if name.to_string_lossy().starts_with('.') {
@@ -574,9 +568,7 @@ async fn scan_dir_async(
 }
 
 /// Async version of scan_children (public, used by the ToggleDir handler).
-pub async fn scan_children_async(
-    path: &Path,
-) -> FileTreeResult<Vec<TreeNode>> {
+pub async fn scan_children_async(path: &Path) -> FileTreeResult<Vec<TreeNode>> {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
 
@@ -586,9 +578,7 @@ pub async fn scan_children_async(
                 match entry_option {
                     Some(entry) => {
                         let p = entry.path();
-                        if let Some(node) =
-                            Box::pin(scan_dir_async(&p, 0)).await?
-                        {
+                        if let Some(node) = Box::pin(scan_dir_async(&p, 0)).await? {
                             // Reset depth to 0 for proper nesting
                             match &node {
                                 TreeNode::Dir { .. } => dirs.push(node),

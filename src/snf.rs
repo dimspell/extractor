@@ -153,25 +153,42 @@ impl SnfFile {
             }
         }
 
-        let pcmaudio_format = fmt_tag
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "missing fmt chunk"))?;
+        let pcmaudio_format = fmt_tag.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing fmt chunk")
+        })?;
         let number_of_channels = num_channels.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing channels in fmt chunk")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "missing channels in fmt chunk",
+            )
         })?;
         let sample_rate = sample_rate.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing sample rate in fmt chunk")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "missing sample rate in fmt chunk",
+            )
         })?;
         let byte_rate = byte_rate.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing byte rate in fmt chunk")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "missing byte rate in fmt chunk",
+            )
         })?;
         let block_align = block_align.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing block align in fmt chunk")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "missing block align in fmt chunk",
+            )
         })?;
         let bits_per_sample = bits_per_sample.ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing bits per sample in fmt chunk")
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "missing bits per sample in fmt chunk",
+            )
         })?;
-        let raw_data = pcm_data
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "missing data chunk"))?;
+        let raw_data = pcm_data.ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "missing data chunk")
+        })?;
 
         Ok(SnfFile {
             pcmaudio_format,

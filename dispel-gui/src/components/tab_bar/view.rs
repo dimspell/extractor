@@ -38,10 +38,7 @@ fn context_entries_for_tab(tab_idx: usize, tabs: &[WorkspaceTab]) -> Vec<Entry<T
 
 /// Show a native context menu for `tab_idx`, returning the resulting message
 /// if the user picked an action, or `None` if cancelled / unavailable.
-fn try_native_context_menu(
-    tab_idx: usize,
-    tabs: &[WorkspaceTab],
-) -> Option<Message> {
+fn try_native_context_menu(tab_idx: usize, tabs: &[WorkspaceTab]) -> Option<Message> {
     let entries = context_entries_for_tab(tab_idx, tabs);
     match platform::try_show_native_menu(&entries) {
         Some(platform::NativeResult::Selected(entry_idx)) => {
@@ -73,16 +70,17 @@ pub fn view_tab_bar(app: &App) -> Element<'_, Message> {
     // Snapshot context entries for right-click
     let ws_tabs = &app.state.workspace.tabs;
 
-    TabBar::new(tabs, active_tab).on_event(move |event| match event {
-        TabBarEvent::Selected(i) => Message::tab_bar(TabBarMessage::SelectTab(i)),
-        TabBarEvent::Closed(i) => Message::tab_bar(TabBarMessage::CloseTab(i)),
-        TabBarEvent::Dragged(from, to) => Message::tab_bar(TabBarMessage::MoveTab(from, to)),
-        TabBarEvent::DragCanceled(_) => Message::tab_bar(TabBarMessage::CancelDrag),
-        TabBarEvent::RightClicked(i) => {
-            // Try native menu; fallback to no-op if unavailable.
-            try_native_context_menu(i, ws_tabs).unwrap_or_else(|| {
-                Message::tab_bar(TabBarMessage::CancelDrag)
-            })
-        }
-    }).into()
+    TabBar::new(tabs, active_tab)
+        .on_event(move |event| match event {
+            TabBarEvent::Selected(i) => Message::tab_bar(TabBarMessage::SelectTab(i)),
+            TabBarEvent::Closed(i) => Message::tab_bar(TabBarMessage::CloseTab(i)),
+            TabBarEvent::Dragged(from, to) => Message::tab_bar(TabBarMessage::MoveTab(from, to)),
+            TabBarEvent::DragCanceled(_) => Message::tab_bar(TabBarMessage::CancelDrag),
+            TabBarEvent::RightClicked(i) => {
+                // Try native menu; fallback to no-op if unavailable.
+                try_native_context_menu(i, ws_tabs)
+                    .unwrap_or_else(|| Message::tab_bar(TabBarMessage::CancelDrag))
+            }
+        })
+        .into()
 }

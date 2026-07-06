@@ -29,8 +29,7 @@ use iced::mouse;
 use iced::time::{self, Duration, Instant};
 use iced::widget::{button, column, container, row, space, text, Container};
 use iced::{
-    Alignment, Element, Event, Fill, Fit, Length, Point, Rectangle, Renderer, Size, Theme,
-    Vector,
+    Alignment, Element, Event, Fill, Fit, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
 };
 
 pub const DEFAULT_TIMEOUT: u64 = 4;

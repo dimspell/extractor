@@ -455,9 +455,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         shadow: Shadow::default(),
                         snap: true,
                     },
-                    Background::Color(super::style::row_bg(
-                        row_idx, flags, is_hovered,
-                    )),
+                    Background::Color(super::style::row_bg(row_idx, flags, is_hovered)),
                 );
             }
 
@@ -525,9 +523,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 );
             }
 
-            if let Some((border_color, border_width)) =
-                super::style::row_border(flags)
-            {
+            if let Some((border_color, border_width)) = super::style::row_border(flags) {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {
@@ -632,9 +628,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 id_clip,
             );
 
-            if let Some((border_color, border_width)) =
-                super::style::row_border(flags)
-            {
+            if let Some((border_color, border_width)) = super::style::row_border(flags) {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {

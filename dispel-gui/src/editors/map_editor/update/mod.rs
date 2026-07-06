@@ -45,7 +45,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             let Some(editor) = state else {
                 return Task::none();
             };
-            
+
             // Get map data and paths from the editor state
             let map_data_opt = editor.map_data().map(|h| h.0.clone());
             let map_path = match &editor.data.map_path {
@@ -57,45 +57,43 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                     return Task::none();
                 }
             };
-            
+
             let Some(map_data) = map_data_opt else {
                 if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
                     editor.data.status_msg = Some("Map not loaded".into());
                 }
                 return Task::none();
             };
-            
+
             return Task::perform(
                 async move {
                     let handle = rfd::AsyncFileDialog::new()
                         .set_title("Choose TMX export directory")
                         .pick_folder()
                         .await;
-                    
+
                     let Some(folder) = handle else {
                         return Err("Export cancelled".into());
                     };
                     let out_dir = folder.path().to_path_buf();
-                    
+
                     // Determine tileset paths: same dir as map, same stem
                     let gtl_path = map_path.with_extension("gtl");
                     let btl_path = map_path.with_extension("btl");
-                    
+
                     // Create output dir
                     std::fs::create_dir_all(&out_dir)
                         .map_err(|e| format!("Failed to create output directory: {e}"))?;
-                    
+
                     // Export TMX
                     dispel_core::map::tmx::export_tmx(&map_data, &gtl_path, &btl_path, &out_dir)
                         .map_err(|e| format!("TMX export failed: {e}"))?;
-                    
+
                     Ok(out_dir.to_string_lossy().to_string())
                 },
                 move |r| {
                     crate::message::Message::map_editor(
-                        crate::editors::map_editor::MapEditorMessage::TmxExportComplete(
-                            tab_id, r,
-                        ),
+                        crate::editors::map_editor::MapEditorMessage::TmxExportComplete(tab_id, r),
                     )
                 },
             );

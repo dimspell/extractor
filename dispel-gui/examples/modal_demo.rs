@@ -10,9 +10,7 @@
 
 use gui_widgets::components::modal::modal;
 use iced::keyboard::{self, key};
-use iced::widget::{
-    button, checkbox, column, container, row, rule, text, text_input,
-};
+use iced::widget::{button, checkbox, column, container, row, rule, text, text_input};
 use iced::{color, Background, Element, Fill, Subscription, Theme};
 
 // ── Entry point ────────────────────────────────────────────────────────────────
@@ -164,9 +162,7 @@ impl App {
                     button(
                         column![
                             text("Info").size(16),
-                            text("Simple dialog with a message")
-                                .size(11)
-                                .style(muted),
+                            text("Simple dialog with a message").size(11).style(muted),
                         ]
                         .spacing(4)
                         .padding(8),
@@ -176,9 +172,7 @@ impl App {
                     button(
                         column![
                             text("Confirm").size(16),
-                            text("Yes/no with simulated action")
-                                .size(11)
-                                .style(muted),
+                            text("Yes/no with simulated action").size(11).style(muted),
                         ]
                         .spacing(4)
                         .padding(8),
@@ -188,9 +182,7 @@ impl App {
                     button(
                         column![
                             text("Settings").size(16),
-                            text("Form with inputs and toggles")
-                                .size(11)
-                                .style(muted),
+                            text("Form with inputs and toggles").size(11).style(muted),
                         ]
                         .spacing(4)
                         .padding(8),
@@ -318,18 +310,15 @@ impl App {
                 .spacing(4),
                 // Notifications toggle
                 row![
-                    checkbox(self.notifications_enabled)
-                        .on_toggle(Message::NotificationsToggled),
+                    checkbox(self.notifications_enabled).on_toggle(Message::NotificationsToggled),
                     text("Enable notifications").size(14),
                 ]
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 rule::horizontal(1),
-                row![
-                    button(text("Close").size(14))
-                        .on_press(Message::CloseModal)
-                        .width(100),
-                ]
+                row![button(text("Close").size(14))
+                    .on_press(Message::CloseModal)
+                    .width(100),]
                 .spacing(12),
             ]
             .spacing(12)

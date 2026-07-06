@@ -14,13 +14,13 @@ pub use tab::Tab;
 
 use std::marker::PhantomData;
 
-use iced::alignment;
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::renderer::{self, Quad};
+use iced::advanced::text;
 use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
 use iced::advanced::{mouse, overlay as iced_overlay};
-use iced::advanced::text;
+use iced::alignment;
 use iced::{
     Background, Border, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size, Vector,
 };
@@ -50,10 +50,7 @@ enum Action {
     /// No drag in progress.
     Idle,
     /// Left button pressed on a tab, waiting to exceed the deadband.
-    PressPending {
-        tab_idx: usize,
-        origin: Point,
-    },
+    PressPending { tab_idx: usize, origin: Point },
     /// Dragging a tab — cursor moved past the deadband.
     Dragging {
         tab_idx: usize,
@@ -189,7 +186,6 @@ where
             shell.publish(on_event(event));
         }
     }
-
 }
 
 // ── Widget trait implementation ───────────────────────────────────────────────
@@ -224,11 +220,7 @@ where
         _renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let tab_widths: Vec<f32> = self
-            .tabs
-            .iter()
-            .map(|tab| tab.content_width())
-            .collect();
+        let tab_widths: Vec<f32> = self.tabs.iter().map(|tab| tab.content_width()).collect();
 
         let total_width: f32 = tab_widths.iter().copied().sum::<f32>()
             + (self.tabs.len().saturating_sub(1) as f32) * self.spacing;
@@ -307,50 +299,58 @@ where
             None
         };
 
-        let tab_at_cursor =
-            |bounds: Rectangle, cursor_pos: Point| -> Option<usize> {
-                // Convert screen x to content-relative x via scroll_offset.
-                // Content starts after the left scroll button when overflow.
-                let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
-                let x = cursor_pos.x - content_left + state.scroll_offset;
-                let y = cursor_pos.y - bounds.y;
-                if y < 0.0 || y > TAB_HEIGHT {
+        let tab_at_cursor = |bounds: Rectangle, cursor_pos: Point| -> Option<usize> {
+            // Convert screen x to content-relative x via scroll_offset.
+            // Content starts after the left scroll button when overflow.
+            let content_left = if has_overflow {
+                bounds.x + SCROLL_BUTTON_WIDTH
+            } else {
+                bounds.x
+            };
+            let x = cursor_pos.x - content_left + state.scroll_offset;
+            let y = cursor_pos.y - bounds.y;
+            if y < 0.0 || y > TAB_HEIGHT {
+                return None;
+            }
+            // Skip hit when over scroll button slots (always reserved space)
+            if has_overflow {
+                let rel_x = cursor_pos.x - bounds.x;
+                if rel_x < SCROLL_BUTTON_WIDTH || rel_x > bounds.width - SCROLL_BUTTON_WIDTH {
                     return None;
                 }
-                // Skip hit when over scroll button slots (always reserved space)
-                if has_overflow {
-                    let rel_x = cursor_pos.x - bounds.x;
-                    if rel_x < SCROLL_BUTTON_WIDTH
-                        || rel_x > bounds.width - SCROLL_BUTTON_WIDTH
-                    {
-                        return None;
-                    }
-                }
-                tab_at_x(x)
-            };
+            }
+            tab_at_x(x)
+        };
 
-        let close_at_cursor =
-            |tab_idx: usize, bounds: Rectangle, cursor_pos: Point| -> bool {
-                let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
-                let x = cursor_pos.x - content_left + state.scroll_offset;
-                let y = cursor_pos.y - bounds.y;
-                if y < 0.0 || y > TAB_HEIGHT {
-                    return false;
-                }
-                let mut cx = 0.0f32;
-                for i in 0..=tab_idx {
-                    let tw = state.tab_widths.get(i).copied().unwrap_or(0.0);
-                    if i == tab_idx {
-                        let close_x = cx + tw - CLOSE_BUTTON_WIDTH - TAB_PADDING;
-                        return x >= close_x && x < cx + tw - TAB_PADDING;
-                    }
-                    cx += tw + self.spacing;
-                }
-                false
+        let close_at_cursor = |tab_idx: usize, bounds: Rectangle, cursor_pos: Point| -> bool {
+            let content_left = if has_overflow {
+                bounds.x + SCROLL_BUTTON_WIDTH
+            } else {
+                bounds.x
             };
+            let x = cursor_pos.x - content_left + state.scroll_offset;
+            let y = cursor_pos.y - bounds.y;
+            if y < 0.0 || y > TAB_HEIGHT {
+                return false;
+            }
+            let mut cx = 0.0f32;
+            for i in 0..=tab_idx {
+                let tw = state.tab_widths.get(i).copied().unwrap_or(0.0);
+                if i == tab_idx {
+                    let close_x = cx + tw - CLOSE_BUTTON_WIDTH - TAB_PADDING;
+                    return x >= close_x && x < cx + tw - TAB_PADDING;
+                }
+                cx += tw + self.spacing;
+            }
+            false
+        };
 
         let content_rel_x = |bounds: Rectangle, cursor_pos: Point| -> f32 {
-            let content_left = if has_overflow { bounds.x + SCROLL_BUTTON_WIDTH } else { bounds.x };
+            let content_left = if has_overflow {
+                bounds.x + SCROLL_BUTTON_WIDTH
+            } else {
+                bounds.x
+            };
             cursor_pos.x - content_left + state.scroll_offset
         };
 
@@ -365,8 +365,7 @@ where
                         let rel_x = cursor_pos.x - bounds.x;
                         if state.scroll_offset > 0.0 && rel_x < SCROLL_BUTTON_WIDTH {
                             // Left scroll
-                            state.scroll_offset =
-                                (state.scroll_offset - SCROLL_STEP).max(0.0);
+                            state.scroll_offset = (state.scroll_offset - SCROLL_STEP).max(0.0);
                             shell.request_redraw();
                             return;
                         }
@@ -374,8 +373,8 @@ where
                             && rel_x > bounds.width - SCROLL_BUTTON_WIDTH
                         {
                             // Right scroll
-                            state.scroll_offset = (state.scroll_offset + SCROLL_STEP)
-                                .min(state.max_scroll);
+                            state.scroll_offset =
+                                (state.scroll_offset + SCROLL_STEP).min(state.max_scroll);
                             shell.request_redraw();
                             return;
                         }
@@ -448,15 +447,9 @@ where
                                     &state.tab_widths,
                                     self.spacing,
                                 );
-                                self.publish(
-                                    shell,
-                                    TabBarEvent::Dragged(tab_idx, gap),
-                                );
+                                self.publish(shell, TabBarEvent::Dragged(tab_idx, gap));
                             } else {
-                                self.publish(
-                                    shell,
-                                    TabBarEvent::DragCanceled(tab_idx),
-                                );
+                                self.publish(shell, TabBarEvent::DragCanceled(tab_idx));
                             }
                         } else {
                             self.publish(shell, TabBarEvent::DragCanceled(tab_idx));
@@ -476,8 +469,8 @@ where
 
                     // Scroll button hover (only when button is visible)
                     if has_overflow {
-                        state.hovered_scroll_left = state.scroll_offset > 0.0
-                            && rel_x < SCROLL_BUTTON_WIDTH;
+                        state.hovered_scroll_left =
+                            state.scroll_offset > 0.0 && rel_x < SCROLL_BUTTON_WIDTH;
                         state.hovered_scroll_right = state.scroll_offset < state.max_scroll
                             && rel_x > bounds.width - SCROLL_BUTTON_WIDTH;
                         if state.hovered_scroll_left || state.hovered_scroll_right {
@@ -501,10 +494,7 @@ where
                     }
 
                     match state.action {
-                        Action::PressPending {
-                            tab_idx,
-                            origin,
-                        } => {
+                        Action::PressPending { tab_idx, origin } => {
                             if cursor_pos.distance(origin) > DRAG_DEADBAND {
                                 state.action = Action::Dragging {
                                     tab_idx,
@@ -558,12 +548,20 @@ where
                         iced::mouse::ScrollDelta::Lines { x, y } => {
                             // Treat each line as ~SCROLL_STEP pixels
                             let h = x + y;
-                            if h == 0.0 { return; }
-                            if h > 0.0 { -SCROLL_STEP } else { SCROLL_STEP }
+                            if h == 0.0 {
+                                return;
+                            }
+                            if h > 0.0 {
+                                -SCROLL_STEP
+                            } else {
+                                SCROLL_STEP
+                            }
                         }
                         iced::mouse::ScrollDelta::Pixels { x, y } => {
                             let h = x + y;
-                            if h == 0.0 { return; }
+                            if h == 0.0 {
+                                return;
+                            }
                             -h
                         }
                     };
@@ -604,11 +602,7 @@ where
         };
         let is_dragging = drag_info.is_some();
         // The gap (0..=len) where the indicator line should appear.
-        let drop_gap = if is_dragging {
-            state.drop_target
-        } else {
-            None
-        };
+        let drop_gap = if is_dragging { state.drop_target } else { None };
 
         // ── Scroll buttons: only show when there's room to scroll ────
         let has_overflow = state.max_scroll > 0.0;
@@ -727,10 +721,11 @@ where
                     renderer.fill_quad(
                         Quad {
                             bounds: tab_bounds,
-                            border: Border::default()
-                                .rounded(iced::border::Radius::default()
+                            border: Border::default().rounded(
+                                iced::border::Radius::default()
                                     .top_left(idle_style.border_radius)
-                                    .top_right(idle_style.border_radius)),
+                                    .top_right(idle_style.border_radius),
+                            ),
                             ..Quad::default()
                         },
                         Background::Color(Color::from_rgba(0.15, 0.15, 0.15, 0.2)),
@@ -753,9 +748,11 @@ where
                             border: Border::default()
                                 .color(tab_style.border_color)
                                 .width(tab_style.border_width)
-                                .rounded(iced::border::Radius::default()
-                                    .top_left(tab_style.border_radius)
-                                    .top_right(tab_style.border_radius)),
+                                .rounded(
+                                    iced::border::Radius::default()
+                                        .top_left(tab_style.border_radius)
+                                        .top_right(tab_style.border_radius),
+                                ),
                             ..Quad::default()
                         },
                         tab_style.background,
@@ -898,8 +895,7 @@ const GHOST_Y_OFFSET: f32 = -10.0;
 /// Shadow offset from the ghost position.
 const GHOST_SHADOW_OFFSET: f32 = 4.0;
 
-impl<Message, Theme, Renderer> iced::advanced::Overlay<Message, Theme, Renderer>
-    for PickedTab
+impl<Message, Theme, Renderer> iced::advanced::Overlay<Message, Theme, Renderer> for PickedTab
 where
     Renderer: text::Renderer,
 {

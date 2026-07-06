@@ -157,18 +157,16 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             );
         }
 
-        SnfEditorMessage::ExportWavDone(result) => {
-            match result {
-                Ok(p) => {
-                    editor.export_status = ExportStatus::Done(p.clone());
-                    editor.toasts.push(toast::Toast::success("Exported", p));
-                }
-                Err(e) => {
-                    editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toasts.push(toast::Toast::error("Export failed", e));
-                }
+        SnfEditorMessage::ExportWavDone(result) => match result {
+            Ok(p) => {
+                editor.export_status = ExportStatus::Done(p.clone());
+                editor.toasts.push(toast::Toast::success("Exported", p));
             }
-        }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Export failed", e));
+            }
+        },
 
         SnfEditorMessage::ImportWav => {
             return Task::perform(
@@ -189,34 +187,30 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
                         None => Err("Import cancelled".into()),
                     }
                 },
-                |r: Result<(dispel_core::snf::SnfFile, String), String>| {
-                    match r {
-                        Ok((snf, path)) => crate::message::Message::snf_editor(
-                            SnfEditorMessage::ImportWavDone(Ok((snf, path))),
-                        ),
-                        Err(e) => crate::message::Message::snf_editor(
-                            SnfEditorMessage::ImportWavDone(Err(e)),
-                        ),
+                |r: Result<(dispel_core::snf::SnfFile, String), String>| match r {
+                    Ok((snf, path)) => crate::message::Message::snf_editor(
+                        SnfEditorMessage::ImportWavDone(Ok((snf, path))),
+                    ),
+                    Err(e) => {
+                        crate::message::Message::snf_editor(SnfEditorMessage::ImportWavDone(Err(e)))
                     }
                 },
             );
         }
 
-        SnfEditorMessage::ImportWavDone(result) => {
-            match result {
-                Ok((snf, path)) => {
-                    editor.snf = Some(snf.clone());
-                    editor.waveform = snf.waveform_points(1000);
-                    editor.modified = true;
-                    editor.export_status = ExportStatus::Done(format!("Imported: {}", path));
-                    editor.toasts.push(toast::Toast::success("Imported", path));
-                }
-                Err(e) => {
-                    editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toasts.push(toast::Toast::error("Import failed", e));
-                }
+        SnfEditorMessage::ImportWavDone(result) => match result {
+            Ok((snf, path)) => {
+                editor.snf = Some(snf.clone());
+                editor.waveform = snf.waveform_points(1000);
+                editor.modified = true;
+                editor.export_status = ExportStatus::Done(format!("Imported: {}", path));
+                editor.toasts.push(toast::Toast::success("Imported", path));
             }
-        }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Import failed", e));
+            }
+        },
 
         SnfEditorMessage::Save => {
             let path = editor.path.clone();
@@ -224,11 +218,9 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             return Task::perform(
                 async move {
                     match snf {
-                        Some(snf) => {
-                            dispel_core::snf::save(&path, &snf)
-                                .map(|_| path.to_string_lossy().to_string())
-                                .map_err(|e| e.to_string())
-                        }
+                        Some(snf) => dispel_core::snf::save(&path, &snf)
+                            .map(|_| path.to_string_lossy().to_string())
+                            .map_err(|e| e.to_string()),
                         None => Err("No audio data loaded".into()),
                     }
                 },
@@ -236,19 +228,17 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             );
         }
 
-        SnfEditorMessage::SaveDone(result) => {
-            match result {
-                Ok(p) => {
-                    editor.modified = false;
-                    editor.export_status = ExportStatus::Done(format!("Saved: {}", p));
-                    editor.toasts.push(toast::Toast::success("Saved", p));
-                }
-                Err(e) => {
-                    editor.export_status = ExportStatus::Error(e.clone());
-                    editor.toasts.push(toast::Toast::error("Save failed", e));
-                }
+        SnfEditorMessage::SaveDone(result) => match result {
+            Ok(p) => {
+                editor.modified = false;
+                editor.export_status = ExportStatus::Done(format!("Saved: {}", p));
+                editor.toasts.push(toast::Toast::success("Saved", p));
             }
-        }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Save failed", e));
+            }
+        },
 
         SnfEditorMessage::DismissToast(index) => {
             if index < editor.toasts.len() {

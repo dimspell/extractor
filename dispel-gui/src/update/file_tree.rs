@@ -24,9 +24,9 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
                         (dir_path, result.unwrap_or_default())
                     },
                     |(path, children): (PathBuf, Vec<TreeNode>)| {
-                        crate::message::Message::file_tree(
-                            FileTreeMessage::ToggleDirComplete(path, children),
-                        )
+                        crate::message::Message::file_tree(FileTreeMessage::ToggleDirComplete(
+                            path, children,
+                        ))
                     },
                 );
             }
@@ -65,9 +65,12 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
             // Only apply if the user hasn't typed more since this task was spawned.
             if app.file_tree.state.search_query == query {
                 app.file_tree.state.tree_filter =
-                    crate::components::file_tree::FileTreeFilter::new().with_search_query(query.clone());
+                    crate::components::file_tree::FileTreeFilter::new()
+                        .with_search_query(query.clone());
                 // Pre-compute matching paths so view() does O(1) lookups per file.
-                app.file_tree.state.tree_filter
+                app.file_tree
+                    .state
+                    .tree_filter
                     .build_matching_paths(app.file_tree.data.root.as_ref());
             }
             Task::none()

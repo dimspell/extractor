@@ -1,6 +1,6 @@
+use super::style::cell_text_color;
 use super::types::State;
 use super::*;
-use super::style::cell_text_color;
 use crate::components::paragraph_cache::ParagraphCache;
 use iced::{color, Rectangle, Size, Vector};
 

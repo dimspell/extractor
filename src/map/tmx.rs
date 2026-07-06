@@ -41,12 +41,7 @@ use image::RgbaImage;
 /// (`r = g = b = 0`) are treated as transparent and skipped.  This matches
 /// the convention established by [`super::tileset::plot_tile_rgba`] but
 /// writes every pixel directly without the isometric diamond mask.
-fn plot_tile_square_rgba(
-    imgbuf: &mut RgbaImage,
-    colors: [Color; 1024],
-    dest_x: i32,
-    dest_y: i32,
-) {
+fn plot_tile_square_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
     let img_w = imgbuf.width() as i32;
     let img_h = imgbuf.height() as i32;
 
@@ -217,11 +212,20 @@ pub fn export_tmx(
     <image source="{}_roof.png" width="{}" height="{}"/>
   </tileset>
 "#,
-        map_w, map_h,
-        gtl_firstgid, gtl_count, tiles_per_row,
-        map_name, gtl_img_w, gtl_img_h,
-        btl_firstgid, btl_count, tiles_per_row,
-        map_name, btl_img_w, btl_img_h,
+        map_w,
+        map_h,
+        gtl_firstgid,
+        gtl_count,
+        tiles_per_row,
+        map_name,
+        gtl_img_w,
+        gtl_img_h,
+        btl_firstgid,
+        btl_count,
+        tiles_per_row,
+        map_name,
+        btl_img_w,
+        btl_img_h,
     )?;
 
     // -- Layer 1: Ground (GTL) --------------------------------------------
@@ -275,8 +279,11 @@ pub fn export_tmx(
     write!(w, "    </data>\n  </layer>\n")?;
 
     // -- Object group 3: Collisions ---------------------------------------
-    write!(w, r#"  <objectgroup id="3" name="Collisions">
-"#)?;
+    write!(
+        w,
+        r#"  <objectgroup id="3" name="Collisions">
+"#
+    )?;
     {
         let mut obj_id = 1u32;
         for y in 0..map_h {
@@ -298,8 +305,11 @@ pub fn export_tmx(
     write!(w, "  </objectgroup>\n")?;
 
     // -- Object group 4: Events -------------------------------------------
-    write!(w, r#"  <objectgroup id="4" name="Events">
-"#)?;
+    write!(
+        w,
+        r#"  <objectgroup id="4" name="Events">
+"#
+    )?;
     {
         let mut obj_id = 1u32;
         for y in 0..map_h {
@@ -327,8 +337,11 @@ pub fn export_tmx(
     write!(w, "  </objectgroup>\n")?;
 
     // -- Object group 5: TiledObjects (building placements) ----------------
-    write!(w, r#"  <objectgroup id="5" name="TiledObjects">
-"#)?;
+    write!(
+        w,
+        r#"  <objectgroup id="5" name="TiledObjects">
+"#
+    )?;
     {
         let mut obj_id = 1u32;
         for obj in &map_data.tiled_infos {
@@ -525,10 +538,7 @@ mod tests {
         export_tmx(&map_data, fixture_gtl, fixture_btl, &out_dir).unwrap();
 
         // Verify files exist
-        assert!(
-            out_dir.join("cat1.tmx").exists(),
-            "TMX file not created"
-        );
+        assert!(out_dir.join("cat1.tmx").exists(), "TMX file not created");
         assert!(
             out_dir.join("cat1_ground.png").exists(),
             "Ground tileset not created"
@@ -646,10 +656,7 @@ mod tests {
         let csv_block = &content[data_start..data_end];
 
         // Count lines (each is a row).  Ignore blank lines.
-        let rows: Vec<&str> = csv_block
-            .lines()
-            .filter(|l| !l.trim().is_empty())
-            .collect();
+        let rows: Vec<&str> = csv_block.lines().filter(|l| !l.trim().is_empty()).collect();
         assert_eq!(rows.len(), h, "Ground CSV row count");
 
         // Each row should have w entries separated by commas (w-1 commas).
@@ -717,11 +724,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            ground_img.width(), ground_decl_w,
+            ground_img.width(),
+            ground_decl_w,
             "Ground PNG width matches TMX declaration"
         );
         assert_eq!(
-            ground_img.height(), ground_decl_h,
+            ground_img.height(),
+            ground_decl_h,
             "Ground PNG height matches TMX declaration"
         );
 
@@ -734,11 +743,13 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            roof_img.width(), roof_decl_w,
+            roof_img.width(),
+            roof_decl_w,
             "Roof PNG width matches TMX declaration"
         );
         assert_eq!(
-            roof_img.height(), roof_decl_h,
+            roof_img.height(),
+            roof_decl_h,
             "Roof PNG height matches TMX declaration"
         );
 
@@ -754,9 +765,7 @@ mod tests {
         // Find ` attr_name="`
         let search = format!(" {}=\"", attr_name);
         let val_start = rest.find(&search).expect("attr not found") + search.len();
-        let val_end = rest[val_start..]
-            .find('"')
-            .expect("attr value not closed");
+        let val_end = rest[val_start..].find('"').expect("attr value not closed");
         &rest[val_start..val_start + val_end]
     }
 }
