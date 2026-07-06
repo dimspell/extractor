@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length, Padding};
@@ -7,9 +8,8 @@ use crate::components::file_tree::tree_node::TreeNode;
 use crate::indexation::file_index_cache;
 use crate::style;
 
-#[cfg(feature = "tokio")]
 use super::filter::FileTreeResult;
-use super::filter::{fuzzy_match, FileTreeError, FileTreeFilter};
+use super::filter::{fuzzy_match, FileTreeFilter};
 use super::message::FileTreeMessage;
 use gui_widgets::components::context_menu::{ContextMenu, Entry};
 
@@ -26,8 +26,7 @@ pub struct FileTreeState {
     pub search_query: String,
     pub tree_filter: FileTreeFilter,
     pub is_loading: bool,
-    pub cancellation_token: Option<super::filter::CancellationToken>,
-    pub notification_manager: super::filter::NotificationManager,
+    pub loading_dirs: HashSet<PathBuf>,
 }
 
 /// File tree widget state (combines data and UI state for backward compatibility).
@@ -48,132 +47,6 @@ impl FileTree {
         self.state.is_loading
     }
 
-    /// Create a new cancellation token and start a scan operation
-    pub fn start_scan_with_cancellation(&mut self) -> super::filter::CancellationToken {
-        let token = super::filter::CancellationToken::new();
-        self.state.cancellation_token = Some(token.clone());
-        self.state.is_loading = true;
-        token
-    }
-
-    /// Cancel the current scan operation
-    pub fn cancel_scan(&mut self) {
-        if let Some(token) = &self.state.cancellation_token {
-            token.cancel();
-        }
-        self.state.is_loading = false;
-        self.state.cancellation_token = None;
-    }
-
-    /// Check if current scan is cancelled
-    pub fn is_cancelled(&self) -> bool {
-        self.state
-            .cancellation_token
-            .as_ref()
-            .map(|t| t.is_cancelled())
-            .unwrap_or(false)
-    }
-
-    /// Handle a file tree error with recovery strategies and notifications
-    pub fn handle_error(&mut self, error: &FileTreeError) -> Option<String> {
-        self.set_loading(false);
-
-        // Add notification for all errors
-        self.add_error(error.user_message());
-
-        // Apply recovery strategies
-        match error {
-            FileTreeError::CacheCorrupted => {
-                // Automatically recover from cache corruption by clearing cache
-                self.data.cache_manager = None;
-                self.add_info("Cache has been cleared and will be rebuilt".to_string());
-                Some(
-                    "Cache was corrupted and has been cleared. Please try your operation again."
-                        .to_string(),
-                )
-            }
-            FileTreeError::PermissionDenied(_) => {
-                self.add_warning(
-                    "Some operations may be limited due to permission restrictions".to_string(),
-                );
-                Some("Permission denied. Please check file permissions and try again.".to_string())
-            }
-            FileTreeError::FileNotFound(_) => {
-                Some("File not found. Please verify the file path.".to_string())
-            }
-            FileTreeError::Timeout => {
-                self.add_warning("The operation took too long and was cancelled".to_string());
-                Some("Operation timed out. Please try a simpler operation or check system resources.".to_string())
-            }
-            _ => {
-                // For other errors, provide recovery suggestions if available
-                let suggestions = error.recovery_suggestions();
-                if !suggestions.is_empty() {
-                    self.add_info(format!("Recovery suggestions: {}", suggestions.join(", ")));
-                }
-                Some(format!(
-                    "An error occurred: {}. Please try again.",
-                    error.user_message()
-                ))
-            }
-        }
-    }
-
-    /// Clear cache and reset to default state
-    pub fn reset_cache(&mut self) {
-        self.data.cache_manager = None;
-        self.state.tree_filter = FileTreeFilter::new();
-    }
-
-    /// Rebuild the file tree from scratch
-    pub fn rebuild_tree(&mut self, _path: &Path) {
-        self.reset_cache();
-        // In a real implementation, this would trigger a rescan
-        // For now, just reset the state
-        self.data.root = None;
-    }
-
-    /// Add a notification to the notification manager
-    pub fn add_notification(&mut self, notification: super::filter::FileTreeNotification) {
-        self.state
-            .notification_manager
-            .add_notification(notification);
-    }
-
-    /// Get all notifications
-    pub fn get_notifications(&self) -> Vec<super::filter::FileTreeNotification> {
-        self.state.notification_manager.get_notifications()
-    }
-
-    /// Clear all notifications
-    pub fn clear_notifications(&mut self) {
-        self.state.notification_manager.clear_notifications();
-    }
-
-    /// Clear all error notifications
-    pub fn clear_errors(&mut self) {
-        self.state.notification_manager.clear_errors();
-    }
-
-    /// Add an error notification
-    pub fn add_error(&mut self, message: String) {
-        self.add_notification(super::filter::FileTreeNotification::error(message));
-    }
-
-    /// Add a warning notification
-    pub fn add_warning(&mut self, message: String) {
-        self.add_notification(super::filter::FileTreeNotification::warning(message));
-    }
-
-    /// Add an info notification
-    pub fn add_info(&mut self, message: String) {
-        self.add_notification(super::filter::FileTreeNotification::info(message));
-    }
-
-    /// Add a success notification
-    pub fn add_success(&mut self, message: String) {
-        self.add_notification(super::filter::FileTreeNotification::success(message));
-    }
 }
 
 impl FileTree {
@@ -238,12 +111,10 @@ impl FileTree {
     }
 
     /// Async version of scan
-    #[cfg(feature = "tokio")]
     pub async fn scan_async(
         path: &Path,
-        cancellation_token: Option<&super::filter::CancellationToken>,
     ) -> super::filter::FileTreeResult<Self> {
-        let root = scan_dir_async(path, 0, cancellation_token).await?;
+        let root = scan_dir_async(path, 0).await?;
         Ok(Self {
             data: FileTreeData {
                 root,
@@ -254,19 +125,10 @@ impl FileTree {
     }
 
     /// Async version of scan_with_cache
-    #[cfg(feature = "tokio")]
     pub async fn scan_with_cache_async(
         path: &Path,
         cache_manager: &Option<file_index_cache::FileIndexCacheManager>,
-        cancellation_token: Option<&super::filter::CancellationToken>,
     ) -> super::filter::FileTreeResult<Self> {
-        // Check for cancellation before starting
-        if let Some(token) = cancellation_token {
-            if token.is_cancelled() {
-                return Err(FileTreeError::Cancelled);
-            }
-        }
-
         if let Some(ref manager) = cache_manager {
             if let Ok(Some(cache)) = manager.load_cache() {
                 if file_index_cache::CacheValidator::validate_cache(&cache, path) {
@@ -283,10 +145,20 @@ impl FileTree {
         Ok(Self::scan(path))
     }
 
-    /// Toggle a directory's expanded state.
-    pub fn toggle(&mut self, path: &Path) {
+    /// Toggle a directory's expanded state (sync). Returns true if children
+    /// need to be loaded asynchronously (was just expanded, no children present).
+    pub fn toggle_expanded(&mut self, path: &Path) -> bool {
         if let Some(ref mut root) = self.data.root {
-            toggle_node(root, path);
+            toggle_node_expanded_only(root, path)
+        } else {
+            false
+        }
+    }
+
+    /// Set children of a directory node (called from ToggleDirComplete handler).
+    pub fn set_children(&mut self, path: &Path, children: Vec<TreeNode>) {
+        if let Some(ref mut root) = self.data.root {
+            set_node_children(root, path, children);
         }
     }
 
@@ -317,21 +189,6 @@ impl FileTree {
             .spacing(0)
             .height(Fill)
             .into()
-    }
-
-    /// Check if search should use cache.
-    pub fn should_use_cache(&self, cache: &Option<file_index_cache::FileIndexCache>) -> bool {
-        use std::time::{SystemTime, UNIX_EPOCH};
-
-        cache.as_ref().is_some_and(|cache| {
-            let now = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            let cache_age = now.saturating_sub(cache.last_indexed);
-            // 30 days in seconds (30 * 24 * 60 * 60)
-            cache_age < 30 * 24 * 60 * 60
-        })
     }
 
     /// Build tree from cache data for faster loading.
@@ -414,9 +271,8 @@ impl FileTree {
             state: FileTreeState {
                 search_query: query.to_string(),
                 tree_filter: FileTreeFilter::new().with_search_query(query.to_string()),
-                cancellation_token: None,
                 is_loading: false,
-                notification_manager: super::filter::NotificationManager::new(),
+                loading_dirs: HashSet::new(),
             },
         }
     }
@@ -477,7 +333,8 @@ fn scan_children(path: &Path) -> Vec<TreeNode> {
     dirs
 }
 
-fn toggle_node(node: &mut TreeNode, path: &Path) {
+/// Flip expanded state only — does NOT scan children.
+fn toggle_node_expanded_only(node: &mut TreeNode, path: &Path) -> bool {
     match node {
         TreeNode::Dir {
             path: dir_path,
@@ -486,13 +343,36 @@ fn toggle_node(node: &mut TreeNode, path: &Path) {
             ..
         } => {
             if dir_path == path {
+                let was_expanded = *expanded;
                 *expanded = !*expanded;
-                if *expanded && children.is_empty() {
-                    *children = scan_children(dir_path);
-                }
+                // Return true if we just expanded and children haven't been loaded yet
+                *expanded && children.is_empty() && !was_expanded
             } else {
                 for child in children {
-                    toggle_node(child, path);
+                    if toggle_node_expanded_only(child, path) {
+                        return true;
+                    }
+                }
+                false
+            }
+        }
+        TreeNode::File { .. } => false,
+    }
+}
+
+/// Set children of a specific directory node.
+fn set_node_children(node: &mut TreeNode, path: &Path, children: Vec<TreeNode>) {
+    match node {
+        TreeNode::Dir {
+            path: dir_path,
+            children: ch,
+            ..
+        } => {
+            if dir_path == path {
+                *ch = children;
+            } else {
+                for child in ch {
+                    set_node_children(child, path, children.clone());
                 }
             }
         }
@@ -539,7 +419,7 @@ fn render_node<'a>(
 
             let mut content = column![header].spacing(0);
 
-            let show_children = *expanded || !tree_filter.search_query().is_empty();
+            let show_children = *expanded || tree_filter.matching_paths().is_some();
             if show_children {
                 for child in children {
                     if let Some(child_element) = render_node(child, tree_filter, depth + 1) {
@@ -551,8 +431,7 @@ fn render_node<'a>(
             Some(content.into())
         }
         TreeNode::File { path, name, icon } => {
-            let search_path = path.to_string_lossy();
-            if !tree_filter.matches_search(&search_path) {
+            if !tree_filter.is_path_matching(path) {
                 return None;
             }
 
@@ -648,11 +527,9 @@ fn create_highlighted_text<'a>(name: &'a str, query: &str) -> Element<'a, FileTr
 }
 
 /// Async version of scan_dir
-#[cfg(feature = "tokio")]
 async fn scan_dir_async(
     path: &Path,
     depth: usize,
-    cancellation_token: Option<&super::filter::CancellationToken>,
 ) -> FileTreeResult<Option<TreeNode>> {
     // Skip system files like .DS_STORE
     if let Some(name) = path.file_name() {
@@ -669,13 +546,6 @@ async fn scan_dir_async(
         }
     };
 
-    // Check for cancellation
-    if let Some(token) = cancellation_token {
-        if token.is_cancelled() {
-            return Err(FileTreeError::Cancelled);
-        }
-    }
-
     // Check if path exists and is accessible
     match tokio::fs::metadata(path).await {
         Ok(_) => {}
@@ -686,7 +556,7 @@ async fn scan_dir_async(
     }
 
     if path.is_dir() {
-        let children = Box::pin(scan_children_async(path, cancellation_token)).await?;
+        let children = Box::pin(scan_children_async(path)).await?;
         Ok(Some(TreeNode::Dir {
             path: path.to_path_buf(),
             name,
@@ -703,37 +573,21 @@ async fn scan_dir_async(
     }
 }
 
-/// Async version of scan_children
-#[cfg(feature = "tokio")]
-async fn scan_children_async(
+/// Async version of scan_children (public, used by the ToggleDir handler).
+pub async fn scan_children_async(
     path: &Path,
-    cancellation_token: Option<&super::filter::CancellationToken>,
 ) -> FileTreeResult<Vec<TreeNode>> {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
 
-    // Check for cancellation before starting
-    if let Some(token) = cancellation_token {
-        if token.is_cancelled() {
-            return Err(FileTreeError::Cancelled);
-        }
-    }
-
     match tokio::fs::read_dir(path).await {
         Ok(mut entries) => {
             while let Ok(entry_option) = entries.next_entry().await {
-                // Check for cancellation periodically
-                if let Some(token) = cancellation_token {
-                    if token.is_cancelled() {
-                        return Err(FileTreeError::Cancelled);
-                    }
-                }
-
                 match entry_option {
                     Some(entry) => {
                         let p = entry.path();
                         if let Some(node) =
-                            Box::pin(scan_dir_async(&p, 0, cancellation_token)).await?
+                            Box::pin(scan_dir_async(&p, 0)).await?
                         {
                             // Reset depth to 0 for proper nesting
                             match &node {

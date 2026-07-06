@@ -126,7 +126,7 @@ fn test_file_tree_toggle_functionality() {
                 None
             }
         }) {
-            tree.toggle(&dir_path);
+            tree.toggle_expanded(&dir_path);
 
             // Check that the expanded state changed
             if let Some(TreeNode::Dir {
@@ -315,115 +315,6 @@ fn test_context_menu_messages() {
         FileTreeMessage::ShowInFileManager(p) => assert_eq!(p, path),
         _ => panic!("Expected ShowInFileManager message"),
     }
-}
-
-/// Test error handling and recovery
-#[test]
-fn test_error_handling_and_recovery() {
-    let mut tree = FileTree::default();
-
-    // Test cache corrupted error handling
-    let cache_error = super::filter::FileTreeError::cache_corrupted();
-    let _result = tree.handle_error(&cache_error);
-
-    // Should have cleared cache
-    assert!(tree.data.cache_manager.is_none());
-
-    // Should have added notifications
-    let notifications = tree.get_notifications();
-    assert!(!notifications.is_empty());
-
-    // Should have error and info notifications
-    let error_notifications: Vec<_> = notifications
-        .iter()
-        .filter(|n| matches!(n.notification_type, super::filter::NotificationType::Error))
-        .collect();
-    let info_notifications: Vec<_> = notifications
-        .iter()
-        .filter(|n| matches!(n.notification_type, super::filter::NotificationType::Info))
-        .collect();
-
-    assert_eq!(error_notifications.len(), 1);
-    assert_eq!(info_notifications.len(), 1);
-
-    // Test permission denied error
-    let perm_error =
-        super::filter::FileTreeError::permission_denied(&std::path::PathBuf::from("/test"));
-    tree.handle_error(&perm_error);
-
-    let notifications = tree.get_notifications();
-    let warning_notifications: Vec<_> = notifications
-        .iter()
-        .filter(|n| {
-            matches!(
-                n.notification_type,
-                super::filter::NotificationType::Warning
-            )
-        })
-        .collect();
-    assert!(!warning_notifications.is_empty());
-}
-
-/// Test notification system
-#[test]
-fn test_notification_system() {
-    let mut tree = FileTree::default();
-
-    // Test adding different types of notifications
-    tree.add_error("Test error".to_string());
-    tree.add_warning("Test warning".to_string());
-    tree.add_info("Test info".to_string());
-    tree.add_success("Test success".to_string());
-
-    let notifications = tree.get_notifications();
-    assert_eq!(notifications.len(), 4);
-
-    // Test clearing notifications
-    tree.clear_notifications();
-    let notifications = tree.get_notifications();
-    assert!(notifications.is_empty());
-
-    // Test adding notifications and clearing only errors
-    tree.add_error("Error 1".to_string());
-    tree.add_error("Error 2".to_string());
-    tree.add_warning("Warning 1".to_string());
-
-    tree.clear_errors();
-    let notifications = tree.get_notifications();
-    assert_eq!(notifications.len(), 1);
-    assert!(matches!(
-        notifications[0].notification_type,
-        super::filter::NotificationType::Warning
-    ));
-}
-
-/// Test FileTreeError enum
-#[test]
-fn test_file_tree_error_enum() {
-    use super::filter::FileTreeError;
-
-    // Test error creation
-    let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "File not found");
-    let error = FileTreeError::from(io_error);
-
-    // Test error properties
-    assert!(error.is_recoverable()); // IO errors are recoverable in our implementation
-    assert!(error.user_message().contains("File not found"));
-    assert!(!error.recovery_suggestions().is_empty());
-
-    // Test cache corrupted error
-    let cache_error = FileTreeError::cache_corrupted();
-    assert!(cache_error.is_recoverable());
-    assert_eq!(
-        cache_error.user_message(),
-        "Cache is corrupted and will be rebuilt"
-    );
-
-    // Test permission denied error
-    let path = std::path::PathBuf::from("/test/file.txt");
-    let perm_error = FileTreeError::permission_denied(&path);
-    assert!(!perm_error.is_recoverable());
-    assert!(perm_error.user_message().contains("Permission denied"));
 }
 
 /// Test file tree scan initialization

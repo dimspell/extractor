@@ -1,18 +1,30 @@
+use std::collections::HashSet;
+use std::path::Path;
+use std::path::PathBuf;
+
+use super::tree_node::TreeNode;
+
 /// Centralized file tree filter component
 #[derive(Debug, Clone, Default)]
 pub struct FileTreeFilter {
     search_query: String,
+    /// Pre-computed set of file paths matching the current query.
+    /// `None` means "show all" (empty search). `Some(set)` is the set
+    /// of matching file paths — any path not in this set should be hidden.
+    matching_paths: Option<HashSet<PathBuf>>,
 }
 
 impl FileTreeFilter {
     pub fn new() -> Self {
         Self {
             search_query: String::new(),
+            matching_paths: None,
         }
     }
 
     pub fn with_search_query(mut self, query: String) -> Self {
         self.search_query = query;
+        self.matching_paths = None;
         self
     }
 
@@ -28,58 +40,45 @@ impl FileTreeFilter {
     pub fn search_query(&self) -> &str {
         &self.search_query
     }
+
+    /// Check whether a given path should be visible.
+    /// If `matching_paths` is None, all paths are visible.
+    pub fn is_path_matching(&self, path: &Path) -> bool {
+        match &self.matching_paths {
+            Some(paths) => paths.contains(path),
+            None => true,
+        }
+    }
+
+    /// Access the pre-computed set of matching paths.
+    pub fn matching_paths(&self) -> Option<&HashSet<PathBuf>> {
+        self.matching_paths.as_ref()
+    }
+
+    /// Set the pre-computed set of matching paths.
+    pub fn set_matching_paths(&mut self, paths: Option<HashSet<PathBuf>>) {
+        self.matching_paths = paths;
+    }
+
+    /// Walk the entire tree and collect paths of files that match the current
+    /// fuzzy search query. Also includes ancestor directories so the tree
+    /// structure is preserved when rendering.
+    pub fn build_matching_paths(&mut self, root: Option<&TreeNode>) {
+        if self.search_query.is_empty() {
+            self.matching_paths = None;
+            return;
+        }
+        let mut paths = HashSet::new();
+        collect_matching_paths(root, &self.search_query, &mut paths);
+        self.matching_paths = Some(paths);
+    }
 }
 
 /// Error types for file tree operations
 #[derive(Debug, thiserror::Error)]
 pub enum FileTreeError {
-    #[error("Failed to read directory: {0}")]
-    DirectoryReadError(String),
-
-    #[error("Failed to access file metadata: {0}")]
-    FileAccessError(String),
-
-    #[error("Permission denied: {0}")]
-    PermissionDenied(String),
-
-    #[error("File not found: {0}")]
-    FileNotFound(String),
-
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
-
-    #[error("Invalid path: {0}")]
-    InvalidPath(String),
-
-    #[error("Operation cancelled")]
-    Cancelled,
-
-    #[error("Cache error: {0}")]
-    CacheError(String),
-
-    #[error("Cache validation failed: {0}")]
-    CacheValidationError(String),
-
-    #[error("Cache serialization error: {0}")]
-    CacheSerializationError(String),
-
-    #[error("Cache deserialization error: {0}")]
-    CacheDeserializationError(String),
-
-    #[error("Cache corrupted or invalid")]
-    CacheCorrupted,
-
-    #[error("Cache timeout exceeded")]
-    CacheTimeout,
-
-    #[error("File system watcher error: {0}")]
-    FileSystemWatcherError(String),
-
-    #[error("Async operation timeout")]
-    Timeout,
-
-    #[error("Resource exhausted: {0}")]
-    ResourceExhausted(String),
 }
 
 /// Result type for file tree operations
@@ -172,252 +171,40 @@ pub fn fuzzy_match(query: &str, text: &str) -> Option<Vec<usize>> {
     })
 }
 
-impl FileTreeError {
-    /// Create a directory read error
-    pub fn directory_read_error(path: &std::path::Path, error: &std::io::Error) -> Self {
-        FileTreeError::DirectoryReadError(format!(
-            "Failed to read directory {}: {}",
-            path.display(),
-            error
-        ))
-    }
-
-    /// Create a file access error
-    pub fn file_access_error(path: &std::path::Path, error: &std::io::Error) -> Self {
-        FileTreeError::FileAccessError(format!(
-            "Failed to access file {}: {}",
-            path.display(),
-            error
-        ))
-    }
-
-    /// Create a permission denied error
-    pub fn permission_denied(path: &std::path::Path) -> Self {
-        FileTreeError::PermissionDenied(format!("Permission denied: {}", path.display()))
-    }
-
-    /// Create a file not found error
-    pub fn file_not_found(path: &std::path::Path) -> Self {
-        FileTreeError::FileNotFound(format!("File not found: {}", path.display()))
-    }
-
-    /// Create an invalid path error
-    pub fn invalid_path(path: &str) -> Self {
-        FileTreeError::InvalidPath(format!("Invalid path: {}", path))
-    }
-
-    /// Create a cache validation error
-    pub fn cache_validation_error(details: &str) -> Self {
-        FileTreeError::CacheValidationError(format!("Cache validation failed: {}", details))
-    }
-
-    /// Create a cache corrupted error
-    pub fn cache_corrupted() -> Self {
-        FileTreeError::CacheCorrupted
-    }
-
-    /// Create a timeout error
-    pub fn timeout() -> Self {
-        FileTreeError::Timeout
-    }
-
-    /// Check if this error is recoverable
-    pub fn is_recoverable(&self) -> bool {
-        match self {
-            FileTreeError::DirectoryReadError(_) => true,
-            FileTreeError::FileAccessError(_) => true,
-            FileTreeError::PermissionDenied(_) => false, // Usually not recoverable
-            FileTreeError::FileNotFound(_) => true,
-            FileTreeError::IoError(_) => true,
-            FileTreeError::InvalidPath(_) => false,
-            FileTreeError::Cancelled => false,
-            FileTreeError::CacheError(_) => true,
-            FileTreeError::CacheValidationError(_) => true,
-            FileTreeError::CacheSerializationError(_) => true,
-            FileTreeError::CacheDeserializationError(_) => true,
-            FileTreeError::CacheCorrupted => true,
-            FileTreeError::CacheTimeout => true,
-            FileTreeError::FileSystemWatcherError(_) => true,
-            FileTreeError::Timeout => true,
-            FileTreeError::ResourceExhausted(_) => true,
+/// Recursively collect paths of files that match the fuzzy query,
+/// including ancestor directories so the tree structure is preserved.
+fn collect_matching_paths(
+    node: Option<&TreeNode>,
+    query: &str,
+    result: &mut HashSet<PathBuf>,
+) -> bool {
+    let Some(node) = node else { return false; };
+    match node {
+        TreeNode::Dir { path, children, .. } => {
+            let mut any_child_matches = false;
+            for child in children {
+                if collect_matching_paths(Some(child), query, result) {
+                    any_child_matches = true;
+                }
+            }
+            // A directory is visible if any of its children match,
+            // or if the directory name itself matches the query.
+            if any_child_matches || fuzzy_match(query, &path.to_string_lossy()).is_some() {
+                result.insert(path.clone());
+                true
+            } else {
+                false
+            }
+        }
+        TreeNode::File { path, .. } => {
+            if fuzzy_match(query, &path.to_string_lossy()).is_some() {
+                result.insert(path.clone());
+                true
+            } else {
+                false
+            }
         }
     }
-
-    /// Get a user-friendly message for this error
-    pub fn user_message(&self) -> String {
-        match self {
-            FileTreeError::DirectoryReadError(msg) => format!("Could not read directory: {}", msg),
-            FileTreeError::FileAccessError(msg) => format!("Could not access file: {}", msg),
-            FileTreeError::PermissionDenied(msg) => format!("Permission denied: {}", msg),
-            FileTreeError::FileNotFound(msg) => format!("File not found: {}", msg),
-            FileTreeError::IoError(e) => format!("I/O error: {}", e),
-            FileTreeError::InvalidPath(msg) => format!("Invalid path: {}", msg),
-            FileTreeError::Cancelled => "Operation cancelled".to_string(),
-            FileTreeError::CacheError(msg) => format!("Cache error: {}", msg),
-            FileTreeError::CacheValidationError(msg) => format!("Cache validation failed: {}", msg),
-            FileTreeError::CacheSerializationError(msg) => format!("Cache save error: {}", msg),
-            FileTreeError::CacheDeserializationError(msg) => format!("Cache load error: {}", msg),
-            FileTreeError::CacheCorrupted => "Cache is corrupted and will be rebuilt".to_string(),
-            FileTreeError::CacheTimeout => "Cache operation timed out".to_string(),
-            FileTreeError::FileSystemWatcherError(msg) => format!("File watcher error: {}", msg),
-            FileTreeError::Timeout => "Operation timed out".to_string(),
-            FileTreeError::ResourceExhausted(msg) => format!("Resource limit reached: {}", msg),
-        }
-    }
-
-    /// Get recovery suggestions for this error
-    pub fn recovery_suggestions(&self) -> Vec<String> {
-        match self {
-            FileTreeError::DirectoryReadError(_) => vec![
-                "Check if the directory exists".to_string(),
-                "Verify directory permissions".to_string(),
-                "Try again later".to_string(),
-            ],
-            FileTreeError::FileAccessError(_) => vec![
-                "Check file permissions".to_string(),
-                "Verify the file is not in use".to_string(),
-                "Try again later".to_string(),
-            ],
-            FileTreeError::PermissionDenied(_) => vec![
-                "Run as administrator".to_string(),
-                "Check file/directory permissions".to_string(),
-            ],
-            FileTreeError::FileNotFound(_) => vec![
-                "Verify the file path".to_string(),
-                "Check if the file was moved or deleted".to_string(),
-            ],
-            FileTreeError::CacheError(_) => vec![
-                "Try clearing the cache".to_string(),
-                "Restart the application".to_string(),
-            ],
-            FileTreeError::CacheCorrupted => vec![
-                "Cache will be automatically rebuilt".to_string(),
-                "No action needed".to_string(),
-            ],
-            FileTreeError::Timeout => vec![
-                "Try again with a simpler operation".to_string(),
-                "Check system resources".to_string(),
-            ],
-            _ => vec!["Check logs for details".to_string()],
-        }
-    }
-}
-
-/// User notification for file tree operations
-#[derive(Debug, Clone)]
-pub struct FileTreeNotification {
-    pub message: String,
-    pub notification_type: NotificationType,
-    pub timestamp: std::time::SystemTime,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NotificationType {
-    Info,
-    Success,
-    Warning,
-    Error,
-}
-
-impl FileTreeNotification {
-    pub fn new(message: String, notification_type: NotificationType) -> Self {
-        Self {
-            message,
-            notification_type,
-            timestamp: std::time::SystemTime::now(),
-        }
-    }
-
-    pub fn error(message: String) -> Self {
-        Self::new(message, NotificationType::Error)
-    }
-
-    pub fn warning(message: String) -> Self {
-        Self::new(message, NotificationType::Warning)
-    }
-
-    pub fn info(message: String) -> Self {
-        Self::new(message, NotificationType::Info)
-    }
-
-    pub fn success(message: String) -> Self {
-        Self::new(message, NotificationType::Success)
-    }
-}
-
-/// Notification manager for file tree operations
-#[derive(Debug, Default, Clone)]
-pub struct NotificationManager {
-    notifications: std::sync::Arc<std::sync::Mutex<Vec<FileTreeNotification>>>,
-}
-
-impl NotificationManager {
-    pub fn new() -> Self {
-        Self {
-            notifications: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-        }
-    }
-
-    pub fn add_notification(&self, notification: FileTreeNotification) {
-        let mut notifications = self.notifications.lock().unwrap();
-        notifications.push(notification);
-        // In a real app, you might want to limit the number of notifications
-        if notifications.len() > 100 {
-            notifications.remove(0);
-        }
-    }
-
-    pub fn get_notifications(&self) -> Vec<FileTreeNotification> {
-        let notifications = self.notifications.lock().unwrap();
-        notifications.clone()
-    }
-
-    pub fn clear_notifications(&self) {
-        let mut notifications = self.notifications.lock().unwrap();
-        notifications.clear();
-    }
-
-    pub fn clear_errors(&self) {
-        let mut notifications = self.notifications.lock().unwrap();
-        notifications.retain(|n| n.notification_type != NotificationType::Error);
-    }
-}
-
-/// Cancellation token for async operations
-#[derive(Debug, Clone)]
-pub struct CancellationToken {
-    cancelled: std::sync::Arc<std::sync::atomic::AtomicBool>,
-}
-
-impl CancellationToken {
-    pub fn new() -> Self {
-        Self {
-            cancelled: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
-        }
-    }
-}
-
-impl Default for CancellationToken {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl CancellationToken {
-    pub fn cancel(&self) {
-        self.cancelled
-            .store(true, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(std::sync::atomic::Ordering::SeqCst)
-    }
-}
-
-/// Async cancellation result
-pub enum CancelResult<T> {
-    Completed(T),
-    Cancelled,
 }
 
 #[cfg(test)]
