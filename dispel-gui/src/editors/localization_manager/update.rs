@@ -76,7 +76,7 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                 .unwrap_or("");
             app.state.editors.localization_manager.selected_idx = Some(idx);
             app.state.editors.localization_manager.translation_content =
-                crate::components::textarea::TextAreaContent::with_text(text);
+                gui_widgets::TextAreaContent::with_text(text);
             Task::none()
         }
         LocalizationMessage::TranslationAction(action) => {
@@ -288,7 +288,7 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                         {
                             let text = entry.translation.clone();
                             app.state.editors.localization_manager.translation_content =
-                                crate::components::textarea::TextAreaContent::with_text(&text);
+                                gui_widgets::TextAreaContent::with_text(&text);
                         }
                     }
                     // Persist session

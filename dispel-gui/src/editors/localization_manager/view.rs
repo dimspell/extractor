@@ -1,6 +1,6 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
-use crate::components::textarea::textarea;
+use gui_widgets::textarea;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;

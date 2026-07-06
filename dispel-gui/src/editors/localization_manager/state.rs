@@ -1,5 +1,5 @@
 use crate::components::loading_state::LoadingState;
-use crate::components::textarea::TextAreaContent;
+use gui_widgets::TextAreaContent;
 use crate::editors::mod_packager::state::ModMetadata;
 use dispel_core::TextEntry;
 

@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::components::textarea;
+use gui_widgets::textarea;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};

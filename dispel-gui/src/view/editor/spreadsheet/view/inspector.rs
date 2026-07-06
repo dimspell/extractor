@@ -11,7 +11,7 @@ use iced::{Element, Fill, Length};
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
-use crate::components::textarea::{self, TextAreaContent};
+use gui_widgets::{TextAreaContent, textarea};
 use crate::components::utils::horizontal_space;
 use crate::message::Message;
 use crate::style;
@@ -108,7 +108,7 @@ fn build_inspector_field<'a>(
         FieldKind::TextArea => {
             let field_name = descriptor.name.to_string();
             if let Some(tc) = textarea_contents.get(descriptor.name) {
-                textarea::textarea(&tc.0, move |action| {
+                textarea(&tc.0, move |action| {
                     spreadsheet_msg(SpreadsheetMessage::TextAreaChanged(
                         orig_idx,
                         field_name.clone(),

@@ -12,8 +12,6 @@ pub mod item_catalog;
 pub mod loading_state;
 pub mod standard;
 pub mod tab_bar;
-pub mod textarea;
 pub mod utils;
 
 pub use file_tree::FileTree;
-pub use textarea::textarea;
