@@ -7,7 +7,7 @@ use crate::style;
 use crate::view::editor::spreadsheet::constants::{ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::{GlobalFilterMode, SpreadsheetState};
-use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
+use gui_widgets::{RowFlags, TableColumn, TableWidget};
 use iced::widget::{container, text};
 use iced::{Element, Fill};
 

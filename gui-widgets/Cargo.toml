@@ -4,9 +4,10 @@ version = "0.8.0"
 edition = "2021"
 
 [dependencies]
-iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool"] }
+iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool", "accessibility", "wgpu"] }
 lru = "0.12"
 lucide-icons = "1.23"
+accesskit = { version = "0.24", path = "../../iced/vendor/accesskit", default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

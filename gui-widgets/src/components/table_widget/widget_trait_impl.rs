@@ -4,7 +4,7 @@ use super::{
     DOUBLE_CLICK_MS, FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH,
     SCROLLBAR_THICKNESS,
 };
-use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
+use crate::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
@@ -455,7 +455,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         shadow: Shadow::default(),
                         snap: true,
                     },
-                    Background::Color(crate::view::editor::table_widget::style::row_bg(
+                    Background::Color(super::style::row_bg(
                         row_idx, flags, is_hovered,
                     )),
                 );
@@ -520,13 +520,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     renderer,
                     &paragraph,
                     position,
-                    crate::view::editor::table_widget::style::cell_text_color(flags),
+                    super::style::cell_text_color(flags),
                     cell_clip,
                 );
             }
 
             if let Some((border_color, border_width)) =
-                crate::view::editor::table_widget::style::row_border(flags)
+                super::style::row_border(flags)
             {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
@@ -577,7 +577,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shadow: Shadow::default(),
                     snap: true,
                 },
-                Background::Color(crate::view::editor::table_widget::style::id_cell_bg(flags)),
+                Background::Color(super::style::id_cell_bg(flags)),
             );
 
             let value = match self.cell_value(row_idx, 0) {
@@ -628,12 +628,12 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 renderer,
                 &paragraph,
                 position,
-                crate::view::editor::table_widget::style::id_text_color(flags),
+                super::style::id_text_color(flags),
                 id_clip,
             );
 
             if let Some((border_color, border_width)) =
-                crate::view::editor::table_widget::style::row_border(flags)
+                super::style::row_border(flags)
             {
                 let border_y = y.max(body.y);
                 let border_h = (y + self.row_height).min(body.y + body.height) - border_y;

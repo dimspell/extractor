@@ -1974,6 +1974,7 @@ dependencies = [
 name = "gui-widgets"
 version = "0.8.0"
 dependencies = [
+ "accesskit",
  "iced",
  "lru 0.12.5",
  "lucide-icons",
