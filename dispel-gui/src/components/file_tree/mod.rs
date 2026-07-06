@@ -8,4 +8,4 @@ pub mod tree_node;
 pub use data::FileTree;
 pub use filter::FileTreeFilter;
 pub use message::FileTreeMessage;
-pub use tree_node::TreeNode;
+pub use tree_node::GameFileNode;

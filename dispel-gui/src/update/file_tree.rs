@@ -3,8 +3,9 @@
 use crate::app::App;
 use crate::components::file_tree::data::scan_children_async;
 use crate::components::file_tree::message::FileTreeMessage;
-use crate::components::file_tree::tree_node::TreeNode;
+use crate::components::file_tree::tree_node::GameFileNode;
 use crate::message::MessageExt;
+use gui_widgets::components::TreeNode;
 use iced::Task;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -23,7 +24,7 @@ pub fn handle(message: FileTreeMessage, app: &mut App) -> Task<crate::message::M
                         let result = scan_children_async(&dir_path).await;
                         (dir_path, result.unwrap_or_default())
                     },
-                    |(path, children): (PathBuf, Vec<TreeNode>)| {
+                    |(path, children): (PathBuf, Vec<TreeNode<GameFileNode>>)| {
                         crate::message::Message::file_tree(FileTreeMessage::ToggleDirComplete(
                             path, children,
                         ))

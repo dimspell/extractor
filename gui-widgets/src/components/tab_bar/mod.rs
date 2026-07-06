@@ -26,8 +26,7 @@ use iced::{
 };
 use lucide_icons::Icon;
 
-/// Font name for Lucide icon glyphs.
-const LUCIDE_FONT: Font = Font::new("lucide");
+use crate::lucide::LUCIDE_FONT;
 use tab::{CLOSE_BUTTON_WIDTH, LABEL_SIZE, TAB_PADDING};
 
 /// Deadband distance in logical pixels — the cursor must move this far

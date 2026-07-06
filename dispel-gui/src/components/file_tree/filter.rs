@@ -2,7 +2,9 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::path::PathBuf;
 
-use super::tree_node::TreeNode;
+use gui_widgets::components::TreeNode;
+
+use super::tree_node::GameFileNode;
 
 /// Centralized file tree filter component
 #[derive(Debug, Clone, Default)]
@@ -63,7 +65,7 @@ impl FileTreeFilter {
     /// Walk the entire tree and collect paths of files that match the current
     /// fuzzy search query. Also includes ancestor directories so the tree
     /// structure is preserved when rendering.
-    pub fn build_matching_paths(&mut self, root: Option<&TreeNode>) {
+    pub fn build_matching_paths(&mut self, root: Option<&TreeNode<GameFileNode>>) {
         if self.search_query.is_empty() {
             self.matching_paths = None;
             return;
@@ -174,38 +176,26 @@ pub fn fuzzy_match(query: &str, text: &str) -> Option<Vec<usize>> {
 /// Recursively collect paths of files that match the fuzzy query,
 /// including ancestor directories so the tree structure is preserved.
 fn collect_matching_paths(
-    node: Option<&TreeNode>,
+    node: Option<&TreeNode<GameFileNode>>,
     query: &str,
     result: &mut HashSet<PathBuf>,
 ) -> bool {
     let Some(node) = node else {
         return false;
     };
-    match node {
-        TreeNode::Dir { path, children, .. } => {
-            let mut any_child_matches = false;
-            for child in children {
-                if collect_matching_paths(Some(child), query, result) {
-                    any_child_matches = true;
-                }
-            }
-            // A directory is visible if any of its children match,
-            // or if the directory name itself matches the query.
-            if any_child_matches || fuzzy_match(query, &path.to_string_lossy()).is_some() {
-                result.insert(path.clone());
-                true
-            } else {
-                false
-            }
+    let mut any_child_matches = false;
+    for child in &node.children {
+        if collect_matching_paths(Some(child), query, result) {
+            any_child_matches = true;
         }
-        TreeNode::File { path, .. } => {
-            if fuzzy_match(query, &path.to_string_lossy()).is_some() {
-                result.insert(path.clone());
-                true
-            } else {
-                false
-            }
-        }
+    }
+    // A directory is visible if any of its children match,
+    // or if the directory name itself matches the query.
+    if any_child_matches || fuzzy_match(query, &node.data.path.to_string_lossy()).is_some() {
+        result.insert(node.data.path.clone());
+        true
+    } else {
+        false
     }
 }
 

@@ -3,7 +3,8 @@
 
 use super::data::FileTree;
 use super::message::FileTreeMessage;
-use super::tree_node::TreeNode;
+use super::tree_node::GameFileNode;
+use gui_widgets::components::TreeNode;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
@@ -34,24 +35,23 @@ fn test_file_tree_scan_basic() {
         // Directory might not be accessible in test environment
         return; // Skip this test if we can't scan the directory
     }
-    if let Some(TreeNode::Dir { children, .. }) = tree.data.root {
-        // Should have 2 children: subdir and test.txt
-        assert_eq!(children.len(), 2);
+    let root = tree.data.root.unwrap();
+    // Root should have 2 children: subdir and test.txt
+    assert_eq!(root.children.len(), 2);
 
-        // Find the directory and file
-        let dir = children
-            .iter()
-            .find(|node| matches!(node, TreeNode::Dir { name, .. } if name == "subdir"));
+    // Find the directory and file
+    let dir = root
+        .children
+        .iter()
+        .find(|node| node.data.is_dir && node.data.name == "subdir");
 
-        let file = children
-            .iter()
-            .find(|node| matches!(node, TreeNode::File { name, .. } if name == "test.txt"));
+    let file = root
+        .children
+        .iter()
+        .find(|node| !node.data.is_dir && node.data.name == "test.txt");
 
-        assert!(dir.is_some(), "Should find subdir directory");
-        assert!(file.is_some(), "Should find test.txt file");
-    } else {
-        panic!("Root should be a directory node");
-    }
+    assert!(dir.is_some(), "Should find subdir directory");
+    assert!(file.is_some(), "Should find test.txt file");
 }
 
 /// Test system file filtering
@@ -71,17 +71,12 @@ fn test_file_tree_system_file_filtering() {
         // Directory might not be accessible in test environment
         return; // Skip this test if we can't scan the directory
     }
-    if let Some(TreeNode::Dir { children, .. }) = tree.data.root {
-        // Should only have visible.txt, not .DS_STORE or .hidden
-        assert_eq!(children.len(), 1);
 
-        match &children[0] {
-            TreeNode::File { name, .. } => {
-                assert_eq!(name, "visible.txt");
-            }
-            _ => panic!("Expected a file node"),
-        }
-    }
+    let root = tree.data.root.unwrap();
+    // Should only have visible.txt, not .DS_STORE or .hidden
+    assert_eq!(root.children.len(), 1);
+    assert!(!root.children[0].data.is_dir);
+    assert_eq!(root.children[0].data.name, "visible.txt");
 }
 
 /// Test toggle functionality
@@ -97,59 +92,31 @@ fn test_file_tree_toggle_functionality() {
 
     let mut tree = FileTree::scan(path);
 
+    let root = match tree.data.root.as_ref() {
+        Some(r) => r,
+        None => return, // Skip if directory is not accessible
+    };
     // Find the parent directory and check it's expanded (root level)
-    if let Some(TreeNode::Dir { children, .. }) = &tree.data.root {
-        let parent_dir = children.iter().find_map(|node| {
-            if let TreeNode::Dir { name, expanded, .. } = node {
-                if name == "parent" {
-                    Some((name.clone(), *expanded))
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        });
+    let parent_node = root.children.iter().find(|n| n.data.name == "parent");
+    assert!(parent_node.is_some());
+    let initially_expanded = parent_node.unwrap().expanded;
 
-        assert!(parent_dir.is_some());
-        let (_, initially_expanded) = parent_dir.unwrap();
+    // Toggle the directory
+    if let Some(parent_node) = root.children.iter().find(|n| n.data.name == "parent") {
+        let dir_path = parent_node.data.path.clone();
+        tree.toggle_expanded(&dir_path);
 
-        // Toggle the directory
-        if let Some(dir_path) = children.iter().find_map(|node| {
-            if let TreeNode::Dir { name, path, .. } = node {
-                if name == "parent" {
-                    Some(path.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }) {
-            tree.toggle_expanded(&dir_path);
-
-            // Check that the expanded state changed
-            if let Some(TreeNode::Dir {
-                children: updated_children,
-                ..
-            }) = &tree.data.root
-            {
-                let updated_parent = updated_children.iter().find_map(|node| {
-                    if let TreeNode::Dir { name, expanded, .. } = node {
-                        if name == "parent" {
-                            Some(*expanded)
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                });
-
-                assert!(updated_parent.is_some());
-                assert_ne!(updated_parent.unwrap(), initially_expanded);
-            }
-        }
+        // Check that the expanded state changed
+        let updated_parent = tree
+            .data
+            .root
+            .as_ref()
+            .unwrap()
+            .children
+            .iter()
+            .find(|n| n.data.name == "parent");
+        assert!(updated_parent.is_some());
+        assert_ne!(updated_parent.unwrap().expanded, initially_expanded);
     }
 }
 
@@ -204,27 +171,21 @@ fn test_tree_node_path_methods() {
     let temp_dir = tempdir().unwrap();
     let test_path = temp_dir.path().join("test.txt");
 
-    let file_node = TreeNode::File {
-        path: test_path.clone(),
-        name: "test.txt".to_string(),
-        icon: "📄",
-    };
-
-    assert!(file_node.path().is_some());
-    assert_eq!(file_node.path().unwrap(), &test_path);
+    let file_node = TreeNode::leaf(GameFileNode::file(
+        test_path.clone(),
+        "test.txt".to_string(),
+        "📄",
+    ));
+    assert_eq!(file_node.data.path, test_path);
 
     let dir_path = temp_dir.path().join("test_dir");
     std::fs::create_dir(&dir_path).unwrap();
 
-    let dir_node = TreeNode::Dir {
-        path: dir_path.clone(),
-        name: "test_dir".to_string(),
-        expanded: false,
-        children: Vec::new(),
-    };
-
-    assert!(dir_node.path().is_some());
-    assert_eq!(dir_node.path().unwrap(), &dir_path);
+    let dir_node = TreeNode::branch(
+        GameFileNode::dir(dir_path.clone(), "test_dir".to_string()),
+        Vec::new(),
+    );
+    assert_eq!(dir_node.data.path, dir_path);
 }
 
 /// Test file tree cache usage
@@ -238,16 +199,13 @@ fn test_file_tree_cache_usage() {
 
     let tree = FileTree::scan(path);
 
-    if tree.data.root.is_some() {
-        // Continue with test if directory is accessible
-    } else {
+    if tree.data.root.is_none() {
         // Directory might not be accessible in test environment
         return; // Skip this test if we can't scan the directory
     }
-    if let Some(TreeNode::Dir { children, .. }) = tree.data.root {
-        // Should have no children for empty directory
-        assert!(children.is_empty());
-    }
+    let root = tree.data.root.unwrap();
+    // Should have 1 child: test.txt
+    assert!(root.children.is_empty());
 }
 
 /// Test file tree deep nesting

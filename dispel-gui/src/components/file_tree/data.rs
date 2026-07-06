@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length, Padding};
 
-use crate::components::file_tree::tree_node::TreeNode;
+use gui_widgets::components::{CollapsibleTree, TreeNode};
+
+use crate::components::file_tree::tree_node::{file_icon, GameFileNode};
 use crate::indexation::file_index_cache;
 use crate::style;
 
@@ -16,7 +18,7 @@ use gui_widgets::components::context_menu::{ContextMenu, Entry};
 /// File tree data structure (pure data representation).
 #[derive(Debug, Clone, Default)]
 pub struct FileTreeData {
-    pub root: Option<TreeNode>,
+    pub root: Option<TreeNode<GameFileNode>>,
     pub cache_manager: Option<file_index_cache::FileIndexCacheManager>,
 }
 
@@ -83,27 +85,32 @@ impl FileTree {
     }
 
     /// Convert cache data to tree node format.
-    fn cache_to_tree_node(cache: &file_index_cache::FileIndexCache) -> TreeNode {
-        let mut root_dir = TreeNode::Dir {
-            path: cache.game_path.clone(),
-            name: cache
-                .game_path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Game Files".to_string()),
-            expanded: true,
-            children: Vec::new(),
-        };
+    fn cache_to_tree_node(cache: &file_index_cache::FileIndexCache) -> TreeNode<GameFileNode> {
+        let mut root_dir = TreeNode::branch(
+            GameFileNode::dir(
+                cache.game_path.clone(),
+                cache
+                    .game_path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "Game Files".to_string()),
+            ),
+            Vec::new(),
+        );
+        root_dir.expanded = true;
 
         for file in &cache.files {
             if file.is_directory && file.path.parent() == Some(&cache.game_path) {
-                // Only add directories that are direct children of the root directory
-                root_dir.add_directory_child(file, &cache.files);
+                if let Some(child) =
+                    super::tree_node::add_cache_directory_child(file, &cache.files)
+                {
+                    root_dir.children.push(child);
+                }
             } else if !file.is_directory && file.path.parent() == Some(&cache.game_path) {
-                // Only add files that are direct children of the root directory
-                root_dir.add_file_child(file);
+                if let Some(child) = super::tree_node::add_cache_file_child(file) {
+                    root_dir.children.push(child);
+                }
             }
-            // Files and directories in subdirectories will be added by add_directory_child
         }
 
         root_dir
@@ -153,7 +160,7 @@ impl FileTree {
     }
 
     /// Set children of a directory node (called from ToggleDirComplete handler).
-    pub fn set_children(&mut self, path: &Path, children: Vec<TreeNode>) {
+    pub fn set_children(&mut self, path: &Path, children: Vec<TreeNode<GameFileNode>>) {
         if let Some(ref mut root) = self.data.root {
             set_node_children(root, path, children);
         }
@@ -170,13 +177,22 @@ impl FileTree {
         let header = container(search_bar).padding([6, 4]);
 
         let tree_content: Element<'_, FileTreeMessage> = match &self.data.root {
-            Some(node) => render_node(node, &self.state.tree_filter, 0)
-                .map(|e| column![e].into())
-                .unwrap_or_else(|| {
-                    column![text("No matching files").size(11).style(style::subtle_text)]
-                        .padding([4, 8])
-                        .into()
-                }),
+            Some(node) => {
+                let has_filter = self.state.tree_filter.matching_paths().is_some();
+                let tree_filter = &self.state.tree_filter;
+
+                let mut tree = CollapsibleTree::new(
+                    std::slice::from_ref(node),
+                    |ctx| render_node(ctx, tree_filter),
+                )
+                .indent(12.0);
+
+                if has_filter {
+                    tree = tree.filter(move |node| tree_filter.is_path_matching(&node.path));
+                }
+
+                tree.view()
+            }
             None => column![text("No game path set").size(11).style(style::subtle_text)]
                 .padding([4, 8])
                 .into(),
@@ -193,16 +209,17 @@ impl FileTree {
         let game_path = cache.game_path.clone();
         let files = cache.files.clone();
 
-        // Build proper hierarchy using the same logic as cache_to_tree_node
-        let mut root_dir = TreeNode::Dir {
-            path: game_path.clone(),
-            name: game_path
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "Game Files".to_string()),
-            expanded: true,
-            children: Vec::new(),
-        };
+        let mut root_dir = TreeNode::branch(
+            GameFileNode::dir(
+                game_path.clone(),
+                game_path
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "Game Files".to_string()),
+            ),
+            Vec::new(),
+        );
+        root_dir.expanded = true;
 
         // Create tree filter for this search
         let tree_filter = FileTreeFilter::new().with_search_query(query.to_string());
@@ -249,13 +266,16 @@ impl FileTree {
         // Build hierarchy
         for file in &files_to_show {
             if file.is_directory && file.path.parent() == Some(&game_path) {
-                // Only add directories that are direct children of the root directory
-                root_dir.add_directory_child(file, &files_to_show);
+                if let Some(child) =
+                    super::tree_node::add_cache_directory_child(file, &files_to_show)
+                {
+                    root_dir.children.push(child);
+                }
             } else if !file.is_directory && file.path.parent() == Some(&game_path) {
-                // Only add files that are direct children of the root directory
-                root_dir.add_file_child(file);
+                if let Some(child) = super::tree_node::add_cache_file_child(file) {
+                    root_dir.children.push(child);
+                }
             }
-            // Files and directories in subdirectories will be added by add_directory_child
         }
 
         let root = Some(root_dir);
@@ -275,7 +295,9 @@ impl FileTree {
     }
 }
 
-fn scan_dir(path: &Path, depth: usize) -> Option<TreeNode> {
+// ── Scanning ──────────────────────────────────────────────────────────
+
+fn scan_dir(path: &Path, depth: usize) -> Option<TreeNode<GameFileNode>> {
     // Skip system files like .DS_STORE
     if let Some(name) = path.file_name() {
         if name.to_string_lossy().starts_with('.') {
@@ -286,23 +308,16 @@ fn scan_dir(path: &Path, depth: usize) -> Option<TreeNode> {
     let name = path.file_name()?.to_string_lossy().to_string();
 
     if path.is_dir() {
-        Some(TreeNode::Dir {
-            path: path.to_path_buf(),
-            name,
-            expanded: depth == 0,
-            children: scan_children(path),
-        })
+        let mut node = TreeNode::branch(GameFileNode::dir(path.to_path_buf(), name), scan_children(path));
+        node.expanded = depth == 0;
+        Some(node)
     } else {
-        let icon = super::tree_node::file_icon(path);
-        Some(TreeNode::File {
-            path: path.to_path_buf(),
-            name,
-            icon,
-        })
+        let icon = file_icon(path);
+        Some(TreeNode::leaf(GameFileNode::file(path.to_path_buf(), name, icon)))
     }
 }
 
-fn scan_children(path: &Path) -> Vec<TreeNode> {
+fn scan_children(path: &Path) -> Vec<TreeNode<GameFileNode>> {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
 
@@ -310,161 +325,119 @@ fn scan_children(path: &Path) -> Vec<TreeNode> {
         for entry in entries.flatten() {
             let p = entry.path();
             if let Some(node) = scan_dir(&p, 0) {
-                // Reset depth to 0 for proper nesting
-                match &node {
-                    TreeNode::Dir { .. } => dirs.push(node),
-                    TreeNode::File { .. } => files.push(node),
+                if node.data.is_dir {
+                    dirs.push(node);
+                } else {
+                    files.push(node);
                 }
             }
         }
     }
 
-    dirs.sort_by_key(|n| match n {
-        TreeNode::Dir { name, .. } | TreeNode::File { name, .. } => name.to_lowercase(),
-    });
-    files.sort_by_key(|n| match n {
-        TreeNode::Dir { name, .. } | TreeNode::File { name, .. } => name.to_lowercase(),
-    });
+    dirs.sort_by_key(|n| n.data.name.to_lowercase());
+    files.sort_by_key(|n| n.data.name.to_lowercase());
 
     dirs.extend(files);
     dirs
 }
 
+// ── Tree mutation ─────────────────────────────────────────────────────
+
 /// Flip expanded state only — does NOT scan children.
-fn toggle_node_expanded_only(node: &mut TreeNode, path: &Path) -> bool {
-    match node {
-        TreeNode::Dir {
-            path: dir_path,
-            expanded,
-            children,
-            ..
-        } => {
-            if dir_path == path {
-                let was_expanded = *expanded;
-                *expanded = !*expanded;
-                // Return true if we just expanded and children haven't been loaded yet
-                *expanded && children.is_empty() && !was_expanded
-            } else {
-                for child in children {
-                    if toggle_node_expanded_only(child, path) {
-                        return true;
-                    }
-                }
-                false
+fn toggle_node_expanded_only(node: &mut TreeNode<GameFileNode>, path: &Path) -> bool {
+    if node.data.path == path {
+        let was_expanded = node.expanded;
+        node.expanded = !node.expanded;
+        // Return true if we just expanded and children haven't been loaded yet
+        node.expanded && node.children.is_empty() && !was_expanded
+    } else {
+        for child in &mut node.children {
+            if toggle_node_expanded_only(child, path) {
+                return true;
             }
         }
-        TreeNode::File { .. } => false,
+        false
     }
 }
 
 /// Set children of a specific directory node.
-fn set_node_children(node: &mut TreeNode, path: &Path, children: Vec<TreeNode>) {
-    match node {
-        TreeNode::Dir {
-            path: dir_path,
-            children: ch,
-            ..
-        } => {
-            if dir_path == path {
-                *ch = children;
-            } else {
-                for child in ch {
-                    set_node_children(child, path, children.clone());
-                }
-            }
+fn set_node_children(node: &mut TreeNode<GameFileNode>, path: &Path, children: Vec<TreeNode<GameFileNode>>) {
+    if node.data.path == path {
+        node.children = children;
+    } else {
+        for child in &mut node.children {
+            set_node_children(child, path, children.clone());
         }
-        TreeNode::File { .. } => {}
     }
 }
 
-/// Render a tree node as an Element. Returns None if the node should be hidden
-/// (file doesn't match current query/filter). Directories are always rendered.
+// ── Rendering ─────────────────────────────────────────────────────────
+
+/// Render a single tree node via the CollapsibleTree closure.
+///
+/// The node's depth-padding is handled by `CollapsibleTree` — the closure
+/// only produces the visual content.  Base left-padding is added here
+/// (6 px for dirs, 18 px for files) to match the old layout at depth 0.
 fn render_node<'a>(
-    node: &'a TreeNode,
+    ctx: gui_widgets::components::RenderContext<'a, GameFileNode>,
     tree_filter: &'a FileTreeFilter,
-    depth: usize,
-) -> Option<Element<'a, FileTreeMessage>> {
-    // Each depth level adds 14px of left padding.
-    let left_pad = (6 + depth * 12) as f32;
+) -> Element<'a, FileTreeMessage> {
+    let node = ctx.data;
 
-    match node {
-        TreeNode::Dir {
-            path,
-            name,
-            expanded,
-            children,
-        } => {
-            let caret = if *expanded { "▼" } else { "▶" };
+    if node.is_dir {
+        let caret = if ctx.expanded { "▼" } else { "▶" };
 
-            let header = button(
-                row![
-                    text(caret).size(9).style(style::subtle_text),
-                    text(name).size(12),
-                ]
+        button(
+            row![
+                text(caret).size(9).style(style::subtle_text),
+                text(&node.name).size(12),
+            ]
+            .spacing(5)
+            .align_y(iced::Alignment::Center),
+        )
+        .on_press(FileTreeMessage::ToggleDir(node.path.clone()))
+        .width(Fill)
+        .style(style::tree_dir_row)
+        .padding(Padding {
+            top: 3.0,
+            right: 4.0,
+            bottom: 3.0,
+            left: 6.0,
+        })
+        .into()
+    } else {
+        let name_element = create_highlighted_text(&node.name, tree_filter.search_query());
+
+        let file_btn = button(
+            row![text(node.icon).size(10), name_element]
                 .spacing(5)
                 .align_y(iced::Alignment::Center),
-            )
-            .on_press(FileTreeMessage::ToggleDir(path.clone()))
-            .width(Fill)
-            .style(style::tree_dir_row)
-            .padding(Padding {
-                top: 3.0,
-                right: 4.0,
-                bottom: 3.0,
-                left: left_pad,
-            });
+        )
+        .on_press(FileTreeMessage::OpenFile(node.path.clone()))
+        .width(Fill)
+        .style(style::tree_file_row)
+        .padding(Padding {
+            top: 2.0,
+            right: 4.0,
+            bottom: 2.0,
+            left: 18.0,
+        });
 
-            let mut content = column![header].spacing(0);
+        let entries = vec![
+            Entry::item("Open as Hex", FileTreeMessage::OpenAsHex(node.path.clone())),
+            Entry::separator(),
+            Entry::item(
+                "Extract to JSON",
+                FileTreeMessage::ExtractToJson(node.path.clone()),
+            ),
+            Entry::item("Validate", FileTreeMessage::ValidateFile(node.path.clone())),
+            Entry::item(
+                "Show in File Manager",
+                FileTreeMessage::ShowInFileManager(node.path.clone()),
+            ),
+        ];
 
-            let show_children = *expanded || tree_filter.matching_paths().is_some();
-            if show_children {
-                for child in children {
-                    if let Some(child_element) = render_node(child, tree_filter, depth + 1) {
-                        content = content.push(child_element);
-                    }
-                }
-            }
-
-            Some(content.into())
-        }
-        TreeNode::File { path, name, icon } => {
-            if !tree_filter.is_path_matching(path) {
-                return None;
-            }
-
-            let name_element = create_highlighted_text(name, tree_filter.search_query());
-
-            let file_btn = button(
-                row![text(*icon).size(10), name_element]
-                    .spacing(5)
-                    .align_y(iced::Alignment::Center),
-            )
-            .on_press(FileTreeMessage::OpenFile(path.clone()))
-            .width(Fill)
-            .style(style::tree_file_row)
-            .padding(Padding {
-                top: 2.0,
-                right: 4.0,
-                bottom: 2.0,
-                left: left_pad + 12.0,
-            });
-
-            let entries = vec![
-                Entry::item("Open as Hex", FileTreeMessage::OpenAsHex(path.clone())),
-                Entry::separator(),
-                Entry::item(
-                    "Extract to JSON",
-                    FileTreeMessage::ExtractToJson(path.clone()),
-                ),
-                Entry::item("Validate", FileTreeMessage::ValidateFile(path.clone())),
-                Entry::item(
-                    "Show in File Manager",
-                    FileTreeMessage::ShowInFileManager(path.clone()),
-                ),
-            ];
-
-            Some(ContextMenu::new(file_btn, entries).into())
-        }
+        ContextMenu::new(file_btn, entries).into()
     }
 }
 
@@ -523,8 +496,10 @@ fn create_highlighted_text<'a>(name: &'a str, query: &str) -> Element<'a, FileTr
     r.into()
 }
 
+// ── Async scanning ────────────────────────────────────────────────────
+
 /// Async version of scan_dir
-async fn scan_dir_async(path: &Path, depth: usize) -> FileTreeResult<Option<TreeNode>> {
+async fn scan_dir_async(path: &Path, depth: usize) -> FileTreeResult<Option<TreeNode<GameFileNode>>> {
     // Skip system files like .DS_STORE
     if let Some(name) = path.file_name() {
         if name.to_string_lossy().starts_with('.') {
@@ -551,24 +526,21 @@ async fn scan_dir_async(path: &Path, depth: usize) -> FileTreeResult<Option<Tree
 
     if path.is_dir() {
         let children = Box::pin(scan_children_async(path)).await?;
-        Ok(Some(TreeNode::Dir {
-            path: path.to_path_buf(),
-            name,
-            expanded: depth == 0,
-            children,
-        }))
+        let mut node = TreeNode::branch(GameFileNode::dir(path.to_path_buf(), name), children);
+        node.expanded = depth == 0;
+        Ok(Some(node))
     } else {
-        let icon = super::tree_node::file_icon(path);
-        Ok(Some(TreeNode::File {
-            path: path.to_path_buf(),
+        let icon = file_icon(path);
+        Ok(Some(TreeNode::leaf(GameFileNode::file(
+            path.to_path_buf(),
             name,
             icon,
-        }))
+        ))))
     }
 }
 
 /// Async version of scan_children (public, used by the ToggleDir handler).
-pub async fn scan_children_async(path: &Path) -> FileTreeResult<Vec<TreeNode>> {
+pub async fn scan_children_async(path: &Path) -> FileTreeResult<Vec<TreeNode<GameFileNode>>> {
     let mut dirs = Vec::new();
     let mut files = Vec::new();
 
@@ -579,10 +551,10 @@ pub async fn scan_children_async(path: &Path) -> FileTreeResult<Vec<TreeNode>> {
                     Some(entry) => {
                         let p = entry.path();
                         if let Some(node) = Box::pin(scan_dir_async(&p, 0)).await? {
-                            // Reset depth to 0 for proper nesting
-                            match &node {
-                                TreeNode::Dir { .. } => dirs.push(node),
-                                TreeNode::File { .. } => files.push(node),
+                            if node.data.is_dir {
+                                dirs.push(node);
+                            } else {
+                                files.push(node);
                             }
                         }
                     }
@@ -596,12 +568,8 @@ pub async fn scan_children_async(path: &Path) -> FileTreeResult<Vec<TreeNode>> {
         }
     }
 
-    dirs.sort_by_key(|n| match n {
-        TreeNode::Dir { name, .. } | TreeNode::File { name, .. } => name.to_lowercase(),
-    });
-    files.sort_by_key(|n| match n {
-        TreeNode::Dir { name, .. } | TreeNode::File { name, .. } => name.to_lowercase(),
-    });
+    dirs.sort_by_key(|n| n.data.name.to_lowercase());
+    files.sort_by_key(|n| n.data.name.to_lowercase());
 
     dirs.extend(files);
     Ok(dirs)

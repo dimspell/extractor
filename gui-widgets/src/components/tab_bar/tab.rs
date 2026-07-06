@@ -14,8 +14,7 @@ use lucide_icons::Icon;
 use super::style::{Status, Style};
 use super::TAB_HEIGHT;
 
-/// Font name for Lucide icon glyphs.
-const LUCIDE_FONT: Font = Font::new("lucide");
+use crate::lucide::LUCIDE_FONT;
 
 // ── Layout constants ──────────────────────────────────────────────────────────
 
