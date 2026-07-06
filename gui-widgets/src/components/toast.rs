@@ -20,6 +20,7 @@
 //!     .into()
 //! ```
 
+use crate::lucide::{icon_char, LUCIDE_FONT};
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::overlay;
 use iced::advanced::renderer;
@@ -31,6 +32,7 @@ use iced::widget::{button, column, container, row, space, text, Container};
 use iced::{
     Alignment, Element, Event, Fill, Fit, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
 };
+use lucide_icons::Icon;
 
 pub const DEFAULT_TIMEOUT: u64 = 4;
 
@@ -131,7 +133,7 @@ where
                         row![
                             text(toast.title.as_str()).size(13),
                             space::horizontal(),
-                            button(text("✕").size(11))
+                            button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(11))
                                 .on_press((on_close)(index))
                                 .padding([2, 4]),
                         ]

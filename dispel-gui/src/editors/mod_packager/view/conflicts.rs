@@ -87,7 +87,7 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
     let mut rows = column![].spacing(2);
     for (i, p) in c.participants.iter().enumerate() {
         let is_winner = p.mod_id == winner;
-        let marker = if is_winner { "▶" } else { " " };
+        let marker = if is_winner { ">" } else { " " };
         let value = match &p.field_new {
             Some(v) => format!("{:?}", v),
             None => format!("({})", p.op),

@@ -6,8 +6,10 @@ use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Length};
+use lucide_icons::Icon;
 
 pub fn build_column_filter_modal<'a>(
     col: usize,
@@ -28,12 +30,19 @@ pub fn build_column_filter_modal<'a>(
             let is_checked = current_filter
                 .map(|s| s.contains(&opt.value))
                 .unwrap_or(false);
-            let label = if is_checked {
-                format!("✓ {} ({})", opt.value, opt.count)
+            let content: Element<Message> = if is_checked {
+                row![
+                    text(icon_char(Icon::Check)).font(LUCIDE_FONT).size(11),
+                    text(format!(" {} ({})", opt.value, opt.count)).size(11),
+                ]
+                .spacing(2)
+                .into()
             } else {
-                format!("  {} ({})", opt.value, opt.count)
+                text(format!("  {} ({})", opt.value, opt.count))
+                    .size(11)
+                    .into()
             };
-            button(text(label).size(11))
+            button(content)
                 .on_press(spreadsheet_msg(
                     SpreadsheetMessage::ToggleColumnFilterValue(col, opt.value.clone()),
                 ))
@@ -68,7 +77,7 @@ pub fn build_column_filter_modal<'a>(
     let header = row![
         text("Filter Column").size(14).style(style::section_header),
         horizontal_space(),
-        button(text("✕").size(14))
+        button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
             .on_press(spreadsheet_msg(SpreadsheetMessage::CloseColumnFilterModal))
             .padding([4, 12])
             .style(style::filter_clear_button),

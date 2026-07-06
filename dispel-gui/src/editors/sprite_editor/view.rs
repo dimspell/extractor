@@ -8,8 +8,10 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::context_menu::{ContextMenu, Entry};
 use gui_widgets::components::modal::modal;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 // Shorthand to wrap a SpriteViewerMessage into the top-level Message type.
 fn sv(m: SpriteViewerMessage) -> Message {
@@ -384,24 +386,36 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
     };
 
     let del_btn = if has_frames {
-        button(text("✕ Del").size(11))
-            .on_press(sv(SpriteViewerMessage::DeleteFrame))
-            .padding([3, 8])
-            .style(style::chip)
+        button(
+            row![
+                text(icon_char(Icon::X)).font(LUCIDE_FONT).size(11),
+                text(" Del").size(11)
+            ]
+            .spacing(2),
+        )
+        .on_press(sv(SpriteViewerMessage::DeleteFrame))
+        .padding([3, 8])
+        .style(style::chip)
     } else {
-        button(text("✕ Del").size(11))
-            .padding([3, 8])
-            .style(style::chip)
+        button(
+            row![
+                text(icon_char(Icon::X)).font(LUCIDE_FONT).size(11),
+                text(" Del").size(11)
+            ]
+            .spacing(2),
+        )
+        .padding([3, 8])
+        .style(style::chip)
     };
 
     // Move left/right buttons
     let move_left_btn = if has_frames && viewer.selected_frame > 0 {
-        button(text("◀").size(11))
+        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
             .on_press(sv(SpriteViewerMessage::MoveFrameLeft))
             .padding([3, 7])
             .style(style::chip)
     } else {
-        button(text("◀").size(11))
+        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
             .padding([3, 7])
             .style(style::chip)
     };
@@ -413,17 +427,17 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
             .copied()
             .unwrap_or(0);
         if viewer.selected_frame + 1 < max_frames {
-            button(text("▶").size(11))
+            button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
                 .on_press(sv(SpriteViewerMessage::MoveFrameRight))
                 .padding([3, 7])
                 .style(style::chip)
         } else {
-            button(text("▶").size(11))
+            button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
                 .padding([3, 7])
                 .style(style::chip)
         }
     } else {
-        button(text("▶").size(11))
+        button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
             .padding([3, 7])
             .style(style::chip)
     };
@@ -497,36 +511,48 @@ fn view_scrubber(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
 fn view_playback_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
     // Transport buttons
-    let step_back = button(text("◀").size(12))
+    let step_back = button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(12))
         .on_press(sv(SpriteViewerMessage::StepBack))
         .padding([4, 8])
         .style(style::playback_button);
 
     let play_pause = if viewer.is_playing {
-        button(text("⏸").size(14))
+        button(text(icon_char(Icon::Pause)).font(LUCIDE_FONT).size(14))
             .on_press(sv(SpriteViewerMessage::Pause))
             .padding([4, 10])
             .style(style::playback_button)
     } else {
-        button(text("▶").size(14))
+        button(text(icon_char(Icon::Play)).font(LUCIDE_FONT).size(14))
             .on_press(sv(SpriteViewerMessage::Play))
             .padding([4, 10])
             .style(style::playback_button)
     };
 
-    let step_fwd = button(text("▶|").size(12))
-        .on_press(sv(SpriteViewerMessage::StepForward))
-        .padding([4, 8])
-        .style(style::playback_button);
+    let step_fwd = button(
+        row![
+            text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(12),
+            text("|").size(12)
+        ]
+        .spacing(0),
+    )
+    .on_press(sv(SpriteViewerMessage::StepForward))
+    .padding([4, 8])
+    .style(style::playback_button);
 
-    let loop_btn = button(text("↺ Loop").size(11))
-        .on_press(sv(SpriteViewerMessage::ToggleLoop))
-        .padding([4, 8])
-        .style(if viewer.is_looping {
-            style::playback_button_active
-        } else {
-            style::playback_button
-        });
+    let loop_btn = button(
+        row![
+            text(icon_char(Icon::Repeat)).font(LUCIDE_FONT).size(11),
+            text(" Loop").size(11)
+        ]
+        .spacing(2),
+    )
+    .on_press(sv(SpriteViewerMessage::ToggleLoop))
+    .padding([4, 8])
+    .style(if viewer.is_looping {
+        style::playback_button_active
+    } else {
+        style::playback_button
+    });
 
     // Speed buttons
     let speeds: &[(u32, &str)] = &[(25, "¼×"), (50, "½×"), (100, "1×"), (200, "2×")];

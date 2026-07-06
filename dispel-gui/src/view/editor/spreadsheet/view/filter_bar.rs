@@ -8,8 +8,10 @@ use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::{GlobalFilterMode, SpreadsheetState};
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, row, text, text_input};
 use iced::{Element, Length};
+use lucide_icons::Icon;
 
 pub fn build_filter_bar<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
@@ -72,7 +74,7 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
                 .map(|p| p + 1)
                 .unwrap_or(0);
 
-            let prev_btn = button(text("◀").size(10))
+            let prev_btn = button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(10))
                 .padding([2, 6])
                 .on_press_maybe(
                     (highlight_count > 0)
@@ -80,7 +82,7 @@ pub fn build_filter_bar<'a, R: EditableRecord>(
                 )
                 .style(style::nav_button);
 
-            let next_btn = button(text("▶").size(10))
+            let next_btn = button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(10))
                 .padding([2, 6])
                 .on_press_maybe(
                     (highlight_count > 0)

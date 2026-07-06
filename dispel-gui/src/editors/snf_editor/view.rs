@@ -4,8 +4,10 @@ use crate::editors::snf_editor::ExportStatus;
 use crate::editors::snf_editor::SnfEditorMessage;
 use crate::message::{Message, MessageExt};
 use gui_widgets::components::toast;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let tab_id = app
@@ -46,16 +48,35 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let header = row![
         text(&editor.name).size(13),
         Space::new().width(Fill),
-        button(text("📂 Import WAV…").size(12))
-            .on_press(Message::snf_editor(SnfEditorMessage::ImportWav)),
+        button(
+            row![
+                text(icon_char(Icon::FolderOpen)).font(LUCIDE_FONT).size(12),
+                text(" Import WAV…").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::ImportWav)),
         button(text("Export WAV…").size(12))
             .on_press(Message::snf_editor(SnfEditorMessage::ExportWav)),
         if editor.modified {
-            button(text("💾 Save").size(12))
-                .style(crate::style::active_chip)
-                .on_press(Message::snf_editor(SnfEditorMessage::Save))
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(12),
+                    text(" Save").size(12),
+                ]
+                .spacing(4),
+            )
+            .style(crate::style::active_chip)
+            .on_press(Message::snf_editor(SnfEditorMessage::Save))
         } else {
-            button(text("💾 Save").size(12)).style(crate::style::chip)
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(12),
+                    text(" Save").size(12),
+                ]
+                .spacing(4),
+            )
+            .style(crate::style::chip)
         }
     ]
     .spacing(8)
@@ -116,21 +137,47 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // Playback controls
     let play_pause_btn = if is_playing {
-        button(text("⏸ Pause").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Pause))
+        button(
+            row![
+                text(icon_char(Icon::Pause)).font(LUCIDE_FONT).size(12),
+                text(" Pause").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::Pause))
     } else {
-        button(text("▶ Play").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Play))
+        button(
+            row![
+                text(icon_char(Icon::Play)).font(LUCIDE_FONT).size(12),
+                text(" Play").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::Play))
     };
 
-    let stop_btn =
-        button(text("■ Stop").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Stop));
+    let stop_btn = button(
+        row![
+            text(icon_char(Icon::Square)).font(LUCIDE_FONT).size(12),
+            text(" Stop").size(12),
+        ]
+        .spacing(4),
+    )
+    .on_press(Message::snf_editor(SnfEditorMessage::Stop));
 
-    let loop_btn = button(text("↺ Loop").size(11))
-        .style(if editor.is_looping {
-            crate::style::active_chip
-        } else {
-            crate::style::chip
-        })
-        .on_press(Message::snf_editor(SnfEditorMessage::ToggleLoop));
+    let loop_btn = button(
+        row![
+            text(icon_char(Icon::Repeat)).font(LUCIDE_FONT).size(11),
+            text(" Loop").size(11),
+        ]
+        .spacing(4),
+    )
+    .style(if editor.is_looping {
+        crate::style::active_chip
+    } else {
+        crate::style::chip
+    })
+    .on_press(Message::snf_editor(SnfEditorMessage::ToggleLoop));
 
     let volume_slider = slider(0.0f32..=1.0, editor.volume, |v| {
         Message::snf_editor(SnfEditorMessage::SetVolume(v))

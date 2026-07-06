@@ -3,8 +3,10 @@ use crate::components::utils::{horizontal_space, vertical_space};
 use crate::editors::db_viewer::state::PAGE_SIZE;
 use crate::message::{viewer::ViewerMessage, Message};
 use crate::style;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
+use lucide_icons::Icon;
 
 impl App {
     pub fn view_db_viewer(&self) -> Element<'_, Message> {
@@ -64,7 +66,7 @@ impl App {
         };
 
         // ── Action toolbar ──
-        let search_input = text_input("🔍 Search all columns…", &v.search)
+        let search_input = text_input("Search all columns…", &v.search)
             .on_input(|s| Message::Viewer(ViewerMessage::Search(s)))
             .padding(8)
             .size(12)
@@ -73,31 +75,61 @@ impl App {
             .padding([5, 10])
             .on_press(Message::Viewer(ViewerMessage::ToggleSql))
             .style(style::chip);
-        let export_btn = button(text("📥 Export CSV").size(11))
-            .padding([5, 10])
-            .on_press(Message::Viewer(ViewerMessage::ExportCsv))
-            .style(style::chip);
+        let export_btn = button(
+            row![
+                text(icon_char(Icon::Download)).font(LUCIDE_FONT).size(11),
+                text(" Export CSV").size(11)
+            ]
+            .spacing(4),
+        )
+        .padding([5, 10])
+        .on_press(Message::Viewer(ViewerMessage::ExportCsv))
+        .style(style::chip);
 
         let edit_count = v.pending_edits.len();
         let commit_btn = if edit_count > 0 {
-            button(text(format!("💾 Commit ({edit_count})")).size(11))
-                .padding([5, 10])
-                .on_press(Message::Viewer(ViewerMessage::Commit))
-                .style(style::commit_button)
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(11),
+                    text(format!(" Commit ({edit_count})")).size(11),
+                ]
+                .spacing(4),
+            )
+            .padding([5, 10])
+            .on_press(Message::Viewer(ViewerMessage::Commit))
+            .style(style::commit_button)
         } else {
-            button(text("💾 Commit").size(11))
-                .padding([5, 10])
-                .style(style::run_button_disabled)
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(11),
+                    text(" Commit").size(11),
+                ]
+                .spacing(4),
+            )
+            .padding([5, 10])
+            .style(style::run_button_disabled)
         };
         let revert_btn = if edit_count > 0 {
-            button(text("↩ Revert").size(11))
-                .padding([5, 10])
-                .on_press(Message::Viewer(ViewerMessage::RevertEdits))
-                .style(style::chip)
+            button(
+                row![
+                    text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
+                    text(" Revert").size(11),
+                ]
+                .spacing(4),
+            )
+            .padding([5, 10])
+            .on_press(Message::Viewer(ViewerMessage::RevertEdits))
+            .style(style::chip)
         } else {
-            button(text("↩ Revert").size(11))
-                .padding([5, 10])
-                .style(style::run_button_disabled)
+            button(
+                row![
+                    text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
+                    text(" Revert").size(11),
+                ]
+                .spacing(4),
+            )
+            .padding([5, 10])
+            .style(style::run_button_disabled)
         };
 
         let action_row = container(
@@ -124,10 +156,16 @@ impl App {
                 .padding(10)
                 .size(13)
                 .font(Font::MONOSPACE);
-            let run_btn = button(text("▶ Run").size(12))
-                .padding([6, 14])
-                .on_press(Message::Viewer(ViewerMessage::RunSql))
-                .style(style::run_button);
+            let run_btn = button(
+                row![
+                    text(icon_char(Icon::Play)).font(LUCIDE_FONT).size(11),
+                    text(" Run").size(12),
+                ]
+                .spacing(4),
+            )
+            .padding([6, 14])
+            .on_press(Message::Viewer(ViewerMessage::RunSql))
+            .style(style::run_button);
             container(
                 row![sql_input, run_btn]
                     .spacing(8)
@@ -151,30 +189,66 @@ impl App {
             v.total_rows.saturating_sub(1) / PAGE_SIZE
         };
         let prev_btn = if v.page > 0 {
-            button(text("◀ Prev").size(11))
-                .padding([4, 10])
-                .on_press(Message::Viewer(ViewerMessage::PrevPage))
-                .style(style::chip)
+            button(
+                row![
+                    text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11),
+                    text(" Prev").size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([4, 10])
+            .on_press(Message::Viewer(ViewerMessage::PrevPage))
+            .style(style::chip)
         } else {
-            button(text("◀ Prev").size(11))
-                .padding([4, 10])
-                .style(style::run_button_disabled)
+            button(
+                row![
+                    text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11),
+                    text(" Prev").size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([4, 10])
+            .style(style::run_button_disabled)
         };
         let next_btn = if v.page < max_page {
-            button(text("Next ▶").size(11))
-                .padding([4, 10])
-                .on_press(Message::Viewer(ViewerMessage::NextPage))
-                .style(style::chip)
+            button(
+                row![
+                    text("Next ").size(11),
+                    text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([4, 10])
+            .on_press(Message::Viewer(ViewerMessage::NextPage))
+            .style(style::chip)
         } else {
-            button(text("Next ▶").size(11))
-                .padding([4, 10])
-                .style(style::run_button_disabled)
+            button(
+                row![
+                    text("Next ").size(11),
+                    text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([4, 10])
+            .style(style::run_button_disabled)
         };
         let page_info = text(format!("Page {} / {}", v.page + 1, max_page + 1)).size(11);
 
+        let status_content: Element<Message> = if let Some(icon) = v.status_icon {
+            row![
+                text(icon_char(icon)).font(LUCIDE_FONT).size(11),
+                text(&v.status_msg).size(11).style(style::subtle_text),
+            ]
+            .spacing(4)
+            .align_y(iced::Alignment::Center)
+            .into()
+        } else {
+            text(&v.status_msg).size(11).style(style::subtle_text).into()
+        };
+
         let status_row = container(
             row![
-                text(&v.status_msg).size(11).style(style::subtle_text),
+                status_content,
                 horizontal_space(),
                 prev_btn,
                 page_info,
@@ -223,12 +297,18 @@ impl App {
                     ""
                 };
                 let label = format!("{}{}", col.name, sort_indicator);
-                let pk_marker = if col.is_pk { " 🔑" } else { "" };
-                button(
-                    text(format!("{label}{pk_marker}"))
-                        .size(11)
-                        .font(Font::MONOSPACE),
-                )
+                let header_content: Element<Message> = if col.is_pk {
+                    row![
+                        text(label).size(11).font(Font::MONOSPACE),
+                        text(icon_char(Icon::Key)).font(LUCIDE_FONT).size(10),
+                    ]
+                    .spacing(3)
+                    .align_y(iced::Alignment::Center)
+                    .into()
+                } else {
+                    text(label).size(11).font(Font::MONOSPACE).into()
+                };
+                button(header_content)
                 .width(150)
                 .padding([8, 6])
                 .on_press(Message::Viewer(ViewerMessage::SortColumn(i)))

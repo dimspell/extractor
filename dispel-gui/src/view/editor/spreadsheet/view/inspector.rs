@@ -11,12 +11,14 @@ use iced::{Element, Fill, Length};
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
-use gui_widgets::{TextAreaContent, textarea};
 use crate::components::utils::horizontal_space;
 use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::{TextAreaContent, textarea};
+use lucide_icons::Icon;
 
 pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
@@ -31,7 +33,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
         row![
             text("Inspector").size(13),
             horizontal_space(),
-            button(text("✕").size(11))
+            button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(11))
                 .on_press(spreadsheet_msg(SpreadsheetMessage::CloseInspector))
                 .style(style::browse_button)
                 .padding([2, 6]),

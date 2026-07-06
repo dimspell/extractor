@@ -5,6 +5,7 @@ use super::data::FileTree;
 use super::message::FileTreeMessage;
 use super::tree_node::GameFileNode;
 use gui_widgets::components::TreeNode;
+use lucide_icons::Icon;
 use std::path::{Path, PathBuf};
 use tempfile::tempdir;
 
@@ -174,7 +175,7 @@ fn test_tree_node_path_methods() {
     let file_node = TreeNode::leaf(GameFileNode::file(
         test_path.clone(),
         "test.txt".to_string(),
-        "📄",
+        Icon::FileText,
     ));
     assert_eq!(file_node.data.path, test_path);
 

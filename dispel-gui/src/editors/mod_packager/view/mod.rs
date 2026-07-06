@@ -1,5 +1,7 @@
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, row, text};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 use crate::components::utils::horizontal_space;
 
@@ -57,11 +59,15 @@ fn recording_banner(app: &App) -> Option<Element<'_, Message>> {
     } else {
         format!(", {} pending", session.pending.len())
     };
-    let label = text(format!(
-        "● Recording into `{}` — {} change(s) captured{}",
-        session.mod_name, session.recorded_count, pending_suffix
-    ))
-    .size(12);
+    let label = row![
+        text(icon_char(Icon::Dot)).font(LUCIDE_FONT).size(12),
+        text(format!(
+            " Recording into `{}` — {} change(s) captured{}",
+            session.mod_name, session.recorded_count, pending_suffix
+        ))
+        .size(12),
+    ]
+    .spacing(2);
     let stop = button(text("Stop").size(12))
         .padding([4, 12])
         .style(button::danger)

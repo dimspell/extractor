@@ -5,6 +5,8 @@ use iced::widget::{button, column, container, row, scrollable, text, text_input}
 use iced::{Element, Fill, Font, Length, Padding};
 
 use gui_widgets::components::{CollapsibleTree, TreeNode};
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use lucide_icons::Icon;
 
 use crate::components::file_tree::tree_node::{file_icon, GameFileNode};
 use crate::indexation::file_index_cache;
@@ -385,11 +387,15 @@ fn render_node<'a>(
     let node = ctx.data;
 
     if node.is_dir {
-        let caret = if ctx.expanded { "▼" } else { "▶" };
+        let caret_char = if ctx.expanded {
+            icon_char(Icon::ChevronDown)
+        } else {
+            icon_char(Icon::ChevronRight)
+        };
 
         button(
             row![
-                text(caret).size(9).style(style::subtle_text),
+                text(caret_char).font(LUCIDE_FONT).size(9).style(style::subtle_text),
                 text(&node.name).size(12),
             ]
             .spacing(5)
@@ -409,7 +415,10 @@ fn render_node<'a>(
         let name_element = create_highlighted_text(&node.name, tree_filter.search_query());
 
         let file_btn = button(
-            row![text(node.icon).size(10), name_element]
+            row![
+                text(icon_char(node.icon)).font(LUCIDE_FONT).size(10),
+                name_element,
+            ]
                 .spacing(5)
                 .align_y(iced::Alignment::Center),
         )

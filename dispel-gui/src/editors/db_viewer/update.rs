@@ -130,7 +130,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                     );
                 }
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ Query error: {}", e);
+                    app.state.editors.viewer.status_msg = format!("Query error: {}", e);
                 }
             }
             Task::none()
@@ -303,10 +303,10 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                         }
                     }
                     app.state.editors.viewer.pending_edits.clear();
-                    app.state.editors.viewer.status_msg = format!("✔ Committed {} row(s)", n);
+                    app.state.editors.viewer.status_msg = format!("Committed {} row(s)", n);
                 }
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ Commit failed: {}", e);
+                    app.state.editors.viewer.status_msg = format!("Commit failed: {}", e);
                 }
             }
             Task::none()
@@ -407,9 +407,9 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         }
         ViewerMessage::CsvSaved(result) => {
             match result {
-                Ok(p) => app.state.editors.viewer.status_msg = format!("✔ CSV exported to {}", p),
+                Ok(p) => app.state.editors.viewer.status_msg = format!("CSV exported to {}", p),
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ CSV export failed: {}", e);
+                    app.state.editors.viewer.status_msg = format!("CSV export failed: {}", e);
                 }
             }
             Task::none()

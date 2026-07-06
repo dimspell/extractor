@@ -1,4 +1,5 @@
 pub mod components;
+pub mod lucide;
 pub mod style;
 
 pub use components::{

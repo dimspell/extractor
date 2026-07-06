@@ -244,7 +244,7 @@ impl IndexationService {
                 .unwrap_or("")
                 .to_string();
 
-            let icon = Self::get_file_icon(&path);
+            let icon_str = format!("{:?}", Self::get_file_icon(&path));
             let modified_time = match Self::get_modified_time(&path) {
                 Ok(time) => time,
                 Err(e) => {
@@ -278,7 +278,7 @@ impl IndexationService {
                 name: name.clone(),
                 is_directory,
                 file_type,
-                icon,
+                icon: icon_str,
                 modified_time,
                 sprite_metadata,
             };
@@ -359,21 +359,20 @@ impl IndexationService {
     }
 
     /// Get file icon based on extension
-    pub fn get_file_icon(path: &Path) -> String {
+    pub fn get_file_icon(path: &Path) -> lucide_icons::Icon {
         match path.extension().and_then(|ext| ext.to_str()) {
-            Some("db") => "🗃️",
-            Some("ini") => "📄",
-            Some("ref") => "📋",
-            Some("scr") => "📜",
-            Some("dlg") => "💬",
-            Some("pgp") => "📝",
-            Some("map") => "🗺️",
-            Some("gtl") | Some("btl") => "🖼️",
-            Some("spr") => "🎨",
-            Some("snf") => "🔊",
-            _ => "📎",
+            Some("db") => lucide_icons::Icon::Database,
+            Some("ini") => lucide_icons::Icon::FileText,
+            Some("ref") => lucide_icons::Icon::ClipboardList,
+            Some("scr") => lucide_icons::Icon::ScrollText,
+            Some("dlg") => lucide_icons::Icon::MessageSquare,
+            Some("pgp") => lucide_icons::Icon::FileEdit,
+            Some("map") => lucide_icons::Icon::Map,
+            Some("gtl") | Some("btl") => lucide_icons::Icon::Image,
+            Some("spr") => lucide_icons::Icon::Palette,
+            Some("snf") => lucide_icons::Icon::Music,
+            _ => lucide_icons::Icon::Paperclip,
         }
-        .to_string()
     }
 
     /// Get file modified time

@@ -8,11 +8,13 @@ use crate::editors::event_scr::functions::{EventScriptFunctionIndex, IndexedFunc
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::style;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{
     button, column, container, pick_list, progress_bar, row, rule, scrollable, text, text_input,
     Space,
 };
 use iced::{Alignment, Color, Element, Font, Length};
+use lucide_icons::Icon;
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.editors.event_scr_editor;
@@ -291,11 +293,11 @@ fn collapsible_panel<'a>(
     body: Option<Vec<Element<'a, EventScrEditorMessage>>>,
 ) -> Element<'a, EventScrEditorMessage> {
     let expanded = state.panels_expanded.contains(&tab);
-    let arrow = if expanded { "▼" } else { "▶" };
+    let arrow_char = if expanded { icon_char(Icon::ChevronDown) } else { icon_char(Icon::ChevronRight) };
     let count_str = format!(" ({})", count);
 
     let mut header_children: Vec<Element<EventScrEditorMessage>> = vec![
-        text(arrow).size(13).into(),
+        text(arrow_char).font(LUCIDE_FONT).size(13).into(),
         text(label).size(14).style(style::section_header).into(),
         text(count_str).size(12).style(style::subtle_text).into(),
         Space::new().width(Length::Fill).into(),
@@ -778,11 +780,11 @@ fn render_open_row<'a>(
     depth: usize,
     folded: bool,
 ) -> Element<'a, EventScrEditorMessage> {
-    let arrow = if folded { "▶" } else { "▼" };
+    let arrow_char = if folded { icon_char(Icon::ChevronRight) } else { icon_char(Icon::ChevronDown) };
     container(
         row![
             indent_guides(depth),
-            button(text(arrow).size(11))
+            button(text(arrow_char).font(LUCIDE_FONT).size(11))
                 .on_press(EventScrEditorMessage::ToggleFold(index))
                 .style(style::fold_button)
                 .padding([1, 3]),

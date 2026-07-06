@@ -11,6 +11,8 @@ use iced::Element;
 
 use super::super::message::MapEditorMessage;
 use super::super::state::{DialogPreviewState, MapEditorState};
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use lucide_icons::Icon;
 
 // ── Dialog Preview ─────────────────────────────────────────────────────────────
 
@@ -182,7 +184,7 @@ pub fn view_dialog_preview<'a>(
     let header_row: Element<'_, Message> = row![
         text(npc_label).size(14).style(style::primary_text),
         horizontal_space(),
-        button(text("✕").size(14))
+        button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
             .on_press(Message::map_editor(MapEditorMessage::HideDialogPreview(
                 tab_id,
             )))
@@ -220,10 +222,10 @@ pub fn view_dialog_preview<'a>(
         // Build suffix (events, end marker, next links)
         let mut suffix = String::new();
         if line.has_prereq {
-            suffix.push_str(&format!(" ⚑ req#{}", line.prereq_id));
+            suffix.push_str(&format!(" [req#{}]", line.prereq_id));
         }
         if line.has_trigger {
-            suffix.push_str(&format!(" ⚡ ev#{}", line.trigger_id));
+            suffix.push_str(&format!(" [ev#{}]", line.trigger_id));
         }
         if !line.next_labels.is_empty() {
             suffix.push_str(&format!(" ─ {}", line.next_labels.join(" ")));

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use lucide_icons::Icon;
+
 use crate::indexation::file_index_cache;
 
 /// Payload for a file-tree [`TreeNode`].
@@ -10,7 +12,7 @@ use crate::indexation::file_index_cache;
 pub struct GameFileNode {
     pub path: PathBuf,
     pub name: String,
-    pub icon: &'static str,
+    pub icon: Icon,
     pub is_dir: bool,
 }
 
@@ -19,12 +21,12 @@ impl GameFileNode {
         GameFileNode {
             path,
             name,
-            icon: "",
+            icon: Icon::Folder,
             is_dir: true,
         }
     }
 
-    pub fn file(path: PathBuf, name: String, icon: &'static str) -> Self {
+    pub fn file(path: PathBuf, name: String, icon: Icon) -> Self {
         GameFileNode {
             path,
             name,
@@ -79,17 +81,17 @@ pub fn add_cache_file_child(
     }
 
     let icon = match file.file_type.as_str() {
-        "db" => "🗃️",
-        "ini" => "📄",
-        "ref" => "📋",
-        "scr" => "📜",
-        "dlg" => "💬",
-        "pgp" => "📝",
-        "map" => "🗺️",
-        "gtl" | "btl" => "🖼️",
-        "spr" => "🎨",
-        "snf" => "🔊",
-        _ => "📎",
+        "db" => Icon::Database,
+        "ini" => Icon::FileText,
+        "ref" => Icon::ClipboardList,
+        "scr" => Icon::ScrollText,
+        "dlg" => Icon::MessageSquare,
+        "pgp" => Icon::FileEdit,
+        "map" => Icon::Map,
+        "gtl" | "btl" => Icon::Image,
+        "spr" => Icon::Palette,
+        "snf" => Icon::Music,
+        _ => Icon::Paperclip,
     };
 
     Some(gui_widgets::components::TreeNode::leaf(GameFileNode::file(
@@ -100,18 +102,18 @@ pub fn add_cache_file_child(
 }
 
 /// Get the appropriate icon for a file based on its extension.
-pub fn file_icon(path: &Path) -> &'static str {
+pub fn file_icon(path: &Path) -> Icon {
     match path.extension().and_then(|e| e.to_str()) {
-        Some("db") => "🗃️",
-        Some("ini") => "📄",
-        Some("ref") => "📋",
-        Some("scr") => "📜",
-        Some("dlg") => "💬",
-        Some("pgp") => "📝",
-        Some("map") => "🗺️",
-        Some("gtl") | Some("btl") => "🖼️",
-        Some("spr") => "🎨",
-        Some("snf") => "🔊",
-        _ => "📎",
+        Some("db") => Icon::Database,
+        Some("ini") => Icon::FileText,
+        Some("ref") => Icon::ClipboardList,
+        Some("scr") => Icon::ScrollText,
+        Some("dlg") => Icon::MessageSquare,
+        Some("pgp") => Icon::FileEdit,
+        Some("map") => Icon::Map,
+        Some("gtl") | Some("btl") => Icon::Image,
+        Some("spr") => Icon::Palette,
+        Some("snf") => Icon::Music,
+        _ => Icon::Paperclip,
     }
 }

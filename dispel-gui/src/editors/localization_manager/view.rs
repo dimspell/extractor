@@ -1,5 +1,6 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use gui_widgets::textarea;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
@@ -8,6 +9,7 @@ use iced::widget::{
     button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,
 };
 use iced::{Alignment, Background, Border, Color, Element, Fill, Length};
+use lucide_icons::Icon;
 
 // ─── File filter display wrapper ─────────────────────────────────────────────
 
@@ -156,15 +158,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
             // Status indicator
             let indicator = if is_overlong {
-                text("✗").size(11).style(|_t| iced::widget::text::Style {
-                    color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
-                })
+                text(icon_char(Icon::X))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
+                    })
             } else if is_translated {
-                text("✓").size(11).style(|_t| iced::widget::text::Style {
-                    color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
-                })
+                text(icon_char(Icon::Check))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
+                    })
             } else {
-                text("●").size(11).style(style::subtle_text)
+                text(icon_char(Icon::Circle))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(style::subtle_text)
             };
 
             let short_file = entry
