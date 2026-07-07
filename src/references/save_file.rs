@@ -576,6 +576,55 @@ pub struct MapSectionData {
     pub draw_items_event: Vec<u8>,
 }
 
+/// Parsed character stats from a save file.
+///
+/// Maps the binary stats block (~68 bytes of structured data) that follows
+/// the belt-data section and precedes the inventory section.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CharacterStats {
+    // ── Core attributes ──
+    pub strength: u16,
+    pub agility: u16,
+    pub wisdom: u16,
+    pub constitution: u16,
+    pub morale: u16,
+    pub hp_current: u16,
+    pub hp_maximum: u16,
+    pub mp_current: u16,
+    pub mp_maximum: u16,
+    pub experience: u32,
+    pub level: u16,
+    pub gold: u32,
+    // ── Combat stats ──
+    pub offense: u16,
+    pub defense: u16,
+    pub dodge_rate: u8,
+    pub hit_rate: u8,
+    pub magic_power: u16,
+    pub attack_modifier: u8,
+    // ── Skills (5 × u8) ──
+    pub thievery: u8,
+    pub lockpicking: u8,
+    pub haggling: u8,
+    pub perception: u8,
+    pub traps: u8,
+    // ── Weapon skills (7 types × {level: u8, kills: u16}) ──
+    pub swords_level: u8,
+    pub swords_kills: u16,
+    pub axes_level: u8,
+    pub axes_kills: u16,
+    pub archery_level: u8,
+    pub archery_kills: u16,
+    pub polearm_level: u8,
+    pub polearm_kills: u16,
+    pub magic_level: u8,
+    pub magic_kills: u16,
+    pub holy_magic_level: u8,
+    pub holy_magic_kills: u16,
+    pub dark_magic_level: u8,
+    pub dark_magic_kills: u16,
+}
+
 /// Complete save file structure.
 ///
 /// More fields will be added in future phases.
@@ -588,6 +637,12 @@ pub struct SaveFile {
     pub maps: Vec<MapSectionData>,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
+    /// Raw belt/quick-slot data (40 bytes before character stats).
+    pub unknown_before_stats: Vec<u8>,
+    /// Parsed character stats (core, combat, skills, weapon skills).
+    pub character_stats: CharacterStats,
+    /// Unknown bytes after stats block (9 bytes).
+    pub unknown_after_stats: Vec<u8>,
 }
 
 impl SaveFile {
@@ -642,107 +697,52 @@ impl SaveFile {
         // ── 4. Character sprite paths (4 × 60-byte WINDOWS-1250 strings) ──
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
 
-        // ── 4.2 Unknown block ──
+        // ── 5 Character stats ──
+        let (unknown_before_stats, character_stats, unknown_after_stats) =
+            Self::parse_character_stats(&mut reader)?;
+
+        // ── 6. Inventory ──
         // IDs what is in the belt?
         // Let's jump by hardcoded number of bytes.
 
-        let mut unknown_block = vec![0u8; 40];
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
-
-        let attribute_strength = reader.read_u16::<LittleEndian>()?;
-        let attribute_agility = reader.read_u16::<LittleEndian>()?;
-        let attribute_wisdom = reader.read_u16::<LittleEndian>()?;
-        let attribute_constitution = reader.read_u16::<LittleEndian>()?;
-        let attribute_morale = reader.read_u16::<LittleEndian>()?;
-        let attribute_hp_cur = reader.read_u16::<LittleEndian>()?;
-        let attribute_hp_max = reader.read_u16::<LittleEndian>()?;
-        let attribute_mp_cur = reader.read_u16::<LittleEndian>()?;
-        let attribute_mp_max = reader.read_u16::<LittleEndian>()?;
-        let attribute_xp = reader.read_u32::<LittleEndian>()?;
-        let attribute_level = reader.read_u16::<LittleEndian>()?;
-        let attribute_gold = reader.read_u32::<LittleEndian>()?;
-        let attribute_offense = reader.read_u16::<LittleEndian>()?;
-        let attribute_defense = reader.read_u16::<LittleEndian>()?;
-        let attribute_dodge_rate = reader.read_u8()?;
-        let attribute_hit_rate = reader.read_u8()?;
-        let attribute_magic_power = reader.read_u16::<LittleEndian>()?;
-        let attribute_attack_modifier = reader.read_u8()?;
-        let attribute_skill_thievery = reader.read_u8()?;
-        let attribute_skill_lockpicking = reader.read_u8()?;
-        let attribute_skill_haggling = reader.read_u8()?;
-        let attribute_skill_perception = reader.read_u8()?;
-        let attribute_skill_traps = reader.read_u8()?;
-
-        let attribute_swords_level = reader.read_u8()?;
-        let attribute_swords_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_axes_level = reader.read_u8()?;
-        let attribute_axes_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_archery_level = reader.read_u8()?;
-        let attribute_archery_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_polearm_level = reader.read_u8()?;
-        let attribute_polearm_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_magic_level = reader.read_u8()?;
-        let attribute_magic_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_holy_magic_level = reader.read_u8()?;
-        let attribute_holy_magic_kills = reader.read_u16::<LittleEndian>()?;
-        let attribute_dark_magic_level = reader.read_u8()?;
-        let attribute_dark_magic_kills = reader.read_u16::<LittleEndian>()?;
-
-        let mut unknown_block = vec![0u8; 9]; // 0.sav Christoforo, 0.sav Nuno
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
-
-        // ── 5. Inventory ──
-        // IDs what is in the belt?
-        // Let's jump by hardcoded number of bytes.
-
-        // ── 5.1. ITEMS IN INVENTORY - Event ──
+        // ── 6.1. ITEMS IN INVENTORY - Event ──
         let inventory_event_count = reader.read_u16::<LittleEndian>()? as usize;
         if inventory_event_count > 0 {
             let mut inventory_event_data = vec![0u8; inventory_event_count * 244];
             reader.read_exact(&mut inventory_event_data)?;
         }
 
-        // ── 5.2. ITEMS IN INVENTORY - Misc ──
+        // ── 6.2. ITEMS IN INVENTORY - Misc ──
         let inventory_misc_count = reader.read_u16::<LittleEndian>()? as usize;
         if inventory_misc_count > 0 {
             let mut inventory_misc_data = vec![0u8; inventory_misc_count * 264];
             reader.read_exact(&mut inventory_misc_data)?;
         }
 
-        // ── 5.3. ITEMS IN INVENTORY - Edit ──
+        // ── 6.3. ITEMS IN INVENTORY - Edit ──
         let inventory_edit_count = reader.read_u16::<LittleEndian>()? as usize;
         if inventory_edit_count > 0 {
             let mut inventory_edit_data = vec![0u8; inventory_edit_count * 272];
             reader.read_exact(&mut inventory_edit_data)?;
         }
 
-        // ── 5.4. ITEMS IN INVENTORY - Weapon ──
+        // ── 6.4. ITEMS IN INVENTORY - Weapon ──
         let inventory_weapon_count = reader.read_u16::<LittleEndian>()? as usize;
         if inventory_weapon_count > 0 {
             let mut inventory_weapon_data = vec![0u8; inventory_weapon_count * 292];
             reader.read_exact(&mut inventory_weapon_data)?;
         }
 
-        // ── 5.5. ITEMS IN INVENTORY - Heal ──
+        // ── 6.5. ITEMS IN INVENTORY - Heal ──
         let inventory_heal_count = reader.read_u16::<LittleEndian>()? as usize;
         if inventory_heal_count > 0 {
             let mut inventory_heal_data = vec![0u8; inventory_heal_count * 256];
             reader.read_exact(&mut inventory_heal_data)?;
         }
 
-        // ── 6. Character details ──
+        // ── 7. Character details ──
 
-        // 6.1. Unknown block of 88b
+        // 7.1. Unknown block of 88b
         let mut unknown_block = vec![0u8; 96]; // 0.sav Christoforo
                                                // let mut unknown_block = vec![0u8; 88]; // 0.sav Nuno
         reader.read_exact(&mut unknown_block)?;
@@ -752,12 +752,12 @@ impl SaveFile {
             unknown_block,
         );
 
-        // 6.2 Character name
+        // 7.2 Character name
         let mut name_raw = vec![0u8; 11];
         reader.read_exact(&mut name_raw)?;
         let character_name = read_null_terminated_windows_1250(name_raw.as_slice());
 
-        // 6.3 Character class
+        // 7.3 Character class
         let character_class_id = reader.read_u16::<LittleEndian>()?;
         let mut class_raw = vec![0u8; 11];
         reader.read_exact(&mut class_raw)?;
@@ -767,11 +767,11 @@ impl SaveFile {
             character_name, character_class_name, character_class_id
         );
 
-        // 6.4. Character attributes
+        // 7.4. Unknown data
         let mut unknown_block = vec![0u8; 4040]; // 0.sav Christoforo, 0.sav Nuno
         reader.read_exact(&mut unknown_block)?;
 
-        // ── 7. Events ──
+        // ── 8. Events ──
         for _ in 0..2251 {
             let mut event_raw = vec![0u8; 284];
             reader.read_exact(&mut event_raw)?;
@@ -782,7 +782,7 @@ impl SaveFile {
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - after events", seek_cursor);
 
-        // ── 8. Unknown block ──
+        // ── 9. Unknown block ──
         // Not recognized why it is variable in size.
         let mut unknown_block = vec![0u8; 12]; // 0.sav Christoforo
         reader.read_exact(&mut unknown_block)?;
@@ -809,9 +809,9 @@ impl SaveFile {
             unknown_block,
         );
 
-        // ── 9. Journal ──
+        // ── 10. Journal ──
 
-        // 9.1. Main quests
+        // 10.1. Main quests
         let mut journal_raw = vec![0u8; 37 * 100];
         reader.read_exact(&mut journal_raw)?;
         let journal_main = Self::parse_journal_entries(&journal_raw, 100);
@@ -823,7 +823,7 @@ impl SaveFile {
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - main end", seek_cursor);
 
-        // 9.2. Side quests
+        // 10.2. Side quests
         let mut journal_raw = vec![0u8; 37 * 100];
         reader.read_exact(&mut journal_raw)?;
         let _journal_side = Self::parse_journal_entries(&journal_raw, 100);
@@ -831,7 +831,7 @@ impl SaveFile {
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - side end", seek_cursor);
 
-        // 9.3. Trading offers
+        // 10.3. Trading offers
         let mut journal_raw = vec![0u8; 37 * 100];
         reader.read_exact(&mut journal_raw)?;
         let _journal_trade = Self::parse_journal_entries(&journal_raw, 100);
@@ -843,6 +843,9 @@ impl SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
             maps,
             sprite_paths,
+            unknown_before_stats,
+            character_stats,
+            unknown_after_stats,
         })
     }
 
@@ -950,6 +953,73 @@ impl SaveFile {
             );
         }
         Ok(paths)
+    }
+
+    /// Parse belt data, character stats, and trailing unknown bytes.
+    ///
+    /// Layout:
+    ///   `[unknown_before_stats: 40B][strength u16][agility u16][wisdom u16][constitution u16]
+    ///    [morale u16][hp_cur u16][hp_max u16][mp_cur u16][mp_max u16]
+    ///    [xp u32][level u16][gold u32][offense u16][defense u16]
+    ///    [dodge u8][hit u8][magic_power u16][attack_mod u8]
+    ///    [thievery u8][lockpick u8][haggle u8][perception u8][traps u8]
+    ///    [sword_lv u8][sword_kills u16][axe_lv u8][axe_kills u16]
+    ///    [archery_lv u8][archery_kills u16][polearm_lv u8][polearm_kills u16]
+    ///    [magic_lv u8][magic_kills u16][holy_lv u8][holy_kills u16]
+    ///    [dark_lv u8][dark_kills u16][unknown: 9B]`
+    fn parse_character_stats<R: Read>(
+        reader: &mut R,
+    ) -> std::io::Result<(Vec<u8>, CharacterStats, Vec<u8>)> {
+        // ── Belt data (40 bytes, purpose unknown) ──
+        let mut unknown_before_stats = vec![0u8; 40];
+        reader.read_exact(&mut unknown_before_stats)?;
+
+        // ── Structured stats block ──
+        let character_stats = CharacterStats {
+            strength: reader.read_u16::<LittleEndian>()?,
+            agility: reader.read_u16::<LittleEndian>()?,
+            wisdom: reader.read_u16::<LittleEndian>()?,
+            constitution: reader.read_u16::<LittleEndian>()?,
+            morale: reader.read_u16::<LittleEndian>()?,
+            hp_current: reader.read_u16::<LittleEndian>()?,
+            hp_maximum: reader.read_u16::<LittleEndian>()?,
+            mp_current: reader.read_u16::<LittleEndian>()?,
+            mp_maximum: reader.read_u16::<LittleEndian>()?,
+            experience: reader.read_u32::<LittleEndian>()?,
+            level: reader.read_u16::<LittleEndian>()?,
+            gold: reader.read_u32::<LittleEndian>()?,
+            offense: reader.read_u16::<LittleEndian>()?,
+            defense: reader.read_u16::<LittleEndian>()?,
+            dodge_rate: reader.read_u8()?,
+            hit_rate: reader.read_u8()?,
+            magic_power: reader.read_u16::<LittleEndian>()?,
+            attack_modifier: reader.read_u8()?,
+            thievery: reader.read_u8()?,
+            lockpicking: reader.read_u8()?,
+            haggling: reader.read_u8()?,
+            perception: reader.read_u8()?,
+            traps: reader.read_u8()?,
+            swords_level: reader.read_u8()?,
+            swords_kills: reader.read_u16::<LittleEndian>()?,
+            axes_level: reader.read_u8()?,
+            axes_kills: reader.read_u16::<LittleEndian>()?,
+            archery_level: reader.read_u8()?,
+            archery_kills: reader.read_u16::<LittleEndian>()?,
+            polearm_level: reader.read_u8()?,
+            polearm_kills: reader.read_u16::<LittleEndian>()?,
+            magic_level: reader.read_u8()?,
+            magic_kills: reader.read_u16::<LittleEndian>()?,
+            holy_magic_level: reader.read_u8()?,
+            holy_magic_kills: reader.read_u16::<LittleEndian>()?,
+            dark_magic_level: reader.read_u8()?,
+            dark_magic_kills: reader.read_u16::<LittleEndian>()?,
+        };
+
+        // ── Trailing unknown bytes ──
+        let mut unknown_after_stats = vec![0u8; 9];
+        reader.read_exact(&mut unknown_after_stats)?;
+
+        Ok((unknown_before_stats, character_stats, unknown_after_stats))
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
