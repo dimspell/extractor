@@ -443,14 +443,26 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
     };
 
     let import_btn = if viewer.sprite_file.is_some() {
-        button(text("📷 Import…").size(11))
-            .on_press(sv(SpriteViewerMessage::ImportPngFrame))
-            .padding([3, 8])
-            .style(style::export_button)
+        button(
+            row![
+                text(icon_char(Icon::Image)).font(LUCIDE_FONT).size(11),
+                text(" Import…").size(11),
+            ]
+            .spacing(2),
+        )
+        .on_press(sv(SpriteViewerMessage::ImportPngFrame))
+        .padding([3, 8])
+        .style(style::export_button)
     } else {
-        button(text("📷 Import…").size(11))
-            .padding([3, 8])
-            .style(style::chip)
+        button(
+            row![
+                text(icon_char(Icon::Image)).font(LUCIDE_FONT).size(11),
+                text(" Import…").size(11),
+            ]
+            .spacing(2),
+        )
+        .padding([3, 8])
+        .style(style::chip)
     };
 
     container(
