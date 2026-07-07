@@ -586,6 +586,8 @@ pub struct SaveFile {
     pub jump_addr_after_maps: u32,
     /// Per-map world state.
     pub maps: Vec<MapSectionData>,
+    /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
+    pub sprite_paths: Vec<String>,
 }
 
 impl SaveFile {
@@ -637,14 +639,8 @@ impl SaveFile {
             unknown_block.capacity()
         );
 
-        // ── 4. Character sprite block ──
-        // It could be some rendered image of the save preview?
-        // Let's jump by hardcoded number of bytes.
-        for _ in 0..4 {
-            let mut sprite_path_cstr = vec![0u8; 60];
-            reader.read_exact(&mut sprite_path_cstr)?;
-        }
-        println!("reader.position(sprites) {:?}", reader.position() as usize);
+        // ── 4. Character sprite paths (4 × 60-byte WINDOWS-1250 strings) ──
+        let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
 
         // ── 4.2 Unknown block ──
         // IDs what is in the belt?
@@ -846,6 +842,7 @@ impl SaveFile {
         Ok(SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
             maps,
+            sprite_paths,
         })
     }
 
@@ -936,6 +933,23 @@ impl SaveFile {
         }
 
         Ok(maps)
+    }
+
+    /// Parse the 4 character sprite paths (4 × 60-byte fixed buffers).
+    ///
+    /// Each path is a null-terminated WINDOWS-1250 string, e.g.
+    /// `"inter\\m_bald.spr"` or `"CharacterInGame\\m_warrior.spr"`.
+    fn parse_sprite_paths<R: Read>(reader: &mut R) -> std::io::Result<Vec<String>> {
+        let mut paths = Vec::with_capacity(4);
+        for _ in 0..4 {
+            let mut buf = [0u8; 60];
+            reader.read_exact(&mut buf)?;
+            paths.push(
+                read_null_terminated_windows_1250(&buf)
+                    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?,
+            );
+        }
+        Ok(paths)
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
