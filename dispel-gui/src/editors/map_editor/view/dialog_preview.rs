@@ -219,29 +219,48 @@ pub fn view_dialog_preview<'a>(
             line.text.clone()
         };
 
-        // Build suffix (events, end marker, next links)
-        let mut suffix = String::new();
-        if line.has_prereq {
-            suffix.push_str(&format!(" [req#{}]", line.prereq_id));
-        }
-        if line.has_trigger {
-            suffix.push_str(&format!(" [ev#{}]", line.trigger_id));
-        }
-        if !line.next_labels.is_empty() {
-            suffix.push_str(&format!(" ─ {}", line.next_labels.join(" ")));
-        } else if line.is_end {
-            suffix.push_str(" ─ [END]");
-        }
-
-        let full_text = format!(
-            "{prefix}[{id}] {speaker}: \"{text}\"{suffix}",
+        let base_text = format!(
+            "{prefix}[{id}] {speaker}: \"{text}\"",
             id = line.script_id,
             speaker = speaker_colored,
             text = display_text,
-            suffix = suffix,
         );
 
-        container(text(full_text).size(11))
+        let mut line_parts: Vec<Element<'_, Message>> = vec![
+            text(base_text).size(11).into(),
+        ];
+
+        if line.has_prereq {
+            line_parts.push(
+                row![
+                    text(icon_char(Icon::Flag)).font(LUCIDE_FONT).size(10),
+                    text(format!(" req#{}", line.prereq_id)).size(11),
+                ]
+                .spacing(1)
+                .into(),
+            );
+        }
+        if line.has_trigger {
+            line_parts.push(
+                row![
+                    text(icon_char(Icon::Zap)).font(LUCIDE_FONT).size(10),
+                    text(format!(" ev#{}", line.trigger_id)).size(11),
+                ]
+                .spacing(1)
+                .into(),
+            );
+        }
+        if !line.next_labels.is_empty() {
+            line_parts.push(
+                text(format!(" ─ {}", line.next_labels.join(" ")))
+                    .size(11)
+                    .into(),
+            );
+        } else if line.is_end {
+            line_parts.push(text(" ─ [END]").size(11).into());
+        }
+
+        container(row(line_parts).spacing(2))
             .padding([2.0f32, left_pad + 8.0])
             .into()
     }))

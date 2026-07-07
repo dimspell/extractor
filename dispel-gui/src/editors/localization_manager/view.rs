@@ -172,7 +172,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                         color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
                     })
             } else {
-                text(icon_char(Icon::Circle))
+                text(icon_char(Icon::Dot))
                     .font(LUCIDE_FONT)
                     .size(11)
                     .style(style::subtle_text)

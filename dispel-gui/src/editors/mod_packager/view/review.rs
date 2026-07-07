@@ -8,6 +8,8 @@ use dispel_core::modding::{ChangeAction, ChangeOp, Value};
 use crate::app::App;
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use lucide_icons::Icon;
 
 /// Render the Review tab — changes grouped by file path with per-field diffs
 /// and revert buttons.
@@ -33,7 +35,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     let mut sections = Vec::new();
     for (file_path, changes) in &grouped {
-        let header = text(format!("📂 {file_path} — {} change(s)", changes.len())).size(13);
+        let header = row![
+            text(icon_char(Icon::FolderOpen)).font(LUCIDE_FONT).size(13),
+            text(format!(" {} — {} change(s)", file_path, changes.len())).size(13),
+        ]
+        .spacing(2);
         let mut section = column![header].spacing(6).padding(8);
 
         for action in changes.iter() {

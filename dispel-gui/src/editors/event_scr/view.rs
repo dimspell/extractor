@@ -22,7 +22,11 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let base = match &state.script_loading {
         LoadingState::Loaded(script) => {
             let script_id = script.id;
-            let modified_indicator = if state.modified { " ●" } else { "" };
+            let modified_indicator = if state.modified {
+                icon_char(Icon::Dot)
+            } else {
+                ' '
+            };
 
             let save_button = button("Save")
                 .on_press(EventScrEditorMessage::SaveScript)
@@ -225,6 +229,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 row![
                     text(format!("EventScript [{}]", script_id)).size(20),
                     text(modified_indicator)
+                        .font(LUCIDE_FONT)
                         .size(20)
                         .style(style::section_header),
                     Space::new().width(Length::Fill),

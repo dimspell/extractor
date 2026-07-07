@@ -2,6 +2,8 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Fill, Length};
 
 use dispel_core::modding::{Conflict, ConflictKind, FieldKey};
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use lucide_icons::Icon;
 
 use crate::app::App;
 use crate::components::utils::horizontal_space;
@@ -78,22 +80,35 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
         ConflictKind::FileWhole => format!("{}  •  whole-file overlap", c.file_path),
     };
     let winner = c.winner().to_owned();
-    let winner_label = if c.pinned_to.as_deref() == Some(winner.as_str()) {
-        format!("📌 pinned to {winner}")
+    let winner_label: Element<'_, Message> = if c.pinned_to.as_deref() == Some(winner.as_str()) {
+        row![
+            text(icon_char(Icon::Pin)).font(LUCIDE_FONT).size(11),
+            text(format!(" pinned to {winner}")).size(11),
+        ]
+        .spacing(2)
+        .into()
     } else {
-        format!("winner: {winner}")
+        text(format!("winner: {winner}")).size(11).into()
     };
 
     let mut rows = column![].spacing(2);
     for (i, p) in c.participants.iter().enumerate() {
         let is_winner = p.mod_id == winner;
-        let marker = if is_winner { ">" } else { " " };
         let value = match &p.field_new {
             Some(v) => format!("{:?}", v),
             None => format!("({})", p.op),
         };
-        let line = format!("  {} [{}] {} → {}", marker, i, p.mod_id, value);
-        rows = rows.push(text(line).size(11));
+        let line: Element<'_, Message> = if is_winner {
+            row![
+                text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                text(format!(" [{}] {} → {}", i, p.mod_id, value)).size(11),
+            ]
+            .spacing(0)
+            .into()
+        } else {
+            text(format!("   [{}] {} → {}", i, p.mod_id, value)).size(11).into()
+        };
+        rows = rows.push(line);
     }
 
     // Per-field pin controls only apply to soft (Field) conflicts.
@@ -107,12 +122,19 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
             let mut buttons = row![].spacing(6).align_y(Alignment::Center);
             for p in &c.participants {
                 let pinned_here = c.pinned_to.as_deref() == Some(p.mod_id.as_str());
-                let label = if pinned_here {
-                    format!("✓ {}", p.mod_id)
+                let mut btn = if pinned_here {
+                    button(
+                        row![
+                            text(icon_char(Icon::Check)).font(LUCIDE_FONT).size(11),
+                            text(format!(" {}", p.mod_id)).size(11),
+                        ]
+                        .spacing(2),
+                    )
+                    .padding([2, 8])
                 } else {
-                    format!("Pin {}", p.mod_id)
+                    button(text(format!("Pin {}", p.mod_id)).size(11))
+                        .padding([2, 8])
                 };
-                let mut btn = button(text(label).size(11)).padding([2, 8]);
                 if !pinned_here {
                     btn = btn.on_press(Message::mod_packager(ModPackagerMessage::PinConflict {
                         key: key.clone(),
@@ -145,7 +167,7 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
             row![
                 text(title).size(12),
                 horizontal_space().width(Length::Fill),
-                text(winner_label).size(11),
+                winner_label,
             ]
             .align_y(Alignment::Center),
             rows,

@@ -117,7 +117,7 @@ fn view_header(viewer: &SpriteViewerState) -> Element<'_, Message> {
     };
 
     // Undo/Redo buttons
-    let undo_btn = button(text("↩").size(12))
+    let undo_btn = button(text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(12))
         .on_press_maybe(if viewer.can_undo() {
             Some(sv(SpriteViewerMessage::Undo))
         } else {
@@ -126,7 +126,7 @@ fn view_header(viewer: &SpriteViewerState) -> Element<'_, Message> {
         .padding([3, 7])
         .style(style::playback_button);
 
-    let redo_btn = button(text("↪").size(12))
+    let redo_btn = button(text(icon_char(Icon::Redo2)).font(LUCIDE_FONT).size(12))
         .on_press_maybe(if viewer.can_redo() {
             Some(sv(SpriteViewerMessage::Redo))
         } else {

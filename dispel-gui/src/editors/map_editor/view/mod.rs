@@ -5,8 +5,10 @@ use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, toggler};
 use iced::{Element, Fill};
+use lucide_icons::Icon;
 
 mod dialog_preview;
 mod fields;
@@ -228,12 +230,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     save_btn.on_press(Message::map_editor(MapEditorMessage::SaveMap(tab_id)));
             }
 
-            let mut undo_btn = button(text("↩ Undo").size(11)).padding([3, 8]);
+            let mut undo_btn = button(
+                row![
+                    text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
+                    text(" Undo").size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([3, 8]);
             if can_undo {
                 undo_btn = undo_btn.on_press(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
 
-            let mut redo_btn = button(text("↪ Redo").size(11)).padding([3, 8]);
+            let mut redo_btn = button(
+                row![
+                    text("Redo ").size(11),
+                    text(icon_char(Icon::Redo2)).font(LUCIDE_FONT).size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([3, 8]);
             if can_redo {
                 redo_btn = redo_btn.on_press(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
