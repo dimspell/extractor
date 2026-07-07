@@ -653,6 +653,21 @@ pub struct JournalData {
     pub trade: Vec<JournalEntry>,
 }
 
+/// Character identity data (name, class, surrounding unknown blocks).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CharacterIdentity {
+    /// Unknown block before player name (96 bytes).
+    pub unknown_block: Vec<u8>,
+    /// Player name (11-byte WINDOWS-1250 null-terminated).
+    pub player_name: String,
+    /// Player class ID.
+    pub player_class_id: u16,
+    /// Player class name (11-byte WINDOWS-1250 null-terminated).
+    pub player_class_name: String,
+    /// Large unknown data block after identity (4040 bytes).
+    pub unknown_data: Vec<u8>,
+}
+
 /// Complete save file structure.
 ///
 /// More fields will be added in future phases.
@@ -677,6 +692,8 @@ pub struct SaveFile {
     pub journal: JournalData,
     /// Event scripts (2251 × 284 bytes).
     pub events: Vec<EventScript>,
+    /// Character identity (name, class, unknown blocks).
+    pub character_identity: CharacterIdentity,
 }
 
 impl SaveFile {
@@ -738,36 +755,8 @@ impl SaveFile {
         // ── 6. Inventory (5 categories, each count-prefixed) ──
         let inventory = Self::parse_inventory_section(&mut reader)?;
 
-        // ── 7. Character details ──
-
-        // 7.1. Unknown block of 88b
-        let mut unknown_block = vec![0u8; 96]; // 0.sav Christoforo
-                                               // let mut unknown_block = vec![0u8; 88]; // 0.sav Nuno
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
-
-        // 7.2 Character name
-        let mut name_raw = vec![0u8; 11];
-        reader.read_exact(&mut name_raw)?;
-        let character_name = read_null_terminated_windows_1250(name_raw.as_slice());
-
-        // 7.3 Character class
-        let character_class_id = reader.read_u16::<LittleEndian>()?;
-        let mut class_raw = vec![0u8; 11];
-        reader.read_exact(&mut class_raw)?;
-        let character_class_name = read_null_terminated_windows_1250(class_raw.as_slice());
-        println!(
-            "name: {:?}, class: {:?} ({:?})",
-            character_name, character_class_name, character_class_id
-        );
-
-        // 7.4. Unknown data
-        let mut unknown_block = vec![0u8; 4040]; // 0.sav Christoforo, 0.sav Nuno
-        reader.read_exact(&mut unknown_block)?;
+        // ── 7. Character identity (unknown block + name + class + large unknown) ──
+        let character_identity = Self::parse_character_identity(&mut reader)?;
 
         // ── 8. Events (2251 × 284 bytes) ──
         let events = Self::parse_events_section(&mut reader)?;
@@ -810,8 +799,9 @@ impl SaveFile {
             character_stats,
             unknown_after_stats,
             inventory,
-            journal,
+            character_identity,
             events,
+            journal,
         })
     }
 
@@ -1034,6 +1024,41 @@ impl SaveFile {
             events.push(EventScript::parse(&buf)?);
         }
         Ok(events)
+    }
+
+    /// Parse character identity (unknown block + name + class + large unknown).
+    ///
+    /// Layout:
+    ///   `[unknown_96B][name: 11B][class_id: u16][class_name: 11B][unknown_4040B]`
+    fn parse_character_identity<R: Read>(reader: &mut R) -> std::io::Result<CharacterIdentity> {
+        // ── 7.1. Unknown block (96 bytes before name) ──
+        let mut unknown_block = vec![0u8; 96];
+        reader.read_exact(&mut unknown_block)?;
+
+        // ── 7.2. Player name (11-byte WINDOWS-1250 null-terminated) ──
+        let mut name_raw = vec![0u8; 11];
+        reader.read_exact(&mut name_raw)?;
+        let player_name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        // ── 7.3. Player class ──
+        let player_class_id = reader.read_u16::<LittleEndian>()?;
+        let mut class_raw = vec![0u8; 11];
+        reader.read_exact(&mut class_raw)?;
+        let player_class_name = read_null_terminated_windows_1250(&class_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        // ── 7.4. Large unknown data block ──
+        let mut unknown_data = vec![0u8; 4040];
+        reader.read_exact(&mut unknown_data)?;
+
+        Ok(CharacterIdentity {
+            unknown_block,
+            player_name,
+            player_class_id,
+            player_class_name,
+            unknown_data,
+        })
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
