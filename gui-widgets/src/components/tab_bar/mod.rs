@@ -22,7 +22,7 @@ use iced::advanced::widget::Widget;
 use iced::advanced::{mouse, overlay as iced_overlay};
 use iced::alignment;
 use iced::{
-    Background, Border, Color, Element, Event, Font, Length, Pixels, Point, Rectangle, Size, Vector,
+    Background, Border, Color, Element, Event, Length, Pixels, Point, Rectangle, Size, Vector,
 };
 use lucide_icons::Icon;
 

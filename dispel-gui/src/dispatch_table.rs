@@ -81,6 +81,7 @@ define_update_dispatch! {
     (ModPackager, mod_packager),
     (Localization, localization_manager),
     (HexEditor, hex_wrapper),
+    (SaveFileViewer, save_file_viewer),
 }
 
 define_view_dispatch! {
@@ -120,12 +121,17 @@ define_view_dispatch! {
     (ModPackager, mod_packager),
     (LocalizationManager, localization_manager),
     (HexEditor, hex_wrapper),
+    (SaveFileViewer, save_file_viewer),
 }
 
 /// Return a `LoadCatalog` task for editors that load from the configured game
 /// path. Returns `None` for editors that are opened by explicit file path
 /// (dialogue, tileset, map, ref files) or that have no load-on-start behaviour.
 pub fn load_catalog_task(et: EditorType) -> Option<iced::Task<Message>> {
+    // SaveFileViewer: files are opened explicitly by path, no auto-load
+    if matches!(et, EditorType::SaveFileViewer) {
+        return None;
+    }
     use crate::components::standard::message::StandardEditorMessage;
     use crate::message::MessageExt;
 

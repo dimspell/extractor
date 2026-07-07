@@ -25,6 +25,7 @@ use crate::editors::snf_editor::SnfEditorState;
 use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
+use crate::editors::save_file_viewer::SaveFileViewerState;
 use crate::editors::wave_ini::WaveIniEditorState;
 use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
@@ -79,6 +80,7 @@ pub struct EditorRegistry {
     pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
+    pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -171,6 +173,7 @@ impl EditorRegistry {
         self.tileset_editors.remove(&tab_id);
         self.map_editors.remove(&tab_id);
         self.hex_editors.remove(&tab_id);
+        self.save_file_viewers.remove(&tab_id);
     }
 
     /// Clear editors for every tab.  Use when the workspace is about to lose
@@ -191,6 +194,7 @@ impl EditorRegistry {
         self.tileset_editors.clear();
         self.map_editors.clear();
         self.hex_editors.clear();
+        self.save_file_viewers.clear();
     }
 
     /// Stop SNF audio playback on every open SNF editor.
@@ -375,6 +379,7 @@ impl EditorRegistry {
         self.map_editors.clear();
         self.snf_editors.clear();
         self.hex_editors.clear();
+        self.save_file_viewers.clear();
 
         // Boxed editors — reset to default
         *self.weapon_editor = Default::default();

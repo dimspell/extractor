@@ -7,7 +7,7 @@
 use iced::advanced::renderer::Quad;
 use iced::advanced::text;
 use iced::alignment;
-use iced::{Background, Border, Color, Font, Pixels, Point, Rectangle, Size};
+use iced::{Background, Border, Color, Pixels, Point, Rectangle, Size};
 
 use lucide_icons::Icon;
 

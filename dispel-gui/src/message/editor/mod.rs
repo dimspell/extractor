@@ -37,6 +37,7 @@ use crate::editors::sprite_editor::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::tileset::TilesetEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
+use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::editors::weapon::WeaponEditorMessage;
 use hexedit::HexEditorMessage;
 
@@ -77,5 +78,6 @@ pub enum EditorMessage {
     Snf(SnfEditorMessage),
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
+    SaveFileViewer(SaveFileViewerMessage),
     HexEditor(HexEditorMessage),
 }

@@ -10,14 +10,6 @@ use std::io::{Read, Seek, Write};
 // use proptest::char::range;
 use super::extractor::{read_null_terminated_windows_1250, Extractor};
 
-/// Save-file inventory record layout:
-///   [type: u32(4B)][name: 30B fixed cstr][desc: 234B fixed cstr][price: i32(4B)] = 272B
-///
-/// The name buffer may contain a binary prefix before the text name
-/// (e.g. id/qty bytes embedded). `extract_text()` skips leading non-printable
-/// bytes to find the readable portion.
-const INVENTORY_RECORD_SIZE: usize = 4 + 30 + 234 + 4; // 272
-
 /// Inventory item record from save file
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryItem {
@@ -1097,7 +1089,7 @@ impl Extractor for SaveFile {
             ));
         }
 
-        let save = &records[0];
+        // let save = &records[0];
 
         // // Write header (12 bytes)
         // writer.write_all(&save.header)?;

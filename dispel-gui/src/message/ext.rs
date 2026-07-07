@@ -38,6 +38,7 @@ define_message_ext! {
     mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
     hex_editor:      HexEditor(hexedit::HexEditorMessage),
+    save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
 }
 
 /// Extension trait for building nested editor messages.

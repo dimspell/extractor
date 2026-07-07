@@ -47,6 +47,8 @@ pub enum EditorType {
     MapEditor,
     ModPackager,
     LocalizationManager,
+    /// Read-only viewer for Dispel .sav save files.
+    SaveFileViewer,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -89,6 +91,7 @@ impl EditorType {
             "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
             "map" => EditorType::MapEditor,
+            "sav" => EditorType::SaveFileViewer,
             _ => EditorType::HexEditor,
         }
     }
@@ -144,6 +147,7 @@ impl EditorType {
                 | EditorType::TilesetEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
                 | EditorType::Unknown
         )
@@ -163,6 +167,7 @@ impl EditorType {
                 | EditorType::MapEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
                 | EditorType::Unknown
         )
@@ -185,6 +190,7 @@ impl EditorType {
                 | EditorType::MapEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
                 | EditorType::Unknown
         )
