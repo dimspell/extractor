@@ -642,6 +642,17 @@ pub struct InventoryData {
     pub heal_items: Vec<u8>,
 }
 
+/// Journal data from a save file (3 sections × 100 entries).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct JournalData {
+    /// Main quest entries (100 × 37 bytes)
+    pub main: Vec<JournalEntry>,
+    /// Side quest entries (100 × 37 bytes)
+    pub side: Vec<JournalEntry>,
+    /// Trading offer entries (100 × 37 bytes)
+    pub trade: Vec<JournalEntry>,
+}
+
 /// Complete save file structure.
 ///
 /// More fields will be added in future phases.
@@ -662,6 +673,8 @@ pub struct SaveFile {
     pub unknown_after_stats: Vec<u8>,
     /// Raw inventory data (5 item categories).
     pub inventory: InventoryData,
+    /// Journal entries (main, side, trade — 100 entries each).
+    pub journal: JournalData,
 }
 
 impl SaveFile {
@@ -792,35 +805,8 @@ impl SaveFile {
             unknown_block,
         );
 
-        // ── 10. Journal ──
-
-        // 10.1. Main quests
-        let mut journal_raw = vec![0u8; 37 * 100];
-        reader.read_exact(&mut journal_raw)?;
-        let journal_main = Self::parse_journal_entries(&journal_raw, 100);
-        match journal_main {
-            Ok(journal) => println!("journal_main: {:?}", journal[0].name),
-            Err(e) => println!("journal_main: {:?}", e),
-        };
-
-        let seek_cursor = reader.position();
-        println!("seek addr: {:?} - main end", seek_cursor);
-
-        // 10.2. Side quests
-        let mut journal_raw = vec![0u8; 37 * 100];
-        reader.read_exact(&mut journal_raw)?;
-        let _journal_side = Self::parse_journal_entries(&journal_raw, 100);
-
-        let seek_cursor = reader.position();
-        println!("seek addr: {:?} - side end", seek_cursor);
-
-        // 10.3. Trading offers
-        let mut journal_raw = vec![0u8; 37 * 100];
-        reader.read_exact(&mut journal_raw)?;
-        let _journal_trade = Self::parse_journal_entries(&journal_raw, 100);
-
-        let seek_cursor = reader.position();
-        println!("seek addr: {:?} - journal end", seek_cursor);
+        // ── 10. Journal (3 sections × 100 × 37 bytes) ──
+        let journal = Self::parse_journal_section(&mut reader)?;
 
         Ok(SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
@@ -830,6 +816,7 @@ impl SaveFile {
             character_stats,
             unknown_after_stats,
             inventory,
+            journal,
         })
     }
 
@@ -1017,6 +1004,27 @@ impl SaveFile {
             weapon_items: Self::read_draw_item_section(reader, 292)?,
             heal_items: Self::read_draw_item_section(reader, 256)?,
         })
+    }
+
+    /// Parse the journal section (3 × 100 × 37-byte entries).
+    fn parse_journal_section<R: Read>(reader: &mut R) -> std::io::Result<JournalData> {
+        const ENTRY_SIZE: usize = 37;
+        const ENTRIES_PER_SECTION: usize = 100;
+        const SECTION_SIZE: usize = ENTRY_SIZE * ENTRIES_PER_SECTION; // 3700
+
+        let mut raw = vec![0u8; SECTION_SIZE];
+        reader.read_exact(&mut raw)?;
+        let main = Self::parse_journal_entries(&raw, ENTRIES_PER_SECTION)?;
+
+        let mut raw = vec![0u8; SECTION_SIZE];
+        reader.read_exact(&mut raw)?;
+        let side = Self::parse_journal_entries(&raw, ENTRIES_PER_SECTION)?;
+
+        let mut raw = vec![0u8; SECTION_SIZE];
+        reader.read_exact(&mut raw)?;
+        let trade = Self::parse_journal_entries(&raw, ENTRIES_PER_SECTION)?;
+
+        Ok(JournalData { main, side, trade })
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
