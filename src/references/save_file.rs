@@ -668,6 +668,32 @@ pub struct CharacterIdentity {
     pub unknown_data: Vec<u8>,
 }
 
+/// Unknown data block between map data and sprite paths (section 3).
+///
+/// Layout: `[9 × u32 header][variable-size remainder]`.
+/// The remainder size is calculated as `(10188 + 4 * num_visited_maps) - 36`.
+/// The header values may encode sizes of sub-sections within the remainder
+/// (monster_block_size, npc_block_size, extra_object_block_size observed as 329, 349, 200).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PostMapsData {
+    /// Possibly the save slot index.
+    pub save_slot_id: u32,
+    /// Possibly a Win32 timestamp of when this save was created.
+    pub save_timestamp: u32,
+    /// 3 unknown u32 values (observed: 4, 8, 0).
+    pub unknowns_a: [u32; 3],
+    /// Possibly the size of the monster data block within the remainder.
+    pub monster_block_size: u32,
+    /// Possibly the size of the NPC data block within the remainder.
+    pub npc_block_size: u32,
+    /// Possibly the size of the extra object data block within the remainder.
+    pub extra_object_block_size: u32,
+    /// One more unknown u32 (observed: 0, sandwiched between npc and extra sizes).
+    pub unknown_b: u32,
+    /// The rest of the section after the header.
+    pub unknown_block: Vec<u8>,
+}
+
 /// Unknown data block between events and journal sections.
 ///
 /// Structure: fixed 12 bytes + counter-prefixed 24-byte records + fixed 98 bytes.
@@ -691,6 +717,8 @@ pub struct SaveFile {
     pub jump_addr_after_maps: u32,
     /// Per-map world state.
     pub maps: Vec<MapSectionData>,
+    /// Unknown data between maps and sprite paths (header + variable-size remainder).
+    pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
     /// Raw belt/quick-slot data (40 bytes before character stats).
@@ -734,31 +762,8 @@ impl SaveFile {
             reader.set_position(jump_addr_after_maps as u64);
         }
 
-        // ── 3. Unknown block ──
-        // It could be some rendered image of the save preview?
-        // Let's jump by hardcoded number of bytes.
-
-        let guessed_save_slot_id = reader.read_u32::<LittleEndian>()?;
-        let guessed_save_win32_date = reader.read_u32::<LittleEndian>()?;
-        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 4
-        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 8
-        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 0
-        let monster_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 329
-        let npc_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 349
-        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 0
-        let extra_object_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 200
-
-        let size: usize = 4 + 4 + 12 + 4 + 4 + 4 + 4;
-        let size = (10188 + 4 * number_of_visited_map as usize) - size;
-        let mut unknown_block = vec![0u8; size];
-
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} (len: {}, cap: {})",
-            reader.position() as usize,
-            unknown_block.len(),
-            unknown_block.capacity()
-        );
+        // ── 3. Unknown data between maps and sprite paths ──
+        let post_maps = Self::parse_post_maps_data(&mut reader, number_of_visited_map)?;
 
         // ── 4. Character sprite paths (4 × 60-byte WINDOWS-1250 strings) ──
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
@@ -785,6 +790,7 @@ impl SaveFile {
         Ok(SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
             maps,
+            post_maps,
             sprite_paths,
             unknown_before_stats,
             character_stats,
@@ -884,6 +890,41 @@ impl SaveFile {
         }
 
         Ok(maps)
+    }
+
+    /// Parse the unknown data block between maps and sprite paths.
+    ///
+    /// Layout: `[9 × u32 header][variable-size remainder]`
+    fn parse_post_maps_data<R: Read>(
+        reader: &mut R,
+        num_visited_maps: u32,
+    ) -> std::io::Result<PostMapsData> {
+        let header = [
+            reader.read_u32::<LittleEndian>()?, // 0: maybe save_slot_id
+            reader.read_u32::<LittleEndian>()?, // 1: maybe save_timestamp
+            reader.read_u32::<LittleEndian>()?, // 2: observed 4
+            reader.read_u32::<LittleEndian>()?, // 3: observed 8
+            reader.read_u32::<LittleEndian>()?, // 4: observed 0
+            reader.read_u32::<LittleEndian>()?, // 5: monster_block_size (observed 329)
+            reader.read_u32::<LittleEndian>()?, // 6: npc_block_size (observed 349)
+            reader.read_u32::<LittleEndian>()?, // 7: observed 0
+            reader.read_u32::<LittleEndian>()?, // 8: extra_object_block_size (observed 200)
+        ];
+
+        let remainder = (10188 + 4 * num_visited_maps as usize) - 36;
+        let mut unknown_block = vec![0u8; remainder];
+        reader.read_exact(&mut unknown_block)?;
+
+        Ok(PostMapsData {
+            save_slot_id: header[0],
+            save_timestamp: header[1],
+            unknowns_a: [header[2], header[3], header[4]],
+            monster_block_size: header[5],
+            npc_block_size: header[6],
+            extra_object_block_size: header[8],
+            unknown_b: header[7],
+            unknown_block,
+        })
     }
 
     /// Parse the 4 character sprite paths (4 × 60-byte fixed buffers).
