@@ -550,52 +550,42 @@ impl DrawItem {
     }
 }
 
-/// Complete save file structure preserving all binary data for round-trip.
+/// Data for one map section in a save file.
 ///
-/// The authoritative binary data is stored in raw `Vec<u8>` sections.
-/// Structured fields are derived on a best-effort basis and may be empty
-/// for save files whose layout hasn't been mapped yet.
+/// Each visited map records its monsters, NPCs, extra objects (chests, doors,
+/// triggers), and items lying on the ground in five type-specific categories.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MapSectionData {
+    /// Map index/ID referenced in AllMap.ini
+    pub map_id: u32,
+    /// Monsters present on this map
+    pub monsters: Vec<MonsterRecord>,
+    /// NPCs present on this map
+    pub npcs: Vec<NpcRecord>,
+    /// Extra objects (chests, triggers, etc.)
+    pub extra_objects: Vec<ExtraObjectRecord>,
+    /// Ground items — Weapon type (count × 296 bytes each)
+    pub draw_items_weapon: Vec<u8>,
+    /// Ground items — Heal type (count × 264 bytes each)
+    pub draw_items_heal: Vec<u8>,
+    /// Ground items — Edit type (count × 280 bytes each)
+    pub draw_items_edit: Vec<u8>,
+    /// Ground items — Misc type (count × 268 bytes each)
+    pub draw_items_misc: Vec<u8>,
+    /// Ground items — Event type (count × 252 bytes each)
+    pub draw_items_event: Vec<u8>,
+}
+
+/// Complete save file structure.
+///
+/// More fields will be added in future phases.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SaveFile {
-    // ── Raw binary sections (authoritative for round-trip) ──
-    // pub header: [u8; 12],
-    // /// Raw bytes of all surface monsters (count × 329), parsed below
-    // pub monsters_data: Vec<u8>,
-    // /// Raw bytes of all NPCs (count × 349)
-    // pub npcs_data: Vec<u8>,
-    // /// Raw bytes of all surface objects (count × 200)
-    // pub extras_data: Vec<u8>,
-    //
-    // /// Everything from after surface_objects to EOF.
-    // pub remaining_data: Vec<u8>,
-    //
-    // // ── Parsed structured fields (best-effort from raw sections) ──
-    // pub surface_monsters: Vec<MonsterRecord>,
-    // pub npcs: Vec<NpcRecord>,
-    // pub surface_objects: Vec<ExtraObjectRecord>,
-    //
-    // // ── Parsed structured fields (best-effort from remaining_data) ──
-    // pub draw_items_data: Vec<u8>,
-    // pub dungeon_header_data: Vec<u8>,
-    // pub dungeon_map_id: u32,
-    // pub dungeon_monsters: Vec<MonsterRecord>,
-    // pub dungeon_objects: Vec<ExtraObjectRecord>,
-    //
-    // pub sprite_paths: Vec<String>,
-    // pub character_details: Vec<u8>, // 40 bytes
-    // pub player_attributes: PlayerAttributes,
-    // pub extra_character_data: Vec<u8>, // 46 bytes (2 u16s + 42 bytes)
-    // pub character_unknown_block: Vec<u8>, // 96 bytes before character name
-    // pub player_name: String,
-    // pub player_class_id: i16,
-    // pub player_class_name: String,
-    //
-    // pub inventory_items: Vec<InventoryItem>,
-    //
-    // pub events: Vec<EventScript>,
-    // pub journal_main: Vec<JournalEntry>,  // 100 entries
-    // pub journal_side: Vec<JournalEntry>,  // 100 entries
-    // pub journal_trade: Vec<JournalEntry>, // 100 entries
+    /// Jump address after all map data (first 4 bytes of the file).
+    /// The maps section is followed by alignment to this address.
+    pub jump_addr_after_maps: u32,
+    /// Per-map world state.
+    pub maps: Vec<MapSectionData>,
 }
 
 impl SaveFile {
@@ -608,82 +598,7 @@ impl SaveFile {
 
         // ── 2. Maps ──
         let number_of_visited_map = reader.read_u32::<LittleEndian>()?;
-        for map_iter in 0..number_of_visited_map {
-            let seek_cursor = reader.position();
-
-            let map_idx = reader.read_u32::<LittleEndian>()?;
-            println!(
-                "map-iter: {} ({:?}), seek addr: {:?}",
-                map_iter, map_idx, seek_cursor
-            );
-
-            // ── 2.1. MONSTERS ──
-            let monster_count = reader.read_u32::<LittleEndian>()? as usize;
-            let mut monsters_data = vec![0u8; monster_count * 329];
-            reader.read_exact(&mut monsters_data)?;
-
-            let mut monsters = Vec::with_capacity(monster_count);
-            for chunk in monsters_data.chunks_exact(329) {
-                monsters.push(MonsterRecord::parse(chunk)?);
-            }
-
-            // ── 2.2. NPCS ──
-            let npc_count = reader.read_u32::<LittleEndian>()? as usize;
-            let mut npcs_data = vec![0u8; npc_count * 349];
-            reader.read_exact(&mut npcs_data)?;
-
-            let mut npcs = Vec::with_capacity(npc_count);
-            for chunk in npcs_data.chunks_exact(349) {
-                npcs.push(NpcRecord::parse(chunk)?);
-            }
-
-            // ── 2.3. UNKNOWN SEPARATOR ──
-            let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
-
-            // ── 2.4. EXTRA OBJECTS ──
-            let extras_count = reader.read_u32::<LittleEndian>()? as usize;
-            let mut extras_data = vec![0u8; extras_count * 200];
-            reader.read_exact(&mut extras_data)?;
-
-            let mut extra_objects = Vec::with_capacity(extras_count);
-            for chunk in extras_data.chunks_exact(200) {
-                extra_objects.push(ExtraObjectRecord::parse(chunk, false)?);
-            }
-
-            // ── 2.5. UNKNOWN SEPARATOR ──
-            let mut _unknown_separator = vec![0u8; 11];
-            reader.read_exact(&mut _unknown_separator)?;
-
-            // ── 2.6. ITEMS ON GROUND - Weapons ──
-            let draw_item_weapon_count = reader.read_u16::<LittleEndian>()? as usize;
-            let mut draw_item_weapon_data = vec![0u8; draw_item_weapon_count * 296];
-            reader.read_exact(&mut draw_item_weapon_data)?;
-
-            // ── 2.7. ITEMS ON GROUND - Heal ──
-            let draw_item_heal_count = reader.read_u16::<LittleEndian>()? as usize;
-            let mut draw_item_heal_data = vec![0u8; draw_item_heal_count * 264];
-            reader.read_exact(&mut draw_item_heal_data)?;
-
-            // ── 2.8. ITEMS ON GROUND - Edit ──
-            let draw_item_edit_count = reader.read_u16::<LittleEndian>()? as usize;
-            let mut draw_item_edit_data = vec![0u8; draw_item_edit_count * 280];
-            reader.read_exact(&mut draw_item_edit_data)?;
-
-            // ── 2.9. ITEMS ON GROUND - Misc ──
-            let draw_item_misc_count = reader.read_u16::<LittleEndian>()? as usize;
-            let mut draw_item_misc_data = vec![0u8; draw_item_misc_count * 268];
-            reader.read_exact(&mut draw_item_misc_data)?;
-
-            // ── 2.10. ITEMS ON GROUND - Event ──
-            let draw_item_event_count = reader.read_u16::<LittleEndian>()? as usize;
-            let mut draw_item_event_data = vec![0u8; draw_item_event_count * 252];
-            reader.read_exact(&mut draw_item_event_data)?;
-
-            // ── 2.11. UNKNOWN SEPARATOR (end of array) ──
-            let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
-
-            println!("reader.position(map_end) {:?}", reader.position() as usize);
-        }
+        let maps = Self::parse_maps_section(&mut reader, number_of_visited_map)?;
 
         if jump_addr_after_maps != reader.position() as usize {
             // 0.sav Christofor: 2 chests, +500 bytes
@@ -928,83 +843,99 @@ impl SaveFile {
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - journal end", seek_cursor);
 
-        // Leftover of the old code that was not working and was wrongly implemented:
-        // let remaining_start = reader.position() as usize;
-        // let mut remaining_data = vec![0u8; data.len() - remaining_start];
-        // reader.read_exact(&mut remaining_data)?;
-        //
-        // // ── Best-effort structured field extraction ──
-        // // These are derived from remaining_data. If extraction fails for any
-        // // save file variant, the fields stay at their defaults.
-        // let mut character_details = Vec::new();
-        // let mut player_attributes = PlayerAttributes::default();
-        // let mut extra_character_data = Vec::new();
-        // let mut character_unknown_block = Vec::new();
-        // let mut player_name = String::new();
-        // let mut player_class_id: i16 = 0;
-        // let mut player_class_name = String::new();
-        // let mut inventory_items = Vec::new();
-        // let mut events = Vec::new();
-        // let mut journal_main = Vec::new();
-        // let mut journal_side = Vec::new();
-        // let mut journal_trade = Vec::new();
-        //
-        // // Try to extract player identity (name + class) and tail sections.
-        // // This is best-effort — failures silently leave fields at defaults.
-        // Self::extract_player_identity(
-        //     &remaining_data,
-        //     &mut player_name,
-        //     &mut player_class_id,
-        //     &mut player_class_name,
-        // );
-        // Self::extract_tail_sections(
-        //     &remaining_data,
-        //     &mut events,
-        //     &mut journal_main,
-        //     &mut journal_side,
-        //     &mut journal_trade,
-        //     &mut character_details,
-        //     &mut player_attributes,
-        //     &mut extra_character_data,
-        //     &mut character_unknown_block,
-        //     &mut inventory_items,
-        // );
-        //
-        // let draw_items_data = Vec::new();
-        // let dungeon_header_data = Vec::new();
-        // let dungeon_map_id = 0u32;
-        // let dungeon_monsters: Vec<MonsterRecord> = Vec::new();
-        // let dungeon_objects: Vec<ExtraObjectRecord> = Vec::new();
-        // let sprite_paths: Vec<String> = Vec::new();
-
         Ok(SaveFile {
-            // header,
-            // monsters_data,
-            // npcs_data,
-            // extras_data,
-            // remaining_data,
-            // surface_monsters,
-            // npcs,
-            // surface_objects,
-            // draw_items_data,
-            // dungeon_header_data,
-            // dungeon_map_id,
-            // dungeon_monsters,
-            // dungeon_objects,
-            // sprite_paths,
-            // character_details,
-            // player_attributes,
-            // extra_character_data,
-            // character_unknown_block,
-            // player_name,
-            // player_class_id,
-            // player_class_name,
-            // inventory_items,
-            // events,
-            // journal_main,
-            // journal_side,
-            // journal_trade,
+            jump_addr_after_maps: jump_addr_after_maps as u32,
+            maps,
         })
+    }
+
+    /// Read a count-prefixed draw item section from the reader.
+    ///
+    /// Each draw item section in the save file is stored as:
+    ///   `[count: u16][count × record_size bytes]`
+    fn read_draw_item_section<R: Read>(
+        reader: &mut R,
+        record_size: u32,
+    ) -> std::io::Result<Vec<u8>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * record_size as usize];
+        reader.read_exact(&mut data)?;
+        Ok(data)
+    }
+
+    /// Parse all map sections from the reader.
+    ///
+    /// Each map has:
+    ///   `[map_id: u32][monsters][npcs][sep: u32][extra_objects][sep: 11B]
+    ///    [draw_items_weapon][draw_items_heal][draw_items_edit]
+    ///    [draw_items_misc][draw_items_event][end_sep: u32]`
+    fn parse_maps_section<R: Read>(
+        reader: &mut R,
+        map_count: u32,
+    ) -> std::io::Result<Vec<MapSectionData>> {
+        let mut maps = Vec::with_capacity(map_count as usize);
+
+        for _ in 0..map_count {
+            let map_id = reader.read_u32::<LittleEndian>()?;
+
+            // ── 2.1. Monsters ──
+            let monster_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut monsters_data = vec![0u8; monster_count * 329];
+            reader.read_exact(&mut monsters_data)?;
+            let monsters = monsters_data
+                .chunks_exact(329)
+                .map(MonsterRecord::parse)
+                .collect::<std::io::Result<Vec<_>>>()?;
+
+            // ── 2.2. NPCs ──
+            let npc_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut npcs_data = vec![0u8; npc_count * 349];
+            reader.read_exact(&mut npcs_data)?;
+            let npcs = npcs_data
+                .chunks_exact(349)
+                .map(NpcRecord::parse)
+                .collect::<std::io::Result<Vec<_>>>()?;
+
+            // ── 2.3. Separator (always 0) ──
+            let _separator = reader.read_u32::<LittleEndian>()?;
+
+            // ── 2.4. Extra objects ──
+            let extras_count = reader.read_u32::<LittleEndian>()? as usize;
+            let mut extras_data = vec![0u8; extras_count * 200];
+            reader.read_exact(&mut extras_data)?;
+            let extra_objects = extras_data
+                .chunks_exact(200)
+                .map(|chunk| ExtraObjectRecord::parse(chunk, false))
+                .collect::<std::io::Result<Vec<_>>>()?;
+
+            // ── 2.5. Separator (11 bytes, unknown meaning) ──
+            let mut _separator = vec![0u8; 11];
+            reader.read_exact(&mut _separator)?;
+
+            // ── 2.6–2.10. Ground items (5 types) ──
+            let draw_items_weapon = Self::read_draw_item_section(reader, 296)?;
+            let draw_items_heal = Self::read_draw_item_section(reader, 264)?;
+            let draw_items_edit = Self::read_draw_item_section(reader, 280)?;
+            let draw_items_misc = Self::read_draw_item_section(reader, 268)?;
+            let draw_items_event = Self::read_draw_item_section(reader, 252)?;
+
+            // ── 2.11. End-of-map separator (always 0) ──
+            let _separator = reader.read_u32::<LittleEndian>()?;
+
+            maps.push(MapSectionData {
+                map_id,
+                monsters,
+                npcs,
+                extra_objects,
+                draw_items_weapon,
+                draw_items_heal,
+                draw_items_edit,
+                draw_items_misc,
+                draw_items_event,
+            });
+        }
+
+        Ok(maps)
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
