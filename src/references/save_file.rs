@@ -668,6 +668,19 @@ pub struct CharacterIdentity {
     pub unknown_data: Vec<u8>,
 }
 
+/// Unknown data block between events and journal sections.
+///
+/// Structure: fixed 12 bytes + counter-prefixed 24-byte records + fixed 98 bytes.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PostEventsData {
+    /// Unknown fixed block (12 bytes).
+    pub block_a: Vec<u8>,
+    /// Unknown records (counter × 24 bytes each).
+    pub records: Vec<u8>,
+    /// Unknown fixed block (98 bytes).
+    pub block_b: Vec<u8>,
+}
+
 /// Complete save file structure.
 ///
 /// More fields will be added in future phases.
@@ -694,6 +707,8 @@ pub struct SaveFile {
     pub events: Vec<EventScript>,
     /// Character identity (name, class, unknown blocks).
     pub character_identity: CharacterIdentity,
+    /// Unknown data between events and journal (3 sub-blocks).
+    pub post_events: PostEventsData,
 }
 
 impl SaveFile {
@@ -761,32 +776,8 @@ impl SaveFile {
         // ── 8. Events (2251 × 284 bytes) ──
         let events = Self::parse_events_section(&mut reader)?;
 
-        // ── 9. Unknown block ──
-        // Not recognized why it is variable in size.
-        let mut unknown_block = vec![0u8; 12]; // 0.sav Christoforo
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
-
-        let unknown_counter = reader.read_u32::<LittleEndian>()? as usize;
-        let mut unknown_block = vec![0u8; unknown_counter * 24];
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
-
-        let mut unknown_block = vec![0u8; 98]; // 0.sav Christoforo
-        reader.read_exact(&mut unknown_block)?;
-        println!(
-            "reader.position(unknown_block) {:?} {:?}",
-            reader.position() as usize,
-            unknown_block,
-        );
+        // ── 9. Unknown data between events and journal ──
+        let post_events = Self::parse_post_events_data(&mut reader)?;
 
         // ── 10. Journal (3 sections × 100 × 37 bytes) ──
         let journal = Self::parse_journal_section(&mut reader)?;
@@ -801,6 +792,7 @@ impl SaveFile {
             inventory,
             character_identity,
             events,
+            post_events,
             journal,
         })
     }
@@ -1058,6 +1050,27 @@ impl SaveFile {
             player_class_id,
             player_class_name,
             unknown_data,
+        })
+    }
+
+    /// Parse the unknown section between events and journal.
+    ///
+    /// Layout: `[block_a: 12B][count: u32][count × 24B records][block_b: 98B]`
+    fn parse_post_events_data<R: Read>(reader: &mut R) -> std::io::Result<PostEventsData> {
+        let mut block_a = vec![0u8; 12];
+        reader.read_exact(&mut block_a)?;
+
+        let count = reader.read_u32::<LittleEndian>()? as usize;
+        let mut records = vec![0u8; count * 24];
+        reader.read_exact(&mut records)?;
+
+        let mut block_b = vec![0u8; 98];
+        reader.read_exact(&mut block_b)?;
+
+        Ok(PostEventsData {
+            block_a,
+            records,
+            block_b,
         })
     }
 
