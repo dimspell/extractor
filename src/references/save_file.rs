@@ -675,6 +675,8 @@ pub struct SaveFile {
     pub inventory: InventoryData,
     /// Journal entries (main, side, trade — 100 entries each).
     pub journal: JournalData,
+    /// Event scripts (2251 × 284 bytes).
+    pub events: Vec<EventScript>,
 }
 
 impl SaveFile {
@@ -767,16 +769,8 @@ impl SaveFile {
         let mut unknown_block = vec![0u8; 4040]; // 0.sav Christoforo, 0.sav Nuno
         reader.read_exact(&mut unknown_block)?;
 
-        // ── 8. Events ──
-        for _ in 0..2251 {
-            let mut event_raw = vec![0u8; 284];
-            reader.read_exact(&mut event_raw)?;
-            let _event = EventScript::parse(event_raw.as_slice())?;
-            // println!("event: {:?}", event.script_name);
-        }
-
-        let seek_cursor = reader.position();
-        println!("seek addr: {:?} - after events", seek_cursor);
+        // ── 8. Events (2251 × 284 bytes) ──
+        let events = Self::parse_events_section(&mut reader)?;
 
         // ── 9. Unknown block ──
         // Not recognized why it is variable in size.
@@ -817,6 +811,7 @@ impl SaveFile {
             unknown_after_stats,
             inventory,
             journal,
+            events,
         })
     }
 
@@ -1025,6 +1020,20 @@ impl SaveFile {
         let trade = Self::parse_journal_entries(&raw, ENTRIES_PER_SECTION)?;
 
         Ok(JournalData { main, side, trade })
+    }
+
+    /// Parse the events section (2251 × 284-byte event records).
+    fn parse_events_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<EventScript>> {
+        const EVENT_COUNT: usize = 2251;
+        const EVENT_SIZE: usize = 284;
+
+        let mut events = Vec::with_capacity(EVENT_COUNT);
+        for _ in 0..EVENT_COUNT {
+            let mut buf = [0u8; EVENT_SIZE];
+            reader.read_exact(&mut buf)?;
+            events.push(EventScript::parse(&buf)?);
+        }
+        Ok(events)
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
