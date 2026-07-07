@@ -622,20 +622,20 @@ impl SaveFile {
             let mut monsters_data = vec![0u8; monster_count * 329];
             reader.read_exact(&mut monsters_data)?;
 
-            // let mut surface_monsters = Vec::with_capacity(monster_count);
-            // for chunk in monsters_data.chunks_exact(329) {
-            //     surface_monsters.push(MonsterRecord::parse(chunk)?);
-            // }
+            let mut monsters = Vec::with_capacity(monster_count);
+            for chunk in monsters_data.chunks_exact(329) {
+                monsters.push(MonsterRecord::parse(chunk)?);
+            }
 
             // ── 2.2. NPCS ──
             let npc_count = reader.read_u32::<LittleEndian>()? as usize;
             let mut npcs_data = vec![0u8; npc_count * 349];
             reader.read_exact(&mut npcs_data)?;
 
-            // let mut npcs = Vec::with_capacity(npc_count);
-            // for chunk in npcs_data.chunks_exact(349) {
-            //     npcs.push(NpcRecord::parse(chunk)?);
-            // }
+            let mut npcs = Vec::with_capacity(npc_count);
+            for chunk in npcs_data.chunks_exact(349) {
+                npcs.push(NpcRecord::parse(chunk)?);
+            }
 
             // ── 2.3. UNKNOWN SEPARATOR ──
             let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
@@ -645,10 +645,10 @@ impl SaveFile {
             let mut extras_data = vec![0u8; extras_count * 200];
             reader.read_exact(&mut extras_data)?;
 
-            // let mut surface_objects = Vec::with_capacity(extras_count);
-            // for chunk in extras_data.chunks_exact(200) {
-            //     surface_objects.push(ExtraObjectRecord::parse(chunk, false)?);
-            // }
+            let mut extra_objects = Vec::with_capacity(extras_count);
+            for chunk in extras_data.chunks_exact(200) {
+                extra_objects.push(ExtraObjectRecord::parse(chunk, false)?);
+            }
 
             // ── 2.5. UNKNOWN SEPARATOR ──
             let mut _unknown_separator = vec![0u8; 11];
@@ -681,6 +681,8 @@ impl SaveFile {
 
             // ── 2.11. UNKNOWN SEPARATOR (end of array) ──
             let _unknown_separator = reader.read_u32::<LittleEndian>()?; // always 0
+
+            println!("reader.position(map_end) {:?}", reader.position() as usize);
         }
 
         if jump_addr_after_maps != reader.position() as usize {
@@ -698,9 +700,27 @@ impl SaveFile {
         // It could be some rendered image of the save preview?
         // Let's jump by hardcoded number of bytes.
 
-        let mut unknown_block = vec![0u8; 10256]; // 0.sav Christoforo
-                                                  // let mut unknown_block = vec![0u8; 10196]; // 0.sav Nuno
+        let guessed_save_slot_id = reader.read_u32::<LittleEndian>()?;
+        let guessed_save_win32_date = reader.read_u32::<LittleEndian>()?;
+        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 4
+        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 8
+        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 0
+        let monster_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 329
+        let npc_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 349
+        let unknown_number = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 0
+        let extra_object_block_size = reader.read_u32::<LittleEndian>()?; // nuno_shereg_cat_0.sav: 200
+
+        let size: usize = 4 + 4 + 12 + 4 + 4 + 4 + 4;
+        let size = (10188 + 4 * number_of_visited_map as usize) - size;
+        let mut unknown_block = vec![0u8; size];
+
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} (len: {}, cap: {})",
+            reader.position() as usize,
+            unknown_block.len(),
+            unknown_block.capacity()
+        );
 
         // ── 4. Character sprite block ──
         // It could be some rendered image of the save preview?
@@ -709,13 +729,66 @@ impl SaveFile {
             let mut sprite_path_cstr = vec![0u8; 60];
             reader.read_exact(&mut sprite_path_cstr)?;
         }
+        println!("reader.position(sprites) {:?}", reader.position() as usize);
 
-        // ── 4. Unknown block ──
+        // ── 4.2 Unknown block ──
         // IDs what is in the belt?
         // Let's jump by hardcoded number of bytes.
 
-        let mut unknown_block = vec![0u8; 112]; // 0.sav Christoforo, 0.sav Nuno
+        let mut unknown_block = vec![0u8; 40];
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
+
+        let attribute_strength = reader.read_u16::<LittleEndian>()?;
+        let attribute_agility = reader.read_u16::<LittleEndian>()?;
+        let attribute_wisdom = reader.read_u16::<LittleEndian>()?;
+        let attribute_constitution = reader.read_u16::<LittleEndian>()?;
+        let attribute_morale = reader.read_u16::<LittleEndian>()?;
+        let attribute_hp_cur = reader.read_u16::<LittleEndian>()?;
+        let attribute_hp_max = reader.read_u16::<LittleEndian>()?;
+        let attribute_mp_cur = reader.read_u16::<LittleEndian>()?;
+        let attribute_mp_max = reader.read_u16::<LittleEndian>()?;
+        let attribute_xp = reader.read_u32::<LittleEndian>()?;
+        let attribute_level = reader.read_u16::<LittleEndian>()?;
+        let attribute_gold = reader.read_u32::<LittleEndian>()?;
+        let attribute_offense = reader.read_u16::<LittleEndian>()?;
+        let attribute_defense = reader.read_u16::<LittleEndian>()?;
+        let attribute_dodge_rate = reader.read_u8()?;
+        let attribute_hit_rate = reader.read_u8()?;
+        let attribute_magic_power = reader.read_u16::<LittleEndian>()?;
+        let attribute_attack_modifier = reader.read_u8()?;
+        let attribute_skill_thievery = reader.read_u8()?;
+        let attribute_skill_lockpicking = reader.read_u8()?;
+        let attribute_skill_haggling = reader.read_u8()?;
+        let attribute_skill_perception = reader.read_u8()?;
+        let attribute_skill_traps = reader.read_u8()?;
+
+        let attribute_swords_level = reader.read_u8()?;
+        let attribute_swords_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_axes_level = reader.read_u8()?;
+        let attribute_axes_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_archery_level = reader.read_u8()?;
+        let attribute_archery_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_polearm_level = reader.read_u8()?;
+        let attribute_polearm_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_magic_level = reader.read_u8()?;
+        let attribute_magic_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_holy_magic_level = reader.read_u8()?;
+        let attribute_holy_magic_kills = reader.read_u16::<LittleEndian>()?;
+        let attribute_dark_magic_level = reader.read_u8()?;
+        let attribute_dark_magic_kills = reader.read_u16::<LittleEndian>()?;
+
+        let mut unknown_block = vec![0u8; 9]; // 0.sav Christoforo, 0.sav Nuno
+        reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
 
         // ── 5. Inventory ──
         // IDs what is in the belt?
@@ -759,8 +832,14 @@ impl SaveFile {
         // ── 6. Character details ──
 
         // 6.1. Unknown block of 88b
-        let mut unknown_block = vec![0u8; 88]; // 0.sav Christoforo, 0.sav Nuno
+        let mut unknown_block = vec![0u8; 96]; // 0.sav Christoforo
+                                               // let mut unknown_block = vec![0u8; 88]; // 0.sav Nuno
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
 
         // 6.2 Character name
         let mut name_raw = vec![0u8; 11];
@@ -772,7 +851,6 @@ impl SaveFile {
         let mut class_raw = vec![0u8; 11];
         reader.read_exact(&mut class_raw)?;
         let character_class_name = read_null_terminated_windows_1250(class_raw.as_slice());
-
         println!(
             "name: {:?}, class: {:?} ({:?})",
             character_name, character_class_name, character_class_id
@@ -797,20 +875,39 @@ impl SaveFile {
         // Not recognized why it is variable in size.
         let mut unknown_block = vec![0u8; 12]; // 0.sav Christoforo
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
 
         let unknown_counter = reader.read_u32::<LittleEndian>()? as usize;
         let mut unknown_block = vec![0u8; unknown_counter * 24];
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
 
         let mut unknown_block = vec![0u8; 98]; // 0.sav Christoforo
         reader.read_exact(&mut unknown_block)?;
+        println!(
+            "reader.position(unknown_block) {:?} {:?}",
+            reader.position() as usize,
+            unknown_block,
+        );
 
         // ── 9. Journal ──
 
         // 9.1. Main quests
         let mut journal_raw = vec![0u8; 37 * 100];
         reader.read_exact(&mut journal_raw)?;
-        let _journal_main = Self::parse_journal_entries(&journal_raw, 100);
+        let journal_main = Self::parse_journal_entries(&journal_raw, 100);
+        match journal_main {
+            Ok(journal) => println!("journal_main: {:?}", journal[0].name),
+            Err(e) => println!("journal_main: {:?}", e),
+        };
 
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - main end", seek_cursor);
@@ -831,7 +928,7 @@ impl SaveFile {
         let seek_cursor = reader.position();
         println!("seek addr: {:?} - journal end", seek_cursor);
 
-        // // ── 5. REMAINING DATA (everything after surface objects to EOF) ──
+        // Leftover of the old code that was not working and was wrongly implemented:
         // let remaining_start = reader.position() as usize;
         // let mut remaining_data = vec![0u8; data.len() - remaining_start];
         // reader.read_exact(&mut remaining_data)?;
