@@ -243,59 +243,144 @@ impl MonsterRecord {
 /// NPC record from save file
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct NpcRecord {
-    pub counter1: u32,
-    pub counter2: u32,
-    pub counter3: u32,
-    pub counter4: u32,
     pub name: String,
     pub role_description: String,
+    // <padding between>
+    pub npc_ini_id: u8,
+    // <padding between>
+    npc_ref_dialog_id: u32,
+    // <padding between>
 }
 
 impl NpcRecord {
     /// Parse NPC record from 349-byte data
-    ///
-    /// Record layout: 4×u32 (16 bytes) + 32-byte padding + 32-byte name +
-    /// 40-byte padding + 40-byte role + 189 bytes trailing
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
         let mut reader = std::io::Cursor::new(data);
 
-        let counter1 = reader.read_u32::<LittleEndian>()?;
-        let counter2 = reader.read_u32::<LittleEndian>()?;
-        let counter3 = reader.read_u32::<LittleEndian>()?;
-        let counter4 = reader.read_u32::<LittleEndian>()?;
-
-        // Skip 32 bytes padding (8 × u32)
-        for _ in 0..8 {
-            reader.read_u32::<LittleEndian>()?;
-        }
-
-        // Name: 32 bytes fixed-size field, null-terminated WINDOWS-1250
-        let mut name_raw = [0u8; 32];
+        // Name: 64 bytes fixed-size field, null-terminated WINDOWS-1250
+        let mut name_raw = [0u8; 64];
         reader.read_exact(&mut name_raw)?;
         let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(32);
         let (name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
         let name = name.to_string();
 
-        // Skip 40 bytes unknown (10 × u32)
-        for _ in 0..10 {
-            reader.read_u32::<LittleEndian>()?;
-        }
-
-        // Role description: 40 bytes fixed-size field, null-terminated WINDOWS-1250
-        let mut role_raw = [0u8; 40];
+        // Role description: 64 bytes fixed-size field, null-terminated WINDOWS-1250
+        let mut role_raw = [0u8; 64];
         reader.read_exact(&mut role_raw)?;
         let role_len = role_raw.iter().position(|&b| b == 0).unwrap_or(40);
         let (role_desc, _, _) = WINDOWS_1250.decode(&role_raw[..role_len]);
         let role_description = role_desc.to_string();
+        eprint!("{name},{role_description}");
+
+        let unknown1 = reader.read_u32::<LittleEndian>()?;
+        let unknown2 = reader.read_u32::<LittleEndian>()?;
+        let unknown3 = reader.read_u32::<LittleEndian>()?;
+        // eprint!(",{unknown1},{unknown2},{unknown3}");
+
+        let unknown4 = reader.read_u16::<LittleEndian>()?;
+        let unknown5 = reader.read_u16::<LittleEndian>()?;
+        let unknown6 = reader.read_u16::<LittleEndian>()?;
+        let unknown7 = reader.read_u16::<LittleEndian>()?;
+        let unknown8 = reader.read_u16::<LittleEndian>()?;
+        let unknown9 = reader.read_u16::<LittleEndian>()?;
+        let unknown10 = reader.read_u16::<LittleEndian>()?;
+        let unknown11 = reader.read_u16::<LittleEndian>()?;
+        // eprint!(",{unknown4},{unknown5},{unknown6},{unknown7},{unknown8},{unknown9},{unknown10},{unknown11}");
+
+        let mut rest = [0u8; 15];
+        reader.read_exact(&mut rest)?;
+        eprint!(",{rest:?}");
+
+        let npc_ini_id = reader.read_u8()?;
+        eprint!(",npc_ini_id");
+
+        let mut rest = [0u8; 20];
+        reader.read_exact(&mut rest)?;
+        eprint!(",{rest:?}");
+
+        let npc_ref_party_script_id = reader.read_u16::<LittleEndian>()?;
+        let npc_ref_show_on_event_id = reader.read_u16::<LittleEndian>()?;
+        eprint!(",npc_ref_party_script_id,npc_ref_show_on_event_id");
+
+        let mut rest = [0u8; 1];
+        reader.read_exact(&mut rest)?;
+        eprint!(",{rest:?}");
+
+        let npc_ref_unknown_1 = reader.read_u8()?;
+        eprint!(",npc_ref_unknown_1");
+
+        let npc_ref_waypoint1filled = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint1x = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint1y = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_waypoint1filled,npc_ref_waypoint1x,npc_ref_waypoint1y");
+
+        let npc_ref_unknown_2 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_look_direction = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_9 = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_unknown_2,npc_ref_look_direction,npc_ref_unknown_9");
+
+        let npc_ref_waypoint2filled = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint2x = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint2y = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_waypoint2filled,npc_ref_waypoint2x,npc_ref_waypoint2y");
+
+        let npc_ref_unknown_3 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_6 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_10 = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_unknown_3,npc_ref_unknown_6,npc_ref_unknown_10");
+
+        let npc_ref_waypoint3filled = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint3x = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint3y = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_waypoint3filled,npc_ref_waypoint3x,npc_ref_waypoint3y");
+
+        let npc_ref_unknown_4 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_7 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_11 = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_unknown_4,npc_ref_unknown_7,npc_ref_unknown_11");
+
+        let npc_ref_waypoint4filled = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint4x = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_waypoint4y = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_waypoint4filled,npc_ref_waypoint4x,npc_ref_waypoint4y");
+
+        let npc_ref_unknown_5 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_8 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_12 = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_unknown_5,npc_ref_unknown_8,npc_ref_unknown_12");
+
+        let npc_ref_unknown_13 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_14 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_15 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_16 = reader.read_u32::<LittleEndian>()?;
+        let npc_ref_unknown_17 = reader.read_u32::<LittleEndian>()?;
+        eprint!(
+            ",npc_ref_unknown_13,npc_ref_unknown_14,npc_ref_unknown_15,npc_ref_unknown_16,npc_ref_unknown_17"
+        );
+
+        let mut rest = [0u8; 2];
+        reader.read_exact(&mut rest)?;
+        eprint!(",{rest:?}");
+
+        let npc_ref_dialog_id = reader.read_u32::<LittleEndian>()?;
+        eprint!(",npc_ref_dialog_id:");
+
+        let mut rest = [0u8; 29];
+        reader.read_exact(&mut rest)?;
+        eprint!(",{rest:?}\n");
 
         Ok(NpcRecord {
-            counter1,
-            counter2,
-            counter3,
-            counter4,
             name,
             role_description,
+            npc_ini_id,
+            npc_ref_dialog_id,
         })
+
+        // Not recognised from the NPC-Ref
+        // Unknown 18:
+        // Unknown Item:
+        // Unknown 19:
+        // Face Sprite ID:
     }
 }
 
@@ -785,6 +870,8 @@ impl SaveFile {
                 .chunks_exact(349)
                 .map(NpcRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
+            eprintln!("------------");
+            // println!("NPC count: {}", npcs.len());
 
             // ── 2.3. Separator (always 0) ──
             let _separator = reader.read_u32::<LittleEndian>()?;
@@ -895,7 +982,7 @@ impl SaveFile {
     fn parse_character_stats<R: Read>(
         reader: &mut R,
     ) -> std::io::Result<(Vec<u8>, CharacterStats, Vec<u8>)> {
-        // ── Belt data (40 bytes, purpose unknown) ──
+        // ── Leading data (40 bytes, purpose unknown) ──
         let mut unknown_before_stats = vec![0u8; 40];
         reader.read_exact(&mut unknown_before_stats)?;
 
