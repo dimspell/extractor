@@ -625,6 +625,23 @@ pub struct CharacterStats {
     pub dark_magic_kills: u16,
 }
 
+/// Raw inventory data from a save file (5 item categories).
+///
+/// Each category stores count-prefixed raw records of a fixed size.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryData {
+    /// Event-type items (count × 244 bytes each)
+    pub event_items: Vec<u8>,
+    /// Misc-type items (count × 264 bytes each)
+    pub misc_items: Vec<u8>,
+    /// Edit-type items (count × 272 bytes each)
+    pub edit_items: Vec<u8>,
+    /// Weapon-type items (count × 292 bytes each)
+    pub weapon_items: Vec<u8>,
+    /// Heal-type items (count × 256 bytes each)
+    pub heal_items: Vec<u8>,
+}
+
 /// Complete save file structure.
 ///
 /// More fields will be added in future phases.
@@ -643,6 +660,8 @@ pub struct SaveFile {
     pub character_stats: CharacterStats,
     /// Unknown bytes after stats block (9 bytes).
     pub unknown_after_stats: Vec<u8>,
+    /// Raw inventory data (5 item categories).
+    pub inventory: InventoryData,
 }
 
 impl SaveFile {
@@ -701,44 +720,8 @@ impl SaveFile {
         let (unknown_before_stats, character_stats, unknown_after_stats) =
             Self::parse_character_stats(&mut reader)?;
 
-        // ── 6. Inventory ──
-        // IDs what is in the belt?
-        // Let's jump by hardcoded number of bytes.
-
-        // ── 6.1. ITEMS IN INVENTORY - Event ──
-        let inventory_event_count = reader.read_u16::<LittleEndian>()? as usize;
-        if inventory_event_count > 0 {
-            let mut inventory_event_data = vec![0u8; inventory_event_count * 244];
-            reader.read_exact(&mut inventory_event_data)?;
-        }
-
-        // ── 6.2. ITEMS IN INVENTORY - Misc ──
-        let inventory_misc_count = reader.read_u16::<LittleEndian>()? as usize;
-        if inventory_misc_count > 0 {
-            let mut inventory_misc_data = vec![0u8; inventory_misc_count * 264];
-            reader.read_exact(&mut inventory_misc_data)?;
-        }
-
-        // ── 6.3. ITEMS IN INVENTORY - Edit ──
-        let inventory_edit_count = reader.read_u16::<LittleEndian>()? as usize;
-        if inventory_edit_count > 0 {
-            let mut inventory_edit_data = vec![0u8; inventory_edit_count * 272];
-            reader.read_exact(&mut inventory_edit_data)?;
-        }
-
-        // ── 6.4. ITEMS IN INVENTORY - Weapon ──
-        let inventory_weapon_count = reader.read_u16::<LittleEndian>()? as usize;
-        if inventory_weapon_count > 0 {
-            let mut inventory_weapon_data = vec![0u8; inventory_weapon_count * 292];
-            reader.read_exact(&mut inventory_weapon_data)?;
-        }
-
-        // ── 6.5. ITEMS IN INVENTORY - Heal ──
-        let inventory_heal_count = reader.read_u16::<LittleEndian>()? as usize;
-        if inventory_heal_count > 0 {
-            let mut inventory_heal_data = vec![0u8; inventory_heal_count * 256];
-            reader.read_exact(&mut inventory_heal_data)?;
-        }
+        // ── 6. Inventory (5 categories, each count-prefixed) ──
+        let inventory = Self::parse_inventory_section(&mut reader)?;
 
         // ── 7. Character details ──
 
@@ -846,6 +829,7 @@ impl SaveFile {
             unknown_before_stats,
             character_stats,
             unknown_after_stats,
+            inventory,
         })
     }
 
@@ -1020,6 +1004,19 @@ impl SaveFile {
         reader.read_exact(&mut unknown_after_stats)?;
 
         Ok((unknown_before_stats, character_stats, unknown_after_stats))
+    }
+
+    /// Parse the inventory section (5 count-prefixed item categories).
+    ///
+    /// Record sizes: Event=244, Misc=264, Edit=272, Weapon=292, Heal=256.
+    fn parse_inventory_section<R: Read>(reader: &mut R) -> std::io::Result<InventoryData> {
+        Ok(InventoryData {
+            event_items: Self::read_draw_item_section(reader, 244)?,
+            misc_items: Self::read_draw_item_section(reader, 264)?,
+            edit_items: Self::read_draw_item_section(reader, 272)?,
+            weapon_items: Self::read_draw_item_section(reader, 292)?,
+            heal_items: Self::read_draw_item_section(reader, 256)?,
+        })
     }
 
     /// Best-effort: scan remaining_data for the 96-byte block + player name pattern.
