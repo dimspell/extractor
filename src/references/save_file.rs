@@ -245,11 +245,56 @@ impl MonsterRecord {
 pub struct NpcRecord {
     pub name: String,
     pub role_description: String,
-    // <padding between>
+    pub unknown1: u32,
+    pub unknown2: u32,
+    pub unknown3: u32,
+    pub unknown4: u16,
+    pub unknown5: u16,
+    pub unknown6: u16,
+    pub unknown7: u16,
+    pub unknown8: u16,
+    pub unknown9: u16,
+    pub unknown10: u16,
+    pub unknown11: u16,
+    pub unknown12: [u8; 15],
     pub npc_ini_id: u8,
-    // <padding between>
-    npc_ref_dialog_id: u32,
-    // <padding between>
+    pub unknown13: [u8; 20],
+    pub npc_ref_party_script_id: u16,
+    pub npc_ref_show_on_event_id: u16,
+    pub unknown14: u8,
+    pub npc_ref_unknown_1: u8,
+    pub npc_ref_waypoint1filled: u32,
+    pub npc_ref_waypoint1x: u32,
+    pub npc_ref_waypoint1y: u32,
+    pub npc_ref_unknown_2: u32,
+    pub npc_ref_look_direction: u32,
+    pub npc_ref_unknown_9: u32,
+    pub npc_ref_waypoint2filled: u32,
+    pub npc_ref_waypoint2x: u32,
+    pub npc_ref_waypoint2y: u32,
+    pub npc_ref_unknown_3: u32,
+    pub npc_ref_unknown_6: u32,
+    pub npc_ref_unknown_10: u32,
+    pub npc_ref_waypoint3filled: u32,
+    pub npc_ref_waypoint3x: u32,
+    pub npc_ref_waypoint3y: u32,
+    pub npc_ref_unknown_4: u32,
+    pub npc_ref_unknown_7: u32,
+    pub npc_ref_unknown_11: u32,
+    pub npc_ref_waypoint4filled: u32,
+    pub npc_ref_waypoint4x: u32,
+    pub npc_ref_waypoint4y: u32,
+    pub npc_ref_unknown_5: u32,
+    pub npc_ref_unknown_8: u32,
+    pub npc_ref_unknown_12: u32,
+    pub npc_ref_unknown_13: u32,
+    pub npc_ref_unknown_14: u32,
+    pub npc_ref_unknown_15: u32,
+    pub npc_ref_unknown_16: u32,
+    pub npc_ref_unknown_17: u32,
+    pub unknown15: u16,
+    pub npc_ref_dialog_id: u32,
+    pub unknown16: [u8; 29],
 }
 
 impl NpcRecord {
@@ -270,12 +315,10 @@ impl NpcRecord {
         let role_len = role_raw.iter().position(|&b| b == 0).unwrap_or(40);
         let (role_desc, _, _) = WINDOWS_1250.decode(&role_raw[..role_len]);
         let role_description = role_desc.to_string();
-        eprint!("{name},{role_description}");
 
         let unknown1 = reader.read_u32::<LittleEndian>()?;
         let unknown2 = reader.read_u32::<LittleEndian>()?;
         let unknown3 = reader.read_u32::<LittleEndian>()?;
-        // eprint!(",{unknown1},{unknown2},{unknown3}");
 
         let unknown4 = reader.read_u16::<LittleEndian>()?;
         let unknown5 = reader.read_u16::<LittleEndian>()?;
@@ -285,98 +328,122 @@ impl NpcRecord {
         let unknown9 = reader.read_u16::<LittleEndian>()?;
         let unknown10 = reader.read_u16::<LittleEndian>()?;
         let unknown11 = reader.read_u16::<LittleEndian>()?;
-        // eprint!(",{unknown4},{unknown5},{unknown6},{unknown7},{unknown8},{unknown9},{unknown10},{unknown11}");
 
-        let mut rest = [0u8; 15];
-        reader.read_exact(&mut rest)?;
-        eprint!(",{rest:?}");
+        let mut unknown12 = [0u8; 15];
+        reader.read_exact(&mut unknown12)?;
 
         let npc_ini_id = reader.read_u8()?;
-        eprint!(",npc_ini_id");
 
-        let mut rest = [0u8; 20];
-        reader.read_exact(&mut rest)?;
-        eprint!(",{rest:?}");
+        let mut unknown13 = [0u8; 20];
+        reader.read_exact(&mut unknown13)?;
 
         let npc_ref_party_script_id = reader.read_u16::<LittleEndian>()?;
         let npc_ref_show_on_event_id = reader.read_u16::<LittleEndian>()?;
-        eprint!(",npc_ref_party_script_id,npc_ref_show_on_event_id");
 
-        let mut rest = [0u8; 1];
-        reader.read_exact(&mut rest)?;
-        eprint!(",{rest:?}");
+        let unknown14 = reader.read_u8()?;
 
         let npc_ref_unknown_1 = reader.read_u8()?;
-        eprint!(",npc_ref_unknown_1");
 
         let npc_ref_waypoint1filled = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint1x = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint1y = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_waypoint1filled,npc_ref_waypoint1x,npc_ref_waypoint1y");
 
         let npc_ref_unknown_2 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_look_direction = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_9 = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_unknown_2,npc_ref_look_direction,npc_ref_unknown_9");
 
         let npc_ref_waypoint2filled = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint2x = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint2y = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_waypoint2filled,npc_ref_waypoint2x,npc_ref_waypoint2y");
 
         let npc_ref_unknown_3 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_6 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_10 = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_unknown_3,npc_ref_unknown_6,npc_ref_unknown_10");
 
         let npc_ref_waypoint3filled = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint3x = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint3y = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_waypoint3filled,npc_ref_waypoint3x,npc_ref_waypoint3y");
 
         let npc_ref_unknown_4 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_7 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_11 = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_unknown_4,npc_ref_unknown_7,npc_ref_unknown_11");
 
         let npc_ref_waypoint4filled = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint4x = reader.read_u32::<LittleEndian>()?;
         let npc_ref_waypoint4y = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_waypoint4filled,npc_ref_waypoint4x,npc_ref_waypoint4y");
 
         let npc_ref_unknown_5 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_8 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_12 = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_unknown_5,npc_ref_unknown_8,npc_ref_unknown_12");
 
         let npc_ref_unknown_13 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_14 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_15 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_16 = reader.read_u32::<LittleEndian>()?;
         let npc_ref_unknown_17 = reader.read_u32::<LittleEndian>()?;
-        eprint!(
-            ",npc_ref_unknown_13,npc_ref_unknown_14,npc_ref_unknown_15,npc_ref_unknown_16,npc_ref_unknown_17"
-        );
 
-        let mut rest = [0u8; 2];
-        reader.read_exact(&mut rest)?;
-        eprint!(",{rest:?}");
+        let unknown15 = reader.read_u16::<LittleEndian>()?;
 
         let npc_ref_dialog_id = reader.read_u32::<LittleEndian>()?;
-        eprint!(",npc_ref_dialog_id:");
 
-        let mut rest = [0u8; 29];
-        reader.read_exact(&mut rest)?;
-        eprint!(",{rest:?}\n");
+        let mut unknown16 = [0u8; 29];
+        reader.read_exact(&mut unknown16)?;
 
         Ok(NpcRecord {
             name,
             role_description,
+            unknown1,
+            unknown2,
+            unknown3,
+            unknown4,
+            unknown5,
+            unknown6,
+            unknown7,
+            unknown8,
+            unknown9,
+            unknown10,
+            unknown11,
+            unknown12,
             npc_ini_id,
+            unknown13,
+            npc_ref_party_script_id,
+            npc_ref_show_on_event_id,
+            unknown14,
+            npc_ref_unknown_1,
+            npc_ref_waypoint1filled,
+            npc_ref_waypoint1x,
+            npc_ref_waypoint1y,
+            npc_ref_unknown_2,
+            npc_ref_look_direction,
+            npc_ref_unknown_9,
+            npc_ref_waypoint2filled,
+            npc_ref_waypoint2x,
+            npc_ref_waypoint2y,
+            npc_ref_unknown_3,
+            npc_ref_unknown_6,
+            npc_ref_unknown_10,
+            npc_ref_waypoint3filled,
+            npc_ref_waypoint3x,
+            npc_ref_waypoint3y,
+            npc_ref_unknown_4,
+            npc_ref_unknown_7,
+            npc_ref_unknown_11,
+            npc_ref_waypoint4filled,
+            npc_ref_waypoint4x,
+            npc_ref_waypoint4y,
+            npc_ref_unknown_5,
+            npc_ref_unknown_8,
+            npc_ref_unknown_12,
+            npc_ref_unknown_13,
+            npc_ref_unknown_14,
+            npc_ref_unknown_15,
+            npc_ref_unknown_16,
+            npc_ref_unknown_17,
+            unknown15,
             npc_ref_dialog_id,
+            unknown16,
         })
-
-        // Not recognised from the NPC-Ref
+        // Not recognized from the NPC-Ref
         // Unknown 18:
         // Unknown Item:
         // Unknown 19:
@@ -654,13 +721,62 @@ pub struct InventoryData {
     /// Event-type items (count × 244 bytes each)
     pub event_items: Vec<u8>,
     /// Misc-type items (count × 264 bytes each)
-    pub misc_items: Vec<u8>,
+    pub misc_items: Vec<InventoryMiscItem>,
     /// Edit-type items (count × 272 bytes each)
     pub edit_items: Vec<u8>,
     /// Weapon-type items (count × 292 bytes each)
     pub weapon_items: Vec<u8>,
     /// Heal-type items (count × 256 bytes each)
     pub heal_items: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryMiscItem {
+    pub name: String,
+    pub description: String,
+    pub base_price: u32,
+    pub unknown_1: Vec<u8>,
+    pub unknown_2: u32,
+    pub unknown_3: u16,
+    pub unknown_4: u16,
+    pub unknown_5: u32,
+}
+
+impl InventoryMiscItem {
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        let mut name_raw = vec![0u8; 30];
+        reader.read_exact(&mut name_raw)?;
+        let name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let mut description_raw = vec![0u8; 202];
+        reader.read_exact(&mut description_raw)?;
+        let description = read_null_terminated_windows_1250(&description_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let base_price = reader.read_u32::<LittleEndian>()?;
+
+        let mut unknown_1 = vec![0u8; 16];
+        reader.read_exact(&mut unknown_1)?;
+
+        let unknown_2 = reader.read_u32::<LittleEndian>()?;
+        let unknown_3 = reader.read_u16::<LittleEndian>()?;
+        let unknown_4 = reader.read_u16::<LittleEndian>()?;
+        let unknown_5 = reader.read_u32::<LittleEndian>()?;
+
+        Ok(InventoryMiscItem {
+            name,
+            description,
+            base_price,
+            unknown_1,
+            unknown_2,
+            unknown_3,
+            unknown_4,
+            unknown_5,
+        })
+    }
 }
 
 /// Journal data from a save file (3 sections × 100 entries).
@@ -838,6 +954,22 @@ impl SaveFile {
         Ok(data)
     }
 
+    fn read_misc_item_section<R: Read>(
+        reader: &mut R,
+        record_size: u32,
+    ) -> std::io::Result<Vec<InventoryMiscItem>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * 264];
+        reader.read_exact(&mut data)?;
+
+        let items = data
+            .chunks_exact(264)
+            .map(InventoryMiscItem::parse)
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(items)
+    }
+
     /// Parse all map sections from the reader.
     ///
     /// Each map has:
@@ -870,8 +1002,6 @@ impl SaveFile {
                 .chunks_exact(349)
                 .map(NpcRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
-            eprintln!("------------");
-            // println!("NPC count: {}", npcs.len());
 
             // ── 2.3. Separator (always 0) ──
             let _separator = reader.read_u32::<LittleEndian>()?;
@@ -1040,7 +1170,7 @@ impl SaveFile {
     fn parse_inventory_section<R: Read>(reader: &mut R) -> std::io::Result<InventoryData> {
         Ok(InventoryData {
             event_items: Self::read_draw_item_section(reader, 244)?,
-            misc_items: Self::read_draw_item_section(reader, 264)?,
+            misc_items: Self::read_misc_item_section(reader, 264)?,
             edit_items: Self::read_draw_item_section(reader, 272)?,
             weapon_items: Self::read_draw_item_section(reader, 292)?,
             heal_items: Self::read_draw_item_section(reader, 256)?,
