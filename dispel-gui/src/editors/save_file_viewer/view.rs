@@ -2,7 +2,7 @@ use iced::widget::{button, container, row, text, Column};
 use iced::{Element, Fill};
 
 use crate::app::App;
-use crate::editors::save_file_viewer::state::{SaveFileSection, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::SaveFileSection;
 use crate::message::Message;
 use crate::message::MessageExt;
 
@@ -65,7 +65,15 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
         SaveFileSection::Raw => {
             crate::editors::save_file_viewer::raw::view(state)
         }
-        _ => placeholder("Not yet implemented"),
+        SaveFileSection::Events => {
+            crate::editors::save_file_viewer::events::view(state)
+        }
+        SaveFileSection::Journal => {
+            crate::editors::save_file_viewer::journal::view(state)
+        }
+        SaveFileSection::Maps => {
+            crate::editors::save_file_viewer::maps::view(state)
+        }
     };
 
     container(

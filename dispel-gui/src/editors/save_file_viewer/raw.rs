@@ -1,4 +1,4 @@
-use iced::widget::{container, scrollable, text, Column, Row};
+use iced::widget::{container, scrollable, text, Column};
 use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::SaveFileViewerState;

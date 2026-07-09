@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::editors::save_file_viewer::state::{InventoryCategory, SaveFileSection};
+use crate::editors::save_file_viewer::state::{InventoryCategory, JournalSection, SaveFileSection};
 
 /// Messages for the save file viewer.
 #[derive(Debug, Clone)]
@@ -15,6 +15,10 @@ pub enum SaveFileViewerMessage {
     SelectCategory(InventoryCategory),
     /// Route a hex editor message to an embedded raw-section viewer.
     HexViewer(usize, hexedit::HexEditorMessage),
+    /// Select a journal sub-section (Main/Side/Trade).
+    SelectJournalSection(JournalSection),
+    /// Select a map in the Maps section.
+    SelectMap(usize),
 }
 
 /// Data returned after a successful save file load.

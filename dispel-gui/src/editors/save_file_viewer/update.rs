@@ -1,7 +1,6 @@
 use iced::Task;
 
 use crate::app::App;
-use crate::editors::save_file_viewer::message::RawHexEditorData;
 use crate::editors::save_file_viewer::{
     message::SaveFileViewerMessage,
     state::{JournalSection, SaveFileSection, SaveFileViewerState},
@@ -36,6 +35,15 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 Task::none()
             }
         }
+        SaveFileViewerMessage::SelectJournalSection(section) => {
+            state.journal_section = section;
+            state.selected_journal_entry = None;
+            Task::none()
+        }
+        SaveFileViewerMessage::SelectMap(index) => {
+            state.selected_map = Some(index);
+            Task::none()
+        }
         SaveFileViewerMessage::Load(_) => {
             // Load is handled by app.rs::open_file_in_workspace via Task::perform
             state.loading = true;
@@ -45,7 +53,21 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.loading = false;
             match result {
                 Ok(loaded) => {
-                    state.save_file = Some(loaded.save_file);
+                    state.save_file = Some(loaded.save_file.clone());
+                    // Build events display cache
+                    let n = loaded.save_file.events.len();
+                    let mut display_cache = Vec::with_capacity(n);
+                    for (i, ev) in loaded.save_file.events.iter().enumerate() {
+                        let s = match ev.state {
+                            0 => "Inactive".into(),
+                            1 => "Active".into(),
+                            2 => "Completed".into(),
+                            v => format!("Unknown({})", v),
+                        };
+                        display_cache.push(vec![format!("{}", i + 1), s, ev.script_name.clone()]);
+                    }
+                    state.events_display_cache = display_cache;
+                    state.events_filtered_indices = (0..n).collect();
                     state.raw_hex_viewers = loaded
                         .hex_editors
                         .into_iter()

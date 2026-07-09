@@ -11,8 +11,11 @@ pub use state::SaveFileViewerState;
 pub use update::handle;
 pub use view::view;
 
+pub(crate) mod events;
 pub(crate) mod identity;
 pub(crate) mod inventory;
+pub(crate) mod journal;
+pub(crate) mod maps;
 pub(crate) mod message;
 pub(crate) mod overview;
 pub(crate) mod raw;

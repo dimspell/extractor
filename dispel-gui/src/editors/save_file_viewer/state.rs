@@ -54,6 +54,10 @@ pub struct SaveFileViewerState {
     pub journal_section: JournalSection,
     pub selected_journal_entry: Option<usize>,
     pub inventory_category: Option<InventoryCategory>,
+
+    // Events table display data (built on load, amortized across views)
+    pub events_display_cache: Vec<Vec<String>>,
+    pub events_filtered_indices: Vec<usize>,
 }
 
 impl Default for SaveFileViewerState {
@@ -68,6 +72,8 @@ impl Default for SaveFileViewerState {
             journal_section: JournalSection::Main,
             selected_journal_entry: None,
             inventory_category: None,
+            events_display_cache: Vec::new(),
+            events_filtered_indices: Vec::new(),
         }
     }
 }

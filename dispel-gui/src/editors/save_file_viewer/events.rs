@@ -3,16 +3,13 @@ use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
-use gui_widgets::{ParagraphCache, RowFlags, TableColumn, TableWidget};
+use gui_widgets::components::paragraph_cache::ParagraphCache;
+use gui_widgets::{RowFlags, TableColumn, TableWidget};
 
 /// Events section: virtualized table of event script records.
 pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
-    let sf = match state.save_file.as_ref() {
-        Some(sf) => sf,
-        None => return container(text("No save file loaded")).into(),
-    };
-
-    if sf.events.is_empty() {
+    let n = state.events_filtered_indices.len();
+    if n == 0 {
         return container(text("No events"))
             .width(Fill)
             .height(Fill)
@@ -20,27 +17,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .into();
     }
 
-    let n = sf.events.len();
-    let row_height = 22.0;
-
-    // Build display cache: [row][col] = pre-rendered cell text
-    // Columns: #, State, Script Name
-    let mut display_cache: Vec<Vec<String>> = Vec::with_capacity(n);
-    for (i, ev) in sf.events.iter().enumerate() {
-        let state_str = match ev.state {
-            0 => "Inactive".into(),
-            1 => "Active".into(),
-            2 => "Completed".into(),
-            s => format!("Unknown({})", s),
-        };
-        display_cache.push(vec![
-            format!("{}", i + 1),
-            state_str,
-            ev.script_name.clone(),
-        ]);
-    }
-
-    let filtered_indices: Vec<usize> = (0..n).collect();
     let columns = vec![
         TableColumn {
             width_px: 40.0,
@@ -55,16 +31,21 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             has_filter: false,
         },
         TableColumn {
-            width_px: 300.0,
+            width_px: 400.0,
             label: "Script".into(),
             sort: None,
             has_filter: false,
         },
     ];
 
-    let id_col_width = 0.0; // ID is the first real column, no separate id col
-    let cache = ParagraphCache::default();
-
-    TableWidget::new(&display_cache, &filtered_indices, columns, id_col_width, |_| RowFlags::default(), row_height, cache)
-        .into()
+    TableWidget::new(
+        &state.events_display_cache,
+        &state.events_filtered_indices,
+        columns,
+        0.0, // no separate id col
+        |_| RowFlags::default(),
+        22.0,
+        ParagraphCache::default(),
+    )
+    .into()
 }
