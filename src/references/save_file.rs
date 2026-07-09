@@ -624,6 +624,13 @@ pub struct InventoryMiscItem {
 
 impl InventoryMiscItem {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 264 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "InventoryMiscItem requires 264 bytes",
+            ));
+        }
+
         let mut reader = std::io::Cursor::new(data);
 
         let mut name_raw = vec![0u8; 30];
@@ -670,6 +677,13 @@ pub struct InventoryEventItem {
 
 impl InventoryEventItem {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 244 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "InventoryEventItem requires 244 bytes",
+            ));
+        }
+
         let mut reader = std::io::Cursor::new(data);
 
         let mut name_raw = vec![0u8; 30];
@@ -726,6 +740,13 @@ pub struct InventoryEditItem {
 impl InventoryEditItem {
     // 272 bytes long
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 272 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "InventoryEditItem requires 272 bytes",
+            ));
+        }
+
         let mut reader = std::io::Cursor::new(data);
 
         let mut name_raw = vec![0u8; 30];
@@ -807,6 +828,13 @@ pub struct InventoryHealItem {
 
 impl InventoryHealItem {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 256 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "InventoryHealItem requires 256 bytes",
+            ));
+        }
+
         let mut reader = std::io::Cursor::new(data);
 
         let mut name_raw = vec![0u8; 30];
@@ -887,6 +915,13 @@ pub struct InventoryWeaponItem {
 
 impl InventoryWeaponItem {
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != 292 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "InventoryWeaponItem requires 292 bytes",
+            ));
+        }
+
         let mut reader = std::io::Cursor::new(data);
 
         let mut name_raw = vec![0u8; 30];
@@ -1176,11 +1211,11 @@ impl SaveFile {
 
     fn read_heal_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryHealItem>> {
         let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 292];
+        let mut data = vec![0u8; count * 256];
         reader.read_exact(&mut data)?;
 
         let items = data
-            .chunks_exact(292)
+            .chunks_exact(256)
             .map(InventoryHealItem::parse)
             .collect::<std::io::Result<Vec<_>>>()?;
 
@@ -1189,11 +1224,11 @@ impl SaveFile {
 
     fn read_weapon_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryWeaponItem>> {
         let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 256];
+        let mut data = vec![0u8; count * 292];
         reader.read_exact(&mut data)?;
 
         let items = data
-            .chunks_exact(256)
+            .chunks_exact(292)
             .map(InventoryWeaponItem::parse)
             .collect::<std::io::Result<Vec<_>>>()?;
 
