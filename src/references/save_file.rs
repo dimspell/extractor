@@ -719,7 +719,7 @@ pub struct CharacterStats {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryData {
     /// Event-type items (count × 244 bytes each)
-    pub event_items: Vec<u8>,
+    pub event_items: Vec<InventoryEventItem>,
     /// Misc-type items (count × 264 bytes each)
     pub misc_items: Vec<InventoryMiscItem>,
     /// Edit-type items (count × 272 bytes each)
@@ -775,6 +775,43 @@ impl InventoryMiscItem {
             unknown_3,
             unknown_4,
             unknown_5,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryEventItem {
+    pub name: String,
+    pub description: String,
+    pub base_price: u32,
+    pub unknown_1: u32,
+    pub unknown_2: u32,
+}
+
+impl InventoryEventItem {
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        let mut name_raw = vec![0u8; 30];
+        reader.read_exact(&mut name_raw)?;
+        let name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let mut description_raw = vec![0u8; 202];
+        reader.read_exact(&mut description_raw)?;
+        let description = read_null_terminated_windows_1250(&description_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let base_price = reader.read_u32::<LittleEndian>()?;
+        let unknown_1 = reader.read_u32::<LittleEndian>()?;
+        let unknown_2 = reader.read_u32::<LittleEndian>()?;
+
+        Ok(InventoryEventItem {
+            name,
+            description,
+            base_price,
+            unknown_1,
+            unknown_2,
         })
     }
 }
@@ -965,6 +1002,22 @@ impl SaveFile {
         let items = data
             .chunks_exact(264)
             .map(InventoryMiscItem::parse)
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(items)
+    }
+
+    fn read_event_item_section<R: Read>(
+        reader: &mut R,
+        record_size: u32,
+    ) -> std::io::Result<Vec<InventoryEventItem>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * 244];
+        reader.read_exact(&mut data)?;
+
+        let items = data
+            .chunks_exact(244)
+            .map(InventoryEventItem::parse)
             .collect::<std::io::Result<Vec<_>>>()?;
 
         Ok(items)
@@ -1169,7 +1222,7 @@ impl SaveFile {
     /// Record sizes: Event=244, Misc=264, Edit=272, Weapon=292, Heal=256.
     fn parse_inventory_section<R: Read>(reader: &mut R) -> std::io::Result<InventoryData> {
         Ok(InventoryData {
-            event_items: Self::read_draw_item_section(reader, 244)?,
+            event_items: Self::read_event_item_section(reader, 244)?,
             misc_items: Self::read_misc_item_section(reader, 264)?,
             edit_items: Self::read_draw_item_section(reader, 272)?,
             weapon_items: Self::read_draw_item_section(reader, 292)?,
