@@ -3,7 +3,7 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::save_file_viewer::{
     message::SaveFileViewerMessage,
-    state::{JournalSection, SaveFileSection, SaveFileViewerState},
+    state::{InventoryCategory, JournalSection, SaveFileSection, SaveFileViewerState},
 };
 use crate::message::{Message, MessageExt};
 
@@ -30,6 +30,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
         SaveFileViewerMessage::HexViewer(index, msg) => {
             if let Some(viewer) = state.raw_hex_viewers.get_mut(index) {
                 hexedit::update(&mut viewer.state, &hexedit::HexEditorConfig::default(), msg)
+                    .map(Message::hex_editor)
+            } else {
+                Task::none()
+            }
+        }
+        SaveFileViewerMessage::InventoryHexViewer(cat, msg) => {
+            if let Some(viewer) = state.inventory_hex_viewers.get_mut(&cat) {
+                hexedit::update(viewer, &hexedit::HexEditorConfig::default(), msg)
                     .map(Message::hex_editor)
             } else {
                 Task::none()
@@ -85,6 +93,21 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             }
                         })
                         .collect();
+                    // Build inventory hex viewers
+                    let inv = &loaded.save_file.inventory;
+                    for (cat, data) in [
+                        (InventoryCategory::Event, inv.event_items.clone()),
+                        (InventoryCategory::Misc, inv.misc_items.clone()),
+                        (InventoryCategory::Edit, inv.edit_items.clone()),
+                        (InventoryCategory::Weapon, inv.weapon_items.clone()),
+                        (InventoryCategory::Heal, inv.heal_items.clone()),
+                    ] {
+                        let label = format!("{} ({} bytes)", cat.label(), data.len());
+                        let editor = hexedit::HexEditorState::from_bytes(
+                            &label, data, None, None,
+                        );
+                        state.inventory_hex_viewers.insert(cat, editor);
+                    }
                     state.error = None;
                 }
                 Err(e) => {

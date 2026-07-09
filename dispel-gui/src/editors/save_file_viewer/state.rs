@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use hexedit::HexEditorState;
 
 /// Section tabs displayed in the save file viewer.
@@ -58,6 +60,9 @@ pub struct SaveFileViewerState {
     // Events table display data (built on load, amortized across views)
     pub events_display_cache: Vec<Vec<String>>,
     pub events_filtered_indices: Vec<usize>,
+
+    // Inventory hex viewers (built on load, shown per-selection)
+    pub inventory_hex_viewers: HashMap<InventoryCategory, HexEditorState>,
 }
 
 impl Default for SaveFileViewerState {
@@ -74,6 +79,31 @@ impl Default for SaveFileViewerState {
             inventory_category: None,
             events_display_cache: Vec::new(),
             events_filtered_indices: Vec::new(),
+            inventory_hex_viewers: HashMap::new(),
+        }
+    }
+}
+
+impl InventoryCategory {
+    /// Human-readable label.
+    pub fn label(&self) -> &'static str {
+        match self {
+            InventoryCategory::Event => "Event Items",
+            InventoryCategory::Misc => "Misc Items",
+            InventoryCategory::Edit => "Edit Items",
+            InventoryCategory::Weapon => "Weapon Items",
+            InventoryCategory::Heal => "Heal Items",
+        }
+    }
+
+    /// Record size in bytes for this category.
+    pub fn record_size(&self) -> usize {
+        match self {
+            InventoryCategory::Event => 244,
+            InventoryCategory::Misc => 264,
+            InventoryCategory::Edit => 272,
+            InventoryCategory::Weapon => 292,
+            InventoryCategory::Heal => 256,
         }
     }
 }
@@ -85,7 +115,7 @@ pub enum JournalSection {
     Trade,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InventoryCategory {
     Event,
     Misc,

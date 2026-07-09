@@ -19,6 +19,8 @@ pub enum SaveFileViewerMessage {
     SelectJournalSection(JournalSection),
     /// Select a map in the Maps section.
     SelectMap(usize),
+    /// Route a hex editor message to an embedded inventory-section viewer.
+    InventoryHexViewer(InventoryCategory, hexedit::HexEditorMessage),
 }
 
 /// Data returned after a successful save file load.

@@ -1,5 +1,5 @@
 use iced::widget::{container, scrollable, text, Column};
-use iced::{Element, Fill};
+use iced::{Element, Fill, Length};
 
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
@@ -28,16 +28,20 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                         .width(Fill),
                 )
                 .push(
-                    hexedit::view(
-                        &viewer.state,
-                        &hexedit::HexEditorConfig {
-                            can_save: false,
-                            ..hexedit::HexEditorConfig::default()
-                        },
+                    container(
+                        hexedit::view(
+                            &viewer.state,
+                            &hexedit::HexEditorConfig {
+                                can_save: false,
+                                ..hexedit::HexEditorConfig::default()
+                            },
+                        )
+                        .map(move |msg| {
+                            Message::save_file_viewer(SaveFileViewerMessage::HexViewer(i, msg))
+                        }),
                     )
-                    .map(move |msg| {
-                        Message::save_file_viewer(SaveFileViewerMessage::HexViewer(i, msg))
-                    }),
+                    .width(Fill)
+                    .height(Length::Fixed(600.0)),
                 ),
         )
         .width(Fill);
