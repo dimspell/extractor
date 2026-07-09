@@ -25,63 +25,6 @@ pub struct InventoryItem {
     pub price: i32,
 }
 
-impl InventoryItem {
-    /// Whether this is a quest item (no standard header, name-only)
-    pub fn is_quest(&self) -> bool {
-        self.is_quest
-    }
-
-    /// Extract readable CP1250 text from a fixed-size buffer.
-    ///
-    /// The name buffer may contain a binary prefix before the actual text
-    /// (e.g. id/qty bytes). This function finds the first segment of
-    /// consecutive printable characters that is at least 2 bytes long and
-    /// starts with an alphabetic letter (ASCII or extended Latin).
-    ///
-    /// Segments shorter than 2 bytes or starting with a non-alphabetic
-    /// printable character are skipped — they are likely binary junk that
-    /// happens to fall in the printable range (e.g. `%`, `2`, `=`).
-    fn extract_text(buf: &[u8]) -> String {
-        let is_text_byte =
-            |&b: &u8| -> bool { b.is_ascii_graphic() || b == b' ' || b == b'\t' || b >= 0x80 };
-
-        let i = 0;
-        let mut i = i;
-        while i < buf.len() {
-            if is_text_byte(&buf[i]) {
-                let seg_start = i;
-                while i < buf.len() && is_text_byte(&buf[i]) && buf[i] != 0 {
-                    i += 1;
-                }
-                let seg_len = i - seg_start;
-                // Accept segments >= 2 chars whose first byte looks like a
-                // text character (alphabetic or extended Latin).
-                if seg_len >= 2 && (buf[seg_start].is_ascii_alphabetic() || buf[seg_start] >= 0x80)
-                {
-                    let (decoded, _, _) = WINDOWS_1250.decode(&buf[seg_start..seg_start + seg_len]);
-                    return decoded.trim().to_string();
-                }
-            } else {
-                i += 1;
-            }
-        }
-
-        String::new()
-    }
-
-    /// Extract the item name, falling back to the description buffer when
-    /// the name buffer contains no readable text (binary-id-only items).
-    fn extract_name_or_desc(name_buf: &[u8], desc_buf: &[u8]) -> String {
-        let name = Self::extract_text(name_buf);
-        if !name.is_empty() {
-            return name;
-        }
-        // Many Edit/Misc/Event items store their real name in the desc
-        // buffer (first text segment).
-        Self::extract_text(desc_buf)
-    }
-}
-
 /// Potion belt slot (6 dedicated slots for healing items)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PotionSlot {
