@@ -10,63 +10,6 @@ use std::io::{Read, Seek, Write};
 // use proptest::char::range;
 use super::extractor::{read_null_terminated_windows_1250, Extractor};
 
-/// Inventory item record from save file
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct InventoryItem {
-    /// Raw 4-byte location field (meaning of bytes unknown)
-    pub location_raw: [u8; 4],
-    /// Whether this is a quest item (no standard header, name-only)
-    pub is_quest: bool,
-    /// Item name (decoded from WINDOWS-1250)
-    pub name: String,
-    /// Item description (decoded from WINDOWS-1250)
-    pub description: String,
-    /// Item price from save file
-    pub price: i32,
-}
-
-/// Potion belt slot (6 dedicated slots for healing items)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct PotionSlot {
-    pub location_raw: [u8; 4],
-    pub item_id: u32,
-    pub quantity: u16,
-    pub name: String,
-}
-
-impl PotionSlot {
-    /// Parse potion slot from 256-byte record
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        let field_a = reader.read_u32::<LittleEndian>()?;
-        let field_b = reader.read_u32::<LittleEndian>()?;
-        let quantity = reader.read_u16::<LittleEndian>()?;
-
-        // Skip padding
-        reader.read_u16::<LittleEndian>()?;
-
-        let location_raw = field_a.to_le_bytes();
-
-        let mut name_bytes = Vec::new();
-        loop {
-            let byte = reader.read_u8()?;
-            if byte == 0 {
-                break;
-            }
-            name_bytes.push(byte);
-        }
-        let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
-
-        Ok(PotionSlot {
-            location_raw,
-            item_id: field_b,
-            quantity,
-            name: name.to_string(),
-        })
-    }
-}
-
 /// Monster state flags
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MonsterState {
@@ -484,9 +427,9 @@ impl EventScript {
 /// Journal entry (37 bytes each)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JournalEntry {
-    pub counter: u8,
-    pub name: String, // 32 bytes null-terminated WINDOWS-1250
-    pub flags: u32,
+    pub index: u8,     // 1 byte
+    pub name: String,  // 24 bytes null-terminated WINDOWS-1250
+    pub rest: Vec<u8>, // 12 bytes
 }
 
 impl JournalEntry {
@@ -499,12 +442,12 @@ impl JournalEntry {
             ));
         }
 
-        let counter = data[0];
+        let index = data[0]; // 1
 
-        // Name: 32 bytes null-terminated WINDOWS-1250
+        // Name: 24 bytes null-terminated WINDOWS-1250
         let name = {
             let mut name_bytes = Vec::new();
-            for &byte in data[1..33].iter() {
+            for &byte in data[1..25].iter() {
                 if byte == 0 {
                     break;
                 }
@@ -512,36 +455,30 @@ impl JournalEntry {
             }
             let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
             name.to_string()
-        };
+        }; // 24
 
-        // Flags: u32 at offset 33
-        let mut flag_bytes = [0u8; 4];
-        flag_bytes.copy_from_slice(&data[33..37]);
-        let flags = u32::from_le_bytes(flag_bytes);
+        let mut rest = vec![0u8; 12];
+        rest.copy_from_slice(&data[25..37]); // 12
 
-        Ok(JournalEntry {
-            counter,
-            name,
-            flags,
-        })
+        Ok(JournalEntry { index, name, rest })
     }
 
     /// Serialize journal entry to binary
     pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        writer.write_u8(self.counter)?;
+        writer.write_u8(self.index)?;
 
-        // Write name (32 bytes, null-padded WINDOWS-1250)
+        // Write name (24 bytes, null-padded WINDOWS-1250)
         let (encoded, _, _) = WINDOWS_1250.encode(&self.name);
         let name_bytes = encoded.as_ref();
         let name_len = name_bytes.len().min(31); // Leave room for null terminator
         writer.write_all(&name_bytes[..name_len])?;
         // Pad with zeros to 32 bytes
-        if name_len < 32 {
-            let padding = 32 - name_len;
+        if name_len < 24 {
+            let padding = 24 - name_len;
             writer.write_all(&vec![0u8; padding])?;
         }
 
-        writer.write_u32::<LittleEndian>(self.flags)?;
+
         Ok(())
     }
 }
@@ -666,11 +603,11 @@ pub struct InventoryData {
     /// Misc-type items (count × 264 bytes each)
     pub misc_items: Vec<InventoryMiscItem>,
     /// Edit-type items (count × 272 bytes each)
-    pub edit_items: Vec<u8>,
+    pub edit_items: Vec<InventoryEditItem>,
     /// Weapon-type items (count × 292 bytes each)
-    pub weapon_items: Vec<u8>,
+    pub weapon_items: Vec<InventoryWeaponItem>,
     /// Heal-type items (count × 256 bytes each)
-    pub heal_items: Vec<u8>,
+    pub heal_items: Vec<InventoryHealItem>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -753,6 +690,269 @@ impl InventoryEventItem {
             name,
             description,
             base_price,
+            unknown_1,
+            unknown_2,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryEditItem {
+    pub name: String,
+    pub description: String,
+    pub base_price: u32,
+
+    pub unknown_1: u16,
+    pub unknown_2: u16,
+    pub health_points: i16,
+    pub mana_points: i16,
+    pub strength: i16,
+    pub agility: i16,
+    pub wisdom: i16,
+    pub constitution: i16,
+    pub to_dodge: i16,
+    pub to_hit: i16,
+    pub offense: i16,
+    pub defense: i16,
+    pub magical_power: i16,
+    pub item_destroying_power: i16,
+    pub unknown_3: u8,
+    pub modifies_item: u8,
+    pub additional_effect: i16,
+    pub unknown_4: u16,
+    pub unknown_5: u16,
+}
+
+impl InventoryEditItem {
+    // 272 bytes long
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        let mut name_raw = vec![0u8; 30];
+        reader.read_exact(&mut name_raw)?;
+        let name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let mut description_raw = vec![0u8; 202];
+        reader.read_exact(&mut description_raw)?;
+        let description = read_null_terminated_windows_1250(&description_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let base_price = reader.read_u32::<LittleEndian>()?; // 36
+        let unknown_1 = reader.read_u16::<LittleEndian>()?; // 34
+        let unknown_2 = reader.read_u16::<LittleEndian>()?; // 32
+        let health_points = reader.read_i16::<LittleEndian>()?; // 30
+        let mana_points = reader.read_i16::<LittleEndian>()?; // 28
+        let strength = reader.read_i16::<LittleEndian>()?; // 26
+        let agility = reader.read_i16::<LittleEndian>()?; // 24
+        let wisdom = reader.read_i16::<LittleEndian>()?; // 22
+        let constitution = reader.read_i16::<LittleEndian>()?; // 20
+        let to_dodge = reader.read_i16::<LittleEndian>()?; // 18
+        let to_hit = reader.read_i16::<LittleEndian>()?; // 16
+        let offense = reader.read_i16::<LittleEndian>()?; // 14
+        let defense = reader.read_i16::<LittleEndian>()?; // 12
+        let magical_power = reader.read_i16::<LittleEndian>()?; // 10
+        let item_destroying_power = reader.read_i16::<LittleEndian>()?; // 8
+        let unknown_3 = reader.read_u8()?; // 7
+        let modifies_item = reader.read_u8()?; // 6
+        let additional_effect = reader.read_i16::<LittleEndian>()?; // 4
+        let unknown_4 = reader.read_u16::<LittleEndian>()?; // 2
+        let unknown_5 = reader.read_u16::<LittleEndian>()?; // 0
+
+        Ok(InventoryEditItem {
+            name,
+            description,
+            base_price,
+            unknown_1,
+            unknown_2,
+            health_points,
+            mana_points,
+            strength,
+            agility,
+            wisdom,
+            constitution,
+            to_dodge,
+            to_hit,
+            offense,
+            defense,
+            magical_power,
+            item_destroying_power,
+            unknown_3,
+            modifies_item,
+            additional_effect,
+            unknown_4,
+            unknown_5,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryHealItem {
+    pub name: String,
+    pub description: String,
+    pub base_price: u32,
+    pub heal_item_id: u32,
+    pub health_points: i16,
+    pub mana_points: i16,
+    pub restore_full_health: u8,
+    pub restore_full_mana: u8,
+    pub poison_heal: u8,
+    pub petrif_heal: u8,
+    pub polimorph_heal: u8,
+    pub unknown_1: u8,
+    pub unknown_2: u16,
+    pub unknown_3: u16, // index (from 0 to 30 for Nuno 0.sav)
+    pub unknown_4: u16, // 6c 6c (108, 108) for the first row
+}
+
+impl InventoryHealItem {
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        let mut name_raw = vec![0u8; 30];
+        reader.read_exact(&mut name_raw)?;
+        let name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let mut description_raw = vec![0u8; 202];
+        reader.read_exact(&mut description_raw)?;
+        let description = read_null_terminated_windows_1250(&description_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let base_price = reader.read_u32::<LittleEndian>()?;
+        let heal_item_id = reader.read_u32::<LittleEndian>()?;
+        let health_points = reader.read_i16::<LittleEndian>()?;
+        let mana_points = reader.read_i16::<LittleEndian>()?;
+        let restore_full_health = reader.read_u8()?;
+        let restore_full_mana = reader.read_u8()?;
+        let poison_heal = reader.read_u8()?;
+        let petrif_heal = reader.read_u8()?;
+        let polimorph_heal = reader.read_u8()?;
+        let unknown_1 = reader.read_u8()?;
+        let unknown_2 = reader.read_u16::<LittleEndian>()?;
+        let unknown_3 = reader.read_u16::<LittleEndian>()?;
+        let unknown_4 = reader.read_u16::<LittleEndian>()?;
+
+        Ok(InventoryHealItem {
+            name,
+            description,
+            base_price,
+            heal_item_id,
+            health_points,
+            mana_points,
+            restore_full_health,
+            restore_full_mana,
+            poison_heal,
+            petrif_heal,
+            polimorph_heal,
+            unknown_1,
+            unknown_2,
+            unknown_3,
+            unknown_4,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryWeaponItem {
+    pub name: String,
+    pub description: String,
+    pub base_price: u32,
+    pub weapon_item_id: u32,
+    pub health_points: i16,
+    pub mana_points: i16,
+    pub strength: i16,
+    pub agility: i16,
+    pub wisdom: i16,
+    pub constitution: i16,
+    pub to_dodge: i16,
+    pub to_hit: i16,
+    pub attack: i16,
+    pub defense: i16,
+    pub magical_strength: i16,
+    pub durability: i16,
+    pub padding2: i16,
+    pub padding3: i16,
+    pub req_strength: i16,
+    pub padding4: i16,
+    pub req_agility: i16,
+    pub padding5: i16,
+    pub req_wisdom: i16,
+    pub padding6: i16,
+    pub padding7: i16,
+    pub padding8: i16,
+    pub unknown_1: u32,
+    pub unknown_2: u32,
+}
+
+impl InventoryWeaponItem {
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        let mut name_raw = vec![0u8; 30];
+        reader.read_exact(&mut name_raw)?;
+        let name = read_null_terminated_windows_1250(&name_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let mut description_raw = vec![0u8; 202];
+        reader.read_exact(&mut description_raw)?;
+        let description = read_null_terminated_windows_1250(&description_raw)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let base_price = reader.read_u32::<LittleEndian>()?;
+        let weapon_item_id = reader.read_u32::<LittleEndian>()?;
+        let health_points = reader.read_i16::<LittleEndian>()?;
+        let mana_points = reader.read_i16::<LittleEndian>()?;
+        let strength = reader.read_i16::<LittleEndian>()?;
+        let agility = reader.read_i16::<LittleEndian>()?;
+        let wisdom = reader.read_i16::<LittleEndian>()?;
+        let constitution = reader.read_i16::<LittleEndian>()?;
+        let to_dodge = reader.read_i16::<LittleEndian>()?;
+        let to_hit = reader.read_i16::<LittleEndian>()?;
+        let attack = reader.read_i16::<LittleEndian>()?;
+        let defense = reader.read_i16::<LittleEndian>()?;
+        let magical_strength = reader.read_i16::<LittleEndian>()?;
+        let durability = reader.read_i16::<LittleEndian>()?;
+        let padding2 = reader.read_i16::<LittleEndian>()?;
+        let padding3 = reader.read_i16::<LittleEndian>()?;
+        let req_strength = reader.read_i16::<LittleEndian>()?;
+        let padding4 = reader.read_i16::<LittleEndian>()?;
+        let req_agility = reader.read_i16::<LittleEndian>()?;
+        let padding5 = reader.read_i16::<LittleEndian>()?;
+        let req_wisdom = reader.read_i16::<LittleEndian>()?;
+        let padding6 = reader.read_i16::<LittleEndian>()?;
+        let padding7 = reader.read_i16::<LittleEndian>()?;
+        let padding8 = reader.read_i16::<LittleEndian>()?;
+        let unknown_1 = reader.read_u32::<LittleEndian>()?;
+        let unknown_2 = reader.read_u32::<LittleEndian>()?;
+
+        Ok(InventoryWeaponItem {
+            name,
+            description,
+            base_price,
+            weapon_item_id,
+            health_points,
+            mana_points,
+            strength,
+            agility,
+            wisdom,
+            constitution,
+            to_dodge,
+            to_hit,
+            attack,
+            defense,
+            magical_strength,
+            durability,
+            padding2,
+            padding3,
+            req_strength,
+            padding4,
+            req_agility,
+            padding5,
+            req_wisdom,
+            padding6,
+            padding7,
+            padding8,
             unknown_1,
             unknown_2,
         })
@@ -870,7 +1070,7 @@ impl SaveFile {
 
         if jump_addr_after_maps != reader.position() as usize {
             // 0.sav Christofor: 2 chests, +500 bytes
-            println!(
+            eprintln!(
                 "jump_addr_after_maps ({:?}) != reader.position() {:?}",
                 jump_addr_after_maps,
                 reader.position() as usize
@@ -934,10 +1134,7 @@ impl SaveFile {
         Ok(data)
     }
 
-    fn read_misc_item_section<R: Read>(
-        reader: &mut R,
-        record_size: u32,
-    ) -> std::io::Result<Vec<InventoryMiscItem>> {
+    fn read_misc_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryMiscItem>> {
         let count = reader.read_u16::<LittleEndian>()? as usize;
         let mut data = vec![0u8; count * 264];
         reader.read_exact(&mut data)?;
@@ -952,7 +1149,6 @@ impl SaveFile {
 
     fn read_event_item_section<R: Read>(
         reader: &mut R,
-        record_size: u32,
     ) -> std::io::Result<Vec<InventoryEventItem>> {
         let count = reader.read_u16::<LittleEndian>()? as usize;
         let mut data = vec![0u8; count * 244];
@@ -961,6 +1157,44 @@ impl SaveFile {
         let items = data
             .chunks_exact(244)
             .map(InventoryEventItem::parse)
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(items)
+    }
+    fn read_edit_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryEditItem>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * 272];
+        reader.read_exact(&mut data)?;
+
+        let items = data
+            .chunks_exact(272)
+            .map(InventoryEditItem::parse)
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(items)
+    }
+
+    fn read_heal_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryHealItem>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * 292];
+        reader.read_exact(&mut data)?;
+
+        let items = data
+            .chunks_exact(292)
+            .map(InventoryHealItem::parse)
+            .collect::<std::io::Result<Vec<_>>>()?;
+
+        Ok(items)
+    }
+
+    fn read_weapon_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryWeaponItem>> {
+        let count = reader.read_u16::<LittleEndian>()? as usize;
+        let mut data = vec![0u8; count * 256];
+        reader.read_exact(&mut data)?;
+
+        let items = data
+            .chunks_exact(256)
+            .map(InventoryWeaponItem::parse)
             .collect::<std::io::Result<Vec<_>>>()?;
 
         Ok(items)
@@ -1165,11 +1399,11 @@ impl SaveFile {
     /// Record sizes: Event=244, Misc=264, Edit=272, Weapon=292, Heal=256.
     fn parse_inventory_section<R: Read>(reader: &mut R) -> std::io::Result<InventoryData> {
         Ok(InventoryData {
-            event_items: Self::read_event_item_section(reader, 244)?,
-            misc_items: Self::read_misc_item_section(reader, 264)?,
-            edit_items: Self::read_draw_item_section(reader, 272)?,
-            weapon_items: Self::read_draw_item_section(reader, 292)?,
-            heal_items: Self::read_draw_item_section(reader, 256)?,
+            event_items: Self::read_event_item_section(reader)?,
+            misc_items: Self::read_misc_item_section(reader)?,
+            edit_items: Self::read_edit_item_section(reader)?,
+            weapon_items: Self::read_weapon_item_section(reader)?,
+            heal_items: Self::read_heal_item_section(reader)?,
         })
     }
 
@@ -1294,7 +1528,7 @@ impl Extractor for SaveFile {
         Ok(vec![save])
     }
 
-    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], _writer: &mut W) -> std::io::Result<()> {
         if records.len() != 1 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

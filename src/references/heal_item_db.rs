@@ -92,17 +92,14 @@ pub struct HealItem {
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Standardized merchant valuation.
-    #[extractor(primitive(type = "i16"))]
-    pub base_price: i16,
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
     /// Padding field.
     #[extractor(primitive(type = "i16"))]
     pub padding1: i16,
     /// Padding field.
     #[extractor(primitive(type = "i16"))]
     pub padding2: i16,
-    /// Padding field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding3: i16,
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
     #[extractor(primitive(type = "i16"))]
@@ -141,7 +138,6 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result
                 item.base_price,
                 item.padding1,
                 item.padding2,
-                item.padding3,
                 item.health_points,
                 item.mana_points,
                 u8::from(item.restore_full_health),

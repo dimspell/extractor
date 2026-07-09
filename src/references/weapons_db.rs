@@ -102,11 +102,8 @@ pub struct WeaponItem {
     #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     /// Shop value in gold.
-    #[extractor(primitive(type = "i16"))]
-    pub base_price: i16,
-    /// Padding field.
-    #[extractor(padding(count = 3, type = "i16"))]
-    pub padding1: i16,
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
     /// HP modifier the equipment grants.
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
