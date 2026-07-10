@@ -127,10 +127,12 @@ impl MonsterRecord {
     }
 }
 
-/// NPC record from save file
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// NPC record from save file (349 bytes)
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct NpcRecord {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 64))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 64))]
     pub role_description: String,
     pub unknown1: u32,
     pub unknown2: u32,
@@ -182,160 +184,6 @@ pub struct NpcRecord {
     pub unknown15: u16,
     pub npc_ref_dialog_id: u32,
     pub unknown16: [u8; 29],
-}
-
-impl NpcRecord {
-    /// Parse NPC record from 349-byte data
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        // Name: 64 bytes fixed-size field, null-terminated WINDOWS-1250
-        let mut name_raw = [0u8; 64];
-        reader.read_exact(&mut name_raw)?;
-        let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(32);
-        let (name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
-        let name = name.to_string();
-
-        // Role description: 64 bytes fixed-size field, null-terminated WINDOWS-1250
-        let mut role_raw = [0u8; 64];
-        reader.read_exact(&mut role_raw)?;
-        let role_len = role_raw.iter().position(|&b| b == 0).unwrap_or(40);
-        let (role_desc, _, _) = WINDOWS_1250.decode(&role_raw[..role_len]);
-        let role_description = role_desc.to_string();
-
-        let unknown1 = reader.read_u32::<LittleEndian>()?;
-        let unknown2 = reader.read_u32::<LittleEndian>()?;
-        let unknown3 = reader.read_u32::<LittleEndian>()?;
-
-        let unknown4 = reader.read_u16::<LittleEndian>()?;
-        let unknown5 = reader.read_u16::<LittleEndian>()?;
-        let unknown6 = reader.read_u16::<LittleEndian>()?;
-        let unknown7 = reader.read_u16::<LittleEndian>()?;
-        let unknown8 = reader.read_u16::<LittleEndian>()?;
-        let unknown9 = reader.read_u16::<LittleEndian>()?;
-        let unknown10 = reader.read_u16::<LittleEndian>()?;
-        let unknown11 = reader.read_u16::<LittleEndian>()?;
-
-        let mut unknown12 = [0u8; 15];
-        reader.read_exact(&mut unknown12)?;
-
-        let npc_ini_id = reader.read_u8()?;
-
-        let mut unknown13 = [0u8; 20];
-        reader.read_exact(&mut unknown13)?;
-
-        let npc_ref_party_script_id = reader.read_u16::<LittleEndian>()?;
-        let npc_ref_show_on_event_id = reader.read_u16::<LittleEndian>()?;
-
-        let unknown14 = reader.read_u8()?;
-
-        let npc_ref_unknown_1 = reader.read_u8()?;
-
-        let npc_ref_waypoint1filled = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint1x = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint1y = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_unknown_2 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_look_direction = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_9 = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_waypoint2filled = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint2x = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint2y = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_unknown_3 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_6 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_10 = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_waypoint3filled = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint3x = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint3y = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_unknown_4 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_7 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_11 = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_waypoint4filled = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint4x = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_waypoint4y = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_unknown_5 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_8 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_12 = reader.read_u32::<LittleEndian>()?;
-
-        let npc_ref_unknown_13 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_14 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_15 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_16 = reader.read_u32::<LittleEndian>()?;
-        let npc_ref_unknown_17 = reader.read_u32::<LittleEndian>()?;
-
-        let unknown15 = reader.read_u16::<LittleEndian>()?;
-
-        let npc_ref_dialog_id = reader.read_u32::<LittleEndian>()?;
-
-        let mut unknown16 = [0u8; 29];
-        reader.read_exact(&mut unknown16)?;
-
-        Ok(NpcRecord {
-            name,
-            role_description,
-            unknown1,
-            unknown2,
-            unknown3,
-            unknown4,
-            unknown5,
-            unknown6,
-            unknown7,
-            unknown8,
-            unknown9,
-            unknown10,
-            unknown11,
-            unknown12,
-            npc_ini_id,
-            unknown13,
-            npc_ref_party_script_id,
-            npc_ref_show_on_event_id,
-            unknown14,
-            npc_ref_unknown_1,
-            npc_ref_waypoint1filled,
-            npc_ref_waypoint1x,
-            npc_ref_waypoint1y,
-            npc_ref_unknown_2,
-            npc_ref_look_direction,
-            npc_ref_unknown_9,
-            npc_ref_waypoint2filled,
-            npc_ref_waypoint2x,
-            npc_ref_waypoint2y,
-            npc_ref_unknown_3,
-            npc_ref_unknown_6,
-            npc_ref_unknown_10,
-            npc_ref_waypoint3filled,
-            npc_ref_waypoint3x,
-            npc_ref_waypoint3y,
-            npc_ref_unknown_4,
-            npc_ref_unknown_7,
-            npc_ref_unknown_11,
-            npc_ref_waypoint4filled,
-            npc_ref_waypoint4x,
-            npc_ref_waypoint4y,
-            npc_ref_unknown_5,
-            npc_ref_unknown_8,
-            npc_ref_unknown_12,
-            npc_ref_unknown_13,
-            npc_ref_unknown_14,
-            npc_ref_unknown_15,
-            npc_ref_unknown_16,
-            npc_ref_unknown_17,
-            unknown15,
-            npc_ref_dialog_id,
-            unknown16,
-        })
-        // Not recognized from the NPC-Ref
-        // Unknown 18:
-        // Unknown Item:
-        // Unknown 19:
-        // Face Sprite ID:
-    }
 }
 
 /// Extra object record (surface or dungeon)
