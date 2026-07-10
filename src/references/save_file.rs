@@ -3,9 +3,8 @@
 // This module provides comprehensive parsing of Dispel RPG save files (.sav)
 // following the binary format documented in SAVE_FILE_RESEARCH.md
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 use dispel_macros::BinaryRecord;
-use encoding_rs::WINDOWS_1250;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 // use proptest::char::range;
@@ -440,7 +439,7 @@ pub struct InventoryHealItem {
     pub polimorph_heal: u8,      // 249
     pub unknown_1: u8,           // 250
     pub unknown_2: u16,          // 252
-    pub unknown_3: u8,           // index (from 0 to 30 for Nuno 0.sav) - inventory position 253
+    pub unknown_3: u8,           // inventory position 253
     pub unknown_4: u8,           // inventory position 254
     pub unknown_5: u16,          // 6c 6c (108, 108) for the first row 256
 }
@@ -651,7 +650,6 @@ impl SaveFile {
         let maps = Self::parse_maps_section(&mut reader, number_of_visited_map)?;
 
         if jump_addr_after_maps != reader.position() as usize {
-            // 0.sav Christofor: 2 chests, +500 bytes
             eprintln!(
                 "jump_addr_after_maps ({:?}) != reader.position() {:?}",
                 jump_addr_after_maps,

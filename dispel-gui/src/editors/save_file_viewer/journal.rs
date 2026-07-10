@@ -75,24 +75,3 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
     iced::widget::Column::<Message>::new().push(tab_bar).push(list).into()
 }
-
-fn format_flags(flags: u32) -> String {
-    if flags == 0 {
-        return "None".into();
-    }
-    let mut parts: Vec<String> = Vec::new();
-    if flags & 1 != 0 {
-        parts.push("READ".into());
-    }
-    if flags & 2 != 0 {
-        parts.push("NEW".into());
-    }
-    if flags & 4 != 0 {
-        parts.push("DONE".into());
-    }
-    let extra = flags & !7;
-    if extra != 0 {
-        parts.push(format!("0x{:X}", extra));
-    }
-    parts.join("|")
-}

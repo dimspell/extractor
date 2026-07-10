@@ -197,7 +197,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn item_bytes(name: &str, base_price: i16, defense: i16) -> Vec<u8> {
+    fn item_bytes(name: &str, base_price: i32, defense: i16) -> Vec<u8> {
         let mut rec = Vec::with_capacity(268);
         let mut name_buf = [0u8; 30];
         name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);

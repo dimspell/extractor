@@ -1,5 +1,5 @@
 use iced::widget::{button, container, text, Row};
-use iced::{Element, Fill, Length};
+use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
@@ -56,8 +56,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     .spacing(8)
                     .push(text(m.name.clone()).size(12).width(150))
                     .push(text(format!("HP {}/{}", m.hp_current, m.hp_maximum)).size(12).width(100))
-                    .push(text(format!("({},{})", m.tile_x, m.tile_y)).size(11).width(80))
-                    .push(text(state_flags(&m.state)).size(11));
+                    .push(text(format!("({},{})", m.unknown_6_coordinate, m.unknown_7_coordinate)).size(11).width(80));
                 content = content.push(container(row).padding([2, 8]).width(Fill));
             }
         }
@@ -71,7 +70,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 let row = Row::<Message>::new()
                     .spacing(8)
                     .push(text(npc.name.clone()).size(12).width(150))
-                    .push(text(npc.role_description.clone()).size(12));
+                    .push(text(npc.role_description.clone()).size(12)); // TODO: there is no table that provides all data in tabular way
                 content = content.push(container(row).padding([2, 8]).width(Fill));
             }
         }
@@ -84,29 +83,21 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             for obj in &map.extra_objects {
                 let row = Row::<Message>::new()
                     .spacing(8)
-                    .push(text(obj.name.clone()).size(12).width(150))
-                    .push(text(format!("state={}", obj.state)).size(12));
+                    .push(text(obj.name.clone()).size(12).width(150)); // TODO: there is no table that provides all data in tabular way
                 content = content.push(container(row).padding([2, 8]).width(Fill));
             }
         }
 
         // Draw items summary
         content = content.push(text("Ground Items").size(14));
-        let draw_counts = [
-            ("Weapon", map.draw_items_weapon.len(), 296),
-            ("Heal", map.draw_items_heal.len(), 264),
-            ("Edit", map.draw_items_edit.len(), 280),
-            ("Misc", map.draw_items_misc.len(), 268),
-            ("Event", map.draw_items_event.len(), 252),
-        ];
-        for (label, total_bytes, rec_size) in &draw_counts {
-            let count = if *total_bytes > 0 { total_bytes / rec_size } else { 0 };
-            content = content.push(
-                text(format!("  {}: {} records ({} bytes)", label, count, total_bytes))
-                    .size(12)
-                    .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
-            );
-        }
+        // let draw_counts = [
+        //     ("Weapon", map.draw_items_weapon.len(), 296),
+        //     ("Heal", map.draw_items_heal.len(), 264),
+        //     ("Edit", map.draw_items_edit.len(), 280),
+        //     ("Misc", map.draw_items_misc.len(), 268),
+        //     ("Event", map.draw_items_event.len(), 252),
+        // ];
+        // TODO: there is no table widget that presents all the items in a nice way.
 
         iced::widget::Scrollable::<Message>::new(content).height(Fill).into()
     } else {
@@ -121,20 +112,4 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         .push(sidebar)
         .push(main)
         .into()
-}
-
-fn state_flags(state: &dispel_core::references::save_file::MonsterState) -> String {
-    let mut parts = Vec::new();
-    if state.is_dead { parts.push("Dead"); }
-    if state.is_poisoned { parts.push("Poisoned"); }
-    if state.is_burning { parts.push("Burning"); }
-    if state.is_frozen { parts.push("Frozen"); }
-    if state.is_stunned { parts.push("Stunned"); }
-    if state.is_invisible { parts.push("Invisible"); }
-    if state.is_boss { parts.push("Boss"); }
-    if parts.is_empty() {
-        "Alive".into()
-    } else {
-        parts.join(", ")
-    }
 }

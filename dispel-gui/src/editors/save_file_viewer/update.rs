@@ -1,10 +1,7 @@
 use iced::Task;
 
 use crate::app::App;
-use crate::editors::save_file_viewer::{
-    message::SaveFileViewerMessage,
-    state::{InventoryCategory, JournalSection, SaveFileSection, SaveFileViewerState},
-};
+use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
@@ -66,13 +63,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     let n = loaded.save_file.events.len();
                     let mut display_cache = Vec::with_capacity(n);
                     for (i, ev) in loaded.save_file.events.iter().enumerate() {
-                        let s = match ev.state {
-                            0 => "Inactive".into(),
-                            1 => "Active".into(),
-                            2 => "Completed".into(),
-                            v => format!("Unknown({})", v),
-                        };
-                        display_cache.push(vec![format!("{}", i + 1), s, ev.script_name.clone()]);
+                        display_cache.push(vec![
+                            format!("{}", i + 1),
+                            format!("{} : {}", ev.unknown_1, ev.unknown_2),
+                            ev.script_name.clone(),
+                        ]);
                     }
                     state.events_display_cache = display_cache;
                     state.events_filtered_indices = (0..n).collect();

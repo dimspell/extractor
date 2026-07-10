@@ -1,5 +1,5 @@
-use iced::widget::{button, container, scrollable, text, Column, Row};
-use iced::{Element, Fill, Length};
+use iced::widget::{button, container, text, Column};
+use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::{InventoryCategory, SaveFileViewerState};
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
@@ -32,7 +32,12 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         } else {
             0
         };
-        let label = format!("{} ({} rec, {}B)", cat.label(), rec_count, cat.record_size());
+        let label = format!(
+            "{} ({} rec, {}B)",
+            cat.label(),
+            rec_count,
+            cat.record_size()
+        );
         let mut btn = button(text(label).size(12));
         if is_active {
             btn = btn.style(iced::widget::button::primary);
@@ -48,7 +53,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     // Content: embedded hex editor for the selected category
     let body: Element<'a, Message> = match active {
         Some(cat) => {
-            if let Some(editor) = state.inventory_hex_viewers.get(&cat) {
+            if let Some(_editor) = state.inventory_hex_viewers.get(&cat) {
                 // TODO: Draw a table here (not the hex viewer) that list all the items in the inventory
                 container(text("todo")).into()
             } else {
@@ -66,8 +71,5 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .into(),
     };
 
-    Column::<Message>::new()
-        .push(buttons)
-        .push(body)
-        .into()
+    Column::<Message>::new().push(buttons).push(body).into()
 }
