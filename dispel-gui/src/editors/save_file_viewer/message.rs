@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::editors::save_file_viewer::state::{InventoryCategory, JournalSection, SaveFileSection};
+use crate::editors::save_file_viewer::state::{InventoryCategory, JournalSection, MapsTableKind, SaveFileSection};
 
 /// Messages for the save file viewer.
 #[derive(Debug, Clone)]
@@ -19,6 +19,42 @@ pub enum SaveFileViewerMessage {
     SelectJournalSection(JournalSection),
     /// Select a map in the Maps section.
     SelectMap(usize),
+    /// Select a row in one of a map's entity tables.
+    MapsTableSelect {
+        map: usize,
+        kind: MapsTableKind,
+        visible_idx: usize,
+    },
+    /// Toggle sort by a column in one of a map's entity tables.
+    MapsTableSort {
+        map: usize,
+        kind: MapsTableKind,
+        col: usize,
+    },
+    /// Begin dragging a column resize handle in one of a map's entity tables.
+    MapsTableStartResize {
+        map: usize,
+        kind: MapsTableKind,
+        col: usize,
+    },
+    /// Reset a column to its default width (double-click on resize handle).
+    MapsTableResetColumnWidth {
+        map: usize,
+        kind: MapsTableKind,
+        col: usize,
+    },
+    /// Cursor moved while a column resize drag is active.
+    MapsTableResizeCursor(f32),
+    /// Column resize drag finished.
+    MapsTableEndResize,
+    /// Table scrolled; persist the offset for stable re-renders.
+    MapsTableScroll {
+        map: usize,
+        kind: MapsTableKind,
+        x: f32,
+        y: f32,
+        viewport_height: f32,
+    },
 }
 
 /// Data returned after a successful save file load.

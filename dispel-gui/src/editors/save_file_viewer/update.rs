@@ -41,6 +41,120 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.selected_map = Some(index);
             Task::none()
         }
+        SaveFileViewerMessage::MapsTableSelect {
+            map,
+            kind,
+            visible_idx,
+        } => {
+            let Some(cache) = state.maps_display_caches.get(map) else {
+                return Task::none();
+            };
+            let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            else {
+                return Task::none();
+            };
+            let orig = maps_table_indices(cache, kind).get(visible_idx).copied();
+            ts.selected_orig = orig;
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableSort { map, kind, col } => {
+            let Some(cache) = state.maps_display_caches.get_mut(map) else {
+                return Task::none();
+            };
+            let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            else {
+                return Task::none();
+            };
+            if ts.sort_column == Some(col) {
+                ts.sort_ascending = !ts.sort_ascending;
+            } else {
+                ts.sort_column = Some(col);
+                ts.sort_ascending = true;
+            }
+            let ascending = ts.sort_ascending;
+            let (rows, indices) = maps_table_data(cache, kind);
+            indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableStartResize { map, kind, col } => {
+            let anchor_width = state
+                .maps_table_states
+                .get(map)
+                .and_then(|m| m.get(&kind))
+                .and_then(|ts| ts.column_widths.get(col).copied())
+                .unwrap_or(80.0);
+            state.maps_resizing = Some(
+                crate::editors::save_file_viewer::state::MapsTableResizeDrag {
+                    map,
+                    kind,
+                    col,
+                    anchor_width,
+                    anchor_cursor_x: None,
+                },
+            );
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableResetColumnWidth { map, kind, col } => {
+            if let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            {
+                let default_width = kind
+                    .default_columns()
+                    .into_iter()
+                    .nth(col)
+                    .map(|c| c.width_px)
+                    .unwrap_or(80.0);
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = default_width;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableResizeCursor(x) => {
+            if let Some(drag) = state.maps_resizing.as_mut() {
+                let anchor_x = match drag.anchor_cursor_x {
+                    Some(ax) => ax,
+                    None => {
+                        drag.anchor_cursor_x = Some(x);
+                        return Task::none();
+                    }
+                };
+                let new_width = (drag.anchor_width + (x - anchor_x))
+                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                if let Some(ts) = state
+                    .maps_table_states
+                    .get_mut(drag.map)
+                    .and_then(|m| m.get_mut(&drag.kind))
+                {
+                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
+                        *w = new_width;
+                    }
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableEndResize => {
+            state.maps_resizing = None;
+            Task::none()
+        }
+        SaveFileViewerMessage::MapsTableScroll { map, kind, x, y, .. } => {
+            if let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            {
+                ts.scroll_offset = (x, y);
+            }
+            Task::none()
+        }
         SaveFileViewerMessage::Load(_) => {
             // Load is handled by app.rs::open_file_in_workspace via Task::perform
             state.loading = true;
@@ -291,6 +405,33 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         })
                         .collect();
                     state.maps_display_caches = maps_caches;
+                    // Build per-map, per-table interaction state. Column widths
+                    // are initialised from each table kind's default layout.
+                    use crate::editors::save_file_viewer::state::{
+                        MapTableState, MapsTableKind,
+                    };
+                    let mut table_states: Vec<
+                        std::collections::HashMap<MapsTableKind, MapTableState>,
+                    > = Vec::with_capacity(state.maps_display_caches.len());
+                    for _ in &state.maps_display_caches {
+                        let mut per_map = std::collections::HashMap::new();
+                        for kind in MapsTableKind::all() {
+                            let widths: Vec<f32> = kind
+                                .default_columns()
+                                .iter()
+                                .map(|c| c.width_px)
+                                .collect();
+                            per_map.insert(
+                                *kind,
+                                MapTableState {
+                                    column_widths: widths,
+                                    ..Default::default()
+                                },
+                            );
+                        }
+                        table_states.push(per_map);
+                    }
+                    state.maps_table_states = table_states;
                     // Build journal display caches
                     use crate::editors::save_file_viewer::state::JournalSection;
                     let mut journal_caches =
@@ -368,4 +509,72 @@ fn format_npc_waypoints(
 
 fn fmt_coord(x: impl std::fmt::Display, y: impl std::fmt::Display) -> String {
     format!("({},{})", x, y)
+}
+
+/// Clamp bounds for column resize widths.
+const COL_WIDTH_MIN: f32 = 24.0;
+const COL_WIDTH_MAX: f32 = 600.0;
+
+/// Return the (immutable) indices slice for a given map table kind.
+fn maps_table_indices<'a>(
+    cache: &'a crate::editors::save_file_viewer::state::MapsDisplayCaches,
+    kind: crate::editors::save_file_viewer::state::MapsTableKind,
+) -> &'a [usize] {
+    use crate::editors::save_file_viewer::state::MapsTableKind;
+    match kind {
+        MapsTableKind::Monsters => &cache.monsters_indices,
+        MapsTableKind::Npcs => &cache.npcs_indices,
+        MapsTableKind::ExtraObjects => &cache.extra_objects_indices,
+        MapsTableKind::Weapon => &cache.draw_items_weapon_indices,
+        MapsTableKind::Heal => &cache.draw_items_heal_indices,
+        MapsTableKind::Edit => &cache.draw_items_edit_indices,
+        MapsTableKind::Misc => &cache.draw_items_misc_indices,
+        MapsTableKind::Event => &cache.draw_items_event_indices,
+    }
+}
+
+/// Return the (immutable rows, mutable indices) pair for a given map table
+/// kind. The two borrows are disjoint fields of `MapsDisplayCaches`.
+fn maps_table_data<'a>(
+    cache: &'a mut crate::editors::save_file_viewer::state::MapsDisplayCaches,
+    kind: crate::editors::save_file_viewer::state::MapsTableKind,
+) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+    use crate::editors::save_file_viewer::state::MapsTableKind;
+    match kind {
+        MapsTableKind::Monsters => (&cache.monsters, &mut cache.monsters_indices),
+        MapsTableKind::Npcs => (&cache.npcs, &mut cache.npcs_indices),
+        MapsTableKind::ExtraObjects => (&cache.extra_objects, &mut cache.extra_objects_indices),
+        MapsTableKind::Weapon => (&cache.draw_items_weapon, &mut cache.draw_items_weapon_indices),
+        MapsTableKind::Heal => (&cache.draw_items_heal, &mut cache.draw_items_heal_indices),
+        MapsTableKind::Edit => (&cache.draw_items_edit, &mut cache.draw_items_edit_indices),
+        MapsTableKind::Misc => (&cache.draw_items_misc, &mut cache.draw_items_misc_indices),
+        MapsTableKind::Event => (&cache.draw_items_event, &mut cache.draw_items_event_indices),
+    }
+}
+
+/// Numeric-aware cell comparison for sorting. Falls back to lexicographic
+/// string comparison when either value is not a parseable float.
+fn compare_cells(
+    rows: &[Vec<String>],
+    a: usize,
+    b: usize,
+    col: usize,
+    ascending: bool,
+) -> std::cmp::Ordering {
+    let av = rows.get(a).and_then(|r| r.get(col));
+    let bv = rows.get(b).and_then(|r| r.get(col));
+    let ord = match (av, bv) {
+        (Some(a), Some(b)) => match (a.parse::<f64>(), b.parse::<f64>()) {
+            (Ok(an), Ok(bn)) => an.partial_cmp(&bn).unwrap_or(std::cmp::Ordering::Equal),
+            _ => a.cmp(b),
+        },
+        (Some(_), None) => std::cmp::Ordering::Greater,
+        (None, Some(_)) => std::cmp::Ordering::Less,
+        (None, None) => std::cmp::Ordering::Equal,
+    };
+    if ascending {
+        ord
+    } else {
+        ord.reverse()
+    }
 }

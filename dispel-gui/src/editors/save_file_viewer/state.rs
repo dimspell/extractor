@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
 
 /// Section tabs displayed in the save file viewer.
@@ -41,6 +42,100 @@ impl SaveFileSection {
 pub struct RawHexViewer {
     pub label: &'static str,
     pub state: HexEditorState,
+}
+
+/// Identifies one of the entity tables rendered for a map.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MapsTableKind {
+    Monsters,
+    Npcs,
+    ExtraObjects,
+    Weapon,
+    Heal,
+    Edit,
+    Misc,
+    Event,
+}
+
+impl MapsTableKind {
+    /// All table kinds in the order they are rendered for a map.
+    pub fn all() -> &'static [MapsTableKind] {
+        use MapsTableKind::*;
+        &[Monsters, Npcs, ExtraObjects, Weapon, Heal, Edit, Misc, Event]
+    }
+
+    /// Default column layout (widths + labels) for this table kind.
+    /// `sort`/`has_filter` are left at their defaults; the view overrides
+    /// `width_px` from the per-table state and `sort` from the active sort.
+    pub fn default_columns(&self) -> Vec<TableColumn> {
+        use MapsTableKind::*;
+        let defs: &[(&str, f32)] = match self {
+            Monsters => &[
+                ("Name", 130.0), ("HP", 80.0), ("MP", 80.0), ("Atk", 42.0),
+                ("Def", 42.0), ("Dodge", 48.0), ("Hit", 42.0), ("XP", 42.0),
+                ("Gold", 42.0), ("Sight", 42.0), ("Range", 42.0), ("AI", 65.0),
+                ("X", 42.0), ("Y", 42.0),
+            ],
+            Npcs => &[
+                ("Name", 130.0), ("Role", 130.0), ("DialogID", 55.0),
+                ("PartyScript", 65.0), ("ShowOnEvent", 70.0), ("LookDir", 55.0),
+                ("Waypoints", 200.0),
+            ],
+            ExtraObjects => &[
+                ("Name", 130.0), ("X", 50.0), ("Y", 50.0), ("Unk6", 60.0),
+                ("Unk11", 60.0), ("Unk32", 60.0),
+            ],
+            Weapon => &[
+                ("Name", 130.0), ("Price", 50.0), ("Atk", 38.0), ("Def", 38.0),
+                ("MagStr", 50.0), ("Coords", 90.0),
+            ],
+            Heal => &[
+                ("Name", 130.0), ("Price", 50.0), ("HP", 38.0), ("MP", 38.0),
+                ("Coords", 90.0),
+            ],
+            Edit => &[
+                ("Name", 130.0), ("Price", 50.0), ("HP", 38.0), ("MP", 38.0),
+                ("Str", 38.0), ("Agi", 38.0), ("Coords", 90.0),
+            ],
+            Misc => &[("Name", 130.0), ("Price", 50.0), ("Coords", 90.0)],
+            Event => &[
+                ("Name", 130.0), ("Price", 50.0), ("EventID", 60.0), ("Coords", 90.0),
+            ],
+        };
+        defs.iter()
+            .map(|(label, width_px)| TableColumn {
+                width_px: *width_px,
+                label: (*label).to_string(),
+                sort: None,
+                has_filter: false,
+            })
+            .collect()
+    }
+}
+
+/// Per-table interaction state for one map's entity tables.
+#[derive(Debug, Clone, Default)]
+pub struct MapTableState {
+    /// Currently selected original row index (highlighted).
+    pub selected_orig: Option<usize>,
+    /// Active sort column, if any.
+    pub sort_column: Option<usize>,
+    /// Sort direction for `sort_column`.
+    pub sort_ascending: bool,
+    /// Per-column widths (px), parallel to `default_columns()`.
+    pub column_widths: Vec<f32>,
+    /// Last reported scroll offset (x, y) for stable scroll across re-renders.
+    pub scroll_offset: (f32, f32),
+}
+
+/// Active column-resize drag for a maps table.
+#[derive(Debug, Clone)]
+pub struct MapsTableResizeDrag {
+    pub map: usize,
+    pub kind: MapsTableKind,
+    pub col: usize,
+    pub anchor_width: f32,
+    pub anchor_cursor_x: Option<f32>,
 }
 
 /// Cached display rows for one map's entity tables.
@@ -94,6 +189,11 @@ pub struct SaveFileViewerState {
 
     // Maps display caches (built on load, one per map at positional index)
     pub maps_display_caches: Vec<MapsDisplayCaches>,
+
+    // Maps table interaction state, indexed by map position then table kind.
+    pub maps_table_states: Vec<HashMap<MapsTableKind, MapTableState>>,
+    // Active column-resize drag for a maps table, if any.
+    pub maps_resizing: Option<MapsTableResizeDrag>,
 }
 
 impl Default for SaveFileViewerState {
@@ -115,6 +215,8 @@ impl Default for SaveFileViewerState {
             inventory_display_caches: HashMap::new(),
             inventory_filtered_indices: HashMap::new(),
             maps_display_caches: Vec::new(),
+            maps_table_states: Vec::new(),
+            maps_resizing: None,
         }
     }
 }

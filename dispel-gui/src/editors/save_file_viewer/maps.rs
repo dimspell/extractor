@@ -1,13 +1,13 @@
-use iced::widget::{button, container, scrollable, text, Column};
-use iced::{Element, Fill};
-use iced::Padding;
+use iced::mouse::Interaction;
+use iced::widget::{button, container, mouse_area, scrollable, text, Column};
+use iced::{Element, Fill, Length, Padding};
 
-use crate::editors::save_file_viewer::state::SaveFileViewerState;
+use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind, SaveFileViewerState};
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
-use gui_widgets::{TableColumn, TableWidget};
+use gui_widgets::{RowFlags, TableWidget};
 
 /// Maps section: vertical sidebar + entity tables per map.
 pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
@@ -52,87 +52,50 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     // Right panel: entity tables for selected map
     let main: Element<'a, Message> = if let Some(idx) = state.selected_map {
         let caches = state.maps_display_caches.get(idx);
+        let ts_map = state.maps_table_states.get(idx);
+        let resizing = state
+            .maps_resizing
+            .as_ref()
+            .map(|d| (d.map, d.kind));
         let map = &sf.maps[idx];
 
         let mut content = Column::<Message>::new().spacing(12).padding(16);
 
         // Monsters table
         content = content.push(section_header(&format!("Monsters ({})", map.monsters.len())));
-        if let Some(c) = caches {
-            if !c.monsters.is_empty() {
-                content = content.push(entity_table(
-                    &c.monsters,
-                    &c.monsters_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 80.0, label: "HP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 80.0, label: "MP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Atk".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Def".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 48.0, label: "Dodge".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Hit".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "XP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Gold".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Sight".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Range".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 65.0, label: "AI".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "X".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 42.0, label: "Y".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        } else {
-            content = content.push(empty_text("(caches not ready)"));
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Monsters,
+            caches.map(|c| (&c.monsters[..], &c.monsters_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Monsters)),
+            resizing,
+        );
 
         // NPCs table
         content = content.push(section_header(&format!("NPCs ({})", map.npcs.len())));
-        if let Some(c) = caches {
-            if !c.npcs.is_empty() {
-                content = content.push(entity_table(
-                    &c.npcs,
-                    &c.npcs_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 130.0, label: "Role".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 55.0, label: "DialogID".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 65.0, label: "PartyScript".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 70.0, label: "ShowOnEvent".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 55.0, label: "LookDir".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 200.0, label: "Waypoints".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        } else {
-            content = content.push(empty_text("(caches not ready)"));
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Npcs,
+            caches.map(|c| (&c.npcs[..], &c.npcs_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Npcs)),
+            resizing,
+        );
 
         // Extra objects table
-        content = content.push(section_header(&format!("Extra Objects ({})", map.extra_objects.len())));
-        if let Some(c) = caches {
-            if !c.extra_objects.is_empty() {
-                content = content.push(entity_table(
-                    &c.extra_objects,
-                    &c.extra_objects_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "X".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Y".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 60.0, label: "Unk6".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 60.0, label: "Unk11".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 60.0, label: "Unk32".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        } else {
-            content = content.push(empty_text("(caches not ready)"));
-        }
+        content = content.push(section_header(&format!(
+            "Extra Objects ({})",
+            map.extra_objects.len()
+        )));
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::ExtraObjects,
+            caches.map(|c| (&c.extra_objects[..], &c.extra_objects_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::ExtraObjects)),
+            resizing,
+        );
 
         // Ground items
         content = content.push(section_header("Ground Items"));
@@ -142,115 +105,70 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             "Weapons ({})",
             map.draw_items_weapon.len()
         )));
-        if let Some(c) = caches {
-            if !c.draw_items_weapon.is_empty() {
-                content = content.push(entity_table(
-                    &c.draw_items_weapon,
-                    &c.draw_items_weapon_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Price".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "Atk".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "Def".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "MagStr".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 90.0, label: "Coords".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Weapon,
+            caches.map(|c| (&c.draw_items_weapon[..], &c.draw_items_weapon_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Weapon)),
+            resizing,
+        );
 
         // Heal items
         content = content.push(subsection_header(&format!(
             "Heals ({})",
             map.draw_items_heal.len()
         )));
-        if let Some(c) = caches {
-            if !c.draw_items_heal.is_empty() {
-                content = content.push(entity_table(
-                    &c.draw_items_heal,
-                    &c.draw_items_heal_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Price".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "HP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "MP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 90.0, label: "Coords".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Heal,
+            caches.map(|c| (&c.draw_items_heal[..], &c.draw_items_heal_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Heal)),
+            resizing,
+        );
 
         // Edit items
         content = content.push(subsection_header(&format!(
             "Edits ({})",
             map.draw_items_edit.len()
         )));
-        if let Some(c) = caches {
-            if !c.draw_items_edit.is_empty() {
-                content = content.push(entity_table(
-                    &c.draw_items_edit,
-                    &c.draw_items_edit_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Price".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "HP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "MP".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "Str".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 38.0, label: "Agi".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 90.0, label: "Coords".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Edit,
+            caches.map(|c| (&c.draw_items_edit[..], &c.draw_items_edit_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Edit)),
+            resizing,
+        );
 
         // Misc items
         content = content.push(subsection_header(&format!(
             "Misc ({})",
             map.draw_items_misc.len()
         )));
-        if let Some(c) = caches {
-            if !c.draw_items_misc.is_empty() {
-                content = content.push(entity_table(
-                    &c.draw_items_misc,
-                    &c.draw_items_misc_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Price".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 90.0, label: "Coords".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Misc,
+            caches.map(|c| (&c.draw_items_misc[..], &c.draw_items_misc_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Misc)),
+            resizing,
+        );
 
         // Event items
         content = content.push(subsection_header(&format!(
             "Events ({})",
             map.draw_items_event.len()
         )));
-        if let Some(c) = caches {
-            if !c.draw_items_event.is_empty() {
-                content = content.push(entity_table(
-                    &c.draw_items_event,
-                    &c.draw_items_event_indices,
-                    vec![
-                        TableColumn { width_px: 130.0, label: "Name".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 50.0, label: "Price".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 60.0, label: "EventID".into(), sort: None, has_filter: false },
-                        TableColumn { width_px: 90.0, label: "Coords".into(), sort: None, has_filter: false },
-                    ],
-                ));
-            } else {
-                content = content.push(empty_text("(none)"));
-            }
-        }
+        content = push_map_table(
+            content,
+            idx,
+            MapsTableKind::Event,
+            caches.map(|c| (&c.draw_items_event[..], &c.draw_items_event_indices[..])),
+            ts_map.and_then(|m| m.get(&MapsTableKind::Event)),
+            resizing,
+        );
 
         scrollable(content).height(Fill).into()
     } else {
@@ -265,6 +183,124 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         .push(sidebar)
         .push(main)
         .into()
+}
+
+/// Push one entity table (or an empty/placeholder note) into the column.
+fn push_map_table<'a>(
+    content: Column<'a, Message>,
+    map_idx: usize,
+    kind: MapsTableKind,
+    data: Option<(&'a [Vec<String>], &'a [usize])>,
+    ts: Option<&'a MapTableState>,
+    resizing: Option<(usize, MapsTableKind)>,
+) -> Column<'a, Message> {
+    match (data, ts) {
+        (Some((rows, indices)), Some(ts)) if !rows.is_empty() => {
+            content.push(entity_table(map_idx, kind, rows, indices, ts, resizing))
+        }
+        (Some(_), Some(_)) => content.push(empty_text("(none)")),
+        _ => content.push(empty_text("(caches not ready)")),
+    }
+}
+
+fn entity_table<'a>(
+    map_idx: usize,
+    kind: MapsTableKind,
+    display_cache: &'a [Vec<String>],
+    indices: &'a [usize],
+    ts: &'a MapTableState,
+    resizing: Option<(usize, MapsTableKind)>,
+) -> Element<'a, Message> {
+    // Build columns from the kind's default layout, then apply the
+    // per-table width overrides and active sort state.
+    let mut columns = kind.default_columns();
+    for (c, w) in columns.iter_mut().zip(&ts.column_widths) {
+        c.width_px = *w;
+    }
+    if let Some(sc) = ts.sort_column {
+        if let Some(c) = columns.get_mut(sc) {
+            c.sort = Some(ts.sort_ascending);
+        }
+    }
+
+    let selected = ts.selected_orig;
+    let row_flags = move |visible_idx: usize| -> RowFlags {
+        let orig = indices.get(visible_idx).copied();
+        RowFlags {
+            selected: orig == selected,
+            ..Default::default()
+        }
+    };
+
+    let table = TableWidget::new(
+        display_cache,
+        indices,
+        columns,
+        0.0,
+        row_flags,
+        22.0,
+        ParagraphCache::default(),
+    )
+    .external_offset(ts.scroll_offset.0, ts.scroll_offset.1)
+    .on_select(move |visible_idx| {
+        Message::save_file_viewer(SaveFileViewerMessage::MapsTableSelect {
+            map: map_idx,
+            kind,
+            visible_idx,
+        })
+    })
+    .on_sort(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::MapsTableSort {
+            map: map_idx,
+            kind,
+            col,
+        })
+    })
+    .on_start_resize(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::MapsTableStartResize {
+            map: map_idx,
+            kind,
+            col,
+        })
+    })
+    .on_reset_column_width(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::MapsTableResetColumnWidth {
+            map: map_idx,
+            kind,
+            col,
+        })
+    })
+    .on_scroll(move |x, y, vh| {
+        Message::save_file_viewer(SaveFileViewerMessage::MapsTableScroll {
+            map: map_idx,
+            kind,
+            x,
+            y,
+            viewport_height: vh,
+        })
+    });
+
+    // Bound the table to a fixed height so its layout resolves to a finite
+    // size inside the outer scrollable (TableWidget fills whatever the parent
+    // offers, which is unbounded here).
+    let table_elem: Element<'a, Message> =
+        container(table).height(Length::Fixed(640.0)).into();
+
+    // While resizing this table, capture cursor moves / release across the
+    // whole table area so the drag isn't interrupted by the inner widget.
+    if resizing == Some((map_idx, kind)) {
+        mouse_area(table_elem)
+            .on_move(move |p| {
+                Message::save_file_viewer(SaveFileViewerMessage::MapsTableResizeCursor(p.x))
+            })
+            .on_release(Message::save_file_viewer(
+                SaveFileViewerMessage::MapsTableEndResize,
+            ))
+            .interaction(Interaction::ResizingHorizontally)
+            .into()
+    } else {
+        table_elem
+    }
 }
 
 fn section_header(label: &str) -> Element<'static, Message> {
@@ -292,33 +328,17 @@ fn subsection_header(label: &str) -> Element<'static, Message> {
 }
 
 fn empty_text(msg: &str) -> Element<'static, Message> {
-    container(text(msg.to_string()).color(iced::Color::from_rgb(0.5, 0.5, 0.5)).size(12))
-        .padding(Padding {
-            top: 0.0,
-            right: 0.0,
-            bottom: 8.0,
-            left: 12.0,
-        })
-        .width(Fill)
-        .into()
-}
-
-fn entity_table<'a>(
-    display_cache: &'a [Vec<String>],
-    indices: &'a [usize],
-    columns: Vec<TableColumn>,
-) -> Element<'a, Message> {
-    let table = TableWidget::new(
-        display_cache,
-        indices,
-        columns,
-        0.0,
-        |_| gui_widgets::RowFlags::default(),
-        22.0,
-        ParagraphCache::default(),
-    );
-    // TableWidget::layout() fills whatever vertical space the parent offers,
-    // so inside the outer scrollable each Fill-height table resolves to an
-    // unbounded/zero height and renders wrong. Bound it explicitly.
-    container(table).height(iced::Length::Fixed(640.0)).into()
+    container(
+        text(msg.to_string())
+            .color(iced::Color::from_rgb(0.5, 0.5, 0.5))
+            .size(12),
+    )
+    .padding(Padding {
+        top: 0.0,
+        right: 0.0,
+        bottom: 8.0,
+        left: 12.0,
+    })
+    .width(Fill)
+    .into()
 }
