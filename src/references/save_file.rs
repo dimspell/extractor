@@ -972,20 +972,6 @@ impl SaveFile {
         })
     }
 
-    /// Read a count-prefixed draw item section from the reader.
-    ///
-    /// Each draw item section in the save file is stored as:
-    ///   `[count: u16][count × record_size bytes]`
-    fn read_draw_item_section<R: Read>(
-        reader: &mut R,
-        record_size: u32,
-    ) -> std::io::Result<Vec<u8>> {
-        let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * record_size as usize];
-        reader.read_exact(&mut data)?;
-        Ok(data)
-    }
-
     /// Generic count-prefixed item section reader.
     ///
     /// Each section is stored as `[count: u16][count × record_size bytes]`.
