@@ -49,32 +49,8 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     let body: Element<'a, Message> = match active {
         Some(cat) => {
             if let Some(editor) = state.inventory_hex_viewers.get(&cat) {
-                let has_data = editor.provider.as_slice().len() > 0;
-                if has_data {
-                    container(
-                        hexedit::view(
-                            editor,
-                            &hexedit::HexEditorConfig {
-                                can_save: false,
-                                ..hexedit::HexEditorConfig::default()
-                            },
-                        )
-                        .map(move |msg| {
-                            Message::save_file_viewer(SaveFileViewerMessage::InventoryHexViewer(
-                                cat, msg,
-                            ))
-                        }),
-                    )
-                    .width(Fill)
-                    .height(Length::Fill)
-                    .into()
-                } else {
-                    container(text("(empty)").color(iced::Color::from_rgb(0.5, 0.5, 0.5)))
-                        .width(Fill)
-                        .height(Fill)
-                        .padding(16)
-                        .into()
-                }
+                // TODO: Draw a table here (not the hex viewer) that list all the items in the inventory
+                container(text("todo")).into()
             } else {
                 container(text("Hex viewer not available"))
                     .width(Fill)

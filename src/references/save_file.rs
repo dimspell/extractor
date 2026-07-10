@@ -1169,70 +1169,22 @@ impl SaveFile {
         Ok(data)
     }
 
-    fn read_misc_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryMiscItem>> {
-        let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 264];
-        reader.read_exact(&mut data)?;
-
-        let items = data
-            .chunks_exact(264)
-            .map(InventoryMiscItem::parse)
-            .collect::<std::io::Result<Vec<_>>>()?;
-
-        Ok(items)
-    }
-
-    fn read_event_item_section<R: Read>(
+    /// Generic count-prefixed item section reader.
+    ///
+    /// Each section is stored as `[count: u16][count × record_size bytes]`.
+    /// Parses each record via the provided `parse` function.
+    fn read_item_section<R: Read, T>(
         reader: &mut R,
-    ) -> std::io::Result<Vec<InventoryEventItem>> {
+        record_size: usize,
+        parse: fn(&[u8]) -> std::io::Result<T>,
+    ) -> std::io::Result<Vec<T>> {
         let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 244];
+        let mut data = vec![0u8; count * record_size];
         reader.read_exact(&mut data)?;
 
-        let items = data
-            .chunks_exact(244)
-            .map(InventoryEventItem::parse)
-            .collect::<std::io::Result<Vec<_>>>()?;
-
-        Ok(items)
-    }
-    fn read_edit_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryEditItem>> {
-        let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 272];
-        reader.read_exact(&mut data)?;
-
-        let items = data
-            .chunks_exact(272)
-            .map(InventoryEditItem::parse)
-            .collect::<std::io::Result<Vec<_>>>()?;
-
-        Ok(items)
-    }
-
-    fn read_heal_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryHealItem>> {
-        let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 256];
-        reader.read_exact(&mut data)?;
-
-        let items = data
-            .chunks_exact(256)
-            .map(InventoryHealItem::parse)
-            .collect::<std::io::Result<Vec<_>>>()?;
-
-        Ok(items)
-    }
-
-    fn read_weapon_item_section<R: Read>(reader: &mut R) -> std::io::Result<Vec<InventoryWeaponItem>> {
-        let count = reader.read_u16::<LittleEndian>()? as usize;
-        let mut data = vec![0u8; count * 292];
-        reader.read_exact(&mut data)?;
-
-        let items = data
-            .chunks_exact(292)
-            .map(InventoryWeaponItem::parse)
-            .collect::<std::io::Result<Vec<_>>>()?;
-
-        Ok(items)
+        data.chunks_exact(record_size)
+            .map(parse)
+            .collect()
     }
 
     /// Parse all map sections from the reader.
@@ -1434,11 +1386,11 @@ impl SaveFile {
     /// Record sizes: Event=244, Misc=264, Edit=272, Weapon=292, Heal=256.
     fn parse_inventory_section<R: Read>(reader: &mut R) -> std::io::Result<InventoryData> {
         Ok(InventoryData {
-            event_items: Self::read_event_item_section(reader)?,
-            misc_items: Self::read_misc_item_section(reader)?,
-            edit_items: Self::read_edit_item_section(reader)?,
-            weapon_items: Self::read_weapon_item_section(reader)?,
-            heal_items: Self::read_heal_item_section(reader)?,
+            event_items: Self::read_item_section(reader, 244, InventoryEventItem::parse)?,
+            misc_items: Self::read_item_section(reader, 264, InventoryMiscItem::parse)?,
+            edit_items: Self::read_item_section(reader, 272, InventoryEditItem::parse)?,
+            weapon_items: Self::read_item_section(reader, 292, InventoryWeaponItem::parse)?,
+            heal_items: Self::read_item_section(reader, 256, InventoryHealItem::parse)?,
         })
     }
 
