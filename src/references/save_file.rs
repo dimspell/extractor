@@ -384,7 +384,7 @@ pub struct CharacterStats {
     pub magic_power: u16,
     pub attack_modifier: u8,
     // ── Skills (5 × u8) ──
-    pub thievery: u8,
+    pub pickpocketing: u8,
     pub lockpicking: u8,
     pub haggling: u8,
     pub perception: u8,
@@ -1004,7 +1004,7 @@ impl SaveFile {
             hit_rate: reader.read_u8()?,
             magic_power: reader.read_u16::<LittleEndian>()?,
             attack_modifier: reader.read_u8()?,
-            thievery: reader.read_u8()?,
+            pickpocketing: reader.read_u8()?,
             lockpicking: reader.read_u8()?,
             haggling: reader.read_u8()?,
             perception: reader.read_u8()?,

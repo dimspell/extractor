@@ -41,7 +41,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             ]))
             .push(section_header("Skills"))
             .push(grid_block(&[
-                ("Thievery", s.thievery.to_string()),
+                ("Pickpocketing", s.pickpocketing.to_string()),
                 ("Lockpicking", s.lockpicking.to_string()),
                 ("Haggling", s.haggling.to_string()),
                 ("Perception", s.perception.to_string()),
