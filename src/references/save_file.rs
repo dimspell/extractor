@@ -143,53 +143,53 @@ pub struct NpcRecord {
     pub unknown16: [u8; 29],
 }
 
-/// Extra object record (surface or dungeon)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// Extra object record (200-byte data per record)
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct ExtraObjectRecord {
-    pub prefix: u8,
+    pub unknown_1: u32,
+    pub unknown_2: u32,
+    pub unknown_3: u32,
+    pub unknown_4: u16,
+    pub unknown_5: u8,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub name: String,
-    pub state: u8, // For chests: 1=open, 2=closed, 3=locked
-}
-
-impl ExtraObjectRecord {
-    /// Parse extra object record from 200-byte data
-    pub fn parse(data: &[u8], is_dungeon: bool) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        let prefix_offset = if is_dungeon { 10 } else { 14 };
-        let name_offset = if is_dungeon { 11 } else { 15 };
-
-        // Read prefix
-        reader.seek(std::io::SeekFrom::Start(prefix_offset as u64))?;
-        let prefix = reader.read_u8()?;
-
-        // Skip to name
-        reader.seek(std::io::SeekFrom::Start(name_offset as u64))?;
-
-        // Read name (null-terminated WINDOWS-1250)
-        let mut name_bytes = Vec::new();
-        loop {
-            let byte = reader.read_u8()?;
-            if byte == 0 {
-                break;
-            }
-            name_bytes.push(byte);
-        }
-        let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
-
-        // Read state (for chests)
-        let state = if name.trim() == "Skrzynia" {
-            reader.read_u8()?
-        } else {
-            0
-        };
-
-        Ok(ExtraObjectRecord {
-            prefix,
-            name: name.to_string(),
-            state,
-        })
-    }
+    pub unknown_6: u8,
+    pub unknown_7: u32, // possibly coordinate x
+    pub unknown_8: u32, // possibly coordinate y
+    pub unknown_9: u32,
+    #[binary_record(size = 8)]
+    pub unknown_10: Vec<u8>,
+    pub unknown_11: u32,
+    pub unknown_12: u32,
+    pub unknown_13: u32,
+    pub unknown_14: u32,
+    pub unknown_15: u32,
+    pub unknown_16: u32,
+    pub unknown_17: u32,
+    pub unknown_18: u32,
+    pub unknown_19: u32,
+    pub unknown_20: u32,
+    pub unknown_21: u32,
+    pub unknown_22: u32,
+    #[binary_record(size = 24)]
+    pub unknown_23: Vec<u8>,
+    pub unknown_24: u32,
+    pub unknown_25: u32,
+    pub unknown_26: u32,
+    pub unknown_27: u32,
+    pub unknown_28: u32,
+    pub unknown_29: i16,
+    #[binary_record(size = 2)]
+    pub unknown_30: Vec<u8>,
+    #[binary_record(size = 8)]
+    pub unknown_31: Vec<u8>,
+    pub unknown_32: u32,
+    pub unknown_33: u32,
+    pub unknown_34: u32,
+    pub unknown_35: u32,
+    pub unknown_36: u32,
+    pub unknown_37: u32,
+    pub unknown_38: u32,
 }
 
 /// Event script record (save file format: 284 bytes each)
@@ -836,7 +836,7 @@ impl SaveFile {
             reader.read_exact(&mut extras_data)?;
             let extra_objects = extras_data
                 .chunks_exact(200)
-                .map(|chunk| ExtraObjectRecord::parse(chunk, false))
+                .map(|chunk| ExtraObjectRecord::parse(chunk))
                 .collect::<std::io::Result<Vec<_>>>()?;
 
             // ── 2.5. Separator (11 bytes, unknown meaning) ──
