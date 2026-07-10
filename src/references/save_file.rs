@@ -734,8 +734,9 @@ pub struct DrawItemHealItem {
     pub polimorph_heal: u8,      // 249
     pub unknown_1: u8,           // 250
     pub unknown_2: u16,          // 252
-    #[binary_record(size = 12)]
-    pub unknown_4: Vec<u8>, // 264
+    pub map_coordinate_x: u32,   // 256
+    pub map_coordinate_y: u32,   // 260
+    pub unknown_3: u32,          // 264
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
