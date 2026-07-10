@@ -43,6 +43,27 @@ pub struct RawHexViewer {
     pub state: HexEditorState,
 }
 
+/// Cached display rows for one map's entity tables.
+/// `maps_display_caches[i]` corresponds to `save_file.maps[i]` (positional index).
+pub struct MapsDisplayCaches {
+    pub monsters: Vec<Vec<String>>,
+    pub monsters_indices: Vec<usize>,
+    pub npcs: Vec<Vec<String>>,
+    pub npcs_indices: Vec<usize>,
+    pub extra_objects: Vec<Vec<String>>,
+    pub extra_objects_indices: Vec<usize>,
+    pub draw_items_weapon: Vec<Vec<String>>,
+    pub draw_items_weapon_indices: Vec<usize>,
+    pub draw_items_heal: Vec<Vec<String>>,
+    pub draw_items_heal_indices: Vec<usize>,
+    pub draw_items_edit: Vec<Vec<String>>,
+    pub draw_items_edit_indices: Vec<usize>,
+    pub draw_items_misc: Vec<Vec<String>>,
+    pub draw_items_misc_indices: Vec<usize>,
+    pub draw_items_event: Vec<Vec<String>>,
+    pub draw_items_event_indices: Vec<usize>,
+}
+
 /// State for a single save file viewer tab.
 pub struct SaveFileViewerState {
     pub save_file: Option<dispel_core::references::save_file::SaveFile>,
@@ -61,8 +82,18 @@ pub struct SaveFileViewerState {
     pub events_display_cache: Vec<Vec<String>>,
     pub events_filtered_indices: Vec<usize>,
 
-    // Inventory hex viewers (built on load, shown per-selection)
-    pub inventory_hex_viewers: HashMap<InventoryCategory, HexEditorState>,
+    // Journal display caches (built on load, indexed by JournalSection)
+    pub journal_display_caches: std::collections::HashMap<JournalSection, Vec<Vec<String>>>,
+    pub journal_filtered_indices: std::collections::HashMap<JournalSection, Vec<usize>>,
+
+    // Inventory display caches (built on load, rendered as TableWidget per category)
+    pub inventory_display_caches: HashMap<InventoryCategory, Vec<Vec<String>>>,
+
+    // Inventory filtered indices (always `(0..n).collect()` — no filtering yet)
+    pub inventory_filtered_indices: HashMap<InventoryCategory, Vec<usize>>,
+
+    // Maps display caches (built on load, one per map at positional index)
+    pub maps_display_caches: Vec<MapsDisplayCaches>,
 }
 
 impl Default for SaveFileViewerState {
@@ -79,7 +110,11 @@ impl Default for SaveFileViewerState {
             inventory_category: None,
             events_display_cache: Vec::new(),
             events_filtered_indices: Vec::new(),
-            inventory_hex_viewers: HashMap::new(),
+            journal_display_caches: HashMap::new(),
+            journal_filtered_indices: HashMap::new(),
+            inventory_display_caches: HashMap::new(),
+            inventory_filtered_indices: HashMap::new(),
+            maps_display_caches: Vec::new(),
         }
     }
 }
@@ -95,20 +130,9 @@ impl InventoryCategory {
             InventoryCategory::Heal => "Heal Items",
         }
     }
-
-    /// Record size in bytes for this category.
-    pub fn record_size(&self) -> usize {
-        match self {
-            InventoryCategory::Event => 244,
-            InventoryCategory::Misc => 264,
-            InventoryCategory::Edit => 272,
-            InventoryCategory::Weapon => 292,
-            InventoryCategory::Heal => 256,
-        }
-    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum JournalSection {
     Main,
     Side,

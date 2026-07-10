@@ -25,8 +25,14 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             has_filter: false,
         },
         TableColumn {
-            width_px: 100.0,
-            label: "State".into(),
+            width_px: 60.0,
+            label: "State 1".into(),
+            sort: None,
+            has_filter: false,
+        },
+        TableColumn {
+            width_px: 60.0,
+            label: "State 2".into(),
             sort: None,
             has_filter: false,
         },

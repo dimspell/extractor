@@ -1,17 +1,15 @@
-use iced::widget::{button, container, scrollable, text, Column};
+use iced::widget::{button, container, text, Column};
 use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::{JournalSection, SaveFileViewerState};
+use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::message::Message;
 use crate::message::MessageExt;
+use gui_widgets::components::paragraph_cache::ParagraphCache;
+use gui_widgets::{RowFlags, TableColumn, TableWidget};
 
-/// Journal section: sub-tabs (Main/Side/Trade) + scrollable entry list.
+/// Journal section: sub-tabs (Main/Side/Trade) + table per section.
 pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
-    let sf = match state.save_file.as_ref() {
-        Some(sf) => sf,
-        None => return container(text("No save file loaded")).into(),
-    };
-
     // Sub-tab bar
     let sections = [
         (JournalSection::Main, "Main"),
@@ -28,50 +26,55 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         }
         tab_bar = tab_bar.push(
             btn.on_press(Message::save_file_viewer(
-                crate::editors::save_file_viewer::SaveFileViewerMessage::SelectJournalSection(
-                    *section,
-                ),
+                SaveFileViewerMessage::SelectJournalSection(*section),
             ))
             .padding([4, 12]),
         );
     }
 
-    // Get entries for this section
-    let entries: Vec<&dispel_core::references::save_file::JournalEntry> = match state.journal_section
-    {
-        JournalSection::Main => sf.journal.main.iter().collect(),
-        JournalSection::Side => sf.journal.side.iter().collect(),
-        JournalSection::Trade => sf.journal.trade.iter().collect(),
-    };
+    // Table for the active section
+    let display_cache = state.journal_display_caches.get(&state.journal_section);
+    let filtered_indices = state.journal_filtered_indices.get(&state.journal_section);
 
-    // Entry list
-    let list: Element<'a, Message> = if entries.is_empty() {
-        container(text("No entries"))
+    let table: Element<'a, Message> = match (display_cache, filtered_indices) {
+        (Some(cache), Some(indices)) if !cache.is_empty() => {
+            let columns = vec![
+                TableColumn {
+                    width_px: 40.0,
+                    label: "#".into(),
+                    sort: None,
+                    has_filter: false,
+                },
+                TableColumn {
+                    width_px: 200.0,
+                    label: "Name".into(),
+                    sort: None,
+                    has_filter: false,
+                },
+                TableColumn {
+                    width_px: 200.0,
+                    label: "Flags (hex)".into(),
+                    sort: None,
+                    has_filter: false,
+                },
+            ];
+
+            TableWidget::new(
+                cache,
+                indices,
+                columns,
+                0.0,
+                |_| RowFlags::default(),
+                22.0,
+                ParagraphCache::default(),
+            )
+            .into()
+        }
+        _ => container(text("No entries"))
             .width(Fill)
             .padding(16)
-            .into()
-    } else {
-        let mut col = Column::new().spacing(2).padding(8);
-        for (i, entry) in entries.iter().enumerate() {
-            let is_selected = state.selected_journal_entry == Some(i);
-            // let flags = format_flags(entry.rest);
-
-            let row = iced::widget::Row::<Message>::new()
-                .spacing(8)
-                .push(text(format!("{}", i + 1)).size(12).width(30))
-                .push(text(&entry.name).size(12).width(200));
-                // .push(text(flags).size(11).color(iced::Color::from_rgb(0.6, 0.6, 0.6)));
-
-            let entry_widget = if is_selected {
-                container(row).style(iced::widget::container::bordered_box)
-            } else {
-                container(row)
-            };
-
-            col = col.push(entry_widget.width(Fill).padding([2, 8]));
-        }
-        scrollable(col).height(Fill).into()
+            .into(),
     };
 
-    iced::widget::Column::<Message>::new().push(tab_bar).push(list).into()
+    Column::<Message>::new().push(tab_bar).push(table).into()
 }
