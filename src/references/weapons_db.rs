@@ -104,6 +104,8 @@ pub struct WeaponItem {
     /// Shop value in gold.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
+    #[extractor(primitive(type = "i32"))]
+    pub padding1: i32,
     /// HP modifier the equipment grants.
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
