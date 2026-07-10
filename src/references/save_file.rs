@@ -193,41 +193,13 @@ pub struct ExtraObjectRecord {
 }
 
 /// Event script record (save file format: 284 bytes each)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct EventScript {
-    pub state: u8,
+    pub event_id: u32,
+    pub unknown_1: u32,
+    pub unknown_2: u32,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 272))]
     pub script_name: String,
-}
-
-impl EventScript {
-    /// Parse event script from 284-byte save file record
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        // Skip event_id (u32) and unknown (u32)
-        let _event_id = reader.read_u32::<LittleEndian>()?;
-        let _unknown = reader.read_u32::<LittleEndian>()?;
-
-        // Read state (u32, but we use u8 for compatibility)
-        let state_val = reader.read_u32::<LittleEndian>()?;
-        let state = if state_val >= 2 { 2 } else { state_val as u8 };
-
-        // Read script name: 272 bytes null-terminated ASCII
-        let mut name_bytes = Vec::new();
-        for _ in 0..272 {
-            let byte = reader.read_u8()?;
-            if byte == 0 {
-                break;
-            }
-            name_bytes.push(byte);
-        }
-        let name = String::from_utf8(name_bytes).unwrap_or_else(|_| String::from("unknown.scr"));
-
-        Ok(EventScript {
-            state,
-            script_name: name,
-        })
-    }
 }
 
 /// Journal entry (37 bytes each)
