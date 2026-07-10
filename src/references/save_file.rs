@@ -11,120 +11,77 @@ use std::io::{Read, Seek, Write};
 // use proptest::char::range;
 use super::extractor::{read_null_terminated_windows_1250, Extractor};
 
-/// Monster state flags
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MonsterState {
-    pub is_dead: bool,
-    pub is_poisoned: bool,
-    pub is_burning: bool,
-    pub is_frozen: bool,
-    pub is_stunned: bool,
-    pub is_invisible: bool,
-    pub is_boss: bool,
-}
-
-impl MonsterState {
-    /// Parse monster state from flags field
-    pub fn parse(flags: u32) -> Self {
-        MonsterState {
-            is_dead: flags & 1 != 0,
-            is_poisoned: flags & 2 != 0,
-            is_burning: flags & 4 != 0,
-            is_frozen: flags & 8 != 0,
-            is_stunned: flags & 16 != 0,
-            is_invisible: flags & 32 != 0,
-            is_boss: flags & (1 << 31) != 0,
-        }
-    }
-}
-
 /// Monster record from save file (surface or dungeon)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct MonsterRecord {
     pub signature_a: u32,
     pub record_index: u32,
     pub signature_b: u32,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
     pub name: String,
+    pub monster_db_id: u32,
     pub hp_current: u16,
     pub hp_maximum: u16,
-    pub state: MonsterState,
-    pub tile_x: u16,
-    pub tile_y: u16,
-    pub pixel_x: u16,
-    pub pixel_y: u16,
-    pub facing_direction: u8,
-    pub experience_value: u32,
-    pub attack_power: u16,
-    pub defense: u16,
-    pub magic_attack: u16,
-    pub magic_defense: u16,
-    pub agility: u16,
-    pub luck: u16,
-}
-
-impl MonsterRecord {
-    /// Parse monster record from 329-byte data
-    ///
-    /// Record layout: 3×u32 (12 bytes) + 24-byte name + stats (293 bytes)
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        let mut reader = std::io::Cursor::new(data);
-
-        let signature_a = reader.read_u32::<LittleEndian>()?;
-        let record_index = reader.read_u32::<LittleEndian>()?;
-        let signature_b = reader.read_u32::<LittleEndian>()?;
-
-        // Name: 24 bytes fixed-size field, null-terminated WINDOWS-1250
-        let mut name_raw = [0u8; 24];
-        reader.read_exact(&mut name_raw)?;
-        let name_len = name_raw.iter().position(|&b| b == 0).unwrap_or(24);
-        let (name, _, _) = WINDOWS_1250.decode(&name_raw[..name_len]);
-        let name = name.to_string();
-
-        // Stats block (293 bytes remaining)
-        let hp_current = reader.read_u16::<LittleEndian>()?;
-        let hp_maximum = reader.read_u16::<LittleEndian>()?;
-        let state = MonsterState::parse(reader.read_u32::<LittleEndian>()?);
-        let tile_x = reader.read_u16::<LittleEndian>()?;
-        let tile_y = reader.read_u16::<LittleEndian>()?;
-        let pixel_x = reader.read_u16::<LittleEndian>()?;
-        let pixel_y = reader.read_u16::<LittleEndian>()?;
-        let facing_direction = reader.read_u8()?;
-
-        // Skip 3 bytes padding
-        let _ = reader.read_u8()?;
-        let _ = reader.read_u8()?;
-        let _ = reader.read_u8()?;
-
-        let experience_value = reader.read_u32::<LittleEndian>()?;
-        let attack_power = reader.read_u16::<LittleEndian>()?;
-        let defense = reader.read_u16::<LittleEndian>()?;
-        let magic_attack = reader.read_u16::<LittleEndian>()?;
-        let magic_defense = reader.read_u16::<LittleEndian>()?;
-        let agility = reader.read_u16::<LittleEndian>()?;
-        let luck = reader.read_u16::<LittleEndian>()?;
-
-        Ok(MonsterRecord {
-            signature_a,
-            record_index,
-            signature_b,
-            name,
-            hp_current,
-            hp_maximum,
-            state,
-            tile_x,
-            tile_y,
-            pixel_x,
-            pixel_y,
-            facing_direction,
-            experience_value,
-            attack_power,
-            defense,
-            magic_attack,
-            magic_defense,
-            agility,
-            luck,
-        })
-    }
+    pub mp_current: u16,
+    pub mp_maximum: u16,
+    pub walk_speed: u8,
+    pub hit_rate: u8,
+    pub dodge_rate: u8,
+    pub offense_rate: u16,
+    pub defense_rate: u16,
+    pub magic_rate: u16,
+    pub is_undead: u8,
+    pub has_blood: u8,
+    pub monster_ai_type: u8,
+    pub experience_on_kill: u16,
+    pub gold_drop_on_kill: u16,
+    pub unknown_1: u8,
+    pub sight_range: u8,
+    pub attack_range: u8,
+    pub spell_slot_1: u8,
+    pub spell_slot_2: u8,
+    pub spell_slot_3: u8,
+    pub oversize: u8,
+    pub magic_level: u8,
+    pub unknown_2: u32,
+    pub unknown_3: [u8; 25],
+    pub unknown_4: u32,
+    pub unknown_5: i32, // -1 if [255, 255, 255, 255]
+    pub unknown_6_coordinate: u16,
+    pub unknown_7_coordinate: u16,
+    pub unknown_8_coordinate: u16,
+    pub unknown_9_coordinate: u16,
+    pub unknown_10_coordinate: u16,
+    pub unknown_11_coordinate: u16,
+    pub unknown_12: u8,
+    pub unknown_13: u8,
+    pub unknown_14: u8,
+    pub unknown_15: u16,
+    pub unknown_16: i16,
+    pub unknown_17: u16,
+    pub unknown_18: u32,
+    pub unknown_19: [u8; 18],
+    pub unknown_20: i32,
+    pub unknown_21: u32,
+    pub unknown_22: u32,
+    pub loot_item1: i32,
+    pub loot_item2: i32,
+    pub loot_item3: i32,
+    pub mon_ref_padding_12: u32,
+    pub mon_ref_padding_13: u32,
+    pub unknown_23: u32,
+    pub unknown_24: u32,
+    pub unknown_25: u32,
+    pub unknown_26: u32,
+    pub special_attack_chance: u32,
+    pub special_attack_duration: u32,
+    pub unknown_27: [u8; 8],
+    pub boldness: u32,
+    pub attack_speed: u32,
+    pub unknown_28: [u8; 6],
+    pub unknown_29: u32,
+    #[binary_record(size = 98)]
+    pub unknown_30: Vec<u8>,
 }
 
 /// NPC record from save file (349 bytes)
