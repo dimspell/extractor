@@ -623,7 +623,9 @@ pub struct InventoryMiscItem {
     pub unknown_2: u32,
     pub unknown_3: u16,
     pub unknown_4: u16,
-    pub unknown_5: u32,
+    pub unknown_5: u8,// inventory position
+    pub unknown_6: u8,// inventory position
+    pub unknown_7: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -634,7 +636,9 @@ pub struct InventoryEventItem {
     pub description: String,
     pub base_price: u32,
     pub unknown_1: u32,
-    pub unknown_2: u32,
+    pub unknown_2: u8, // inventory position
+    pub unknown_3: u8,// inventory position
+    pub unknown_4: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -662,8 +666,9 @@ pub struct InventoryEditItem {
     pub unknown_3: u8,
     pub modifies_item: u8,
     pub additional_effect: i16,
-    pub unknown_4: u16,
-    pub unknown_5: u16,
+    pub unknown_4: u8, // inventory position
+    pub unknown_5: u8,// inventory position
+    pub unknown_6: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -683,8 +688,9 @@ pub struct InventoryHealItem {
     pub polimorph_heal: u8,
     pub unknown_1: u8,
     pub unknown_2: u16,
-    pub unknown_3: u16, // index (from 0 to 30 for Nuno 0.sav)
-    pub unknown_4: u16, // 6c 6c (108, 108) for the first row
+    pub unknown_3: u8, // index (from 0 to 30 for Nuno 0.sav) - inventory position
+    pub unknown_4: u8, // inventory position
+    pub unknown_5: u16, // 6c 6c (108, 108) for the first row
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -718,7 +724,9 @@ pub struct InventoryWeaponItem {
     pub padding7: i16,
     pub padding8: i16,
     pub unknown_1: u32,
-    pub unknown_2: u32,
+    pub unknown_2: u8, // inventory position
+    pub unknown_3: u8, // inventory position
+    pub unknown_4: u16,
 }
 
 /// Journal data from a save file (3 sections × 100 entries).
