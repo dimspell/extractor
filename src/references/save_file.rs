@@ -479,42 +479,6 @@ impl JournalEntry {
             writer.write_all(&vec![0u8; padding])?;
         }
 
-
-        Ok(())
-    }
-}
-
-/// DrawItem record from save file (ground items, 252 bytes each)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct DrawItem {
-    pub data: Vec<u8>,
-}
-
-impl DrawItem {
-    /// Parse draw item from 252-byte data
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() < 252 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "DrawItem requires 252 bytes",
-            ));
-        }
-        Ok(DrawItem {
-            data: data[..252].to_vec(),
-        })
-    }
-
-    /// Serialize draw item to binary
-    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        if self.data.len() < 252 {
-            writer.write_all(&self.data)?;
-            let padding = 252 - self.data.len();
-            if padding > 0 {
-                writer.write_all(&vec![0u8; padding])?;
-            }
-        } else {
-            writer.write_all(&self.data[..252])?;
-        }
         Ok(())
     }
 }
@@ -534,15 +498,15 @@ pub struct MapSectionData {
     /// Extra objects (chests, triggers, etc.)
     pub extra_objects: Vec<ExtraObjectRecord>,
     /// Ground items — Weapon type (count × 296 bytes each)
-    pub draw_items_weapon: Vec<u8>,
+    pub draw_items_weapon: Vec<DrawItemWeaponItem>,
     /// Ground items — Heal type (count × 264 bytes each)
-    pub draw_items_heal: Vec<u8>,
+    pub draw_items_heal: Vec<DrawItemHealItem>,
     /// Ground items — Edit type (count × 280 bytes each)
-    pub draw_items_edit: Vec<u8>,
+    pub draw_items_edit: Vec<DrawItemEditItem>,
     /// Ground items — Misc type (count × 268 bytes each)
-    pub draw_items_misc: Vec<u8>,
+    pub draw_items_misc: Vec<DrawItemMiscItem>,
     /// Ground items — Event type (count × 252 bytes each)
-    pub draw_items_event: Vec<u8>,
+    pub draw_items_event: Vec<DrawItemEventItem>,
 }
 
 /// Parsed character stats from a save file.
@@ -622,111 +586,229 @@ pub struct InventoryMiscItem {
     pub unknown_1: Vec<u8>,
     pub unknown_2: u32,
     pub unknown_3: u16,
-    pub unknown_4: u16,
-    pub unknown_5: u8,// inventory position
-    pub unknown_6: u8,// inventory position
-    pub unknown_7: u16,
+    pub unknown_4: u16, // 260
+    pub unknown_5: u8,  // inventory position
+    pub unknown_6: u8,  // inventory position
+    pub unknown_7: u16, // 264
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct DrawItemMiscItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String, // 30
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String, // 232
+    pub base_price: u32, // 236
+    #[binary_record(size = 16)]
+    pub unknown_1: Vec<u8>, // 252
+    pub unknown_2: u32,  // 256
+    pub unknown_3: u16,  // 258
+    pub unknown_4: u32,  // 262 coord-X
+    pub unknown_5: u32,  // 266 coord-Y
+    pub unknown_7: u16,  // 268
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryEventItem {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
-    pub name: String,
+    pub name: String, // 30
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
-    pub description: String,
-    pub base_price: u32,
-    pub unknown_1: u32,
-    pub unknown_2: u8, // inventory position
-    pub unknown_3: u8,// inventory position
-    pub unknown_4: u16,
+    pub description: String, // 232
+    pub base_price: u32,    // 236
+    pub event_item_id: u32, // 240
+    pub unknown_2: u8,      // inventory position 241
+    pub unknown_3: u8,      // inventory position 242
+    pub unknown_4: u16,     // 244
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct DrawItemEventItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String, // 30
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String, // 232
+    pub base_price: u32,       // 236
+    pub event_item_id: u32,    // 240
+    pub map_coordinate_x: u32, // 244
+    pub map_coordinate_y: u32, // 248
+    pub unknown_1: u32,        // 252, event id?
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryEditItem {
+    // 272
     #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
-    pub name: String,
+    pub name: String, // 30
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
-    pub description: String,
-    pub base_price: u32,
+    pub description: String, // 232
+    pub base_price: u32,            // 236
+    pub unknown_1: u16,             // 238
+    pub unknown_2: u16,             // 240
+    pub health_points: i16,         // 242
+    pub mana_points: i16,           // 244
+    pub strength: i16,              // 246
+    pub agility: i16,               // 248
+    pub wisdom: i16,                // 250
+    pub constitution: i16,          // 252
+    pub to_dodge: i16,              // 254
+    pub to_hit: i16,                // 256
+    pub offense: i16,               // 258
+    pub defense: i16,               // 260
+    pub magical_power: i16,         // 262
+    pub item_destroying_power: i16, // 264
+    pub unknown_3: u8,              // 265
+    pub modifies_item: u8,          // 266
+    pub additional_effect: i16,     // 268
+    pub unknown_4: u8,              // inventory position 269
+    pub unknown_5: u8,              // inventory position 270
+    pub unknown_6: u16,             // 272
+}
 
-    pub unknown_1: u16,
-    pub unknown_2: u16,
-    pub health_points: i16,
-    pub mana_points: i16,
-    pub strength: i16,
-    pub agility: i16,
-    pub wisdom: i16,
-    pub constitution: i16,
-    pub to_dodge: i16,
-    pub to_hit: i16,
-    pub offense: i16,
-    pub defense: i16,
-    pub magical_power: i16,
-    pub item_destroying_power: i16,
-    pub unknown_3: u8,
-    pub modifies_item: u8,
-    pub additional_effect: i16,
-    pub unknown_4: u8, // inventory position
-    pub unknown_5: u8,// inventory position
-    pub unknown_6: u16,
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct DrawItemEditItem {
+    // 280
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String, // 30
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String, // 232
+    pub base_price: u32,            // 236
+    pub unknown_1: u16,             // 238
+    pub unknown_2: u16,             // 240
+    pub health_points: i16,         // 242
+    pub mana_points: i16,           // 244
+    pub strength: i16,              // 246
+    pub agility: i16,               // 248
+    pub wisdom: i16,                // 250
+    pub constitution: i16,          // 252
+    pub to_dodge: i16,              // 254
+    pub to_hit: i16,                // 256
+    pub offense: i16,               // 258
+    pub defense: i16,               // 260
+    pub magical_power: i16,         // 262
+    pub item_destroying_power: i16, // 264
+    pub unknown_3: u8,              // 265
+    pub modifies_item: u8,          // 266
+    pub additional_effect: i16,     // 268
+    #[binary_record(size = 12)]
+    pub unknown_4: Vec<u8>, // 280
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryHealItem {
+    // 256
     #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
-    pub description: String,
-    pub base_price: u32,
-    pub heal_item_id: u32,
-    pub health_points: i16,
-    pub mana_points: i16,
-    pub restore_full_health: u8,
-    pub restore_full_mana: u8,
-    pub poison_heal: u8,
-    pub petrif_heal: u8,
-    pub polimorph_heal: u8,
-    pub unknown_1: u8,
-    pub unknown_2: u16,
-    pub unknown_3: u8, // index (from 0 to 30 for Nuno 0.sav) - inventory position
-    pub unknown_4: u8, // inventory position
-    pub unknown_5: u16, // 6c 6c (108, 108) for the first row
+    pub description: String, // 232
+    pub base_price: u32,         // 236
+    pub heal_item_id: u32,       // 240
+    pub health_points: i16,      // 242
+    pub mana_points: i16,        // 244
+    pub restore_full_health: u8, // 245
+    pub restore_full_mana: u8,   // 246
+    pub poison_heal: u8,         // 247
+    pub petrif_heal: u8,         // 248
+    pub polimorph_heal: u8,      // 249
+    pub unknown_1: u8,           // 250
+    pub unknown_2: u16,          // 252
+    pub unknown_3: u8,           // index (from 0 to 30 for Nuno 0.sav) - inventory position 253
+    pub unknown_4: u8,           // inventory position 254
+    pub unknown_5: u16,          // 6c 6c (108, 108) for the first row 256
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct DrawItemHealItem {
+    // 264
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String, // 232
+    pub base_price: u32,         // 236
+    pub heal_item_id: u32,       // 240
+    pub health_points: i16,      // 242
+    pub mana_points: i16,        // 244
+    pub restore_full_health: u8, // 245
+    pub restore_full_mana: u8,   // 246
+    pub poison_heal: u8,         // 247
+    pub petrif_heal: u8,         // 248
+    pub polimorph_heal: u8,      // 249
+    pub unknown_1: u8,           // 250
+    pub unknown_2: u16,          // 252
+    #[binary_record(size = 12)]
+    pub unknown_4: Vec<u8>, // 264
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryWeaponItem {
+    // 292
     #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
-    pub description: String,
-    pub base_price: u32,
-    pub weapon_item_id: u32,
-    pub health_points: i16,
-    pub mana_points: i16,
-    pub strength: i16,
-    pub agility: i16,
-    pub wisdom: i16,
-    pub constitution: i16,
-    pub to_dodge: i16,
-    pub to_hit: i16,
-    pub attack: i16,
-    pub defense: i16,
-    pub magical_strength: i16,
-    pub durability: i16,
-    pub padding2: i16,
-    pub padding3: i16,
-    pub req_strength: i16,
-    pub padding4: i16,
-    pub req_agility: i16,
-    pub padding5: i16,
-    pub req_wisdom: i16,
-    pub padding6: i16,
-    pub padding7: i16,
-    pub padding8: i16,
-    pub unknown_1: u32,
-    pub unknown_2: u8, // inventory position
-    pub unknown_3: u8, // inventory position
-    pub unknown_4: u16,
+    pub description: String, // 232
+    pub base_price: u32,       // 236
+    pub weapon_item_id: u32,   // 240
+    pub health_points: i16,    // 242
+    pub mana_points: i16,      // 244
+    pub strength: i16,         // 246
+    pub agility: i16,          // 248
+    pub wisdom: i16,           // 250
+    pub constitution: i16,     // 252
+    pub to_dodge: i16,         // 254
+    pub to_hit: i16,           // 256
+    pub attack: i16,           // 258
+    pub defense: i16,          // 260
+    pub magical_strength: i16, // 262
+    pub durability: i16,       // 264
+    pub padding2: i16,         // 266
+    pub padding3: i16,         // 268
+    pub req_strength: i16,     // 270
+    pub padding4: i16,         // 272
+    pub req_agility: i16,      // 274
+    pub padding5: i16,         // 276
+    pub req_wisdom: i16,       // 278
+    pub padding6: i16,         // 280
+    pub padding7: i16,         // 282
+    pub padding8: i16,         // 284
+    pub unknown_1: u32,        // 288
+    pub unknown_2: u8,         // inventory position 289
+    pub unknown_3: u8,         // inventory position 290
+    pub unknown_4: u16,        // 292
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct DrawItemWeaponItem {
+    // 296
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
+    pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
+    pub description: String, // 232
+    pub base_price: u32,       // 236
+    pub weapon_item_id: u32,   // 240
+    pub health_points: i16,    // 242
+    pub mana_points: i16,      // 244
+    pub strength: i16,         // 246
+    pub agility: i16,          // 248
+    pub wisdom: i16,           // 250
+    pub constitution: i16,     // 252
+    pub to_dodge: i16,         // 254
+    pub to_hit: i16,           // 256
+    pub attack: i16,           // 258
+    pub defense: i16,          // 260
+    pub magical_strength: i16, // 262
+    pub durability: i16,       // 264
+    pub padding2: i16,         // 266
+    pub padding3: i16,         // 268
+    pub req_strength: i16,     // 270
+    pub padding4: i16,         // 272
+    pub req_agility: i16,      // 274
+    pub padding5: i16,         // 276
+    pub req_wisdom: i16,       // 278
+    pub padding6: i16,         // 280
+    pub padding7: i16,         // 282
+    pub padding8: i16,         // 284
+    pub unknown_1: u32,        // 288
+    #[binary_record(size = 8)]
+    pub unknown_4: Vec<u8>, // 296
 }
 
 /// Journal data from a save file (3 sections × 100 entries).
@@ -917,9 +999,7 @@ impl SaveFile {
         let mut data = vec![0u8; count * record_size];
         reader.read_exact(&mut data)?;
 
-        data.chunks_exact(record_size)
-            .map(parse)
-            .collect()
+        data.chunks_exact(record_size).map(parse).collect()
     }
 
     /// Parse all map sections from the reader.
@@ -972,11 +1052,12 @@ impl SaveFile {
             reader.read_exact(&mut _separator)?;
 
             // ── 2.6–2.10. Ground items (5 types) ──
-            let draw_items_weapon = Self::read_draw_item_section(reader, 296)?;
-            let draw_items_heal = Self::read_draw_item_section(reader, 264)?;
-            let draw_items_edit = Self::read_draw_item_section(reader, 280)?;
-            let draw_items_misc = Self::read_draw_item_section(reader, 268)?;
-            let draw_items_event = Self::read_draw_item_section(reader, 252)?;
+            let draw_items_weapon =
+                Self::read_item_section(reader, 296, DrawItemWeaponItem::parse)?;
+            let draw_items_heal = Self::read_item_section(reader, 264, DrawItemHealItem::parse)?;
+            let draw_items_edit = Self::read_item_section(reader, 280, DrawItemEditItem::parse)?;
+            let draw_items_misc = Self::read_item_section(reader, 268, DrawItemMiscItem::parse)?;
+            let draw_items_event = Self::read_item_section(reader, 252, DrawItemEventItem::parse)?;
 
             // ── 2.11. End-of-map separator (always 0) ──
             let _separator = reader.read_u32::<LittleEndian>()?;
