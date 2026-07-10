@@ -203,61 +203,13 @@ pub struct EventScript {
 }
 
 /// Journal entry (37 bytes each)
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct JournalEntry {
-    pub index: u8,     // 1 byte
-    pub name: String,  // 24 bytes null-terminated WINDOWS-1250
-    pub rest: Vec<u8>, // 12 bytes
-}
-
-impl JournalEntry {
-    /// Parse journal entry from 37-byte data
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() < 37 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::UnexpectedEof,
-                "JournalEntry requires 37 bytes",
-            ));
-        }
-
-        let index = data[0]; // 1
-
-        // Name: 24 bytes null-terminated WINDOWS-1250
-        let name = {
-            let mut name_bytes = Vec::new();
-            for &byte in data[1..25].iter() {
-                if byte == 0 {
-                    break;
-                }
-                name_bytes.push(byte);
-            }
-            let (name, _, _) = WINDOWS_1250.decode(&name_bytes);
-            name.to_string()
-        }; // 24
-
-        let mut rest = vec![0u8; 12];
-        rest.copy_from_slice(&data[25..37]); // 12
-
-        Ok(JournalEntry { index, name, rest })
-    }
-
-    /// Serialize journal entry to binary
-    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        writer.write_u8(self.index)?;
-
-        // Write name (24 bytes, null-padded WINDOWS-1250)
-        let (encoded, _, _) = WINDOWS_1250.encode(&self.name);
-        let name_bytes = encoded.as_ref();
-        let name_len = name_bytes.len().min(31); // Leave room for null terminator
-        writer.write_all(&name_bytes[..name_len])?;
-        // Pad with zeros to 32 bytes
-        if name_len < 24 {
-            let padding = 24 - name_len;
-            writer.write_all(&vec![0u8; padding])?;
-        }
-
-        Ok(())
-    }
+    pub index: u8,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 24))]
+    pub name: String,
+    #[binary_record(size = 12)]
+    pub rest: Vec<u8>,
 }
 
 /// Data for one map section in a save file.
