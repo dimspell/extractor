@@ -7,7 +7,6 @@ editable_record_fields!(WeaponItem, {
     { name = String / "Name:" },
     { description = TextArea / "Description:" },
     { base_price = Integer / "Base Price (gold):" },
-    { padding1 = Integer / "Padding 1:" },
     { health_points = Integer / "HP Bonus:" },
     { mana_points = Integer / "MP Bonus:" },
     { strength = Integer / "STR Bonus:" },

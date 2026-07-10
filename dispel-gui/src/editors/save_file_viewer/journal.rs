@@ -54,13 +54,13 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         let mut col = Column::new().spacing(2).padding(8);
         for (i, entry) in entries.iter().enumerate() {
             let is_selected = state.selected_journal_entry == Some(i);
-            let flags = format_flags(entry.flags);
+            // let flags = format_flags(entry.rest);
 
             let row = iced::widget::Row::<Message>::new()
                 .spacing(8)
                 .push(text(format!("{}", i + 1)).size(12).width(30))
-                .push(text(&entry.name).size(12).width(200))
-                .push(text(flags).size(11).color(iced::Color::from_rgb(0.6, 0.6, 0.6)));
+                .push(text(&entry.name).size(12).width(200));
+                // .push(text(flags).size(11).color(iced::Color::from_rgb(0.6, 0.6, 0.6)));
 
             let entry_widget = if is_selected {
                 container(row).style(iced::widget::container::bordered_box)

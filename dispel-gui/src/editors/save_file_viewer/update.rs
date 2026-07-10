@@ -94,20 +94,20 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         })
                         .collect();
                     // Build inventory hex viewers
-                    let inv = &loaded.save_file.inventory;
-                    for (cat, data) in [
-                        (InventoryCategory::Event, inv.event_items.clone()),
-                        (InventoryCategory::Misc, inv.misc_items.clone()),
-                        (InventoryCategory::Edit, inv.edit_items.clone()),
-                        (InventoryCategory::Weapon, inv.weapon_items.clone()),
-                        (InventoryCategory::Heal, inv.heal_items.clone()),
-                    ] {
-                        let label = format!("{} ({} bytes)", cat.label(), data.len());
-                        let editor = hexedit::HexEditorState::from_bytes(
-                            &label, data, None, None,
-                        );
-                        state.inventory_hex_viewers.insert(cat, editor);
-                    }
+                    // let inv = &loaded.save_file.inventory;
+                    // for (cat, data) in [
+                    //     (InventoryCategory::Event, inv.event_items.clone()),
+                    //     (InventoryCategory::Misc, inv.misc_items.clone()),
+                    //     (InventoryCategory::Edit, inv.edit_items.clone()),
+                    //     (InventoryCategory::Weapon, inv.weapon_items.clone()),
+                    //     (InventoryCategory::Heal, inv.heal_items.clone()),
+                    // ] {
+                    //     let label = format!("{} ({} bytes)", cat.label(), data.len());
+                    //     let editor = hexedit::HexEditorState::from_bytes(
+                    //         &label, data, None, None,
+                    //     );
+                    //     state.inventory_hex_viewers.insert(cat, editor);
+                    // }
                     state.error = None;
                 }
                 Err(e) => {
