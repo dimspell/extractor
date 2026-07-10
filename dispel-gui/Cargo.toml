@@ -4,7 +4,7 @@ version = "0.8.0"
 edition = "2021"
 
 [dependencies]
-iced = { workspace = true, default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland", "accessibility"] }
+iced = { workspace = true, default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland"] }
 accesskit = { path = "../../iced/vendor/accesskit" }
 image = { version = "0.25", features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "fs", "sync", "time"] }
@@ -24,7 +24,7 @@ rodio = { version = "0.22", default-features = false, features = ["wav", "playba
 log = "0.4"
 zip = "8"
 lru = "0.12"
-gui-widgets = { path = "../gui-widgets" }
+gui-widgets = { path = "../gui-widgets", features = ["accessibility"] }
 hexedit = { path = "../hexedit" }
 lucide-icons = "1.23"
 uuid = { version = "1", features = ["v4", "serde"] }

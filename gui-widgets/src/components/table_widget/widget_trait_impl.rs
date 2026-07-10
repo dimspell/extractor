@@ -910,6 +910,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     }
 
     #[allow(clippy::needless_range_loop)]
+    #[cfg(feature = "accessibility")]
     fn accessibility(
         &self,
         layout: Layout<'_>,
@@ -1147,6 +1148,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         Some(grid_id)
     }
 
+    #[cfg(feature = "accessibility")]
     fn accessibility_action(
         &mut self,
         tree: &mut Tree,

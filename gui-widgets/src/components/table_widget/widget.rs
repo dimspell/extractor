@@ -4,6 +4,8 @@ use crate::components::paragraph_cache::ParagraphCache;
 use iced::advanced::Shell;
 use iced::{Font, Length, Point, Rectangle, Size, Vector};
 use std::cell::RefCell;
+
+#[cfg(feature = "accessibility")]
 use std::collections::HashMap;
 
 type ScrollCallback<'a, Message> = Box<dyn Fn(f32, f32, f32) -> Message + 'a>;
@@ -42,10 +44,12 @@ pub struct TableWidget<'a, Message> {
     pub(crate) on_escape: Option<Box<dyn Fn() -> Message + 'a>>,
     pub(crate) on_quick_filter: Option<Box<dyn Fn(usize, String) -> Message + 'a>>,
     /// Accessible label for the table grid (used by screen readers).
+    #[cfg(feature = "accessibility")]
     pub(crate) accessible_label: Option<String>,
     /// NodeId → (visible_row_idx, col) mapping built during `accessibility()`
     /// and consumed by `accessibility_action()`. Stored in a `RefCell` because
     /// the trait gives `&self` for building but `&mut self` for handling actions.
+    #[cfg(feature = "accessibility")]
     pub(crate) cell_node_map: RefCell<HashMap<u64, (usize, usize)>>,
 }
 
@@ -84,7 +88,9 @@ impl<'a, Message> TableWidget<'a, Message> {
             on_prev_highlight: None,
             on_escape: None,
             on_quick_filter: None,
+            #[cfg(feature = "accessibility")]
             accessible_label: None,
+            #[cfg(feature = "accessibility")]
             cell_node_map: RefCell::new(HashMap::new()),
         }
     }
@@ -164,6 +170,7 @@ impl<'a, Message> TableWidget<'a, Message> {
         self
     }
 
+    #[cfg(feature = "accessibility")]
     pub fn accessible_label(mut self, label: impl Into<String>) -> Self {
         self.accessible_label = Some(label.into());
         self
