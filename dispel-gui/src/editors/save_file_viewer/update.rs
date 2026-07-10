@@ -155,6 +155,101 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        SaveFileViewerMessage::InventoryTableSelect {
+            cat,
+            visible_idx,
+        } => {
+            if let Some(indices) = state.inventory_filtered_indices.get(&cat) {
+                let orig = indices.get(visible_idx).copied();
+                if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
+                    ts.selected_orig = orig;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableSort { cat, col } => {
+            let Some(ts) = state.inventory_table_states.get_mut(&cat) else {
+                return Task::none();
+            };
+            if ts.sort_column == Some(col) {
+                ts.sort_ascending = !ts.sort_ascending;
+            } else {
+                ts.sort_column = Some(col);
+                ts.sort_ascending = true;
+            }
+            let ascending = ts.sort_ascending;
+            let (rows, indices) = inventory_table_data(
+                &mut state.inventory_display_caches,
+                &mut state.inventory_filtered_indices,
+                cat,
+            );
+            indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableStartResize { cat, col } => {
+            let anchor_width = state
+                .inventory_table_states
+                .get(&cat)
+                .and_then(|ts| ts.column_widths.get(col).copied())
+                .unwrap_or(80.0);
+            state.inventory_resizing = Some(
+                crate::editors::save_file_viewer::state::InventoryResizeDrag {
+                    cat,
+                    col,
+                    anchor_width,
+                    anchor_cursor_x: None,
+                },
+            );
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableResetColumnWidth { cat, col } => {
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
+                let default_width = cat
+                    .default_columns()
+                    .into_iter()
+                    .nth(col)
+                    .map(|c| c.width_px)
+                    .unwrap_or(80.0);
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = default_width;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableResizeCursor(x) => {
+            if let Some(drag) = state.inventory_resizing.as_mut() {
+                let anchor_x = match drag.anchor_cursor_x {
+                    Some(ax) => ax,
+                    None => {
+                        drag.anchor_cursor_x = Some(x);
+                        return Task::none();
+                    }
+                };
+                let new_width = (drag.anchor_width + (x - anchor_x))
+                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                if let Some(ts) = state.inventory_table_states.get_mut(&drag.cat) {
+                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
+                        *w = new_width;
+                    }
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableEndResize => {
+            state.inventory_resizing = None;
+            Task::none()
+        }
+        SaveFileViewerMessage::InventoryTableScroll {
+            cat,
+            x,
+            y,
+            ..
+        } => {
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
+                ts.scroll_offset = (x, y);
+            }
+            Task::none()
+        }
         SaveFileViewerMessage::Load(_) => {
             // Load is handled by app.rs::open_file_in_workspace via Task::perform
             state.loading = true;
@@ -293,6 +388,31 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             (*cat, indices)
                         })
                         .collect();
+                    // Build per-category inventory table interaction state.
+                    // Column widths are initialised from each category's
+                    // default column layout.
+                    use crate::editors::save_file_viewer::state::{
+                        InventoryCategory, InventoryTableState,
+                    };
+                    let mut inv_states: std::collections::HashMap<
+                        InventoryCategory,
+                        InventoryTableState,
+                    > = std::collections::HashMap::new();
+                    for cat in state.inventory_display_caches.keys() {
+                        let widths: Vec<f32> = cat
+                            .default_columns()
+                            .iter()
+                            .map(|c| c.width_px)
+                            .collect();
+                        inv_states.insert(
+                            *cat,
+                            InventoryTableState {
+                                column_widths: widths,
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    state.inventory_table_states = inv_states;
                     // Build maps display caches
                     let maps_caches: Vec<crate::editors::save_file_viewer::state::MapsDisplayCaches> = loaded
                         .save_file
@@ -550,6 +670,24 @@ fn maps_table_data<'a>(
         MapsTableKind::Misc => (&cache.draw_items_misc, &mut cache.draw_items_misc_indices),
         MapsTableKind::Event => (&cache.draw_items_event, &mut cache.draw_items_event_indices),
     }
+}
+
+/// Return the (immutable rows, mutable indices) pair for a given inventory
+/// category. The two borrows are disjoint fields of the two HashMaps.
+fn inventory_table_data<'a>(
+    cache: &'a mut std::collections::HashMap<
+        crate::editors::save_file_viewer::state::InventoryCategory,
+        Vec<Vec<String>>,
+    >,
+    indices: &'a mut std::collections::HashMap<
+        crate::editors::save_file_viewer::state::InventoryCategory,
+        Vec<usize>,
+    >,
+    cat: crate::editors::save_file_viewer::state::InventoryCategory,
+) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+    let rows = cache.get(&cat).map(|v| &v[..]).unwrap_or(&[]);
+    let idx = indices.get_mut(&cat).expect("inventory indices missing");
+    (rows, idx)
 }
 
 /// Numeric-aware cell comparison for sorting. Falls back to lexicographic

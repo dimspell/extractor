@@ -1,4 +1,5 @@
-use iced::widget::{button, container, scrollable, text, Column};
+use iced::mouse::Interaction;
+use iced::widget::{button, container, mouse_area, scrollable, text, Column};
 use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::state::{InventoryCategory, SaveFileViewerState};
@@ -6,7 +7,7 @@ use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
-use gui_widgets::{TableColumn, TableWidget};
+use gui_widgets::{RowFlags, TableWidget};
 
 /// Inventory section: category buttons + TableWidget per category.
 pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
@@ -59,79 +60,24 @@ fn inventory_table<'a>(
     state: &'a SaveFileViewerState,
     cat: InventoryCategory,
 ) -> Element<'a, Message> {
-    let (columns, display_cache, filtered_indices): (
-        Vec<TableColumn>,
-        Option<&Vec<Vec<String>>>,
-        Option<&Vec<usize>>,
-    ) = match cat {
-        InventoryCategory::Weapon => (
-            vec![
-                TableColumn { width_px: 160.0, label: "Name".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "Price".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "Atk".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "Def".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "MagStr".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "Dur".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 50.0, label: "ReqStr".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 50.0, label: "ReqAgi".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 50.0, label: "ReqWis".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "HP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "MP".into(), sort: None, has_filter: false },
-            ],
-            state.inventory_display_caches.get(&InventoryCategory::Weapon),
-            state.inventory_filtered_indices.get(&InventoryCategory::Weapon),
-        ),
-        InventoryCategory::Heal => (
-            vec![
-                TableColumn { width_px: 160.0, label: "Name".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "Price".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "HP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "MP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 52.0, label: "FullHP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 52.0, label: "FullMP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 62.0, label: "CurePois".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 62.0, label: "CurePetr".into(), sort: None, has_filter: false },
-            ],
-            state.inventory_display_caches.get(&InventoryCategory::Heal),
-            state.inventory_filtered_indices.get(&InventoryCategory::Heal),
-        ),
-        InventoryCategory::Edit => (
-            vec![
-                TableColumn { width_px: 160.0, label: "Name".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "Price".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "HP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 42.0, label: "MP".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Str".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Agi".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Wis".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Con".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Off".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 38.0, label: "Def".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 50.0, label: "MagPwr".into(), sort: None, has_filter: false },
-            ],
-            state.inventory_display_caches.get(&InventoryCategory::Edit),
-            state.inventory_filtered_indices.get(&InventoryCategory::Edit),
-        ),
-        InventoryCategory::Event => (
-            vec![
-                TableColumn { width_px: 160.0, label: "Name".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "Price".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 70.0, label: "EventID".into(), sort: None, has_filter: false },
-            ],
-            state.inventory_display_caches.get(&InventoryCategory::Event),
-            state.inventory_filtered_indices.get(&InventoryCategory::Event),
-        ),
-        InventoryCategory::Misc => (
-            vec![
-                TableColumn { width_px: 160.0, label: "Name".into(), sort: None, has_filter: false },
-                TableColumn { width_px: 55.0, label: "Price".into(), sort: None, has_filter: false },
-            ],
-            state.inventory_display_caches.get(&InventoryCategory::Misc),
-            state.inventory_filtered_indices.get(&InventoryCategory::Misc),
-        ),
-    };
+    let ts = state.inventory_table_states.get(&cat);
+    let resizing = state.inventory_resizing.as_ref().map(|d| d.cat);
 
-    let display_cache = match display_cache {
+    // Build columns from the category's default layout, then apply the
+    // per-table width overrides and active sort state.
+    let mut columns = cat.default_columns();
+    if let Some(ts) = ts {
+        for (c, w) in columns.iter_mut().zip(&ts.column_widths) {
+            c.width_px = *w;
+        }
+        if let Some(sc) = ts.sort_column {
+            if let Some(c) = columns.get_mut(sc) {
+                c.sort = Some(ts.sort_ascending);
+            }
+        }
+    }
+
+    let display_cache = match state.inventory_display_caches.get(&cat) {
         Some(c) if !c.is_empty() => c,
         _ => {
             return container(text("(empty)"))
@@ -142,7 +88,7 @@ fn inventory_table<'a>(
         }
     };
 
-    let filtered_indices = match filtered_indices {
+    let filtered_indices = match state.inventory_filtered_indices.get(&cat) {
         Some(i) => i,
         None => {
             return container(text("(empty)"))
@@ -153,17 +99,68 @@ fn inventory_table<'a>(
         }
     };
 
-    scrollable(
-        TableWidget::new(
-            display_cache,
-            filtered_indices,
-            columns,
-            0.0,
-            |_| gui_widgets::RowFlags::default(),
-            22.0,
-            ParagraphCache::default(),
-        ),
+    let selected = ts.and_then(|t| t.selected_orig);
+    let scroll = ts.map(|t| t.scroll_offset).unwrap_or((0.0, 0.0));
+    let row_flags = move |visible_idx: usize| -> RowFlags {
+        let orig = filtered_indices.get(visible_idx).copied();
+        RowFlags {
+            selected: orig == selected,
+            ..Default::default()
+        }
+    };
+
+    let table = TableWidget::new(
+        display_cache,
+        filtered_indices,
+        columns,
+        0.0,
+        row_flags,
+        22.0,
+        ParagraphCache::default(),
     )
-    .height(Fill)
-    .into()
+    .external_offset(scroll.0, scroll.1)
+    .on_select(move |visible_idx| {
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSelect {
+            cat,
+            visible_idx,
+        })
+    })
+    .on_sort(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSort { cat, col })
+    })
+    .on_start_resize(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableStartResize { cat, col })
+    })
+    .on_reset_column_width(move |col| {
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableResetColumnWidth {
+            cat,
+            col,
+        })
+    })
+    .on_scroll(move |x, y, vh| {
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableScroll {
+            cat,
+            x,
+            y,
+            viewport_height: vh,
+        })
+    });
+
+    // While resizing this table, capture cursor moves / release across the
+    // whole table area so the drag isn't interrupted by the inner widget.
+    let table_elem: Element<'a, Message> = if resizing == Some(cat) {
+        mouse_area(table)
+            .on_move(move |p| {
+                Message::save_file_viewer(SaveFileViewerMessage::InventoryTableResizeCursor(p.x))
+            })
+            .on_release(Message::save_file_viewer(
+                SaveFileViewerMessage::InventoryTableEndResize,
+            ))
+            .interaction(Interaction::ResizingHorizontally)
+            .into()
+    } else {
+        table.into()
+    };
+
+    scrollable(table_elem).height(Fill).into()
 }

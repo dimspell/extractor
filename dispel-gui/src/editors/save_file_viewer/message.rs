@@ -55,6 +55,37 @@ pub enum SaveFileViewerMessage {
         y: f32,
         viewport_height: f32,
     },
+    /// Select a row in the inventory table for a category.
+    InventoryTableSelect {
+        cat: InventoryCategory,
+        visible_idx: usize,
+    },
+    /// Toggle sort by a column in the inventory table for a category.
+    InventoryTableSort {
+        cat: InventoryCategory,
+        col: usize,
+    },
+    /// Begin dragging a column resize handle in an inventory table.
+    InventoryTableStartResize {
+        cat: InventoryCategory,
+        col: usize,
+    },
+    /// Reset a column to its default width (double-click on resize handle).
+    InventoryTableResetColumnWidth {
+        cat: InventoryCategory,
+        col: usize,
+    },
+    /// Cursor moved while a column resize drag is active.
+    InventoryTableResizeCursor(f32),
+    /// Column resize drag finished.
+    InventoryTableEndResize,
+    /// Inventory table scrolled; persist the offset for stable re-renders.
+    InventoryTableScroll {
+        cat: InventoryCategory,
+        x: f32,
+        y: f32,
+        viewport_height: f32,
+    },
 }
 
 /// Data returned after a successful save file load.

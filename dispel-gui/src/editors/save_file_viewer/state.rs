@@ -138,6 +138,30 @@ pub struct MapsTableResizeDrag {
     pub anchor_cursor_x: Option<f32>,
 }
 
+/// Per-table interaction state for one inventory category table.
+#[derive(Debug, Clone, Default)]
+pub struct InventoryTableState {
+    /// Currently selected original row index (highlighted).
+    pub selected_orig: Option<usize>,
+    /// Active sort column, if any.
+    pub sort_column: Option<usize>,
+    /// Sort direction for `sort_column`.
+    pub sort_ascending: bool,
+    /// Per-column widths (px), parallel to `default_columns()`.
+    pub column_widths: Vec<f32>,
+    /// Last reported scroll offset (x, y) for stable scroll across re-renders.
+    pub scroll_offset: (f32, f32),
+}
+
+/// Active column-resize drag for an inventory table.
+#[derive(Debug, Clone)]
+pub struct InventoryResizeDrag {
+    pub cat: InventoryCategory,
+    pub col: usize,
+    pub anchor_width: f32,
+    pub anchor_cursor_x: Option<f32>,
+}
+
 /// Cached display rows for one map's entity tables.
 /// `maps_display_caches[i]` corresponds to `save_file.maps[i]` (positional index).
 pub struct MapsDisplayCaches {
@@ -187,6 +211,11 @@ pub struct SaveFileViewerState {
     // Inventory filtered indices (always `(0..n).collect()` — no filtering yet)
     pub inventory_filtered_indices: HashMap<InventoryCategory, Vec<usize>>,
 
+    // Inventory table interaction state, keyed by category.
+    pub inventory_table_states: HashMap<InventoryCategory, InventoryTableState>,
+    // Active column-resize drag for an inventory table, if any.
+    pub inventory_resizing: Option<InventoryResizeDrag>,
+
     // Maps display caches (built on load, one per map at positional index)
     pub maps_display_caches: Vec<MapsDisplayCaches>,
 
@@ -214,6 +243,8 @@ impl Default for SaveFileViewerState {
             journal_filtered_indices: HashMap::new(),
             inventory_display_caches: HashMap::new(),
             inventory_filtered_indices: HashMap::new(),
+            inventory_table_states: HashMap::new(),
+            inventory_resizing: None,
             maps_display_caches: Vec::new(),
             maps_table_states: Vec::new(),
             maps_resizing: None,
@@ -231,6 +262,38 @@ impl InventoryCategory {
             InventoryCategory::Weapon => "Weapon Items",
             InventoryCategory::Heal => "Heal Items",
         }
+    }
+
+    /// Default column layout (widths + labels) for this inventory category.
+    /// `sort`/`has_filter` are left at their defaults; the view overrides
+    /// `width_px` from the per-table state and `sort` from the active sort.
+    pub fn default_columns(&self) -> Vec<TableColumn> {
+        let defs: &[(&str, f32)] = match self {
+            InventoryCategory::Weapon => &[
+                ("Name", 160.0), ("Price", 55.0), ("Atk", 42.0), ("Def", 42.0),
+                ("MagStr", 55.0), ("Dur", 42.0), ("ReqStr", 50.0), ("ReqAgi", 50.0),
+                ("ReqWis", 50.0), ("HP", 42.0), ("MP", 42.0),
+            ],
+            InventoryCategory::Heal => &[
+                ("Name", 160.0), ("Price", 55.0), ("HP", 42.0), ("MP", 42.0),
+                ("FullHP", 52.0), ("FullMP", 52.0), ("CurePois", 62.0), ("CurePetr", 62.0),
+            ],
+            InventoryCategory::Edit => &[
+                ("Name", 160.0), ("Price", 55.0), ("HP", 42.0), ("MP", 42.0),
+                ("Str", 38.0), ("Agi", 38.0), ("Wis", 38.0), ("Con", 38.0),
+                ("Off", 38.0), ("Def", 38.0), ("MagPwr", 50.0),
+            ],
+            InventoryCategory::Event => &[("Name", 160.0), ("Price", 55.0), ("EventID", 70.0)],
+            InventoryCategory::Misc => &[("Name", 160.0), ("Price", 55.0)],
+        };
+        defs.iter()
+            .map(|(label, width_px)| TableColumn {
+                width_px: *width_px,
+                label: (*label).to_string(),
+                sort: None,
+                has_filter: false,
+            })
+            .collect()
     }
 }
 
