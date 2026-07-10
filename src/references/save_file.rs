@@ -4,6 +4,7 @@
 // following the binary format documented in SAVE_FILE_RESEARCH.md
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use dispel_macros::BinaryRecord;
 use encoding_rs::WINDOWS_1250;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
@@ -610,11 +611,14 @@ pub struct InventoryData {
     pub heal_items: Vec<InventoryHealItem>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryMiscItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
+    #[binary_record(size = 16)]
     pub unknown_1: Vec<u8>,
     pub unknown_2: u32,
     pub unknown_3: u16,
@@ -622,97 +626,22 @@ pub struct InventoryMiscItem {
     pub unknown_5: u32,
 }
 
-impl InventoryMiscItem {
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 264 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "InventoryMiscItem requires 264 bytes",
-            ));
-        }
-
-        let mut reader = std::io::Cursor::new(data);
-
-        let mut name_raw = vec![0u8; 30];
-        reader.read_exact(&mut name_raw)?;
-        let name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let mut description_raw = vec![0u8; 202];
-        reader.read_exact(&mut description_raw)?;
-        let description = read_null_terminated_windows_1250(&description_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let base_price = reader.read_u32::<LittleEndian>()?;
-
-        let mut unknown_1 = vec![0u8; 16];
-        reader.read_exact(&mut unknown_1)?;
-
-        let unknown_2 = reader.read_u32::<LittleEndian>()?;
-        let unknown_3 = reader.read_u16::<LittleEndian>()?;
-        let unknown_4 = reader.read_u16::<LittleEndian>()?;
-        let unknown_5 = reader.read_u32::<LittleEndian>()?;
-
-        Ok(InventoryMiscItem {
-            name,
-            description,
-            base_price,
-            unknown_1,
-            unknown_2,
-            unknown_3,
-            unknown_4,
-            unknown_5,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryEventItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
     pub unknown_1: u32,
     pub unknown_2: u32,
 }
 
-impl InventoryEventItem {
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 244 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "InventoryEventItem requires 244 bytes",
-            ));
-        }
-
-        let mut reader = std::io::Cursor::new(data);
-
-        let mut name_raw = vec![0u8; 30];
-        reader.read_exact(&mut name_raw)?;
-        let name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let mut description_raw = vec![0u8; 202];
-        reader.read_exact(&mut description_raw)?;
-        let description = read_null_terminated_windows_1250(&description_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let base_price = reader.read_u32::<LittleEndian>()?;
-        let unknown_1 = reader.read_u32::<LittleEndian>()?;
-        let unknown_2 = reader.read_u32::<LittleEndian>()?;
-
-        Ok(InventoryEventItem {
-            name,
-            description,
-            base_price,
-            unknown_1,
-            unknown_2,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryEditItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
 
@@ -737,79 +666,11 @@ pub struct InventoryEditItem {
     pub unknown_5: u16,
 }
 
-impl InventoryEditItem {
-    // 272 bytes long
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 272 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "InventoryEditItem requires 272 bytes",
-            ));
-        }
-
-        let mut reader = std::io::Cursor::new(data);
-
-        let mut name_raw = vec![0u8; 30];
-        reader.read_exact(&mut name_raw)?;
-        let name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let mut description_raw = vec![0u8; 202];
-        reader.read_exact(&mut description_raw)?;
-        let description = read_null_terminated_windows_1250(&description_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let base_price = reader.read_u32::<LittleEndian>()?; // 36
-        let unknown_1 = reader.read_u16::<LittleEndian>()?; // 34
-        let unknown_2 = reader.read_u16::<LittleEndian>()?; // 32
-        let health_points = reader.read_i16::<LittleEndian>()?; // 30
-        let mana_points = reader.read_i16::<LittleEndian>()?; // 28
-        let strength = reader.read_i16::<LittleEndian>()?; // 26
-        let agility = reader.read_i16::<LittleEndian>()?; // 24
-        let wisdom = reader.read_i16::<LittleEndian>()?; // 22
-        let constitution = reader.read_i16::<LittleEndian>()?; // 20
-        let to_dodge = reader.read_i16::<LittleEndian>()?; // 18
-        let to_hit = reader.read_i16::<LittleEndian>()?; // 16
-        let offense = reader.read_i16::<LittleEndian>()?; // 14
-        let defense = reader.read_i16::<LittleEndian>()?; // 12
-        let magical_power = reader.read_i16::<LittleEndian>()?; // 10
-        let item_destroying_power = reader.read_i16::<LittleEndian>()?; // 8
-        let unknown_3 = reader.read_u8()?; // 7
-        let modifies_item = reader.read_u8()?; // 6
-        let additional_effect = reader.read_i16::<LittleEndian>()?; // 4
-        let unknown_4 = reader.read_u16::<LittleEndian>()?; // 2
-        let unknown_5 = reader.read_u16::<LittleEndian>()?; // 0
-
-        Ok(InventoryEditItem {
-            name,
-            description,
-            base_price,
-            unknown_1,
-            unknown_2,
-            health_points,
-            mana_points,
-            strength,
-            agility,
-            wisdom,
-            constitution,
-            to_dodge,
-            to_hit,
-            offense,
-            defense,
-            magical_power,
-            item_destroying_power,
-            unknown_3,
-            modifies_item,
-            additional_effect,
-            unknown_4,
-            unknown_5,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryHealItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
     pub heal_item_id: u32,
@@ -826,64 +687,11 @@ pub struct InventoryHealItem {
     pub unknown_4: u16, // 6c 6c (108, 108) for the first row
 }
 
-impl InventoryHealItem {
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 256 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "InventoryHealItem requires 256 bytes",
-            ));
-        }
-
-        let mut reader = std::io::Cursor::new(data);
-
-        let mut name_raw = vec![0u8; 30];
-        reader.read_exact(&mut name_raw)?;
-        let name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let mut description_raw = vec![0u8; 202];
-        reader.read_exact(&mut description_raw)?;
-        let description = read_null_terminated_windows_1250(&description_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let base_price = reader.read_u32::<LittleEndian>()?;
-        let heal_item_id = reader.read_u32::<LittleEndian>()?;
-        let health_points = reader.read_i16::<LittleEndian>()?;
-        let mana_points = reader.read_i16::<LittleEndian>()?;
-        let restore_full_health = reader.read_u8()?;
-        let restore_full_mana = reader.read_u8()?;
-        let poison_heal = reader.read_u8()?;
-        let petrif_heal = reader.read_u8()?;
-        let polimorph_heal = reader.read_u8()?;
-        let unknown_1 = reader.read_u8()?;
-        let unknown_2 = reader.read_u16::<LittleEndian>()?;
-        let unknown_3 = reader.read_u16::<LittleEndian>()?;
-        let unknown_4 = reader.read_u16::<LittleEndian>()?;
-
-        Ok(InventoryHealItem {
-            name,
-            description,
-            base_price,
-            heal_item_id,
-            health_points,
-            mana_points,
-            restore_full_health,
-            restore_full_mana,
-            poison_heal,
-            petrif_heal,
-            polimorph_heal,
-            unknown_1,
-            unknown_2,
-            unknown_3,
-            unknown_4,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryWeaponItem {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 30))]
     pub name: String,
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     pub base_price: u32,
     pub weapon_item_id: u32,
@@ -911,87 +719,6 @@ pub struct InventoryWeaponItem {
     pub padding8: i16,
     pub unknown_1: u32,
     pub unknown_2: u32,
-}
-
-impl InventoryWeaponItem {
-    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
-        if data.len() != 292 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "InventoryWeaponItem requires 292 bytes",
-            ));
-        }
-
-        let mut reader = std::io::Cursor::new(data);
-
-        let mut name_raw = vec![0u8; 30];
-        reader.read_exact(&mut name_raw)?;
-        let name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let mut description_raw = vec![0u8; 202];
-        reader.read_exact(&mut description_raw)?;
-        let description = read_null_terminated_windows_1250(&description_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        let base_price = reader.read_u32::<LittleEndian>()?;
-        let weapon_item_id = reader.read_u32::<LittleEndian>()?;
-        let health_points = reader.read_i16::<LittleEndian>()?;
-        let mana_points = reader.read_i16::<LittleEndian>()?;
-        let strength = reader.read_i16::<LittleEndian>()?;
-        let agility = reader.read_i16::<LittleEndian>()?;
-        let wisdom = reader.read_i16::<LittleEndian>()?;
-        let constitution = reader.read_i16::<LittleEndian>()?;
-        let to_dodge = reader.read_i16::<LittleEndian>()?;
-        let to_hit = reader.read_i16::<LittleEndian>()?;
-        let attack = reader.read_i16::<LittleEndian>()?;
-        let defense = reader.read_i16::<LittleEndian>()?;
-        let magical_strength = reader.read_i16::<LittleEndian>()?;
-        let durability = reader.read_i16::<LittleEndian>()?;
-        let padding2 = reader.read_i16::<LittleEndian>()?;
-        let padding3 = reader.read_i16::<LittleEndian>()?;
-        let req_strength = reader.read_i16::<LittleEndian>()?;
-        let padding4 = reader.read_i16::<LittleEndian>()?;
-        let req_agility = reader.read_i16::<LittleEndian>()?;
-        let padding5 = reader.read_i16::<LittleEndian>()?;
-        let req_wisdom = reader.read_i16::<LittleEndian>()?;
-        let padding6 = reader.read_i16::<LittleEndian>()?;
-        let padding7 = reader.read_i16::<LittleEndian>()?;
-        let padding8 = reader.read_i16::<LittleEndian>()?;
-        let unknown_1 = reader.read_u32::<LittleEndian>()?;
-        let unknown_2 = reader.read_u32::<LittleEndian>()?;
-
-        Ok(InventoryWeaponItem {
-            name,
-            description,
-            base_price,
-            weapon_item_id,
-            health_points,
-            mana_points,
-            strength,
-            agility,
-            wisdom,
-            constitution,
-            to_dodge,
-            to_hit,
-            attack,
-            defense,
-            magical_strength,
-            durability,
-            padding2,
-            padding3,
-            req_strength,
-            padding4,
-            req_agility,
-            padding5,
-            req_wisdom,
-            padding6,
-            padding7,
-            padding8,
-            unknown_1,
-            unknown_2,
-        })
-    }
 }
 
 /// Journal data from a save file (3 sections × 100 entries).

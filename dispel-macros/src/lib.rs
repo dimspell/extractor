@@ -1,6 +1,7 @@
 use proc_macro::TokenStream;
 use syn::{parse_macro_input, DeriveInput};
 
+mod binary_record_impl;
 mod extractor_impl;
 mod localizable_impl;
 mod record_patcher_impl;
@@ -18,6 +19,24 @@ mod text_record_patcher_impl;
 pub fn derive_localizable(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     localizable_impl::expand(input).into()
+}
+
+/// Derive macro that generates inherent `parse`, `write`, and `record_size`
+/// methods for a fixed-size binary record struct.
+///
+/// Fields are auto-detected for primitive types (`u8`, `u16`, `u32`, `i16`, `i32`).
+/// `String` fields require `#[binary_record(string(encoding = "...", size = N))]`.
+/// `Vec<u8>` fields require `#[binary_record(size = N)]`.
+///
+/// Additional annotations:
+/// - `#[binary_record(padding(count = N, type = "u8|i16|i32"))]` — padding bytes
+/// - `#[binary_record(skip)]` — skip field (uses Default)
+///
+/// Supported encoding values: "WINDOWS-1250", "EUC-KR", "UTF-8"
+#[proc_macro_derive(BinaryRecord, attributes(binary_record))]
+pub fn derive_binary_record(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    binary_record_impl::expand(input).into()
 }
 
 /// Derive macro that generates an `Extractor` impl for a struct.
