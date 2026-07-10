@@ -672,8 +672,7 @@ pub struct DrawItemEditItem {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String, // 232
     pub base_price: u32,            // 236
-    pub unknown_1: u16,             // 238
-    pub unknown_2: u16,             // 240
+    pub edit_item_id: u32,          // 240
     pub health_points: i16,         // 242
     pub mana_points: i16,           // 244
     pub strength: i16,              // 246
@@ -689,8 +688,9 @@ pub struct DrawItemEditItem {
     pub unknown_3: u8,              // 265
     pub modifies_item: u8,          // 266
     pub additional_effect: i16,     // 268
-    #[binary_record(size = 12)]
-    pub unknown_4: Vec<u8>, // 280
+    pub map_coordinate_x: u32,      // 272
+    pub map_coordinate_y: u32,      // 276
+    pub unknown_4: u32,             // 280
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
