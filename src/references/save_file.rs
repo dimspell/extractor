@@ -806,9 +806,9 @@ pub struct DrawItemWeaponItem {
     pub padding6: i16,         // 280
     pub padding7: i16,         // 282
     pub padding8: i16,         // 284
-    pub unknown_1: u32,        // 288
-    #[binary_record(size = 8)]
-    pub unknown_4: Vec<u8>, // 296
+    pub map_coordinate_x: u32, // 288
+    pub map_coordinate_y: u32, // 292
+    pub unknown_1: u32,        // 296
 }
 
 /// Journal data from a save file (3 sections × 100 entries).
