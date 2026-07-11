@@ -12,6 +12,7 @@ pub use update::handle;
 pub use view::view;
 
 pub(crate) mod events;
+pub(crate) mod filter_modal;
 pub(crate) mod identity;
 pub(crate) mod inventory;
 pub(crate) mod journal;

@@ -2,8 +2,12 @@ use iced::mouse::Interaction;
 use iced::widget::{button, container, mouse_area, scrollable, text, Column};
 use iced::{Element, Fill, Length, Padding};
 
-use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind, SaveFileViewerState};
-use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::editors::save_file_viewer::filter_modal;
+use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
+use gui_widgets::components::modal;
+use crate::editors::save_file_viewer::state::{
+    GlobalFilterMode, MapTableState, MapsTableKind, SaveFileViewerState,
+};
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
@@ -212,7 +216,7 @@ fn entity_table<'a>(
     resizing: Option<(usize, MapsTableKind)>,
 ) -> Element<'a, Message> {
     // Build columns from the kind's default layout, then apply the
-    // per-table width overrides and active sort state.
+    // per-table width overrides, active sort state, and column-filter badges.
     let mut columns = kind.default_columns();
     for (c, w) in columns.iter_mut().zip(&ts.column_widths) {
         c.width_px = *w;
@@ -222,14 +226,29 @@ fn entity_table<'a>(
             c.sort = Some(ts.sort_ascending);
         }
     }
+    for (i, c) in columns.iter_mut().enumerate() {
+        c.has_filter = ts.filter.column_filters.contains_key(&i);
+    }
 
     let selected = ts.selected_orig;
+    let filter = &ts.filter;
+    let is_highlight = filter.filter_mode == GlobalFilterMode::Highlight;
+    let highlighted = &filter.highlighted_indices;
+    let current_highlight = filter.current_highlight_orig_idx();
     let row_flags = move |visible_idx: usize| -> RowFlags {
         let orig = indices.get(visible_idx).copied();
         RowFlags {
             selected: orig == selected,
+            highlighted: is_highlight
+                && orig.map(|o| highlighted.contains(&o)).unwrap_or(false),
+            current_highlight: is_highlight && orig == current_highlight,
             ..Default::default()
         }
+    };
+
+    let key = TableKey::Map(map_idx, kind);
+    let msg_fn = move |action: TableFilterAction| {
+        Message::save_file_viewer(SaveFileViewerMessage::TableFilter { key, action })
     };
 
     let table = TableWidget::new(
@@ -278,7 +297,12 @@ fn entity_table<'a>(
             y,
             viewport_height: vh,
         })
-    });
+    })
+    .on_open_filter(move |col| msg_fn(TableFilterAction::OpenColumnFilter(col)))
+    .on_clear_filter(move |col| msg_fn(TableFilterAction::ClearColumnFilter(col)))
+    .on_quick_filter(move |col, value| msg_fn(TableFilterAction::QuickFilter(col, value)))
+    .on_next_highlight(move || msg_fn(TableFilterAction::NextHighlight))
+    .on_prev_highlight(move || msg_fn(TableFilterAction::PrevHighlight));
 
     // Bound the table to a fixed height so its layout resolves to a finite
     // size inside the outer scrollable (TableWidget fills whatever the parent
@@ -288,7 +312,7 @@ fn entity_table<'a>(
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.
-    if resizing == Some((map_idx, kind)) {
+    let table_elem: Element<'a, Message> = if resizing == Some((map_idx, kind)) {
         mouse_area(table_elem)
             .on_move(move |p| {
                 Message::save_file_viewer(SaveFileViewerMessage::MapsTableResizeCursor(p.x))
@@ -300,6 +324,26 @@ fn entity_table<'a>(
             .into()
     } else {
         table_elem
+    };
+
+    let filter_bar =
+        filter_modal::build_filter_bar(filter, display_cache.len(), indices.len(), msg_fn);
+    let wrapped = Column::<Message>::new()
+        .push(filter_bar)
+        .push(table_elem)
+        .spacing(4);
+
+    if filter.active_column_filter.is_some() {
+        let col = filter.active_column_filter.unwrap();
+        let modal_content = filter_modal::build_column_filter_modal(col, filter, msg_fn);
+        modal::modal(
+            wrapped,
+            modal_content,
+            move || msg_fn(TableFilterAction::CloseColumnFilterModal),
+            0.5,
+        )
+    } else {
+        wrapped.into()
     }
 }
 

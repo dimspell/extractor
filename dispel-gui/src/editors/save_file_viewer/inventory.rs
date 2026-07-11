@@ -1,9 +1,13 @@
 use iced::mouse::Interaction;
-use iced::widget::{button, container, mouse_area, scrollable, text, Column};
+use iced::widget::{button, container, mouse_area, text, Column, Row};
 use iced::{Element, Fill};
 
-use crate::editors::save_file_viewer::state::{InventoryCategory, SaveFileViewerState};
-use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::editors::save_file_viewer::filter_modal;
+use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
+use gui_widgets::components::modal;
+use crate::editors::save_file_viewer::state::{
+    GlobalFilterMode, InventoryCategory, SaveFileViewerState, TableFilterState,
+};
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
@@ -22,7 +26,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     let active = state.inventory_category;
 
     // Category buttons row
-    let mut buttons = iced::widget::Row::<Message>::new().spacing(4).padding(8);
+    let mut buttons = Row::<Message>::new().spacing(4).padding(8);
     for cat in &categories {
         let is_active = active == Some(*cat);
         let count = state
@@ -64,8 +68,9 @@ fn inventory_table<'a>(
     let resizing = state.inventory_resizing.as_ref().map(|d| d.cat);
 
     // Build columns from the category's default layout, then apply the
-    // per-table width overrides and active sort state.
+    // per-table width overrides, active sort state, and column-filter badges.
     let mut columns = cat.default_columns();
+    let filter_ref: Option<&TableFilterState> = ts.map(|t| &t.filter);
     if let Some(ts) = ts {
         for (c, w) in columns.iter_mut().zip(&ts.column_widths) {
             c.width_px = *w;
@@ -74,6 +79,9 @@ fn inventory_table<'a>(
             if let Some(c) = columns.get_mut(sc) {
                 c.sort = Some(ts.sort_ascending);
             }
+        }
+        for (i, c) in columns.iter_mut().enumerate() {
+            c.has_filter = ts.filter.column_filters.contains_key(&i);
         }
     }
 
@@ -101,12 +109,26 @@ fn inventory_table<'a>(
 
     let selected = ts.and_then(|t| t.selected_orig);
     let scroll = ts.map(|t| t.scroll_offset).unwrap_or((0.0, 0.0));
+    let is_highlight = filter_ref
+        .map(|f| f.filter_mode == GlobalFilterMode::Highlight)
+        .unwrap_or(false);
+    let highlighted = filter_ref.map(|f| &f.highlighted_indices);
+    let current_highlight = filter_ref.and_then(|f| f.current_highlight_orig_idx());
     let row_flags = move |visible_idx: usize| -> RowFlags {
         let orig = filtered_indices.get(visible_idx).copied();
         RowFlags {
             selected: orig == selected,
+            highlighted: is_highlight
+                && orig.map(|o| highlighted.map(|h| h.contains(&o)).unwrap_or(false))
+                    .unwrap_or(false),
+            current_highlight: is_highlight && orig == current_highlight,
             ..Default::default()
         }
+    };
+
+    let key = TableKey::Inventory(cat);
+    let msg_fn = move |action: TableFilterAction| {
+        Message::save_file_viewer(SaveFileViewerMessage::TableFilter { key, action })
     };
 
     let table = TableWidget::new(
@@ -144,7 +166,12 @@ fn inventory_table<'a>(
             y,
             viewport_height: vh,
         })
-    });
+    })
+    .on_open_filter(move |col| msg_fn(TableFilterAction::OpenColumnFilter(col)))
+    .on_clear_filter(move |col| msg_fn(TableFilterAction::ClearColumnFilter(col)))
+    .on_quick_filter(move |col, value| msg_fn(TableFilterAction::QuickFilter(col, value)))
+    .on_next_highlight(move || msg_fn(TableFilterAction::NextHighlight))
+    .on_prev_highlight(move || msg_fn(TableFilterAction::PrevHighlight));
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.
@@ -162,5 +189,33 @@ fn inventory_table<'a>(
         table.into()
     };
 
-    scrollable(table_elem).height(Fill).into()
+    let content: Element<'a, Message> = if let Some(filter) = filter_ref {
+        let filter_bar = filter_modal::build_filter_bar(
+            filter,
+            display_cache.len(),
+            filtered_indices.len(),
+            msg_fn,
+        );
+        let wrapped = Column::<Message>::new()
+            .push(filter_bar)
+            .push(table_elem)
+            .spacing(8);
+
+        if filter.active_column_filter.is_some() {
+            let col = filter.active_column_filter.unwrap();
+            let modal_content = filter_modal::build_column_filter_modal(col, filter, msg_fn);
+            modal::modal(
+                wrapped,
+                modal_content,
+                move || msg_fn(TableFilterAction::CloseColumnFilterModal),
+                0.5,
+            )
+        } else {
+            wrapped.into()
+        }
+    } else {
+        table_elem
+    };
+
+    content
 }

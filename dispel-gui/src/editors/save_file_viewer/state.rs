@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
@@ -189,6 +189,87 @@ impl MapsTableKind {
     }
 }
 
+/// Whether a global filter query removes non-matching rows or only highlights them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GlobalFilterMode {
+    /// Rows that do not match the query are removed from the view.
+    #[default]
+    FilterOut,
+    /// Non-matching rows remain visible but matching rows are highlighted.
+    Highlight,
+}
+
+/// A single distinct value offered in a column's filter modal, with its count.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FilterOption {
+    /// The raw cell value (used as the filter key).
+    pub value: String,
+    /// Number of rows in the table that carry this value.
+    pub count: usize,
+}
+
+/// Per-table column filtering state, mirroring the spreadsheet editor.
+#[derive(Debug, Clone, Default)]
+pub struct TableFilterState {
+    /// Hard column filters: column index -> set of allowed values.
+    /// An empty set (or missing entry) means "no filter" for that column.
+    pub column_filters: HashMap<usize, HashSet<String>>,
+    /// Free-text global query applied to all columns.
+    pub filter_query: String,
+    /// How the global query behaves (remove vs highlight).
+    pub filter_mode: GlobalFilterMode,
+    /// Column whose filter modal is currently open, if any.
+    pub active_column_filter: Option<usize>,
+    /// Distinct options for the active column filter modal.
+    pub column_filter_options: Vec<FilterOption>,
+    /// Search box text inside the column filter modal.
+    pub column_filter_search: String,
+    /// Original rows highlighted by the global query in Highlight mode,
+    /// stored in catalog order so prev/next navigation is stable.
+    pub highlighted_indices: Vec<usize>,
+    /// Index (into `highlighted_indices`) for next/prev navigation.
+    pub current_highlight_pos: Option<usize>,
+}
+
+impl TableFilterState {
+    /// Whether any filter (column or query) is currently active.
+    pub fn is_active(&self) -> bool {
+        !self.column_filters.is_empty() || !self.filter_query.is_empty()
+    }
+
+    /// Move the highlight cursor to the next match, with wrap-around.
+    pub fn navigate_next_highlight(&mut self) {
+        if self.highlighted_indices.is_empty() {
+            self.current_highlight_pos = None;
+            return;
+        }
+        let len = self.highlighted_indices.len();
+        self.current_highlight_pos = Some(match self.current_highlight_pos {
+            Some(pos) => (pos + 1) % len,
+            None => 0,
+        });
+    }
+
+    /// Move the highlight cursor to the previous match, with wrap-around.
+    pub fn navigate_prev_highlight(&mut self) {
+        if self.highlighted_indices.is_empty() {
+            self.current_highlight_pos = None;
+            return;
+        }
+        let len = self.highlighted_indices.len();
+        self.current_highlight_pos = Some(match self.current_highlight_pos {
+            Some(0) | None => len - 1,
+            Some(pos) => pos - 1,
+        });
+    }
+
+    /// `orig_idx` of the row currently focused via highlight navigation.
+    pub fn current_highlight_orig_idx(&self) -> Option<usize> {
+        self.current_highlight_pos
+            .and_then(|p| self.highlighted_indices.get(p).copied())
+    }
+}
+
 /// Per-table interaction state for one map's entity tables.
 #[derive(Debug, Clone, Default)]
 pub struct MapTableState {
@@ -202,6 +283,8 @@ pub struct MapTableState {
     pub column_widths: Vec<f32>,
     /// Last reported scroll offset (x, y) for stable scroll across re-renders.
     pub scroll_offset: (f32, f32),
+    /// Column filtering state.
+    pub filter: TableFilterState,
 }
 
 /// Active column-resize drag for a maps table.
@@ -228,6 +311,8 @@ pub struct TableInteractionState {
     pub column_widths: Vec<f32>,
     /// Last reported scroll offset (x, y) for stable scroll across re-renders.
     pub scroll_offset: (f32, f32),
+    /// Column filtering state.
+    pub filter: TableFilterState,
 }
 
 /// Active column-resize drag for an inventory table.

@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use crate::editors::save_file_viewer::state::{InventoryCategory, JournalSection, MapsTableKind, SaveFileSection};
+use crate::editors::save_file_viewer::state::{
+    GlobalFilterMode, InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
+};
 
 /// Messages for the save file viewer.
 #[derive(Debug, Clone)]
@@ -143,6 +145,57 @@ pub enum SaveFileViewerMessage {
         y: f32,
         viewport_height: f32,
     },
+    /// A unified column-filtering action routed to one of the viewer tables.
+    TableFilter {
+        /// Which table (keyed identically to the per-table select/sort messages).
+        key: TableKey,
+        /// What to do with that table's filter state.
+        action: TableFilterAction,
+    },
+}
+
+/// Identifies a single save-file-viewer table for filter routing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TableKey {
+    /// One of a map's entity tables (map position + table kind).
+    Map(usize, MapsTableKind),
+    /// An inventory table for a single category.
+    Inventory(InventoryCategory),
+    /// The single events table.
+    Events,
+    /// A journal table for one sub-section.
+    Journal(JournalSection),
+}
+
+/// Filtering actions shared by every viewer table (mirrors the spreadsheet editor).
+#[derive(Debug, Clone)]
+pub enum TableFilterAction {
+    /// Open the multi-select filter modal for a column.
+    OpenColumnFilter(usize),
+    /// Toggle whether a single value is selected in the active column filter.
+    ToggleColumnFilterValue(usize, String),
+    /// Select every (search-filtered) value in the active column filter.
+    SelectAllColumnFilter(usize),
+    /// Clear every (search-filtered) value in the active column filter.
+    ClearAllColumnFilter(usize),
+    /// Update the search box text inside the column filter modal.
+    ColumnFilterSearch(String),
+    /// Close the column filter modal without applying (state is kept).
+    CloseColumnFilterModal,
+    /// Clear the hard filter on a specific column.
+    ClearColumnFilter(usize),
+    /// Right-click quick-filter: set this column's filter to exactly this value.
+    QuickFilter(usize, String),
+    /// Update the free-text global query box.
+    QueryChanged(String),
+    /// Switch between FilterOut and Highlight global query behaviour.
+    SetMode(GlobalFilterMode),
+    /// Clear every column filter and the global query.
+    ClearAllFilters,
+    /// Jump to the next highlighted row (Highlight mode).
+    NextHighlight,
+    /// Jump to the previous highlighted row (Highlight mode).
+    PrevHighlight,
 }
 
 /// Data returned after a successful save file load.
