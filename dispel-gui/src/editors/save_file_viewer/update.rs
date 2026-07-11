@@ -353,9 +353,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.polimorph_heal.to_string(),
                                     item.unknown_1.to_string(),
                                     item.unknown_2.to_string(),
-                                    item.map_coordinate_x.to_string(),
-                                    item.map_coordinate_y.to_string(),
                                     item.unknown_3.to_string(),
+                                    item.unknown_4.to_string(),
+                                    item.unknown_5.to_string(),
                                 ]
                             })
                             .collect(),
@@ -386,9 +386,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.unknown_3.to_string(),
                                     item.modifies_item.to_string(),
                                     item.additional_effect.to_string(),
-                                    item.map_coordinate_x.to_string(),
-                                    item.map_coordinate_y.to_string(),
                                     item.unknown_4.to_string(),
+                                    item.unknown_5.to_string(),
+                                    item.unknown_6.to_string(),
                                 ]
                             })
                             .collect(),
