@@ -86,6 +86,63 @@ pub enum SaveFileViewerMessage {
         y: f32,
         viewport_height: f32,
     },
+    /// Select a row in the events table.
+    EventsTableSelect {
+        visible_idx: usize,
+    },
+    /// Toggle sort by a column in the events table.
+    EventsTableSort {
+        col: usize,
+    },
+    /// Begin dragging a column resize handle in the events table.
+    EventsTableStartResize {
+        col: usize,
+    },
+    /// Reset a column to its default width (double-click on resize handle).
+    EventsTableResetColumnWidth {
+        col: usize,
+    },
+    /// Cursor moved while a column resize drag is active.
+    EventsTableResizeCursor(f32),
+    /// Column resize drag finished.
+    EventsTableEndResize,
+    /// Events table scrolled; persist the offset for stable re-renders.
+    EventsTableScroll {
+        x: f32,
+        y: f32,
+        viewport_height: f32,
+    },
+    /// Select a row in a journal table.
+    JournalTableSelect {
+        section: JournalSection,
+        visible_idx: usize,
+    },
+    /// Toggle sort by a column in a journal table.
+    JournalTableSort {
+        section: JournalSection,
+        col: usize,
+    },
+    /// Begin dragging a column resize handle in a journal table.
+    JournalTableStartResize {
+        section: JournalSection,
+        col: usize,
+    },
+    /// Reset a column to its default width (double-click on resize handle).
+    JournalTableResetColumnWidth {
+        section: JournalSection,
+        col: usize,
+    },
+    /// Cursor moved while a column resize drag is active.
+    JournalTableResizeCursor(f32),
+    /// Column resize drag finished.
+    JournalTableEndResize,
+    /// Journal table scrolled; persist the offset for stable re-renders.
+    JournalTableScroll {
+        section: JournalSection,
+        x: f32,
+        y: f32,
+        viewport_height: f32,
+    },
 }
 
 /// Data returned after a successful save file load.

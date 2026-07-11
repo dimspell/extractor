@@ -214,9 +214,10 @@ pub struct MapsTableResizeDrag {
     pub anchor_cursor_x: Option<f32>,
 }
 
-/// Per-table interaction state for one inventory category table.
+/// Per-table interaction state (selection / sort / column widths / scroll)
+/// shared by the inventory, events, and journal tables.
 #[derive(Debug, Clone, Default)]
-pub struct InventoryTableState {
+pub struct TableInteractionState {
     /// Currently selected original row index (highlighted).
     pub selected_orig: Option<usize>,
     /// Active sort column, if any.
@@ -233,6 +234,23 @@ pub struct InventoryTableState {
 #[derive(Debug, Clone)]
 pub struct InventoryResizeDrag {
     pub cat: InventoryCategory,
+    pub col: usize,
+    pub anchor_width: f32,
+    pub anchor_cursor_x: Option<f32>,
+}
+
+/// Active column-resize drag for the events table (single table, no key).
+#[derive(Debug, Clone)]
+pub struct EventsResizeDrag {
+    pub col: usize,
+    pub anchor_width: f32,
+    pub anchor_cursor_x: Option<f32>,
+}
+
+/// Active column-resize drag for a journal table (keyed by section).
+#[derive(Debug, Clone)]
+pub struct JournalResizeDrag {
+    pub section: JournalSection,
     pub col: usize,
     pub anchor_width: f32,
     pub anchor_cursor_x: Option<f32>,
@@ -288,9 +306,19 @@ pub struct SaveFileViewerState {
     pub inventory_filtered_indices: HashMap<InventoryCategory, Vec<usize>>,
 
     // Inventory table interaction state, keyed by category.
-    pub inventory_table_states: HashMap<InventoryCategory, InventoryTableState>,
+    pub inventory_table_states: HashMap<InventoryCategory, TableInteractionState>,
     // Active column-resize drag for an inventory table, if any.
     pub inventory_resizing: Option<InventoryResizeDrag>,
+
+    // Events table interaction state (single table).
+    pub events_table_state: TableInteractionState,
+    // Active column-resize drag for the events table, if any.
+    pub events_resizing: Option<EventsResizeDrag>,
+
+    // Journal table interaction state, keyed by section.
+    pub journal_table_states: HashMap<JournalSection, TableInteractionState>,
+    // Active column-resize drag for a journal table, if any.
+    pub journal_resizing: Option<JournalResizeDrag>,
 
     // Maps display caches (built on load, one per map at positional index)
     pub maps_display_caches: Vec<MapsDisplayCaches>,
@@ -321,6 +349,10 @@ impl Default for SaveFileViewerState {
             inventory_filtered_indices: HashMap::new(),
             inventory_table_states: HashMap::new(),
             inventory_resizing: None,
+            events_table_state: TableInteractionState::default(),
+            events_resizing: None,
+            journal_table_states: HashMap::new(),
+            journal_resizing: None,
             maps_display_caches: Vec::new(),
             maps_table_states: Vec::new(),
             maps_resizing: None,
@@ -377,6 +409,33 @@ pub enum JournalSection {
     Main,
     Side,
     Trade,
+}
+
+impl JournalSection {
+    /// All journal sub-sections in display order.
+    pub fn all() -> &'static [JournalSection] {
+        use JournalSection::*;
+        &[Main, Side, Trade]
+    }
+
+    /// Default column layout for a journal table (same across sub-sections).
+    pub fn default_columns(&self) -> Vec<TableColumn> {
+        vec![
+            TableColumn { width_px: 40.0, label: "#".into(), sort: None, has_filter: false },
+            TableColumn { width_px: 200.0, label: "Name".into(), sort: None, has_filter: false },
+            TableColumn { width_px: 200.0, label: "Flags (hex)".into(), sort: None, has_filter: false },
+        ]
+    }
+}
+
+/// Default column layout for the events table.
+pub fn events_default_columns() -> Vec<TableColumn> {
+    vec![
+        TableColumn { width_px: 60.0, label: "event_id".into(), sort: None, has_filter: false },
+        TableColumn { width_px: 60.0, label: "unknown_1".into(), sort: None, has_filter: false },
+        TableColumn { width_px: 60.0, label: "unknown_2".into(), sort: None, has_filter: false },
+        TableColumn { width_px: 400.0, label: "script_name".into(), sort: None, has_filter: false },
+    ]
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

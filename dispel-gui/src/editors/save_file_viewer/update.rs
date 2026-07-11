@@ -250,6 +250,164 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        SaveFileViewerMessage::EventsTableSelect { visible_idx } => {
+            let orig = state.events_filtered_indices.get(visible_idx).copied();
+            state.events_table_state.selected_orig = orig;
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableSort { col } => {
+            let ts = &mut state.events_table_state;
+            if ts.sort_column == Some(col) {
+                ts.sort_ascending = !ts.sort_ascending;
+            } else {
+                ts.sort_column = Some(col);
+                ts.sort_ascending = true;
+            }
+            let ascending = ts.sort_ascending;
+            let (rows, indices) = events_table_data(&mut state.events_display_cache, &mut state.events_filtered_indices);
+            indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableStartResize { col } => {
+            let anchor_width = state
+                .events_table_state
+                .column_widths
+                .get(col)
+                .copied()
+                .unwrap_or(80.0);
+            state.events_resizing = Some(
+                crate::editors::save_file_viewer::state::EventsResizeDrag {
+                    col,
+                    anchor_width,
+                    anchor_cursor_x: None,
+                },
+            );
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableResetColumnWidth { col } => {
+            let default_width = crate::editors::save_file_viewer::state::events_default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.width_px)
+                .unwrap_or(80.0);
+            if let Some(w) = state.events_table_state.column_widths.get_mut(col) {
+                *w = default_width;
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableResizeCursor(x) => {
+            if let Some(drag) = state.events_resizing.as_mut() {
+                let anchor_x = match drag.anchor_cursor_x {
+                    Some(ax) => ax,
+                    None => {
+                        drag.anchor_cursor_x = Some(x);
+                        return Task::none();
+                    }
+                };
+                let new_width = (drag.anchor_width + (x - anchor_x))
+                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                if let Some(w) = state.events_table_state.column_widths.get_mut(drag.col) {
+                    *w = new_width;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableEndResize => {
+            state.events_resizing = None;
+            Task::none()
+        }
+        SaveFileViewerMessage::EventsTableScroll { x, y, .. } => {
+            state.events_table_state.scroll_offset = (x, y);
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableSelect { section, visible_idx } => {
+            if let Some(indices) = state.journal_filtered_indices.get(&section) {
+                let orig = indices.get(visible_idx).copied();
+                if let Some(ts) = state.journal_table_states.get_mut(&section) {
+                    ts.selected_orig = orig;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableSort { section, col } => {
+            let ts = match state.journal_table_states.get_mut(&section) {
+                Some(ts) => ts,
+                None => return Task::none(),
+            };
+            if ts.sort_column == Some(col) {
+                ts.sort_ascending = !ts.sort_ascending;
+            } else {
+                ts.sort_column = Some(col);
+                ts.sort_ascending = true;
+            }
+            let ascending = ts.sort_ascending;
+            let (rows, indices) = journal_table_data(
+                &mut state.journal_display_caches,
+                &mut state.journal_filtered_indices,
+                section,
+            );
+            indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableStartResize { section, col } => {
+            let anchor_width = state
+                .journal_table_states
+                .get(&section)
+                .and_then(|ts| ts.column_widths.get(col).copied())
+                .unwrap_or(80.0);
+            state.journal_resizing = Some(
+                crate::editors::save_file_viewer::state::JournalResizeDrag {
+                    section,
+                    col,
+                    anchor_width,
+                    anchor_cursor_x: None,
+                },
+            );
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableResetColumnWidth { section, col } => {
+            if let Some(ts) = state.journal_table_states.get_mut(&section) {
+                let default_width = section
+                    .default_columns()
+                    .into_iter()
+                    .nth(col)
+                    .map(|c| c.width_px)
+                    .unwrap_or(80.0);
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = default_width;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableResizeCursor(x) => {
+            if let Some(drag) = state.journal_resizing.as_mut() {
+                let anchor_x = match drag.anchor_cursor_x {
+                    Some(ax) => ax,
+                    None => {
+                        drag.anchor_cursor_x = Some(x);
+                        return Task::none();
+                    }
+                };
+                let new_width = (drag.anchor_width + (x - anchor_x))
+                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                if let Some(ts) = state.journal_table_states.get_mut(&drag.section) {
+                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
+                        *w = new_width;
+                    }
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableEndResize => {
+            state.journal_resizing = None;
+            Task::none()
+        }
+        SaveFileViewerMessage::JournalTableScroll { section, x, y, .. } => {
+            if let Some(ts) = state.journal_table_states.get_mut(&section) {
+                ts.scroll_offset = (x, y);
+            }
+            Task::none()
+        }
         SaveFileViewerMessage::Load(_) => {
             // Load is handled by app.rs::open_file_in_workspace via Task::perform
             state.loading = true;
@@ -443,11 +601,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // Column widths are initialised from each category's
                     // default column layout.
                     use crate::editors::save_file_viewer::state::{
-                        InventoryTableState,
+                        TableInteractionState,
                     };
                     let mut inv_states: std::collections::HashMap<
                         InventoryCategory,
-                        InventoryTableState,
+                        TableInteractionState,
                     > = std::collections::HashMap::new();
                     for cat in state.inventory_display_caches.keys() {
                         let widths: Vec<f32> = cat
@@ -457,13 +615,50 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             .collect();
                         inv_states.insert(
                             *cat,
-                            InventoryTableState {
+                            TableInteractionState {
                                 column_widths: widths,
                                 ..Default::default()
                             },
                         );
                     }
                     state.inventory_table_states = inv_states;
+
+                    // Build events table interaction state (single table).
+                    {
+                        use crate::editors::save_file_viewer::state::events_default_columns;
+                        let widths: Vec<f32> = events_default_columns()
+                            .iter()
+                            .map(|c| c.width_px)
+                            .collect();
+                        state.events_table_state = TableInteractionState {
+                            column_widths: widths,
+                            ..Default::default()
+                        };
+                    }
+
+                    // Build journal table interaction state, keyed by section.
+                    {
+                        use crate::editors::save_file_viewer::state::JournalSection;
+                        let mut journal_states: std::collections::HashMap<
+                            JournalSection,
+                            TableInteractionState,
+                        > = std::collections::HashMap::new();
+                        for section in JournalSection::all() {
+                            let widths: Vec<f32> = section
+                                .default_columns()
+                                .iter()
+                                .map(|c| c.width_px)
+                                .collect();
+                            journal_states.insert(
+                                *section,
+                                TableInteractionState {
+                                    column_widths: widths,
+                                    ..Default::default()
+                                },
+                            );
+                        }
+                        state.journal_table_states = journal_states;
+                    }
                     // Build maps display caches
                     let maps_caches: Vec<crate::editors::save_file_viewer::state::MapsDisplayCaches> = loaded
                         .save_file
@@ -894,6 +1089,31 @@ fn inventory_table_data<'a>(
 ) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
     let rows = cache.get(&cat).map(|v| &v[..]).unwrap_or(&[]);
     let idx = indices.get_mut(&cat).expect("inventory indices missing");
+    (rows, idx)
+}
+
+/// Return the (immutable rows, mutable indices) pair for the events table.
+fn events_table_data<'a>(
+    cache: &'a mut Vec<Vec<String>>,
+    indices: &'a mut Vec<usize>,
+) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+    (&cache[..], indices)
+}
+
+/// Return the (immutable rows, mutable indices) pair for a journal table.
+fn journal_table_data<'a>(
+    cache: &'a mut std::collections::HashMap<
+        crate::editors::save_file_viewer::state::JournalSection,
+        Vec<Vec<String>>,
+    >,
+    indices: &'a mut std::collections::HashMap<
+        crate::editors::save_file_viewer::state::JournalSection,
+        Vec<usize>,
+    >,
+    section: crate::editors::save_file_viewer::state::JournalSection,
+) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+    let rows = cache.get(&section).map(|v| &v[..]).unwrap_or(&[]);
+    let idx = indices.get_mut(&section).expect("journal indices missing");
     (rows, idx)
 }
 
