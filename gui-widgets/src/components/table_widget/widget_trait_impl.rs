@@ -276,7 +276,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         let col = col_idx - 1;
                         if let Some(value) = self.cell_value(row, col_idx) {
                             if let Some(cb) = &self.on_quick_filter {
-                                shell.publish(cb(col, value));
+                                shell.publish(cb(col, value.into_owned()));
                                 shell.capture_event();
                             }
                         }
@@ -476,14 +476,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 let key = ParagraphKey::new(&value, self.text_size, cell_w, self.font);
                 let paragraph = self.cache.get_or_insert(key, || {
                     Paragraph::with_text(text::Text {
-                        content: value.as_str(),
+                        content: &*value,
                         bounds: Size::new(cell_w, self.row_height),
                         size: Pixels(self.text_size),
                         line_height: text::LineHeight::default(),
                         font: self.font,
                         align_x: text::Alignment::Default,
                         align_y: alignment::Vertical::Top,
-                        shaping: text::Shaping::Advanced,
+                        shaping: text::Shaping::Basic,
                         wrapping: text::Wrapping::None,
                         ellipsis: text::Ellipsis::None,
                         hint_factor: None,
@@ -583,14 +583,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             let key = ParagraphKey::new(&value, self.text_size, id_w, self.font);
             let paragraph = self.cache.get_or_insert(key, || {
                 Paragraph::with_text(text::Text {
-                    content: value.as_str(),
+                    content: &*value,
                     bounds: Size::new(id_w, self.row_height),
                     size: Pixels(self.text_size),
                     line_height: text::LineHeight::default(),
                     font: self.font,
                     align_x: text::Alignment::Default,
                     align_y: alignment::Vertical::Top,
-                    shaping: text::Shaping::Advanced,
+                    shaping: text::Shaping::Basic,
                     wrapping: text::Wrapping::None,
                     ellipsis: text::Ellipsis::None,
                     hint_factor: None,
@@ -744,7 +744,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                         font: self.font,
                         align_x: text::Alignment::Default,
                         align_y: alignment::Vertical::Top,
-                        shaping: text::Shaping::Advanced,
+                        shaping: text::Shaping::Basic,
                         wrapping: text::Wrapping::None,
                         ellipsis: text::Ellipsis::None,
                         hint_factor: None,
@@ -872,7 +872,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 font: self.font,
                 align_x: text::Alignment::Default,
                 align_y: alignment::Vertical::Top,
-                shaping: text::Shaping::Advanced,
+                shaping: text::Shaping::Basic,
                 wrapping: text::Wrapping::None,
                 ellipsis: text::Ellipsis::None,
                 hint_factor: None,
@@ -1055,7 +1055,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 cell.set_column_span(1);
 
                 if let Some(val) = self.cell_value(row_idx, col) {
-                    cell.set_value(val.as_str());
+                    cell.set_value(&*val);
                     // Compose a label that includes the column name so VoiceOver
                     // announces e.g. "Name: Iron Sword" instead of merely "Iron Sword"
                     // or "column 1".
@@ -1064,7 +1064,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     } else if let Some(c) = self.columns.get(col - 1) {
                         Cow::Owned(format!("{}: {}", c.label, val))
                     } else {
-                        Cow::Borrowed(val.as_str())
+                        Cow::Borrowed(&*val)
                     };
                     cell.set_label(label.as_ref());
                 }
@@ -1225,7 +1225,7 @@ fn draw_centered_glyph(
             font,
             align_x: text::Alignment::Center,
             align_y: alignment::Vertical::Top,
-            shaping: text::Shaping::Advanced,
+            shaping: text::Shaping::Basic,
             wrapping: text::Wrapping::None,
             ellipsis: text::Ellipsis::None,
             hint_factor: None,

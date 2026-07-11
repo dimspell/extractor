@@ -1,4 +1,4 @@
-use iced::widget::{button, container, mouse_area, row, scrollable, text, Column, Row};
+use iced::widget::{button, container, mouse_area, text, Column, Row};
 use iced::{Element, Fill, Length, Padding};
 
 use crate::editors::save_file_viewer::filter_modal;

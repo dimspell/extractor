@@ -3,6 +3,7 @@ use super::{FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH, SCROLLBA
 use crate::components::paragraph_cache::ParagraphCache;
 use iced::advanced::Shell;
 use iced::{Font, Length, Point, Rectangle, Size, Vector};
+use std::borrow::Cow;
 use std::cell::RefCell;
 
 #[cfg(feature = "accessibility")]
@@ -213,15 +214,15 @@ impl<'a, Message> TableWidget<'a, Message> {
         self.n_rows() as f32 * self.row_height
     }
 
-    pub(crate) fn cell_value(&self, visible_idx: usize, col_idx: usize) -> Option<String> {
+    pub(crate) fn cell_value(&self, visible_idx: usize, col_idx: usize) -> Option<Cow<'_, str>> {
         let orig_idx = *self.filtered_indices.get(visible_idx)?;
         if col_idx == 0 {
-            Some(format!("{}", orig_idx + 1))
+            Some(Cow::Owned(format!("{}", orig_idx + 1)))
         } else {
             self.display_cache
                 .get(orig_idx)
                 .and_then(|row| row.get(col_idx - 1))
-                .cloned()
+                .map(|s| Cow::Borrowed(s.as_str()))
         }
     }
 
