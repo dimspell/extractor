@@ -372,6 +372,8 @@ pub struct SaveFileViewerState {
 
     // Per-section navigation
     pub selected_map: Option<usize>,
+    /// Which entity sub-table is selected in the Maps section.
+    pub selected_entity_kind: MapsTableKind,
     pub journal_section: JournalSection,
     pub selected_journal_entry: Option<usize>,
     pub inventory_category: Option<InventoryCategory>,
@@ -423,6 +425,7 @@ impl Default for SaveFileViewerState {
             loading: false,
             error: None,
             selected_map: None,
+            selected_entity_kind: MapsTableKind::Monsters,
             journal_section: JournalSection::Main,
             selected_journal_entry: None,
             inventory_category: None,

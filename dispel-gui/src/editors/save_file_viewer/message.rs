@@ -21,6 +21,8 @@ pub enum SaveFileViewerMessage {
     SelectJournalSection(JournalSection),
     /// Select a map in the Maps section.
     SelectMap(usize),
+    /// Select which entity sub-table (monsters, NPCs, ground items, etc.) to view.
+    SelectEntityKind(MapsTableKind),
     /// Select a row in one of a map's entity tables.
     MapsTableSelect {
         map: usize,

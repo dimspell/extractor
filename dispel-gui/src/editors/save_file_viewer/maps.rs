@@ -1,19 +1,19 @@
-use iced::mouse::Interaction;
-use iced::widget::{button, container, mouse_area, scrollable, text, Column};
+use iced::widget::{button, container, mouse_area, row, scrollable, text, Column, Row};
 use iced::{Element, Fill, Length, Padding};
 
 use crate::editors::save_file_viewer::filter_modal;
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
-use gui_widgets::components::modal;
 use crate::editors::save_file_viewer::state::{
     GlobalFilterMode, MapTableState, MapsTableKind, SaveFileViewerState,
 };
 use crate::message::Message;
 use crate::message::MessageExt;
+use gui_widgets::components::modal;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
+use iced::mouse::Interaction;
 
-/// Maps section: vertical sidebar + entity tables per map.
+/// Maps section: sidebar of map IDs + sub-nav to pick one entity table per map.
 pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     let sf = match state.save_file.as_ref() {
         Some(sf) => sf,
@@ -28,7 +28,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .into();
     }
 
-    // Left sidebar: map ID buttons
+    // ── Left sidebar: map ID buttons ─────────────────────────────────────
     let sidebar: Element<'a, Message> = {
         let mut col = iced::widget::Column::<Message>::new()
             .spacing(2)
@@ -53,7 +53,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .into()
     };
 
-    // Right panel: entity tables for selected map
+    // ── Right panel: entity tables ───────────────────────────────────────
     let main: Element<'a, Message> = if let Some(idx) = state.selected_map {
         let caches = state.maps_display_caches.get(idx);
         let ts_map = state.maps_table_states.get(idx);
@@ -62,119 +62,33 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .as_ref()
             .map(|d| (d.map, d.kind));
         let map = &sf.maps[idx];
+        let kind = state.selected_entity_kind;
 
-        let mut content = Column::<Message>::new().spacing(12).padding(16);
+        // Sub-navigation bar for picking which entity table to view
+        let sub_nav = build_sub_nav(kind, map);
 
-        // Monsters table
-        content = content.push(section_header(&format!("Monsters ({})", map.monsters.len())));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Monsters,
-            caches.map(|c| (&c.monsters[..], &c.monsters_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Monsters)),
-            resizing,
-        );
+        // Render only the selected entity table
+        let table = match (caches, ts_map) {
+            (Some(caches), Some(ts_map)) => {
+                let (rows, indices) = table_rows(caches, kind);
+                if let Some(ts) = ts_map.get(&kind) {
+                    if !rows.is_empty() {
+                        entity_table(idx, kind, rows, indices, ts, resizing)
+                    } else {
+                        empty_text("(none)")
+                    }
+                } else {
+                    empty_text("(caches not ready)")
+                }
+            }
+            _ => empty_text("(caches not ready)"),
+        };
 
-        // NPCs table
-        content = content.push(section_header(&format!("NPCs ({})", map.npcs.len())));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Npcs,
-            caches.map(|c| (&c.npcs[..], &c.npcs_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Npcs)),
-            resizing,
-        );
-
-        // Extra objects table
-        content = content.push(section_header(&format!(
-            "Extra Objects ({})",
-            map.extra_objects.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::ExtraObjects,
-            caches.map(|c| (&c.extra_objects[..], &c.extra_objects_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::ExtraObjects)),
-            resizing,
-        );
-
-        // Ground items
-        content = content.push(section_header("Ground Items"));
-
-        // Weapon items
-        content = content.push(subsection_header(&format!(
-            "Weapons ({})",
-            map.draw_items_weapon.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Weapon,
-            caches.map(|c| (&c.draw_items_weapon[..], &c.draw_items_weapon_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Weapon)),
-            resizing,
-        );
-
-        // Heal items
-        content = content.push(subsection_header(&format!(
-            "Heals ({})",
-            map.draw_items_heal.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Heal,
-            caches.map(|c| (&c.draw_items_heal[..], &c.draw_items_heal_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Heal)),
-            resizing,
-        );
-
-        // Edit items
-        content = content.push(subsection_header(&format!(
-            "Edits ({})",
-            map.draw_items_edit.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Edit,
-            caches.map(|c| (&c.draw_items_edit[..], &c.draw_items_edit_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Edit)),
-            resizing,
-        );
-
-        // Misc items
-        content = content.push(subsection_header(&format!(
-            "Misc ({})",
-            map.draw_items_misc.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Misc,
-            caches.map(|c| (&c.draw_items_misc[..], &c.draw_items_misc_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Misc)),
-            resizing,
-        );
-
-        // Event items
-        content = content.push(subsection_header(&format!(
-            "Events ({})",
-            map.draw_items_event.len()
-        )));
-        content = push_map_table(
-            content,
-            idx,
-            MapsTableKind::Event,
-            caches.map(|c| (&c.draw_items_event[..], &c.draw_items_event_indices[..])),
-            ts_map.and_then(|m| m.get(&MapsTableKind::Event)),
-            resizing,
-        );
-
-        scrollable(content).height(Fill).into()
+        let content = Column::<Message>::new()
+            .push(sub_nav)
+            .push(table)
+            .spacing(8);
+        content.into()
     } else {
         container(text("Select a map from the sidebar"))
             .width(Fill)
@@ -189,21 +103,72 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         .into()
 }
 
-/// Push one entity table (or an empty/placeholder note) into the column.
-fn push_map_table<'a>(
-    content: Column<'a, Message>,
-    map_idx: usize,
-    kind: MapsTableKind,
-    data: Option<(&'a [Vec<String>], &'a [usize])>,
-    ts: Option<&'a MapTableState>,
-    resizing: Option<(usize, MapsTableKind)>,
-) -> Column<'a, Message> {
-    match (data, ts) {
-        (Some((rows, indices)), Some(ts)) if !rows.is_empty() => {
-            content.push(entity_table(map_idx, kind, rows, indices, ts, resizing))
+/// Iterable list of (MapsTableKind, label) as they appear in the sub-nav.
+const ALL_KINDS: [(MapsTableKind, &str); 8] = [
+    (MapsTableKind::Monsters, "Monsters"),
+    (MapsTableKind::Npcs, "NPCs"),
+    (MapsTableKind::ExtraObjects, "Extra Objects"),
+    (MapsTableKind::Weapon, "Weapons"),
+    (MapsTableKind::Heal, "Heals"),
+    (MapsTableKind::Edit, "Edits"),
+    (MapsTableKind::Misc, "Misc"),
+    (MapsTableKind::Event, "Events"),
+];
+
+/// Build the sub-navigation row of tab-like buttons.
+fn build_sub_nav<'a>(
+    active: MapsTableKind,
+    map: &dispel_core::references::save_file::MapSectionData,
+) -> Row<'a, Message> {
+    let mut nav = Row::new().spacing(4).padding(8);
+    for (kind, base_label) in &ALL_KINDS {
+        let is_active = *kind == active;
+        let count = kind_count(map, *kind);
+        let label = format!("{} ({})", base_label, count);
+        let mut btn = button(text(label).size(12));
+        if is_active {
+            btn = btn.style(iced::widget::button::primary);
         }
-        (Some(_), Some(_)) => content.push(empty_text("(none)")),
-        _ => content.push(empty_text("(caches not ready)")),
+        nav = nav.push(
+            btn.on_press(Message::save_file_viewer(
+                SaveFileViewerMessage::SelectEntityKind(*kind),
+            ))
+            .padding([4, 8]),
+        );
+    }
+    nav
+}
+
+/// Number of records for a given entity kind from the parsed map data.
+fn kind_count(map: &dispel_core::references::save_file::MapSectionData, kind: MapsTableKind) -> usize {
+    use MapsTableKind::*;
+    match kind {
+        Monsters => map.monsters.len(),
+        Npcs => map.npcs.len(),
+        ExtraObjects => map.extra_objects.len(),
+        Weapon => map.draw_items_weapon.len(),
+        Heal => map.draw_items_heal.len(),
+        Edit => map.draw_items_edit.len(),
+        Misc => map.draw_items_misc.len(),
+        Event => map.draw_items_event.len(),
+    }
+}
+
+/// Immutable access to cached display rows + indices by table kind.
+fn table_rows<'a>(
+    caches: &'a crate::editors::save_file_viewer::state::MapsDisplayCaches,
+    kind: MapsTableKind,
+) -> (&'a [Vec<String>], &'a [usize]) {
+    use MapsTableKind::*;
+    match kind {
+        Monsters => (&caches.monsters[..], &caches.monsters_indices[..]),
+        Npcs => (&caches.npcs[..], &caches.npcs_indices[..]),
+        ExtraObjects => (&caches.extra_objects[..], &caches.extra_objects_indices[..]),
+        Weapon => (&caches.draw_items_weapon, &caches.draw_items_weapon_indices),
+        Heal => (&caches.draw_items_heal, &caches.draw_items_heal_indices),
+        Edit => (&caches.draw_items_edit, &caches.draw_items_edit_indices),
+        Misc => (&caches.draw_items_misc, &caches.draw_items_misc_indices),
+        Event => (&caches.draw_items_event, &caches.draw_items_event_indices),
     }
 }
 
@@ -345,30 +310,6 @@ fn entity_table<'a>(
     } else {
         wrapped.into()
     }
-}
-
-fn section_header(label: &str) -> Element<'static, Message> {
-    container(text(label.to_string()).size(16))
-        .padding(Padding {
-            top: 12.0,
-            right: 0.0,
-            bottom: 4.0,
-            left: 0.0,
-        })
-        .width(Fill)
-        .into()
-}
-
-fn subsection_header(label: &str) -> Element<'static, Message> {
-    container(text(label.to_string()).size(13))
-        .padding(Padding {
-            top: 8.0,
-            right: 0.0,
-            bottom: 2.0,
-            left: 8.0,
-        })
-        .width(Fill)
-        .into()
 }
 
 fn empty_text(msg: &str) -> Element<'static, Message> {

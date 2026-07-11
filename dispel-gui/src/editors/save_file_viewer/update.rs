@@ -38,7 +38,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::SelectMap(index) => {
+            use crate::editors::save_file_viewer::state::MapsTableKind;
             state.selected_map = Some(index);
+            state.selected_entity_kind = MapsTableKind::Monsters;
+            Task::none()
+        }
+        SaveFileViewerMessage::SelectEntityKind(kind) => {
+            state.selected_entity_kind = kind;
+            state.maps_resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::MapsTableSelect {
