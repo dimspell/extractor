@@ -279,11 +279,7 @@ pub fn export_tmx(
     write!(w, "    </data>\n  </layer>\n")?;
 
     // -- Object group 3: Collisions ---------------------------------------
-    write!(
-        w,
-        r#"  <objectgroup id="3" name="Collisions">
-"#
-    )?;
+    writeln!(w, r#"  <objectgroup id="3" name="Collisions">"#)?;
     {
         let mut obj_id = 1u32;
         for y in 0..map_h {
@@ -291,10 +287,9 @@ pub fn export_tmx(
                 if map_data.collisions.get(&(x, y)).copied().unwrap_or(false) {
                     let px = x * 32;
                     let py = y * 32;
-                    write!(
+                    writeln!(
                         w,
-                        r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>
-"#,
+                        r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>"#,
                         obj_id, px, py
                     )?;
                     obj_id += 1;
@@ -302,14 +297,10 @@ pub fn export_tmx(
             }
         }
     }
-    write!(w, "  </objectgroup>\n")?;
+    writeln!(w, "  </objectgroup>")?;
 
     // -- Object group 4: Events -------------------------------------------
-    write!(
-        w,
-        r#"  <objectgroup id="4" name="Events">
-"#
-    )?;
+    writeln!(w, r#"  <objectgroup id="4" name="Events">"#)?;
     {
         let mut obj_id = 1u32;
         for y in 0..map_h {
@@ -334,32 +325,25 @@ pub fn export_tmx(
             }
         }
     }
-    write!(w, "  </objectgroup>\n")?;
+    writeln!(w, "  </objectgroup>")?;
 
     // -- Object group 5: TiledObjects (building placements) ----------------
-    write!(
-        w,
-        r#"  <objectgroup id="5" name="TiledObjects">
-"#
-    )?;
+    writeln!(w, r#"  <objectgroup id="5" name="TiledObjects">"#)?;
     {
-        let mut obj_id = 1u32;
-        for obj in &map_data.tiled_infos {
+        for (obj_id, obj) in (1u32..).zip(&map_data.tiled_infos) {
             let px = obj.x * 32;
             let py = obj.y * 32;
-            write!(
+            writeln!(
                 w,
-                r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>
-"#,
+                r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>"#,
                 obj_id, px, py
             )?;
-            obj_id += 1;
         }
     }
-    write!(w, "  </objectgroup>\n")?;
+    writeln!(w, "  </objectgroup>")?;
 
     // -- Close map root element -------------------------------------------
-    write!(w, "</map>\n")?;
+    writeln!(w, "</map>")?;
 
     w.flush()?;
     Ok(())

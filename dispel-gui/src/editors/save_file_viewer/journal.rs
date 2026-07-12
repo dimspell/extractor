@@ -73,7 +73,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     highlighted: is_highlight
                         && orig.map(|o| highlighted.contains(&o)).unwrap_or(false),
                     current_highlight: is_highlight && orig == current_highlight,
-                    ..Default::default()
                 }
             };
 
@@ -162,8 +161,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 .push(table_elem)
                 .spacing(8);
 
-            if filter.active_column_filter.is_some() {
-                let col = filter.active_column_filter.unwrap();
+            if let Some(col) = filter.active_column_filter {
                 let modal_content = filter::build_column_filter_modal(
                     col,
                     &filter.column_filter_search,

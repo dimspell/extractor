@@ -7,6 +7,7 @@ use crate::editors::save_file_viewer::state::{
 
 /// Messages for the save file viewer.
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum SaveFileViewerMessage {
     /// Load a save file from disk.
     Load(PathBuf),

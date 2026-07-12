@@ -42,6 +42,7 @@ use crate::editors::weapon::WeaponEditorMessage;
 use hexedit::HexEditorMessage;
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum EditorMessage {
     Weapon(WeaponEditorMessage),
     Monster(MonsterEditorMessage),

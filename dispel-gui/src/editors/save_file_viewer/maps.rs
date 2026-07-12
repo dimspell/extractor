@@ -155,10 +155,10 @@ fn kind_count(map: &dispel_core::references::save_file::MapSectionData, kind: Ma
 }
 
 /// Immutable access to cached display rows + indices by table kind.
-fn table_rows<'a>(
-    caches: &'a crate::editors::save_file_viewer::state::MapsDisplayCaches,
+fn table_rows(
+    caches: &crate::editors::save_file_viewer::state::MapsDisplayCaches,
     kind: MapsTableKind,
-) -> (&'a [Vec<String>], &'a [usize]) {
+) -> (&[Vec<String>], &[usize]) {
     use MapsTableKind::*;
     match kind {
         Monsters => (&caches.monsters[..], &caches.monsters_indices[..]),
@@ -207,7 +207,6 @@ fn entity_table<'a>(
             highlighted: is_highlight
                 && orig.map(|o| highlighted.contains(&o)).unwrap_or(false),
             current_highlight: is_highlight && orig == current_highlight,
-            ..Default::default()
         }
     };
 
@@ -308,8 +307,7 @@ fn entity_table<'a>(
         .push(table_elem)
         .spacing(4);
 
-    if filter.active_column_filter.is_some() {
-        let col = filter.active_column_filter.unwrap();
+    if let Some(col) = filter.active_column_filter {
         let modal_content = filter::build_column_filter_modal(
             col,
             &filter.column_filter_search,

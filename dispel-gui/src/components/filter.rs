@@ -188,6 +188,7 @@ where
 /// `!filter_query.is_empty()` or `state.is_active()` depending on whether
 /// you want to show it only when the query is non-empty or whenever *any*
 /// filter (column + query) is active.
+#[allow(clippy::too_many_arguments)]
 pub fn build_filter_bar<'a, F>(
     filter_mode: GlobalFilterMode,
     filter_query: &str,

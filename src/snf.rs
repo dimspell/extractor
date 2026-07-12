@@ -148,7 +148,7 @@ impl SnfFile {
 
             // Advance to next chunk (chunks are padded to even byte boundary)
             pos = chunk_end;
-            if pos % 2 != 0 {
+            if !pos.is_multiple_of(2) {
                 pos += 1;
             }
         }

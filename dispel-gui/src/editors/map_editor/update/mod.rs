@@ -65,7 +65,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                 return Task::none();
             };
 
-            return Task::perform(
+            Task::perform(
                 async move {
                     let handle = rfd::AsyncFileDialog::new()
                         .set_title("Choose TMX export directory")
@@ -96,7 +96,7 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
                         crate::editors::map_editor::MapEditorMessage::TmxExportComplete(tab_id, r),
                     )
                 },
-            );
+            )
         }
 
         MapEditorMessage::TmxExportComplete(tab_id, result) => {

@@ -758,7 +758,7 @@ impl SaveFile {
             reader.read_exact(&mut extras_data)?;
             let extra_objects = extras_data
                 .chunks_exact(200)
-                .map(|chunk| ExtraObjectRecord::parse(chunk))
+                .map(ExtraObjectRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
 
             // ── 2.5. Separator (11 bytes, unknown meaning) ──

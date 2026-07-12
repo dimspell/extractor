@@ -17,7 +17,7 @@ struct NpcInfo {
 /// Information about an event from the database
 #[derive(Debug, Clone)]
 struct EventInfo {
-    #[warn(dead_code)]
+    #[expect(dead_code)]
     event_id: i32,
     event_filename: Option<String>,
     actions: Vec<EventAction>,

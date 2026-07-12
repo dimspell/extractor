@@ -374,39 +374,40 @@ impl App {
                             .map_err(|e| e.to_string())?;
 
                         // Build embedded hex viewers for unknown/raw blocks
-                        let mut hex_editors: Vec<RawHexEditorData> = Vec::new();
-                        hex_editors.push(RawHexEditorData {
-                            label: "Belt Data (before stats)",
-                            data: save_file.unknown_before_stats.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Unknown After Stats",
-                            data: save_file.unknown_after_stats.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Post-Maps unknown remainder",
-                            data: save_file.post_maps.unknown_block.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Post-Events Block A",
-                            data: save_file.post_events.block_a.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Post-Events Records",
-                            data: save_file.post_events.records.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Post-Events Block B",
-                            data: save_file.post_events.block_b.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Identity Unknown Block",
-                            data: save_file.character_identity.unknown_block.clone(),
-                        });
-                        hex_editors.push(RawHexEditorData {
-                            label: "Identity Large Data",
-                            data: save_file.character_identity.unknown_data.clone(),
-                        });
+                        let hex_editors: Vec<RawHexEditorData> = vec![
+                            RawHexEditorData {
+                                label: "Belt Data (before stats)",
+                                data: save_file.unknown_before_stats.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Unknown After Stats",
+                                data: save_file.unknown_after_stats.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Post-Maps unknown remainder",
+                                data: save_file.post_maps.unknown_block.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Post-Events Block A",
+                                data: save_file.post_events.block_a.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Post-Events Records",
+                                data: save_file.post_events.records.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Post-Events Block B",
+                                data: save_file.post_events.block_b.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Identity Unknown Block",
+                                data: save_file.character_identity.unknown_block.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Identity Large Data",
+                                data: save_file.character_identity.unknown_data.clone(),
+                            },
+                        ];
 
                         Ok(crate::editors::save_file_viewer::message::SaveFileLoaded {
                             save_file,

@@ -35,7 +35,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             ))
             .push(section_header("Sprite Paths"))
             .extend(sf.sprite_paths.iter().enumerate().map(|(i, path)| {
-                label_row(&format!("Sprite {}", i + 1), path.clone())
+                label_row(format!("Sprite {}", i + 1), path.clone())
             }))
             .spacing(4)
             .padding(16),

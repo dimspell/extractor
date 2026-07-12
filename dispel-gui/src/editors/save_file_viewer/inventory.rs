@@ -121,7 +121,6 @@ fn inventory_table<'a>(
                 && orig.map(|o| highlighted.map(|h| h.contains(&o)).unwrap_or(false))
                     .unwrap_or(false),
             current_highlight: is_highlight && orig == current_highlight,
-            ..Default::default()
         }
     };
 
@@ -209,8 +208,7 @@ fn inventory_table<'a>(
             .push(table_elem)
             .spacing(8);
 
-        if filter.active_column_filter.is_some() {
-            let col = filter.active_column_filter.unwrap();
+        if let Some(col) = filter.active_column_filter {
             let modal_content = filter::build_column_filter_modal(
                 col,
                 &filter.column_filter_search,

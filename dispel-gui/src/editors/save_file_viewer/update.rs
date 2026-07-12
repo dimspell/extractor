@@ -1048,10 +1048,10 @@ const COL_WIDTH_MIN: f32 = 24.0;
 const COL_WIDTH_MAX: f32 = 600.0;
 
 /// Return the (immutable) indices slice for a given map table kind.
-fn maps_table_indices<'a>(
-    cache: &'a crate::editors::save_file_viewer::state::MapsDisplayCaches,
+fn maps_table_indices(
+    cache: &crate::editors::save_file_viewer::state::MapsDisplayCaches,
     kind: crate::editors::save_file_viewer::state::MapsTableKind,
-) -> &'a [usize] {
+) -> &[usize] {
     use crate::editors::save_file_viewer::state::MapsTableKind;
     match kind {
         MapsTableKind::Monsters => &cache.monsters_indices,
@@ -1067,10 +1067,10 @@ fn maps_table_indices<'a>(
 
 /// Return the (immutable rows, mutable indices) pair for a given map table
 /// kind. The two borrows are disjoint fields of `MapsDisplayCaches`.
-fn maps_table_data<'a>(
-    cache: &'a mut crate::editors::save_file_viewer::state::MapsDisplayCaches,
+fn maps_table_data(
+    cache: &mut crate::editors::save_file_viewer::state::MapsDisplayCaches,
     kind: crate::editors::save_file_viewer::state::MapsTableKind,
-) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+) -> (&[Vec<String>], &mut Vec<usize>) {
     use crate::editors::save_file_viewer::state::MapsTableKind;
     match kind {
         MapsTableKind::Monsters => (&cache.monsters, &mut cache.monsters_indices),
@@ -1104,7 +1104,7 @@ fn inventory_table_data<'a>(
 
 /// Return the (immutable rows, mutable indices) pair for the events table.
 fn events_table_data<'a>(
-    cache: &'a mut Vec<Vec<String>>,
+    cache: &'a mut [Vec<String>],
     indices: &'a mut Vec<usize>,
 ) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
     (&cache[..], indices)
@@ -1260,13 +1260,14 @@ fn handle_table_filter(
 /// (mutable) filtered indices for the table identified by `key`. The filter
 /// state and the caches live in disjoint fields of `SaveFileViewerState`, so
 /// both can be mutably borrowed at once.
-fn table_filter_access<'a>(
-    state: &'a mut crate::editors::save_file_viewer::state::SaveFileViewerState,
+#[allow(clippy::type_complexity)]
+fn table_filter_access(
+    state: &mut crate::editors::save_file_viewer::state::SaveFileViewerState,
     key: crate::editors::save_file_viewer::message::TableKey,
 ) -> Option<(
-    &'a mut crate::editors::save_file_viewer::state::TableFilterState,
-    &'a [Vec<String>],
-    &'a mut Vec<usize>,
+    &mut crate::editors::save_file_viewer::state::TableFilterState,
+    &[Vec<String>],
+    &mut Vec<usize>,
 )> {
     use crate::editors::save_file_viewer::message::TableKey;
     match key {
@@ -1399,10 +1400,10 @@ fn unique_values(
 
 /// Return the visible (filtered) indices for the table identified by `key`,
 /// used to translate an original index to a visible position for scrolling.
-fn filtered_indices_for<'a>(
-    state: &'a crate::editors::save_file_viewer::state::SaveFileViewerState,
+fn filtered_indices_for(
+    state: &crate::editors::save_file_viewer::state::SaveFileViewerState,
     key: crate::editors::save_file_viewer::message::TableKey,
-) -> Option<&'a [usize]> {
+) -> Option<&[usize]> {
     use crate::editors::save_file_viewer::message::TableKey;
     match key {
         TableKey::Map(map, kind) => state
