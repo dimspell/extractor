@@ -1,7 +1,7 @@
 use crate::components::edit_history::EditHistory;
 use crate::components::editable::EditableRecord;
 use gui_widgets::TextAreaContent;
-use crate::view::editor::spreadsheet::ColumnFilterOption;
+use crate::components::filter::ColumnFilterOption;
 use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;
 use iced::widget::pane_grid;

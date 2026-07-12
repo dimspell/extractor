@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
 
@@ -189,25 +190,6 @@ impl MapsTableKind {
     }
 }
 
-/// Whether a global filter query removes non-matching rows or only highlights them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum GlobalFilterMode {
-    /// Rows that do not match the query are removed from the view.
-    #[default]
-    FilterOut,
-    /// Non-matching rows remain visible but matching rows are highlighted.
-    Highlight,
-}
-
-/// A single distinct value offered in a column's filter modal, with its count.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FilterOption {
-    /// The raw cell value (used as the filter key).
-    pub value: String,
-    /// Number of rows in the table that carry this value.
-    pub count: usize,
-}
-
 /// Per-table column filtering state, mirroring the spreadsheet editor.
 #[derive(Debug, Clone, Default)]
 pub struct TableFilterState {
@@ -221,7 +203,7 @@ pub struct TableFilterState {
     /// Column whose filter modal is currently open, if any.
     pub active_column_filter: Option<usize>,
     /// Distinct options for the active column filter modal.
-    pub column_filter_options: Vec<FilterOption>,
+    pub column_filter_options: Vec<ColumnFilterOption>,
     /// Search box text inside the column filter modal.
     pub column_filter_search: String,
     /// Original rows highlighted by the global query in Highlight mode,

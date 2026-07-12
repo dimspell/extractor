@@ -8,29 +8,13 @@
 use super::caches::{compute_caches, ComputedCaches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::components::editable::EditableRecord;
+use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 use gui_widgets::TextAreaContent;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
 use std::collections::{HashMap, HashSet};
 
 /// How a global (filter-bar) query affects the row listing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum GlobalFilterMode {
-    /// Hide rows that do not match — classic Excel AutoFilter behaviour.
-    #[default]
-    FilterOut,
-    /// Show every row, but tint the matching ones and let the user step
-    /// through them with prev/next (Ctrl+G style).
-    Highlight,
-}
-
-/// A single option in the column filter dropdown with value and row count.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ColumnFilterOption {
-    pub value: String,
-    pub count: usize,
-}
-
 /// Transient state for an in-progress column-resize drag.
 ///
 /// We track the cursor x in *table-relative* coordinates (i.e. the x reported

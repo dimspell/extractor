@@ -1,8 +1,6 @@
 //! Pure render functions. Mutating state belongs in
 //! [`super::state::SpreadsheetState`]; this module only assembles widgets.
 
-pub mod filter_bar;
-pub mod filter_modal;
 pub mod inspector;
 pub mod status_bar;
 pub mod table;
@@ -10,6 +8,7 @@ pub mod table;
 use super::message::SpreadsheetMessage;
 use super::state::{SpreadsheetPaneContent, SpreadsheetState};
 use crate::components::editable::EditableRecord;
+use crate::components::filter::{self, FilterBarExtras};
 use crate::components::generic_editor::GenericEditorState;
 use crate::components::utils::horizontal_rule;
 use crate::message::Message;
@@ -37,15 +36,28 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
 ) -> Element<'a, Message> {
     let descriptors = R::field_descriptors();
 
-    let status_row = status_bar::build_status_bar(editor, spreadsheet, save_msg, spreadsheet_msg);
-    let filter_bar = filter_bar::build_filter_bar(
-        editor,
-        spreadsheet,
-        scan_msg,
-        spreadsheet_msg,
-        add_msg,
-        remove_msg,
+    let total = editor.catalog.as_ref().map(|c| c.len()).unwrap_or(0);
+    let visible = spreadsheet.filtered_indices.len();
+    let remove = editor.selected_idx.and_then(|idx| remove_msg.map(|f| f(idx)));
+    let extras = FilterBarExtras {
+        export_csv: Some(spreadsheet_msg(SpreadsheetMessage::ExportCsv)),
+        scan: Some(scan_msg),
+        add: add_msg,
+        remove,
+    };
+    let filter_bar = filter::build_filter_bar(
+        spreadsheet.filter_mode,
+        &spreadsheet.filter_query,
+        !spreadsheet.filter_query.is_empty(),
+        &spreadsheet.highlighted_indices,
+        spreadsheet.current_highlight_pos,
+        total,
+        visible,
+        move |a| spreadsheet_msg(a.into()),
+        extras,
     );
+
+    let status_row = status_bar::build_status_bar(editor, spreadsheet, save_msg, spreadsheet_msg);
 
     let catalog = editor.catalog.as_ref();
 
@@ -97,8 +109,13 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
     };
 
     if let Some(col) = spreadsheet.active_column_filter {
-        let modal_content =
-            filter_modal::build_column_filter_modal(col, spreadsheet, spreadsheet_msg);
+        let modal_content = filter::build_column_filter_modal(
+            col,
+            &spreadsheet.column_filter_search,
+            &spreadsheet.column_filter_options,
+            &spreadsheet.column_filters,
+            move |a| spreadsheet_msg(a.into()),
+        );
         modal::modal(
             main_content,
             modal_content,

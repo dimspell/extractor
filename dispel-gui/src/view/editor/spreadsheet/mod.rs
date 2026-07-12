@@ -31,6 +31,7 @@ pub use caches::{compute_caches, resolve_lookup_displays, ComputedCaches};
 pub use export::export_csv_task;
 pub use message::SpreadsheetMessage;
 pub use state::{
-    ColumnDragState, ColumnFilterOption, GlobalFilterMode, SpreadsheetPaneContent, SpreadsheetState,
+    ColumnDragState, SpreadsheetPaneContent, SpreadsheetState,
 };
+pub use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 pub use view::view_spreadsheet;

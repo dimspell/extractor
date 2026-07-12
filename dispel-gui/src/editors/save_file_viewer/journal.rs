@@ -2,11 +2,11 @@ use iced::mouse::Interaction;
 use iced::widget::{button, container, mouse_area, text, Column};
 use iced::{Element, Fill};
 
-use crate::editors::save_file_viewer::filter_modal;
+use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
 use gui_widgets::components::modal;
 use crate::editors::save_file_viewer::state::{
-    GlobalFilterMode, JournalSection, SaveFileViewerState,
+    JournalSection, SaveFileViewerState,
 };
 use crate::message::Message;
 use crate::message::MessageExt;
@@ -81,6 +81,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             let msg_fn = move |action: TableFilterAction| {
                 Message::save_file_viewer(SaveFileViewerMessage::TableFilter { key, action })
             };
+            let filter_msg_fn = move |action: ColumnFilterAction| msg_fn(action.into());
 
             let table = TableWidget::new(
                 cache,
@@ -145,8 +146,17 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 table.into()
             };
 
-            let filter_bar =
-                filter_modal::build_filter_bar(filter, cache.len(), indices.len(), msg_fn);
+            let filter_bar = filter::build_filter_bar(
+                filter.filter_mode,
+                &filter.filter_query,
+                filter.is_active(),
+                &filter.highlighted_indices,
+                filter.current_highlight_pos,
+                cache.len(),
+                indices.len(),
+                filter_msg_fn,
+                FilterBarExtras::default(),
+            );
             let wrapped = Column::<Message>::new()
                 .push(filter_bar)
                 .push(table_elem)
@@ -154,11 +164,17 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
             if filter.active_column_filter.is_some() {
                 let col = filter.active_column_filter.unwrap();
-                let modal_content = filter_modal::build_column_filter_modal(col, filter, msg_fn);
+                let modal_content = filter::build_column_filter_modal(
+                    col,
+                    &filter.column_filter_search,
+                    &filter.column_filter_options,
+                    &filter.column_filters,
+                    filter_msg_fn,
+                );
                 modal::modal(
                     wrapped,
                     modal_content,
-                    move || msg_fn(TableFilterAction::CloseColumnFilterModal),
+                    move || filter_msg_fn(ColumnFilterAction::CloseColumnFilterModal),
                     0.5,
                 )
             } else {

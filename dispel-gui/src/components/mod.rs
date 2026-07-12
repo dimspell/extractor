@@ -3,6 +3,7 @@ pub mod composite_item;
 pub mod define_tab_editor;
 pub mod edit_history;
 pub mod editable;
+pub mod filter;
 #[cfg(test)]
 mod field_coverage;
 pub mod file_tree;

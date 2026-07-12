@@ -1315,7 +1315,7 @@ fn apply_table_filter(
     filter: &mut crate::editors::save_file_viewer::state::TableFilterState,
     indices: &mut Vec<usize>,
 ) {
-    use crate::editors::save_file_viewer::state::GlobalFilterMode;
+    use crate::components::filter::GlobalFilterMode;
 
     filter.highlighted_indices.clear();
 
@@ -1373,8 +1373,11 @@ fn apply_table_filter(
 }
 
 /// Distinct values (with counts) for a column, sorted by value.
-fn unique_values(rows: &[Vec<String>], col: usize) -> Vec<crate::editors::save_file_viewer::state::FilterOption> {
-    use crate::editors::save_file_viewer::state::FilterOption;
+fn unique_values(
+    rows: &[Vec<String>],
+    col: usize,
+) -> Vec<crate::components::filter::ColumnFilterOption> {
+    use crate::components::filter::ColumnFilterOption;
     use std::collections::HashMap;
 
     let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -1383,9 +1386,9 @@ fn unique_values(rows: &[Vec<String>], col: usize) -> Vec<crate::editors::save_f
             *counts.entry(v.as_str()).or_insert(0) += 1;
         }
     }
-    let mut opts: Vec<FilterOption> = counts
+    let mut opts: Vec<ColumnFilterOption> = counts
         .into_iter()
-        .map(|(v, count)| FilterOption {
+        .map(|(v, count)| ColumnFilterOption {
             value: v.to_string(),
             count,
         })

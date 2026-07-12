@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
+use crate::components::filter::{ColumnFilterAction, GlobalFilterMode};
 use crate::editors::save_file_viewer::state::{
-    GlobalFilterMode, InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
+    InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
 };
 
 /// Messages for the save file viewer.
@@ -198,6 +199,29 @@ pub enum TableFilterAction {
     NextHighlight,
     /// Jump to the previous highlighted row (Highlight mode).
     PrevHighlight,
+}
+
+impl From<ColumnFilterAction> for TableFilterAction {
+    fn from(a: ColumnFilterAction) -> Self {
+        match a {
+            ColumnFilterAction::ToggleColumnFilterValue(c, v) => {
+                TableFilterAction::ToggleColumnFilterValue(c, v)
+            }
+            ColumnFilterAction::SelectAllColumnFilter(c) => {
+                TableFilterAction::SelectAllColumnFilter(c)
+            }
+            ColumnFilterAction::ClearAllColumnFilter(c) => {
+                TableFilterAction::ClearAllColumnFilter(c)
+            }
+            ColumnFilterAction::CloseColumnFilterModal => TableFilterAction::CloseColumnFilterModal,
+            ColumnFilterAction::ColumnFilterSearch(q) => TableFilterAction::ColumnFilterSearch(q),
+            ColumnFilterAction::SetMode(m) => TableFilterAction::SetMode(m),
+            ColumnFilterAction::QueryChanged(q) => TableFilterAction::QueryChanged(q),
+            ColumnFilterAction::ClearAllFilters => TableFilterAction::ClearAllFilters,
+            ColumnFilterAction::NextHighlight => TableFilterAction::NextHighlight,
+            ColumnFilterAction::PrevHighlight => TableFilterAction::PrevHighlight,
+        }
+    }
 }
 
 /// Data returned after a successful save file load.
