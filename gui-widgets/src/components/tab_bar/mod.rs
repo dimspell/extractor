@@ -826,16 +826,18 @@ where
     fn mouse_interaction(
         &self,
         tree: &Tree,
-        _layout: Layout<'_>,
-        _cursor: iced::mouse::Cursor,
+        layout: Layout<'_>,
+        cursor: iced::mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> iced::mouse::Interaction {
         let state = tree.state.downcast_ref::<TabBarState>();
         if matches!(state.action, Action::Dragging { .. }) {
             iced::mouse::Interaction::Grabbing
-        } else {
+        } else if cursor.is_over(layout.bounds()) {
             iced::mouse::Interaction::Pointer
+        } else {
+            iced::mouse::Interaction::default()
         }
     }
 
