@@ -108,7 +108,6 @@ fn inventory_table<'a>(
     };
 
     let selected = ts.and_then(|t| t.selected_orig);
-    let scroll = ts.map(|t| t.scroll_offset).unwrap_or((0.0, 0.0));
     let is_highlight = filter_ref
         .map(|f| f.filter_mode == GlobalFilterMode::Highlight)
         .unwrap_or(false);
@@ -131,7 +130,7 @@ fn inventory_table<'a>(
         Message::save_file_viewer(SaveFileViewerMessage::TableFilter { key, action })
     };
 
-    let table = TableWidget::new(
+    let mut table = TableWidget::new(
         display_cache,
         filtered_indices,
         columns,
@@ -140,7 +139,6 @@ fn inventory_table<'a>(
         22.0,
         ParagraphCache::default(),
     )
-    .external_offset(scroll.0, scroll.1)
     .on_select(move |visible_idx| {
         Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSelect {
             cat,
@@ -172,6 +170,10 @@ fn inventory_table<'a>(
     .on_quick_filter(move |col, value| msg_fn(TableFilterAction::QuickFilter(col, value)))
     .on_next_highlight(move || msg_fn(TableFilterAction::NextHighlight))
     .on_prev_highlight(move || msg_fn(TableFilterAction::PrevHighlight));
+
+    if let Some(ts) = ts {
+        table = table.table_state(&ts.table_state);
+    }
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.

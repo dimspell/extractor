@@ -74,10 +74,7 @@ fn build_table_content_widget<'a>(
         ROW_HEIGHT,
         spreadsheet.paragraph_cache.clone(),
     )
-    .external_offset(
-        spreadsheet.horizontal_scroll_offset,
-        spreadsheet.vertical_scroll_offset,
-    )
+    .table_state(&spreadsheet.table_state)
     .on_select(move |visible_idx| spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx)))
     .on_scroll(move |x, y, vh| {
         spreadsheet_msg(SpreadsheetMessage::BodyScrolled(

@@ -1,25 +1,21 @@
+use super::geometry;
+use super::scrollbar;
 use super::types::{Axis, HeaderRegion, ScrollbarDrag, State};
 use super::widget::TableWidget;
-use super::{
-    DOUBLE_CLICK_MS, FILTER_BADGE_WIDTH, FILTER_ICON_WIDTH, RESIZE_HANDLE_WIDTH,
-    SCROLLBAR_THICKNESS,
-};
-use crate::components::paragraph_cache::{ParagraphCache, ParagraphKey};
-use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
+use super::DOUBLE_CLICK_MS;
+
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
-use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::widget::{tree, Tree, Widget};
-use iced::advanced::{Renderer as _, Shell};
+use iced::advanced::Shell;
 use iced::keyboard::{self, key};
 use iced::mouse;
-use iced::{
-    alignment, color, Background, Border, Color, Element, Event, Font, Length, Pixels, Rectangle,
-    Shadow, Size, Vector,
-};
+use iced::{Element, Event, Length, Rectangle, Size};
 use std::borrow::Cow;
 
-type Paragraph = GraphicsParagraph;
+// =========================================================================
+// Widget trait implementation
+// =========================================================================
 
 impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, Message> {
     fn tag(&self) -> tree::Tag {
@@ -34,12 +30,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         Size::new(self.width, self.height)
     }
 
-    fn layout(&mut self, tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
+    fn layout(&mut self, _tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         let max = limits.max();
-        let state = tree.state.downcast_mut::<State>();
-        self.sync_external(state, max);
+        // No sync_external needed — we read self.table_state directly.
         Node::new(Size::new(max.width, max.height))
     }
+
+    // ── Event handling ────────────────────────────────────────────────
 
     fn update(
         &mut self,
@@ -53,16 +50,20 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) {
         let state = tree.state.downcast_mut::<State>();
         let bounds = layout.bounds();
+        let body = self.body_bounds(bounds);
 
-        let body_h = self.body_bounds(bounds).height;
+        // Bump viewport-height in app state when the body resizes.
+        let body_h = body.height;
         if state.last_body_height != Some(body_h) {
             state.last_body_height = Some(body_h);
             if let Some(cb) = &self.on_scroll {
-                shell.publish(cb(state.scroll_offset.x, state.scroll_offset.y, body_h));
+                let off = self.scroll_offset();
+                shell.publish(cb(off.x, off.y, body_h));
             }
         }
 
         match event {
+            // ── Wheel scroll ──────────────────────────────────────────
             Event::Mouse(mouse::Event::WheelScrolled { delta }) => {
                 if !cursor.is_over(bounds) {
                     return;
@@ -73,20 +74,23 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     mouse::ScrollDelta::Pixels { x, y } => (-x, -y),
                 };
+                let cur_off = self.scroll_offset();
                 if state.shift_pressed {
                     let horiz = if dx != 0.0 { dx } else { dy };
-                    let new_x = state.scroll_offset.x + horiz;
-                    if self.apply_scroll(state, bounds, new_x, state.scroll_offset.y, shell) {
+                    let new_x = cur_off.x + horiz;
+                    if self.apply_scroll(state, bounds, new_x, cur_off.y, shell) {
                         shell.capture_event();
                     }
                 } else {
-                    let new_x = state.scroll_offset.x + dx;
-                    let new_y = state.scroll_offset.y + dy;
+                    let new_x = cur_off.x + dx;
+                    let new_y = cur_off.y + dy;
                     if self.apply_scroll(state, bounds, new_x, new_y, shell) {
                         shell.capture_event();
                     }
                 }
             }
+
+            // ── Cursor move (hover tracking) ──────────────────────────
             Event::Mouse(mouse::Event::CursorMoved { .. }) => {
                 if let Some(drag) = state.dragging {
                     let Some(cur) = cursor.position() else { return };
@@ -94,29 +98,29 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.capture_event();
                     return;
                 }
+                let cur_off = self.scroll_offset();
                 let new_sb_hover = cursor
                     .position_over(bounds)
-                    .and_then(|p| self.scrollbar_under(bounds, state.scroll_offset, p));
+                    .and_then(|p| self.scrollbar_under(bounds, cur_off, p));
                 if new_sb_hover != state.hovered_scrollbar {
                     state.hovered_scrollbar = new_sb_hover;
                     shell.request_redraw();
                 }
                 let new_hh = cursor
                     .position_over(bounds)
-                    .and_then(|p| self.header_hit(bounds, state.scroll_offset.x, p));
+                    .and_then(|p| self.header_hit(bounds, cur_off.x, p));
                 if new_hh != state.hovered_header {
                     state.hovered_header = new_hh;
                     shell.request_redraw();
                 }
-                let body = self.body_bounds(bounds);
                 let new_hover = cursor.position_over(bounds).and_then(|p| {
-                    if self.over_scrollbar(bounds, state.scroll_offset, p) {
+                    if self.over_scrollbar(bounds, cur_off, p) {
                         return None;
                     }
                     if !body.contains(p) {
                         return None;
                     }
-                    let local_y = (p.y - body.y) + state.scroll_offset.y;
+                    let local_y = (p.y - body.y) + cur_off.y;
                     if local_y < 0.0 {
                         return None;
                     }
@@ -132,11 +136,16 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.request_redraw();
                 }
             }
+
+            // ── Left button press ─────────────────────────────────────
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
                 };
-                if let Some((col, region)) = self.header_hit(bounds, state.scroll_offset.x, p) {
+                let cur_off = self.scroll_offset();
+
+                // Header hit (sort, filter, resize)
+                if let Some((col, region)) = self.header_hit(bounds, cur_off.x, p) {
                     match region {
                         HeaderRegion::Label => {
                             if let Some(cb) = &self.on_sort {
@@ -174,17 +183,17 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.capture_event();
                     return;
                 }
-                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, state.scroll_offset.y)
-                {
+
+                // Vertical scrollbar
+                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, cur_off.y) {
                     if track.contains(p) {
                         if thumb.contains(p) {
                             state.dragging = Some(ScrollbarDrag {
                                 axis: Axis::Vertical,
                                 start_cursor: p,
-                                start_offset: state.scroll_offset,
+                                start_offset: cur_off,
                             });
                         } else {
-                            let body = self.body_bounds(bounds);
                             let total_h = self.total_height();
                             let max_off = (total_h - body.height).max(1.0);
                             let travel = (body.height - thumb.height).max(1.0);
@@ -192,24 +201,23 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                                 (p.y - thumb.height / 2.0).clamp(body.y, body.y + travel);
                             let frac = (target_thumb_y - body.y) / travel;
                             let new_y = frac * max_off;
-                            self.apply_scroll(state, bounds, state.scroll_offset.x, new_y, shell);
+                            self.apply_scroll(state, bounds, cur_off.x, new_y, shell);
                         }
                         shell.capture_event();
                         return;
                     }
                 }
-                if let Some((track, thumb)) =
-                    self.horizontal_scrollbar(bounds, state.scroll_offset.x)
-                {
+
+                // Horizontal scrollbar
+                if let Some((track, thumb)) = self.horizontal_scrollbar(bounds, cur_off.x) {
                     if track.contains(p) {
                         if thumb.contains(p) {
                             state.dragging = Some(ScrollbarDrag {
                                 axis: Axis::Horizontal,
                                 start_cursor: p,
-                                start_offset: state.scroll_offset,
+                                start_offset: cur_off,
                             });
                         } else {
-                            let body = self.body_bounds(bounds);
                             let total_w = self.total_width();
                             let max_off = (total_w - body.width).max(1.0);
                             let travel = (body.width - thumb.width).max(1.0);
@@ -217,17 +225,18 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                                 (p.x - thumb.width / 2.0).clamp(body.x, body.x + travel);
                             let frac = (target_thumb_x - body.x) / travel;
                             let new_x = frac * max_off;
-                            self.apply_scroll(state, bounds, new_x, state.scroll_offset.y, shell);
+                            self.apply_scroll(state, bounds, new_x, cur_off.y, shell);
                         }
                         shell.capture_event();
                         return;
                     }
                 }
-                let body = self.body_bounds(bounds);
+
+                // Body click → select row
                 if !body.contains(p) {
                     return;
                 }
-                let local_y = (p.y - body.y) + state.scroll_offset.y;
+                let local_y = (p.y - body.y) + cur_off.y;
                 if local_y < 0.0 {
                     return;
                 }
@@ -240,6 +249,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     shell.capture_event();
                 }
             }
+
+            // ── Left button release (end drag) ────────────────────────
             Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left))
                 if state.dragging.is_some() =>
             {
@@ -247,9 +258,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 shell.capture_event();
                 shell.request_redraw();
             }
+
+            // ── Modifier keys ─────────────────────────────────────────
             Event::Keyboard(keyboard::Event::ModifiersChanged(modifiers)) => {
                 state.shift_pressed = modifiers.shift();
             }
+
+            // ── Right button press (quick filter) ─────────────────────
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) => {
                 let Some(p) = cursor.position_over(bounds) else {
                     return;
@@ -258,7 +273,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 if !body.contains(p) {
                     return;
                 }
-                let local_y = (p.y - body.y) + state.scroll_offset.y;
+                let cur_off = self.scroll_offset();
+                let local_y = (p.y - body.y) + cur_off.y;
                 if local_y < 0.0 {
                     return;
                 }
@@ -266,12 +282,14 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 if row >= self.n_rows() {
                     return;
                 }
-                let local_x = (p.x - bounds.x) + state.scroll_offset.x;
+                let local_x = (p.x - bounds.x) + cur_off.x;
                 if local_x < 0.0 {
                     return;
                 }
                 let mut acc = 0.0_f32;
-                for (col_idx, col_w) in (1..self.n_cols()).map(|i| (i, self.col_width(i))) {
+                for (col_idx, col_w) in (1..self.columns.len() + 1)
+                    .map(|i| (i, geometry::col_width(self.id_col_width, &self.columns, i)))
+                {
                     if local_x < acc + col_w {
                         let col = col_idx - 1;
                         if let Some(value) = self.cell_value(row, col_idx) {
@@ -285,6 +303,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     acc += col_w;
                 }
             }
+
+            // ── Keyboard navigation ───────────────────────────────────
             Event::Keyboard(keyboard::Event::KeyPressed { key, modifiers, .. }) => {
                 if !cursor.is_over(bounds) {
                     return;
@@ -309,12 +329,13 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 }
                 let body = self.body_bounds(bounds);
                 let page_rows = (body.height / self.row_height).floor() as i32;
+                let cur_y = self.scroll_offset().y;
                 let new_y = match key {
                     keyboard::Key::Named(key::Named::PageUp) => {
-                        state.scroll_offset.y - (page_rows as f32 * self.row_height)
+                        cur_y - (page_rows as f32 * self.row_height)
                     }
                     keyboard::Key::Named(key::Named::PageDown) => {
-                        state.scroll_offset.y + (page_rows as f32 * self.row_height)
+                        cur_y + (page_rows as f32 * self.row_height)
                     }
                     keyboard::Key::Named(key::Named::Home) => 0.0,
                     keyboard::Key::Named(key::Named::End) => {
@@ -343,7 +364,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     _ => return,
                 };
-                if self.apply_scroll(state, bounds, state.scroll_offset.x, new_y, shell) {
+                if self.apply_scroll(state, bounds, self.scroll_offset().x, new_y, shell)
+                {
                     shell.capture_event();
                 }
             }
@@ -351,19 +373,22 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         }
     }
 
+    // ── Mouse interaction ─────────────────────────────────────────────
+
     fn mouse_interaction(
         &self,
-        tree: &Tree,
+        _tree: &Tree,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _viewport: &Rectangle,
         _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
 
         if let Some(p) = cursor.position_over(bounds) {
-            if let Some((_col, region)) = self.header_hit(bounds, state.scroll_offset.x, p) {
+            if let Some((_col, region)) =
+                self.header_hit(bounds, self.scroll_offset().x, p)
+            {
                 if region == HeaderRegion::Resize {
                     return mouse::Interaction::ResizingHorizontally;
                 }
@@ -377,6 +402,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         }
     }
 
+    // ── Rendering ─────────────────────────────────────────────────────
+
     fn draw(
         &self,
         tree: &Tree,
@@ -389,525 +416,32 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) {
         let state = tree.state.downcast_ref::<State>();
         let bounds = layout.bounds();
+        let off = self.scroll_offset();
         let body = self.body_bounds(bounds);
-        let off = state.scroll_offset;
 
-        if self.n_rows() == 0 || self.n_cols() == 0 {
+        if self.n_rows() == 0 || geometry::n_cols(&self.columns) == 0 {
             return;
         }
 
-        let clip = body.intersection(viewport).unwrap_or(body);
-        let total_w = self.total_width();
-        let content_visible_w = (total_w - off.x).clamp(0.0, body.width);
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: clip.x,
-                    y: clip.y,
-                    width: content_visible_w.min(clip.width),
-                    height: clip.height,
-                },
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(color!(0x1e1b17)),
-        );
-
+        // Visible row range
         let first_row = ((off.y / self.row_height).floor() as usize).min(self.n_rows());
         let last_row =
             (((off.y + body.height) / self.row_height).ceil() as usize).min(self.n_rows());
 
-        let n_cols = self.n_cols();
-        let col_x = self.col_positions();
-        let first_col = col_x
-            .partition_point(|&x| x <= off.x)
-            .saturating_sub(1)
-            .min(n_cols.saturating_sub(1));
-        let last_col = col_x
-            .partition_point(|&x| x < off.x + body.width)
-            .min(n_cols);
+        let clip = body.intersection(viewport).unwrap_or(body);
 
-        let data_clip = clip
-            .intersection(&self.data_area(body))
-            .unwrap_or(self.data_area(body));
-
-        for row_idx in first_row..last_row {
-            let y = body.y + (row_idx as f32 * self.row_height) - off.y;
-            let flags = (self.row_flags)(row_idx);
-            let is_hovered = state.hovered_row == Some(row_idx);
-
-            let row_w = content_visible_w.min(clip.width);
-            let row_y = body.y + (row_idx as f32 * self.row_height) - off.y;
-            let bg_y = row_y.max(body.y);
-            let bg_height = (row_y + self.row_height).min(body.y + body.height) - bg_y;
-            if bg_height > 0.0 {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: Rectangle {
-                            x: clip.x,
-                            y: bg_y,
-                            width: row_w,
-                            height: bg_height,
-                        },
-                        border: Border::default(),
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    Background::Color(super::style::row_bg(row_idx, flags, is_hovered)),
-                );
-            }
-
-            for (col_idx, &cell_x_offset) in col_x
-                .iter()
-                .enumerate()
-                .take(last_col)
-                .skip(first_col.max(1))
-            {
-                let cell_x = bounds.x + cell_x_offset - off.x;
-                let cell_w = self.col_width(col_idx);
-
-                let value = match self.cell_value(row_idx, col_idx) {
-                    Some(v) if !v.is_empty() => v,
-                    _ => continue,
-                };
-
-                let key = ParagraphKey::new(&value, self.text_size, cell_w, self.font);
-                let paragraph = self.cache.get_or_insert(key, || {
-                    Paragraph::with_text(text::Text {
-                        content: &*value,
-                        bounds: Size::new(cell_w, self.row_height),
-                        size: Pixels(self.text_size),
-                        line_height: text::LineHeight::default(),
-                        font: self.font,
-                        align_x: text::Alignment::Default,
-                        align_y: alignment::Vertical::Top,
-                        shaping: text::Shaping::Basic,
-                        wrapping: text::Wrapping::None,
-                        ellipsis: text::Ellipsis::None,
-                        hint_factor: None,
-                    })
-                });
-
-                let cell_inner = Rectangle {
-                    x: cell_x + self.cell_padding_x,
-                    y,
-                    width: (cell_w - self.cell_padding_x * 2.0).max(0.0),
-                    height: self.row_height,
-                };
-                let position = cell_inner.anchor(
-                    paragraph.min_bounds(),
-                    alignment::Horizontal::Left,
-                    alignment::Vertical::Center,
-                );
-                let cell_clip = data_clip
-                    .intersection(&Rectangle {
-                        x: cell_x,
-                        y,
-                        width: cell_w,
-                        height: self.row_height,
-                    })
-                    .unwrap_or(Rectangle {
-                        x: cell_x,
-                        y,
-                        width: 0.0,
-                        height: 0.0,
-                    });
-                <iced::Renderer as text::Renderer>::fill_paragraph(
-                    renderer,
-                    &paragraph,
-                    position,
-                    super::style::cell_text_color(flags),
-                    cell_clip,
-                );
-            }
-
-            if let Some((border_color, border_width)) = super::style::row_border(flags) {
-                let border_y = y.max(body.y);
-                let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
-                if border_h > 0.0 {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: Rectangle {
-                                x: clip.x,
-                                y: border_y,
-                                width: content_visible_w.min(clip.width),
-                                height: border_h,
-                            },
-                            border: Border {
-                                color: border_color,
-                                width: border_width,
-                                radius: 0.into(),
-                            },
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(Color::TRANSPARENT),
-                    );
-                }
-            }
-        }
-
-        let id_x = bounds.x;
-        let id_w = self.id_col_width.min(bounds.width);
-        for row_idx in first_row..last_row {
-            let y = body.y + (row_idx as f32 * self.row_height) - off.y;
-            let id_y = body.y + (row_idx as f32 * self.row_height) - off.y;
-            let id_bg_y = id_y.max(body.y);
-            let id_bg_h = (id_y + self.row_height).min(body.y + body.height) - id_bg_y;
-            let flags = (self.row_flags)(row_idx);
-            renderer.fill_quad(
-                renderer::Quad {
-                    bounds: Rectangle {
-                        x: id_x,
-                        y: id_bg_y,
-                        width: id_w,
-                        height: id_bg_h,
-                    },
-                    border: Border {
-                        color: color!(0x3d2b1f),
-                        width: 0.5,
-                        radius: 0.into(),
-                    },
-                    shadow: Shadow::default(),
-                    snap: true,
-                },
-                Background::Color(super::style::id_cell_bg(flags)),
-            );
-
-            let value = match self.cell_value(row_idx, 0) {
-                Some(v) if !v.is_empty() => v,
-                _ => continue,
-            };
-            let key = ParagraphKey::new(&value, self.text_size, id_w, self.font);
-            let paragraph = self.cache.get_or_insert(key, || {
-                Paragraph::with_text(text::Text {
-                    content: &*value,
-                    bounds: Size::new(id_w, self.row_height),
-                    size: Pixels(self.text_size),
-                    line_height: text::LineHeight::default(),
-                    font: self.font,
-                    align_x: text::Alignment::Default,
-                    align_y: alignment::Vertical::Top,
-                    shaping: text::Shaping::Basic,
-                    wrapping: text::Wrapping::None,
-                    ellipsis: text::Ellipsis::None,
-                    hint_factor: None,
-                })
-            });
-            let id_inner = Rectangle {
-                x: id_x + self.cell_padding_x,
-                y,
-                width: (id_w - self.cell_padding_x * 2.0).max(0.0),
-                height: self.row_height,
-            };
-            let position = id_inner.anchor(
-                paragraph.min_bounds(),
-                alignment::Horizontal::Left,
-                alignment::Vertical::Center,
-            );
-            let id_clip = clip
-                .intersection(&Rectangle {
-                    x: id_x,
-                    y: body.y,
-                    width: id_w,
-                    height: body.height,
-                })
-                .unwrap_or(Rectangle {
-                    x: id_x,
-                    y: body.y,
-                    width: id_w,
-                    height: body.height,
-                });
-            <iced::Renderer as text::Renderer>::fill_paragraph(
-                renderer,
-                &paragraph,
-                position,
-                super::style::id_text_color(flags),
-                id_clip,
-            );
-
-            if let Some((border_color, border_width)) = super::style::row_border(flags) {
-                let border_y = y.max(body.y);
-                let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
-                if border_h > 0.0 {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: Rectangle {
-                                x: id_x,
-                                y: border_y,
-                                width: id_w,
-                                height: border_h,
-                            },
-                            border: Border {
-                                color: border_color,
-                                width: border_width,
-                                radius: 0.into(),
-                            },
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(Color::TRANSPARENT),
-                    );
-                }
-            }
-        }
-
-        let header = self.header_bounds(bounds);
-        let header_clip = header.intersection(viewport).unwrap_or(header);
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: header,
-                border: Border {
-                    color: color!(0x4a3728),
-                    width: 1.0,
-                    radius: 0.into(),
-                },
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(color!(0x1c1813)),
-        );
-        let id_w = self.id_col_width.min(bounds.width);
-        let header_data_rect = Rectangle {
-            x: bounds.x + id_w,
-            y: header.y,
-            width: (bounds.width - id_w).max(0.0),
-            height: header.height,
-        };
-        let header_data_clip = header_clip
-            .intersection(&header_data_rect)
-            .unwrap_or(header_data_rect);
-
-        for (col_idx, &col_x_offset) in col_x
-            .iter()
-            .enumerate()
-            .take(last_col)
-            .skip(first_col.max(1))
-        {
-            let col_l_screen = bounds.x + col_x_offset - off.x;
-            let col_w = self.col_width(col_idx);
-            let data_col = col_idx - 1;
-            let column = &self.columns[data_col];
-
-            let resize_l = col_l_screen + col_w - RESIZE_HANDLE_WIDTH;
-            let filter_btn_l = resize_l - FILTER_ICON_WIDTH;
-            let filter_badge_l = if column.has_filter {
-                filter_btn_l - FILTER_BADGE_WIDTH
-            } else {
-                filter_btn_l
-            };
-            let label_r = filter_badge_l;
-
-            let label_hovered = state
-                .hovered_header
-                .is_some_and(|(c, r)| c == data_col && r == HeaderRegion::Label);
-            if label_hovered {
-                if let Some(r) = header_data_clip.intersection(&Rectangle {
-                    x: col_l_screen,
-                    y: header.y,
-                    width: (label_r - col_l_screen).max(0.0),
-                    height: header.height,
-                }) {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: r,
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(color!(0x2d2218)),
-                    );
-                }
-            }
-
-            let sort_suffix = match column.sort {
-                Some(true) => " ▲",
-                Some(false) => " ▼",
-                None => "",
-            };
-            let label = if sort_suffix.is_empty() {
-                column.label.clone()
-            } else {
-                format!("{}{}", column.label, sort_suffix)
-            };
-            let avail_label_w = (label_r - col_l_screen - self.cell_padding_x * 2.0).max(0.0);
-            if avail_label_w > 0.0 {
-                let key = ParagraphKey::new(&label, self.text_size, avail_label_w, self.font);
-                let para = self.cache.get_or_insert(key, || {
-                    Paragraph::with_text(text::Text {
-                        content: label.as_str(),
-                        bounds: Size::new(avail_label_w, header.height),
-                        size: Pixels(self.text_size),
-                        line_height: text::LineHeight::default(),
-                        font: self.font,
-                        align_x: text::Alignment::Default,
-                        align_y: alignment::Vertical::Top,
-                        shaping: text::Shaping::Basic,
-                        wrapping: text::Wrapping::None,
-                        ellipsis: text::Ellipsis::None,
-                        hint_factor: None,
-                    })
-                });
-                let inner = Rectangle {
-                    x: col_l_screen + self.cell_padding_x,
-                    y: header.y,
-                    width: avail_label_w,
-                    height: header.height,
-                };
-                let pos = inner.anchor(
-                    para.min_bounds(),
-                    alignment::Horizontal::Left,
-                    alignment::Vertical::Center,
-                );
-                let cell_clip = header_data_clip
-                    .intersection(&Rectangle {
-                        x: col_l_screen,
-                        y: header.y,
-                        width: (label_r - col_l_screen).max(0.0),
-                        height: header.height,
-                    })
-                    .unwrap_or(Rectangle {
-                        x: col_l_screen,
-                        y: header.y,
-                        width: 0.0,
-                        height: 0.0,
-                    });
-                <iced::Renderer as text::Renderer>::fill_paragraph(
-                    renderer,
-                    &para,
-                    pos,
-                    color!(0xb8a898),
-                    cell_clip,
-                );
-            }
-
-            if column.has_filter {
-                draw_centered_glyph(
-                    renderer,
-                    &self.cache,
-                    "◼",
-                    8.0,
-                    self.font,
-                    Rectangle {
-                        x: filter_badge_l,
-                        y: header.y,
-                        width: FILTER_BADGE_WIDTH,
-                        height: header.height,
-                    },
-                    color!(0xffd700),
-                    header_data_clip,
-                );
-            }
-
-            draw_centered_glyph(
-                renderer,
-                &self.cache,
-                "▾",
-                8.0,
-                self.font,
-                Rectangle {
-                    x: filter_btn_l,
-                    y: header.y,
-                    width: FILTER_ICON_WIDTH,
-                    height: header.height,
-                },
-                color!(0xb8a898),
-                header_data_clip,
-            );
-
-            let resize_hovered = state
-                .hovered_header
-                .is_some_and(|(c, r)| c == data_col && r == HeaderRegion::Resize);
-            let handle_color = if resize_hovered {
-                color!(0x6a5238)
-            } else {
-                color!(0x4a3728)
-            };
-            if let Some(r) = header_data_clip.intersection(&Rectangle {
-                x: resize_l,
-                y: header.y,
-                width: RESIZE_HANDLE_WIDTH,
-                height: header.height,
-            }) {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: r,
-                        border: Border::default(),
-                        shadow: Shadow::default(),
-                        snap: true,
-                    },
-                    Background::Color(handle_color),
-                );
-            }
-        }
-
-        let id_header = Rectangle {
-            x: bounds.x,
-            y: header.y,
-            width: id_w,
-            height: header.height,
-        };
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: id_header,
-                border: Border {
-                    color: color!(0x3d2b1f),
-                    width: 1.0,
-                    radius: 0.into(),
-                },
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(color!(0x171411)),
-        );
-        let key = ParagraphKey::new("#", self.text_size, id_w, self.font);
-        let para = self.cache.get_or_insert(key, || {
-            Paragraph::with_text(text::Text {
-                content: "#",
-                bounds: Size::new(id_w, header.height),
-                size: Pixels(self.text_size),
-                line_height: text::LineHeight::default(),
-                font: self.font,
-                align_x: text::Alignment::Default,
-                align_y: alignment::Vertical::Top,
-                shaping: text::Shaping::Basic,
-                wrapping: text::Wrapping::None,
-                ellipsis: text::Ellipsis::None,
-                hint_factor: None,
-            })
-        });
-        let id_inner = Rectangle {
-            x: bounds.x + self.cell_padding_x,
-            y: header.y,
-            width: (id_w - self.cell_padding_x * 2.0).max(0.0),
-            height: header.height,
-        };
-        let pos = id_inner.anchor(
-            para.min_bounds(),
-            alignment::Horizontal::Left,
-            alignment::Vertical::Center,
-        );
-        <iced::Renderer as text::Renderer>::fill_paragraph(
-            renderer,
-            &para,
-            pos,
-            color!(0x6a5e54),
-            id_header.intersection(viewport).unwrap_or(id_header),
-        );
+        // Draw in z-order: data rows → frozen id column → header → scrollbars
+        self.draw_rows(renderer, bounds, body, viewport, state);
+        self.draw_frozen_column(renderer, bounds, body, viewport, first_row, last_row, clip);
+        self.draw_header(renderer, bounds, viewport, state);
 
         let active_axis = state.dragging.map(|d| d.axis).or(state.hovered_scrollbar);
-        draw_scrollbars(
-            renderer,
-            bounds,
-            body,
-            off,
-            self.total_width(),
-            self.total_height(),
-            active_axis,
-        );
+        let total_w = self.total_width();
+        let total_h = self.total_height();
+        scrollbar::draw_scrollbars(renderer, bounds, body, off, total_w, total_h, active_axis);
     }
+
+    // ── Accessibility ─────────────────────────────────────────────────
 
     #[allow(clippy::needless_range_loop)]
     #[cfg(feature = "accessibility")]
@@ -920,9 +454,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) -> Option<accesskit::NodeId> {
         use accesskit::Role;
 
-        // Inline helpers for accessibility node construction. The iced
-        // `iced::core::accessibility` module is not publicly accessible,
-        // so we reimplement its simple helpers here.
         let non_empty = |r: Rectangle| Rectangle {
             width: r.width.max(1.0),
             height: r.height.max(1.0),
@@ -947,30 +478,25 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         };
 
         let n_rows = self.n_rows();
-        let n_cols = self.n_cols();
+        let n_cols = geometry::n_cols(&self.columns);
         if n_rows == 0 || n_cols == 0 {
             return None;
         }
 
-        // Reset the action-routing map.
         self.cell_node_map.borrow_mut().clear();
 
         let bounds = layout.bounds();
         let body = self.body_bounds(bounds);
-        let off = tree.state.downcast_ref::<State>().scroll_offset;
-        let col_pos = self.col_positions();
+        let off = self.scroll_offset();
+        let col_pos = geometry::col_positions(self.id_col_width, &self.columns);
 
-        // Generate nodes for ALL rows so VoiceOver can navigate the full logical
-        // table, not just the visible viewport. Bounds for off-screen rows will
-        // be outside the parent's visible area — the platform accessibility layer
-        // clips them naturally.
         let first_row = 0;
         let last_row = n_rows;
 
         // ---- Column-header row (ColumnHeader cells) ----
         let mut header_cell_ids: Vec<accesskit::NodeId> = Vec::with_capacity(n_cols);
         let mut header_row_bounds: Option<Rectangle> = None;
-        let header_y = body.y - self.header_height();
+        let header_y = body.y - self.row_height;
 
         for col in 0..n_cols {
             let cell_id = accesskit::NodeId(*id_counter);
@@ -979,8 +505,8 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             let cell_bounds = Rectangle {
                 x: bounds.x + col_pos[col] - off.x,
                 y: header_y,
-                width: self.col_width(col),
-                height: self.header_height(),
+                width: geometry::col_width(self.id_col_width, &self.columns, col),
+                height: self.row_height,
             };
 
             let mut cell = accesskit::Node::new(Role::ColumnHeader);
@@ -1041,7 +567,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 let cell_bounds = Rectangle {
                     x: bounds.x + col_pos[col] - off.x,
                     y: row_y,
-                    width: self.col_width(col),
+                    width: geometry::col_width(self.id_col_width, &self.columns, col),
                     height: self.row_height,
                 };
 
@@ -1056,9 +582,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
 
                 if let Some(val) = self.cell_value(row_idx, col) {
                     cell.set_value(&*val);
-                    // Compose a label that includes the column name so VoiceOver
-                    // announces e.g. "Name: Iron Sword" instead of merely "Iron Sword"
-                    // or "column 1".
                     let label = if col == 0 {
                         Cow::Owned(format!("#: {}", val))
                     } else if let Some(c) = self.columns.get(col - 1) {
@@ -1069,15 +592,10 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     cell.set_label(label.as_ref());
                 }
 
-                // Register in the action-routing map so accessibility_action()
-                // can look up which (row, col) a Focus/Activate targets.
                 self.cell_node_map
                     .borrow_mut()
                     .insert(cell_id.0, (row_idx, col));
 
-                // WCAG H43 / H63: Explicitly associate the data cell with its
-                // column header so screen readers can announce the header name
-                // when navigating cells, regardless of platform adapter support.
                 cell.push_labelled_by(header_cell_ids[col]);
 
                 row_bounds = Some(row_bounds.map_or(cell_bounds, |r| union_rect(r, cell_bounds)));
@@ -1086,7 +604,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 cell_ids.push(cell_id);
             }
 
-            // Wrap cells in a Row node.
             let row_id = accesskit::NodeId(*id_counter);
             *id_counter += 1;
             let mut row = accesskit::Node::new(Role::Row);
@@ -1102,8 +619,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
             if flags.selected {
                 row.set_selected(true);
             }
-            // Register row in the action-routing map too, so focusing the
-            // Row node itself (not just its cells) can scroll-to-row.
             self.cell_node_map
                 .borrow_mut()
                 .insert(row_id.0, (row_idx, 0));
@@ -1118,9 +633,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let grid_id = accesskit::NodeId(*id_counter);
         *id_counter += 1;
         let mut grid = accesskit::Node::new(Role::Table);
-        // Report scroll position so macOS knows how far we've scrolled,
-        // but do NOT set clips_children() — we generate ALL rows so
-        // VoiceOver can still navigate off-screen elements via ScrollIntoView.
         grid.set_scroll_y(off.y as f64);
         grid.set_scroll_x(off.x as f64);
         set_bounds(tree, &mut grid, bounds);
@@ -1136,8 +648,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         }
         nodes.push((grid_id, grid));
 
-        // Register ALL custom child node IDs so Iced's action dispatch
-        // (Focus, ScrollIntoView) can route back to this widget.
         let all_custom_ids: Vec<accesskit::NodeId> = nodes
             .iter()
             .map(|(id, _node)| *id)
@@ -1151,20 +661,17 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     #[cfg(feature = "accessibility")]
     fn accessibility_action(
         &mut self,
-        tree: &mut Tree,
+        _tree: &mut Tree,
         layout: Layout<'_>,
         action: &accesskit::ActionRequest,
         shell: &mut Shell<'_, Message>,
     ) {
         use accesskit;
-
         eprintln!(
             "[VO DEBUG] accessibility_action called action={:?} target={}",
             action.action, action.target_node.0,
         );
 
-        // When the screen reader focuses/activates a cell, look up the
-        // (row, col) from the map built in accessibility() and select that row.
         let row = match action.action {
             accesskit::Action::Focus | accesskit::Action::ScrollIntoView => {
                 let found = self
@@ -1182,16 +689,18 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         };
 
         if let Some(row) = row {
-            // Scroll to the focused row so VoiceOver sees it in the viewport.
-            let state = tree.state.downcast_mut::<State>();
+            // Scroll to the focused row.
             let bounds = layout.bounds();
             let body = self.body_bounds(bounds);
             let target_y = row as f32 * self.row_height;
             let clamped_y = target_y.clamp(0.0, (self.total_height() - body.height).max(0.0));
-            if (clamped_y - state.scroll_offset.y).abs() > f32::EPSILON {
-                state.scroll_offset.y = clamped_y;
-                state.last_external = Some(state.scroll_offset);
-                shell.request_redraw();
+            let cur_x = self.scroll_offset().x;
+            if (clamped_y - self.scroll_offset().y).abs() > f32::EPSILON {
+                // Publish the new scroll offset — app state updates next frame.
+                if let Some(cb) = &self.on_scroll {
+                    shell.request_redraw();
+                    shell.publish(cb(cur_x, clamped_y, body.height));
+                }
             }
 
             // Select the row.
@@ -1202,162 +711,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     }
 }
 
-/// Draw a single glyph centered inside `bounds` using `cache` to avoid
-/// re-shaping. Used for the small filter icons (`◼`, `▾`) in column headers.
-#[allow(clippy::too_many_arguments)]
-fn draw_centered_glyph(
-    renderer: &mut iced::Renderer,
-    cache: &ParagraphCache,
-    glyph: &str,
-    size: f32,
-    font: Font,
-    bounds: Rectangle,
-    color: Color,
-    clip: Rectangle,
-) {
-    let key = ParagraphKey::new(glyph, size, bounds.width, font);
-    let para = cache.get_or_insert(key, || {
-        Paragraph::with_text(text::Text {
-            content: glyph,
-            bounds: Size::new(bounds.width, bounds.height),
-            size: Pixels(size),
-            line_height: text::LineHeight::default(),
-            font,
-            align_x: text::Alignment::Center,
-            align_y: alignment::Vertical::Top,
-            shaping: text::Shaping::Basic,
-            wrapping: text::Wrapping::None,
-            ellipsis: text::Ellipsis::None,
-            hint_factor: None,
-        })
-    });
-    let pos = bounds.anchor(
-        para.min_bounds(),
-        alignment::Horizontal::Center,
-        alignment::Vertical::Center,
-    );
-    let cell_clip = clip.intersection(&bounds).unwrap_or(bounds);
-    <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
-}
-
-/// Paint vertical and horizontal scrollbar thumbs along the right and bottom
-/// edges of `bounds` to reflect `off` against the total content size.
-///
-/// When `active_axis` matches an axis, that scrollbar's thumb is drawn 1.5×
-/// thicker and a few shades lighter so the user sees it's grabbable.
-fn draw_scrollbars(
-    renderer: &mut iced::Renderer,
-    bounds: Rectangle,
-    body: Rectangle,
-    off: Vector,
-    total_w: f32,
-    total_h: f32,
-    active_axis: Option<Axis>,
-) {
-    let track_color = color!(0x141210);
-    let thumb_idle = color!(0x5d4037);
-    let thumb_active = color!(0xB97024);
-    let border_idle = color!(0x5d4037);
-    let border_active = color!(0xB97024);
-
-    if total_h > body.height {
-        let track = Rectangle {
-            x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
-            y: body.y,
-            width: SCROLLBAR_THICKNESS,
-            height: body.height,
-        };
-        let thumb_h = (body.height / total_h * body.height).max(20.0);
-        let max_off = (total_h - body.height).max(1.0);
-        let thumb_y = body.y + (off.y / max_off) * (body.height - thumb_h);
-
-        let active = active_axis == Some(Axis::Vertical);
-        let extra = if active {
-            SCROLLBAR_THICKNESS * 0.5
-        } else {
-            0.0
-        };
-        let thumb_w = SCROLLBAR_THICKNESS - 2.0 + extra;
-        let thumb_x = track.x + 1.0 - extra;
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: track,
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(track_color),
-        );
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: thumb_x,
-                    y: thumb_y,
-                    width: thumb_w,
-                    height: thumb_h,
-                },
-                border: Border {
-                    color: if active { border_active } else { border_idle },
-                    width: if active { 1.0 } else { 0.5 },
-                    radius: 0.into(),
-                },
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(if active { thumb_active } else { thumb_idle }),
-        );
-    }
-
-    if total_w > body.width {
-        let track = Rectangle {
-            x: bounds.x,
-            y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
-            width: body.width,
-            height: SCROLLBAR_THICKNESS,
-        };
-        let thumb_w = (body.width / total_w * body.width).max(20.0);
-        let max_off = (total_w - body.width).max(1.0);
-        let thumb_x = bounds.x + (off.x / max_off) * (body.width - thumb_w);
-
-        let active = active_axis == Some(Axis::Horizontal);
-        let extra = if active {
-            SCROLLBAR_THICKNESS * 0.5
-        } else {
-            0.0
-        };
-        let thumb_h = SCROLLBAR_THICKNESS - 2.0 + extra;
-        let thumb_y = track.y + 1.0 - extra;
-
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: track,
-                border: Border::default(),
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(track_color),
-        );
-        renderer.fill_quad(
-            renderer::Quad {
-                bounds: Rectangle {
-                    x: thumb_x,
-                    y: thumb_y,
-                    width: thumb_w,
-                    height: thumb_h,
-                },
-                border: Border {
-                    color: if active { border_active } else { border_idle },
-                    width: if active { 1.0 } else { 0.5 },
-                    radius: 0.into(),
-                },
-                shadow: Shadow::default(),
-                snap: true,
-            },
-            Background::Color(if active { thumb_active } else { thumb_idle }),
-        );
-    }
-}
+// ── Into<Element> ─────────────────────────────────────────────────────
 
 impl<'a, Message, Theme> From<TableWidget<'a, Message>>
     for Element<'a, Message, Theme, iced::Renderer>

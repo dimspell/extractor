@@ -281,8 +281,8 @@ pub struct MapTableState {
     pub sort_ascending: bool,
     /// Per-column widths (px), parallel to `default_columns()`.
     pub column_widths: Vec<f32>,
-    /// Last reported scroll offset (x, y) for stable scroll across re-renders.
-    pub scroll_offset: (f32, f32),
+    /// Shared scroll state consumed by the table widget every frame.
+    pub table_state: gui_widgets::TableState,
     /// Column filtering state.
     pub filter: TableFilterState,
 }
@@ -309,8 +309,8 @@ pub struct TableInteractionState {
     pub sort_ascending: bool,
     /// Per-column widths (px), parallel to `default_columns()`.
     pub column_widths: Vec<f32>,
-    /// Last reported scroll offset (x, y) for stable scroll across re-renders.
-    pub scroll_offset: (f32, f32),
+    /// Shared scroll state consumed by the table widget every frame.
+    pub table_state: gui_widgets::TableState,
     /// Column filtering state.
     pub filter: TableFilterState,
 }

@@ -225,7 +225,7 @@ fn entity_table<'a>(
         22.0,
         ParagraphCache::default(),
     )
-    .external_offset(ts.scroll_offset.0, ts.scroll_offset.1)
+    .table_state(&ts.table_state)
     .on_select(move |visible_idx| {
         Message::save_file_viewer(SaveFileViewerMessage::MapsTableSelect {
             map: map_idx,

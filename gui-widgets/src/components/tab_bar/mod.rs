@@ -44,9 +44,10 @@ const SCROLL_STEP: f32 = 100.0;
 
 // ── Drag-action state (stored in widget Tree) ─────────────────────────────────
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 enum Action {
     /// No drag in progress.
+    #[default]
     Idle,
     /// Left button pressed on a tab, waiting to exceed the deadband.
     PressPending { tab_idx: usize, origin: Point },
@@ -57,12 +58,6 @@ enum Action {
         /// The cursor X since last layout (for overlay position).
         current_x: f32,
     },
-}
-
-impl Default for Action {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 /// Per-widget state stored in the widget [`Tree`].
@@ -308,7 +303,7 @@ where
             };
             let x = cursor_pos.x - content_left + state.scroll_offset;
             let y = cursor_pos.y - bounds.y;
-            if y < 0.0 || y > TAB_HEIGHT {
+            if !(0.0..=TAB_HEIGHT).contains(&y) {
                 return None;
             }
             // Skip hit when over scroll button slots (always reserved space)
@@ -329,7 +324,7 @@ where
             };
             let x = cursor_pos.x - content_left + state.scroll_offset;
             let y = cursor_pos.y - bounds.y;
-            if y < 0.0 || y > TAB_HEIGHT {
+            if !(0.0..=TAB_HEIGHT).contains(&y) {
                 return false;
             }
             let mut cx = 0.0f32;

@@ -41,6 +41,12 @@ pub(crate) const FILTER_BADGE_WIDTH: f32 = 14.0;
 /// `on_start_resize`.
 pub(crate) const DOUBLE_CLICK_MS: u128 = 400;
 
+pub mod body;
+pub mod frozen_column;
+pub mod geometry;
+pub mod header;
+pub mod scrollbar;
+pub mod state;
 pub mod style;
 pub mod types;
 pub mod widget;
@@ -50,6 +56,7 @@ pub mod widget_trait_impl;
 pub mod tests;
 
 // Re-exports for public API
+pub use state::TableState;
 pub use types::RowFlags;
 pub use types::TableColumn;
 pub use widget::TableWidget;

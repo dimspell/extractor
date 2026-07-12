@@ -1,8 +1,9 @@
+use super::geometry;
+use super::state::TableState;
 use super::style::cell_text_color;
-use super::types::State;
 use super::*;
 use crate::components::paragraph_cache::ParagraphCache;
-use iced::{color, Rectangle, Size, Vector};
+use iced::{color, Rectangle, Vector};
 
 fn no_flags(_: usize) -> RowFlags {
     RowFlags::default()
@@ -60,36 +61,30 @@ fn cell_value_id_column_uses_orig_idx() {
 }
 
 #[test]
-fn sync_external_clamps_to_content() {
+fn table_state_provides_scroll_offset_to_widget() {
     let cache = ParagraphCache::default();
     let display: Vec<Vec<String>> = vec![vec!["a".into()]; 100];
     let filtered: Vec<usize> = (0..100).collect();
     let cols = vec![col(100.0)];
+    let ts = TableState {
+        scroll_offset: Vector::new(10.0, 200.0),
+        viewport_height: 100.0,
+    };
     let w: TableWidget<'_, ()> =
         TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache)
-            .external_offset(0.0, 100_000.0);
-    let mut state = State::default();
-    let bounds = Size::new(200.0, 240.0);
-    w.sync_external(&mut state, bounds);
-    assert_eq!(state.scroll_offset.y, 2184.0);
-    assert_eq!(state.last_external, Some(Vector::new(0.0, 100_000.0)));
+            .table_state(&ts);
+    let ts = w.table_state.unwrap();
+    assert!((ts.scroll_offset.x - 10.0).abs() < f32::EPSILON);
+    assert!((ts.scroll_offset.y - 200.0).abs() < f32::EPSILON);
+    assert!((ts.viewport_height - 100.0).abs() < f32::EPSILON);
 }
 
 #[test]
-fn sync_external_idempotent() {
-    let cache = ParagraphCache::default();
-    let display: Vec<Vec<String>> = vec![vec!["a".into()]; 50];
-    let filtered: Vec<usize> = (0..50).collect();
-    let cols = vec![col(100.0)];
-    let w: TableWidget<'_, ()> =
-        TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache)
-            .external_offset(10.0, 20.0);
-    let mut state = State::default();
-    let bounds = Size::new(200.0, 240.0);
-    w.sync_external(&mut state, bounds);
-    state.scroll_offset.y = 50.0;
-    w.sync_external(&mut state, bounds);
-    assert_eq!(state.scroll_offset.y, 50.0);
+fn table_state_default_is_zero() {
+    let ts = TableState::default();
+    assert!((ts.scroll_offset.x - 0.0).abs() < f32::EPSILON);
+    assert!((ts.scroll_offset.y - 0.0).abs() < f32::EPSILON);
+    assert!((ts.viewport_height - 0.0).abs() < f32::EPSILON);
 }
 
 #[test]
@@ -102,7 +97,7 @@ fn cell_text_color_priority() {
     assert_eq!(cell_text_color(f), color!(0xffffff));
 }
 
-// ── Accessibility-oriented tests ────────────────────────────────────
+// ── Geometry tests ──────────────────────────────────────────────────
 
 #[test]
 fn col_positions_are_cumulative() {
@@ -113,7 +108,7 @@ fn col_positions_are_cumulative() {
     let w: TableWidget<'_, ()> =
         TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache);
 
-    let positions = w.col_positions();
+    let positions = geometry::col_positions(w.id_col_width, &w.columns);
     // n_cols = 1 (id) + 2 (data) = 3 → positions.len() = n_cols + 1 = 4
     assert_eq!(positions.len(), 4);
     assert!((positions[0] - 0.0).abs() < f32::EPSILON);
@@ -144,7 +139,7 @@ fn col_positions_empty_only_id_col() {
         cache,
     );
 
-    let positions = w.col_positions();
+    let positions = geometry::col_positions(w.id_col_width, &w.columns);
     // Only the id column → 1 position
     assert_eq!(positions.len(), 2);
     assert!((positions[0] - 0.0).abs() < f32::EPSILON);
@@ -172,7 +167,7 @@ fn body_bounds_starts_after_header() {
         height: 200.0,
     };
     let body = w.body_bounds(bounds);
-    let hdr_h = w.header_height();
+    let hdr_h = geometry::header_height(w.row_height);
 
     assert!((body.x - bounds.x).abs() < f32::EPSILON);
     assert!((body.y - (bounds.y + hdr_h)).abs() < f32::EPSILON);
@@ -222,8 +217,6 @@ fn body_bounds_reserves_horizontal_scrollbar_in_height() {
     );
 
     // Total width = 642 > 200 → horizontal scrollbar needed
-    // No vertical scrollbar (height fits) → width is bounds.width
-    // Horizontal scrollbar reduces available height
     let bounds = Rectangle {
         x: 0.0,
         y: 0.0,
@@ -237,7 +230,7 @@ fn body_bounds_reserves_horizontal_scrollbar_in_height() {
         "body width unchanged when vertical scrollbar not needed"
     );
     // Horizontal scrollbar subtracted from height
-    let expected_h = 100.0 - w.header_height() - super::SCROLLBAR_THICKNESS;
+    let expected_h = 100.0 - geometry::header_height(w.row_height) - super::SCROLLBAR_THICKNESS;
     assert!(
         (body.height - expected_h).abs() < f32::EPSILON,
         "body height subtracts horizontal scrollbar thickness"
@@ -273,12 +266,6 @@ fn cell_label_format_components() {
     ];
     let w: TableWidget<'_, ()> =
         TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache);
-
-    // Verify the data that accessibility() composes into labels:
-    //   col 0 (id)      → "#: {orig_idx+1}"
-    //   col 1 (Name)    → "Name: {value}"
-    //   col 2 (Damage)  → "Damage: {value}"
-    //   col 3 (Weight)  → "Weight: {value}"
 
     // Row 0
     assert_eq!(w.cell_value(0, 0).as_deref(), Some("1"), "id col → #: 1");

@@ -158,7 +158,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get_mut(map)
                 .and_then(|m| m.get_mut(&kind))
             {
-                ts.scroll_offset = (x, y);
+                ts.table_state.scroll_offset = iced::Vector::new(x, y);
             }
             Task::none()
         }
@@ -253,7 +253,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             ..
         } => {
             if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                ts.scroll_offset = (x, y);
+                ts.table_state.scroll_offset = iced::Vector::new(x, y);
             }
             Task::none()
         }
@@ -324,7 +324,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::EventsTableScroll { x, y, .. } => {
-            state.events_table_state.scroll_offset = (x, y);
+            state.events_table_state.table_state.scroll_offset = iced::Vector::new(x, y);
             Task::none()
         }
         SaveFileViewerMessage::JournalTableSelect { section, visible_idx } => {
@@ -411,7 +411,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
         }
         SaveFileViewerMessage::JournalTableScroll { section, x, y, .. } => {
             if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                ts.scroll_offset = (x, y);
+                ts.table_state.scroll_offset = iced::Vector::new(x, y);
             }
             Task::none()
         }
@@ -1494,23 +1494,23 @@ fn navigate_highlight(
         (TableKey::Map(map, kind), Some(fidx)) => {
             if let Some(ts) = state.maps_table_states.get_mut(map).and_then(|m| m.get_mut(&kind)) {
                 ts.selected_orig = Some(orig);
-                ts.scroll_offset.1 = fidx as f32 * FILTER_ROW_HEIGHT;
+                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
             }
         }
         (TableKey::Inventory(cat), Some(fidx)) => {
             if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
                 ts.selected_orig = Some(orig);
-                ts.scroll_offset.1 = fidx as f32 * FILTER_ROW_HEIGHT;
+                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
             }
         }
         (TableKey::Events, Some(fidx)) => {
             state.events_table_state.selected_orig = Some(orig);
-            state.events_table_state.scroll_offset.1 = fidx as f32 * FILTER_ROW_HEIGHT;
+            state.events_table_state.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
         }
         (TableKey::Journal(section), Some(fidx)) => {
             if let Some(ts) = state.journal_table_states.get_mut(&section) {
                 ts.selected_orig = Some(orig);
-                ts.scroll_offset.1 = fidx as f32 * FILTER_ROW_HEIGHT;
+                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
             }
         }
         _ => {}

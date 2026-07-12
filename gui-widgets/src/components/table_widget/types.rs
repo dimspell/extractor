@@ -17,12 +17,12 @@ pub struct RowFlags {
     pub current_highlight: bool,
 }
 
+/// Per-frame widget-tree state (hover tracking, drag bookkeeping).
+///
+/// Scroll offset and viewport height live in [`super::state::TableState`]
+/// (app-owned) instead.
 #[derive(Default)]
 pub(crate) struct State {
-    pub(crate) scroll_offset: Vector,
-    /// Most recent `external_offset` we synced to. `None` until the first
-    /// frame.
-    pub(crate) last_external: Option<Vector>,
     pub(crate) hovered_row: Option<usize>,
     /// Which scrollbar (if any) the cursor is currently over. Used to
     /// fatten + brighten the thumb so it reads as draggable.

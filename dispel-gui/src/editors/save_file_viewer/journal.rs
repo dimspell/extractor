@@ -62,7 +62,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             }
 
             let selected = ts.selected_orig;
-            let scroll = ts.scroll_offset;
             let filter = &ts.filter;
             let is_highlight = filter.filter_mode == GlobalFilterMode::Highlight;
             let highlighted = &filter.highlighted_indices;
@@ -92,7 +91,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 22.0,
                 ParagraphCache::default(),
             )
-            .external_offset(scroll.0, scroll.1)
+            .table_state(&ts.table_state)
             .on_select(move |visible_idx| {
                 Message::save_file_viewer(SaveFileViewerMessage::JournalTableSelect {
                     section,
