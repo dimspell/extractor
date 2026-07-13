@@ -468,7 +468,7 @@ impl InventoryCategory {
                 ("name",160.0),("description",160.0),("base_price",60.0),("event_item_id",60.0),("unknown_2",60.0),("unknown_3",60.0),("unknown_4",60.0),
             ],
             InventoryCategory::Misc => &[
-                ("name",160.0),("description",160.0),("base_price",60.0),("unknown_1",320.0),("unknown_2",60.0),("unknown_3",60.0),("unknown_4",60.0),("unknown_5",60.0),("unknown_6",60.0),("unknown_7",60.0),
+                ("name",160.0),("description",160.0),("base_price",60.0),("unknown_1",320.0),("misc_item_id",60.0),("unknown_3",60.0),("unknown_4",60.0),("unknown_5",60.0),("unknown_6",60.0),("unknown_7",60.0),
             ],
         };
         defs.iter()
