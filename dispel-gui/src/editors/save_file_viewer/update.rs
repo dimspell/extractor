@@ -171,8 +171,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
                     // Monsters (LOW confidence coords)
                     for m in &map_data.monsters {
-                        let x = to_tile(m.unknown_8_coordinate as u32);
-                        let y = to_tile(m.unknown_9_coordinate as u32);
+                        let x = to_tile(m.spawn_position_x as u32);
+                        let y = to_tile(m.spawn_position_y as u32);
                         if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Monster,
@@ -980,10 +980,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                         hex_bytes(&m.unknown_3),
                                         m.unknown_4.to_string(),
                                         m.unknown_5.to_string(),
-                                        m.unknown_6_coordinate.to_string(),
-                                        m.unknown_7_coordinate.to_string(),
-                                        m.unknown_8_coordinate.to_string(),
-                                        m.unknown_9_coordinate.to_string(),
+                                        m.current_position_x.to_string(),
+                                        m.current_position_y.to_string(),
+                                        m.spawn_position_x.to_string(),
+                                        m.spawn_position_y.to_string(),
                                         m.unknown_10_coordinate.to_string(),
                                         m.unknown_11_coordinate.to_string(),
                                         m.unknown_12.to_string(),
