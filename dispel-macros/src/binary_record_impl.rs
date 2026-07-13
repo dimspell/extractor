@@ -78,6 +78,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                     "i32" => {
                         quote! { reader.read_i32::<byteorder::LittleEndian>()? }
                     }
+                    "i8" => quote! { reader.read_i8()? },
                     "u8" => quote! { reader.read_u8()? },
                     "u16" => {
                         quote! { reader.read_u16::<byteorder::LittleEndian>()? }
@@ -163,6 +164,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                         quote! { writer.write_i32::<byteorder::LittleEndian>(self.#ident)?; }
                     }
                     "u8" => quote! { writer.write_u8(self.#ident)?; },
+                    "i8" => quote! { writer.write_i8(self.#ident)?; },
                     "u16" => {
                         quote! { writer.write_u16::<byteorder::LittleEndian>(self.#ident)?; }
                     }
@@ -324,6 +326,7 @@ impl BinaryFieldInfo {
                 "i16" => (2, None),
                 "i32" => (4, None),
                 "u8" => (1, None),
+                "i8" => (1, None),
                 "u16" => (2, None),
                 "u32" => (4, None),
                 _ => panic!("Unsupported primitive type: {}", ty),
@@ -466,7 +469,7 @@ fn auto_detect_field(ident: &Ident, ty: &Type) -> Option<BinaryFieldInfo> {
         if let Some(segment) = type_path.path.segments.last() {
             let type_name = segment.ident.to_string();
             match type_name.as_str() {
-                "i16" | "i32" | "u8" | "u16" | "u32" => {
+                "i16" | "i32" | "i8" | "u8" | "u16" | "u32" => {
                     return Some(BinaryFieldInfo::Primitive {
                         ident: ident.clone(),
                         ty: type_name,
