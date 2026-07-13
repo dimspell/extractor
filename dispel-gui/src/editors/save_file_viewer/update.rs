@@ -48,6 +48,243 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.maps_resizing = None;
             Task::none()
         }
+        SaveFileViewerMessage::TogglePreview => {
+            if state.show_preview {
+                // Switching back to tables: drop preview state
+                state.show_preview = false;
+                state.map_preview = None;
+                Task::none()
+            } else {
+                state.show_preview = true;
+                let map_idx = match state.selected_map {
+                    Some(i) => i,
+                    None => return Task::none(),
+                };
+                let map = match state.save_file.as_ref() {
+                    Some(sf) => sf.maps.get(map_idx),
+                    None => return Task::none(),
+                };
+                let map_id = map.map_id;
+
+                // Try to get game path from workspace
+                let game_path = app.state.workspace.game_path.clone();
+                let Some(ref gp) = game_path else {
+                    // No game path set — can't load maps; leave preview in loading state
+                    return Task::none();
+                };
+
+                // Kick off async map file loading
+                let gp = gp.clone();
+                let task = iced::Task::perform(
+                    async move {
+                        let stem =
+                            crate::editors::map_editor::resolve_map_filename(map_id as i32, &gp);
+                        let stem = match stem {
+                            Some(s) => s,
+                            None => return Err(format!("No map filename for map_id {}", map_id)),
+                        };
+                        let map_path = gp.join("Map").join(&stem).with_extension("map");
+                        let bytes = tokio::fs::read(&map_path).await.map_err(|e| {
+                            format!("Failed to read {:?}: {}", map_path, e)
+                        })?;
+                        let (map_data, _) = dispel_core::map::MapData::from_bytes(&bytes)
+                            .map_err(|e| format!("Failed to parse map: {}", e))?;
+                        let diagonal = map_data.model.tiled_map_width.max(
+                            map_data.model.tiled_map_height,
+                        );
+
+                        Ok(crate::editors::save_file_viewer::message::MapPreviewLoaded {
+                            map_data: std::sync::Arc::new(map_data),
+                            diagonal,
+                            map_stem: stem,
+                        })
+                    },
+                    |result| {
+                        Message::save_file_viewer(
+                            crate::editors::save_file_viewer::message::SaveFileViewerMessage::MapPreviewLoaded(map_idx, result),
+                        )
+                    },
+                );
+                task
+            }
+        }
+        SaveFileViewerMessage::MapPreviewLoaded(map_idx, result) => {
+            if state.selected_map != Some(map_idx) {
+                // Map was switched while loading — discard
+                return Task::none();
+            }
+            let loaded = match result {
+                Ok(l) => l,
+                Err(e) => {
+                    state.show_preview = false;
+                    state.map_preview = None;
+                    // TODO: surface error in status_msg
+                    return Task::none();
+                }
+            };
+
+            let game_path = app.state.workspace.game_path.clone();
+            let tiles_dir = game_path.map(|p| p.join("Map"));
+
+            use crate::components::map_preview::state::{
+                LoadingState, MapPreviewState, MapPreviewViewState, PreviewEntity,
+            };
+            let preview_state = MapPreviewState {
+                map_data: Some(loaded.map_data.clone()),
+                diagonal: loaded.diagonal,
+                game_path,
+                view: MapPreviewViewState::default(),
+                loading: LoadingState::Loaded,
+                entities: Vec::new(),
+            };
+            state.map_preview = Some(preview_state);
+
+            // Build entity markers from save file data (synchronous)
+            if let Some(sf) = state.save_file.as_ref() {
+                if let Some(map_data) = &sf.maps.get(map_idx) {
+                    let mut entities = Vec::new();
+                    // Monsters (LOW confidence coords)
+                    for m in &map_data.monsters {
+                        if m.unknown_8_coordinate != 0 || m.unknown_9_coordinate != 0 {
+                            entities.push(PreviewEntity {
+                                kind: crate::components::map_preview::state::EntityKind::Monster,
+                                label: m.name.clone(),
+                                tile_x: m.unknown_8_coordinate as i32,
+                                tile_y: m.unknown_9_coordinate as i32,
+                                confirmed: false,
+                            });
+                        }
+                    }
+                    // NPCs — use waypoint 1 coords (HIGH confidence)
+                    for n in &map_data.npcs {
+                        if n.npc_ref_waypoint1x != 0 || n.npc_ref_waypoint1y != 0 {
+                            entities.push(PreviewEntity {
+                                kind: crate::components::map_preview::state::EntityKind::Npc,
+                                label: n.name.clone(),
+                                tile_x: n.npc_ref_waypoint1x as i32,
+                                tile_y: n.npc_ref_waypoint1y as i32,
+                                confirmed: true,
+                            });
+                        }
+                    }
+                    // Extra objects (LOW confidence coords)
+                    for e in &map_data.extra_objects {
+                        // unknown_33 = x coord, unknown_35 = y coord in save file extra records
+                        if e.unknown_33 != 0 || e.unknown_35 != 0 {
+                            entities.push(PreviewEntity {
+                                kind: crate::components::map_preview::state::EntityKind::Extra,
+                                label: e.name.clone(),
+                                tile_x: e.unknown_33 as i32,
+                                tile_y: e.unknown_35 as i32,
+                                confirmed: false,
+                            });
+                        }
+                    }
+                    // Draw items — use map_coordinate_x/y (HIGH confidence)
+                    for items in [
+                        map_data.draw_items_weapon.as_slice(),
+                        map_data.draw_items_heal.as_slice(),
+                        map_data.draw_items_edit.as_slice(),
+                        map_data.draw_items_misc.as_slice(),
+                        map_data.draw_items_event.as_slice(),
+                    ] {
+                        for d in items {
+                            if d.map_coordinate_x != 0 || d.map_coordinate_y != 0 {
+                                entities.push(PreviewEntity {
+                                    kind: crate::components::map_preview::state::EntityKind::DrawItem,
+                                    label: d.name.clone(),
+                                    tile_x: d.map_coordinate_x as i32,
+                                    tile_y: d.map_coordinate_y as i32,
+                                    confirmed: true,
+                                });
+                            }
+                        }
+                    }
+                    if let Some(preview) = state.map_preview.as_mut() {
+                        preview.entity_markers = entities;
+                    }
+                }
+            }
+
+            // Kick off async tileset decoding
+            let Some(gtl_data) = loaded.map_data.model.gtl_data.as_ref() else {
+                return Task::none();
+            };
+            let Some(btl_data) = loaded.map_data.model.btl_data.as_ref() else {
+                return Task::none();
+            };
+
+            let gtl_clone = gtl_data.clone();
+            let btl_clone = btl_data.clone();
+            let task = iced::Task::perform(
+                async move {
+                    use dispel_core::sprite::Color;
+                    use iced::widget::image::Handle;
+
+                    let decode_tiles =
+                        |data: &[u8]| -> std::collections::HashMap<i32, Handle> {
+                            let mut map = std::collections::HashMap::new();
+                            let tile_count = data.len() / (32 * 32 * 2);
+                            for i in 0..tile_count {
+                                let offset = i * 32 * 32 * 2;
+                                if offset + 32 * 32 * 2 > data.len() {
+                                    break;
+                                }
+                                let tile_bytes = &data[offset..offset + 32 * 32 * 2];
+                                let mut rgba = Vec::with_capacity(32 * 32 * 4);
+                                for chunk in tile_bytes.chunks_exact(2) {
+                                    let pixel = Color::from_rgb565(
+                                        (chunk[1] as u16) << 8 | chunk[0] as u16,
+                                    );
+                                    rgba.extend_from_slice(&pixel.to_rgba());
+                                }
+                                map.insert(i as i32, Handle::from_rgba(32, 32, rgba));
+                            }
+                            map
+                        };
+
+                    use dispel_core::Extractor;
+                    let gtl_tiles = match &gtl_clone[..] {
+                        [] | [0, ..] => std::collections::HashMap::new(),
+                        _ => decode_tiles(gtl_clone),
+                    };
+                    let btl_tiles = match &btl_clone[..] {
+                        [] | [0, ..] => std::collections::HashMap::new(),
+                        _ => decode_tiles(btl_clone),
+                    };
+
+                    crate::editors::save_file_viewer::message::MapPreviewTiles {
+                        gtl: gtl_tiles,
+                        btl: btl_tiles,
+                    }
+                },
+                |tiles| {
+                    Message::save_file_viewer(
+                        crate::editors::save_file_viewer::message::SaveFileViewerMessage::MapPreviewTilesReady(map_idx, Ok(tiles)),
+                    )
+                },
+            );
+            task
+        }
+        SaveFileViewerMessage::MapPreviewTilesReady(map_idx, result) => {
+            if state.selected_map != Some(map_idx) {
+                return Task::none();
+            }
+            let tiles = match result {
+                Ok(t) => t,
+                Err(_) => return Task::none(),
+            };
+            if let Some(preview) = state.map_preview.as_mut() {
+                preview.gtl_handles = tiles.gtl;
+                preview.btl_handles = tiles.btl;
+                preview.tiles_ready = true;
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::MapPreviewEntitiesReady(_markers) => {
+            // Currently computed synchronously in MapPreviewLoaded handler
+            Task::none()
+        }
         SaveFileViewerMessage::MapsTableSelect {
             map,
             kind,

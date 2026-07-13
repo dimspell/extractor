@@ -53,42 +53,86 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .into()
     };
 
-    // ── Right panel: entity tables ───────────────────────────────────────
+    // ── Right panel: entity tables or map preview ─────────────────────────
     let main: Element<'a, Message> = if let Some(idx) = state.selected_map {
-        let caches = state.maps_display_caches.get(idx);
-        let ts_map = state.maps_table_states.get(idx);
-        let resizing = state
-            .maps_resizing
-            .as_ref()
-            .map(|d| (d.map, d.kind));
         let map = &sf.maps[idx];
-        let kind = state.selected_entity_kind;
 
-        // Sub-navigation bar for picking which entity table to view
-        let sub_nav = build_sub_nav(kind, map);
-
-        // Render only the selected entity table
-        let table = match (caches, ts_map) {
-            (Some(caches), Some(ts_map)) => {
-                let (rows, indices) = table_rows(caches, kind);
-                if let Some(ts) = ts_map.get(&kind) {
-                    if !rows.is_empty() {
-                        entity_table(idx, kind, rows, indices, ts, resizing)
-                    } else {
-                        empty_text("(none)")
-                    }
-                } else {
-                    empty_text("(caches not ready)")
-                }
-            }
-            _ => empty_text("(caches not ready)"),
+        // Sub-navigation bar with Preview + entity type tabs
+        let sub_nav = if state.show_preview {
+            build_sub_nav_preview(map)
+        } else {
+            build_sub_nav(state.selected_entity_kind, map)
         };
 
-        let content = Column::<Message>::new()
-            .push(sub_nav)
-            .push(table)
-            .spacing(8);
-        content.into()
+        if state.show_preview {
+            // Show map preview canvas
+            match &state.map_preview {
+                Some(preview) => {
+                    let preview_view =
+                        crate::components::map_preview::view_preview(preview);
+                    let content = Column::<Message>::new()
+                        .push(sub_nav)
+                        .push(preview_view)
+                        .spacing(8);
+                    content.into()
+                }
+                None => {
+                    let mut start_btn = button(text("Load Preview").size(13));
+                    let game_path_ok = state
+                        .map_preview
+                        .as_ref()
+                        .and_then(|p| p.game_path.as_ref())
+                        .is_some()
+                        || true; // will check on press
+                    if game_path_ok {
+                        start_btn = start_btn.on_press(
+                            Message::save_file_viewer(SaveFileViewerMessage::TogglePreview),
+                        );
+                    }
+                    let content = Column::<Message>::new()
+                        .push(sub_nav)
+                        .push(
+                            container(start_btn)
+                                .width(Fill)
+                                .height(Fill)
+                                .padding(16),
+                        )
+                        .spacing(8);
+                    content.into()
+                }
+            }
+        } else {
+            let caches = state.maps_display_caches.get(idx);
+            let ts_map = state.maps_table_states.get(idx);
+            let resizing = state
+                .maps_resizing
+                .as_ref()
+                .map(|d| (d.map, d.kind));
+            let kind = state.selected_entity_kind;
+
+            // Render only the selected entity table
+            let table = match (caches, ts_map) {
+                (Some(caches), Some(ts_map)) => {
+                    let (rows, indices) = table_rows(caches, kind);
+                    if let Some(ts) = ts_map.get(&kind) {
+                        if !rows.is_empty() {
+                            entity_table(idx, kind, rows, indices, ts, resizing)
+                        } else {
+                            empty_text("(none)")
+                        }
+                    } else {
+                        empty_text("(caches not ready)")
+                    }
+                }
+                _ => empty_text("(caches not ready)"),
+            };
+
+            let content = Column::<Message>::new()
+                .push(sub_nav)
+                .push(table)
+                .spacing(8);
+            content.into()
+        }
     } else {
         container(text("Select a map from the sidebar"))
             .width(Fill)
@@ -135,6 +179,29 @@ fn build_sub_nav<'a>(
             ))
             .padding([4, 8]),
         );
+    }
+    nav
+}
+
+/// Sub-nav bar shown when the map preview is active.
+fn build_sub_nav_preview<'a>(
+    map: &dispel_core::references::save_file::MapSectionData,
+) -> Row<'a, Message> {
+    let mut nav = Row::new().spacing(4).padding(8);
+    let back_btn = button(
+        text("← Back to Tables").size(12),
+    )
+    .on_press(Message::save_file_viewer(
+        SaveFileViewerMessage::TogglePreview,
+    ))
+    .padding([4, 8]);
+    nav = nav.push(back_btn);
+
+    // Also show entity counts as read-only labels
+    for (kind, base_label) in &ALL_KINDS {
+        let count = kind_count(map, *kind);
+        let label = format!("{} ({})", base_label, count);
+        nav = nav.push(text(label).size(11).padding([4, 8]));
     }
     nav
 }

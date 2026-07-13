@@ -396,6 +396,12 @@ pub struct SaveFileViewerState {
     pub maps_table_states: Vec<HashMap<MapsTableKind, MapTableState>>,
     // Active column-resize drag for a maps table, if any.
     pub maps_resizing: Option<MapsTableResizeDrag>,
+
+    // ── Map preview ────────────────────────────────────────────────────────
+    /// Whether the map preview canvas is shown instead of the entity table.
+    pub show_preview: bool,
+    /// Preview state for the currently selected map (replaced on map switch).
+    pub map_preview: Option<crate::components::map_preview::MapPreviewState>,
 }
 
 impl Default for SaveFileViewerState {
@@ -426,6 +432,8 @@ impl Default for SaveFileViewerState {
             maps_display_caches: Vec::new(),
             maps_table_states: Vec::new(),
             maps_resizing: None,
+            show_preview: false,
+            map_preview: None,
         }
     }
 }

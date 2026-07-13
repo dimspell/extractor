@@ -598,6 +598,19 @@ pub fn resolve_map_id(stem: &str, game_path: &std::path::Path) -> Option<i32> {
         .map(|m| m.id)
 }
 
+/// Resolve an `AllMap.ini` numeric ID to its map filename stem (e.g. `3` → `"cat1"`).
+///
+/// Used by the save-file map preview to locate `.map`/`.gtl`/`.btl` files
+/// from a save file's `MapSectionData.map_id`.
+pub fn resolve_map_filename(map_id: i32, game_path: &std::path::Path) -> Option<String> {
+    use dispel_core::references::all_map_ini::Map as AllMapI;
+    let all_maps = AllMapI::read_file(&game_path.join("AllMap.ini")).ok()?;
+    all_maps
+        .into_iter()
+        .find(|m| m.id == map_id)
+        .map(|m| m.map_filename)
+}
+
 /// Convert a `LoadedSpriteFrame` to `DecodedEntitySprite`.
 fn decoded_from_frame(
     frame: &dispel_core::map::sprite_loader::LoadedSpriteFrame,

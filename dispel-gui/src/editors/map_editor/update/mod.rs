@@ -9,6 +9,7 @@ use std::sync::Arc;
 mod dialog;
 mod entity;
 mod map;
+pub use map::resolve_map_filename;
 mod persistence;
 mod sprite_export;
 
