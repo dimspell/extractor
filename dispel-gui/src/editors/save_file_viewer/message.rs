@@ -29,8 +29,6 @@ pub enum SaveFileViewerMessage {
     MapPreviewLoaded(usize, Result<MapPreviewLoaded, String>),
     /// Async tileset decode completed.
     MapPreviewTilesReady(usize, Result<MapPreviewTiles, String>),
-    /// Precomputed entity markers for the current preview.
-    MapPreviewEntitiesReady(MapPreviewEntityMarkers),
     /// Select which entity sub-table (monsters, NPCs, ground items, etc.) to view.
     SelectEntityKind(MapsTableKind),
     /// Select a row in one of a map's entity tables.
@@ -236,24 +234,36 @@ impl From<ColumnFilterAction> for TableFilterAction {
 // ── Map preview messages ───────────────────────────────────────────────────
 
 /// Async map preview load completed (after `.map` file parse + tileset decode).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MapPreviewLoaded {
     pub map_data: std::sync::Arc<dispel_core::map::MapData>,
     pub diagonal: i32,
     pub map_stem: String,
 }
 
+impl std::fmt::Debug for MapPreviewLoaded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MapPreviewLoaded")
+            .field("diagonal", &self.diagonal)
+            .field("map_stem", &self.map_stem)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Decoded tile pixel data ready from async tileset decode.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MapPreviewTiles {
     pub gtl: std::collections::HashMap<i32, iced::widget::image::Handle>,
     pub btl: std::collections::HashMap<i32, iced::widget::image::Handle>,
 }
 
-/// Precomputed entity markers from the save file (one per map position).
-#[derive(Debug, Clone)]
-pub struct MapPreviewEntityMarkers {
-    pub entities: Vec<crate::components::map_preview::PreviewEntity>,
+impl std::fmt::Debug for MapPreviewTiles {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MapPreviewTiles")
+            .field("gtl_len", &self.gtl.len())
+            .field("btl_len", &self.btl.len())
+            .finish()
+    }
 }
 
 /// Data returned after a successful save file load.

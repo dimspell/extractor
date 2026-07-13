@@ -331,8 +331,8 @@ pub struct DrawItemMiscItem {
     pub unknown_1: Vec<u8>, // 252
     pub misc_item_id: u32,  // 256
     pub unknown_3: u16,  // 258
-    pub unknown_4: u32,  // 262 coord-X
-    pub unknown_5: u32,  // 266 coord-Y
+    pub map_coordinate_x: u32,  // 262 coord-X
+    pub map_coordinate_y: u32,  // 266 coord-Y
     pub unknown_7: u16,  // 268
 }
 

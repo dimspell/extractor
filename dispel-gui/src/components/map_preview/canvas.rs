@@ -4,7 +4,7 @@
 //! Reuses isometric rendering math from `map_editor/canvas/` but inlined here
 //! to avoid extracting shared utilities (oracle recommendation — see map-preview.md).
 
-use crate::components::map_preview::state::{EntityKind, MapPreviewLoading, MapPreviewState, PreviewEntity};
+use crate::components::map_preview::state::{EntityKind, MapPreviewState, PreviewEntity};
 use crate::components::map_preview::PreviewMessage;
 use crate::message::Message;
 use iced::advanced::image::Image as CoreImage;
@@ -64,7 +64,7 @@ impl<'a> canvas::Program<Message> for MapPreviewCanvas<'a> {
             Event::Mouse(MouseEvent::CursorMoved { .. }) => {
                 if interaction.is_dragging {
                     if let Some(last) = interaction.drag_last {
-                        if let Some(pos) = cursor.position_from(bounds.position()) {
+                        if let Some(pos) = cursor.position_in(bounds) {
                             let dx = pos.x - last.x;
                             let dy = pos.y - last.y;
                             interaction.drag_last = Some(pos);

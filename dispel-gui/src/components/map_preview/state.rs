@@ -64,7 +64,7 @@ pub enum PreviewLayer {
 // ── View state ────────────────────────────────────────────────────────────────
 
 /// Viewport and visibility settings for the preview canvas.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MapPreviewViewState {
     /// Pixel pan offset.
     pub pan_x: f32,
@@ -85,6 +85,27 @@ pub struct MapPreviewViewState {
     pub last_canvas_h: f32,
     /// Cached tile-layer frame (avoids redraw on every frame).
     pub tile_cache: canvas::Cache,
+}
+
+impl Clone for MapPreviewViewState {
+    fn clone(&self) -> Self {
+        Self {
+            pan_x: self.pan_x,
+            pan_y: self.pan_y,
+            zoom: self.zoom,
+            show_ground: self.show_ground,
+            show_buildings: self.show_buildings,
+            show_roofs: self.show_roofs,
+            show_internal_sprites: self.show_internal_sprites,
+            show_monsters: self.show_monsters,
+            show_npcs: self.show_npcs,
+            show_extras: self.show_extras,
+            show_draw_items: self.show_draw_items,
+            last_canvas_w: self.last_canvas_w,
+            last_canvas_h: self.last_canvas_h,
+            tile_cache: canvas::Cache::new(),
+        }
+    }
 }
 
 impl Default for MapPreviewViewState {

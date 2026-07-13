@@ -4,7 +4,6 @@ use crate::components::map_preview::canvas::MapPreviewCanvas;
 use crate::components::map_preview::message::PreviewMessage;
 use crate::components::map_preview::state::{MapPreviewLoading, MapPreviewState, PreviewLayer};
 use crate::message::Message;
-use crate::message::MessageExt;
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill};
 
@@ -34,7 +33,7 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                 text("Failed to load map preview")
                     .size(13)
                     .color(iced::Color::from_rgb(0.8, 0.2, 0.2)),
-                text(err.as_str()).size(11).style(iced::Color::from_rgb(0.6, 0.6, 0.6)),
+                text(err.as_str()).size(11).color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
             ]
             .spacing(8)
             .padding(16),

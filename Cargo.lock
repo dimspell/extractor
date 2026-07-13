@@ -21,7 +21,7 @@ checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 [[package]]
 name = "accesskit"
 version = "0.24.1"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "uuid",
 ]
@@ -29,7 +29,7 @@ dependencies = [
 [[package]]
 name = "accesskit_consumer"
 version = "0.37.0"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "hashbrown 0.16.1",
@@ -38,7 +38,7 @@ dependencies = [
 [[package]]
 name = "accesskit_ios"
 version = "0.1.1"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -51,7 +51,7 @@ dependencies = [
 [[package]]
 name = "accesskit_macos"
 version = "0.26.2"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -64,7 +64,7 @@ dependencies = [
 [[package]]
 name = "accesskit_windows"
 version = "0.33.1"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "accesskit_consumer",
@@ -77,7 +77,7 @@ dependencies = [
 [[package]]
 name = "accesskit_winit"
 version = "0.33.1"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "accesskit_ios",
@@ -2161,7 +2161,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -2177,7 +2177,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "bitflags 2.12.1",
@@ -2196,7 +2196,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2206,7 +2206,7 @@ dependencies = [
 [[package]]
 name = "iced_futures"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "futures",
  "iced_core",
@@ -2220,7 +2220,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "bitflags 2.12.1",
  "bytemuck",
@@ -2241,7 +2241,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2250,7 +2250,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2262,7 +2262,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "bytes",
  "iced_core",
@@ -2273,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "iced_selector"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "iced_core",
 ]
@@ -2281,7 +2281,7 @@ dependencies = [
 [[package]]
 name = "iced_test"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "iced_futures",
@@ -2298,7 +2298,7 @@ dependencies = [
 [[package]]
 name = "iced_tiny_skia"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2314,7 +2314,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "bitflags 2.12.1",
  "bytemuck",
@@ -2333,7 +2333,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit",
  "iced_renderer",
@@ -2349,7 +2349,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.15.0-dev"
-source = "git+https://github.com/dimspell/iced?branch=feat%2Fdismpell%2Faccesskit#c665d74f5d345770e8111b6375c5ab41e7a995f2"
+source = "git+https://github.com/dimspell/iced?rev=8c028a7fb5b376c5a0539834a4bcde9eca6ee874#8c028a7fb5b376c5a0539834a4bcde9eca6ee874"
 dependencies = [
  "accesskit_winit",
  "arboard",

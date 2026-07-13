@@ -10,10 +10,7 @@ pub(crate) mod state;
 pub(crate) mod update;
 pub(crate) mod view;
 
-pub use canvas::{MapPreviewCanvas, PreviewCanvasState};
 pub use message::PreviewMessage;
-pub use state::{
-    EntityKind, MapPreviewLoading, MapPreviewState, MapPreviewViewState, PreviewEntity, PreviewLayer,
-};
+pub use state::MapPreviewState;
 pub use update::handle;
 pub use view::view as view_preview;

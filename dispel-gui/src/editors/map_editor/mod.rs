@@ -1,6 +1,6 @@
 // map_editor editor module
 
-mod canvas;
+pub mod canvas;
 mod message;
 mod state;
 mod update;

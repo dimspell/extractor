@@ -39,6 +39,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
         }
         SaveFileViewerMessage::SelectMap(index) => {
             use crate::editors::save_file_viewer::state::MapsTableKind;
+            // Clear preview if switching to a different map while preview is open
+            if state.selected_map != Some(index) {
+                state.show_preview = false;
+                state.map_preview = None;
+            }
             state.selected_map = Some(index);
             state.selected_entity_kind = MapsTableKind::Monsters;
             Task::none()
@@ -64,6 +69,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     Some(sf) => sf.maps.get(map_idx),
                     None => return Task::none(),
                 };
+                let map = match map {
+                    Some(m) => m,
+                    None => return Task::none(),
+                };
                 let map_id = map.map_id;
 
                 // Try to get game path from workspace
@@ -84,14 +93,13 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             None => return Err(format!("No map filename for map_id {}", map_id)),
                         };
                         let map_path = gp.join("Map").join(&stem).with_extension("map");
-                        let bytes = tokio::fs::read(&map_path).await.map_err(|e| {
-                            format!("Failed to read {:?}: {}", map_path, e)
-                        })?;
-                        let (map_data, _) = dispel_core::map::MapData::from_bytes(&bytes)
+                        let file = std::fs::File::open(&map_path)
+                            .map_err(|e| format!("Failed to open {:?}: {}", map_path, e))?;
+                        let mut reader = std::io::BufReader::new(file);
+                        let map_data = dispel_core::map::read_map_data(&mut reader)
                             .map_err(|e| format!("Failed to parse map: {}", e))?;
-                        let diagonal = map_data.model.tiled_map_width.max(
-                            map_data.model.tiled_map_height,
-                        );
+                        let diagonal = map_data.model.tiled_map_width
+                            + map_data.model.tiled_map_height;
 
                         Ok(crate::editors::save_file_viewer::message::MapPreviewLoaded {
                             map_data: std::sync::Arc::new(map_data),
@@ -99,7 +107,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             map_stem: stem,
                         })
                     },
-                    |result| {
+                    move |result| {
                         Message::save_file_viewer(
                             crate::editors::save_file_viewer::message::SaveFileViewerMessage::MapPreviewLoaded(map_idx, result),
                         )
@@ -118,86 +126,125 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 Err(e) => {
                     state.show_preview = false;
                     state.map_preview = None;
-                    // TODO: surface error in status_msg
-                    return Task::none();
+                    return Task::done(Message::System(
+                        crate::message::SystemMessage::ShowError(format!(
+                            "Failed to load map preview: {}",
+                            e
+                        )),
+                    ));
                 }
             };
 
             let game_path = app.state.workspace.game_path.clone();
-            let tiles_dir = game_path.map(|p| p.join("Map"));
 
             use crate::components::map_preview::state::{
-                LoadingState, MapPreviewState, MapPreviewViewState, PreviewEntity,
+                MapPreviewLoading, MapPreviewState, MapPreviewViewState, PreviewEntity,
             };
             let preview_state = MapPreviewState {
                 map_data: Some(loaded.map_data.clone()),
                 diagonal: loaded.diagonal,
-                game_path,
+                game_path: game_path.clone(),
                 view: MapPreviewViewState::default(),
-                loading: LoadingState::Loaded,
-                entities: Vec::new(),
+                loading: MapPreviewLoading::Loaded,
+                entity_markers: Vec::new(),
+                gtl_handles: std::collections::HashMap::new(),
+                btl_handles: std::collections::HashMap::new(),
+                tiles_ready: false,
+                map_stem: Some(loaded.map_stem.clone()),
             };
             state.map_preview = Some(preview_state);
 
             // Build entity markers from save file data (synchronous)
             if let Some(sf) = state.save_file.as_ref() {
                 if let Some(map_data) = &sf.maps.get(map_idx) {
+                    use crate::components::map_preview::state::EntityKind;
                     let mut entities = Vec::new();
+                    /// Safe cast: u32 → i32, clamps to i32 range and warns on overflow.
+                    fn to_tile(v: u32) -> i32 {
+                        if v > i32::MAX as u32 {
+                            eprintln!("WARN: tile coordinate {} exceeds i32 range", v);
+                            0
+                        } else {
+                            v as i32
+                        }
+                    }
+
                     // Monsters (LOW confidence coords)
                     for m in &map_data.monsters {
-                        if m.unknown_8_coordinate != 0 || m.unknown_9_coordinate != 0 {
+                        let x = to_tile(m.unknown_8_coordinate as u32);
+                        let y = to_tile(m.unknown_9_coordinate as u32);
+                        if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
-                                kind: crate::components::map_preview::state::EntityKind::Monster,
+                                kind: EntityKind::Monster,
                                 label: m.name.clone(),
-                                tile_x: m.unknown_8_coordinate as i32,
-                                tile_y: m.unknown_9_coordinate as i32,
+                                tile_x: x,
+                                tile_y: y,
                                 confirmed: false,
                             });
                         }
                     }
                     // NPCs — use waypoint 1 coords (HIGH confidence)
                     for n in &map_data.npcs {
-                        if n.npc_ref_waypoint1x != 0 || n.npc_ref_waypoint1y != 0 {
+                        let x = to_tile(n.npc_ref_waypoint1x);
+                        let y = to_tile(n.npc_ref_waypoint1y);
+                        if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
-                                kind: crate::components::map_preview::state::EntityKind::Npc,
+                                kind: EntityKind::Npc,
                                 label: n.name.clone(),
-                                tile_x: n.npc_ref_waypoint1x as i32,
-                                tile_y: n.npc_ref_waypoint1y as i32,
+                                tile_x: x,
+                                tile_y: y,
                                 confirmed: true,
                             });
                         }
                     }
                     // Extra objects (LOW confidence coords)
                     for e in &map_data.extra_objects {
-                        // unknown_33 = x coord, unknown_35 = y coord in save file extra records
-                        if e.unknown_33 != 0 || e.unknown_35 != 0 {
+                        let x = to_tile(e.unknown_33);
+                        let y = to_tile(e.unknown_35);
+                        if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
-                                kind: crate::components::map_preview::state::EntityKind::Extra,
+                                kind: EntityKind::Extra,
                                 label: e.name.clone(),
-                                tile_x: e.unknown_33 as i32,
-                                tile_y: e.unknown_35 as i32,
+                                tile_x: x,
+                                tile_y: y,
                                 confirmed: false,
                             });
                         }
                     }
-                    // Draw items — use map_coordinate_x/y (HIGH confidence)
-                    for items in [
-                        map_data.draw_items_weapon.as_slice(),
-                        map_data.draw_items_heal.as_slice(),
-                        map_data.draw_items_edit.as_slice(),
-                        map_data.draw_items_misc.as_slice(),
-                        map_data.draw_items_event.as_slice(),
-                    ] {
-                        for d in items {
-                            if d.map_coordinate_x != 0 || d.map_coordinate_y != 0 {
-                                entities.push(PreviewEntity {
-                                    kind: crate::components::map_preview::state::EntityKind::DrawItem,
-                                    label: d.name.clone(),
-                                    tile_x: d.map_coordinate_x as i32,
-                                    tile_y: d.map_coordinate_y as i32,
-                                    confirmed: true,
-                                });
-                            }
+                    // Draw items — map_coordinate_x/y per type (HIGH confidence)
+                    for d in &map_data.draw_items_weapon {
+                        let x = to_tile(d.map_coordinate_x);
+                        let y = to_tile(d.map_coordinate_y);
+                        if x != 0 || y != 0 {
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                        }
+                    }
+                    for d in &map_data.draw_items_heal {
+                        let x = to_tile(d.map_coordinate_x);
+                        let y = to_tile(d.map_coordinate_y);
+                        if x != 0 || y != 0 {
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                        }
+                    }
+                    for d in &map_data.draw_items_edit {
+                        let x = to_tile(d.map_coordinate_x);
+                        let y = to_tile(d.map_coordinate_y);
+                        if x != 0 || y != 0 {
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                        }
+                    }
+                    for d in &map_data.draw_items_misc {
+                        let x = to_tile(d.map_coordinate_x);
+                        let y = to_tile(d.map_coordinate_y);
+                        if x != 0 || y != 0 {
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                        }
+                    }
+                    for d in &map_data.draw_items_event {
+                        let x = to_tile(d.map_coordinate_x);
+                        let y = to_tile(d.map_coordinate_y);
+                        if x != 0 || y != 0 {
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
                         }
                     }
                     if let Some(preview) = state.map_preview.as_mut() {
@@ -206,59 +253,40 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 }
             }
 
-            // Kick off async tileset decoding
-            let Some(gtl_data) = loaded.map_data.model.gtl_data.as_ref() else {
-                return Task::none();
+            // Derive gtl/btl paths and kick off async tileset decoding
+            let map_path = match game_path {
+                Some(ref gp) => gp.join("Map").join(&loaded.map_stem).with_extension("map"),
+                None => return Task::none(),
             };
-            let Some(btl_data) = loaded.map_data.model.btl_data.as_ref() else {
-                return Task::none();
-            };
+            let gtl_path = map_path.with_extension("gtl");
+            let btl_path = map_path.with_extension("btl");
 
-            let gtl_clone = gtl_data.clone();
-            let btl_clone = btl_data.clone();
+            use std::collections::HashSet;
+            use std::collections::HashMap;
+
+            let gtl_ids: HashSet<i32> = loaded.map_data.gtl_tiles.values().copied().collect();
+            let btl_ids: HashSet<i32> = loaded.map_data.btl_tiles.values().copied().collect();
+
             let task = iced::Task::perform(
                 async move {
-                    use dispel_core::sprite::Color;
                     use iced::widget::image::Handle;
+                    use crate::editors::map_editor::canvas::decode::decode_tileset_file;
 
-                    let decode_tiles =
-                        |data: &[u8]| -> std::collections::HashMap<i32, Handle> {
-                            let mut map = std::collections::HashMap::new();
-                            let tile_count = data.len() / (32 * 32 * 2);
-                            for i in 0..tile_count {
-                                let offset = i * 32 * 32 * 2;
-                                if offset + 32 * 32 * 2 > data.len() {
-                                    break;
-                                }
-                                let tile_bytes = &data[offset..offset + 32 * 32 * 2];
-                                let mut rgba = Vec::with_capacity(32 * 32 * 4);
-                                for chunk in tile_bytes.chunks_exact(2) {
-                                    let pixel = Color::from_rgb565(
-                                        (chunk[1] as u16) << 8 | chunk[0] as u16,
-                                    );
-                                    rgba.extend_from_slice(&pixel.to_rgba());
-                                }
-                                map.insert(i as i32, Handle::from_rgba(32, 32, rgba));
-                            }
-                            map
-                        };
+                    let gtl_raw = decode_tileset_file(&gtl_path, &gtl_ids).unwrap_or_default();
+                    let btl_raw = decode_tileset_file(&btl_path, &btl_ids).unwrap_or_default();
 
-                    use dispel_core::Extractor;
-                    let gtl_tiles = match &gtl_clone[..] {
-                        [] | [0, ..] => std::collections::HashMap::new(),
-                        _ => decode_tiles(gtl_clone),
-                    };
-                    let btl_tiles = match &btl_clone[..] {
-                        [] | [0, ..] => std::collections::HashMap::new(),
-                        _ => decode_tiles(btl_clone),
-                    };
+                    let gtl: HashMap<i32, Handle> = gtl_raw
+                        .into_iter()
+                        .map(|(id, px)| (id, Handle::from_rgba(62, 32, px)))
+                        .collect();
+                    let btl: HashMap<i32, Handle> = btl_raw
+                        .into_iter()
+                        .map(|(id, px)| (id, Handle::from_rgba(62, 32, px)))
+                        .collect();
 
-                    crate::editors::save_file_viewer::message::MapPreviewTiles {
-                        gtl: gtl_tiles,
-                        btl: btl_tiles,
-                    }
+                    crate::editors::save_file_viewer::message::MapPreviewTiles { gtl, btl }
                 },
-                |tiles| {
+                move |tiles| {
                     Message::save_file_viewer(
                         crate::editors::save_file_viewer::message::SaveFileViewerMessage::MapPreviewTilesReady(map_idx, Ok(tiles)),
                     )
@@ -279,10 +307,6 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 preview.btl_handles = tiles.btl;
                 preview.tiles_ready = true;
             }
-            Task::none()
-        }
-        SaveFileViewerMessage::MapPreviewEntitiesReady(_markers) => {
-            // Currently computed synchronously in MapPreviewLoaded handler
             Task::none()
         }
         SaveFileViewerMessage::MapsTableSelect {
@@ -1184,8 +1208,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                         hex_bytes(&d.unknown_1),
                                         d.misc_item_id.to_string(),
                                         d.unknown_3.to_string(),
-                                        d.unknown_4.to_string(),
-                                        d.unknown_5.to_string(),
+                                        d.map_coordinate_x.to_string(),
+                                        d.map_coordinate_y.to_string(),
                                         d.unknown_7.to_string(),
                                     ]
                                 }).collect(),

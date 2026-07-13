@@ -2,8 +2,9 @@
 
 use crate::components::map_preview::message::PreviewMessage;
 use crate::components::map_preview::state::{MapPreviewState, PreviewLayer};
-use iced::widget::canvas;
+use crate::message::Message;
 use iced::Task;
+
 
 pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message> {
     match msg {

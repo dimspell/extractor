@@ -78,17 +78,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 }
                 None => {
                     let mut start_btn = button(text("Load Preview").size(13));
-                    let game_path_ok = state
-                        .map_preview
-                        .as_ref()
-                        .and_then(|p| p.game_path.as_ref())
-                        .is_some()
-                        || true; // will check on press
-                    if game_path_ok {
-                        start_btn = start_btn.on_press(
-                            Message::save_file_viewer(SaveFileViewerMessage::TogglePreview),
-                        );
-                    }
+                    // Always render clickable; TogglePreview guards game_path
+                    start_btn = start_btn.on_press(
+                        Message::save_file_viewer(SaveFileViewerMessage::TogglePreview),
+                    );
                     let content = Column::<Message>::new()
                         .push(sub_nav)
                         .push(
@@ -180,6 +173,14 @@ fn build_sub_nav<'a>(
             .padding([4, 8]),
         );
     }
+    // Preview button (always visible; TogglePreview guards game_path)
+    nav = nav.push(
+        button(text("🗺 Map Preview").size(12))
+            .on_press(Message::save_file_viewer(
+                SaveFileViewerMessage::TogglePreview,
+            ))
+            .padding([4, 8]),
+    );
     nav
 }
 
@@ -201,7 +202,7 @@ fn build_sub_nav_preview<'a>(
     for (kind, base_label) in &ALL_KINDS {
         let count = kind_count(map, *kind);
         let label = format!("{} ({})", base_label, count);
-        nav = nav.push(text(label).size(11).padding([4, 8]));
+        nav = nav.push(container(text(label).size(11)).padding([4, 8]));
     }
     nav
 }
