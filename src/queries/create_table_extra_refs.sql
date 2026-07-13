@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS extra_refs
     file_id   INTEGER NOT NULL REFERENCES extra_ref_files(id),
     id                       INTEGER,
     number_in_file           INTEGER,
-    unknown1                 INTEGER,
     ext_id                   INTEGER REFERENCES extras(id) ON DELETE SET NULL,
     name                     TEXT,
     object_type              INTEGER,

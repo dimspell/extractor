@@ -22,11 +22,8 @@ pub struct ExtraRef {
     #[extractor(id)]
     pub id: i32,
     /// Linear parsing index.
-    #[extractor(primitive(type = "u8"))]
-    pub number_in_file: u8,
-    /// Unrecognized (always zero).
-    #[extractor(padding(count = 1, type = "u8"))]
-    pub unknown1: u8,
+    #[extractor(primitive(type = "u16"))]
+    pub number_in_file: u16,
     /// Mapping ID linked backwards derived from Extra.ini.
     #[extractor(primitive(type = "u8"))]
     pub ext_id: u8,
@@ -178,7 +175,6 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 file_id,                  // 1
                 extra_ref.id,             // 2
                 extra_ref.number_in_file, // 3
-                extra_ref.unknown1,       // 4
                 if extra_ref.ext_id > 0 {
                     Some(extra_ref.ext_id)
                 } else {

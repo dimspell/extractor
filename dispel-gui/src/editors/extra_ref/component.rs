@@ -8,7 +8,7 @@ use crate::editable_record_fields;
 
 editable_record_fields!(ExtraRef, {
     { id = Integer / "ID:" },
-    { unknown1 = Integer / "Unknown 1:" },
+    { number_in_file = Integer / "Number in file:" },
     { ext_id = Integer / "Extra ID:" },
     { name = String / "Name:" },
     { object_type = Enum(ExtraObjectType, ["Chest", "Door", "Sign", "Altar", "Interactive", "Magic", "Unknown"]) / "Type:" },

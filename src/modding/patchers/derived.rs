@@ -387,14 +387,4 @@ mod tests {
         assert_eq!(recs[1].name, "Hero");
         assert_eq!(recs[0].name, "Guard Bob");
     }
-
-    #[test]
-    fn extra_ref_padding_field_rejected() {
-        // unknown1 is declared as `padding(...)` in the struct.
-        let p = crate::modding::patchers::ExtraRefPatcher;
-        let err = p
-            .apply_field(&extra_ref_blob(), 0, "unknown1", &Value::I64(0))
-            .unwrap_err();
-        assert!(err.to_string().contains("synthetic padding"));
-    }
 }
