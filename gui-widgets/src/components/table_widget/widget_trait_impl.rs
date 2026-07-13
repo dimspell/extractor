@@ -11,6 +11,8 @@ use iced::advanced::Shell;
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
+#[cfg(feature = "accessibility")]
+use iced::advanced::graphics::core::accessibility::accesskit;
 use std::borrow::Cow;
 
 // =========================================================================
@@ -666,7 +668,6 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         action: &accesskit::ActionRequest,
         shell: &mut Shell<'_, Message>,
     ) {
-        use accesskit;
         eprintln!(
             "[VO DEBUG] accessibility_action called action={:?} target={}",
             action.action, action.target_node.0,
