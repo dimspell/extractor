@@ -170,8 +170,8 @@ impl MapsTableKind {
             ],
             Misc => &[
                 ("name", 160.0), ("description", 160.0), ("base_price", 60.0),
-                ("unknown_1", 320.0), ("unknown_2", 60.0), ("unknown_3", 60.0),
-                ("unknown_4", 60.0), ("unknown_5", 60.0), ("unknown_7", 60.0),
+                ("unknown_1", 320.0), ("misc_item_id", 60.0), ("map_coordinate_x", 60.0),
+                ("map_coordinate_y", 60.0), ("unknown_7", 60.0),
             ],
             Event => &[
                 ("name", 160.0), ("description", 160.0), ("base_price", 60.0),

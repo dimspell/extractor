@@ -1207,7 +1207,6 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                         d.base_price.to_string(),
                                         hex_bytes(&d.unknown_1),
                                         d.misc_item_id.to_string(),
-                                        d.unknown_3.to_string(),
                                         d.map_coordinate_x.to_string(),
                                         d.map_coordinate_y.to_string(),
                                         d.unknown_7.to_string(),
