@@ -591,6 +591,7 @@ pub struct PostMapsData {
     pub unknown_block: Vec<u8>,
     pub number_of_visited_maps: u32,
     pub map_ids: Vec<u32>,
+    pub unknown_c: [u32; 4],
 }
 
 /// Unknown data block between events and journal sections.
@@ -803,14 +804,14 @@ impl SaveFile {
         let maybe_save_slot_id= reader.read_u32::<LittleEndian>()?;
         let game_version = reader.read_f32::<LittleEndian>()?;
         let header = [
-            reader.read_u32::<LittleEndian>()?, // 2: observed 4
-            reader.read_u32::<LittleEndian>()?, // 3: observed 8
-            reader.read_u32::<LittleEndian>()?, // 4: observed 0
-            reader.read_u32::<LittleEndian>()?, // 5: monster_block_size (observed 329)
-            reader.read_u32::<LittleEndian>()?, // 6: npc_block_size (observed 349)
-            reader.read_u32::<LittleEndian>()?, // 7: observed 0
-            reader.read_u32::<LittleEndian>()?, // 8: extra_object_block_size (observed 200)
-            reader.read_u32::<LittleEndian>()?, // 9: number of visited map
+            reader.read_u32::<LittleEndian>()?, // 0: observed 4 or 6
+            reader.read_u32::<LittleEndian>()?, // 1: observed 8 or 12
+            reader.read_u32::<LittleEndian>()?, // 2: observed 0
+            reader.read_u32::<LittleEndian>()?, // 3: monster_block_size (observed 329)
+            reader.read_u32::<LittleEndian>()?, // 4: npc_block_size (observed 349)
+            reader.read_u32::<LittleEndian>()?, // 5: observed 0
+            reader.read_u32::<LittleEndian>()?, // 6: extra_object_block_size (observed 200)
+            reader.read_u32::<LittleEndian>()?, // 7: number of visited maps
         ];
 
         let mut map_ids = vec![0u32; num_visited_maps as usize];
@@ -819,7 +820,14 @@ impl SaveFile {
             map_ids[i] = map_id;
         }
 
-        let remainder = 10148;
+        let unknown_c = [
+            reader.read_u32::<LittleEndian>()?, // 0: observed 128
+            reader.read_u32::<LittleEndian>()?, // 0: observed 64
+            reader.read_u32::<LittleEndian>()?, // 0: observed 768
+            reader.read_u32::<LittleEndian>()?, // 0: observed 544
+        ];
+
+        let remainder = 10132;
         let mut unknown_block = vec![0u8; remainder];
         reader.read_exact(&mut unknown_block)?;
 
@@ -832,6 +840,7 @@ impl SaveFile {
             extra_object_block_size: header[6],
             unknown_b: header[5],
             number_of_visited_maps: header[7],
+            unknown_c,
             map_ids,
             unknown_block,
         })
