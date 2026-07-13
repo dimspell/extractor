@@ -590,6 +590,7 @@ pub struct PostMapsData {
     /// The rest of the section after the header.
     pub unknown_block: Vec<u8>,
     pub number_of_visited_maps: u32,
+    pub map_ids: Vec<u32>,
 }
 
 /// Unknown data block between events and journal sections.
@@ -812,7 +813,13 @@ impl SaveFile {
             reader.read_u32::<LittleEndian>()?, // 9: number of visited map
         ];
 
-        let remainder = (10188 + 4 * num_visited_maps as usize) - 40;
+        let mut map_ids = vec![0u32; num_visited_maps as usize];
+        for i in 0..num_visited_maps as usize {
+            let map_id = reader.read_u32::<LittleEndian>()?;
+            map_ids[i] = map_id;
+        }
+
+        let remainder = 10148;
         let mut unknown_block = vec![0u8; remainder];
         reader.read_exact(&mut unknown_block)?;
 
@@ -825,6 +832,7 @@ impl SaveFile {
             extra_object_block_size: header[8],
             unknown_b: header[7],
             number_of_visited_maps: header[9],
+            map_ids,
             unknown_block,
         })
     }
