@@ -576,7 +576,7 @@ pub struct PostMapsData {
     /// Possibly the save slot index.
     pub save_slot_id: u32,
     /// Possibly a Win32 timestamp of when this save was created.
-    pub save_timestamp: u32,
+    pub game_version: f32,
     /// 3 unknown u32 values (observed: 4, 8, 0).
     pub unknowns_a: [u32; 3],
     /// Possibly the size of the monster data block within the remainder.
@@ -800,9 +800,9 @@ impl SaveFile {
         reader: &mut R,
         num_visited_maps: u32,
     ) -> std::io::Result<PostMapsData> {
+        let maybe_save_slot_id= reader.read_u32::<LittleEndian>()?;
+        let game_version = reader.read_f32::<LittleEndian>()?;
         let header = [
-            reader.read_u32::<LittleEndian>()?, // 0: maybe save_slot_id
-            reader.read_u32::<LittleEndian>()?, // 1: maybe save_timestamp
             reader.read_u32::<LittleEndian>()?, // 2: observed 4
             reader.read_u32::<LittleEndian>()?, // 3: observed 8
             reader.read_u32::<LittleEndian>()?, // 4: observed 0
@@ -824,14 +824,14 @@ impl SaveFile {
         reader.read_exact(&mut unknown_block)?;
 
         Ok(PostMapsData {
-            save_slot_id: header[0],
-            save_timestamp: header[1],
-            unknowns_a: [header[2], header[3], header[4]],
-            monster_block_size: header[5],
-            npc_block_size: header[6],
-            extra_object_block_size: header[8],
-            unknown_b: header[7],
-            number_of_visited_maps: header[9],
+            save_slot_id: maybe_save_slot_id,
+            game_version,
+            unknowns_a: [header[0], header[1], header[2]],
+            monster_block_size: header[3],
+            npc_block_size: header[4],
+            extra_object_block_size: header[6],
+            unknown_b: header[5],
+            number_of_visited_maps: header[7],
             map_ids,
             unknown_block,
         })
