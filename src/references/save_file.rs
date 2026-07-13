@@ -312,7 +312,7 @@ pub struct InventoryMiscItem {
     pub base_price: u32,
     #[binary_record(size = 16)]
     pub unknown_1: Vec<u8>,
-    pub unknown_2: u32,
+    pub misc_item_id: u32, // misc_item_id
     pub unknown_3: u16,
     pub unknown_4: u16, // 260
     pub unknown_5: u8,  // inventory position
@@ -329,7 +329,7 @@ pub struct DrawItemMiscItem {
     pub base_price: u32, // 236
     #[binary_record(size = 16)]
     pub unknown_1: Vec<u8>, // 252
-    pub unknown_2: u32,  // 256
+    pub misc_item_id: u32,  // 256
     pub unknown_3: u16,  // 258
     pub unknown_4: u32,  // 262 coord-X
     pub unknown_5: u32,  // 266 coord-Y
