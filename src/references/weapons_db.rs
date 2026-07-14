@@ -144,7 +144,7 @@ pub struct WeaponItem {
     pub durability: i16,
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
-    pub padding2: i16,
+    pub padding2: i16, // likely an extra effect here (a drain / fire attack)
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
     pub padding3: i16,

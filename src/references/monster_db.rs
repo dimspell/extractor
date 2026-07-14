@@ -201,7 +201,7 @@ pub struct Monster {
     /// Length special effect lingers.
     #[extractor(primitive(type = "i32"))]
     pub special_attack_duration: i32,
-    /// Courage metric defining retreat threshold.
+    /// Courage metric defining a retreat threshold.
     #[extractor(primitive(type = "i32"))]
     pub boldness: i32,
     /// Delay ticks between swings.
