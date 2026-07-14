@@ -1,7 +1,7 @@
 //! Right-hand inspector pane — one input widget per field of the
 //! currently-selected record.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use iced::widget::{
     button, column, container, pick_list, row, scrollable, text, text_input, Column,
@@ -46,22 +46,9 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
-    // Collect CompositeItem id_field names so we can skip them.
-    let composite_id_fields: HashSet<&'static str> = descriptors
-        .iter()
-        .filter_map(|d| match &d.kind {
-            FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
-            _ => None,
-        })
-        .collect();
-
     if let Some(orig_idx) = spreadsheet.selected_orig {
         if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
             for desc in descriptors.iter() {
-                // Skip fields that are id_field companions of a CompositeItem
-                if composite_id_fields.contains(&desc.name) {
-                    continue;
-                }
                 let value = record.get_field(desc.name);
                 let validation_error = record.validate_field(desc.name, &value);
                 fields = fields.push(build_inspector_field(
@@ -178,13 +165,10 @@ fn build_inspector_field<'a>(
                 .width(Length::Fill)
                 .into()
         }
-        FieldKind::CompositeItem {
-            lookup_key,
-            id_field,
-        } => {
+        FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
             let field_name = descriptor.name.to_string();
-            composite_item_picker(descriptor.label, &value, id_field, entries, move |v| {
+            composite_item_picker(descriptor.label, &value, entries, move |v| {
                 spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                     orig_idx,
                     field_name.clone(),

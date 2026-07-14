@@ -716,8 +716,8 @@ mod tests {
         for d in &map1.draw_items {
             assert_eq!(d.map_id, 0, "all draw items belong to map1");
             assert_eq!(
-                d.item_type,
-                dispel_core::references::enums::ItemTypeId::Event
+                d.item.item_type(),
+                Some(dispel_core::references::enums::ItemTypeId::Event)
             );
         }
 

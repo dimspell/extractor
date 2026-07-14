@@ -139,10 +139,10 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             );
                             if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                 let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                let color = draw_item_color(di.item_type);
+                                let color = draw_item_color(di.item.item_type().unwrap_or(dispel_core::ItemTypeId::Other));
                                 let r = 6.0 * zoom;
                                 frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
-                                let label = di.item_id.to_string();
+                                let label = di.item.item_id().to_string();
                                 let label_size = (9.0 * zoom).max(6.0);
                                 frame.fill_text(CanvasText {
                                     content: label,

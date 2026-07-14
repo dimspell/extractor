@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
+    BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012,
+    Unknown0to7,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
@@ -206,11 +207,8 @@ pub struct NPC {
     #[extractor(enum_from_i32(type = "Unknown012"))]
     pub unknown_17: Unknown012,
     /// Unknown item reference.
-    #[extractor(primitive(type = "u8"))]
-    pub unknown_item_id: u8,
-    /// Unknown item reference.
-    #[extractor(enum_from_u8(type = "ItemTypeId"))]
-    pub unknown_item_type: ItemTypeId,
+    #[extractor(inventory_item(wire_type = "i16"))]
+    pub unknown_item: InventoryItem,
     // Padding
     #[extractor(primitive(type = "i16"))]
     pub unknown_18: i16,
@@ -288,8 +286,10 @@ pub fn save_npc_refs(
                 npc.unknown_15,
                 npc.unknown_16,
                 i32::from(npc.unknown_17),
-                npc.unknown_item_id,
-                u8::from(npc.unknown_item_type),
+                npc.unknown_item.item_id() as i32,
+                u8::from(npc.unknown_item.item_type()
+                    .unwrap_or(ItemTypeId::Other)) as i32,
+                npc.unknown_item.raw(),
                 i32::from(npc.unknown_19),
                 dialog_file_id,
                 if npc.dialog_id == 0 {

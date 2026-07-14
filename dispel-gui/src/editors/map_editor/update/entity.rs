@@ -309,8 +309,7 @@ mod tests {
             map_id: 0,
             x_coord: 10,
             y_coord: 20,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 5,
+            item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Event, 5),
         }];
         // Also need a tab in workspace so set_tab_modified doesn't silently skip
         app.state

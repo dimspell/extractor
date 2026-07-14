@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldKind};
@@ -20,18 +20,8 @@ pub fn build_record_fields<'a, R: EditableRecord>(
     lookups: &'a HashMap<String, Vec<(String, String)>>,
 ) -> Element<'a, Message> {
     let mut col = column![].spacing(5);
-    let composite_id_fields: HashSet<&'static str> = R::field_descriptors()
-        .iter()
-        .filter_map(|d| match &d.kind {
-            FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
-            _ => None,
-        })
-        .collect();
 
     for desc in R::field_descriptors() {
-        if composite_id_fields.contains(&desc.name) {
-            continue;
-        }
         let value = record.get_field(desc.name);
         col = col.push(inspector_field_row(
             desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,
@@ -163,12 +153,9 @@ pub fn inspector_field_row<'a>(
             .into()
         }
 
-        FieldKind::CompositeItem {
-            lookup_key,
-            id_field,
-        } => {
+        FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
-            composite_item_picker(label, value, id_field, entries, move |v| {
+            composite_item_picker(label, value, entries, move |v| {
                 Message::map_editor(MapEditorMessage::EntityFieldChanged(
                     tab_id,
                     sel,

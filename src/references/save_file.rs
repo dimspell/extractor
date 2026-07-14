@@ -63,9 +63,12 @@ pub struct MonsterRecord {
     pub unknown_20: i32,
     pub unknown_21: u32,
     pub unknown_22: u32,
-    pub loot_item1: i32,
-    pub loot_item2: i32,
-    pub loot_item3: i32,
+    #[binary_record(inventory_item(wire_type = "i32"))]
+    pub loot_item1: crate::references::enums::InventoryItem,
+    #[binary_record(inventory_item(wire_type = "i32"))]
+    pub loot_item2: crate::references::enums::InventoryItem,
+    #[binary_record(inventory_item(wire_type = "i32"))]
+    pub loot_item3: crate::references::enums::InventoryItem,
     pub mon_ref_padding_12: u32,
     pub mon_ref_padding_13: u32,
     pub unknown_23: u32,

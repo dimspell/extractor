@@ -40,6 +40,7 @@ CREATE TABLE npc_refs
     unknown_17              INTEGER,
     unknown_item_id         INTEGER,
     unknown_item_type       INTEGER,
+    unknown_item_raw        INTEGER,
     unknown_19              INTEGER,
     dialog_file_id          INTEGER NOT NULL REFERENCES dialogue_script_files(id),
     dialog_id               INTEGER,

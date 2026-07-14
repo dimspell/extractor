@@ -165,9 +165,7 @@ check_record!(
     src "src/references/draw_item.rs",
     struct "DrawItem",
     virtual_desc [],
-    skip_fields [
-        "item_id"    // paired with CompositeItem("items", item_id)
-    ]
+    skip_fields []
 );
 
 check_record!(
@@ -226,10 +224,7 @@ check_record!(
     struct "ExtraRef",
     virtual_desc [],
     skip_fields [
-        "number_in_file",
-        "required_item_id",
-        "required_item_id2",
-        "item_id"
+        "number_in_file"
     ]
 );
 
@@ -401,10 +396,7 @@ check_record!(
     struct "MonsterRef",
     virtual_desc [],
     skip_fields [
-        "index",
-        "loot1_item_id",
-        "loot2_item_id",
-        "loot3_item_id"
+        "index"
     ]
 );
 
@@ -414,7 +406,8 @@ check_record!(
     src "src/references/npc_ini.rs",
     struct "NpcIni",
     virtual_desc [],
-    skip_fields []
+    skip_fields [
+    ]
 );
 
 check_record!(
@@ -424,8 +417,7 @@ check_record!(
     struct "NPC",
     virtual_desc [],
     skip_fields [
-        "index",
-        "unknown_item_id"
+        "index"
     ]
 );
 

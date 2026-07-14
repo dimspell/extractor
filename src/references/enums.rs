@@ -704,6 +704,68 @@ pub enum ItemTypeId {
     Other = 255,
 }
 
+/// Encodes an inventory item as a packed `i32`.
+///
+/// Wire encoding varies by format:
+/// - **u16** (ExtraRef, NPC): low byte = item_id, high byte = item_type
+/// - **i32** (MonsterRef): low 16 bits = item, high 16 bits = padding preserved
+/// - **i32** (DrawItem CSV): low byte = item_id, second byte = item_type
+///
+/// `-1` / `0xFFFF` is the "empty" sentinel — `is_empty()` checks the low 16 bits.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InventoryItem(i32);
+
+impl InventoryItem {
+    /// Create a new inventory item from a type and ID (encodes into low 16 bits).
+    pub fn new(item_type: ItemTypeId, item_id: u8) -> Self {
+        Self(i32::from(u8::from(item_type)) << 8 | i32::from(item_id))
+    }
+
+    /// The numeric item ID (low byte of the encoded value).
+    pub fn item_id(self) -> u8 {
+        (self.0 as u16 & 0xFF) as u8
+    }
+
+    /// The item type (decoded from the second byte).
+    pub fn item_type(self) -> Option<ItemTypeId> {
+        ItemTypeId::from_u8(((self.0 as u16) >> 8) as u8)
+    }
+
+    /// True when the item slot is empty (low 16 bits == `0xFFFF`).
+    pub fn is_empty(self) -> bool {
+        (self.0 as u16) == 0xFFFF
+    }
+
+    /// The raw `i32` wire value.
+    pub fn raw(self) -> i32 {
+        self.0
+    }
+}
+
+impl From<u16> for InventoryItem {
+    fn from(value: u16) -> Self {
+        Self(value as i32)
+    }
+}
+
+impl From<i16> for InventoryItem {
+    fn from(value: i16) -> Self {
+        Self(value as i32)
+    }
+}
+
+impl From<i32> for InventoryItem {
+    fn from(value: i32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<InventoryItem> for i32 {
+    fn from(item: InventoryItem) -> Self {
+        item.0
+    }
+}
+
 impl ItemTypeId {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {

@@ -95,6 +95,25 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 },
             },
             FieldInfo::Primitive { ident, ty } => primitive_arm(&field_name, ident, &ty),
+            FieldInfo::InventoryItem { ident, .. } => {
+                let field_name_str = field_name.clone();
+                quote! {
+                    #field_name_str => match new {
+                        crate::modding::value::Value::I64(v) => {
+                            rec.#ident = crate::references::enums::InventoryItem::from(*v as i32);
+                        }
+                        crate::modding::value::Value::String(s) => match s.trim().parse::<i32>() {
+                            Ok(v) => rec.#ident = crate::references::enums::InventoryItem::from(v),
+                            Err(_) => return Err(crate::modding::patcher::wrong_type(
+                                Self::RECORD_NAME, #field_name_str, "i32", new,
+                            )),
+                        },
+                        _ => return Err(crate::modding::patcher::wrong_type(
+                            Self::RECORD_NAME, #field_name_str, "i32", new,
+                        )),
+                    },
+                }
+            },
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
                 enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
             }

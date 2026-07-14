@@ -9,13 +9,11 @@ use crate::style;
 
 /// Build a cascading item-type + item-id picker for `CompositeItem` fields.
 ///
-/// Renders two pick-lists (type then item) plus a read-only `id_field` label.
-/// Falls back to a plain `text_input` when `entries` is `None` (lookups
-/// unavailable).
+/// Renders two pick-lists (type then item). Falls back to a plain `text_input`
+/// when `entries` is `None` (lookups unavailable).
 pub fn composite_item_picker(
     label: &'static str,
     value: &str,
-    id_field: &'static str,
     entries: Option<&[(String, String)]>,
     on_change: impl Fn(String) -> Message + 'static,
 ) -> Element<'static, Message> {
@@ -127,13 +125,5 @@ pub fn composite_item_picker(
             .into()
     };
 
-    col![
-        type_picker,
-        item_picker,
-        text(format!("{}: {}", id_field, value))
-            .size(10)
-            .style(style::subtle_text)
-    ]
-    .spacing(4)
-    .into()
+    col![type_picker, item_picker].spacing(4).into()
 }

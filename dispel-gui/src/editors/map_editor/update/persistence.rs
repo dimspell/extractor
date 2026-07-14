@@ -409,22 +409,19 @@ mod tests {
                 map_id: 0,
                 x_coord: 10,
                 y_coord: 20,
-                item_type: dispel_core::references::enums::ItemTypeId::Event,
-                item_id: 1,
+                item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Event, 1),
             },
             DrawItem {
                 map_id: 0,
                 x_coord: 30,
                 y_coord: 40,
-                item_type: dispel_core::references::enums::ItemTypeId::Event,
-                item_id: 2,
+                item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Event, 2),
             },
             DrawItem {
                 map_id: 10,
                 x_coord: 50,
                 y_coord: 60,
-                item_type: dispel_core::references::enums::ItemTypeId::Weapon,
-                item_id: 3,
+                item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Weapon, 3),
             },
         ];
         DrawItem::save_file(&items, &path).expect("save fixture");
@@ -447,15 +444,13 @@ mod tests {
             map_id: 0,
             x_coord: 99,
             y_coord: 20,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 1,
+            item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Event, 1),
         });
         all.push(DrawItem {
             map_id: 0,
             x_coord: 30,
             y_coord: 88,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 2,
+            item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Event, 2),
         });
         DrawItem::save_file(&all, &path).expect("save merged");
 
@@ -497,8 +492,7 @@ mod tests {
             map_id: 5,
             x_coord: 1,
             y_coord: 2,
-            item_type: dispel_core::references::enums::ItemTypeId::Healing,
-            item_id: 99,
+            item: dispel_core::InventoryItem::new(dispel_core::references::enums::ItemTypeId::Healing, 99),
         });
         DrawItem::save_file(&all, &path).expect("save merged");
 
@@ -521,8 +515,7 @@ mod tests {
             assert_eq!(a.map_id, b.map_id);
             assert_eq!(a.x_coord, b.x_coord);
             assert_eq!(a.y_coord, b.y_coord);
-            assert_eq!(a.item_id, b.item_id);
-            assert_eq!(a.item_type, b.item_type);
+            assert_eq!(a.item.raw(), b.item.raw());
         }
     }
 }

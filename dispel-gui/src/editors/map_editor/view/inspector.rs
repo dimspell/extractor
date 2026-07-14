@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use crate::components::editable::{EditableRecord, FieldKind};
+use crate::components::editable::EditableRecord;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::{Message, MessageExt};
 use crate::style;
@@ -34,18 +34,8 @@ pub fn build_inspector<'a>(
             let body: Element<'_, Message> = if let Some(record) = state.data.npcs.get(i) {
                 // Collect field elements + button into a single column
                 // (avoids iced's lifetime-invariance issues with push).
-                let composite_id_fields: HashSet<&'static str> = NPC::field_descriptors()
-                    .iter()
-                    .filter_map(|d| match &d.kind {
-                        FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
-                        _ => None,
-                    })
-                    .collect();
                 let mut els: Vec<Element<'_, Message>> = Vec::new();
                 for desc in NPC::field_descriptors() {
-                    if composite_id_fields.contains(&desc.name) {
-                        continue;
-                    }
                     let value = record.get_field(desc.name);
                     els.push(fields::inspector_field_row(
                         desc.label, desc.name, &desc.kind, &value, tab_id, sel, lookups,

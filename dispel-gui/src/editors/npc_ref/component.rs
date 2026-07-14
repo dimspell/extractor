@@ -44,7 +44,7 @@ editable_record_fields!(NPC, {
     { unknown_16 = Integer / "Unknown 16:" },
     { unknown_17 = DispEnum(Unknown012, ["0", "1", "2"]) / "Unknown 17:" },
     { unknown_18 = Integer / "Unknown 18:" },
-    { unknown_item_type = CompositeItem("items", unknown_item_id) / "Unknown Item:" },
+    { unknown_item = CompositeItem("items") / "Unknown Item:" },
     { unknown_19 = DispEnum(Unknown0110, ["0", "1", "10"]) / "Unknown 19:" },
     { dialog_id = Integer / "Dialog ID:" },
     { dialogue_face_sprite_id = Integer / "Face Sprite ID:" },

@@ -1171,8 +1171,12 @@ fn plot_events_overlay(
 // Draw items overlay — coloured diamonds by item type + ID labels
 // --------------------------------------------------------------------------
 
-fn draw_item_color(item_type: crate::references::enums::ItemTypeId) -> [u8; 3] {
+fn draw_item_color(item_type: Option<crate::references::enums::ItemTypeId>) -> [u8; 3] {
     use crate::references::enums::ItemTypeId;
+    let item_type = match item_type {
+        Some(t) => t,
+        None => return [155, 155, 155],
+    };
     match item_type {
         ItemTypeId::Weapon => [230, 40, 40],
         ItemTypeId::Healing => [40, 230, 40],
@@ -1198,7 +1202,7 @@ fn plot_draw_items_overlay(
         }
         let cx = px + super::tileset::TILE_WIDTH as i32 / 2;
         let cy = py + TILE_HEIGHT as i32 / 2;
-        let color = draw_item_color(di.item_type);
+        let color = draw_item_color(di.item.item_type());
         let r = 6;
         // Coloured diamond
         fill_diamond_blended(imgbuf, cx, cy, r, color, 200);
@@ -1207,7 +1211,7 @@ fn plot_draw_items_overlay(
             imgbuf,
             cx,
             cy - r - 3,
-            di.item_id as i32,
+            di.item.item_id() as i32,
             [255, 255, 255],
             3,
         );

@@ -93,6 +93,17 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
+            BinaryFieldInfo::InventoryItem { ident, wire_type } => {
+                let read_stmt = match wire_type.as_str() {
+                    "i32" => quote! { reader.read_i32::<byteorder::LittleEndian>()? },
+                    "i16" => quote! { reader.read_i16::<byteorder::LittleEndian>()? as i32 },
+                    _ => panic!("Unsupported wire_type for InventoryItem: {}", wire_type),
+                };
+                parse_stmts.push(quote! {
+                    let #ident = crate::references::enums::InventoryItem::from(#read_stmt);
+                });
+                struct_field_inits.push(quote! { #ident: #ident, });
+            }
             BinaryFieldInfo::VecU8 { ident, size } => {
                 parse_stmts.push(quote! {
                     let mut #ident = vec![0u8; #size];
@@ -176,6 +187,18 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 write_stmts.push(quote! {
                     #write_stmt
                 });
+            }
+            BinaryFieldInfo::InventoryItem { ident, wire_type } => {
+                let write_stmt = match wire_type.as_str() {
+                    "i32" => quote! {
+                        writer.write_i32::<byteorder::LittleEndian>(self.#ident.raw())?;
+                    },
+                    "i16" => quote! {
+                        writer.write_i16::<byteorder::LittleEndian>(self.#ident.raw() as i16)?;
+                    },
+                    _ => panic!("Unsupported wire_type for InventoryItem: {}", wire_type),
+                };
+                write_stmts.push(quote! { #write_stmt });
             }
             BinaryFieldInfo::VecU8 { ident, size: _ } => {
                 write_stmts.push(quote! {
@@ -300,6 +323,10 @@ enum BinaryFieldInfo {
         ident: Ident,
         ty: String,
     },
+    InventoryItem {
+        ident: Ident,
+        wire_type: String,
+    },
     VecU8 {
         ident: Ident,
         size: usize,
@@ -322,6 +349,11 @@ impl BinaryFieldInfo {
     fn size_token(&self) -> (usize, Option<TokenStream2>) {
         match self {
             BinaryFieldInfo::String { size, .. } => (*size, None),
+            BinaryFieldInfo::InventoryItem { wire_type, .. } => match wire_type.as_str() {
+                "i32" => (4, None),
+                "i16" => (2, None),
+                _ => panic!("Unsupported wire_type for InventoryItem: {}", wire_type),
+            },
             BinaryFieldInfo::Primitive { ty, .. } => match ty.as_str() {
                 "i16" => (2, None),
                 "i32" => (4, None),
@@ -415,6 +447,20 @@ fn parse_binary_record_attr(
                 ty: padding_ty,
                 default_value,
             });
+        } else if meta.path.is_ident("inventory_item") {
+            let mut wire_type = None;
+            meta.parse_nested_meta(|inv_meta| {
+                if inv_meta.path.is_ident("wire_type") {
+                    let value = inv_meta.value()?;
+                    let lit: LitStr = value.parse()?;
+                    wire_type = Some(lit.value());
+                }
+                Ok(())
+            })?;
+            field_info = Some(BinaryFieldInfo::InventoryItem {
+                ident: ident.clone(),
+                wire_type: wire_type.unwrap_or_else(|| "i32".to_string()),
+            });
         } else if meta.path.is_ident("skip") {
             field_info = Some(BinaryFieldInfo::Skip);
         }
@@ -473,6 +519,12 @@ fn auto_detect_field(ident: &Ident, ty: &Type) -> Option<BinaryFieldInfo> {
                     return Some(BinaryFieldInfo::Primitive {
                         ident: ident.clone(),
                         ty: type_name,
+                    });
+                }
+                "InventoryItem" => {
+                    return Some(BinaryFieldInfo::InventoryItem {
+                        ident: ident.clone(),
+                        wire_type: "i32".to_string(),
                     });
                 }
                 "String" => {
