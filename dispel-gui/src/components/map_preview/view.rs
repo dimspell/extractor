@@ -1,6 +1,6 @@
 //! View function for the map preview component.
 
-use crate::components::map_preview::canvas::MapPreviewCanvas;
+use crate::components::map_preview::canvas::{MapPreviewOverlaysLayer, MapPreviewTilesLayer};
 use crate::components::map_preview::message::PreviewMessage;
 use crate::components::map_preview::state::{MapPreviewLoading, MapPreviewState, PreviewLayer};
 use crate::message::Message;
@@ -96,11 +96,14 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             .align_x(iced::alignment::Horizontal::Right)
             .align_y(iced::alignment::Vertical::Top);
 
-            let map_canvas = canvas(MapPreviewCanvas { state })
+            let tiles = canvas(MapPreviewTilesLayer { state })
                 .width(Fill)
                 .height(Fill);
-
-            let canvas_with_overlay = stack![map_canvas, zoom_controls].width(Fill).height(Fill);
+            let overlays = canvas(MapPreviewOverlaysLayer { state })
+                .width(Fill)
+                .height(Fill);
+            let map_stack = stack![tiles, overlays].width(Fill).height(Fill);
+            let canvas_with_overlay = stack![map_stack, zoom_controls].width(Fill).height(Fill);
 
             column![layer_row, canvas_with_overlay]
                 .spacing(0)
