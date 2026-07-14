@@ -183,24 +183,39 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             });
                         }
                     }
-                    // NPCs — use waypoint 1 coords (HIGH confidence)
+                    // NPCs — first active waypoint (HIGH confidence)
+                    // Mirrors npc_pos() in map_editor/canvas/hit_test.rs.
+                    // The save file has no "current position" field, so if an NPC
+                    // is mid-patrol the best we can do is its first filled waypoint.
                     for n in &map_data.npcs {
-                        let x = to_tile(n.npc_ref_waypoint1x);
-                        let y = to_tile(n.npc_ref_waypoint1y);
-                        if x != 0 || y != 0 {
+                        let waypoints = [
+                            (n.npc_ref_waypoint1filled, n.npc_ref_waypoint1x, n.npc_ref_waypoint1y),
+                            (n.npc_ref_waypoint2filled, n.npc_ref_waypoint2x, n.npc_ref_waypoint2y),
+                            (n.npc_ref_waypoint3filled, n.npc_ref_waypoint3x, n.npc_ref_waypoint3y),
+                            (n.npc_ref_waypoint4filled, n.npc_ref_waypoint4x, n.npc_ref_waypoint4y),
+                        ];
+                        let (nx, ny) = waypoints
+                            .iter()
+                            .find(|(filled, _, _)| *filled != 0)
+                            .map(|&(_, x, y)| (to_tile(x), to_tile(y)))
+                            .unwrap_or((to_tile(n.npc_ref_waypoint1x), to_tile(n.npc_ref_waypoint1y)));
+                        if nx != 0 || ny != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Npc,
                                 label: n.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
+                                tile_x: nx,
+                                tile_y: ny,
                                 confirmed: true,
                             });
                         }
                     }
-                    // Extra objects (LOW confidence coords)
+                    // Extra objects — use unknown_7/8 which map structurally to
+                    // ExtraRef.x_pos/y_pos (both appear right after name + type byte
+                    // in their respective struct layouts).  Keep confirmed:false
+                    // pending empirical verification against real save files.
                     for e in &map_data.extra_objects {
-                        let x = to_tile(e.unknown_33);
-                        let y = to_tile(e.unknown_35);
+                        let x = to_tile(e.unknown_7);
+                        let y = to_tile(e.unknown_8);
                         if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Extra,

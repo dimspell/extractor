@@ -248,9 +248,14 @@ impl<'a> canvas::Program<Message> for MapPreviewCanvas<'a> {
                                 // position since we don't decode sprite images in
                                 // the preview.  Using the sprite_block data.
                                 // For now: small cyan diamond at block origin.
+                                //
+                                // Note: sprite_x/y are raw map-file pixel coords
+                                // (occluded space).  The map editor adds nox/noy
+                                // to get display coords (update/map.rs:118-119),
+                                // and we must do the same.
                                 let block = &map_data.sprite_blocks[*_i];
-                                let sx = block.sprite_x as f32 * zoom + pan_x;
-                                let sy = block.sprite_y as f32 * zoom + pan_y;
+                                let sx = (block.sprite_x + nox) as f32 * zoom + pan_x;
+                                let sy = (block.sprite_y + noy) as f32 * zoom + pan_y;
                                 let r = 6.0 * zoom;
                                 let cx = sx + TILE_W * zoom;
                                 let cy = sy + TILE_H * zoom * 0.5;

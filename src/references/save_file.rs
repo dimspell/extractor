@@ -156,8 +156,11 @@ pub struct ExtraObjectRecord {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub name: String,
     pub unknown_6: u8,
-    pub unknown_7: u32, // possibly coordinate x
-    pub unknown_8: u32, // possibly coordinate y
+    /// Likely tile coordinate X — structural parallel to ExtraRef.x_pos
+    /// (both appear right after name + type byte in their struct layouts).
+    pub unknown_7: u32,
+    /// Likely tile coordinate Y — structural parallel to ExtraRef.y_pos.
+    pub unknown_8: u32,
     pub unknown_9: u32,
     #[binary_record(size = 8)]
     pub unknown_10: Vec<u8>,
