@@ -160,6 +160,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 entity_sprites: Vec::new(),
                 sprites_ready: false,
                 internal_sprites: Vec::new(),
+                selected_marker: None,
             };
             state.map_preview = Some(preview_state);
 

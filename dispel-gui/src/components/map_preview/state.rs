@@ -193,6 +193,8 @@ pub struct MapPreviewState {
     pub sprites_ready: bool,
     /// Decoded internal map sprites (thrones, decor, vases …).
     pub internal_sprites: Vec<PreviewInternalSprite>,
+    /// Index into `entity_markers` of the clicked/inspected entity, if any.
+    pub selected_marker: Option<usize>,
 }
 
 impl Default for MapPreviewState {
@@ -211,6 +213,7 @@ impl Default for MapPreviewState {
             entity_sprites: Vec::new(),
             sprites_ready: false,
             internal_sprites: Vec::new(),
+            selected_marker: None,
         }
     }
 }

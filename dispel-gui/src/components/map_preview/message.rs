@@ -13,4 +13,6 @@ pub enum PreviewMessage {
     FitToWindow,
     /// Toggle a display layer.
     LayerToggle(PreviewLayer),
+    /// Canvas clicked at canvas-local position (x, y).
+    Click(f32, f32),
 }

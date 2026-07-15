@@ -11,8 +11,9 @@ use crate::components::map_preview::state::{EntityKind, MapPreviewState};
 use crate::components::map_preview::PreviewMessage;
 use crate::message::Message;
 use iced::advanced::image::Image as CoreImage;
-use iced::widget::canvas::{self, Frame, Geometry};
-use iced::{mouse, Color, Event, Point, Rectangle, Size};
+use iced::widget::canvas::{self, Frame, Geometry, Text as CanvasText};
+use iced::widget::text::Alignment as TextAlignment;
+use iced::{alignment, mouse, Color, Event, Font, Point, Rectangle, Size};
 
 // ── Isometric tile constants (shared with map_editor) ─────────────────────────
 
@@ -58,7 +59,21 @@ fn handle_input(
         Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
             interaction.is_dragging = false;
             interaction.drag_last = None;
-            interaction.drag_start = None;
+            // Emit click only if released inside canvas and barely moved from press.
+            if let Some(start) = interaction.drag_start.take() {
+                if let Some(pos) = cursor.position_in(bounds) {
+                    let dx = pos.x - start.x;
+                    let dy = pos.y - start.y;
+                    if dx * dx + dy * dy < 25.0 {
+                        return Some(
+                            canvas::Action::publish(
+                                Message::MapPreview(PreviewMessage::Click(pos.x, pos.y)),
+                            )
+                            .and_capture(),
+                        );
+                    }
+                }
+            }
         }
         Event::Mouse(MouseEvent::CursorMoved { .. }) => {
             if interaction.is_dragging {
@@ -462,6 +477,101 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
             }
         }
 
+        // ── Selection ring + info label ─────────────────────────────────────
+        if let Some(sel_idx) = self.state.selected_marker {
+            if let Some(entity) = self.state.entity_markers.get(sel_idx) {
+                let visible = match entity.kind {
+                    EntityKind::Monster => self.state.view.show_monsters,
+                    EntityKind::Npc => self.state.view.show_npcs,
+                    EntityKind::Extra => self.state.view.show_extras,
+                    EntityKind::DrawItem => self.state.view.show_draw_items,
+                };
+                if visible {
+                    let (px, py) = tile_to_screen(
+                        entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom,
+                    );
+                    let tile_cx = px + TILE_W * zoom * 0.5;
+                    let tile_cy = py + TILE_H * zoom * 0.5;
+                    let r = 14.0 * zoom;
+
+                    // Bright gold selection ring
+                    frame.stroke(
+                        &canvas::Path::circle(Point::new(tile_cx, tile_cy), r),
+                        canvas::Stroke::default()
+                            .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.9))
+                            .with_width(2.0 * zoom),
+                    );
+
+                    // Floating info label below the ring
+                    let kind_label = match entity.kind {
+                        EntityKind::Monster => "Monster",
+                        EntityKind::Npc => "NPC",
+                        EntityKind::Extra => "Extra",
+                        EntityKind::DrawItem => "DrawItem",
+                    };
+                    let coords = format!("({}, {})", entity.tile_x, entity.tile_y);
+                    let label = if let Some(db_id) = entity.db_id {
+                        format!("{} #{}  {}", kind_label, db_id, coords)
+                    } else {
+                        format!("{}  {}", kind_label, coords)
+                    };
+                    let label_size = (11.0 * zoom).max(7.0);
+                    // Semi-transparent dark background pill
+                    let text_w = (label.len() as f32 * label_size * 0.6).min(300.0 * zoom);
+                    let text_h = label_size * 1.6;
+                    let text_x = tile_cx - text_w * 0.5;
+                    let text_y = tile_cy + r + 4.0 * zoom;
+                    frame.fill_rectangle(
+                        Point::new(text_x, text_y),
+                        Size::new(text_w, text_h),
+                        Color::from_rgba(0.0, 0.0, 0.0, 0.55),
+                    );
+                    frame.fill_text(CanvasText {
+                        content: label,
+                        position: Point::new(tile_cx, text_y),
+                        color: Color::WHITE,
+                        size: iced::Pixels(label_size),
+                        font: Font::MONOSPACE,
+                        align_x: TextAlignment::Center,
+                        align_y: alignment::Vertical::Center,
+                        shaping: iced::widget::text::Shaping::Basic,
+                        line_height: iced::widget::text::LineHeight::default(),
+                        max_width: text_w,
+                        ellipsis: iced::widget::text::Ellipsis::None,
+                        wrapping: iced::widget::text::Wrapping::None,
+                    });
+
+                    // Name label above the ring (entity.label)
+                    let label_size2 = (10.0 * zoom).max(7.0);
+                    let text_w2 = (entity.label.len() as f32 * label_size2 * 0.6).min(300.0 * zoom);
+                    let text_h2 = label_size2 * 1.6;
+                    let text_x2 = tile_cx - text_w2 * 0.5;
+                    let text_y2 = tile_cy - r - text_h2 - 4.0 * zoom;
+                    if entity.label.len() > 0 {
+                        frame.fill_rectangle(
+                            Point::new(text_x2, text_y2),
+                            Size::new(text_w2, text_h2),
+                            Color::from_rgba(0.0, 0.0, 0.0, 0.55),
+                        );
+                        frame.fill_text(CanvasText {
+                            content: entity.label.clone(),
+                            position: Point::new(tile_cx, text_y2 + text_h2 * 0.5),
+                            color: Color::WHITE,
+                            size: iced::Pixels(label_size2),
+                            font: Font::MONOSPACE,
+                            align_x: TextAlignment::Center,
+                            align_y: alignment::Vertical::Center,
+                            shaping: iced::widget::text::Shaping::Basic,
+                            line_height: iced::widget::text::LineHeight::default(),
+                            max_width: text_w2,
+                            ellipsis: iced::widget::text::Ellipsis::End,
+                            wrapping: iced::widget::text::Wrapping::None,
+                        });
+                    }
+                }
+            }
+        }
+
         vec![frame.into_geometry()]
     }
 
@@ -482,7 +592,7 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
 // ── Inline rendering helpers (copied from map_editor/canvas/ to avoid extraction) ──
 
 /// Convert tile coordinates to canvas-local screen coordinates.
-fn tile_to_screen(
+pub(crate) fn tile_to_screen(
     tx: i32,
     ty: i32,
     diagonal: i32,

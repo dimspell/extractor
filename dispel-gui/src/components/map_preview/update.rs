@@ -5,6 +5,49 @@ use crate::components::map_preview::state::{MapPreviewState, PreviewLayer};
 use crate::message::Message;
 use iced::Task;
 
+/// Hit-test radius in world pixels (same as map editor's HOVER_RADIUS_PX).
+const HIT_RADIUS_PX: f32 = 16.0;
+
+/// Find the closest entity marker to the given canvas-local position.
+fn find_closest_marker(
+    state: &MapPreviewState,
+    cx: f32,
+    cy: f32,
+) -> Option<usize> {
+    let diagonal = state.diagonal;
+    let pan_x = state.view.pan_x;
+    let pan_y = state.view.pan_y;
+    let zoom = state.view.zoom;
+    let r2 = HIT_RADIUS_PX * HIT_RADIUS_PX;
+
+    let mut best: Option<(f32, usize)> = None;
+    for (i, entity) in state.entity_markers.iter().enumerate() {
+        // Check if the entity's layer is visible
+        let visible = match entity.kind {
+            crate::components::map_preview::state::EntityKind::Monster => state.view.show_monsters,
+            crate::components::map_preview::state::EntityKind::Npc => state.view.show_npcs,
+            crate::components::map_preview::state::EntityKind::Extra => state.view.show_extras,
+            crate::components::map_preview::state::EntityKind::DrawItem => state.view.show_draw_items,
+        };
+        if !visible {
+            continue;
+        }
+
+        // Convert tile coords to screen position
+        let (px, py) = crate::components::map_preview::canvas::tile_to_screen(
+            entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom,
+        );
+        let tile_cx = px + crate::components::map_preview::canvas::TILE_W * zoom * 0.5;
+        let tile_cy = py + crate::components::map_preview::canvas::TILE_H * zoom * 0.5;
+
+        let d2 = (cx - tile_cx).powi(2) + (cy - tile_cy).powi(2);
+        if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
+            best = Some((d2, i));
+        }
+    }
+    best.map(|(_, i)| i)
+}
+
 
 pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message> {
     match msg {
@@ -67,6 +110,16 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
                 PreviewLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
             }
             state.view.tile_cache.clear();
+            Task::none()
+        }
+        PreviewMessage::Click(cx, cy) => {
+            // Toggle selection: clicking the already-selected marker deselects it
+            let clicked = find_closest_marker(state, cx, cy);
+            if clicked == state.selected_marker {
+                state.selected_marker = None;
+            } else {
+                state.selected_marker = clicked;
+            }
             Task::none()
         }
     }
