@@ -75,6 +75,7 @@ pub struct EventItem {
     pub name: String,
     /// Item tooltip giving clues on application.
     #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Economic valuation offset.
     #[extractor(primitive(type = "i32"))]

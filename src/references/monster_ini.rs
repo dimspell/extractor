@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::extractor::Extractor;
-use dispel_macros::{TextExtractor, TextRecordPatcher};
+use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 use rusqlite::{params, Connection, Result};
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +58,7 @@ use serde::{Deserialize, Serialize};
 /// Defines animation sequences for monsters, linking visual
 /// appearances with behavioral animations. Used for monster
 /// rendering during different combat states and actions.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher,Localizable)]
 #[extractor(encoding = "WINDOWS_1250")]
 #[patcher(filename = "Monster.ini")]
 pub struct MonsterIni {
@@ -67,6 +67,7 @@ pub struct MonsterIni {
     pub id: i32,
     /// Translated name of the monster.
     #[extractor(field = 1, parse_null)]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 1024)]
     pub name: Option<String>,
     /// Base sprite filename for the monster rendering.
     #[extractor(field = 2, parse_null)]

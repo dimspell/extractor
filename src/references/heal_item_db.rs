@@ -86,6 +86,7 @@ pub struct HealItem {
     pub id: i32,
     /// Fixed array byte name for inventory viewing.
     #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
     pub name: String,
     /// Descriptive utility tooltip.
     #[extractor(string(encoding = "EUC-KR", size = 202))]
