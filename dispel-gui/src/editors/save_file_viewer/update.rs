@@ -1,8 +1,14 @@
 use iced::Task;
+use iced::widget::image::Handle;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use crate::app::App;
+use crate::components::map_preview::state::{EntityKind, PreviewSprite};
 use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
+use dispel_core::{Extra, MonsterIni, NpcIni, Extractor};
+use dispel_core::map::sprite_loader::load_sprite_frames;
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
     let tab_id = match app.state.workspace.active() {
@@ -151,6 +157,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 btl_handles: std::collections::HashMap::new(),
                 tiles_ready: false,
                 map_stem: Some(loaded.map_stem.clone()),
+                entity_sprites: Vec::new(),
+                sprites_ready: false,
+                internal_sprites: Vec::new(),
             };
             state.map_preview = Some(preview_state);
 
@@ -180,6 +189,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_x: x,
                                 tile_y: y,
                                 confirmed: false,
+                                db_id: Some(m.monster_db_id as i32),
                             });
                         }
                     }
@@ -206,6 +216,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_x: nx,
                                 tile_y: ny,
                                 confirmed: true,
+                                db_id: Some(n.npc_ini_id as i32),
                             });
                         }
                     }
@@ -223,6 +234,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_x: x,
                                 tile_y: y,
                                 confirmed: false,
+                                db_id: Some(e.unknown_5 as i32),
                             });
                         }
                     }
@@ -231,35 +243,35 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
                         }
                     }
                     for d in &map_data.draw_items_heal {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
                         }
                     }
                     for d in &map_data.draw_items_edit {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
                         }
                     }
                     for d in &map_data.draw_items_misc {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
                         }
                     }
                     for d in &map_data.draw_items_event {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true });
+                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
                         }
                     }
                     if let Some(preview) = state.map_preview.as_mut() {
@@ -279,10 +291,25 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             use std::collections::HashSet;
             use std::collections::HashMap;
 
+            // Include building tile IDs (from tiled_infos) in btl decode set.
+            // Without this, buildings in the interlaced pass have no textures.
             let gtl_ids: HashSet<i32> = loaded.map_data.gtl_tiles.values().copied().collect();
-            let btl_ids: HashSet<i32> = loaded.map_data.btl_tiles.values().copied().collect();
+            let btl_ids: HashSet<i32> = loaded
+                .map_data
+                .btl_tiles
+                .values()
+                .copied()
+                .chain(
+                    loaded
+                        .map_data
+                        .tiled_infos
+                        .iter()
+                        .flat_map(|t| t.ids.iter().map(|&id| id.unsigned_abs() as i32)),
+                )
+                .filter(|&id| id > 0)
+                .collect();
 
-            let task = iced::Task::perform(
+            let tile_task = iced::Task::perform(
                 async move {
                     use iced::widget::image::Handle;
                     use crate::editors::map_editor::canvas::decode::decode_tileset_file;
@@ -299,7 +326,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         .map(|(id, px)| (id, Handle::from_rgba(62, 32, px)))
                         .collect();
 
-                    crate::editors::save_file_viewer::message::MapPreviewTiles { gtl, btl }
+                    // Decode internal sprites from the .map file (thrones, decor, etc.)
+                    let internal_sprites = decode_internal_preview_sprites(&map_path, &loaded.map_data);
+
+                    crate::editors::save_file_viewer::message::MapPreviewTiles {
+                        gtl,
+                        btl,
+                        internal_sprites,
+                    }
                 },
                 move |tiles| {
                     Message::save_file_viewer(
@@ -307,7 +341,29 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     )
                 },
             );
-            task
+
+            // Start async entity sprite loading (parallel to tile decoding)
+            let gp_for_sprites = match &game_path {
+                Some(gp) => gp.clone(),
+                None => return tile_task,
+            };
+            let entity_markers = state
+                .map_preview
+                .as_ref()
+                .map(|p| p.entity_markers.clone())
+                .unwrap_or_default();
+            let sprite_task = iced::Task::perform(
+                async move {
+                    load_preview_sprites(gp_for_sprites, entity_markers).await
+                },
+                move |result| {
+                    Message::save_file_viewer(
+                        crate::editors::save_file_viewer::message::SaveFileViewerMessage::PreviewSpritesReady(map_idx, result),
+                    )
+                },
+            );
+
+            Task::batch([tile_task, sprite_task])
         }
         SaveFileViewerMessage::MapPreviewTilesReady(map_idx, result) => {
             if state.selected_map != Some(map_idx) {
@@ -320,7 +376,26 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             if let Some(preview) = state.map_preview.as_mut() {
                 preview.gtl_handles = tiles.gtl;
                 preview.btl_handles = tiles.btl;
+                preview.internal_sprites = tiles.internal_sprites;
                 preview.tiles_ready = true;
+                // Force re-cache — tile cache was populated while tiles_ready was false
+                preview.view.tile_cache.clear();
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::PreviewSpritesReady(map_idx, result) => {
+            if state.selected_map != Some(map_idx) {
+                return Task::none();
+            }
+            let loaded = match result {
+                Ok(l) => l,
+                Err(_) => return Task::none(),
+            };
+            if let Some(preview) = state.map_preview.as_mut() {
+                preview.entity_sprites = loaded.sprites;
+                preview.sprites_ready = true;
+                // Force tile layer to re-cache with sprites
+                preview.view.tile_cache.clear();
             }
             Task::none()
         }
@@ -1795,4 +1870,200 @@ fn navigate_highlight(
         _ => {}
     }
     Task::none()
+}
+
+/// Async-load entity sprites for the map preview.
+///
+/// Reads `Monster.ini` / `Npc.ini` / `Extra.ini` to map entity DB IDs → sprite
+/// filenames, then decodes frame[0] of each unique `.spr` file.  Returns a
+/// `Vec` parallel to `entity_markers` (None for entities without a resolvable
+/// sprite).
+async fn load_preview_sprites(
+    game_path: PathBuf,
+    entity_markers: Vec<crate::components::map_preview::state::PreviewEntity>,
+) -> Result<crate::editors::save_file_viewer::message::PreviewSpritesLoaded, String> {
+    // 1. Load Monster.ini → HashMap<id, sprite_filename>
+    let monster_id_to_sprite: HashMap<i32, String> = MonsterIni::read_file(&game_path.join("Monster.ini"))
+        .map_err(|e| format!("Failed to load Monster.ini: {}", e))?
+        .into_iter()
+        .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
+        .collect();
+
+    // 2. Load Npc.ini → HashMap<id, sprite_filename>
+    let npc_id_to_sprite: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
+        .map_err(|e| format!("Failed to load Npc.ini: {}", e))?
+        .into_iter()
+        .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
+        .collect();
+
+    // 3. Load Extra.ini → HashMap<id, sprite_filename>
+    let extra_id_to_sprite: HashMap<i32, String> = load_extra_ini_sprites(&game_path)
+        .map_err(|e| format!("Failed to load Extra.ini: {}", e))?;
+
+    // 4. Resolve sprites for each entity (parallel to entity_markers)
+    let mut sprite_cache: HashMap<PathBuf, Option<PreviewSprite>> = HashMap::new();
+    let sprites: Vec<Option<PreviewSprite>> = entity_markers
+        .iter()
+        .map(|entity| {
+            let db_id = entity.db_id?;
+            let (sub_dir, id_to_sprite) = match entity.kind {
+                EntityKind::Monster => ("MonsterInGame", &monster_id_to_sprite),
+                EntityKind::Npc => ("NpcInGame", &npc_id_to_sprite),
+                EntityKind::Extra => ("ExtraInGame", &extra_id_to_sprite),
+                EntityKind::DrawItem => return None,
+            };
+            let sprite_name = id_to_sprite.get(&db_id)?;
+            let path = resolve_sprite_path(&game_path, sub_dir, sprite_name)?;
+            sprite_cache
+                .entry(path.clone())
+                .or_insert_with(|| {
+                    let frames = load_sprite_frames(&path)?;
+                    let frame = frames.into_iter().next()?;
+                    let w = frame.image.width();
+                    let h = frame.image.height();
+                    Some(PreviewSprite {
+                        handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
+                        width: w,
+                        height: h,
+                        origin_x: frame.origin_x,
+                        origin_y: frame.origin_y,
+                    })
+                })
+                .clone()
+        })
+        .collect();
+
+    Ok(crate::editors::save_file_viewer::message::PreviewSpritesLoaded {
+        sprites,
+    })
+}
+
+/// Decode all internal sprites (thrones, decor, vases …) from the .map file.
+///
+/// Each sprite block references a sprite sequence + frame, and we decode
+/// frame[0] of each placement.  This mirrors `decode_internal_map_sprites()`
+/// in `map_editor/update/map.rs`.
+fn decode_internal_preview_sprites(
+    map_path: &Path,
+    map_data: &dispel_core::map::MapData,
+) -> Vec<crate::components::map_preview::state::PreviewInternalSprite> {
+    use iced::widget::image::Handle;
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = match std::fs::File::open(map_path) {
+        Ok(f) => f,
+        Err(_) => return Vec::new(),
+    };
+    let nox = map_data.model.map_non_occluded_start_x;
+    let noy = map_data.model.map_non_occluded_start_y;
+
+    let mut result = Vec::new();
+    for block in &map_data.sprite_blocks {
+        let Some(sequence) = map_data.internal_sprites.get(block.sprite_id) else {
+            continue;
+        };
+        let Some(frame) = sequence.frame_infos.first() else {
+            continue;
+        };
+        if frame.width <= 0 || frame.height <= 0 {
+            continue;
+        }
+        if file.seek(SeekFrom::Start(frame.image_start_position)).is_err() {
+            continue;
+        }
+
+        let w = frame.width as u32;
+        let h = frame.height as u32;
+        let pixel_count = (w * h) as usize;
+        let mut raw = vec![0u8; pixel_count * 2];
+        if file.read_exact(&mut raw).is_err() {
+            continue;
+        }
+
+        let mut pixels = vec![0u8; pixel_count * 4];
+        for i in 0..pixel_count {
+            let lo = raw[i * 2] as u16;
+            let hi = raw[i * 2 + 1] as u16;
+            let pixel = lo | (hi << 8);
+            if pixel > 0 {
+                let r5 = ((pixel >> 11) & 0x1F) as u32;
+                let g6 = ((pixel >> 5) & 0x3F) as u32;
+                let b5 = (pixel & 0x1F) as u32;
+                let idx = i * 4;
+                pixels[idx] = (r5 * 255 / 31) as u8;
+                pixels[idx + 1] = (g6 * 255 / 63) as u8;
+                pixels[idx + 2] = (b5 * 255 / 31) as u8;
+                pixels[idx + 3] = 255;
+            }
+        }
+
+        result.push(crate::components::map_preview::state::PreviewInternalSprite {
+            handle: Handle::from_rgba(w, h, pixels),
+            x: block.sprite_x + nox,
+            y: block.sprite_y + noy,
+            sort_y: block.sprite_bottom_right_y,
+            width: w,
+            height: h,
+        });
+    }
+    result
+}
+
+/// Load Extra.ini → `HashMap<id, sprite_filename>`.
+///
+/// Tries `Extra::read_file()` (EUC-KR encoding per struct definition) first.
+/// If the declared encoding rejects the file (Polish game version uses
+/// WINDOWS-1250 for non-ASCII description fields), falls back to a raw-ASCII
+/// CSV parse — the first two columns (id and sprite_filename) are always
+/// pure ASCII and encoding-independent.
+fn load_extra_ini_sprites(game_path: &Path) -> Result<HashMap<i32, String>, String> {
+    let path = game_path.join("Extra.ini");
+    // Try canonical Extractor read (EUC-KR encoding) first.
+    if let Ok(extras) = Extra::read_file(&path) {
+        return Ok(extras
+            .into_iter()
+            .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
+            .collect());
+    }
+    // Fallback: raw-bytes CSV parse (encoding-agnostic).
+    let data = std::fs::read(&path).map_err(|e| format!("Cannot read Extra.ini: {}", e))?;
+    let text = String::from_utf8_lossy(&data);
+    let mut map = HashMap::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with(';') {
+            continue;
+        }
+        let mut cols = line.splitn(4, ',');
+        let id: i32 = match cols.next().and_then(|s| s.trim().parse().ok()) {
+            Some(id) => id,
+            None => continue,
+        };
+        let sprite = cols
+            .next()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty() && s != "null");
+        if let Some(s) = sprite {
+            map.insert(id, s);
+        }
+    }
+    Ok(map)
+}
+
+/// Case-insensitive sprite file path resolution.
+///
+/// Tries original → uppercase → lowercase under `game_path/{sub_dir}/{filename}`.
+fn resolve_sprite_path(game_path: &Path, sub_dir: &str, filename: &str) -> Option<PathBuf> {
+    let base = game_path.join(sub_dir);
+    for name in [
+        filename.to_string(),
+        filename.to_ascii_uppercase(),
+        filename.to_ascii_lowercase(),
+    ] {
+        let p = base.join(&name);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
 }

@@ -29,6 +29,8 @@ pub enum SaveFileViewerMessage {
     MapPreviewLoaded(usize, Result<MapPreviewLoaded, String>),
     /// Async tileset decode completed.
     MapPreviewTilesReady(usize, Result<MapPreviewTiles, String>),
+    /// Async entity sprite loading completed.
+    PreviewSpritesReady(usize, Result<PreviewSpritesLoaded, String>),
     /// Select which entity sub-table (monsters, NPCs, ground items, etc.) to view.
     SelectEntityKind(MapsTableKind),
     /// Select a row in one of a map's entity tables.
@@ -255,6 +257,8 @@ impl std::fmt::Debug for MapPreviewLoaded {
 pub struct MapPreviewTiles {
     pub gtl: std::collections::HashMap<i32, iced::widget::image::Handle>,
     pub btl: std::collections::HashMap<i32, iced::widget::image::Handle>,
+    /// Decoded internal sprites (thrones, decor, etc.) from the .map file.
+    pub internal_sprites: Vec<crate::components::map_preview::state::PreviewInternalSprite>,
 }
 
 impl std::fmt::Debug for MapPreviewTiles {
@@ -262,6 +266,23 @@ impl std::fmt::Debug for MapPreviewTiles {
         f.debug_struct("MapPreviewTiles")
             .field("gtl_len", &self.gtl.len())
             .field("btl_len", &self.btl.len())
+            .field("internal_sprite_count", &self.internal_sprites.len())
+            .finish()
+    }
+}
+
+
+
+/// Decoded entity sprites ready from async sprite loading.
+#[derive(Clone)]
+pub struct PreviewSpritesLoaded {
+    pub sprites: Vec<Option<crate::components::map_preview::state::PreviewSprite>>,
+}
+
+impl std::fmt::Debug for PreviewSpritesLoaded {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PreviewSpritesLoaded")
+            .field("sprite_count", &self.sprites.len())
             .finish()
     }
 }

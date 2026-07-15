@@ -36,6 +36,10 @@ pub struct PreviewEntity {
     /// True when the coordinate mapping is confirmed (draw items, NPCs).
     /// False when the mapping is speculative (monsters, extras).
     pub confirmed: bool,
+    /// Entity DB ID for sprite lookup (monster_db_id for monsters,
+    /// npc_ini_id for NPCs, extra_ini_id for Extra objects).
+    /// None for draw items (no sprite).
+    pub db_id: Option<i32>,
 }
 
 /// Category of entity marker on the preview.
@@ -129,6 +133,35 @@ impl Default for MapPreviewViewState {
     }
 }
 
+// ── Decoded sprite frame for preview rendering ────────────────────────────────
+
+/// A single decoded sprite frame (always frame[0]) for use in the map preview.
+#[derive(Debug, Clone)]
+pub struct PreviewSprite {
+    pub handle: Handle,
+    pub width: u32,
+    pub height: u32,
+    pub origin_x: i32,
+    pub origin_y: i32,
+}
+
+/// A decoded internal sprite from the .map file (thrones, decor, vases …).
+#[derive(Debug, Clone)]
+pub struct PreviewInternalSprite {
+    /// Iced image handle with decoded RGBA pixels.
+    pub handle: Handle,
+    /// X position in occluded pixel space (block.sprite_x + nox).
+    pub x: i32,
+    /// Y position in occluded pixel space (block.sprite_y + noy).
+    pub y: i32,
+    /// Depth sort key (block.sprite_bottom_right_y).
+    pub sort_y: i32,
+    /// Image width in pixels.
+    pub width: u32,
+    /// Image height in pixels.
+    pub height: u32,
+}
+
 // ── Preview state ─────────────────────────────────────────────────────────────
 
 /// Full state for one map preview instance.
@@ -153,6 +186,13 @@ pub struct MapPreviewState {
     pub game_path: Option<PathBuf>,
     /// The map filename stem (e.g. "cat1") for the current preview.
     pub map_stem: Option<String>,
+    /// Decoded entity sprites parallel to entity_markers (None when sprite not
+    /// found or entity type doesn't support sprites).
+    pub entity_sprites: Vec<Option<PreviewSprite>>,
+    /// True once async sprite loading has completed.
+    pub sprites_ready: bool,
+    /// Decoded internal map sprites (thrones, decor, vases …).
+    pub internal_sprites: Vec<PreviewInternalSprite>,
 }
 
 impl Default for MapPreviewState {
@@ -168,12 +208,16 @@ impl Default for MapPreviewState {
             entity_markers: Vec::new(),
             game_path: None,
             map_stem: None,
+            entity_sprites: Vec::new(),
+            sprites_ready: false,
+            internal_sprites: Vec::new(),
         }
     }
 }
 
 impl MapPreviewState {
     /// Whether preview data is fully loaded and ready to render.
+    /// Only checks tiles — sprite loading is optional (sprites are a bonus).
     pub fn is_ready(&self) -> bool {
         self.loading == MapPreviewLoading::Loaded && self.tiles_ready
     }

@@ -4,9 +4,8 @@
 //! layering: images in the bottom layer (Y-sorted with buildings), primitive
 //! markers in the top transparent overlay layer.
 //!
-//! Only the overlay canvas handles mouse events, preventing double-pan/zoom.
-//! Reuses isometric rendering math from `map_editor/canvas/` but inlined here
-//! to avoid extracting shared utilities (oracle recommendation — see map-preview.md).
+//! Both layers handle mouse input by delegating to the shared `handle_input()`
+//! function, mirroring the proven two-canvas pattern from `map_editor/canvas/`.
 
 use crate::components::map_preview::state::{EntityKind, MapPreviewState};
 use crate::components::map_preview::PreviewMessage;
@@ -26,7 +25,7 @@ pub(crate) const TILE_H: f32 = 32.0;
 
 /// Per-canvas interaction state (managed by Iced).
 ///
-/// Used only by the overlay canvas (the top layer that handles all input).
+/// Each canvas layer gets its own independent instance.
 #[derive(Default)]
 pub struct PreviewCanvasState {
     pub is_dragging: bool,
@@ -34,33 +33,106 @@ pub struct PreviewCanvasState {
     pub drag_start: Option<Point>,
 }
 
-// ── Tile Layer (images only, no interaction) ──────────────────────────────────
+// ── Shared input handling (both layers delegate here) ─────────────────────────
+
+/// Shared pan/zoom/click handler used by both canvas layers.
+///
+/// Mirrors `MapCanvas::update()` from `map_editor/canvas/input.rs`.
+fn handle_input(
+    interaction: &mut PreviewCanvasState,
+    event: &Event,
+    bounds: Rectangle,
+    cursor: mouse::Cursor,
+) -> Option<canvas::Action<Message>> {
+    use mouse::{Button, Event as MouseEvent, ScrollDelta};
+
+    match event {
+        Event::Mouse(MouseEvent::ButtonPressed(Button::Left)) => {
+            if let Some(pos) = cursor.position_in(bounds) {
+                interaction.is_dragging = true;
+                interaction.drag_last = Some(pos);
+                interaction.drag_start = Some(pos);
+                return Some(canvas::Action::capture());
+            }
+        }
+        Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
+            interaction.is_dragging = false;
+            interaction.drag_last = None;
+            interaction.drag_start = None;
+        }
+        Event::Mouse(MouseEvent::CursorMoved { .. }) => {
+            if interaction.is_dragging {
+                if let Some(last) = interaction.drag_last {
+                    if let Some(pos) = cursor.position_in(bounds) {
+                        let dx = pos.x - last.x;
+                        let dy = pos.y - last.y;
+                        interaction.drag_last = Some(pos);
+                        return Some(
+                            canvas::Action::publish(Message::MapPreview(
+                                PreviewMessage::Pan(dx, dy),
+                            ))
+                            .and_capture(),
+                        );
+                    }
+                }
+            }
+        }
+        Event::Mouse(MouseEvent::CursorLeft) => {}
+        Event::Mouse(MouseEvent::WheelScrolled { delta }) if cursor.is_over(bounds) => {
+            let scroll_y = match delta {
+                ScrollDelta::Lines { y, .. } => *y,
+                ScrollDelta::Pixels { y, .. } => *y / 20.0,
+            };
+            if scroll_y.abs() > 0.001 {
+                let magnitude = scroll_y.abs().min(3.0) * 0.12;
+                let factor = if scroll_y > 0.0 {
+                    1.0 + magnitude
+                } else {
+                    1.0 / (1.0 + magnitude)
+                };
+                let (cx, cy) = cursor
+                    .position_in(bounds)
+                    .map(|p| (p.x, p.y))
+                    .unwrap_or((0.0, 0.0));
+                return Some(
+                    canvas::Action::publish(Message::MapPreview(
+                        PreviewMessage::Zoom(factor, cx, cy),
+                    ))
+                    .and_capture(),
+                );
+            }
+        }
+        _ => {}
+    }
+    None
+}
+
+// ── Tile Layer (images only) ──────────────────────────────────────────────────
 
 /// Bottom canvas: renders tiles, buildings, and roof images.
 ///
-/// Does not handle any mouse events — the overlay canvas (on top) handles all
-/// interactions. This ensures a single source of truth for pan/zoom/toggle
-/// without the risk of both canvases emitting duplicate messages.
+/// Also handles mouse input (by delegating to `handle_input`) — this matches the
+/// map editor's two-canvas pattern where both layers process input.
 pub struct MapPreviewTilesLayer<'a> {
     pub state: &'a MapPreviewState,
 }
 
 impl<'a> canvas::Program<Message> for MapPreviewTilesLayer<'a> {
-    type State = ();
+    type State = PreviewCanvasState;
 
     fn update(
         &self,
-        _state: &mut (),
-        _event: &Event,
-        _bounds: Rectangle,
-        _cursor: mouse::Cursor,
+        interaction: &mut PreviewCanvasState,
+        event: &Event,
+        bounds: Rectangle,
+        cursor: mouse::Cursor,
     ) -> Option<canvas::Action<Message>> {
-        None // No events handled — the overlay canvas handles all input
+        handle_input(interaction, event, bounds, cursor)
     }
 
     fn draw(
         &self,
-        _state: &(),
+        _interaction: &PreviewCanvasState,
         renderer: &iced::Renderer,
         _theme: &iced::Theme,
         bounds: Rectangle,
@@ -104,45 +176,143 @@ impl<'a> canvas::Program<Message> for MapPreviewTilesLayer<'a> {
                     );
                 }
 
-                // ── 2. Interlaced depth-sorted pass (buildings only) ──────────
-                if self.state.view.show_buildings && self.state.tiles_ready {
+                // ── 2. Interlaced depth-sorted pass (buildings + internal sprites + entity sprites) ──
+                if self.state.tiles_ready {
                     let nox = model.map_non_occluded_start_x;
                     let noy = model.map_non_occluded_start_y;
 
-                    let mut building_items: Vec<(i32, usize)> = map_data
-                        .tiled_infos
-                        .iter()
-                        .enumerate()
-                        .map(|(i, info)| {
-                            let pos = info.y + info.ids.len() as i32 * TILE_H as i32;
-                            (pos, i)
-                        })
-                        .collect();
-                    building_items.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+                    enum TileItem {
+                        TiledObject(usize),
+                        InternalSprite(usize),
+                        EntitySprite(usize),
+                    }
 
-                    for (_, obj_i) in &building_items {
-                        let info = &map_data.tiled_infos[*obj_i];
-                        let base_x = (info.x as f32 + nox as f32) * zoom + pan_x;
-                        let base_y = (info.y as f32 + noy as f32) * zoom + pan_y;
-                        let w = TILE_W * zoom;
-                        let h = TILE_H * zoom;
-                        for (i, &btl_id) in info.ids.iter().enumerate() {
-                            if btl_id <= 0 {
-                                continue;
-                            }
-                            let handle_id = btl_id.unsigned_abs() as i32;
-                            let Some(handle) = self.state.btl_handles.get(&handle_id) else {
-                                continue;
+                    let mut items: Vec<(i32, i32, i32, TileItem)> = Vec::new();
+
+                    // Buildings
+                    if self.state.view.show_buildings {
+                        for (i, info) in map_data.tiled_infos.iter().enumerate() {
+                            let pos = info.y + info.ids.len() as i32 * TILE_H as i32;
+                            items.push((pos, 0, i as i32, TileItem::TiledObject(i)));
+                        }
+                    }
+
+                    // Internal map sprites (thrones, decor, vases …)
+                    if self.state.view.show_internal_sprites {
+                        for (i, spr) in self.state.internal_sprites.iter().enumerate() {
+                            items.push((spr.sort_y, 1, 0, TileItem::InternalSprite(i)));
+                        }
+                    }
+
+                    // Entity sprites (only those with decoded sprites)
+                    if self.state.sprites_ready {
+                        let entity_pos = |tx: i32, ty: i32| -> i32 {
+                            let img_y =
+                                dispel_core::map::types::convert_map_coords_to_image_coords(
+                                    tx, ty, diagonal,
+                                )
+                                .1;
+                            img_y + 32 - noy
+                        };
+                        for (i, entity) in self.state.entity_markers.iter().enumerate() {
+                            let visible = match entity.kind {
+                                EntityKind::Monster => self.state.view.show_monsters,
+                                EntityKind::Npc => self.state.view.show_npcs,
+                                EntityKind::Extra => self.state.view.show_extras,
+                                EntityKind::DrawItem => self.state.view.show_draw_items,
                             };
-                            let px = base_x;
-                            let py = base_y + i as f32 * h;
-                            if !is_visible(px, py, w, h, bounds) {
+                            if !visible {
                                 continue;
                             }
-                            frame.draw_image(
-                                Rectangle::new(Point::new(px, py), Size::new(w, h)),
-                                CoreImage::new(handle.clone()),
-                            );
+                            let has_sprite = self
+                                .state
+                                .entity_sprites
+                                .get(i)
+                                .and_then(|s| s.as_ref())
+                                .is_some();
+                            if !has_sprite {
+                                continue;
+                            }
+                            let pos = entity_pos(entity.tile_x, entity.tile_y);
+                            items.push((pos, 2, i as i32, TileItem::EntitySprite(i)));
+                        }
+                    }
+
+                    items.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
+
+                    for (_, _, _, item) in &items {
+                        match item {
+                            TileItem::TiledObject(obj_i) => {
+                                let info = &map_data.tiled_infos[*obj_i];
+                                let base_x = (info.x as f32 + nox as f32) * zoom + pan_x;
+                                let base_y = (info.y as f32 + noy as f32) * zoom + pan_y;
+                                let w = TILE_W * zoom;
+                                let h = TILE_H * zoom;
+                                for (i, &btl_id) in info.ids.iter().enumerate() {
+                                    if btl_id <= 0 {
+                                        continue;
+                                    }
+                                    let handle_id = btl_id.unsigned_abs() as i32;
+                                    let Some(handle) =
+                                        self.state.btl_handles.get(&handle_id)
+                                    else {
+                                        continue;
+                                    };
+                                    let px = base_x;
+                                    let py = base_y + i as f32 * h;
+                                    if !is_visible(px, py, w, h, bounds) {
+                                        continue;
+                                    }
+                                    frame.draw_image(
+                                        Rectangle::new(Point::new(px, py), Size::new(w, h)),
+                                        CoreImage::new(handle.clone()),
+                                    );
+                                }
+                            }
+                            TileItem::InternalSprite(i) => {
+                                let spr = &self.state.internal_sprites[*i];
+                                let sx = spr.x as f32 * zoom + pan_x;
+                                let sy = spr.y as f32 * zoom + pan_y;
+                                let sw = spr.width as f32 * zoom;
+                                let sh = spr.height as f32 * zoom;
+                                if is_visible(sx, sy, sw, sh, bounds) {
+                                    frame.draw_image(
+                                        Rectangle::new(
+                                            Point::new(sx, sy),
+                                            Size::new(sw, sh),
+                                        ),
+                                        CoreImage::new(spr.handle.clone()),
+                                    );
+                                }
+                            }
+                            TileItem::EntitySprite(i) => {
+                                let entity = &self.state.entity_markers[*i];
+                                let sprite =
+                                    self.state.entity_sprites[*i].as_ref().unwrap();
+                                let (px, py) = tile_to_screen(
+                                    entity.tile_x,
+                                    entity.tile_y,
+                                    diagonal,
+                                    pan_x,
+                                    pan_y,
+                                    zoom,
+                                );
+                                let tile_cx = px + TILE_W * zoom * 0.5;
+                                let tile_cy = py + TILE_H * zoom * 0.5;
+                                let w = sprite.width as f32 * zoom;
+                                let h = sprite.height as f32 * zoom;
+                                let dest_x = tile_cx - sprite.origin_x as f32 * zoom;
+                                let dest_y = tile_cy - sprite.origin_y as f32 * zoom;
+                                if is_visible(dest_x, dest_y, w, h, bounds) {
+                                    frame.draw_image(
+                                        Rectangle::new(
+                                            Point::new(dest_x, dest_y),
+                                            Size::new(w, h),
+                                        ),
+                                        CoreImage::new(sprite.handle.clone()),
+                                    );
+                                }
+                            }
                         }
                     }
                 }
@@ -167,21 +337,25 @@ impl<'a> canvas::Program<Message> for MapPreviewTilesLayer<'a> {
 
     fn mouse_interaction(
         &self,
-        _state: &(),
-        _bounds: Rectangle,
-        _cursor: mouse::Cursor,
+        _state: &PreviewCanvasState,
+        bounds: Rectangle,
+        cursor: mouse::Cursor,
     ) -> mouse::Interaction {
-        mouse::Interaction::Idle
+        if cursor.is_over(bounds) {
+            mouse::Interaction::Grab
+        } else {
+            mouse::Interaction::Idle
+        }
     }
 }
 
-// ── Overlay Layer (primitives only, handles all input) ────────────────────────
+// ── Overlay Layer (primitives only) ───────────────────────────────────────────
 
 /// Top canvas: renders entity markers, draw items, and sprite placeholder
-/// shapes. Handles all pan/zoom/click interaction.
-///
-/// Transparent background so the tile layer shows through.
+/// shapes. Transparent background so the tile layer shows through.
 /// No cache — fewer than 100 items, rendering fresh each frame is fine.
+///
+/// Also handles mouse input (by delegating to `handle_input`).
 pub struct MapPreviewOverlaysLayer<'a> {
     pub state: &'a MapPreviewState,
 }
@@ -196,67 +370,7 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
         bounds: Rectangle,
         cursor: mouse::Cursor,
     ) -> Option<canvas::Action<Message>> {
-        use mouse::{Button, Event as MouseEvent, ScrollDelta};
-
-        match event {
-            Event::Mouse(MouseEvent::ButtonPressed(Button::Left)) => {
-                if let Some(pos) = cursor.position_in(bounds) {
-                    interaction.is_dragging = true;
-                    interaction.drag_last = Some(pos);
-                    interaction.drag_start = Some(pos);
-                    return Some(canvas::Action::capture());
-                }
-            }
-            Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
-                interaction.is_dragging = false;
-                interaction.drag_last = None;
-                interaction.drag_start = None;
-            }
-            Event::Mouse(MouseEvent::CursorMoved { .. }) => {
-                if interaction.is_dragging {
-                    if let Some(last) = interaction.drag_last {
-                        if let Some(pos) = cursor.position_in(bounds) {
-                            let dx = pos.x - last.x;
-                            let dy = pos.y - last.y;
-                            interaction.drag_last = Some(pos);
-                            return Some(
-                                canvas::Action::publish(Message::MapPreview(
-                                    PreviewMessage::Pan(dx, dy),
-                                ))
-                                .and_capture(),
-                            );
-                        }
-                    }
-                }
-            }
-            Event::Mouse(MouseEvent::CursorLeft) => {}
-            Event::Mouse(MouseEvent::WheelScrolled { delta }) if cursor.is_over(bounds) => {
-                let scroll_y = match delta {
-                    ScrollDelta::Lines { y, .. } => *y,
-                    ScrollDelta::Pixels { y, .. } => *y / 20.0,
-                };
-                if scroll_y.abs() > 0.001 {
-                    let magnitude = scroll_y.abs().min(3.0) * 0.12;
-                    let factor = if scroll_y > 0.0 {
-                        1.0 + magnitude
-                    } else {
-                        1.0 / (1.0 + magnitude)
-                    };
-                    let (cx, cy) = cursor
-                        .position_in(bounds)
-                        .map(|p| (p.x, p.y))
-                        .unwrap_or((0.0, 0.0));
-                    return Some(
-                        canvas::Action::publish(Message::MapPreview(
-                            PreviewMessage::Zoom(factor, cx, cy),
-                        ))
-                        .and_capture(),
-                    );
-                }
-            }
-            _ => {}
-        }
-        None
+        handle_input(interaction, event, bounds, cursor)
     }
 
     fn draw(
@@ -273,8 +387,6 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
             return vec![frame.into_geometry()];
         }
 
-        let map_data = self.state.map_data.as_ref().unwrap();
-        let model = &map_data.model;
         let diagonal = self.state.diagonal;
         let pan_x = self.state.view.pan_x;
         let pan_y = self.state.view.pan_y;
@@ -283,27 +395,22 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
         let mut frame = Frame::new(renderer, bounds.size());
         // No background fill — transparent overlay on top of tile layer
 
-        // ── Internal sprite placeholder markers ────────────────────────────
-        if self.state.view.show_internal_sprites && self.state.tiles_ready {
-            let nox = model.map_non_occluded_start_x;
-            let noy = model.map_non_occluded_start_y;
-            for block in &map_data.sprite_blocks {
-                let sx = (block.sprite_x + nox) as f32 * zoom + pan_x;
-                let sy = (block.sprite_y + noy) as f32 * zoom + pan_y;
-                let r = 6.0 * zoom;
-                let cx = sx + TILE_W * zoom;
-                let cy = sy + TILE_H * zoom * 0.5;
-                if is_visible(cx - r, cy - r, r * 2.0, r * 2.0, bounds) {
-                    frame.fill(
-                        &diamond_path(cx, cy, r),
-                        Color::from_rgba(0.2, 0.8, 0.9, 0.5),
-                    );
+        // ── Entity markers (fallback shapes for entities without sprites) ──
+        for (i, entity) in self.state.entity_markers.iter().enumerate() {
+            // Skip entities that have a decoded sprite — those are rendered
+            // as images in the tile layer (Y-sorted with buildings).
+            if self.state.sprites_ready {
+                if self
+                    .state
+                    .entity_sprites
+                    .get(i)
+                    .and_then(|s| s.as_ref())
+                    .is_some()
+                {
+                    continue;
                 }
             }
-        }
 
-        // ── Entity markers ─────────────────────────────────────────────────
-        for entity in &self.state.entity_markers {
             let visible = match entity.kind {
                 EntityKind::Monster => self.state.view.show_monsters,
                 EntityKind::Npc => self.state.view.show_npcs,
