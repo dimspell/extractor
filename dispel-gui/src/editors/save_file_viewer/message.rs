@@ -75,20 +75,11 @@ pub enum SaveFileViewerMessage {
         visible_idx: usize,
     },
     /// Toggle sort by a column in the inventory table for a category.
-    InventoryTableSort {
-        cat: InventoryCategory,
-        col: usize,
-    },
+    InventoryTableSort { cat: InventoryCategory, col: usize },
     /// Begin dragging a column resize handle in an inventory table.
-    InventoryTableStartResize {
-        cat: InventoryCategory,
-        col: usize,
-    },
+    InventoryTableStartResize { cat: InventoryCategory, col: usize },
     /// Reset a column to its default width (double-click on resize handle).
-    InventoryTableResetColumnWidth {
-        cat: InventoryCategory,
-        col: usize,
-    },
+    InventoryTableResetColumnWidth { cat: InventoryCategory, col: usize },
     /// Cursor moved while a column resize drag is active.
     InventoryTableResizeCursor(f32),
     /// Column resize drag finished.
@@ -101,21 +92,13 @@ pub enum SaveFileViewerMessage {
         viewport_height: f32,
     },
     /// Select a row in the events table.
-    EventsTableSelect {
-        visible_idx: usize,
-    },
+    EventsTableSelect { visible_idx: usize },
     /// Toggle sort by a column in the events table.
-    EventsTableSort {
-        col: usize,
-    },
+    EventsTableSort { col: usize },
     /// Begin dragging a column resize handle in the events table.
-    EventsTableStartResize {
-        col: usize,
-    },
+    EventsTableStartResize { col: usize },
     /// Reset a column to its default width (double-click on resize handle).
-    EventsTableResetColumnWidth {
-        col: usize,
-    },
+    EventsTableResetColumnWidth { col: usize },
     /// Cursor moved while a column resize drag is active.
     EventsTableResizeCursor(f32),
     /// Column resize drag finished.
@@ -132,20 +115,11 @@ pub enum SaveFileViewerMessage {
         visible_idx: usize,
     },
     /// Toggle sort by a column in a journal table.
-    JournalTableSort {
-        section: JournalSection,
-        col: usize,
-    },
+    JournalTableSort { section: JournalSection, col: usize },
     /// Begin dragging a column resize handle in a journal table.
-    JournalTableStartResize {
-        section: JournalSection,
-        col: usize,
-    },
+    JournalTableStartResize { section: JournalSection, col: usize },
     /// Reset a column to its default width (double-click on resize handle).
-    JournalTableResetColumnWidth {
-        section: JournalSection,
-        col: usize,
-    },
+    JournalTableResetColumnWidth { section: JournalSection, col: usize },
     /// Cursor moved while a column resize drag is active.
     JournalTableResizeCursor(f32),
     /// Column resize drag finished.
@@ -258,7 +232,7 @@ pub struct MapPreviewTiles {
     pub gtl: std::collections::HashMap<i32, iced::widget::image::Handle>,
     pub btl: std::collections::HashMap<i32, iced::widget::image::Handle>,
     /// Decoded internal sprites (thrones, decor, etc.) from the .map file.
-    pub internal_sprites: Vec<crate::components::map_preview::state::PreviewInternalSprite>,
+    pub internal_sprites: Vec<crate::components::map_render::InternalSpriteHandle>,
 }
 
 impl std::fmt::Debug for MapPreviewTiles {
@@ -271,12 +245,10 @@ impl std::fmt::Debug for MapPreviewTiles {
     }
 }
 
-
-
 /// Decoded entity sprites ready from async sprite loading.
 #[derive(Clone)]
 pub struct PreviewSpritesLoaded {
-    pub sprites: Vec<Option<crate::components::map_preview::state::PreviewSprite>>,
+    pub sprites: Vec<Option<crate::components::map_render::EntitySpriteHandle>>,
 }
 
 impl std::fmt::Debug for PreviewSpritesLoaded {

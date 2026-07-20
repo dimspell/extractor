@@ -122,13 +122,16 @@ pub struct CollapsibleTree<
     indent: f32,
     #[allow(clippy::type_complexity)]
     filter: Option<Box<dyn Fn(&T) -> bool + 'a>>,
-    render_node: Box<
-        dyn Fn(RenderContext<'a, T>) -> Element<'a, Message, Theme, Renderer> + 'a,
-    >,
+    render_node: Box<dyn Fn(RenderContext<'a, T>) -> Element<'a, Message, Theme, Renderer> + 'a>,
 }
 
-impl<'a, T, Message: 'a, Theme: 'a + iced::widget::container::Catalog, Renderer: 'a + iced::advanced::Renderer>
-    CollapsibleTree<'a, T, Message, Theme, Renderer>
+impl<
+        'a,
+        T,
+        Message: 'a,
+        Theme: 'a + iced::widget::container::Catalog,
+        Renderer: 'a + iced::advanced::Renderer,
+    > CollapsibleTree<'a, T, Message, Theme, Renderer>
 {
     /// Create a new tree over `nodes` with the given rendering closure.
     pub fn new(
@@ -182,7 +185,13 @@ impl<'a, T, Message: 'a, Theme: 'a + iced::widget::container::Catalog, Renderer:
 /// Recursively render visible nodes. Returns `None` when no node in this
 /// subtree matches the filter.
 #[allow(clippy::needless_range_loop)]
-fn render_nodes<'a, T, Message: 'a, Theme: 'a + iced::widget::container::Catalog, Renderer: 'a + iced::advanced::Renderer>(
+fn render_nodes<
+    'a,
+    T,
+    Message: 'a,
+    Theme: 'a + iced::widget::container::Catalog,
+    Renderer: 'a + iced::advanced::Renderer,
+>(
     nodes: &'a [TreeNode<T>],
     depth: usize,
     indent: f32,

@@ -191,7 +191,9 @@ impl App {
         let prev_btn = if v.page > 0 {
             button(
                 row![
-                    text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11),
+                    text(icon_char(Icon::ChevronLeft))
+                        .font(LUCIDE_FONT)
+                        .size(11),
                     text(" Prev").size(11),
                 ]
                 .spacing(2),
@@ -202,7 +204,9 @@ impl App {
         } else {
             button(
                 row![
-                    text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11),
+                    text(icon_char(Icon::ChevronLeft))
+                        .font(LUCIDE_FONT)
+                        .size(11),
                     text(" Prev").size(11),
                 ]
                 .spacing(2),
@@ -214,7 +218,9 @@ impl App {
             button(
                 row![
                     text("Next ").size(11),
-                    text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                    text(icon_char(Icon::ChevronRight))
+                        .font(LUCIDE_FONT)
+                        .size(11),
                 ]
                 .spacing(2),
             )
@@ -225,7 +231,9 @@ impl App {
             button(
                 row![
                     text("Next ").size(11),
-                    text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                    text(icon_char(Icon::ChevronRight))
+                        .font(LUCIDE_FONT)
+                        .size(11),
                 ]
                 .spacing(2),
             )
@@ -243,7 +251,10 @@ impl App {
             .align_y(iced::Alignment::Center)
             .into()
         } else {
-            text(&v.status_msg).size(11).style(style::subtle_text).into()
+            text(&v.status_msg)
+                .size(11)
+                .style(style::subtle_text)
+                .into()
         };
 
         let status_row = container(
@@ -309,11 +320,11 @@ impl App {
                     text(label).size(11).font(Font::MONOSPACE).into()
                 };
                 button(header_content)
-                .width(150)
-                .padding([8, 6])
-                .on_press(Message::Viewer(ViewerMessage::SortColumn(i)))
-                .style(style::grid_header_button)
-                .into()
+                    .width(150)
+                    .padding([8, 6])
+                    .on_press(Message::Viewer(ViewerMessage::SortColumn(i)))
+                    .style(style::grid_header_button)
+                    .into()
             })
             .collect();
         let header = container(row(header_cells).spacing(0)).style(style::grid_header_cell);

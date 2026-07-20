@@ -1,11 +1,11 @@
 use crate::app::App;
-use gui_widgets::textarea;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::textarea;
 use iced::widget::pane_grid::{self};
 use iced::widget::{button, column, container, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};

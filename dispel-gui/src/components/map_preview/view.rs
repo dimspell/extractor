@@ -1,8 +1,9 @@
 //! View function for the map preview component.
 
-use crate::components::map_preview::canvas::{MapPreviewOverlaysLayer, MapPreviewTilesLayer};
 use crate::components::map_preview::message::PreviewMessage;
+use crate::components::map_preview::overlay::MapPreviewOverlaysLayer;
 use crate::components::map_preview::state::{MapPreviewLoading, MapPreviewState, PreviewLayer};
+use crate::components::map_render::GenericTilesLayer;
 use crate::message::Message;
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill};
@@ -17,12 +18,9 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             .into(),
 
         MapPreviewLoading::Loading => container(
-            column![
-                text("Loading map…").size(12),
-                progress_bar(0.0..=1.0, 0.5),
-            ]
-            .spacing(8)
-            .padding(16),
+            column![text("Loading map…").size(12), progress_bar(0.0..=1.0, 0.5),]
+                .spacing(8)
+                .padding(16),
         )
         .width(Fill)
         .height(Fill)
@@ -33,7 +31,9 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                 text("Failed to load map preview")
                     .size(13)
                     .color(iced::Color::from_rgb(0.8, 0.2, 0.2)),
-                text(err.as_str()).size(11).color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
+                text(err.as_str())
+                    .size(11)
+                    .color(iced::Color::from_rgb(0.6, 0.6, 0.6)),
             ]
             .spacing(8)
             .padding(16),
@@ -60,12 +60,20 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             let layer_row = row![
                 text("Layers:").size(11),
                 layer_toggle("Ground", state.view.show_ground, PreviewLayer::Ground),
-                layer_toggle("Buildings", state.view.show_buildings, PreviewLayer::Buildings),
+                layer_toggle(
+                    "Buildings",
+                    state.view.show_buildings,
+                    PreviewLayer::Buildings
+                ),
                 layer_toggle("Roofs", state.view.show_roofs, PreviewLayer::Roofs),
-                layer_toggle("Sprites", state.view.show_internal_sprites, PreviewLayer::InternalSprites),
+                layer_toggle(
+                    "Sprites",
+                    state.view.show_internal_sprites,
+                    PreviewLayer::InternalSprites
+                ),
                 layer_toggle("Monsters", state.view.show_monsters, PreviewLayer::Monsters),
                 layer_toggle("NPCs", state.view.show_npcs, PreviewLayer::Npcs),
-                layer_toggle("Extras", state.view.show_extras, PreviewLayer::Extras),
+                layer_toggle("Extras", state.view.show_objects, PreviewLayer::Extras),
                 layer_toggle("Items", state.view.show_draw_items, PreviewLayer::DrawItems),
             ]
             .spacing(12)
@@ -77,11 +85,19 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             let zoom_controls = container(
                 column![
                     button(text("+").size(14))
-                        .on_press(Message::MapPreview(PreviewMessage::Zoom(1.25, f32::NAN, f32::NAN)))
+                        .on_press(Message::MapPreview(PreviewMessage::Zoom(
+                            1.25,
+                            f32::NAN,
+                            f32::NAN
+                        )))
                         .padding([5, 10]),
                     text(zoom_label).size(10),
                     button(text("−").size(14))
-                        .on_press(Message::MapPreview(PreviewMessage::Zoom(1.0 / 1.25, f32::NAN, f32::NAN)))
+                        .on_press(Message::MapPreview(PreviewMessage::Zoom(
+                            1.0 / 1.25,
+                            f32::NAN,
+                            f32::NAN
+                        )))
                         .padding([5, 10]),
                     button(text("⊡").size(11))
                         .on_press(Message::MapPreview(PreviewMessage::FitToWindow))
@@ -96,9 +112,7 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             .align_x(iced::alignment::Horizontal::Right)
             .align_y(iced::alignment::Vertical::Top);
 
-            let tiles = canvas(MapPreviewTilesLayer { state })
-                .width(Fill)
-                .height(Fill);
+            let tiles = canvas(GenericTilesLayer { state }).width(Fill).height(Fill);
             let overlays = canvas(MapPreviewOverlaysLayer { state })
                 .width(Fill)
                 .height(Fill);
@@ -114,7 +128,11 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
     }
 }
 
-fn layer_toggle(label: &'static str, is_on: bool, layer: PreviewLayer) -> Element<'static, Message> {
+fn layer_toggle(
+    label: &'static str,
+    is_on: bool,
+    layer: PreviewLayer,
+) -> Element<'static, Message> {
     iced::widget::toggler(is_on)
         .label(label)
         .text_size(11)

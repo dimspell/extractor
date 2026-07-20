@@ -410,14 +410,22 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
     // Move left/right buttons
     let move_left_btn = if has_frames && viewer.selected_frame > 0 {
-        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
-            .on_press(sv(SpriteViewerMessage::MoveFrameLeft))
-            .padding([3, 7])
-            .style(style::chip)
+        button(
+            text(icon_char(Icon::ChevronLeft))
+                .font(LUCIDE_FONT)
+                .size(11),
+        )
+        .on_press(sv(SpriteViewerMessage::MoveFrameLeft))
+        .padding([3, 7])
+        .style(style::chip)
     } else {
-        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
-            .padding([3, 7])
-            .style(style::chip)
+        button(
+            text(icon_char(Icon::ChevronLeft))
+                .font(LUCIDE_FONT)
+                .size(11),
+        )
+        .padding([3, 7])
+        .style(style::chip)
     };
 
     let move_right_btn = if has_frames {
@@ -427,19 +435,31 @@ fn view_edit_toolbar(viewer: &SpriteViewerState) -> Element<'_, Message> {
             .copied()
             .unwrap_or(0);
         if viewer.selected_frame + 1 < max_frames {
-            button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
-                .on_press(sv(SpriteViewerMessage::MoveFrameRight))
-                .padding([3, 7])
-                .style(style::chip)
-        } else {
-            button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
-                .padding([3, 7])
-                .style(style::chip)
-        }
-    } else {
-        button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
+            button(
+                text(icon_char(Icon::ChevronRight))
+                    .font(LUCIDE_FONT)
+                    .size(11),
+            )
+            .on_press(sv(SpriteViewerMessage::MoveFrameRight))
             .padding([3, 7])
             .style(style::chip)
+        } else {
+            button(
+                text(icon_char(Icon::ChevronRight))
+                    .font(LUCIDE_FONT)
+                    .size(11),
+            )
+            .padding([3, 7])
+            .style(style::chip)
+        }
+    } else {
+        button(
+            text(icon_char(Icon::ChevronRight))
+                .font(LUCIDE_FONT)
+                .size(11),
+        )
+        .padding([3, 7])
+        .style(style::chip)
     };
 
     let import_btn = if viewer.sprite_file.is_some() {
@@ -523,10 +543,14 @@ fn view_scrubber(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
 fn view_playback_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
     // Transport buttons
-    let step_back = button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(12))
-        .on_press(sv(SpriteViewerMessage::StepBack))
-        .padding([4, 8])
-        .style(style::playback_button);
+    let step_back = button(
+        text(icon_char(Icon::ChevronLeft))
+            .font(LUCIDE_FONT)
+            .size(12),
+    )
+    .on_press(sv(SpriteViewerMessage::StepBack))
+    .padding([4, 8])
+    .style(style::playback_button);
 
     let play_pause = if viewer.is_playing {
         button(text(icon_char(Icon::Pause)).font(LUCIDE_FONT).size(14))
@@ -542,7 +566,9 @@ fn view_playback_controls(viewer: &SpriteViewerState) -> Element<'_, Message> {
 
     let step_fwd = button(
         row![
-            text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(12),
+            text(icon_char(Icon::ChevronRight))
+                .font(LUCIDE_FONT)
+                .size(12),
             text("|").size(12)
         ]
         .spacing(0),

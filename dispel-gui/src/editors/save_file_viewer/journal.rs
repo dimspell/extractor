@@ -3,13 +3,13 @@ use iced::widget::{button, container, mouse_area, text, Column};
 use iced::{Element, Fill};
 
 use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
-use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
-use gui_widgets::components::modal;
-use crate::editors::save_file_viewer::state::{
-    JournalSection, SaveFileViewerState,
+use crate::editors::save_file_viewer::message::{
+    SaveFileViewerMessage, TableFilterAction, TableKey,
 };
+use crate::editors::save_file_viewer::state::{JournalSection, SaveFileViewerState};
 use crate::message::Message;
 use crate::message::MessageExt;
+use gui_widgets::components::modal;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 

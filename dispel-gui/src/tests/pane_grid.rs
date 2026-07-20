@@ -204,8 +204,18 @@ mod pane_grid_tests {
         assert!(!app.sidebar_visible);
 
         // Verify remaining pane is functional
-        let panes: Vec<_> = app.state.pane_state.state.iter().map(|(id, _)| *id).collect();
-        assert_eq!(panes.len(), 1, "should have exactly one pane after hiding sidebar");
+        let panes: Vec<_> = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            panes.len(),
+            1,
+            "should have exactly one pane after hiding sidebar"
+        );
     }
 
     /// Regression test: Toggle Sidebar without overlay.
@@ -224,7 +234,17 @@ mod pane_grid_tests {
         let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
         assert!(!app.sidebar_visible);
 
-        let panes: Vec<_> = app.state.pane_state.state.iter().map(|(id, _)| *id).collect();
-        assert_eq!(panes.len(), 1, "should have exactly one pane after hiding sidebar");
+        let panes: Vec<_> = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            panes.len(),
+            1,
+            "should have exactly one pane after hiding sidebar"
+        );
     }
 }

@@ -58,7 +58,9 @@ use serde::{Deserialize, Serialize};
 /// Defines animation sequences for monsters, linking visual
 /// appearances with behavioral animations. Used for monster
 /// rendering during different combat states and actions.
-#[derive(Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher,Localizable)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, TextExtractor, TextRecordPatcher, Localizable,
+)]
 #[extractor(encoding = "WINDOWS_1250")]
 #[patcher(filename = "Monster.ini")]
 pub struct MonsterIni {

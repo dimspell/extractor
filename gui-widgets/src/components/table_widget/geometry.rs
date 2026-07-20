@@ -66,12 +66,7 @@ pub fn header_bounds(bounds: Rectangle, row_height: f32) -> Rectangle {
 
 /// Bounds of the scrollable data area below the header, after reserving
 /// space for visible scrollbar strips on the right and bottom edges.
-pub fn body_bounds(
-    bounds: Rectangle,
-    total_w: f32,
-    total_h: f32,
-    row_height: f32,
-) -> Rectangle {
+pub fn body_bounds(bounds: Rectangle, total_w: f32, total_h: f32, row_height: f32) -> Rectangle {
     let header_h = header_height(row_height).min(bounds.height);
     let avail_h = (bounds.height - header_h).max(0.0);
     let needs_v = total_h > avail_h;

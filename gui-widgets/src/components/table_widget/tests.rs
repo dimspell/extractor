@@ -71,8 +71,7 @@ fn table_state_provides_scroll_offset_to_widget() {
         viewport_height: 100.0,
     };
     let w: TableWidget<'_, ()> =
-        TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache)
-            .table_state(&ts);
+        TableWidget::new(&display, &filtered, cols, 42.0, no_flags, 24.0, cache).table_state(&ts);
     let ts = w.table_state.unwrap();
     assert!((ts.scroll_offset.x - 10.0).abs() < f32::EPSILON);
     assert!((ts.scroll_offset.y - 200.0).abs() < f32::EPSILON);

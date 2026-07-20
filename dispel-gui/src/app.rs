@@ -354,9 +354,7 @@ impl App {
                 let Some(tab_id) = self.active_tab_id() else {
                     return Task::none();
                 };
-                use crate::editors::save_file_viewer::{
-                    RawHexEditorData, SaveFileViewerState,
-                };
+                use crate::editors::save_file_viewer::{RawHexEditorData, SaveFileViewerState};
                 self.state
                     .editors
                     .save_file_viewers
@@ -368,8 +366,7 @@ impl App {
                 let path_buf = path.to_path_buf();
                 Task::perform(
                     async move {
-                        let data = std::fs::read(&path_buf)
-                            .map_err(|e| e.to_string())?;
+                        let data = std::fs::read(&path_buf).map_err(|e| e.to_string())?;
                         let save_file = dispel_core::references::save_file::SaveFile::parse(&data)
                             .map_err(|e| e.to_string())?;
 
@@ -416,9 +413,7 @@ impl App {
                     },
                     move |result| {
                         crate::message::Message::save_file_viewer(
-                            crate::editors::save_file_viewer::SaveFileViewerMessage::Loaded(
-                                result,
-                            ),
+                            crate::editors::save_file_viewer::SaveFileViewerMessage::Loaded(result),
                         )
                     },
                 )

@@ -113,7 +113,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                         )),
                     },
                 }
-            },
+            }
             FieldInfo::EnumFromU8 { ident, enum_ty } => {
                 enum_arm(&field_name, ident, &enum_ty, "u8", "from_u8")
             }

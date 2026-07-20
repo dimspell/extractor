@@ -3,13 +3,15 @@ use iced::widget::{button, container, mouse_area, text, Column, Row};
 use iced::{Element, Fill};
 
 use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
-use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
-use gui_widgets::components::modal;
+use crate::editors::save_file_viewer::message::{
+    SaveFileViewerMessage, TableFilterAction, TableKey,
+};
 use crate::editors::save_file_viewer::state::{
     InventoryCategory, SaveFileViewerState, TableFilterState,
 };
 use crate::message::Message;
 use crate::message::MessageExt;
+use gui_widgets::components::modal;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 
@@ -118,7 +120,8 @@ fn inventory_table<'a>(
         RowFlags {
             selected: orig == selected,
             highlighted: is_highlight
-                && orig.map(|o| highlighted.map(|h| h.contains(&o)).unwrap_or(false))
+                && orig
+                    .map(|o| highlighted.map(|h| h.contains(&o)).unwrap_or(false))
                     .unwrap_or(false),
             current_highlight: is_highlight && orig == current_highlight,
         }
@@ -140,10 +143,7 @@ fn inventory_table<'a>(
         ParagraphCache::default(),
     )
     .on_select(move |visible_idx| {
-        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSelect {
-            cat,
-            visible_idx,
-        })
+        Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSelect { cat, visible_idx })
     })
     .on_sort(move |col| {
         Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSort { cat, col })

@@ -58,9 +58,12 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 size,
             } => {
                 let encoding_tokens = get_encoding_tokens(encoding);
-                let buf_ident = Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
-                let data_len_ident =
-                    Ident::new(&format!("{}_data_len", ident), proc_macro2::Span::call_site());
+                let buf_ident =
+                    Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
+                let data_len_ident = Ident::new(
+                    &format!("{}_data_len", ident),
+                    proc_macro2::Span::call_site(),
+                );
                 parse_stmts.push(quote! {
                     let mut #buf_ident = [0u8; #size];
                     reader.read_exact(&mut #buf_ident)?;
@@ -157,7 +160,8 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 size,
             } => {
                 let encoding_tokens = get_encoding_tokens(encoding);
-                let buf_ident = Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
+                let buf_ident =
+                    Ident::new(&format!("{}_buf", ident), proc_macro2::Span::call_site());
                 write_stmts.push(quote! {
                     let mut #buf_ident = vec![0u8; #size];
                     let (cow, _, _) = #encoding_tokens.encode(&self.#ident);

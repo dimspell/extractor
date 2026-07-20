@@ -1,5 +1,5 @@
 use super::types::{RowFlags, ScrollbarDrag, State, TableColumn};
-use super::{SCROLLBAR_THICKNESS};
+use super::SCROLLBAR_THICKNESS;
 use crate::components::paragraph_cache::ParagraphCache;
 use crate::components::table_widget::state::TableState;
 use iced::advanced::Shell;
@@ -189,11 +189,7 @@ impl<'a, Message> TableWidget<'a, Message> {
         self.filtered_indices.len()
     }
 
-    pub(crate) fn cell_value(
-        &self,
-        visible_idx: usize,
-        col_idx: usize,
-    ) -> Option<Cow<'_, str>> {
+    pub(crate) fn cell_value(&self, visible_idx: usize, col_idx: usize) -> Option<Cow<'_, str>> {
         let orig_idx = *self.filtered_indices.get(visible_idx)?;
         if col_idx == 0 {
             Some(Cow::Owned(format!("{}", orig_idx + 1)))
@@ -260,8 +256,8 @@ impl<'a, Message> TableWidget<'a, Message> {
         let clamped_x = new_x.clamp(0.0, (total_w - body.width).max(0.0));
         let clamped_y = new_y.clamp(0.0, (total_h - body.height).max(0.0));
         let cur = self.scroll_offset();
-        let moved = (clamped_x - cur.x).abs() > f32::EPSILON
-            || (clamped_y - cur.y).abs() > f32::EPSILON;
+        let moved =
+            (clamped_x - cur.x).abs() > f32::EPSILON || (clamped_y - cur.y).abs() > f32::EPSILON;
         if moved {
             shell.request_redraw();
             if let Some(cb) = &self.on_scroll {

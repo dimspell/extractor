@@ -1,9 +1,9 @@
 use crate::components::edit_history::EditHistory;
 use crate::components::editable::EditableRecord;
-use gui_widgets::TextAreaContent;
 use crate::components::filter::ColumnFilterOption;
 use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;
+use gui_widgets::TextAreaContent;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::Pane;
 use std::collections::HashMap;

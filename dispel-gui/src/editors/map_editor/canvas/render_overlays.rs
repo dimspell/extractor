@@ -1,11 +1,11 @@
 // ── MapCanvasOverlaysLayer — overlay elements (collisions, events, entities) ──
 
-use super::draw_helpers::{diamond_path, draw_item_color};
-use super::geometry::{is_visible, screen_to_tile, tile_center, tile_to_screen};
 use super::hit_test::{entity_tile, find_hovered_element};
 use super::input::MapCanvas;
-use super::state::MapCanvasState;
-use super::{TILE_H, TILE_W};
+use crate::components::map_render::{
+    diamond_path, draw_item_color, is_visible, screen_to_tile, tile_center, tile_to_screen,
+    MapCanvasState, TILE_H, TILE_W,
+};
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::state::MapEditorState;
 use crate::message::Message;
@@ -139,7 +139,11 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             );
                             if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                 let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                let color = draw_item_color(di.item.item_type().unwrap_or(dispel_core::ItemTypeId::Other));
+                                let color = draw_item_color(
+                                    di.item
+                                        .item_type()
+                                        .unwrap_or(dispel_core::ItemTypeId::Other),
+                                );
                                 let r = 6.0 * zoom;
                                 frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
                                 let label = di.item.item_id().to_string();

@@ -1,6 +1,6 @@
 // ── Coordinate transforms for the isometric map canvas ───────────────────────
 
-use super::{TILE_H, TILE_W};
+use crate::components::map_render::{TILE_H, TILE_W};
 use iced::Rectangle;
 
 /// World pixel centre of an isometric tile.

@@ -46,9 +46,10 @@ pub use references::{
     party_level_db::{PartyLevelNpc, PartyLevelRecord},
     party_ref::PartyRef,
     quest_scr::Quest,
-    save_file::{SaveFile, CharacterStats, InventoryData, JournalData,
-                CharacterIdentity, PostMapsData, PostEventsData,
-                MapSectionData, JournalEntry},
+    save_file::{
+        CharacterIdentity, CharacterStats, InventoryData, JournalData, JournalEntry,
+        MapSectionData, PostEventsData, PostMapsData, SaveFile,
+    },
     store_db::Store,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,

@@ -1,14 +1,15 @@
-use iced::Task;
 use iced::widget::image::Handle;
+use iced::Task;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::app::App;
-use crate::components::map_preview::state::{EntityKind, PreviewSprite};
+use crate::components::map_preview::state::EntityKind;
+use crate::components::map_render::EntitySpriteHandle;
 use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
-use dispel_core::{Extra, MonsterIni, NpcIni, Extractor};
 use dispel_core::map::sprite_loader::load_sprite_frames;
+use dispel_core::{Extra, Extractor, MonsterIni, NpcIni};
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
     let tab_id = match app.state.workspace.active() {
@@ -104,14 +105,16 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         let mut reader = std::io::BufReader::new(file);
                         let map_data = dispel_core::map::read_map_data(&mut reader)
                             .map_err(|e| format!("Failed to parse map: {}", e))?;
-                        let diagonal = map_data.model.tiled_map_width
-                            + map_data.model.tiled_map_height;
+                        let diagonal =
+                            map_data.model.tiled_map_width + map_data.model.tiled_map_height;
 
-                        Ok(crate::editors::save_file_viewer::message::MapPreviewLoaded {
-                            map_data: std::sync::Arc::new(map_data),
-                            diagonal,
-                            map_stem: stem,
-                        })
+                        Ok(
+                            crate::editors::save_file_viewer::message::MapPreviewLoaded {
+                                map_data: std::sync::Arc::new(map_data),
+                                diagonal,
+                                map_stem: stem,
+                            },
+                        )
                     },
                     move |result| {
                         Message::save_file_viewer(
@@ -132,25 +135,24 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 Err(e) => {
                     state.show_preview = false;
                     state.map_preview = None;
-                    return Task::done(Message::System(
-                        crate::message::SystemMessage::ShowError(format!(
-                            "Failed to load map preview: {}",
-                            e
-                        )),
-                    ));
+                    return Task::done(Message::System(crate::message::SystemMessage::ShowError(
+                        format!("Failed to load map preview: {}", e),
+                    )));
                 }
             };
 
             let game_path = app.state.workspace.game_path.clone();
 
             use crate::components::map_preview::state::{
-                MapPreviewLoading, MapPreviewState, MapPreviewViewState, PreviewEntity,
+                MapPreviewLoading, MapPreviewState, PreviewEntity,
             };
+            use crate::components::map_render::MapViewState;
+            use crate::editors::map_editor::message::MapDataHandle;
             let preview_state = MapPreviewState {
-                map_data: Some(loaded.map_data.clone()),
+                map_data: Some(MapDataHandle(loaded.map_data.clone())),
                 diagonal: loaded.diagonal,
                 game_path: game_path.clone(),
-                view: MapPreviewViewState::default(),
+                view: MapViewState::default(),
                 loading: MapPreviewLoading::Loaded,
                 entity_markers: Vec::new(),
                 gtl_handles: std::collections::HashMap::new(),
@@ -167,7 +169,6 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             // Build entity markers from save file data (synchronous)
             if let Some(sf) = state.save_file.as_ref() {
                 if let Some(map_data) = &sf.maps.get(map_idx) {
-                    use crate::components::map_preview::state::EntityKind;
                     let mut entities = Vec::new();
                     /// Safe cast: u32 → i32, clamps to i32 range and warns on overflow.
                     fn to_tile(v: u32) -> i32 {
@@ -200,16 +201,35 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // is mid-patrol the best we can do is its first filled waypoint.
                     for n in &map_data.npcs {
                         let waypoints = [
-                            (n.npc_ref_waypoint1filled, n.npc_ref_waypoint1x, n.npc_ref_waypoint1y),
-                            (n.npc_ref_waypoint2filled, n.npc_ref_waypoint2x, n.npc_ref_waypoint2y),
-                            (n.npc_ref_waypoint3filled, n.npc_ref_waypoint3x, n.npc_ref_waypoint3y),
-                            (n.npc_ref_waypoint4filled, n.npc_ref_waypoint4x, n.npc_ref_waypoint4y),
+                            (
+                                n.npc_ref_waypoint1filled,
+                                n.npc_ref_waypoint1x,
+                                n.npc_ref_waypoint1y,
+                            ),
+                            (
+                                n.npc_ref_waypoint2filled,
+                                n.npc_ref_waypoint2x,
+                                n.npc_ref_waypoint2y,
+                            ),
+                            (
+                                n.npc_ref_waypoint3filled,
+                                n.npc_ref_waypoint3x,
+                                n.npc_ref_waypoint3y,
+                            ),
+                            (
+                                n.npc_ref_waypoint4filled,
+                                n.npc_ref_waypoint4x,
+                                n.npc_ref_waypoint4y,
+                            ),
                         ];
                         let (nx, ny) = waypoints
                             .iter()
                             .find(|(filled, _, _)| *filled != 0)
                             .map(|&(_, x, y)| (to_tile(x), to_tile(y)))
-                            .unwrap_or((to_tile(n.npc_ref_waypoint1x), to_tile(n.npc_ref_waypoint1y)));
+                            .unwrap_or((
+                                to_tile(n.npc_ref_waypoint1x),
+                                to_tile(n.npc_ref_waypoint1y),
+                            ));
                         if nx != 0 || ny != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Npc,
@@ -244,35 +264,70 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
+                            entities.push(PreviewEntity {
+                                kind: EntityKind::DrawItem,
+                                label: d.name.clone(),
+                                tile_x: x,
+                                tile_y: y,
+                                confirmed: true,
+                                db_id: None,
+                            });
                         }
                     }
                     for d in &map_data.draw_items_heal {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
+                            entities.push(PreviewEntity {
+                                kind: EntityKind::DrawItem,
+                                label: d.name.clone(),
+                                tile_x: x,
+                                tile_y: y,
+                                confirmed: true,
+                                db_id: None,
+                            });
                         }
                     }
                     for d in &map_data.draw_items_edit {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
+                            entities.push(PreviewEntity {
+                                kind: EntityKind::DrawItem,
+                                label: d.name.clone(),
+                                tile_x: x,
+                                tile_y: y,
+                                confirmed: true,
+                                db_id: None,
+                            });
                         }
                     }
                     for d in &map_data.draw_items_misc {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
+                            entities.push(PreviewEntity {
+                                kind: EntityKind::DrawItem,
+                                label: d.name.clone(),
+                                tile_x: x,
+                                tile_y: y,
+                                confirmed: true,
+                                db_id: None,
+                            });
                         }
                     }
                     for d in &map_data.draw_items_event {
                         let x = to_tile(d.map_coordinate_x);
                         let y = to_tile(d.map_coordinate_y);
                         if x != 0 || y != 0 {
-                            entities.push(PreviewEntity { kind: EntityKind::DrawItem, label: d.name.clone(), tile_x: x, tile_y: y, confirmed: true, db_id: None });
+                            entities.push(PreviewEntity {
+                                kind: EntityKind::DrawItem,
+                                label: d.name.clone(),
+                                tile_x: x,
+                                tile_y: y,
+                                confirmed: true,
+                                db_id: None,
+                            });
                         }
                     }
                     if let Some(preview) = state.map_preview.as_mut() {
@@ -289,8 +344,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             let gtl_path = map_path.with_extension("gtl");
             let btl_path = map_path.with_extension("btl");
 
-            use std::collections::HashSet;
             use std::collections::HashMap;
+            use std::collections::HashSet;
 
             // Include building tile IDs (from tiled_infos) in btl decode set.
             // Without this, buildings in the interlaced pass have no textures.
@@ -312,8 +367,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
             let tile_task = iced::Task::perform(
                 async move {
+                    use crate::components::map_render::decode_tileset_file;
                     use iced::widget::image::Handle;
-                    use crate::editors::map_editor::canvas::decode::decode_tileset_file;
 
                     let gtl_raw = decode_tileset_file(&gtl_path, &gtl_ids).unwrap_or_default();
                     let btl_raw = decode_tileset_file(&btl_path, &btl_ids).unwrap_or_default();
@@ -328,7 +383,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         .collect();
 
                     // Decode internal sprites from the .map file (thrones, decor, etc.)
-                    let internal_sprites = decode_internal_preview_sprites(&map_path, &loaded.map_data);
+                    let internal_sprites =
+                        decode_internal_preview_sprites(&map_path, &loaded.map_data);
 
                     crate::editors::save_file_viewer::message::MapPreviewTiles {
                         gtl,
@@ -354,9 +410,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .map(|p| p.entity_markers.clone())
                 .unwrap_or_default();
             let sprite_task = iced::Task::perform(
-                async move {
-                    load_preview_sprites(gp_for_sprites, entity_markers).await
-                },
+                async move { load_preview_sprites(gp_for_sprites, entity_markers).await },
                 move |result| {
                     Message::save_file_viewer(
                         crate::editors::save_file_viewer::message::SaveFileViewerMessage::PreviewSpritesReady(map_idx, result),
@@ -380,7 +434,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 preview.internal_sprites = tiles.internal_sprites;
                 preview.tiles_ready = true;
                 // Force re-cache — tile cache was populated while tiles_ready was false
-                preview.view.tile_cache.clear();
+                preview.view.tile_layer_cache.clear();
             }
             Task::none()
         }
@@ -396,7 +450,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 preview.entity_sprites = loaded.sprites;
                 preview.sprites_ready = true;
                 // Force tile layer to re-cache with sprites
-                preview.view.tile_cache.clear();
+                preview.view.tile_layer_cache.clear();
             }
             Task::none()
         }
@@ -486,8 +540,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         return Task::none();
                     }
                 };
-                let new_width = (drag.anchor_width + (x - anchor_x))
-                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                let new_width =
+                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
                 if let Some(ts) = state
                     .maps_table_states
                     .get_mut(drag.map)
@@ -504,7 +558,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.maps_resizing = None;
             Task::none()
         }
-        SaveFileViewerMessage::MapsTableScroll { map, kind, x, y, .. } => {
+        SaveFileViewerMessage::MapsTableScroll {
+            map, kind, x, y, ..
+        } => {
             if let Some(ts) = state
                 .maps_table_states
                 .get_mut(map)
@@ -514,10 +570,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
-        SaveFileViewerMessage::InventoryTableSelect {
-            cat,
-            visible_idx,
-        } => {
+        SaveFileViewerMessage::InventoryTableSelect { cat, visible_idx } => {
             if let Some(indices) = state.inventory_filtered_indices.get(&cat) {
                 let orig = indices.get(visible_idx).copied();
                 if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
@@ -584,8 +637,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         return Task::none();
                     }
                 };
-                let new_width = (drag.anchor_width + (x - anchor_x))
-                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                let new_width =
+                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
                 if let Some(ts) = state.inventory_table_states.get_mut(&drag.cat) {
                     if let Some(w) = ts.column_widths.get_mut(drag.col) {
                         *w = new_width;
@@ -598,12 +651,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.inventory_resizing = None;
             Task::none()
         }
-        SaveFileViewerMessage::InventoryTableScroll {
-            cat,
-            x,
-            y,
-            ..
-        } => {
+        SaveFileViewerMessage::InventoryTableScroll { cat, x, y, .. } => {
             if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
                 ts.table_state.scroll_offset = iced::Vector::new(x, y);
             }
@@ -623,7 +671,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 ts.sort_ascending = true;
             }
             let ascending = ts.sort_ascending;
-            let (rows, indices) = events_table_data(&mut state.events_display_cache, &mut state.events_filtered_indices);
+            let (rows, indices) = events_table_data(
+                &mut state.events_display_cache,
+                &mut state.events_filtered_indices,
+            );
             indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
             Task::none()
         }
@@ -634,13 +685,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get(col)
                 .copied()
                 .unwrap_or(80.0);
-            state.events_resizing = Some(
-                crate::editors::save_file_viewer::state::EventsResizeDrag {
+            state.events_resizing =
+                Some(crate::editors::save_file_viewer::state::EventsResizeDrag {
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
-                },
-            );
+                });
             Task::none()
         }
         SaveFileViewerMessage::EventsTableResetColumnWidth { col } => {
@@ -663,8 +713,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         return Task::none();
                     }
                 };
-                let new_width = (drag.anchor_width + (x - anchor_x))
-                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                let new_width =
+                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
                 if let Some(w) = state.events_table_state.column_widths.get_mut(drag.col) {
                     *w = new_width;
                 }
@@ -679,7 +729,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.events_table_state.table_state.scroll_offset = iced::Vector::new(x, y);
             Task::none()
         }
-        SaveFileViewerMessage::JournalTableSelect { section, visible_idx } => {
+        SaveFileViewerMessage::JournalTableSelect {
+            section,
+            visible_idx,
+        } => {
             if let Some(indices) = state.journal_filtered_indices.get(&section) {
                 let orig = indices.get(visible_idx).copied();
                 if let Some(ts) = state.journal_table_states.get_mut(&section) {
@@ -714,14 +767,13 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get(&section)
                 .and_then(|ts| ts.column_widths.get(col).copied())
                 .unwrap_or(80.0);
-            state.journal_resizing = Some(
-                crate::editors::save_file_viewer::state::JournalResizeDrag {
+            state.journal_resizing =
+                Some(crate::editors::save_file_viewer::state::JournalResizeDrag {
                     section,
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
-                },
-            );
+                });
             Task::none()
         }
         SaveFileViewerMessage::JournalTableResetColumnWidth { section, col } => {
@@ -747,8 +799,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         return Task::none();
                     }
                 };
-                let new_width = (drag.anchor_width + (x - anchor_x))
-                    .clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
+                let new_width =
+                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
                 if let Some(ts) = state.journal_table_states.get_mut(&drag.section) {
                     if let Some(w) = ts.column_widths.get_mut(drag.col) {
                         *w = new_width;
@@ -962,19 +1014,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // Build per-category inventory table interaction state.
                     // Column widths are initialised from each category's
                     // default column layout.
-                    use crate::editors::save_file_viewer::state::{
-                        TableInteractionState,
-                    };
+                    use crate::editors::save_file_viewer::state::TableInteractionState;
                     let mut inv_states: std::collections::HashMap<
                         InventoryCategory,
                         TableInteractionState,
                     > = std::collections::HashMap::new();
                     for cat in state.inventory_display_caches.keys() {
-                        let widths: Vec<f32> = cat
-                            .default_columns()
-                            .iter()
-                            .map(|c| c.width_px)
-                            .collect();
+                        let widths: Vec<f32> =
+                            cat.default_columns().iter().map(|c| c.width_px).collect();
                         inv_states.insert(
                             *cat,
                             TableInteractionState {
@@ -1022,7 +1069,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         state.journal_table_states = journal_states;
                     }
                     // Build maps display caches
-                    let maps_caches: Vec<crate::editors::save_file_viewer::state::MapsDisplayCaches> = loaded
+                    let maps_caches: Vec<
+                        crate::editors::save_file_viewer::state::MapsDisplayCaches,
+                    > = loaded
                         .save_file
                         .maps
                         .iter()
@@ -1037,284 +1086,316 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             let n_dev = map.draw_items_event.len();
                             use crate::editors::save_file_viewer::state::MapsDisplayCaches;
                             MapsDisplayCaches {
-                                monsters: map.monsters.iter().map(|m| {
-                                    vec![
-                                        m.signature_a.to_string(),
-                                        m.record_index.to_string(),
-                                        m.signature_b.to_string(),
-                                        m.name.clone(),
-                                        m.monster_db_id.to_string(),
-                                        m.hp_current.to_string(),
-                                        m.hp_maximum.to_string(),
-                                        m.mp_current.to_string(),
-                                        m.mp_maximum.to_string(),
-                                        m.walk_speed.to_string(),
-                                        m.hit_rate.to_string(),
-                                        m.dodge_rate.to_string(),
-                                        m.offense_rate.to_string(),
-                                        m.defense_rate.to_string(),
-                                        m.magic_rate.to_string(),
-                                        m.is_undead.to_string(),
-                                        m.has_blood.to_string(),
-                                        m.monster_ai_type.to_string(),
-                                        m.experience_on_kill.to_string(),
-                                        m.gold_drop_on_kill.to_string(),
-                                        m.unknown_1.to_string(),
-                                        m.sight_range.to_string(),
-                                        m.attack_range.to_string(),
-                                        m.spell_slot_1.to_string(),
-                                        m.spell_slot_2.to_string(),
-                                        m.spell_slot_3.to_string(),
-                                        m.oversize.to_string(),
-                                        m.magic_level.to_string(),
-                                        m.unknown_2.to_string(),
-                                        hex_bytes(&m.unknown_3),
-                                        m.unknown_4.to_string(),
-                                        m.unknown_5.to_string(),
-                                        m.current_position_x.to_string(),
-                                        m.current_position_y.to_string(),
-                                        m.spawn_position_x.to_string(),
-                                        m.spawn_position_y.to_string(),
-                                        m.unknown_10_coordinate.to_string(),
-                                        m.unknown_11_coordinate.to_string(),
-                                        m.unknown_12.to_string(),
-                                        m.unknown_13.to_string(),
-                                        m.unknown_14.to_string(),
-                                        m.unknown_15.to_string(),
-                                        m.unknown_16.to_string(),
-                                        m.unknown_17.to_string(),
-                                        m.unknown_18.to_string(),
-                                        hex_bytes(&m.unknown_19),
-                                        m.unknown_20.to_string(),
-                                        m.unknown_21.to_string(),
-                                        m.unknown_22.to_string(),
-                                        m.loot_item1.raw().to_string(),
-                                        m.loot_item2.raw().to_string(),
-                                        m.loot_item3.raw().to_string(),
-                                        m.mon_ref_padding_12.to_string(),
-                                        m.mon_ref_padding_13.to_string(),
-                                        m.unknown_23.to_string(),
-                                        m.unknown_24.to_string(),
-                                        m.unknown_25.to_string(),
-                                        m.unknown_26.to_string(),
-                                        m.special_attack_chance.to_string(),
-                                        m.special_attack_duration.to_string(),
-                                        hex_bytes(&m.unknown_27),
-                                        m.boldness.to_string(),
-                                        m.attack_speed.to_string(),
-                                        hex_bytes(&m.unknown_28),
-                                        m.unknown_29.to_string(),
-                                        hex_bytes(&m.unknown_30),
-                                    ]
-                                }).collect(),
+                                monsters: map
+                                    .monsters
+                                    .iter()
+                                    .map(|m| {
+                                        vec![
+                                            m.signature_a.to_string(),
+                                            m.record_index.to_string(),
+                                            m.signature_b.to_string(),
+                                            m.name.clone(),
+                                            m.monster_db_id.to_string(),
+                                            m.hp_current.to_string(),
+                                            m.hp_maximum.to_string(),
+                                            m.mp_current.to_string(),
+                                            m.mp_maximum.to_string(),
+                                            m.walk_speed.to_string(),
+                                            m.hit_rate.to_string(),
+                                            m.dodge_rate.to_string(),
+                                            m.offense_rate.to_string(),
+                                            m.defense_rate.to_string(),
+                                            m.magic_rate.to_string(),
+                                            m.is_undead.to_string(),
+                                            m.has_blood.to_string(),
+                                            m.monster_ai_type.to_string(),
+                                            m.experience_on_kill.to_string(),
+                                            m.gold_drop_on_kill.to_string(),
+                                            m.unknown_1.to_string(),
+                                            m.sight_range.to_string(),
+                                            m.attack_range.to_string(),
+                                            m.spell_slot_1.to_string(),
+                                            m.spell_slot_2.to_string(),
+                                            m.spell_slot_3.to_string(),
+                                            m.oversize.to_string(),
+                                            m.magic_level.to_string(),
+                                            m.unknown_2.to_string(),
+                                            hex_bytes(&m.unknown_3),
+                                            m.unknown_4.to_string(),
+                                            m.unknown_5.to_string(),
+                                            m.current_position_x.to_string(),
+                                            m.current_position_y.to_string(),
+                                            m.spawn_position_x.to_string(),
+                                            m.spawn_position_y.to_string(),
+                                            m.unknown_10_coordinate.to_string(),
+                                            m.unknown_11_coordinate.to_string(),
+                                            m.unknown_12.to_string(),
+                                            m.unknown_13.to_string(),
+                                            m.unknown_14.to_string(),
+                                            m.unknown_15.to_string(),
+                                            m.unknown_16.to_string(),
+                                            m.unknown_17.to_string(),
+                                            m.unknown_18.to_string(),
+                                            hex_bytes(&m.unknown_19),
+                                            m.unknown_20.to_string(),
+                                            m.unknown_21.to_string(),
+                                            m.unknown_22.to_string(),
+                                            m.loot_item1.raw().to_string(),
+                                            m.loot_item2.raw().to_string(),
+                                            m.loot_item3.raw().to_string(),
+                                            m.mon_ref_padding_12.to_string(),
+                                            m.mon_ref_padding_13.to_string(),
+                                            m.unknown_23.to_string(),
+                                            m.unknown_24.to_string(),
+                                            m.unknown_25.to_string(),
+                                            m.unknown_26.to_string(),
+                                            m.special_attack_chance.to_string(),
+                                            m.special_attack_duration.to_string(),
+                                            hex_bytes(&m.unknown_27),
+                                            m.boldness.to_string(),
+                                            m.attack_speed.to_string(),
+                                            hex_bytes(&m.unknown_28),
+                                            m.unknown_29.to_string(),
+                                            hex_bytes(&m.unknown_30),
+                                        ]
+                                    })
+                                    .collect(),
                                 monsters_indices: (0..n_monsters).collect(),
-                                npcs: map.npcs.iter().map(|n| {
-                                    vec![
-                                        n.name.clone(),
-                                        n.role_description.clone(),
-                                        n.unknown1.to_string(),
-                                        n.unknown2.to_string(),
-                                        n.unknown3.to_string(),
-                                        n.unknown4.to_string(),
-                                        n.unknown5.to_string(),
-                                        n.unknown6.to_string(),
-                                        n.unknown7.to_string(),
-                                        n.unknown8.to_string(),
-                                        n.unknown9.to_string(),
-                                        n.unknown10.to_string(),
-                                        n.unknown11.to_string(),
-                                        hex_bytes(&n.unknown12),
-                                        n.npc_ini_id.to_string(),
-                                        hex_bytes(&n.unknown13),
-                                        n.npc_ref_party_script_id.to_string(),
-                                        n.npc_ref_show_on_event_id.to_string(),
-                                        n.unknown14.to_string(),
-                                        n.npc_ref_unknown_1.to_string(),
-                                        n.npc_ref_waypoint1filled.to_string(),
-                                        n.npc_ref_waypoint1x.to_string(),
-                                        n.npc_ref_waypoint1y.to_string(),
-                                        n.npc_ref_unknown_2.to_string(),
-                                        n.npc_ref_look_direction.to_string(),
-                                        n.npc_ref_unknown_9.to_string(),
-                                        n.npc_ref_waypoint2filled.to_string(),
-                                        n.npc_ref_waypoint2x.to_string(),
-                                        n.npc_ref_waypoint2y.to_string(),
-                                        n.npc_ref_unknown_3.to_string(),
-                                        n.npc_ref_unknown_6.to_string(),
-                                        n.npc_ref_unknown_10.to_string(),
-                                        n.npc_ref_waypoint3filled.to_string(),
-                                        n.npc_ref_waypoint3x.to_string(),
-                                        n.npc_ref_waypoint3y.to_string(),
-                                        n.npc_ref_unknown_4.to_string(),
-                                        n.npc_ref_unknown_7.to_string(),
-                                        n.npc_ref_unknown_11.to_string(),
-                                        n.npc_ref_waypoint4filled.to_string(),
-                                        n.npc_ref_waypoint4x.to_string(),
-                                        n.npc_ref_waypoint4y.to_string(),
-                                        n.npc_ref_unknown_5.to_string(),
-                                        n.npc_ref_unknown_8.to_string(),
-                                        n.npc_ref_unknown_12.to_string(),
-                                        n.npc_ref_unknown_13.to_string(),
-                                        n.npc_ref_unknown_14.to_string(),
-                                        n.npc_ref_unknown_15.to_string(),
-                                        n.npc_ref_unknown_16.to_string(),
-                                        n.npc_ref_unknown_17.to_string(),
-                                        n.unknown15.to_string(),
-                                        n.npc_ref_dialog_id.to_string(),
-                                        hex_bytes(&n.unknown16),
-                                    ]
-                                }).collect(),
+                                npcs: map
+                                    .npcs
+                                    .iter()
+                                    .map(|n| {
+                                        vec![
+                                            n.name.clone(),
+                                            n.role_description.clone(),
+                                            n.unknown1.to_string(),
+                                            n.unknown2.to_string(),
+                                            n.unknown3.to_string(),
+                                            n.unknown4.to_string(),
+                                            n.unknown5.to_string(),
+                                            n.unknown6.to_string(),
+                                            n.unknown7.to_string(),
+                                            n.unknown8.to_string(),
+                                            n.unknown9.to_string(),
+                                            n.unknown10.to_string(),
+                                            n.unknown11.to_string(),
+                                            hex_bytes(&n.unknown12),
+                                            n.npc_ini_id.to_string(),
+                                            hex_bytes(&n.unknown13),
+                                            n.npc_ref_party_script_id.to_string(),
+                                            n.npc_ref_show_on_event_id.to_string(),
+                                            n.unknown14.to_string(),
+                                            n.npc_ref_unknown_1.to_string(),
+                                            n.npc_ref_waypoint1filled.to_string(),
+                                            n.npc_ref_waypoint1x.to_string(),
+                                            n.npc_ref_waypoint1y.to_string(),
+                                            n.npc_ref_unknown_2.to_string(),
+                                            n.npc_ref_look_direction.to_string(),
+                                            n.npc_ref_unknown_9.to_string(),
+                                            n.npc_ref_waypoint2filled.to_string(),
+                                            n.npc_ref_waypoint2x.to_string(),
+                                            n.npc_ref_waypoint2y.to_string(),
+                                            n.npc_ref_unknown_3.to_string(),
+                                            n.npc_ref_unknown_6.to_string(),
+                                            n.npc_ref_unknown_10.to_string(),
+                                            n.npc_ref_waypoint3filled.to_string(),
+                                            n.npc_ref_waypoint3x.to_string(),
+                                            n.npc_ref_waypoint3y.to_string(),
+                                            n.npc_ref_unknown_4.to_string(),
+                                            n.npc_ref_unknown_7.to_string(),
+                                            n.npc_ref_unknown_11.to_string(),
+                                            n.npc_ref_waypoint4filled.to_string(),
+                                            n.npc_ref_waypoint4x.to_string(),
+                                            n.npc_ref_waypoint4y.to_string(),
+                                            n.npc_ref_unknown_5.to_string(),
+                                            n.npc_ref_unknown_8.to_string(),
+                                            n.npc_ref_unknown_12.to_string(),
+                                            n.npc_ref_unknown_13.to_string(),
+                                            n.npc_ref_unknown_14.to_string(),
+                                            n.npc_ref_unknown_15.to_string(),
+                                            n.npc_ref_unknown_16.to_string(),
+                                            n.npc_ref_unknown_17.to_string(),
+                                            n.unknown15.to_string(),
+                                            n.npc_ref_dialog_id.to_string(),
+                                            hex_bytes(&n.unknown16),
+                                        ]
+                                    })
+                                    .collect(),
                                 npcs_indices: (0..n_npcs).collect(),
-                                extra_objects: map.extra_objects.iter().map(|e| {
-                                    vec![
-                                        e.unknown_1.to_string(),
-                                        e.unknown_2.to_string(),
-                                        e.unknown_3.to_string(),
-                                        e.unknown_4.to_string(),
-                                        e.unknown_5.to_string(),
-                                        e.name.clone(),
-                                        e.unknown_6.to_string(),
-                                        e.unknown_7.to_string(),
-                                        e.unknown_8.to_string(),
-                                        e.unknown_9.to_string(),
-                                        hex_bytes(&e.unknown_10),
-                                        e.unknown_11.to_string(),
-                                        e.unknown_12.to_string(),
-                                        e.unknown_13.to_string(),
-                                        e.unknown_14.to_string(),
-                                        e.unknown_15.to_string(),
-                                        e.unknown_16.to_string(),
-                                        e.unknown_17.to_string(),
-                                        e.unknown_18.to_string(),
-                                        e.unknown_19.to_string(),
-                                        e.unknown_20.to_string(),
-                                        e.unknown_21.to_string(),
-                                        e.unknown_22.to_string(),
-                                        hex_bytes(&e.unknown_23),
-                                        e.unknown_24.to_string(),
-                                        e.unknown_25.to_string(),
-                                        e.unknown_26.to_string(),
-                                        e.unknown_27.to_string(),
-                                        e.unknown_28.to_string(),
-                                        e.unknown_29.to_string(),
-                                        hex_bytes(&e.unknown_30),
-                                        hex_bytes(&e.unknown_31),
-                                        e.unknown_32.to_string(),
-                                        e.unknown_33.to_string(),
-                                        e.unknown_34.to_string(),
-                                        e.unknown_35.to_string(),
-                                        e.unknown_36.to_string(),
-                                        e.unknown_37.to_string(),
-                                        e.unknown_38.to_string(),
-                                    ]
-                                }).collect(),
+                                extra_objects: map
+                                    .extra_objects
+                                    .iter()
+                                    .map(|e| {
+                                        vec![
+                                            e.unknown_1.to_string(),
+                                            e.unknown_2.to_string(),
+                                            e.unknown_3.to_string(),
+                                            e.unknown_4.to_string(),
+                                            e.unknown_5.to_string(),
+                                            e.name.clone(),
+                                            e.unknown_6.to_string(),
+                                            e.unknown_7.to_string(),
+                                            e.unknown_8.to_string(),
+                                            e.unknown_9.to_string(),
+                                            hex_bytes(&e.unknown_10),
+                                            e.unknown_11.to_string(),
+                                            e.unknown_12.to_string(),
+                                            e.unknown_13.to_string(),
+                                            e.unknown_14.to_string(),
+                                            e.unknown_15.to_string(),
+                                            e.unknown_16.to_string(),
+                                            e.unknown_17.to_string(),
+                                            e.unknown_18.to_string(),
+                                            e.unknown_19.to_string(),
+                                            e.unknown_20.to_string(),
+                                            e.unknown_21.to_string(),
+                                            e.unknown_22.to_string(),
+                                            hex_bytes(&e.unknown_23),
+                                            e.unknown_24.to_string(),
+                                            e.unknown_25.to_string(),
+                                            e.unknown_26.to_string(),
+                                            e.unknown_27.to_string(),
+                                            e.unknown_28.to_string(),
+                                            e.unknown_29.to_string(),
+                                            hex_bytes(&e.unknown_30),
+                                            hex_bytes(&e.unknown_31),
+                                            e.unknown_32.to_string(),
+                                            e.unknown_33.to_string(),
+                                            e.unknown_34.to_string(),
+                                            e.unknown_35.to_string(),
+                                            e.unknown_36.to_string(),
+                                            e.unknown_37.to_string(),
+                                            e.unknown_38.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 extra_objects_indices: (0..n_extras).collect(),
-                                draw_items_weapon: map.draw_items_weapon.iter().map(|d| {
-                                    vec![
-                                        d.name.clone(),
-                                        d.description.clone(),
-                                        d.base_price.to_string(),
-                                        d.weapon_item_id.to_string(),
-                                        d.health_points.to_string(),
-                                        d.mana_points.to_string(),
-                                        d.strength.to_string(),
-                                        d.agility.to_string(),
-                                        d.wisdom.to_string(),
-                                        d.constitution.to_string(),
-                                        d.to_dodge.to_string(),
-                                        d.to_hit.to_string(),
-                                        d.attack.to_string(),
-                                        d.defense.to_string(),
-                                        d.magical_strength.to_string(),
-                                        d.durability.to_string(),
-                                        d.padding2.to_string(),
-                                        d.padding3.to_string(),
-                                        d.req_strength.to_string(),
-                                        d.padding4.to_string(),
-                                        d.req_agility.to_string(),
-                                        d.padding5.to_string(),
-                                        d.req_wisdom.to_string(),
-                                        d.padding6.to_string(),
-                                        d.padding7.to_string(),
-                                        d.padding8.to_string(),
-                                        d.map_coordinate_x.to_string(),
-                                        d.map_coordinate_y.to_string(),
-                                        d.unknown_1.to_string(),
-                                    ]
-                                }).collect(),
+                                draw_items_weapon: map
+                                    .draw_items_weapon
+                                    .iter()
+                                    .map(|d| {
+                                        vec![
+                                            d.name.clone(),
+                                            d.description.clone(),
+                                            d.base_price.to_string(),
+                                            d.weapon_item_id.to_string(),
+                                            d.health_points.to_string(),
+                                            d.mana_points.to_string(),
+                                            d.strength.to_string(),
+                                            d.agility.to_string(),
+                                            d.wisdom.to_string(),
+                                            d.constitution.to_string(),
+                                            d.to_dodge.to_string(),
+                                            d.to_hit.to_string(),
+                                            d.attack.to_string(),
+                                            d.defense.to_string(),
+                                            d.magical_strength.to_string(),
+                                            d.durability.to_string(),
+                                            d.padding2.to_string(),
+                                            d.padding3.to_string(),
+                                            d.req_strength.to_string(),
+                                            d.padding4.to_string(),
+                                            d.req_agility.to_string(),
+                                            d.padding5.to_string(),
+                                            d.req_wisdom.to_string(),
+                                            d.padding6.to_string(),
+                                            d.padding7.to_string(),
+                                            d.padding8.to_string(),
+                                            d.map_coordinate_x.to_string(),
+                                            d.map_coordinate_y.to_string(),
+                                            d.unknown_1.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 draw_items_weapon_indices: (0..n_dw).collect(),
-                                draw_items_heal: map.draw_items_heal.iter().map(|d| {
-                                    vec![
-                                        d.name.clone(),
-                                        d.description.clone(),
-                                        d.base_price.to_string(),
-                                        d.heal_item_id.to_string(),
-                                        d.health_points.to_string(),
-                                        d.mana_points.to_string(),
-                                        d.restore_full_health.to_string(),
-                                        d.restore_full_mana.to_string(),
-                                        d.poison_heal.to_string(),
-                                        d.petrif_heal.to_string(),
-                                        d.polimorph_heal.to_string(),
-                                        d.unknown_1.to_string(),
-                                        d.unknown_2.to_string(),
-                                        d.map_coordinate_x.to_string(),
-                                        d.map_coordinate_y.to_string(),
-                                        d.unknown_3.to_string(),
-                                    ]
-                                }).collect(),
+                                draw_items_heal: map
+                                    .draw_items_heal
+                                    .iter()
+                                    .map(|d| {
+                                        vec![
+                                            d.name.clone(),
+                                            d.description.clone(),
+                                            d.base_price.to_string(),
+                                            d.heal_item_id.to_string(),
+                                            d.health_points.to_string(),
+                                            d.mana_points.to_string(),
+                                            d.restore_full_health.to_string(),
+                                            d.restore_full_mana.to_string(),
+                                            d.poison_heal.to_string(),
+                                            d.petrif_heal.to_string(),
+                                            d.polimorph_heal.to_string(),
+                                            d.unknown_1.to_string(),
+                                            d.unknown_2.to_string(),
+                                            d.map_coordinate_x.to_string(),
+                                            d.map_coordinate_y.to_string(),
+                                            d.unknown_3.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 draw_items_heal_indices: (0..n_dh).collect(),
-                                draw_items_edit: map.draw_items_edit.iter().map(|d| {
-                                    vec![
-                                        d.name.clone(),
-                                        d.description.clone(),
-                                        d.base_price.to_string(),
-                                        d.edit_item_id.to_string(),
-                                        d.health_points.to_string(),
-                                        d.mana_points.to_string(),
-                                        d.strength.to_string(),
-                                        d.agility.to_string(),
-                                        d.wisdom.to_string(),
-                                        d.constitution.to_string(),
-                                        d.to_dodge.to_string(),
-                                        d.to_hit.to_string(),
-                                        d.offense.to_string(),
-                                        d.defense.to_string(),
-                                        d.magical_power.to_string(),
-                                        d.item_destroying_power.to_string(),
-                                        d.unknown_3.to_string(),
-                                        d.modifies_item.to_string(),
-                                        d.additional_effect.to_string(),
-                                        d.map_coordinate_x.to_string(),
-                                        d.map_coordinate_y.to_string(),
-                                        d.unknown_4.to_string(),
-                                    ]
-                                }).collect(),
+                                draw_items_edit: map
+                                    .draw_items_edit
+                                    .iter()
+                                    .map(|d| {
+                                        vec![
+                                            d.name.clone(),
+                                            d.description.clone(),
+                                            d.base_price.to_string(),
+                                            d.edit_item_id.to_string(),
+                                            d.health_points.to_string(),
+                                            d.mana_points.to_string(),
+                                            d.strength.to_string(),
+                                            d.agility.to_string(),
+                                            d.wisdom.to_string(),
+                                            d.constitution.to_string(),
+                                            d.to_dodge.to_string(),
+                                            d.to_hit.to_string(),
+                                            d.offense.to_string(),
+                                            d.defense.to_string(),
+                                            d.magical_power.to_string(),
+                                            d.item_destroying_power.to_string(),
+                                            d.unknown_3.to_string(),
+                                            d.modifies_item.to_string(),
+                                            d.additional_effect.to_string(),
+                                            d.map_coordinate_x.to_string(),
+                                            d.map_coordinate_y.to_string(),
+                                            d.unknown_4.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 draw_items_edit_indices: (0..n_de).collect(),
-                                draw_items_misc: map.draw_items_misc.iter().map(|d| {
-                                    vec![
-                                        d.name.clone(),
-                                        d.description.clone(),
-                                        d.base_price.to_string(),
-                                        hex_bytes(&d.unknown_1),
-                                        d.misc_item_id.to_string(),
-                                        d.map_coordinate_x.to_string(),
-                                        d.map_coordinate_y.to_string(),
-                                        d.unknown_7.to_string(),
-                                    ]
-                                }).collect(),
+                                draw_items_misc: map
+                                    .draw_items_misc
+                                    .iter()
+                                    .map(|d| {
+                                        vec![
+                                            d.name.clone(),
+                                            d.description.clone(),
+                                            d.base_price.to_string(),
+                                            hex_bytes(&d.unknown_1),
+                                            d.misc_item_id.to_string(),
+                                            d.map_coordinate_x.to_string(),
+                                            d.map_coordinate_y.to_string(),
+                                            d.unknown_7.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 draw_items_misc_indices: (0..n_dm).collect(),
-                                draw_items_event: map.draw_items_event.iter().map(|d| {
-                                    vec![
-                                        d.name.clone(),
-                                        d.description.clone(),
-                                        d.base_price.to_string(),
-                                        d.event_item_id.to_string(),
-                                        d.map_coordinate_x.to_string(),
-                                        d.map_coordinate_y.to_string(),
-                                        d.unknown_1.to_string(),
-                                    ]
-                                }).collect(),
+                                draw_items_event: map
+                                    .draw_items_event
+                                    .iter()
+                                    .map(|d| {
+                                        vec![
+                                            d.name.clone(),
+                                            d.description.clone(),
+                                            d.base_price.to_string(),
+                                            d.event_item_id.to_string(),
+                                            d.map_coordinate_x.to_string(),
+                                            d.map_coordinate_y.to_string(),
+                                            d.unknown_1.to_string(),
+                                        ]
+                                    })
+                                    .collect(),
                                 draw_items_event_indices: (0..n_dev).collect(),
                             }
                         })
@@ -1322,20 +1403,15 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     state.maps_display_caches = maps_caches;
                     // Build per-map, per-table interaction state. Column widths
                     // are initialised from each table kind's default layout.
-                    use crate::editors::save_file_viewer::state::{
-                        MapTableState, MapsTableKind,
-                    };
+                    use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind};
                     let mut table_states: Vec<
                         std::collections::HashMap<MapsTableKind, MapTableState>,
                     > = Vec::with_capacity(state.maps_display_caches.len());
                     for _ in &state.maps_display_caches {
                         let mut per_map = std::collections::HashMap::new();
                         for kind in MapsTableKind::all() {
-                            let widths: Vec<f32> = kind
-                                .default_columns()
-                                .iter()
-                                .map(|c| c.width_px)
-                                .collect();
+                            let widths: Vec<f32> =
+                                kind.default_columns().iter().map(|c| c.width_px).collect();
                             per_map.insert(
                                 *kind,
                                 MapTableState {
@@ -1361,7 +1437,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         let cache: Vec<Vec<String>> = entries
                             .iter()
                             .map(|entry| {
-                                let hex_rest: Vec<String> = entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
+                                let hex_rest: Vec<String> =
+                                    entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
                                 vec![
                                     format!("{}", entry.index),
                                     entry.name.clone(),
@@ -1427,7 +1504,10 @@ fn maps_table_data(
         MapsTableKind::Monsters => (&cache.monsters, &mut cache.monsters_indices),
         MapsTableKind::Npcs => (&cache.npcs, &mut cache.npcs_indices),
         MapsTableKind::ExtraObjects => (&cache.extra_objects, &mut cache.extra_objects_indices),
-        MapsTableKind::Weapon => (&cache.draw_items_weapon, &mut cache.draw_items_weapon_indices),
+        MapsTableKind::Weapon => (
+            &cache.draw_items_weapon,
+            &mut cache.draw_items_weapon_indices,
+        ),
         MapsTableKind::Heal => (&cache.draw_items_heal, &mut cache.draw_items_heal_indices),
         MapsTableKind::Edit => (&cache.draw_items_edit, &mut cache.draw_items_edit_indices),
         MapsTableKind::Misc => (&cache.draw_items_misc, &mut cache.draw_items_misc_indices),
@@ -1691,9 +1771,8 @@ fn apply_table_filter(
     }
 
     let query = filter.filter_query.to_lowercase();
-    let matches_query = |row: &[String]| -> bool {
-        row.iter().any(|cell| cell.to_lowercase().contains(&query))
-    };
+    let matches_query =
+        |row: &[String]| -> bool { row.iter().any(|cell| cell.to_lowercase().contains(&query)) };
 
     match filter.filter_mode {
         GlobalFilterMode::FilterOut => {
@@ -1779,7 +1858,10 @@ fn navigate_highlight(
     // Advance the cursor on the table's filter state.
     match key {
         TableKey::Map(map, kind) => {
-            let Some(ts) = state.maps_table_states.get_mut(map).and_then(|m| m.get_mut(&kind))
+            let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
             else {
                 return Task::none();
             };
@@ -1842,12 +1924,16 @@ fn navigate_highlight(
         return Task::none();
     };
 
-    let visible = filtered_indices_for(state, key)
-        .and_then(|idxs| idxs.iter().position(|&i| i == orig));
+    let visible =
+        filtered_indices_for(state, key).and_then(|idxs| idxs.iter().position(|&i| i == orig));
 
     match (key, visible) {
         (TableKey::Map(map, kind), Some(fidx)) => {
-            if let Some(ts) = state.maps_table_states.get_mut(map).and_then(|m| m.get_mut(&kind)) {
+            if let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            {
                 ts.selected_orig = Some(orig);
                 ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
             }
@@ -1884,11 +1970,12 @@ async fn load_preview_sprites(
     entity_markers: Vec<crate::components::map_preview::state::PreviewEntity>,
 ) -> Result<crate::editors::save_file_viewer::message::PreviewSpritesLoaded, String> {
     // 1. Load Monster.ini → HashMap<id, sprite_filename>
-    let monster_id_to_sprite: HashMap<i32, String> = MonsterIni::read_file(&game_path.join("Monster.ini"))
-        .map_err(|e| format!("Failed to load Monster.ini: {}", e))?
-        .into_iter()
-        .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
-        .collect();
+    let monster_id_to_sprite: HashMap<i32, String> =
+        MonsterIni::read_file(&game_path.join("Monster.ini"))
+            .map_err(|e| format!("Failed to load Monster.ini: {}", e))?
+            .into_iter()
+            .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
+            .collect();
 
     // 2. Load Npc.ini → HashMap<id, sprite_filename>
     let npc_id_to_sprite: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
@@ -1902,8 +1989,8 @@ async fn load_preview_sprites(
         .map_err(|e| format!("Failed to load Extra.ini: {}", e))?;
 
     // 4. Resolve sprites for each entity (parallel to entity_markers)
-    let mut sprite_cache: HashMap<PathBuf, Option<PreviewSprite>> = HashMap::new();
-    let sprites: Vec<Option<PreviewSprite>> = entity_markers
+    let mut sprite_cache: HashMap<PathBuf, Option<EntitySpriteHandle>> = HashMap::new();
+    let sprites: Vec<Option<EntitySpriteHandle>> = entity_markers
         .iter()
         .map(|entity| {
             let db_id = entity.db_id?;
@@ -1922,21 +2009,20 @@ async fn load_preview_sprites(
                     let frame = frames.into_iter().next()?;
                     let w = frame.image.width();
                     let h = frame.image.height();
-                    Some(PreviewSprite {
+                    Some(EntitySpriteHandle {
                         handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
                         width: w,
                         height: h,
                         origin_x: frame.origin_x,
                         origin_y: frame.origin_y,
+                        flip: false,
                     })
                 })
                 .clone()
         })
         .collect();
 
-    Ok(crate::editors::save_file_viewer::message::PreviewSpritesLoaded {
-        sprites,
-    })
+    Ok(crate::editors::save_file_viewer::message::PreviewSpritesLoaded { sprites })
 }
 
 /// Decode all internal sprites (thrones, decor, vases …) from the .map file.
@@ -1947,7 +2033,7 @@ async fn load_preview_sprites(
 fn decode_internal_preview_sprites(
     map_path: &Path,
     map_data: &dispel_core::map::MapData,
-) -> Vec<crate::components::map_preview::state::PreviewInternalSprite> {
+) -> Vec<crate::components::map_render::InternalSpriteHandle> {
     use iced::widget::image::Handle;
     use std::io::{Read, Seek, SeekFrom};
 
@@ -1969,7 +2055,10 @@ fn decode_internal_preview_sprites(
         if frame.width <= 0 || frame.height <= 0 {
             continue;
         }
-        if file.seek(SeekFrom::Start(frame.image_start_position)).is_err() {
+        if file
+            .seek(SeekFrom::Start(frame.image_start_position))
+            .is_err()
+        {
             continue;
         }
 
@@ -1998,7 +2087,7 @@ fn decode_internal_preview_sprites(
             }
         }
 
-        result.push(crate::components::map_preview::state::PreviewInternalSprite {
+        result.push(crate::components::map_render::InternalSpriteHandle {
             handle: Handle::from_rgba(w, h, pixels),
             x: block.sprite_x + nox,
             y: block.sprite_y + noy,

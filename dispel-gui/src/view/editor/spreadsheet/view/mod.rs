@@ -38,7 +38,9 @@ pub fn view_spreadsheet<'a, R: EditableRecord>(
 
     let total = editor.catalog.as_ref().map(|c| c.len()).unwrap_or(0);
     let visible = spreadsheet.filtered_indices.len();
-    let remove = editor.selected_idx.and_then(|idx| remove_msg.map(|f| f(idx)));
+    let remove = editor
+        .selected_idx
+        .and_then(|idx| remove_msg.map(|f| f(idx)));
     let extras = FilterBarExtras {
         export_csv: Some(spreadsheet_msg(SpreadsheetMessage::ExportCsv)),
         scan: Some(scan_msg),

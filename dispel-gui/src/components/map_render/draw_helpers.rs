@@ -1,8 +1,7 @@
 // ── Shared draw helpers for tile and overlay canvases ─────────────────────────
 
-use super::geometry::{is_visible, tile_to_screen};
-use super::{TILE_H, TILE_W};
-use crate::editors::map_editor::state::EntitySpriteHandle;
+use crate::components::map_render::geometry::{is_visible, tile_to_screen};
+use crate::components::map_render::{EntitySpriteHandle, TILE_H, TILE_W};
 use iced::advanced::image::Image as CoreImage;
 use iced::widget::canvas::{self, Frame};
 use iced::{Color, Point, Rectangle, Size};

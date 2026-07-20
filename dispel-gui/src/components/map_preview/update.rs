@@ -2,6 +2,7 @@
 
 use crate::components::map_preview::message::PreviewMessage;
 use crate::components::map_preview::state::{MapPreviewState, PreviewLayer};
+use crate::components::map_render::{tile_to_screen, TILE_H, TILE_W};
 use crate::message::Message;
 use iced::Task;
 
@@ -9,11 +10,7 @@ use iced::Task;
 const HIT_RADIUS_PX: f32 = 16.0;
 
 /// Find the closest entity marker to the given canvas-local position.
-fn find_closest_marker(
-    state: &MapPreviewState,
-    cx: f32,
-    cy: f32,
-) -> Option<usize> {
+fn find_closest_marker(state: &MapPreviewState, cx: f32, cy: f32) -> Option<usize> {
     let diagonal = state.diagonal;
     let pan_x = state.view.pan_x;
     let pan_y = state.view.pan_y;
@@ -26,19 +23,19 @@ fn find_closest_marker(
         let visible = match entity.kind {
             crate::components::map_preview::state::EntityKind::Monster => state.view.show_monsters,
             crate::components::map_preview::state::EntityKind::Npc => state.view.show_npcs,
-            crate::components::map_preview::state::EntityKind::Extra => state.view.show_extras,
-            crate::components::map_preview::state::EntityKind::DrawItem => state.view.show_draw_items,
+            crate::components::map_preview::state::EntityKind::Extra => state.view.show_objects,
+            crate::components::map_preview::state::EntityKind::DrawItem => {
+                state.view.show_draw_items
+            }
         };
         if !visible {
             continue;
         }
 
         // Convert tile coords to screen position
-        let (px, py) = crate::components::map_preview::canvas::tile_to_screen(
-            entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom,
-        );
-        let tile_cx = px + crate::components::map_preview::canvas::TILE_W * zoom * 0.5;
-        let tile_cy = py + crate::components::map_preview::canvas::TILE_H * zoom * 0.5;
+        let (px, py) = tile_to_screen(entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom);
+        let tile_cx = px + TILE_W * zoom * 0.5;
+        let tile_cy = py + TILE_H * zoom * 0.5;
 
         let d2 = (cx - tile_cx).powi(2) + (cy - tile_cy).powi(2);
         if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
@@ -48,13 +45,12 @@ fn find_closest_marker(
     best.map(|(_, i)| i)
 }
 
-
 pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message> {
     match msg {
         PreviewMessage::Pan(dx, dy) => {
             state.view.pan_x += dx;
             state.view.pan_y += dy;
-            state.view.tile_cache.clear();
+            state.view.tile_layer_cache.clear();
             Task::none()
         }
         PreviewMessage::Zoom(factor, cx, cy) => {
@@ -66,13 +62,13 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
                 state.view.pan_y = cy - (cy - state.view.pan_y) * ratio;
             }
             state.view.zoom = new_zoom;
-            state.view.tile_cache.clear();
+            state.view.tile_layer_cache.clear();
             Task::none()
         }
         PreviewMessage::FitToWindow => {
             // Use the map geometry to compute optimal zoom
             if let Some(ref map_data) = state.map_data {
-                let model = &map_data.model;
+                let model = &map_data.0.model;
                 let diagonal = state.diagonal;
                 let map_diagonal = model.tiled_map_width + model.tiled_map_height;
                 let map_px_w = map_diagonal as f32 * 32.0;
@@ -93,7 +89,7 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
                 state.view.pan_x = 0.0;
                 state.view.pan_y = 0.0;
             }
-            state.view.tile_cache.clear();
+            state.view.tile_layer_cache.clear();
             Task::none()
         }
         PreviewMessage::LayerToggle(layer) => {
@@ -106,10 +102,10 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
                 }
                 PreviewLayer::Monsters => state.view.show_monsters = !state.view.show_monsters,
                 PreviewLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
-                PreviewLayer::Extras => state.view.show_extras = !state.view.show_extras,
+                PreviewLayer::Extras => state.view.show_objects = !state.view.show_objects,
                 PreviewLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
             }
-            state.view.tile_cache.clear();
+            state.view.tile_layer_cache.clear();
             Task::none()
         }
         PreviewMessage::Click(cx, cy) => {

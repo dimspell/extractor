@@ -1,7 +1,6 @@
 // ── Hit-testing: find what's under the cursor ────────────────────────────────
 
-use super::geometry::{screen_to_tile, tile_world_center};
-use super::HOVER_RADIUS_PX;
+use crate::components::map_render::{screen_to_tile, tile_world_center, HOVER_RADIUS_PX};
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::state::MapEditorState;
 

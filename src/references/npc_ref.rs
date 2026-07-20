@@ -287,8 +287,7 @@ pub fn save_npc_refs(
                 npc.unknown_16,
                 i32::from(npc.unknown_17),
                 npc.unknown_item.item_id() as i32,
-                u8::from(npc.unknown_item.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(npc.unknown_item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
                 npc.unknown_item.raw(),
                 i32::from(npc.unknown_19),
                 dialog_file_id,

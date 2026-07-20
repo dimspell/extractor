@@ -161,16 +161,28 @@ pub fn save_monster_refs(
                 i32::from(monster_ref.padding4),
                 monster_ref.event_id,
                 monster_ref.loot_item1.item_id() as i32,
-                u8::from(monster_ref.loot_item1.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item1
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
                 monster_ref.loot_item1.raw(),
                 monster_ref.loot_item2.item_id() as i32,
-                u8::from(monster_ref.loot_item2.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item2
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
                 monster_ref.loot_item2.raw(),
                 monster_ref.loot_item3.item_id() as i32,
-                u8::from(monster_ref.loot_item3.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item3
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
                 monster_ref.loot_item3.raw(),
                 i32::from(monster_ref.padding12),
                 i32::from(monster_ref.padding13),

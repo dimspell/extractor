@@ -6,9 +6,7 @@
 
 use iced::advanced::renderer;
 use iced::advanced::Renderer as _;
-use iced::{
-    color, Background, Border, Point, Rectangle, Shadow, Vector,
-};
+use iced::{color, Background, Border, Point, Rectangle, Shadow, Vector};
 
 use super::types::Axis;
 use super::widget::TableWidget;
@@ -80,12 +78,7 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// Which scrollbar (if any) the cursor is currently over. The hit-area
     /// covers the whole track so the thumb still feels grabbable when the
     /// cursor hits anywhere along the bar.
-    pub(crate) fn scrollbar_under(
-        &self,
-        bounds: Rectangle,
-        off: Vector,
-        p: Point,
-    ) -> Option<Axis> {
+    pub(crate) fn scrollbar_under(&self, bounds: Rectangle, off: Vector, p: Point) -> Option<Axis> {
         if let Some((track, _)) = self.vertical_scrollbar(bounds, off.y) {
             if track.contains(p) {
                 return Some(Axis::Vertical);

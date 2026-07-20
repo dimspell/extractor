@@ -50,40 +50,20 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
 
     // Section content
     let content: Element<'a, Message> = match state.active_section {
-        SaveFileSection::Overview => {
-            crate::editors::save_file_viewer::overview::view(state)
-        }
-        SaveFileSection::Stats => {
-            crate::editors::save_file_viewer::stats::view(state)
-        }
-        SaveFileSection::Identity => {
-            crate::editors::save_file_viewer::identity::view(state)
-        }
-        SaveFileSection::Inventory => {
-            crate::editors::save_file_viewer::inventory::view(state)
-        }
-        SaveFileSection::Raw => {
-            crate::editors::save_file_viewer::raw::view(state)
-        }
-        SaveFileSection::Events => {
-            crate::editors::save_file_viewer::events::view(state)
-        }
-        SaveFileSection::Journal => {
-            crate::editors::save_file_viewer::journal::view(state)
-        }
-        SaveFileSection::Maps => {
-            crate::editors::save_file_viewer::maps::view(state)
-        }
+        SaveFileSection::Overview => crate::editors::save_file_viewer::overview::view(state),
+        SaveFileSection::Stats => crate::editors::save_file_viewer::stats::view(state),
+        SaveFileSection::Identity => crate::editors::save_file_viewer::identity::view(state),
+        SaveFileSection::Inventory => crate::editors::save_file_viewer::inventory::view(state),
+        SaveFileSection::Raw => crate::editors::save_file_viewer::raw::view(state),
+        SaveFileSection::Events => crate::editors::save_file_viewer::events::view(state),
+        SaveFileSection::Journal => crate::editors::save_file_viewer::journal::view(state),
+        SaveFileSection::Maps => crate::editors::save_file_viewer::maps::view(state),
     };
 
-    container(
-        Column::new()
-            .push(section_tabs)
-            .push(content),
-    )
-    .width(Fill)
-    .height(Fill)
-    .into()
+    container(Column::new().push(section_tabs).push(content))
+        .width(Fill)
+        .height(Fill)
+        .into()
 }
 
 fn placeholder(text_str: &str) -> Element<'static, Message> {

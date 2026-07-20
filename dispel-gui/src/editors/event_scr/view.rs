@@ -298,7 +298,11 @@ fn collapsible_panel<'a>(
     body: Option<Vec<Element<'a, EventScrEditorMessage>>>,
 ) -> Element<'a, EventScrEditorMessage> {
     let expanded = state.panels_expanded.contains(&tab);
-    let arrow_char = if expanded { icon_char(Icon::ChevronDown) } else { icon_char(Icon::ChevronRight) };
+    let arrow_char = if expanded {
+        icon_char(Icon::ChevronDown)
+    } else {
+        icon_char(Icon::ChevronRight)
+    };
     let count_str = format!(" ({})", count);
 
     let mut header_children: Vec<Element<EventScrEditorMessage>> = vec![
@@ -785,7 +789,11 @@ fn render_open_row<'a>(
     depth: usize,
     folded: bool,
 ) -> Element<'a, EventScrEditorMessage> {
-    let arrow_char = if folded { icon_char(Icon::ChevronRight) } else { icon_char(Icon::ChevronDown) };
+    let arrow_char = if folded {
+        icon_char(Icon::ChevronRight)
+    } else {
+        icon_char(Icon::ChevronDown)
+    };
     container(
         row![
             indent_guides(depth),

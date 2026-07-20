@@ -4,13 +4,14 @@
 //! end-to-end by constructing `MapEditorState` with known data and verifying
 //! correct results from the canvas helper functions.
 
-use super::draw_helpers::{diamond_path, draw_item_color};
-use super::geometry::{
-    is_visible, point_in_tile_diamond, screen_to_tile, tile_center, tile_to_screen,
-};
-use super::hit_test::{entity_tile, find_hovered_element, find_hovered_entity_impl, npc_pos};
-use super::{TILE_H, TILE_W};
 use crate::components::loading_state::LoadingState;
+use crate::components::map_render::{
+    diamond_path, draw_item_color, is_visible, point_in_tile_diamond, screen_to_tile, tile_center,
+    tile_to_screen, TILE_H, TILE_W,
+};
+use crate::editors::map_editor::canvas::hit_test::{
+    entity_tile, find_hovered_element, find_hovered_entity_impl, npc_pos,
+};
 use crate::editors::map_editor::message::{MapDataHandle, SelectedEntity};
 use crate::editors::map_editor::state::MapEditorState;
 use dispel_core::map::types::EventBlock;

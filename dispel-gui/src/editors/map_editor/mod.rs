@@ -1,8 +1,8 @@
 // map_editor editor module
 
 pub mod canvas;
-mod message;
-mod state;
+pub(crate) mod message;
+pub(crate) mod state;
 mod update;
 mod view;
 

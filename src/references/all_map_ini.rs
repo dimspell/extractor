@@ -37,7 +37,9 @@ use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 ///
 /// Master index of all game maps, linking map IDs to filenames and metadata.
 /// Used by the game engine to load the correct map files and associated assets.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, Localizable, TextRecordPatcher)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Default, TextExtractor, Localizable, TextRecordPatcher,
+)]
 #[extractor(encoding = "WINDOWS_1250")]
 #[patcher(filename = "AllMap.ini")]
 pub struct Map {

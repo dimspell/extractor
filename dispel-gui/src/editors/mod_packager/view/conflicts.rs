@@ -100,13 +100,17 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
         };
         let line: Element<'_, Message> = if is_winner {
             row![
-                text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11),
+                text(icon_char(Icon::ChevronRight))
+                    .font(LUCIDE_FONT)
+                    .size(11),
                 text(format!(" [{}] {} → {}", i, p.mod_id, value)).size(11),
             ]
             .spacing(0)
             .into()
         } else {
-            text(format!("   [{}] {} → {}", i, p.mod_id, value)).size(11).into()
+            text(format!("   [{}] {} → {}", i, p.mod_id, value))
+                .size(11)
+                .into()
         };
         rows = rows.push(line);
     }
@@ -132,8 +136,7 @@ fn conflict_card(c: &Conflict) -> Element<'_, Message> {
                     )
                     .padding([2, 8])
                 } else {
-                    button(text(format!("Pin {}", p.mod_id)).size(11))
-                        .padding([2, 8])
+                    button(text(format!("Pin {}", p.mod_id)).size(11)).padding([2, 8])
                 };
                 if !pinned_here {
                     btn = btn.on_press(Message::mod_packager(ModPackagerMessage::PinConflict {

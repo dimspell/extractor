@@ -1,6 +1,6 @@
-use super::message::{MapDataHandle, MapViewMode, SelectedEntity};
+use super::message::{MapDataHandle, SelectedEntity};
 use crate::components::loading_state::LoadingState;
-use iced::widget::canvas;
+pub use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
 use iced::widget::image::Handle;
 use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
@@ -36,29 +36,6 @@ pub struct SpriteSequenceHandle {
     pub placements: Vec<(i32, i32)>,
 }
 
-/// A decoded internal-map sprite ready to draw on the canvas.
-pub struct InternalSpriteHandle {
-    /// Pixel x in the full (non-occluded) image space.
-    pub x: i32,
-    /// Pixel y in the full (non-occluded) image space.
-    pub y: i32,
-    /// Y-sort key for interlaced rendering (`sprite_bottom_right_y` from the file).
-    pub sort_y: i32,
-    pub handle: Handle,
-    pub width: u32,
-    pub height: u32,
-}
-
-/// A decoded entity sprite (NPC / monster / extra) ready to draw.
-pub struct EntitySpriteHandle {
-    pub handle: Handle,
-    pub width: u32,
-    pub height: u32,
-    pub origin_x: i32,
-    pub origin_y: i32,
-    pub flip: bool,
-}
-
 /// A single recorded change for map-editor undo/redo.
 #[derive(Clone, Debug)]
 pub struct MapEditAction {
@@ -75,88 +52,6 @@ pub struct DialogPreviewState {
     pub npc_index: usize,
     pub dialog_scripts: Vec<dispel_core::references::dialogue_script::DialogueScript>,
     pub dialog_paragraphs: Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
-}
-
-// ── MapViewState ──────────────────────────────────────────────────────────────
-
-/// Viewport, layer-visibility, and cursor state for the map canvas.
-///
-/// Contains everything that changes during interactive use (pan, zoom, cursor,
-/// selection) but does *not* hold loaded data or persistence state.
-pub struct MapViewState {
-    /// Pixel pan offset (canvas translation).
-    pub pan_x: f32,
-    pub pan_y: f32,
-    /// Zoom factor (1.0 = 1:1 pixel).
-    pub zoom: f32,
-    // Layer visibility toggles
-    pub show_ground: bool,
-    pub show_buildings: bool,
-    pub show_roofs: bool,
-    pub show_internal_sprites: bool,
-    pub show_collisions: bool,
-    pub show_events: bool,
-    pub show_monsters: bool,
-    pub show_npcs: bool,
-    pub show_npc_waypoints: bool,
-    pub show_objects: bool,
-    pub show_draw_items: bool,
-    /// Last known cursor position in canvas-local pixel coordinates.
-    /// Set to f32::NAN when the cursor is not over the canvas.
-    pub cursor_canvas_x: f32,
-    pub cursor_canvas_y: f32,
-    /// Last observed canvas size (updated from `MouseMoved` events).
-    /// Used by `FitToWindow` to compute the correct zoom / pan.
-    pub last_canvas_w: f32,
-    pub last_canvas_h: f32,
-    /// Which top-level view is shown (map canvas or sprite browser).
-    pub view_mode: MapViewMode,
-    /// Selected sprite sequence index in the Sprites browser.
-    pub selected_sprite_sequence: Option<usize>,
-    /// Currently selected entity in the inspector panel.
-    pub selected_entity: Option<SelectedEntity>,
-    /// Cached tile-layer frame. Clear whenever pan, zoom, tiles, or entity
-    /// sprites change. Avoids redrawing the expensive tile layer on every
-    /// cursor-move event (which only affects the overlay canvas).
-    pub tile_layer_cache: canvas::Cache,
-    /// Cached static overlay frame (collisions, events, selection ring).
-    /// Separate from `tile_layer_cache` so that cursor moves don't invalidate
-    /// the collision/event geometry.  Clear on pan, zoom, layer toggle, or
-    /// selection change — but NOT on `MouseMoved`.
-    pub overlay_cache: canvas::Cache,
-    /// NPC dialog preview modal state (None = closed).
-    pub dialog_preview: Option<DialogPreviewState>,
-}
-
-impl Default for MapViewState {
-    fn default() -> Self {
-        Self {
-            pan_x: 0.0,
-            pan_y: 0.0,
-            zoom: 1.0,
-            show_ground: true,
-            show_buildings: true,
-            show_roofs: true,
-            show_internal_sprites: true,
-            show_collisions: false,
-            show_events: false,
-            show_monsters: true,
-            show_npcs: true,
-            show_npc_waypoints: false,
-            show_objects: true,
-            show_draw_items: true,
-            cursor_canvas_x: f32::NAN,
-            cursor_canvas_y: f32::NAN,
-            last_canvas_w: 1200.0,
-            last_canvas_h: 800.0,
-            view_mode: MapViewMode::Map,
-            selected_sprite_sequence: None,
-            selected_entity: None,
-            tile_layer_cache: canvas::Cache::new(),
-            overlay_cache: canvas::Cache::new(),
-            dialog_preview: None,
-        }
-    }
 }
 
 // ── MapDataState ──────────────────────────────────────────────────────────────
@@ -377,5 +272,105 @@ impl MapEditorState {
         };
         self.data.undo_stack.push_front(undo_entry);
         Some(action)
+    }
+}
+
+// ── MapRenderSource implementation ────────────────────────────────────────────
+
+use crate::components::map_render::traits::{EntityKind, EntityRenderData, MapRenderSource};
+
+impl MapRenderSource for MapEditorState {
+    fn map_data(&self) -> Option<&MapDataHandle> {
+        self.data.map_data()
+    }
+
+    fn gtl_handles(&self) -> &HashMap<i32, Handle> {
+        &self.data.gtl_handles
+    }
+
+    fn btl_handles(&self) -> &HashMap<i32, Handle> {
+        &self.data.btl_handles
+    }
+
+    fn tiles_ready(&self) -> bool {
+        self.data.tiles_ready
+    }
+
+    fn view(&self) -> &MapViewState {
+        &self.view
+    }
+
+    fn internal_sprite_handles(&self) -> &[InternalSpriteHandle] {
+        &self.data.internal_sprite_handles
+    }
+
+    fn entity_count(&self) -> usize {
+        self.data.monsters.len()
+            + self.data.npcs.len()
+            + self.data.extra_refs.len()
+            + self.data.draw_items.len()
+    }
+
+    fn entity_data(&self, idx: usize) -> Option<EntityRenderData<'_>> {
+        let monster_count = self.data.monsters.len();
+        let npc_count = self.data.npcs.len();
+        let extra_count = self.data.extra_refs.len();
+
+        let map_handle = self.data.map_data()?;
+        let model = &map_handle.0.model;
+        let diagonal = model.tiled_map_width + model.tiled_map_height;
+        let noy = model.map_non_occluded_start_y;
+
+        let entity_pos = |tx: i32, ty: i32| -> i32 {
+            let img_y =
+                dispel_core::map::types::convert_map_coords_to_image_coords(tx, ty, diagonal).1;
+            img_y + 32 - noy
+        };
+
+        if idx < monster_count {
+            let m = &self.data.monsters[idx];
+            Some(EntityRenderData {
+                tile_x: m.pos_x,
+                tile_y: m.pos_y,
+                sort_key: entity_pos(m.pos_x, m.pos_y),
+                sprite: self.data.monster_sprites.get(idx)?.as_ref(),
+                kind: EntityKind::Monster,
+                visible: self.view.show_monsters,
+            })
+        } else if idx < monster_count + npc_count {
+            let npc_idx = idx - monster_count;
+            let n = &self.data.npcs[npc_idx];
+            let (nx, ny) = crate::editors::map_editor::canvas::hit_test::npc_pos(n);
+            Some(EntityRenderData {
+                tile_x: nx,
+                tile_y: ny,
+                sort_key: entity_pos(nx, ny),
+                sprite: self.data.npc_sprites.get(npc_idx)?.as_ref(),
+                kind: EntityKind::Npc,
+                visible: self.view.show_npcs,
+            })
+        } else if idx < monster_count + npc_count + extra_count {
+            let extra_idx = idx - monster_count - npc_count;
+            let e = &self.data.extra_refs[extra_idx];
+            Some(EntityRenderData {
+                tile_x: e.x_pos,
+                tile_y: e.y_pos,
+                sort_key: entity_pos(e.x_pos, e.y_pos),
+                sprite: self.data.extra_sprites.get(extra_idx)?.as_ref(),
+                kind: EntityKind::Extra,
+                visible: self.view.show_objects,
+            })
+        } else {
+            let di_idx = idx - monster_count - npc_count - extra_count;
+            let d = &self.data.draw_items[di_idx];
+            Some(EntityRenderData {
+                tile_x: d.x_coord,
+                tile_y: d.y_coord,
+                sort_key: entity_pos(d.x_coord, d.y_coord),
+                sprite: None,
+                kind: EntityKind::DrawItem,
+                visible: self.view.show_draw_items,
+            })
+        }
     }
 }

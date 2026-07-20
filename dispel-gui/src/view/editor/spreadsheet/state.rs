@@ -9,8 +9,8 @@ use super::caches::{compute_caches, ComputedCaches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::components::editable::EditableRecord;
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
-use gui_widgets::TextAreaContent;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
+use gui_widgets::TextAreaContent;
 use iced::widget::pane_grid::{self, Pane};
 use std::collections::{HashMap, HashSet};
 

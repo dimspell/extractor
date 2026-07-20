@@ -14,29 +14,40 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     scrollable(
         Column::new()
             .push(section_header("Character Overview"))
-            .push(label_row("Player", sf.character_identity.player_name.clone()))
+            .push(label_row(
+                "Player",
+                sf.character_identity.player_name.clone(),
+            ))
             .push(label_row(
                 "Class",
                 format!(
                     "{} (ID: {})",
-                    sf.character_identity.player_class_name,
-                    sf.character_identity.player_class_id
+                    sf.character_identity.player_class_name, sf.character_identity.player_class_id
                 ),
             ))
             .push(label_row("Level", sf.character_stats.level.to_string()))
             .push(label_row("Gold", sf.character_stats.gold.to_string()))
             .push(label_row(
                 "HP",
-                format!("{}/{}", sf.character_stats.hp_current, sf.character_stats.hp_maximum),
+                format!(
+                    "{}/{}",
+                    sf.character_stats.hp_current, sf.character_stats.hp_maximum
+                ),
             ))
             .push(label_row(
                 "MP",
-                format!("{}/{}", sf.character_stats.mp_current, sf.character_stats.mp_maximum),
+                format!(
+                    "{}/{}",
+                    sf.character_stats.mp_current, sf.character_stats.mp_maximum
+                ),
             ))
             .push(section_header("Sprite Paths"))
-            .extend(sf.sprite_paths.iter().enumerate().map(|(i, path)| {
-                label_row(format!("Sprite {}", i + 1), path.clone())
-            }))
+            .extend(
+                sf.sprite_paths
+                    .iter()
+                    .enumerate()
+                    .map(|(i, path)| label_row(format!("Sprite {}", i + 1), path.clone())),
+            )
             .spacing(4)
             .padding(16),
     )

@@ -1,25 +1,20 @@
 //! State types for the read-only map preview component.
 
-use iced::widget::canvas;
+use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
+use crate::editors::map_editor::message::MapDataHandle;
 use iced::widget::image::Handle;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 // ── Loading state ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum MapPreviewLoading {
+    #[default]
     Idle,
     Loading,
     Loaded,
     Failed(String),
-}
-
-impl Default for MapPreviewLoading {
-    fn default() -> Self {
-        Self::Idle
-    }
 }
 
 // ── Entity marker ─────────────────────────────────────────────────────────────
@@ -65,103 +60,6 @@ pub enum PreviewLayer {
     DrawItems,
 }
 
-// ── View state ────────────────────────────────────────────────────────────────
-
-/// Viewport and visibility settings for the preview canvas.
-#[derive(Debug)]
-pub struct MapPreviewViewState {
-    /// Pixel pan offset.
-    pub pan_x: f32,
-    pub pan_y: f32,
-    /// Zoom factor (1.0 = 1:1 pixel).
-    pub zoom: f32,
-    // Layer visibility toggles
-    pub show_ground: bool,
-    pub show_buildings: bool,
-    pub show_roofs: bool,
-    pub show_internal_sprites: bool,
-    pub show_monsters: bool,
-    pub show_npcs: bool,
-    pub show_extras: bool,
-    pub show_draw_items: bool,
-    /// Last known canvas size, used by FitToWindow.
-    pub last_canvas_w: f32,
-    pub last_canvas_h: f32,
-    /// Cached tile-layer frame (avoids redraw on every frame).
-    pub tile_cache: canvas::Cache,
-}
-
-impl Clone for MapPreviewViewState {
-    fn clone(&self) -> Self {
-        Self {
-            pan_x: self.pan_x,
-            pan_y: self.pan_y,
-            zoom: self.zoom,
-            show_ground: self.show_ground,
-            show_buildings: self.show_buildings,
-            show_roofs: self.show_roofs,
-            show_internal_sprites: self.show_internal_sprites,
-            show_monsters: self.show_monsters,
-            show_npcs: self.show_npcs,
-            show_extras: self.show_extras,
-            show_draw_items: self.show_draw_items,
-            last_canvas_w: self.last_canvas_w,
-            last_canvas_h: self.last_canvas_h,
-            tile_cache: canvas::Cache::new(),
-        }
-    }
-}
-
-impl Default for MapPreviewViewState {
-    fn default() -> Self {
-        Self {
-            pan_x: 0.0,
-            pan_y: 0.0,
-            zoom: 1.0,
-            show_ground: true,
-            show_buildings: true,
-            show_roofs: true,
-            show_internal_sprites: true,
-            show_monsters: true,
-            show_npcs: true,
-            show_extras: true,
-            show_draw_items: true,
-            last_canvas_w: 800.0,
-            last_canvas_h: 600.0,
-            tile_cache: canvas::Cache::new(),
-        }
-    }
-}
-
-// ── Decoded sprite frame for preview rendering ────────────────────────────────
-
-/// A single decoded sprite frame (always frame[0]) for use in the map preview.
-#[derive(Debug, Clone)]
-pub struct PreviewSprite {
-    pub handle: Handle,
-    pub width: u32,
-    pub height: u32,
-    pub origin_x: i32,
-    pub origin_y: i32,
-}
-
-/// A decoded internal sprite from the .map file (thrones, decor, vases …).
-#[derive(Debug, Clone)]
-pub struct PreviewInternalSprite {
-    /// Iced image handle with decoded RGBA pixels.
-    pub handle: Handle,
-    /// X position in occluded pixel space (block.sprite_x + nox).
-    pub x: i32,
-    /// Y position in occluded pixel space (block.sprite_y + noy).
-    pub y: i32,
-    /// Depth sort key (block.sprite_bottom_right_y).
-    pub sort_y: i32,
-    /// Image width in pixels.
-    pub width: u32,
-    /// Image height in pixels.
-    pub height: u32,
-}
-
 // ── Preview state ─────────────────────────────────────────────────────────────
 
 /// Full state for one map preview instance.
@@ -169,7 +67,7 @@ pub struct MapPreviewState {
     /// Loading progress.
     pub loading: MapPreviewLoading,
     /// Loaded map data (set after map file parse).
-    pub map_data: Option<Arc<dispel_core::map::MapData>>,
+    pub map_data: Option<MapDataHandle>,
     /// Decoded ground tile image handles (key = tile_id).
     pub gtl_handles: HashMap<i32, Handle>,
     /// Decoded building tile image handles (key = tile_id).
@@ -179,7 +77,7 @@ pub struct MapPreviewState {
     /// The diagonal = tiled_map_width + tiled_map_height (cached for rendering).
     pub diagonal: i32,
     /// Viewport state (pan, zoom, layers).
-    pub view: MapPreviewViewState,
+    pub view: MapViewState,
     /// Precomputed entity marker positions from save file data.
     pub entity_markers: Vec<PreviewEntity>,
     /// Game path for the workspace (needed for loading).
@@ -188,11 +86,11 @@ pub struct MapPreviewState {
     pub map_stem: Option<String>,
     /// Decoded entity sprites parallel to entity_markers (None when sprite not
     /// found or entity type doesn't support sprites).
-    pub entity_sprites: Vec<Option<PreviewSprite>>,
+    pub entity_sprites: Vec<Option<EntitySpriteHandle>>,
     /// True once async sprite loading has completed.
     pub sprites_ready: bool,
     /// Decoded internal map sprites (thrones, decor, vases …).
-    pub internal_sprites: Vec<PreviewInternalSprite>,
+    pub internal_sprites: Vec<InternalSpriteHandle>,
     /// Index into `entity_markers` of the clicked/inspected entity, if any.
     pub selected_marker: Option<usize>,
 }
@@ -206,7 +104,7 @@ impl Default for MapPreviewState {
             btl_handles: HashMap::new(),
             tiles_ready: false,
             diagonal: 0,
-            view: MapPreviewViewState::default(),
+            view: MapViewState::default(),
             entity_markers: Vec::new(),
             game_path: None,
             map_stem: None,
@@ -223,5 +121,81 @@ impl MapPreviewState {
     /// Only checks tiles — sprite loading is optional (sprites are a bonus).
     pub fn is_ready(&self) -> bool {
         self.loading == MapPreviewLoading::Loaded && self.tiles_ready
+    }
+}
+
+// ── MapRenderSource implementation ────────────────────────────────────────────
+
+use crate::components::map_render::traits::{
+    EntityKind as RenderEntityKind, EntityRenderData, MapRenderSource,
+};
+
+impl MapRenderSource for MapPreviewState {
+    fn map_data(&self) -> Option<&MapDataHandle> {
+        self.map_data.as_ref()
+    }
+
+    fn gtl_handles(&self) -> &HashMap<i32, Handle> {
+        &self.gtl_handles
+    }
+
+    fn btl_handles(&self) -> &HashMap<i32, Handle> {
+        &self.btl_handles
+    }
+
+    fn tiles_ready(&self) -> bool {
+        self.tiles_ready
+    }
+
+    fn view(&self) -> &MapViewState {
+        &self.view
+    }
+
+    fn internal_sprite_handles(&self) -> &[InternalSpriteHandle] {
+        &self.internal_sprites
+    }
+
+    fn entity_count(&self) -> usize {
+        self.entity_markers.len()
+    }
+
+    fn entity_data(&self, idx: usize) -> Option<EntityRenderData<'_>> {
+        let marker = self.entity_markers.get(idx)?;
+        let map_handle = self.map_data.as_ref()?;
+        let model = &map_handle.0.model;
+        let noy = model.map_non_occluded_start_y;
+
+        let sort_key = {
+            let img_y = dispel_core::map::types::convert_map_coords_to_image_coords(
+                marker.tile_x,
+                marker.tile_y,
+                self.diagonal,
+            )
+            .1;
+            img_y + 32 - noy
+        };
+
+        let kind = match marker.kind {
+            EntityKind::Monster => RenderEntityKind::Monster,
+            EntityKind::Npc => RenderEntityKind::Npc,
+            EntityKind::Extra => RenderEntityKind::Extra,
+            EntityKind::DrawItem => RenderEntityKind::DrawItem,
+        };
+
+        let visible = match marker.kind {
+            EntityKind::Monster => self.view.show_monsters,
+            EntityKind::Npc => self.view.show_npcs,
+            EntityKind::Extra => self.view.show_objects,
+            EntityKind::DrawItem => self.view.show_draw_items,
+        };
+
+        Some(EntityRenderData {
+            tile_x: marker.tile_x,
+            tile_y: marker.tile_y,
+            sort_key,
+            sprite: self.entity_sprites.get(idx).and_then(|o| o.as_ref()),
+            kind,
+            visible,
+        })
     }
 }

@@ -4,6 +4,8 @@ use super::types::{Axis, HeaderRegion, ScrollbarDrag, State};
 use super::widget::TableWidget;
 use super::DOUBLE_CLICK_MS;
 
+#[cfg(feature = "accessibility")]
+use iced::advanced::graphics::core::accessibility::accesskit;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
 use iced::advanced::widget::{tree, Tree, Widget};
@@ -11,8 +13,6 @@ use iced::advanced::Shell;
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
-#[cfg(feature = "accessibility")]
-use iced::advanced::graphics::core::accessibility::accesskit;
 use std::borrow::Cow;
 
 // =========================================================================
@@ -366,8 +366,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                     }
                     _ => return,
                 };
-                if self.apply_scroll(state, bounds, self.scroll_offset().x, new_y, shell)
-                {
+                if self.apply_scroll(state, bounds, self.scroll_offset().x, new_y, shell) {
                     shell.capture_event();
                 }
             }
@@ -388,9 +387,7 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
         let bounds = layout.bounds();
 
         if let Some(p) = cursor.position_over(bounds) {
-            if let Some((_col, region)) =
-                self.header_hit(bounds, self.scroll_offset().x, p)
-            {
+            if let Some((_col, region)) = self.header_hit(bounds, self.scroll_offset().x, p) {
                 if region == HeaderRegion::Resize {
                     return mouse::Interaction::ResizingHorizontally;
                 }

@@ -180,14 +180,22 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 extra_ref.unknown3,       // 12
                 i32::from(extra_ref.closed), // 13
                 extra_ref.required_item.item_id() as i32, // 14
-                u8::from(extra_ref.required_item.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32, // 15
-                extra_ref.required_item.raw(),  // 16 — raw
+                u8::from(
+                    extra_ref
+                        .required_item
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32, // 15
+                extra_ref.required_item.raw(), // 16 — raw
                 extra_ref.unknown4,       // 17
                 extra_ref.required_item2.item_id() as i32, // 18
-                u8::from(extra_ref.required_item2.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32, // 19
-                extra_ref.required_item2.raw(),  // 20 — raw
+                u8::from(
+                    extra_ref
+                        .required_item2
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32, // 19
+                extra_ref.required_item2.raw(), // 20 — raw
                 extra_ref.unknown5,       // 21
                 i32::from(extra_ref.unknown6), // 22
                 i32::from(extra_ref.unknown7), // 23
@@ -195,8 +203,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 i32::from(extra_ref.unknown9), // 25
                 extra_ref.gold_amount,    // 26
                 extra_ref.item.item_id() as i32, // 27
-                u8::from(extra_ref.item.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32, // 28
+                u8::from(extra_ref.item.item_type().unwrap_or(ItemTypeId::Other)) as i32, // 28
                 extra_ref.item.raw(),     // 29 — raw
                 extra_ref.unknown10,      // 30
                 extra_ref.item_count,     // 31

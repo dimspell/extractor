@@ -226,9 +226,7 @@ pub fn view_dialog_preview<'a>(
             text = display_text,
         );
 
-        let mut line_parts: Vec<Element<'_, Message>> = vec![
-            text(base_text).size(11).into(),
-        ];
+        let mut line_parts: Vec<Element<'_, Message>> = vec![text(base_text).size(11).into()];
 
         if line.has_prereq {
             line_parts.push(

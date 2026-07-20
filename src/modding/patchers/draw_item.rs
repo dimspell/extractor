@@ -143,7 +143,10 @@ mod tests {
         let out = p
             .apply_field(&one_record_blob(), 0, "item_type", &Value::I64(250))
             .unwrap();
-        assert_eq!(parse_back(&out)[0].item.item_type(), Some(ItemTypeId::Other));
+        assert_eq!(
+            parse_back(&out)[0].item.item_type(),
+            Some(ItemTypeId::Other)
+        );
     }
 
     #[test]

@@ -331,7 +331,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .accessible_label("Map editor toolbar");
 
             // ── Canvas for tile layers, sprites (images) ───────────────────────
-            let tiles_canvas = canvas(MapCanvasTilesLayer { state, tab_id })
+            let tiles_canvas = canvas(MapCanvasTilesLayer { state })
                 .width(Fill)
                 .height(Fill);
 

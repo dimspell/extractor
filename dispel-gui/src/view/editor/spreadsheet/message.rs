@@ -100,10 +100,10 @@ impl From<ColumnFilterAction> for SpreadsheetMessage {
             ColumnFilterAction::ClearAllColumnFilter(c) => {
                 SpreadsheetMessage::ClearAllColumnFilter(c)
             }
-            ColumnFilterAction::CloseColumnFilterModal => SpreadsheetMessage::CloseColumnFilterModal,
-            ColumnFilterAction::ColumnFilterSearch(q) => {
-                SpreadsheetMessage::ColumnFilterSearch(q)
+            ColumnFilterAction::CloseColumnFilterModal => {
+                SpreadsheetMessage::CloseColumnFilterModal
             }
+            ColumnFilterAction::ColumnFilterSearch(q) => SpreadsheetMessage::ColumnFilterSearch(q),
             ColumnFilterAction::SetMode(m) => SpreadsheetMessage::SetFilterMode(m),
             ColumnFilterAction::QueryChanged(q) => SpreadsheetMessage::FilterChanged(q),
             ColumnFilterAction::ClearAllFilters => SpreadsheetMessage::ClearFilter,

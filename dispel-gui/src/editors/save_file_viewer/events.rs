@@ -6,12 +6,10 @@ use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, Globa
 use crate::editors::save_file_viewer::message::{
     SaveFileViewerMessage, TableFilterAction, TableKey,
 };
-use gui_widgets::components::modal;
-use crate::editors::save_file_viewer::state::{
-    events_default_columns, SaveFileViewerState,
-};
+use crate::editors::save_file_viewer::state::{events_default_columns, SaveFileViewerState};
 use crate::message::Message;
 use crate::message::MessageExt;
+use gui_widgets::components::modal;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 
@@ -94,15 +92,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             viewport_height: vh,
         })
     })
-    .on_open_filter(move |col| {
-        msg_fn(TableFilterAction::OpenColumnFilter(col))
-    })
-    .on_clear_filter(move |col| {
-        msg_fn(TableFilterAction::ClearColumnFilter(col))
-    })
-    .on_quick_filter(move |col, value| {
-        msg_fn(TableFilterAction::QuickFilter(col, value))
-    })
+    .on_open_filter(move |col| msg_fn(TableFilterAction::OpenColumnFilter(col)))
+    .on_clear_filter(move |col| msg_fn(TableFilterAction::ClearColumnFilter(col)))
+    .on_quick_filter(move |col, value| msg_fn(TableFilterAction::QuickFilter(col, value)))
     .on_next_highlight(move || msg_fn(TableFilterAction::NextHighlight))
     .on_prev_highlight(move || msg_fn(TableFilterAction::PrevHighlight));
 

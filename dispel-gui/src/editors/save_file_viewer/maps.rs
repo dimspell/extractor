@@ -2,10 +2,10 @@ use iced::widget::{button, container, mouse_area, text, Column, Row};
 use iced::{Element, Fill, Length, Padding};
 
 use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
-use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableFilterAction, TableKey};
-use crate::editors::save_file_viewer::state::{
-    MapTableState, MapsTableKind, SaveFileViewerState,
+use crate::editors::save_file_viewer::message::{
+    SaveFileViewerMessage, TableFilterAction, TableKey,
 };
+use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind, SaveFileViewerState};
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
@@ -41,9 +41,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 btn = btn.style(iced::widget::button::primary);
             }
             col = col.push(
-                btn.on_press(Message::save_file_viewer(
-                    SaveFileViewerMessage::SelectMap(i),
-                ))
+                btn.on_press(Message::save_file_viewer(SaveFileViewerMessage::SelectMap(
+                    i,
+                )))
                 .padding([4, 8])
                 .width(Fill),
             );
@@ -68,8 +68,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             // Show map preview canvas
             match &state.map_preview {
                 Some(preview) => {
-                    let preview_view =
-                        crate::components::map_preview::view_preview(preview);
+                    let preview_view = crate::components::map_preview::view_preview(preview);
                     let content = Column::<Message>::new()
                         .push(sub_nav)
                         .push(preview_view)
@@ -79,17 +78,12 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 None => {
                     let mut start_btn = button(text("Load Preview").size(13));
                     // Always render clickable; TogglePreview guards game_path
-                    start_btn = start_btn.on_press(
-                        Message::save_file_viewer(SaveFileViewerMessage::TogglePreview),
-                    );
+                    start_btn = start_btn.on_press(Message::save_file_viewer(
+                        SaveFileViewerMessage::TogglePreview,
+                    ));
                     let content = Column::<Message>::new()
                         .push(sub_nav)
-                        .push(
-                            container(start_btn)
-                                .width(Fill)
-                                .height(Fill)
-                                .padding(16),
-                        )
+                        .push(container(start_btn).width(Fill).height(Fill).padding(16))
                         .spacing(8);
                     content.into()
                 }
@@ -97,10 +91,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         } else {
             let caches = state.maps_display_caches.get(idx);
             let ts_map = state.maps_table_states.get(idx);
-            let resizing = state
-                .maps_resizing
-                .as_ref()
-                .map(|d| (d.map, d.kind));
+            let resizing = state.maps_resizing.as_ref().map(|d| (d.map, d.kind));
             let kind = state.selected_entity_kind;
 
             // Render only the selected entity table
@@ -189,13 +180,11 @@ fn build_sub_nav_preview<'a>(
     map: &dispel_core::references::save_file::MapSectionData,
 ) -> Row<'a, Message> {
     let mut nav = Row::new().spacing(4).padding(8);
-    let back_btn = button(
-        text("← Back to Tables").size(12),
-    )
-    .on_press(Message::save_file_viewer(
-        SaveFileViewerMessage::TogglePreview,
-    ))
-    .padding([4, 8]);
+    let back_btn = button(text("← Back to Tables").size(12))
+        .on_press(Message::save_file_viewer(
+            SaveFileViewerMessage::TogglePreview,
+        ))
+        .padding([4, 8]);
     nav = nav.push(back_btn);
 
     // Also show entity counts as read-only labels
@@ -208,7 +197,10 @@ fn build_sub_nav_preview<'a>(
 }
 
 /// Number of records for a given entity kind from the parsed map data.
-fn kind_count(map: &dispel_core::references::save_file::MapSectionData, kind: MapsTableKind) -> usize {
+fn kind_count(
+    map: &dispel_core::references::save_file::MapSectionData,
+    kind: MapsTableKind,
+) -> usize {
     use MapsTableKind::*;
     match kind {
         Monsters => map.monsters.len(),
@@ -272,8 +264,7 @@ fn entity_table<'a>(
         let orig = indices.get(visible_idx).copied();
         RowFlags {
             selected: orig == selected,
-            highlighted: is_highlight
-                && orig.map(|o| highlighted.contains(&o)).unwrap_or(false),
+            highlighted: is_highlight && orig.map(|o| highlighted.contains(&o)).unwrap_or(false),
             current_highlight: is_highlight && orig == current_highlight,
         }
     };
@@ -340,8 +331,7 @@ fn entity_table<'a>(
     // Bound the table to a fixed height so its layout resolves to a finite
     // size inside the outer scrollable (TableWidget fills whatever the parent
     // offers, which is unbounded here).
-    let table_elem: Element<'a, Message> =
-        container(table).height(Length::Fixed(640.0)).into();
+    let table_elem: Element<'a, Message> = container(table).height(Length::Fixed(640.0)).into();
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.

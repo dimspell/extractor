@@ -120,8 +120,7 @@ pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result
                 draw_item.x_coord,
                 draw_item.y_coord,
                 draw_item.item.item_id() as i32,
-                u8::from(draw_item.item.item_type()
-                    .unwrap_or(ItemTypeId::Other)) as i32,
+                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
                 draw_item.item.raw(),
             ])?;
         }

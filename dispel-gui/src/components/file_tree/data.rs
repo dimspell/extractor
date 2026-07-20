@@ -103,8 +103,7 @@ impl FileTree {
 
         for file in &cache.files {
             if file.is_directory && file.path.parent() == Some(&cache.game_path) {
-                if let Some(child) =
-                    super::tree_node::add_cache_directory_child(file, &cache.files)
+                if let Some(child) = super::tree_node::add_cache_directory_child(file, &cache.files)
                 {
                     root_dir.children.push(child);
                 }
@@ -183,10 +182,9 @@ impl FileTree {
                 let has_filter = self.state.tree_filter.matching_paths().is_some();
                 let tree_filter = &self.state.tree_filter;
 
-                let mut tree = CollapsibleTree::new(
-                    std::slice::from_ref(node),
-                    |ctx| render_node(ctx, tree_filter),
-                )
+                let mut tree = CollapsibleTree::new(std::slice::from_ref(node), |ctx| {
+                    render_node(ctx, tree_filter)
+                })
                 .indent(12.0);
 
                 if has_filter {
@@ -310,12 +308,19 @@ fn scan_dir(path: &Path, depth: usize) -> Option<TreeNode<GameFileNode>> {
     let name = path.file_name()?.to_string_lossy().to_string();
 
     if path.is_dir() {
-        let mut node = TreeNode::branch(GameFileNode::dir(path.to_path_buf(), name), scan_children(path));
+        let mut node = TreeNode::branch(
+            GameFileNode::dir(path.to_path_buf(), name),
+            scan_children(path),
+        );
         node.expanded = depth == 0;
         Some(node)
     } else {
         let icon = file_icon(path);
-        Some(TreeNode::leaf(GameFileNode::file(path.to_path_buf(), name, icon)))
+        Some(TreeNode::leaf(GameFileNode::file(
+            path.to_path_buf(),
+            name,
+            icon,
+        )))
     }
 }
 
@@ -363,7 +368,11 @@ fn toggle_node_expanded_only(node: &mut TreeNode<GameFileNode>, path: &Path) -> 
 }
 
 /// Set children of a specific directory node.
-fn set_node_children(node: &mut TreeNode<GameFileNode>, path: &Path, children: Vec<TreeNode<GameFileNode>>) {
+fn set_node_children(
+    node: &mut TreeNode<GameFileNode>,
+    path: &Path,
+    children: Vec<TreeNode<GameFileNode>>,
+) {
     if node.data.path == path {
         node.children = children;
     } else {
@@ -395,7 +404,10 @@ fn render_node<'a>(
 
         button(
             row![
-                text(caret_char).font(LUCIDE_FONT).size(9).style(style::subtle_text),
+                text(caret_char)
+                    .font(LUCIDE_FONT)
+                    .size(9)
+                    .style(style::subtle_text),
                 text(&node.name).size(12),
             ]
             .spacing(5)
@@ -419,8 +431,8 @@ fn render_node<'a>(
                 text(icon_char(node.icon)).font(LUCIDE_FONT).size(10),
                 name_element,
             ]
-                .spacing(5)
-                .align_y(iced::Alignment::Center),
+            .spacing(5)
+            .align_y(iced::Alignment::Center),
         )
         .on_press(FileTreeMessage::OpenFile(node.path.clone()))
         .width(Fill)
@@ -508,7 +520,10 @@ fn create_highlighted_text<'a>(name: &'a str, query: &str) -> Element<'a, FileTr
 // ── Async scanning ────────────────────────────────────────────────────
 
 /// Async version of scan_dir
-async fn scan_dir_async(path: &Path, depth: usize) -> FileTreeResult<Option<TreeNode<GameFileNode>>> {
+async fn scan_dir_async(
+    path: &Path,
+    depth: usize,
+) -> FileTreeResult<Option<TreeNode<GameFileNode>>> {
     // Skip system files like .DS_STORE
     if let Some(name) = path.file_name() {
         if name.to_string_lossy().starts_with('.') {

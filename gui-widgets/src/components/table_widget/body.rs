@@ -83,8 +83,7 @@ impl<'a, Message> TableWidget<'a, Message> {
             // Row background
             let row_y = y;
             let bg_y = row_y.max(body.y);
-            let bg_height =
-                (row_y + self.row_height).min(body.y + body.height) - bg_y;
+            let bg_height = (row_y + self.row_height).min(body.y + body.height) - bg_y;
             if bg_height > 0.0 {
                 renderer.fill_quad(
                     renderer::Quad {
@@ -98,11 +97,7 @@ impl<'a, Message> TableWidget<'a, Message> {
                         shadow: Shadow::default(),
                         snap: true,
                     },
-                    Background::Color(super::style::row_bg(
-                        row_idx,
-                        flags,
-                        is_hovered,
-                    )),
+                    Background::Color(super::style::row_bg(row_idx, flags, is_hovered)),
                 );
             }
 
@@ -114,16 +109,14 @@ impl<'a, Message> TableWidget<'a, Message> {
                 .skip(first_col.max(1))
             {
                 let cell_x = bounds.x + cell_x_offset - off.x;
-                let cell_w =
-                    geometry::col_width(self.id_col_width, &self.columns, col_idx);
+                let cell_w = geometry::col_width(self.id_col_width, &self.columns, col_idx);
 
                 let value = match self.cell_value(row_idx, col_idx) {
                     Some(v) if !v.is_empty() => v,
                     _ => continue,
                 };
 
-                let key =
-                    ParagraphKey::new(&value, self.text_size, cell_w, self.font);
+                let key = ParagraphKey::new(&value, self.text_size, cell_w, self.font);
                 let paragraph = self.cache.get_or_insert(key, || {
                     Paragraph::with_text(text::Text {
                         content: &*value,
@@ -174,11 +167,9 @@ impl<'a, Message> TableWidget<'a, Message> {
             }
 
             // Row border (selection / highlight indicator)
-            if let Some((border_color, border_width)) = super::style::row_border(flags)
-            {
+            if let Some((border_color, border_width)) = super::style::row_border(flags) {
                 let border_y = y.max(body.y);
-                let border_h =
-                    (y + self.row_height).min(body.y + body.height) - border_y;
+                let border_h = (y + self.row_height).min(body.y + body.height) - border_y;
                 if border_h > 0.0 {
                     renderer.fill_quad(
                         renderer::Quad {

@@ -17,7 +17,7 @@ use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
 use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
-use gui_widgets::{TextAreaContent, textarea};
+use gui_widgets::{textarea, TextAreaContent};
 use lucide_icons::Icon;
 
 pub fn build_inspector_panel<'a, R: EditableRecord>(

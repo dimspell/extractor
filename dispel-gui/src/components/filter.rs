@@ -246,25 +246,29 @@ where
             .style(style::filter_status_text)
             .into(),
         GlobalFilterMode::Highlight => {
-            let current_label = current_highlight_pos
-                .map(|p| p + 1)
-                .unwrap_or(0);
+            let current_label = current_highlight_pos.map(|p| p + 1).unwrap_or(0);
 
-            let prev_btn = button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(10))
-                .padding([2, 6])
-                .on_press_maybe(
-                    (highlight_count > 0)
-                        .then(|| msg_fn(ColumnFilterAction::PrevHighlight)),
-                )
-                .style(style::nav_button);
+            let prev_btn = button(
+                text(icon_char(Icon::ChevronLeft))
+                    .font(LUCIDE_FONT)
+                    .size(10),
+            )
+            .padding([2, 6])
+            .on_press_maybe(
+                (highlight_count > 0).then(|| msg_fn(ColumnFilterAction::PrevHighlight)),
+            )
+            .style(style::nav_button);
 
-            let next_btn = button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(10))
-                .padding([2, 6])
-                .on_press_maybe(
-                    (highlight_count > 0)
-                        .then(|| msg_fn(ColumnFilterAction::NextHighlight)),
-                )
-                .style(style::nav_button);
+            let next_btn = button(
+                text(icon_char(Icon::ChevronRight))
+                    .font(LUCIDE_FONT)
+                    .size(10),
+            )
+            .padding([2, 6])
+            .on_press_maybe(
+                (highlight_count > 0).then(|| msg_fn(ColumnFilterAction::NextHighlight)),
+            )
+            .style(style::nav_button);
 
             let counter = if highlight_count == 0 {
                 text("0 matches".to_string())

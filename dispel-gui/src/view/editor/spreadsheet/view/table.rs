@@ -2,11 +2,11 @@
 //! placeholder and the resize-drag `mouse_area`.
 
 use crate::components::editable::{EditableRecord, FieldDescriptor};
+use crate::components::filter::GlobalFilterMode;
 use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::constants::{ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
-use crate::components::filter::GlobalFilterMode;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
 use gui_widgets::{RowFlags, TableColumn, TableWidget};
 use iced::widget::{container, text};

@@ -340,9 +340,9 @@ pub struct DrawItemMiscItem {
     pub base_price: u32, // 236
     #[binary_record(size = 16)]
     pub unknown_1: Vec<u8>, // 252
-    pub misc_item_id: u32,  // 256
-    pub map_coordinate_x: u32,  // 260 coord-X
-    pub map_coordinate_y: u32,  // 264 coord-Y
+    pub misc_item_id: u32, // 256
+    pub map_coordinate_x: u32, // 260 coord-X
+    pub map_coordinate_y: u32, // 264 coord-Y
     pub unknown_7: u32,  // 268
 }
 
@@ -812,7 +812,7 @@ impl SaveFile {
         reader: &mut R,
         num_visited_maps: u32,
     ) -> std::io::Result<PostMapsData> {
-        let maybe_save_slot_id= reader.read_u32::<LittleEndian>()?;
+        let maybe_save_slot_id = reader.read_u32::<LittleEndian>()?;
         let game_version = reader.read_f32::<LittleEndian>()?;
         let header = [
             reader.read_u32::<LittleEndian>()?, // 0: observed 4 or 6

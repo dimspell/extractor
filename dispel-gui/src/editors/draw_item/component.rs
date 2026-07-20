@@ -16,7 +16,10 @@ impl EditableRecord for DrawItem {
     fn list_label(&self) -> String {
         format!(
             "[Map {}] ({}, {}) Item: {}",
-            self.map_id, self.x_coord, self.y_coord, self.item.item_id()
+            self.map_id,
+            self.x_coord,
+            self.y_coord,
+            self.item.item_id()
         )
     }
 

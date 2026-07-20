@@ -115,11 +115,14 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'
 
     let badge = container(
         row![
-            text(icon_char(if m.enabled { Icon::CircleDot } else { Icon::Circle }))
-                .font(LUCIDE_FONT)
-                .size(8),
-            text(if m.enabled { " enabled" } else { " disabled" })
-                .size(11),
+            text(icon_char(if m.enabled {
+                Icon::CircleDot
+            } else {
+                Icon::Circle
+            }))
+            .font(LUCIDE_FONT)
+            .size(8),
+            text(if m.enabled { " enabled" } else { " disabled" }).size(11),
         ]
         .spacing(2),
     )

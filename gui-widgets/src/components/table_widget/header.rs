@@ -7,10 +7,8 @@ use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
 use iced::advanced::Renderer as _;
-use iced::{
-    alignment, color, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size,
-};
 use iced::Point;
+use iced::{alignment, color, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
 
 use super::geometry;
 use super::types::{HeaderRegion, State};
@@ -190,8 +188,7 @@ impl<'a, Message> TableWidget<'a, Message> {
             };
             let avail_label_w = (label_r - col_l_screen - self.cell_padding_x * 2.0).max(0.0);
             if avail_label_w > 0.0 {
-                let key =
-                    ParagraphKey::new(&label, self.text_size, avail_label_w, self.font);
+                let key = ParagraphKey::new(&label, self.text_size, avail_label_w, self.font);
                 let para = self.cache.get_or_insert(key, || {
                     Paragraph::with_text(text::Text {
                         content: label.as_str(),
