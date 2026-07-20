@@ -26,7 +26,7 @@ impl App {
                 let Some(preview) = state.map_preview.as_mut() else {
                     return Task::none();
                 };
-                crate::components::map_preview::handle(msg, preview)
+                crate::editors::save_file_viewer::map_preview::handle(msg, preview)
             }
         }
     }

@@ -15,6 +15,7 @@ pub(crate) mod events;
 pub(crate) mod identity;
 pub(crate) mod inventory;
 pub(crate) mod journal;
+pub(crate) mod map_preview;
 pub(crate) mod maps;
 pub(crate) mod message;
 pub(crate) mod overview;

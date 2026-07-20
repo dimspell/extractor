@@ -1,9 +1,11 @@
 //! View function for the map preview component.
 
-use crate::components::map_preview::message::PreviewMessage;
-use crate::components::map_preview::overlay::MapPreviewOverlaysLayer;
-use crate::components::map_preview::state::{MapPreviewLoading, MapPreviewState, PreviewLayer};
 use crate::components::map_render::GenericTilesLayer;
+use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
+use crate::editors::save_file_viewer::map_preview::overlay::MapPreviewOverlaysLayer;
+use crate::editors::save_file_viewer::map_preview::state::{
+    MapPreviewLoading, MapPreviewState, PreviewLayer,
+};
 use crate::message::Message;
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text};
 use iced::{Element, Fill};

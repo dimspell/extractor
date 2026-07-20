@@ -27,5 +27,5 @@ pub enum Message {
     System(SystemMessage),
     StartPage(StartPageMessage),
     /// Map preview interaction (pan, zoom, layer toggles).
-    MapPreview(crate::components::map_preview::PreviewMessage),
+    MapPreview(crate::editors::save_file_viewer::map_preview::PreviewMessage),
 }

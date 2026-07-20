@@ -560,7 +560,7 @@ pub struct SaveFileViewerState {
     /// Whether the map preview canvas is shown instead of the entity table.
     pub show_preview: bool,
     /// Preview state for the currently selected map (replaced on map switch).
-    pub map_preview: Option<crate::components::map_preview::MapPreviewState>,
+    pub map_preview: Option<crate::editors::save_file_viewer::map_preview::MapPreviewState>,
 }
 
 impl Default for SaveFileViewerState {

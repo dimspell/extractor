@@ -68,7 +68,8 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             // Show map preview canvas
             match &state.map_preview {
                 Some(preview) => {
-                    let preview_view = crate::components::map_preview::view_preview(preview);
+                    let preview_view =
+                        crate::editors::save_file_viewer::map_preview::view_preview(preview);
                     let content = Column::<Message>::new()
                         .push(sub_nav)
                         .push(preview_view)

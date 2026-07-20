@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::app::App;
-use crate::components::map_preview::state::EntityKind;
 use crate::components::map_render::EntitySpriteHandle;
+use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
 use dispel_core::map::sprite_loader::load_sprite_frames;
@@ -143,11 +143,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
             let game_path = app.state.workspace.game_path.clone();
 
-            use crate::components::map_preview::state::{
-                MapPreviewLoading, MapPreviewState, PreviewEntity,
-            };
             use crate::components::map_render::MapViewState;
             use crate::editors::map_editor::message::MapDataHandle;
+            use crate::editors::save_file_viewer::map_preview::state::{
+                MapPreviewLoading, MapPreviewState, PreviewEntity,
+            };
             let preview_state = MapPreviewState {
                 map_data: Some(MapDataHandle(loaded.map_data.clone())),
                 diagonal: loaded.diagonal,
@@ -1967,7 +1967,7 @@ fn navigate_highlight(
 /// sprite).
 async fn load_preview_sprites(
     game_path: PathBuf,
-    entity_markers: Vec<crate::components::map_preview::state::PreviewEntity>,
+    entity_markers: Vec<crate::editors::save_file_viewer::map_preview::state::PreviewEntity>,
 ) -> Result<crate::editors::save_file_viewer::message::PreviewSpritesLoaded, String> {
     // 1. Load Monster.ini → HashMap<id, sprite_filename>
     let monster_id_to_sprite: HashMap<i32, String> =

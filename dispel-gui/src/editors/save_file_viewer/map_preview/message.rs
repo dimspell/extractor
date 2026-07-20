@@ -1,6 +1,6 @@
 //! Messages for the map preview component.
 
-use crate::components::map_preview::state::PreviewLayer;
+use crate::editors::save_file_viewer::map_preview::state::PreviewLayer;
 
 #[derive(Debug, Clone)]
 pub enum PreviewMessage {

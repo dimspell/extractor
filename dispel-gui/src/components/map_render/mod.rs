@@ -10,7 +10,7 @@ pub mod view_state;
 pub use decode::decode_tileset_file;
 pub use draw_helpers::{diamond_path, draw_item_color};
 pub use geometry::{
-    is_visible, point_in_tile_diamond, screen_to_tile, tile_center, tile_to_screen,
+    is_visible, screen_to_tile, tile_center, tile_to_screen,
     tile_world_center,
 };
 pub use input::handle_input;

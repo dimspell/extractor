@@ -1,8 +1,8 @@
 //! Update handlers for map preview interaction messages.
 
-use crate::components::map_preview::message::PreviewMessage;
-use crate::components::map_preview::state::{MapPreviewState, PreviewLayer};
 use crate::components::map_render::{tile_to_screen, TILE_H, TILE_W};
+use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
+use crate::editors::save_file_viewer::map_preview::state::{MapPreviewState, PreviewLayer};
 use crate::message::Message;
 use iced::Task;
 
@@ -21,10 +21,16 @@ fn find_closest_marker(state: &MapPreviewState, cx: f32, cy: f32) -> Option<usiz
     for (i, entity) in state.entity_markers.iter().enumerate() {
         // Check if the entity's layer is visible
         let visible = match entity.kind {
-            crate::components::map_preview::state::EntityKind::Monster => state.view.show_monsters,
-            crate::components::map_preview::state::EntityKind::Npc => state.view.show_npcs,
-            crate::components::map_preview::state::EntityKind::Extra => state.view.show_objects,
-            crate::components::map_preview::state::EntityKind::DrawItem => {
+            crate::editors::save_file_viewer::map_preview::state::EntityKind::Monster => {
+                state.view.show_monsters
+            }
+            crate::editors::save_file_viewer::map_preview::state::EntityKind::Npc => {
+                state.view.show_npcs
+            }
+            crate::editors::save_file_viewer::map_preview::state::EntityKind::Extra => {
+                state.view.show_objects
+            }
+            crate::editors::save_file_viewer::map_preview::state::EntityKind::DrawItem => {
                 state.view.show_draw_items
             }
         };

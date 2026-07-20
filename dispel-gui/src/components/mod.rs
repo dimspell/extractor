@@ -11,7 +11,6 @@ pub mod generic_editor;
 pub mod global_search;
 pub mod item_catalog;
 pub mod loading_state;
-pub(crate) mod map_preview;
 pub(crate) mod map_render;
 pub mod standard;
 pub mod tab_bar;

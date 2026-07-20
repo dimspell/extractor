@@ -1,11 +1,11 @@
 //! Preview overlay canvas — entity markers, selection ring, labels.
 //! Input handling delegates to shared map_render::handle_input.
 
-use crate::components::map_preview::message::PreviewMessage;
-use crate::components::map_preview::state::{EntityKind, MapPreviewState};
 use crate::components::map_render::{
     diamond_path, handle_input, is_visible, tile_to_screen, MapCanvasState, TILE_H, TILE_W,
 };
+use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
+use crate::editors::save_file_viewer::map_preview::state::{EntityKind, MapPreviewState};
 use crate::message::Message;
 use iced::widget::canvas::{self, Frame, Geometry, Text as CanvasText};
 use iced::widget::text::Alignment as TextAlignment;
@@ -161,7 +161,7 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                     } else {
                         format!("{}  {}", kind_label, coords)
                     };
-                    let label_size = (11.0 * zoom).max(7.0);
+                    let label_size = (11.0 * zoom).max(7.0f32);
                     let text_w = (label.len() as f32 * label_size * 0.6).min(300.0 * zoom);
                     let text_h = label_size * 1.6;
                     let text_x = tile_cx - text_w * 0.5;
@@ -187,7 +187,7 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                     });
 
                     // Name label above the ring (entity.label)
-                    let label_size2 = (10.0 * zoom).max(7.0);
+                    let label_size2 = (10.0 * zoom).max(7.0f32);
                     let text_w2 = (entity.label.len() as f32 * label_size2 * 0.6).min(300.0 * zoom);
                     let text_h2 = label_size2 * 1.6;
                     let text_x2 = tile_cx - text_w2 * 0.5;
