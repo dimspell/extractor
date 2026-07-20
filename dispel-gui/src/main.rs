@@ -2,7 +2,6 @@ use iced::color;
 use iced::Theme;
 
 pub mod app;
-pub mod auto_save;
 pub mod components;
 pub mod dispatch_table;
 pub mod editor_registry;

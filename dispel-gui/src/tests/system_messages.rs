@@ -161,50 +161,6 @@ mod index_messages {
 }
 
 // ============================================================================
-// Draft manager messages
-// ============================================================================
-
-mod draft_messages {
-    use super::*;
-
-    #[test]
-    fn toggle_auto_save_switches_state() {
-        let mut app = App::test_new(Workspace::new());
-        let was = app.draft_manager.is_auto_save_enabled();
-
-        let task = app.update(Message::System(SystemMessage::ToggleAutoSave));
-        assert_ne!(app.draft_manager.is_auto_save_enabled(), was, "toggled off");
-        let _ = task;
-
-        let task = app.update(Message::System(SystemMessage::ToggleAutoSave));
-        assert_eq!(
-            app.draft_manager.is_auto_save_enabled(),
-            was,
-            "toggled back"
-        );
-        let _ = task;
-    }
-
-    #[test]
-    fn check_draft_conflicts_no_conflicts() {
-        let mut app = App::test_new(Workspace::new());
-        let task = app.update(Message::System(SystemMessage::CheckDraftConflicts));
-        assert_eq!(app.state.status_msg, "No conflicts detected");
-        let _ = task;
-    }
-
-    #[test]
-    fn discard_draft_sets_status() {
-        let mut app = App::test_new(Workspace::new());
-        let task = app.update(Message::System(SystemMessage::DiscardDraft(
-            "test.file".to_string(),
-        )));
-        assert!(app.state.status_msg.contains("Draft discarded"));
-        let _ = task;
-    }
-}
-
-// ============================================================================
 // ClearWorkspace edge cases
 // ============================================================================
 

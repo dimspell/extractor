@@ -20,12 +20,10 @@ pub(crate) fn app_with_tab(editor_type: EditorType) -> App {
     App::test_new(workspace)
 }
 
-pub(crate) mod auto_save;
 pub(crate) mod capability_crosscheck;
 pub(crate) mod clear_all;
 pub(crate) mod command_palette;
 pub(crate) mod common;
-pub(crate) mod draft;
 pub(crate) mod editor_field_edit;
 pub(crate) mod editor_registry;
 pub(crate) mod error_dialog;

@@ -387,44 +387,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                 },
             )
         }
-        SystemMessage::ToggleAutoSave => {
-            app.draft_manager.toggle_auto_save();
-            let status = if app.draft_manager.is_auto_save_enabled() {
-                "Auto-save drafts enabled"
-            } else {
-                "Auto-save drafts disabled"
-            };
-            app.state.status_msg = status.to_string();
-            Task::none()
-        }
-        SystemMessage::CheckDraftConflicts => {
-            let conflicts = app.draft_manager.check_conflicts();
-            if conflicts.is_empty() {
-                app.state.status_msg = "No conflicts detected".to_string();
-            } else {
-                app.state.status_msg = format!("{} file(s) have conflicts", conflicts.len());
-            }
-            Task::none()
-        }
-        SystemMessage::ApplyDraft(file_path) => {
-            let path = std::path::PathBuf::from(&file_path);
-            match app.draft_manager.apply_draft(&path) {
-                Ok(()) => {
-                    app.draft_manager.discard_draft(&path);
-                    app.state.status_msg = format!("Draft applied for {}", file_path);
-                }
-                Err(e) => {
-                    app.state.status_msg = format!("Failed to apply draft: {}", e);
-                }
-            }
-            Task::none()
-        }
-        SystemMessage::DiscardDraft(file_path) => {
-            let path = std::path::PathBuf::from(&file_path);
-            app.draft_manager.discard_draft(&path);
-            app.state.status_msg = format!("Draft discarded for {}", file_path);
-            Task::none()
-        }
         SystemMessage::IndexSaveComplete => Task::none(),
         SystemMessage::ShowError(msg) => {
             app.error_dialog = Some(msg);

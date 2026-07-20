@@ -8,7 +8,6 @@ pub enum WorkspaceMessage {
     ToggleCommandPalette,
     ToggleGlobalSearch,
     ToggleHistoryPanel,
-    // ToggleAutoSave, // Implemented in system
     ToggleMaximizePane,
     CommandPaletteInput(String),
     CommandPaletteSelect(usize),
