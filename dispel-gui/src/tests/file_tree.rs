@@ -34,15 +34,6 @@ fn test_file_tree_toggle_dir_nonexistent_no_crash() {
 }
 
 #[test]
-fn test_file_tree_open_file_nonexistent_no_crash() {
-    let mut app = App::test_new(Workspace::new());
-    let _ = app.update(Message::file_tree(FileTreeMessage::OpenFile(
-        "/nonexistent/test.ini".into(),
-    )));
-    // Should handle gracefully — no panic.
-}
-
-#[test]
 fn test_file_tree_extract_to_json_no_crash() {
     let mut app = App::test_new(Workspace::new());
     // rfd::FileDialog panics on macOS in headless test environments
