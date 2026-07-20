@@ -2,7 +2,6 @@ use std::path::Path;
 
 use crate::references::enums::{
     BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012,
-    Unknown0to7,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
@@ -47,7 +46,7 @@ use serde::{Deserialize, Serialize};
 /// | - goto1-4_x/y: i32 (waypoints)      |
 /// | - unknown_2-5: i32 (coordinates?)    |
 /// | - looking_direction: i32 (enum)      |
-/// | - unknown_6-8: i32 (Unknown0to7)   |
+/// | - rotation_1-3: i32 (NpcLookingDirection)   |
 /// | - unknown_9-12: i32 (always 0)      |
 /// | - unknown_13-16: i32 (coordinates?)  |
 /// | - unknown_17: i32 (Unknown012)       |
@@ -79,7 +78,7 @@ use serde::{Deserialize, Serialize};
 /// - `unknown_1/unknown_17`: Enum = 0, 1, or 2
 /// - `goto1-4_filled`: 0 = waypoint not defined, 1 = waypoint defined
 /// - `looking_direction`: 0 = up, proceeds clockwise (1=right, 2=down, 3=left)
-/// - `unknown_6-8`: Enum = 0-7
+/// - `rotation_1-3`: Enum = 0-7 (compass rotation)
 /// - `unknown_9-12`: Always observed as 0
 /// - `unknown_19`: Enum = 0, 1, or 10
 /// - `unknown_item_id/type`: Unknown item reference
@@ -170,15 +169,15 @@ pub struct NPC {
     /// Compass rotation (0=up, proceeds clockwise).
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
     pub looking_direction: NpcLookingDirection,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_6: Unknown0to7,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_7: Unknown0to7,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_8: Unknown0to7,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_1: NpcLookingDirection,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_2: NpcLookingDirection,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_3: NpcLookingDirection,
     /// Unknown. Always zero (0).
     #[extractor(primitive(type = "i32"))]
     pub unknown_9: i32,
@@ -274,9 +273,9 @@ pub fn save_npc_refs(
                 npc.unknown_4,
                 npc.unknown_5,
                 i32::from(npc.looking_direction),
-                i32::from(npc.unknown_6),
-                i32::from(npc.unknown_7),
-                i32::from(npc.unknown_8),
+                i32::from(npc.rotation_1),
+                i32::from(npc.rotation_2),
+                i32::from(npc.rotation_3),
                 npc.unknown_9,
                 npc.unknown_10,
                 npc.unknown_11,
