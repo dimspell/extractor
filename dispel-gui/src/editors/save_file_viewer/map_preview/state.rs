@@ -35,6 +35,9 @@ pub struct PreviewEntity {
     /// npc_ini_id for NPCs, extra_ini_id for Extra objects).
     /// None for draw items (no sprite).
     pub db_id: Option<i32>,
+    /// True when the entity is dead (e.g. monster with hp_current == 0).
+    /// Dead monsters render using the death animation sequence.
+    pub is_dead: bool,
 }
 
 /// Category of entity marker on the preview.

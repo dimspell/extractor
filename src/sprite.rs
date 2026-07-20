@@ -700,6 +700,14 @@ const MAX_SCAN_BYTES: usize = 50_000_000; // 50 MB
 
 pub fn read_sprite_file(path: &Path) -> Result<SpriteFile> {
     let bytes = std::fs::read(path)?;
+    parse_sprite_bytes(&bytes)
+}
+
+/// Parse `.spr` bytes into the in-memory [`SpriteFile`] representation.
+///
+/// Shared by `read_sprite_file` (filesystem) and callers that hold sprite
+/// data in memory (e.g. database blobs). See `read_sprite_file` for details.
+pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
     let file_len = bytes.len();
     if file_len < 268 {
         return Err(std::io::Error::new(

@@ -1,9 +1,6 @@
-use byteorder::{LittleEndian, ReadBytesExt};
-use std::fs::File;
-use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::Path;
 
-use crate::sprite::{self, rgb16_565_produce_color};
+use crate::sprite;
 
 // --------------------------------------------------------------------------
 // Types
@@ -21,83 +18,38 @@ pub struct LoadedSpriteFrame {
 // Sprite loading
 // --------------------------------------------------------------------------
 
+/// Decodes frame 0 of a single parsed sprite sequence into a `LoadedSpriteFrame`.
+fn decode_first_frame(seq: &sprite::SpriteSequence) -> LoadedSpriteFrame {
+    match seq.frames.first() {
+        Some(f) if f.width > 0 && f.height > 0 => {
+            let rgba = f.decode_to_rgba();
+            let img = match image::RgbaImage::from_raw(f.width as u32, f.height as u32, rgba) {
+                Some(img) => img,
+                None => image::RgbaImage::new(1, 1),
+            };
+            LoadedSpriteFrame {
+                image: img,
+                origin_x: f.origin_x,
+                origin_y: f.origin_y,
+            }
+        }
+        _ => LoadedSpriteFrame {
+            image: image::RgbaImage::new(1, 1),
+            origin_x: 0,
+            origin_y: 0,
+        },
+    }
+}
+
 /// Loads the first frame of every sequence from a sprite file.
 ///
 /// Returns `None` if the file cannot be opened or contains no valid frames.
 pub fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> {
-    let file = File::open(sprite_path).ok()?;
-    let file_len = file.metadata().ok()?.len();
-    let mut reader = BufReader::new(file);
-
-    // Skip 268-byte header (same as get_sprite_info)
-    reader.seek(SeekFrom::Start(268)).ok()?;
-
-    let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
-
-    loop {
-        let pos = reader.stream_position().unwrap_or(file_len);
-        match sprite::seek_next_sequence(&mut reader, pos, file_len) {
-            Ok(true) => {}
-            _ => break,
-        }
-        let info = match sprite::get_sequence_info(&mut reader) {
-            Ok(i) => i,
-            Err(_) => break,
-        };
-
-        let frame_data = if info.frame_count > 0 && !info.frame_infos.is_empty() {
-            let f = &info.frame_infos[0];
-            if f.width > 0 && f.height > 0 {
-                reader
-                    .seek(SeekFrom::Start(f.image_start_position))
-                    .ok()
-                    .and_then(|_| {
-                        let mut img = image::RgbaImage::new(f.width as u32, f.height as u32);
-                        for y in 0..f.height {
-                            for x in 0..f.width {
-                                let pix = reader.read_u16::<LittleEndian>().ok()?;
-                                if pix > 0 {
-                                    let c = rgb16_565_produce_color(pix);
-                                    img.put_pixel(
-                                        x as u32,
-                                        y as u32,
-                                        image::Rgba([c.r, c.g, c.b, 255]),
-                                    );
-                                }
-                            }
-                        }
-                        Some(LoadedSpriteFrame {
-                            image: img,
-                            origin_x: f.origin_x,
-                            origin_y: f.origin_y,
-                        })
-                    })
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        frames.push(frame_data.unwrap_or_else(|| LoadedSpriteFrame {
-            image: image::RgbaImage::new(1, 1),
-            origin_x: 0,
-            origin_y: 0,
-        }));
-
-        if reader
-            .seek(SeekFrom::Start(info.sequence_end_position))
-            .is_err()
-        {
-            break;
-        }
+    let sf = sprite::read_sprite_file(sprite_path).ok()?;
+    if sf.sequences.is_empty() {
+        return None;
     }
-
-    if frames.is_empty() {
-        None
-    } else {
-        Some(frames)
-    }
+    Some(sf.sequences.iter().map(decode_first_frame).collect())
 }
 
 /// Loads the first frame of every sequence from an in-memory sprite buffer.
@@ -105,78 +57,50 @@ pub fn load_sprite_frames(sprite_path: &Path) -> Option<Vec<LoadedSpriteFrame>> 
 /// Same as `load_sprite_frames` but reads from a byte slice instead of a file.
 /// Useful when the sprite data comes from a database blob rather than the filesystem.
 pub fn load_sprite_frames_from_bytes(data: &[u8]) -> Option<Vec<LoadedSpriteFrame>> {
-    let file_len = data.len() as u64;
-    let mut reader = BufReader::new(Cursor::new(data));
+    let sf = sprite::parse_sprite_bytes(data).ok()?;
+    if sf.sequences.is_empty() {
+        return None;
+    }
+    Some(sf.sequences.iter().map(decode_first_frame).collect())
+}
 
-    // Skip 268-byte header
-    reader.seek(SeekFrom::Start(268)).ok()?;
-
-    let mut frames: Vec<LoadedSpriteFrame> = Vec::new();
-
-    loop {
-        let pos = reader.stream_position().unwrap_or(file_len);
-        match sprite::seek_next_sequence(&mut reader, pos, file_len) {
-            Ok(true) => {}
-            _ => break,
-        }
-        let info = match sprite::get_sequence_info(&mut reader) {
-            Ok(i) => i,
-            Err(_) => break,
-        };
-
-        let frame_data = if info.frame_count > 0 && !info.frame_infos.is_empty() {
-            let f = &info.frame_infos[0];
-            if f.width > 0 && f.height > 0 {
-                reader
-                    .seek(SeekFrom::Start(f.image_start_position))
-                    .ok()
-                    .and_then(|_| {
-                        let mut img = image::RgbaImage::new(f.width as u32, f.height as u32);
-                        for y in 0..f.height {
-                            for x in 0..f.width {
-                                let pix = reader.read_u16::<LittleEndian>().ok()?;
-                                if pix > 0 {
-                                    let c = rgb16_565_produce_color(pix);
-                                    img.put_pixel(
-                                        x as u32,
-                                        y as u32,
-                                        image::Rgba([c.r, c.g, c.b, 255]),
-                                    );
-                                }
-                            }
-                        }
-                        Some(LoadedSpriteFrame {
-                            image: img,
-                            origin_x: f.origin_x,
-                            origin_y: f.origin_y,
-                        })
-                    })
-            } else {
-                None
+/// Decodes the last frame of a single parsed sprite sequence into a
+/// `LoadedSpriteFrame`. Used for dead monsters, where the final frame of the
+/// death sequence is the "corpse" pose.
+fn decode_last_frame(seq: &sprite::SpriteSequence) -> LoadedSpriteFrame {
+    match seq.frames.last() {
+        Some(f) if f.width > 0 && f.height > 0 => {
+            let rgba = f.decode_to_rgba();
+            let img = match image::RgbaImage::from_raw(f.width as u32, f.height as u32, rgba) {
+                Some(img) => img,
+                None => image::RgbaImage::new(1, 1),
+            };
+            LoadedSpriteFrame {
+                image: img,
+                origin_x: f.origin_x,
+                origin_y: f.origin_y,
             }
-        } else {
-            None
-        };
-
-        frames.push(frame_data.unwrap_or_else(|| LoadedSpriteFrame {
+        }
+        _ => LoadedSpriteFrame {
             image: image::RgbaImage::new(1, 1),
             origin_x: 0,
             origin_y: 0,
-        }));
-
-        if reader
-            .seek(SeekFrom::Start(info.sequence_end_position))
-            .is_err()
-        {
-            break;
-        }
+        },
     }
+}
 
-    if frames.is_empty() {
-        None
-    } else {
-        Some(frames)
-    }
+/// Loads the last frame of a specific sequence from a sprite file.
+///
+/// Returns `None` if the file cannot be opened, has no sequences, or `seq_idx`
+/// is out of range. The returned frame is the final frame of that sequence
+/// (e.g. the dead pose for a monster's death animation).
+pub fn load_last_frame_of_sequence(
+    sprite_path: &Path,
+    seq_idx: usize,
+) -> Option<LoadedSpriteFrame> {
+    let sf = sprite::read_sprite_file(sprite_path).ok()?;
+    let seq = sf.sequences.get(seq_idx)?;
+    Some(decode_last_frame(seq))
 }
 
 // --------------------------------------------------------------------------

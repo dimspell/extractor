@@ -8,7 +8,8 @@ use crate::components::map_render::EntitySpriteHandle;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
-use dispel_core::map::sprite_loader::load_sprite_frames;
+use dispel_core::map::sprite_loader::{load_last_frame_of_sequence, load_sprite_frames};
+use dispel_core::sprite;
 use dispel_core::{Extra, Extractor, MonsterIni, NpcIni};
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
@@ -200,10 +201,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         }
                     }
 
-                    // Monsters (LOW confidence coords)
+                    // Monsters
                     for m in &map_data.monsters {
-                        let x = to_tile(m.spawn_position_x as u32);
-                        let y = to_tile(m.spawn_position_y as u32);
+                        let x = to_tile(m.current_position_x as u32);
+                        let y = to_tile(m.current_position_y as u32);
                         if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Monster,
@@ -212,6 +213,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: false,
                                 db_id: Some(m.monster_db_id as i32),
+                                is_dead: m.hp_current == 0,
                             });
                         }
                     }
@@ -258,6 +260,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: ny,
                                 confirmed: true,
                                 db_id: Some(n.npc_ini_id as i32),
+                                is_dead: false,
                             });
                         }
                     }
@@ -276,6 +279,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: false,
                                 db_id: Some(e.unknown_5 as i32),
+                                is_dead: false,
                             });
                         }
                     }
@@ -291,6 +295,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: true,
                                 db_id: None,
+                                is_dead: false,
                             });
                         }
                     }
@@ -305,6 +310,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: true,
                                 db_id: None,
+                                is_dead: false,
                             });
                         }
                     }
@@ -319,6 +325,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: true,
                                 db_id: None,
+                                is_dead: false,
                             });
                         }
                     }
@@ -333,6 +340,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: true,
                                 db_id: None,
+                                is_dead: false,
                             });
                         }
                     }
@@ -347,6 +355,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_y: y,
                                 confirmed: true,
                                 db_id: None,
+                                is_dead: false,
                             });
                         }
                     }
@@ -2030,11 +2039,24 @@ async fn load_preview_sprites(
             };
             let sprite_name = id_to_sprite.get(&lookup_id)?;
             let path = resolve_sprite_path(&game_path, sub_dir, sprite_name)?;
+            // Alive entities use sequence 0 (stand). Dead monsters render the
+            // LAST frame of the LAST sequence (the death animation's final
+            // "corpse" pose), not just the first frame of that sequence.
             sprite_cache
                 .entry(path.clone())
                 .or_insert_with(|| {
-                    let frames = load_sprite_frames(&path)?;
-                    let frame = frames.into_iter().next()?;
+                    let frame = if entity.is_dead {
+                        let seq_count = sprite::read_sprite_file(&path)
+                            .ok()
+                            .map(|sf| sf.sequences.len())
+                            .unwrap_or(0);
+                        if seq_count == 0 {
+                            return None;
+                        }
+                        load_last_frame_of_sequence(&path, seq_count - 1)?
+                    } else {
+                        load_sprite_frames(&path)?.into_iter().next()?
+                    };
                     let w = frame.image.width();
                     let h = frame.image.height();
                     Some(EntitySpriteHandle {
