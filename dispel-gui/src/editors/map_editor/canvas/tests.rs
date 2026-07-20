@@ -5,9 +5,10 @@
 //! correct results from the canvas helper functions.
 
 use crate::components::loading_state::LoadingState;
+use crate::components::map_render::geometry::point_in_tile_diamond;
 use crate::components::map_render::{
-    diamond_path, draw_item_color, is_visible, point_in_tile_diamond, screen_to_tile, tile_center,
-    tile_to_screen, TILE_H, TILE_W,
+    diamond_path, draw_item_color, is_visible, screen_to_tile, tile_center, tile_to_screen, TILE_H,
+    TILE_W,
 };
 use crate::editors::map_editor::canvas::hit_test::{
     entity_tile, find_hovered_element, find_hovered_entity_impl, npc_pos,

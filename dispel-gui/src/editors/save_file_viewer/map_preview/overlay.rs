@@ -162,7 +162,8 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                         format!("{}  {}", kind_label, coords)
                     };
                     let label_size = (11.0 * zoom).max(7.0f32);
-                    let text_w = (label.len() as f32 * label_size * 0.6).min(300.0 * zoom);
+                    // Monospace advance ≈ 0.6em; count glyphs (not bytes) for width.
+                    let text_w = label.chars().count() as f32 * label_size * 0.6;
                     let text_h = label_size * 1.6;
                     let text_x = tile_cx - text_w * 0.5;
                     let text_y = tile_cy + r + 4.0 * zoom;
@@ -181,14 +182,14 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                         align_y: alignment::Vertical::Center,
                         shaping: iced::widget::text::Shaping::Basic,
                         line_height: iced::widget::text::LineHeight::default(),
-                        max_width: text_w,
-                        ellipsis: iced::widget::text::Ellipsis::None,
+                        max_width: bounds.width,
+                        ellipsis: iced::widget::text::Ellipsis::End,
                         wrapping: iced::widget::text::Wrapping::None,
                     });
 
                     // Name label above the ring (entity.label)
                     let label_size2 = (10.0 * zoom).max(7.0f32);
-                    let text_w2 = (entity.label.len() as f32 * label_size2 * 0.6).min(300.0 * zoom);
+                    let text_w2 = entity.label.chars().count() as f32 * label_size2 * 0.6;
                     let text_h2 = label_size2 * 1.6;
                     let text_x2 = tile_cx - text_w2 * 0.5;
                     let text_y2 = tile_cy - r - text_h2 - 4.0 * zoom;
@@ -208,7 +209,7 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                             align_y: alignment::Vertical::Center,
                             shaping: iced::widget::text::Shaping::Basic,
                             line_height: iced::widget::text::LineHeight::default(),
-                            max_width: text_w2,
+                            max_width: bounds.width,
                             ellipsis: iced::widget::text::Ellipsis::End,
                             wrapping: iced::widget::text::Wrapping::None,
                         });
