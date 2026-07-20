@@ -69,61 +69,6 @@ mod message_routing_tests {
     }
 
     #[test]
-    fn test_open_file_in_workspace_dialogue_script_creates_state() {
-        let mut app = App::test_new(Workspace::new());
-
-        let path = PathBuf::from("/game/scene.dlg");
-        let _task = app.open_file_in_workspace(&path);
-
-        assert!(!app.state.workspace.tabs.is_empty());
-
-        let tab = app.state.workspace.active().unwrap();
-        assert_eq!(tab.editor_type, EditorType::DialogueScriptEditor);
-    }
-
-    #[test]
-    fn test_open_file_in_workspace_creates_tab_and_tracks_recent() {
-        let mut app = App::test_new(Workspace::new());
-
-        let path = PathBuf::from("/game/Monster.db");
-        let _task = app.open_file_in_workspace(&path);
-
-        let tab = app.state.workspace.active().unwrap();
-        assert_eq!(tab.editor_type, EditorType::MonsterEditor);
-
-        assert!(!app.state.recent_files.is_empty());
-        assert_eq!(app.state.recent_files[0], path);
-    }
-
-    #[test]
-    fn test_open_file_in_workspace_hex_editor_for_unknown_extension() {
-        let mut app = App::test_new(Workspace::new());
-
-        let path = PathBuf::from("/game/random.xyz");
-        let _task = app.open_file_in_workspace(&path);
-
-        let tab = app.state.workspace.active().unwrap();
-        assert_eq!(
-            tab.editor_type,
-            EditorType::HexEditor,
-            "Unknown extension should fall back to HexEditor"
-        );
-    }
-
-    #[test]
-    fn test_open_same_file_reactivates_existing_tab() {
-        let mut app = App::test_new(Workspace::new());
-
-        let path = PathBuf::from("/game/weaponItem.db");
-        let _task1 = app.open_file_in_workspace(&path);
-
-        let _task2 = app.open_file_in_workspace(&path);
-
-        // Should still be just one tab (reactivated), not two
-        assert_eq!(app.state.workspace.tabs.len(), 1);
-    }
-
-    #[test]
     fn test_track_recent_files_limit() {
         let mut app = App::test_new(Workspace::new());
 

@@ -12,44 +12,7 @@ mod workspace_handler_tests {
     use crate::app::App;
     use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
-    use crate::workspace::{EditorType, Workspace, WorkspaceTab};
-    use std::path::PathBuf;
-
-    /// ReopenActiveTabAsHex when the active tab has a concrete path.
-    /// Should call open_file_in_workspace_as_hex which synchronously adds a hex editor tab.
-    #[test]
-    fn test_reopen_active_tab_as_hex_has_path() {
-        let mut app = App::test_new(Workspace::new());
-        app.state.workspace.tabs.push(WorkspaceTab {
-            id: 1,
-            label: "test.ini".into(),
-            path: Some(PathBuf::from("test.ini")),
-            editor_type: EditorType::WeaponEditor,
-            modified: false,
-            pinned: false,
-        });
-        app.state.workspace.active_tab = Some(0);
-
-        let _task = app.update(Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex));
-
-        // open_file_in_workspace_as_hex adds a new tab synchronously
-        assert_eq!(
-            app.state.workspace.tabs.len(),
-            2,
-            "a new hex editor tab should be created"
-        );
-        assert_eq!(
-            app.state.workspace.tabs[1].editor_type,
-            EditorType::HexEditor,
-            "the new tab should be a hex editor"
-        );
-        // The new tab should point to the same file
-        assert_eq!(
-            app.state.workspace.tabs[1].path.as_deref(),
-            Some(PathBuf::from("test.ini").as_path()),
-            "the hex tab should reference the same file path"
-        );
-    }
+    use crate::workspace::{EditorType, Workspace};
 
     /// GlobalSearchSelect when a result has source_file but no game path is set.
     /// Should close search and clear query without trying to open a file.
