@@ -148,7 +148,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             use crate::editors::save_file_viewer::map_preview::state::{
                 MapPreviewLoading, MapPreviewState, PreviewEntity,
             };
-            let preview_state = MapPreviewState {
+            let mut preview_state = MapPreviewState {
                 map_data: Some(MapDataHandle(loaded.map_data.clone())),
                 diagonal: loaded.diagonal,
                 game_path: game_path.clone(),
@@ -164,6 +164,26 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 internal_sprites: Vec::new(),
                 selected_marker: None,
             };
+
+            // Centre the map at 100% zoom, mirroring the map editor's load
+            // behaviour. Uses the last known canvas size (defaults to 1200×800
+            // until the cursor moves over the canvas).
+            if let Some(map_handle) = &preview_state.map_data {
+                let model = &map_handle.0.model;
+                let diagonal = model.tiled_map_width + model.tiled_map_height;
+                let (cx, cy) = dispel_core::map::types::convert_map_coords_to_image_coords(
+                    model.tiled_map_width / 2,
+                    model.tiled_map_height / 2,
+                    diagonal,
+                );
+                let vp_w = preview_state.view.last_canvas_w;
+                let vp_h = preview_state.view.last_canvas_h;
+                preview_state.view.zoom = 1.0;
+                preview_state.view.pan_x = vp_w / 2.0 - cx as f32;
+                preview_state.view.pan_y = vp_h / 2.0 - cy as f32;
+                preview_state.view.tile_layer_cache.clear();
+            }
+
             state.map_preview = Some(preview_state);
 
             // Build entity markers from save file data (synchronous)
