@@ -2000,7 +2000,15 @@ async fn load_preview_sprites(
                 EntityKind::Extra => ("ExtraInGame", &extra_id_to_sprite),
                 EntityKind::DrawItem => return None,
             };
-            let sprite_name = id_to_sprite.get(&db_id)?;
+            // The save file stores the Monster.db ID (0-based archetype index),
+            // but Monster.ini / .ref files are keyed by the visual ID which is
+            // offset by one (e.g. db 24 → ini 25). Translate before lookup.
+            let lookup_id = if matches!(entity.kind, EntityKind::Monster) {
+                db_id + 1
+            } else {
+                db_id
+            };
+            let sprite_name = id_to_sprite.get(&lookup_id)?;
             let path = resolve_sprite_path(&game_path, sub_dir, sprite_name)?;
             sprite_cache
                 .entry(path.clone())
