@@ -38,6 +38,9 @@ pub struct PreviewEntity {
     /// True when the entity is dead (e.g. monster with hp_current == 0).
     /// Dead monsters render using the death animation sequence.
     pub is_dead: bool,
+    /// NPC looking direction (1–8) used to select the sprite sequence + flip,
+    /// mirroring the map editor's NPC facing logic.  0 for non-NPC entities.
+    pub look_direction: u8,
 }
 
 /// Category of entity marker on the preview.

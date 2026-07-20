@@ -214,6 +214,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: false,
                                 db_id: Some(m.monster_db_id as i32),
                                 is_dead: m.hp_current == 0,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -261,6 +262,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: Some(n.npc_ini_id as i32),
                                 is_dead: false,
+                                look_direction: n.npc_ref_look_direction as u8,
                             });
                         }
                     }
@@ -280,6 +282,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: false,
                                 db_id: Some(e.unknown_5 as i32),
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -296,6 +299,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: None,
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -311,6 +315,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: None,
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -326,6 +331,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: None,
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -341,6 +347,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: None,
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -356,6 +363,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 confirmed: true,
                                 db_id: None,
                                 is_dead: false,
+                                look_direction: 0,
                             });
                         }
                     }
@@ -2018,7 +2026,12 @@ async fn load_preview_sprites(
         .map_err(|e| format!("Failed to load Extra.ini: {}", e))?;
 
     // 4. Resolve sprites for each entity (parallel to entity_markers)
-    let mut sprite_cache: HashMap<PathBuf, Option<EntitySpriteHandle>> = HashMap::new();
+    // Cache key includes `is_dead` and `look_direction` because the same sprite
+    // path can be shared by entities in different states (alive vs dead) or
+    // facing different directions — without this the first loaded variant would
+    // be reused for all others, showing the wrong frame or flip.
+    let mut sprite_cache: HashMap<(PathBuf, bool, u8), Option<EntitySpriteHandle>> =
+        HashMap::new();
     let sprites: Vec<Option<EntitySpriteHandle>> = entity_markers
         .iter()
         .map(|entity| {
@@ -2039,11 +2052,12 @@ async fn load_preview_sprites(
             };
             let sprite_name = id_to_sprite.get(&lookup_id)?;
             let path = resolve_sprite_path(&game_path, sub_dir, sprite_name)?;
-            // Alive entities use sequence 0 (stand). Dead monsters render the
-            // LAST frame of the LAST sequence (the death animation's final
-            // "corpse" pose), not just the first frame of that sequence.
+            // Dead monsters render the LAST frame of the LAST sequence (the
+            // death animation's final "corpse" pose).  Alive entities use the
+            // NPC looking-direction formula (mirrors map_editor/update/map.rs)
+            // to select a sprite sequence + flip.
             sprite_cache
-                .entry(path.clone())
+                .entry((path.clone(), entity.is_dead, entity.look_direction))
                 .or_insert_with(|| {
                     let frame = if entity.is_dead {
                         let seq_count = sprite::read_sprite_file(&path)
@@ -2055,7 +2069,26 @@ async fn load_preview_sprites(
                         }
                         load_last_frame_of_sequence(&path, seq_count - 1)?
                     } else {
-                        load_sprite_frames(&path)?.into_iter().next()?
+                        // Compute (sequence, flip) from looking direction,
+                        // mirroring the map editor's formula in map.rs:473-479.
+                        let dir = entity.look_direction;
+                        let (seq, flip) = if dir > 4 {
+                            ((8 - dir) as usize, true)
+                        } else {
+                            (dir as usize, false)
+                        };
+                        let frames = load_sprite_frames(&path)?;
+                        let frame = frames.get(seq).or_else(|| frames.first())?;
+                        let w = frame.image.width();
+                        let h = frame.image.height();
+                        return Some(EntitySpriteHandle {
+                            handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
+                            width: w,
+                            height: h,
+                            origin_x: frame.origin_x,
+                            origin_y: frame.origin_y,
+                            flip,
+                        });
                     };
                     let w = frame.image.width();
                     let h = frame.image.height();
