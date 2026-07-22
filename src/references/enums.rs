@@ -854,7 +854,10 @@ impl BooleanFlag {
         match value {
             0 => Some(BooleanFlag::False),
             1 => Some(BooleanFlag::True),
-            _ => None,
+            _ => {
+                println!("BooleanFlag unknown value: {value:?}");
+                None
+            },
         }
     }
 
@@ -862,7 +865,10 @@ impl BooleanFlag {
         match value {
             0 => Some(BooleanFlag::False),
             1 => Some(BooleanFlag::True),
-            _ => None,
+            _ => {
+                println!("BooleanFlag unknown value: {value:?}");
+                None
+            },
         }
     }
 
