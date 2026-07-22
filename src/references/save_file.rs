@@ -13,7 +13,7 @@ use super::extractor::{read_null_terminated_windows_1250, Extractor};
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct MonsterRecord {
-    pub signature_a: u32,
+    pub signature_a: u32, // 0 = alive, 1 = ???, 8 = dead
     pub record_index: u32,
     pub signature_b: u32,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
