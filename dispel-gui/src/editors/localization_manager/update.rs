@@ -5,8 +5,8 @@ use crate::message::MessageExt;
 use dispel_core::localization::Localizable;
 use dispel_core::{
     export_csv, export_po, import_csv, import_po, DialogueParagraph, EditItem, EventItem,
-    EventNpcRef, ExtraRef, Extractor, HealItem, Message, MiscItem, PartyIniNpc, Store, TextEntry,
-    WeaponItem, NPC,
+    EventNpcRef, ExtraRef, Extractor, HealItem, Map, Message, MiscItem, MonsterIni, PartyIniNpc,
+    PartyRef, Quest, Store, TextEntry, WeaponItem, NPC,
 };
 use iced::Task;
 use std::io::Write;
@@ -544,6 +544,10 @@ fn scan_all_entries(
     scan_one::<Message>(game_path, "ExtraInGame/Message.scr", &mut entries)?;
     scan_one::<PartyIniNpc>(game_path, "NpcInGame/PrtIni.db", &mut entries)?;
     scan_one::<EventNpcRef>(game_path, "NpcInGame/Eventnpc.ref", &mut entries)?;
+    scan_one::<Quest>(game_path, "ExtraInGame/Quest.scr", &mut entries)?;
+    scan_one::<Map>(game_path, "AllMap.ini", &mut entries)?;
+    scan_one::<MonsterIni>(game_path, "Monster.ini", &mut entries)?;
+    scan_one::<PartyRef>(game_path, "Ref/PartyRef.ref", &mut entries)?;
 
     for rel in NPC_REF_FILES {
         scan_one::<NPC>(game_path, rel, &mut entries)?;
@@ -744,6 +748,14 @@ fn apply_entries_to_file(
         apply_one::<ExtraRef>(abs_path, &by_record)
     } else if lower.ends_with(".pgp") {
         apply_one::<DialogueParagraph>(abs_path, &by_record)
+    } else if lower.ends_with("quest.scr") {
+        apply_one::<Quest>(abs_path, &by_record)
+    } else if lower.ends_with("allmap.ini") {
+        apply_one::<Map>(abs_path, &by_record)
+    } else if lower.ends_with("monster.ini") {
+        apply_one::<MonsterIni>(abs_path, &by_record)
+    } else if lower.ends_with("partyref.ref") {
+        apply_one::<PartyRef>(abs_path, &by_record)
     } else {
         Ok(())
     }
