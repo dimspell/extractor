@@ -1,5 +1,6 @@
 //! Win32 application shell: WinMain, message loop, WndProc, menu, toolbar,
 //! status bar, tab control, and 3-pane layout.
+// Integrates the FileTree and App state modules.
 
 use windows::core::*;
 use windows::Win32::Foundation::*;
@@ -10,6 +11,9 @@ use windows::Win32::UI::HiDpi::*;
 use windows::Win32::System::LibraryLoader::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::Graphics::Gdi::*;
+
+use crate::app::App;
+use crate::file_tree::{FileTree, FileType};
 
 const ID_FILE_OPEN: u16 = 1001;
 const ID_FILE_SAVE: u16 = 1002;
@@ -31,6 +35,8 @@ const SIDEBAR_WIDTH: i32 = 250;
 const HISTORY_WIDTH: i32 = 200;
 const TOOLBAR_HEIGHT: i32 = 28;
 const STATUSBAR_HEIGHT: i32 = 24;
+
+const GWLP_USERDATA: i32 = -21;
 
 pub fn run() -> Result<()> {
     unsafe {
@@ -85,6 +91,10 @@ pub fn run() -> Result<()> {
             None,
         );
 
+        // Create and store App state
+        let app = Box::new(App::new(hwnd));
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, Box::into_raw(app) as isize);
+
         ShowWindow(hwnd, SW_SHOW);
         UpdateWindow(hwnd);
 
@@ -93,6 +103,12 @@ pub fn run() -> Result<()> {
         while GetMessageW(&mut msg, None, 0, 0).into() {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
+        }
+
+        // Clean up app state
+        let app_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+        if !app_ptr.is_null() {
+            let _ = Box::from_raw(app_ptr as *mut App);
         }
 
         CoUninitialize();
@@ -106,11 +122,18 @@ unsafe extern "system" fn main_wnd_proc(
     wparam: WPARAM,
     lparam: LPARAM,
 ) -> LRESULT {
+    let app_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA);
+    let app = if !app_ptr.is_null() {
+        &mut *(app_ptr as *mut App)
+    } else {
+        &mut App::new(hwnd)
+    };
+
     match msg {
-        WM_CREATE => on_create(hwnd),
+        WM_CREATE => on_create(hwnd, app),
         WM_SIZE => on_size(hwnd),
-        WM_COMMAND => on_command(hwnd, wparam),
-        WM_NOTIFY => on_notify(hwnd, wparam, lparam),
+        WM_COMMAND => on_command(hwnd, app, wparam),
+        WM_NOTIFY => on_notify(hwnd, app, wparam, lparam),
         WM_CLOSE => on_close(hwnd),
         WM_DESTROY => {
             PostQuitMessage(0);
@@ -121,7 +144,7 @@ unsafe extern "system" fn main_wnd_proc(
     }
 }
 
-unsafe fn on_create(hwnd: HWND) -> LRESULT {
+unsafe fn on_create(hwnd: HWND, app: &mut App) -> LRESULT {
     // Menu bar
     create_menu_bar(hwnd);
 
@@ -134,8 +157,8 @@ unsafe fn on_create(hwnd: HWND) -> LRESULT {
     // Tab control (main content area placeholder)
     create_tab_control(hwnd);
 
-    // Sidebar (TreeView placeholder)
-    create_sidebar(hwnd);
+    // Sidebar with file tree
+    create_sidebar(hwnd, app);
 
     // History panel placeholder
     create_history_panel(hwnd);
@@ -151,11 +174,11 @@ unsafe fn on_size(hwnd: HWND) -> LRESULT {
     LRESULT(0)
 }
 
-unsafe fn on_command(hwnd: HWND, wparam: WPARAM) -> LRESULT {
+unsafe fn on_command(hwnd: HWND, app: &mut App, wparam: WPARAM) -> LRESULT {
     let id = LOWORD(wparam.0) as u16;
     match id {
-        ID_FILE_OPEN => on_file_open(hwnd),
-        ID_FILE_SAVE => on_file_save(hwnd),
+        ID_FILE_OPEN => on_file_open(hwnd, app),
+        ID_FILE_SAVE => on_file_save(hwnd, app),
         ID_FILE_EXIT => {
             DestroyWindow(hwnd);
         }
@@ -178,11 +201,25 @@ unsafe fn on_command(hwnd: HWND, wparam: WPARAM) -> LRESULT {
     LRESULT(0)
 }
 
-unsafe fn on_notify(hwnd: HWND, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe fn on_notify(hwnd: HWND, app: &mut App, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let nmhdr = &*(lparam.0 as *const NMHDR);
     match nmhdr.code {
         TCN_SELCHANGE => {
             // Tab selection changed
+        }
+        TVN_SELCHANGED => {
+            // File tree selection changed
+            if let Some(tree) = app.file_tree.as_ref() {
+                let nmtv = &*(lparam.0 as *const NMTREEVIEWW);
+                tree.on_sel_changed(nmtv.itemNew.hItem);
+            }
+        }
+        TVN_ITEMEXPANDING => {
+            // Lazy loading
+            if let Some(tree) = app.file_tree.as_ref() {
+                let nmtv = &*(lparam.0 as *const NMTREEVIEWW);
+                tree.on_item_expanding(nmtv.itemNew.hItem);
+            }
         }
         _ => {}
     }
@@ -201,26 +238,28 @@ unsafe fn on_paint(hwnd: HWND) -> LRESULT {
     LRESULT(0)
 }
 
-unsafe fn on_file_open(hwnd: HWND) {
+unsafe fn on_file_open(hwnd: HWND, app: &mut App) {
     let mut ofn = OPENFILENAMEW::default();
     let mut file_buf = [0u16; 260];
     ofn.lStructSize = std::mem::size_of::<OPENFILENAMEW>() as u32;
     ofn.hwndOwner = hwnd;
     ofn.lpstrFile = file_buf.as_mut_ptr();
     ofn.nMaxFile = file_buf.len() as u32;
-    ofn.lpstrFilter = w!("All Files\0*.*\0Dispel DB\0*.db\0Dispel INI\0*.ini\0Dispel REF\0*.ref\0Dispel SCR\0*.scr\0Dispel MAP\0*.map\0Dispel SPR\0*.spr\0Dispel SNF\0*.snf\0\0");
+    ofn.lpstrFilter = w!(
+        "All Files\0*.*\0Dispel DB\0*.db\0Dispel INI\0*.ini\0Dispel REF\0*.ref\0Dispel SCR\0*.scr\0Dispel MAP\0*.map\0Dispel SPR\0*.spr\0Dispel SNF\0*.snf\0\0"
+    );
     ofn.nFilterIndex = 1;
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
 
     if GetOpenFileNameW(&mut ofn).as_bool() {
-        // File selected - will be wired to editor in future phases
         let path = wide_to_string(&file_buf);
-        // TODO: open file in appropriate editor
+        app.set_status(&path);
+        // TODO: open file in appropriate editor based on extension
         let _ = path;
     }
 }
 
-unsafe fn on_file_save(_hwnd: HWND) {
+unsafe fn on_file_save(_hwnd: HWND, _app: &mut App) {
     // TODO: implement save
 }
 
@@ -343,19 +382,10 @@ fn create_tab_control(hwnd: HWND) {
     }
 }
 
-fn create_sidebar(hwnd: HWND) {
+fn create_sidebar(hwnd: HWND, app: &mut App) {
     unsafe {
-        let _tree = CreateWindowExW(
-            WINDOW_EX_STYLE::default(),
-            w!("SysTreeView32"),
-            None,
-            WS_CHILD | WS_VISIBLE | TVS_HASBUTTONS | TVS_HASLINES | TVS_LINESATROOT | TVS_SHOWSELALWAYS,
-            0, 0, 0, 0,
-            hwnd,
-            None,
-            GetModuleHandleW(None).unwrap(),
-            None,
-        );
+        let tree = FileTree::new(hwnd).expect("Failed to create file tree");
+        app.file_tree = Some(tree);
     }
 }
 
