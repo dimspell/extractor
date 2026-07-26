@@ -154,7 +154,12 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 cache.len(),
                 indices.len(),
                 filter_msg_fn,
-                FilterBarExtras::default(),
+                FilterBarExtras {
+                    export_csv: Some(Message::save_file_viewer(
+                        SaveFileViewerMessage::ExportCsv(TableKey::Journal(section)),
+                    )),
+                    ..FilterBarExtras::default()
+                },
             );
             let wrapped = Column::<Message>::new()
                 .push(filter_bar)

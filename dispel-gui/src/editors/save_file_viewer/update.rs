@@ -856,6 +856,43 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        SaveFileViewerMessage::ExportCsv(key) => {
+            let Some((headers, rows)) = resolve_csv_export_data(state, key) else {
+                return Task::none();
+            };
+            let default_name = csv_default_filename(key);
+            iced::Task::perform(
+                async move {
+                    let mut wtr = csv::Writer::from_writer(Vec::new());
+                    wtr.write_record(&headers).map_err(|e| e.to_string())?;
+                    for row in &rows {
+                        wtr.write_record(row).map_err(|e| e.to_string())?;
+                    }
+                    let bytes = wtr.into_inner().map_err(|e| e.to_string())?;
+
+                    let handle = rfd::AsyncFileDialog::new()
+                        .set_file_name(&default_name)
+                        .add_filter("CSV", &["csv"])
+                        .save_file()
+                        .await;
+                    match handle {
+                        Some(h) => {
+                            let path = h.path().to_path_buf();
+                            tokio::fs::write(&path, &bytes)
+                                .await
+                                .map(|_| path)
+                                .map_err(|e| e.to_string())
+                        }
+                        None => Err("cancelled".to_string()),
+                    }
+                },
+                move |result| {
+                    Message::save_file_viewer(SaveFileViewerMessage::CsvExported(
+                        result,
+                    ))
+                },
+            )
+        }
         SaveFileViewerMessage::Load(_) => {
             // Load is handled by app.rs::open_file_in_workspace via Task::perform
             state.loading = true;
@@ -1493,6 +1530,18 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 }
                 Err(e) => {
                     state.error = Some(e);
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::CsvExported(result) => {
+            match result {
+                Ok(path) => {
+                    state.status_msg = Some(format!("Exported CSV to {}", path.display()));
+                }
+                Err(e) if e == "cancelled" => {}
+                Err(e) => {
+                    state.status_msg = Some(format!("CSV export failed: {}", e));
                 }
             }
             Task::none()
@@ -2221,6 +2270,129 @@ fn load_extra_ini_sprites(game_path: &Path) -> Result<HashMap<i32, String>, Stri
         }
     }
     Ok(map)
+}
+
+// ── CSV export helpers ─────────────────────────────────────────────────────
+
+/// Build a default filename for a CSV export based on the table key.
+fn csv_default_filename(key: crate::editors::save_file_viewer::message::TableKey) -> String {
+    use crate::editors::save_file_viewer::message::TableKey;
+    match key {
+        TableKey::Inventory(cat) => format!("inventory-{}.csv", cat.label()),
+        TableKey::Events => "events.csv".to_string(),
+        TableKey::Journal(section) => {
+            let label = match section {
+                crate::editors::save_file_viewer::state::JournalSection::Main => "main",
+                crate::editors::save_file_viewer::state::JournalSection::Side => "side",
+                crate::editors::save_file_viewer::state::JournalSection::Trade => "trade",
+            };
+            format!("journal-{label}.csv")
+        }
+        TableKey::Map(_, kind) => {
+            let label = match kind {
+                crate::editors::save_file_viewer::state::MapsTableKind::Monsters => {
+                    "monsters"
+                }
+                crate::editors::save_file_viewer::state::MapsTableKind::Npcs => "npcs",
+                crate::editors::save_file_viewer::state::MapsTableKind::ExtraObjects => {
+                    "extra-objects"
+                }
+                crate::editors::save_file_viewer::state::MapsTableKind::Weapon => {
+                    "weapons"
+                }
+                crate::editors::save_file_viewer::state::MapsTableKind::Heal => "heals",
+                crate::editors::save_file_viewer::state::MapsTableKind::Edit => "edits",
+                crate::editors::save_file_viewer::state::MapsTableKind::Misc => "misc",
+                crate::editors::save_file_viewer::state::MapsTableKind::Event => {
+                    "events"
+                }
+            };
+            format!("map-{label}.csv")
+        }
+    }
+}
+
+/// Resolve (column headers, filtered rows) for a table identified by `key`.
+/// Returns `None` when the table has no data (empty cache or missing state).
+fn resolve_csv_export_data(
+    state: &crate::editors::save_file_viewer::state::SaveFileViewerState,
+    key: crate::editors::save_file_viewer::message::TableKey,
+) -> Option<(Vec<String>, Vec<Vec<String>>)> {
+    use crate::editors::save_file_viewer::message::TableKey;
+    use crate::editors::save_file_viewer::state::MapsTableKind;
+
+    match key {
+        TableKey::Inventory(cat) => {
+            let headers: Vec<String> = cat
+                .default_columns()
+                .iter()
+                .map(|c| c.label.clone())
+                .collect();
+            let cache = state.inventory_display_caches.get(&cat)?;
+            let indices = state.inventory_filtered_indices.get(&cat)?;
+            let rows: Vec<Vec<String>> = indices
+                .iter()
+                .filter_map(|&i| cache.get(i).cloned())
+                .collect();
+            Some((headers, rows))
+        }
+        TableKey::Events => {
+            let headers: Vec<String> =
+                crate::editors::save_file_viewer::state::events_default_columns()
+                    .iter()
+                    .map(|c| c.label.clone())
+                    .collect();
+            let rows: Vec<Vec<String>> = state
+                .events_filtered_indices
+                .iter()
+                .filter_map(|&i| state.events_display_cache.get(i).cloned())
+                .collect();
+            Some((headers, rows))
+        }
+        TableKey::Journal(section) => {
+            let headers: Vec<String> = section
+                .default_columns()
+                .iter()
+                .map(|c| c.label.clone())
+                .collect();
+            let cache = state.journal_display_caches.get(&section)?;
+            let indices = state.journal_filtered_indices.get(&section)?;
+            let rows: Vec<Vec<String>> = indices
+                .iter()
+                .filter_map(|&i| cache.get(i).cloned())
+                .collect();
+            Some((headers, rows))
+        }
+        TableKey::Map(map_idx, kind) => {
+            let headers: Vec<String> = kind
+                .default_columns()
+                .iter()
+                .map(|c| c.label.clone())
+                .collect();
+            let cache = state.maps_display_caches.get(map_idx)?;
+            let (rows_data, indices_slice): (&[Vec<String>], &[usize]) = match kind {
+                MapsTableKind::Monsters => (&cache.monsters, &cache.monsters_indices),
+                MapsTableKind::Npcs => (&cache.npcs, &cache.npcs_indices),
+                MapsTableKind::ExtraObjects => {
+                    (&cache.extra_objects, &cache.extra_objects_indices)
+                }
+                MapsTableKind::Weapon => {
+                    (&cache.draw_items_weapon, &cache.draw_items_weapon_indices)
+                }
+                MapsTableKind::Heal => (&cache.draw_items_heal, &cache.draw_items_heal_indices),
+                MapsTableKind::Edit => (&cache.draw_items_edit, &cache.draw_items_edit_indices),
+                MapsTableKind::Misc => (&cache.draw_items_misc, &cache.draw_items_misc_indices),
+                MapsTableKind::Event => {
+                    (&cache.draw_items_event, &cache.draw_items_event_indices)
+                }
+            };
+            let rows: Vec<Vec<String>> = indices_slice
+                .iter()
+                .filter_map(|&i| rows_data.get(i).cloned())
+                .collect();
+            Some((headers, rows))
+        }
+    }
 }
 
 /// Case-insensitive sprite file path resolution.

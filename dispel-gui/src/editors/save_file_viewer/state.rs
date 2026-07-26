@@ -510,6 +510,8 @@ pub struct SaveFileViewerState {
     pub active_section: SaveFileSection,
     pub loading: bool,
     pub error: Option<String>,
+    /// Transient status message (CSV export progress/results, etc.).
+    pub status_msg: Option<String>,
 
     // Per-section navigation
     pub selected_map: Option<usize>,
@@ -571,6 +573,7 @@ impl Default for SaveFileViewerState {
             active_section: SaveFileSection::Overview,
             loading: false,
             error: None,
+            status_msg: None,
             selected_map: None,
             selected_entity_kind: MapsTableKind::Monsters,
             journal_section: JournalSection::Main,

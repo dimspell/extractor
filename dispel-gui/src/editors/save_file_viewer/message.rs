@@ -138,6 +138,10 @@ pub enum SaveFileViewerMessage {
         /// What to do with that table's filter state.
         action: TableFilterAction,
     },
+    /// Export a table to CSV (triggers async save dialog).
+    ExportCsv(TableKey),
+    /// Result of an async CSV export.
+    CsvExported(Result<std::path::PathBuf, String>),
 }
 
 /// Identifies a single save-file-viewer table for filter routing.

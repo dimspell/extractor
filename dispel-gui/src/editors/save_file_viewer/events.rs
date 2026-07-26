@@ -123,7 +123,12 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         state.events_display_cache.len(),
         state.events_filtered_indices.len(),
         filter_msg_fn,
-        FilterBarExtras::default(),
+        FilterBarExtras {
+            export_csv: Some(Message::save_file_viewer(
+                SaveFileViewerMessage::ExportCsv(TableKey::Events),
+            )),
+            ..FilterBarExtras::default()
+        },
     );
 
     let content = iced::widget::column![filter_bar, table_element].spacing(8);

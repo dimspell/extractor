@@ -359,7 +359,12 @@ fn entity_table<'a>(
         display_cache.len(),
         indices.len(),
         filter_msg_fn,
-        FilterBarExtras::default(),
+        FilterBarExtras {
+            export_csv: Some(Message::save_file_viewer(
+                SaveFileViewerMessage::ExportCsv(TableKey::Map(map_idx, kind)),
+            )),
+            ..FilterBarExtras::default()
+        },
     );
     let wrapped = Column::<Message>::new()
         .push(filter_bar)

@@ -201,7 +201,12 @@ fn inventory_table<'a>(
             display_cache.len(),
             filtered_indices.len(),
             filter_msg_fn,
-            FilterBarExtras::default(),
+            FilterBarExtras {
+                export_csv: Some(Message::save_file_viewer(
+                    SaveFileViewerMessage::ExportCsv(TableKey::Inventory(cat)),
+                )),
+                ..FilterBarExtras::default()
+            },
         );
         let wrapped = Column::<Message>::new()
             .push(filter_bar)
