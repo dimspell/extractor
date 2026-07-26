@@ -13,7 +13,10 @@ use windows::Win32::System::Com::*;
 use windows::Win32::Graphics::Gdi::*;
 
 use crate::app::App;
+use crate::editors::*;
 use crate::file_tree::{FileTree, FileType};
+use crate::spreadsheet::{Spreadsheet, Row};
+use dispel_core::*;
 
 const ID_FILE_OPEN: u16 = 1001;
 const ID_FILE_SAVE: u16 = 1002;
@@ -253,14 +256,262 @@ unsafe fn on_file_open(hwnd: HWND, app: &mut App) {
 
     if GetOpenFileNameW(&mut ofn).as_bool() {
         let path = wide_to_string(&file_buf);
+        let path_buf = PathBuf::from(&path);
         app.set_status(&path);
-        // TODO: open file in appropriate editor based on extension
-        let _ = path;
+
+        // Open file in appropriate editor based on extension
+        if let Some(editor_type) = editor_type_for_path(&path_buf) {
+            open_editor_for_type(hwnd, app, editor_type, &path_buf);
+        }
     }
 }
 
-unsafe fn on_file_save(_hwnd: HWND, _app: &mut App) {
-    // TODO: implement save
+unsafe fn open_editor_for_type(hwnd: HWND, app: &mut App, editor_type: EditorTypeId, path: &PathBuf) {
+    use std::io::Read;
+
+    // Read raw file bytes for save round-tripping
+    let raw_data = match std::fs::File::open(path).and_then(|mut f| {
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf).map(|_| buf)
+    }) {
+        Ok(data) => data,
+        Err(_) => return,
+    };
+
+    let tab_id = app.next_tab_id;
+    app.next_tab_id += 1;
+
+    // Create spreadsheet with correct columns for the editor type
+    let mut spreadsheet = match create_editor(editor_type, hwnd) {
+        Ok(ss) => ss,
+        Err(_) => return,
+    };
+
+    // Load data based on editor type
+    let record_count = match editor_type {
+        EditorTypeId::WeaponItem => {
+            let items = WeaponItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(weapon_item_to_row).collect());
+            count
+        }
+        EditorTypeId::Monster => {
+            let items = Monster::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(monster_to_row).collect());
+            count
+        }
+        EditorTypeId::HealItem => {
+            let items = HealItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(heal_item_to_row).collect());
+            count
+        }
+        EditorTypeId::MiscItem => {
+            let items = MiscItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(misc_item_to_row).collect());
+            count
+        }
+        EditorTypeId::EditItem => {
+            let items = EditItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(edit_item_to_row).collect());
+            count
+        }
+        EditorTypeId::EventItem => {
+            let items = EventItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(event_item_to_row).collect());
+            count
+        }
+        EditorTypeId::MagicSpell => {
+            let items = MagicSpell::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(magic_spell_to_row).collect());
+            count
+        }
+        EditorTypeId::ChData => {
+            let items = ChData::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(chdata_to_row).collect());
+            count
+        }
+        EditorTypeId::PartyIniNpc => {
+            let items = PartyIniNpc::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(party_ini_npc_to_row).collect());
+            count
+        }
+        EditorTypeId::MonsterRef => {
+            let items = MonsterRef::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(monster_ref_to_row).collect());
+            count
+        }
+        EditorTypeId::ExtraRef => {
+            let items = ExtraRef::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(extra_ref_to_row).collect());
+            count
+        }
+        EditorTypeId::MonsterIni => {
+            let items = MonsterIni::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(monster_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::NpcIni => {
+            let items = NpcIni::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(npc_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::EventIni => {
+            let items = Event::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(event_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::ExtraIni => {
+            let items = Extra::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(extra_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::MapIni => {
+            let items = MapIni::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(map_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::WaveIni => {
+            let items = WaveIni::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(wave_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::AllMapIni => {
+            let items = Map::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(all_map_ini_to_row).collect());
+            count
+        }
+        EditorTypeId::NpcRef => {
+            let items = NPC::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(npc_ref_to_row).collect());
+            count
+        }
+        EditorTypeId::PartyRef => {
+            let items = PartyRef::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(party_ref_to_row).collect());
+            count
+        }
+        EditorTypeId::DrawItem => {
+            let items = DrawItem::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(draw_item_to_row).collect());
+            count
+        }
+        EditorTypeId::Store => {
+            let items = Store::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(store_to_row).collect());
+            count
+        }
+        EditorTypeId::DialogueScript => {
+            let items = DialogueScript::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(dialogue_script_to_row).collect());
+            count
+        }
+        EditorTypeId::DialogueParagraph => {
+            let items = DialogueParagraph::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(dialogue_paragraph_to_row).collect());
+            count
+        }
+        _ => 0,
+    };
+
+    spreadsheet.file_path = Some(path.clone());
+    app.spreadsheets.insert(tab_id, spreadsheet);
+    app.open_files.insert(tab_id, path.clone());
+    app.editor_types.insert(tab_id, editor_type);
+    app.original_file_data.insert(tab_id, raw_data);
+    app.active_tab = Some(tab_id);
+    app.set_status(&format!("Opened {} — {} records", path.file_name().unwrap_or_default().to_string_lossy(), record_count));
+}
+
+unsafe fn on_file_save(hwnd: HWND, app: &mut App) {
+    let tab_id = match app.active_tab {
+        Some(id) => id,
+        None => { app.set_status("No active editor to save"); return; }
+    };
+
+    let path = match app.open_files.get(&tab_id) {
+        Some(p) => p.clone(),
+        None => { app.set_status("No file path for active tab"); return; }
+    };
+
+    let raw_data = match app.original_file_data.get(&tab_id) {
+        Some(d) => d.clone(),
+        None => { app.set_status("No original data to round-trip"); return; }
+    };
+
+    let editor_type = match app.editor_types.get(&tab_id) {
+        Some(et) => *et,
+        None => { app.set_status("Unknown editor type"); return; }
+    };
+
+    let rows: Vec<Row> = match app.spreadsheets.get(&tab_id) {
+        Some(ss) => ss.rows().to_vec(),
+        None => { app.set_status("No spreadsheet data"); return; }
+    };
+
+    let result = match editor_type {
+        EditorTypeId::WeaponItem => save_weapon_items(&rows, &raw_data, &path),
+        EditorTypeId::Monster => save_monsters(&rows, &raw_data, &path),
+        EditorTypeId::HealItem => save_heal_items(&rows, &raw_data, &path),
+        EditorTypeId::MiscItem => save_misc_items(&rows, &raw_data, &path),
+        EditorTypeId::EditItem => save_edit_items(&rows, &raw_data, &path),
+        EditorTypeId::EventItem => save_event_items(&rows, &raw_data, &path),
+        EditorTypeId::MagicSpell => save_magic_spells(&rows, &raw_data, &path),
+        EditorTypeId::ChData => save_chdata(&rows, &raw_data, &path),
+        EditorTypeId::PartyIniNpc => save_party_ini_npcs(&rows, &raw_data, &path),
+        EditorTypeId::MonsterRef => save_monster_refs(&rows, &raw_data, &path),
+        EditorTypeId::ExtraRef => save_extra_refs(&rows, &raw_data, &path),
+        EditorTypeId::MonsterIni => save_monster_ini(&rows, &raw_data, &path),
+        EditorTypeId::NpcIni => save_npc_ini(&rows, &raw_data, &path),
+        EditorTypeId::EventIni => save_event_ini(&rows, &raw_data, &path),
+        EditorTypeId::ExtraIni => save_extra_ini(&rows, &raw_data, &path),
+        EditorTypeId::MapIni => save_map_ini(&rows, &raw_data, &path),
+        EditorTypeId::WaveIni => save_wave_ini(&rows, &raw_data, &path),
+        EditorTypeId::AllMapIni => save_all_map_ini(&rows, &raw_data, &path),
+        EditorTypeId::NpcRef => save_npc_refs(&rows, &raw_data, &path),
+        EditorTypeId::PartyRef => save_party_refs(&rows, &raw_data, &path),
+        EditorTypeId::DrawItem => save_draw_items(&rows, &raw_data, &path),
+        EditorTypeId::Store => save_stores(&rows, &raw_data, &path),
+        EditorTypeId::DialogueScript => save_dialogue_scripts(&rows, &raw_data, &path),
+        EditorTypeId::DialogueParagraph => save_dialogue_paragraphs(&rows, &raw_data, &path),
+        _ => {
+            app.set_status("Save not yet implemented for this editor type");
+            return;
+        }
+    };
+
+    match result {
+        Ok(()) => {
+            // Update stored raw data to reflect saved state
+            app.original_file_data.insert(tab_id, raw_data);
+            app.set_status("Saved successfully");
+        }
+        Err(e) => {
+            app.set_status(&format!("Save failed: {}", e));
+        }
+    }
 }
 
 fn create_menu_bar(hwnd: HWND) {

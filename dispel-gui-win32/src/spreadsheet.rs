@@ -13,6 +13,7 @@ const ID_SPREADSHEET_UNDO: u16 = 4001;
 const ID_SPREADSHEET_REDO: u16 = 4002;
 const ID_SPREADSHEET_SAVE: u16 = 4003;
 
+
 /// Column definition for a spreadsheet.
 pub struct ColumnDef {
     pub name: String,
@@ -113,6 +114,11 @@ impl Spreadsheet {
                 redo_stack: Vec::new(),
             })
         }
+    }
+
+    /// Load rows into the spreadsheet.
+    pub fn load_rows(&mut self, rows: Vec<Row>) {
+        self.populate(rows);
     }
 
     /// Clear all rows and columns.
@@ -232,23 +238,9 @@ impl Spreadsheet {
         Ok(())
     }
 
-    /// Save the current data back to the file.
-    pub fn save(&self) -> Result<()> {
-        let path = self.file_path.as_ref().ok_or_else(|| {
-            Error::from(HRESULT(0x80070057)) // E_INVALIDARG
-        })?;
-
-        // TODO: Implement actual save logic based on file type
-        // For .db files, use dispel_core's WeaponItem::save or similar
-        // For .ini files, use the text format writer
-        // For .ref files, use the binary ref writer
-
-        // Placeholder: just verify the file is writable
-        if path.exists() {
-            // File exists - we could write back
-        }
-
-        Ok(())
+    /// Get a reference to the rows for save operations.
+    pub fn rows(&self) -> &[Row] {
+        &self.rows
     }
 
     /// Undo the last edit.
