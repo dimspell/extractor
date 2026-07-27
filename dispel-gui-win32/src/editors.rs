@@ -36,6 +36,8 @@ use dispel_core::PartyRef;
 use dispel_core::DrawItem;
 use dispel_core::DialogueParagraph;
 use dispel_core::DialogueScript;
+use dispel_core::Message;
+use dispel_core::Quest;
 
 /// Editor type identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -68,6 +70,8 @@ pub enum EditorTypeId {
     PartyLevelDbLevel,
     DialogueScript,
     DialogueParagraph,
+    MessageScr,
+    QuestScr,
 }
 
 /// Metadata for an editor type.
@@ -440,6 +444,26 @@ pub fn editor_types() -> Vec<EditorTypeInfo> {
                 ColumnDef { name: "WaveID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
+        EditorTypeInfo {
+            name: "MessageScr",
+            file_pattern: "Message.scr",
+            columns: vec![
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Line1".to_string(), width: 200, align_right: false, numeric: false },
+                ColumnDef { name: "Line2".to_string(), width: 200, align_right: false, numeric: false },
+                ColumnDef { name: "Line3".to_string(), width: 200, align_right: false, numeric: false },
+            ],
+        },
+        EditorTypeInfo {
+            name: "QuestScr",
+            file_pattern: "Quest.scr",
+            columns: vec![
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Type".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Title".to_string(), width: 200, align_right: false, numeric: false },
+                ColumnDef { name: "Description".to_string(), width: 300, align_right: false, numeric: false },
+            ],
+        },
     ]
 }
 
@@ -497,6 +521,8 @@ impl EditorTypeId {
             25 => EditorTypeId::PartyLevelDbLevel,
             26 => EditorTypeId::DialogueScript,
             27 => EditorTypeId::DialogueParagraph,
+            28 => EditorTypeId::MessageScr,
+            29 => EditorTypeId::QuestScr,
             _ => EditorTypeId::WeaponItem,
         }
     }
@@ -531,6 +557,8 @@ impl EditorTypeId {
             EditorTypeId::PartyLevelDbLevel => "PartyLevelDbLevel",
             EditorTypeId::DialogueScript => "DialogueScript",
             EditorTypeId::DialogueParagraph => "DialogueParagraph",
+            EditorTypeId::MessageScr => "MessageScr",
+            EditorTypeId::QuestScr => "QuestScr",
         }
     }
 }
@@ -1235,6 +1263,54 @@ pub fn save_dialogue_paragraphs(rows: &[Row], original_data: &[u8], path: &std::
     DialogueParagraph::save_file(&items, path)
 }
 
+// ── MessageScr ─────────────────────────────────────────────────────────
+
+pub fn message_scr_to_row(item: &Message) -> Row {
+    vec![
+        CellValue::Integer(item.id as i64),
+        CellValue::String(item.line1.clone().unwrap_or_default()),
+        CellValue::String(item.line2.clone().unwrap_or_default()),
+        CellValue::String(item.line3.clone().unwrap_or_default()),
+    ]
+}
+
+pub fn save_message_scr(rows: &[Row], original_data: &[u8], path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Cursor;
+    let mut items = Message::parse(&mut Cursor::new(original_data), original_data.len() as u64).unwrap_or_default();
+    for i in 0..items.len().min(rows.len()) {
+        let row = &rows[i]; if row.len() < 4 { continue; }
+        if let CellValue::Integer(v) = &row[0] { items[i].id = *v as i32; }
+        if let CellValue::String(s) = &row[1] { items[i].line1 = if s.is_empty() || s == "null" { None } else { Some(s.clone()) }; }
+        if let CellValue::String(s) = &row[2] { items[i].line2 = if s.is_empty() || s == "null" { None } else { Some(s.clone()) }; }
+        if let CellValue::String(s) = &row[3] { items[i].line3 = if s.is_empty() || s == "null" { None } else { Some(s.clone()) }; }
+    }
+    Message::save_file(&items, path)
+}
+
+// ── QuestScr ──────────────────────────────────────────────────────────
+
+pub fn quest_scr_to_row(item: &Quest) -> Row {
+    vec![
+        CellValue::Integer(item.id as i64),
+        CellValue::Integer(item.type_id as i64),
+        CellValue::String(item.title.clone()),
+        CellValue::String(item.description.clone()),
+    ]
+}
+
+pub fn save_quest_scr(rows: &[Row], original_data: &[u8], path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Cursor;
+    let mut items = Quest::parse(&mut Cursor::new(original_data), original_data.len() as u64).unwrap_or_default();
+    for i in 0..items.len().min(rows.len()) {
+        let row = &rows[i]; if row.len() < 4 { continue; }
+        if let CellValue::Integer(v) = &row[0] { items[i].id = *v as i32; }
+        if let CellValue::Integer(v) = &row[1] { items[i].type_id = *v as i32; }
+        if let CellValue::String(s) = &row[2] { items[i].title = s.clone(); }
+        if let CellValue::String(s) = &row[3] { items[i].description = s.clone(); }
+    }
+    Quest::save_file(&items, path)
+}
+
 // ── EventNpcRef ────────────────────────────────────────────────────────
 
 pub fn event_npc_ref_to_row(item: &EventNpcRef) -> Row {
@@ -1351,5 +1427,9 @@ pub fn editor_type_index(editor_type: EditorTypeId) -> usize {
         EditorTypeId::DrawItem => 23,
         EditorTypeId::PartyIni => 24,
         EditorTypeId::PartyLevelDbLevel => 25,
+        EditorTypeId::DialogueScript => 26,
+        EditorTypeId::DialogueParagraph => 27,
+        EditorTypeId::MessageScr => 28,
+        EditorTypeId::QuestScr => 29,
     }
 }

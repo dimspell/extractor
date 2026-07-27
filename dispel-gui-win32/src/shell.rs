@@ -43,6 +43,8 @@ use dispel_core::PartyRef;
 use dispel_core::DrawItem;
 use dispel_core::DialogueParagraph;
 use dispel_core::DialogueScript;
+use dispel_core::Message;
+use dispel_core::Quest;
 
 const ID_FILE_OPEN: u16 = 1001;
 const ID_FILE_SAVE: u16 = 1002;
@@ -535,6 +537,18 @@ unsafe fn open_editor_for_type(hwnd: HWND, app: &mut App, editor_type: EditorTyp
             spreadsheet.load_rows(items.iter().map(dialogue_paragraph_to_row).collect());
             count
         }
+        EditorTypeId::MessageScr => {
+            let items = Message::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(message_scr_to_row).collect());
+            count
+        }
+        EditorTypeId::QuestScr => {
+            let items = Quest::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(quest_scr_to_row).collect());
+            count
+        }
         _ => 0,
     };
 
@@ -602,6 +616,8 @@ unsafe fn on_file_save(hwnd: HWND, app: &mut App) {
         EditorTypeId::Store => save_stores(&rows, &raw_data, &path),
         EditorTypeId::DialogueScript => save_dialogue_scripts(&rows, &raw_data, &path),
         EditorTypeId::DialogueParagraph => save_dialogue_paragraphs(&rows, &raw_data, &path),
+        EditorTypeId::MessageScr => save_message_scr(&rows, &raw_data, &path),
+        EditorTypeId::QuestScr => save_quest_scr(&rows, &raw_data, &path),
         _ => {
             app.set_status("Save not yet implemented for this editor type");
             return;
