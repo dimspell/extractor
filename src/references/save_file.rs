@@ -152,12 +152,10 @@ pub struct ExtraObjectRecord {
     pub unknown_2: u32,
     pub unknown_3: u32,
     pub unknown_4: u16,
-    /// Extra.ini ID — confirmed by cross-referencing the save-file name against
-    /// Extra.ini's description field (save_xref.py analysis).  Extra.ini stores
-    /// the canonical `id` field; every named extra in the save maps to exactly
-    /// one Extra.ini record via this value (e.g. unknown_5=1 → chest1.spr,
-    /// unknown_5=130 → rebirth.spr).
-    pub unknown_5: u8,
+    /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
+    /// extra in the save maps to exactly one Extra.ini record via this value
+    /// (e.g. extra_ini_id=1 -> chest1.spr, 2 -> door.spr)
+    pub extra_ini_id: u8,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub name: String,
     pub unknown_6: u8,

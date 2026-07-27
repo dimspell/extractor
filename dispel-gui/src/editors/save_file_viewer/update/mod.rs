@@ -286,7 +286,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 tile_x: x,
                                 tile_y: y,
                                 confirmed: false,
-                                db_id: Some(e.unknown_5 as i32),
+                                db_id: Some(e.extra_ini_id as i32),
                                 is_dead: false,
                                 look_direction: 0,
                             });
@@ -1258,7 +1258,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.unknown_2.to_string(),
                                             e.unknown_3.to_string(),
                                             e.unknown_4.to_string(),
-                                            e.unknown_5.to_string(),
+                                            e.extra_ini_id.to_string(),
                                             e.name.clone(),
                                             e.unknown_6.to_string(),
                                             e.unknown_7.to_string(),
