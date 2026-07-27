@@ -18,6 +18,7 @@ use dispel_core::EventItem;
 use dispel_core::MagicSpell;
 use dispel_core::ChData;
 use dispel_core::PartyIniNpc;
+use dispel_core::PartyLevelNpc;
 use dispel_core::MonsterRef;
 use dispel_core::ExtraRef;
 use dispel_core::NPC;
@@ -25,6 +26,7 @@ use dispel_core::MonsterIni;
 use dispel_core::NpcIni;
 use dispel_core::Extra;
 use dispel_core::Event;
+use dispel_core::EventNpcRef;
 use dispel_core::MapIni;
 use dispel_core::WaveIni;
 use dispel_core::Map;
@@ -82,343 +84,348 @@ pub fn editor_types() -> Vec<EditorTypeInfo> {
             name: "WeaponItem",
             file_pattern: "weaponItem.db",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false },
-                ColumnDef { name: "Price".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Def".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Avo".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Hit".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Dur".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "HP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "MP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Agi".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Wis".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Con".to_string(), width: 60, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false, numeric: false },
+                ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Def".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Avo".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Hit".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Dur".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "HP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Agi".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Wis".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Con".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "Monster",
             file_pattern: "monster.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "HPmax".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "HPmin".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MPmax".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MPmin".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "AtkMax".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "AtkMin".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "DefMax".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "DefMin".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MatMax".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MatMin".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "ExpMax".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "ExpMin".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "GoldMax".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "GoldMin".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "HPmax".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "HPmin".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MPmax".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MPmin".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "AtkMax".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "AtkMin".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "DefMax".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "DefMin".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MatMax".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MatMin".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "ExpMax".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "ExpMin".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "GoldMax".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "GoldMin".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "HealItem",
             file_pattern: "healItem.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Price".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "HPheal".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MPheal".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "FullHP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "FullMP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Poison".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Petrif".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Polymorph".to_string(), width: 70, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "HPheal".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MPheal".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "FullHP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "FullMP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Poison".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Petrif".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Polymorph".to_string(), width: 70, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "MiscItem",
             file_pattern: "miscItem.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Price".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "EditItem",
             file_pattern: "editItem.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Price".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "HP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "MP".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Agi".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Wis".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Con".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Def".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "HP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Agi".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Wis".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Def".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "EventItem",
             file_pattern: "eventItem.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Price".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "MagicSpell",
             file_pattern: "magic.db",
             columns: vec![
-                ColumnDef { name: "Enabled".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "ManaCost".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Success".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "BaseDmg".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "Range".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "LevelReq".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "EffectVal".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "EffectType".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "School".to_string(), width: 70, align_right: false },
-                ColumnDef { name: "AnimID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "VisID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "IconID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "Target".to_string(), width: 80, align_right: false },
+                ColumnDef { name: "Enabled".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "ManaCost".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Success".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "BaseDmg".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "Range".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "LevelReq".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "EffectVal".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "EffectType".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "School".to_string(), width: 70, align_right: false, numeric: false },
+                ColumnDef { name: "AnimID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "VisID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "IconID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "Target".to_string(), width: 80, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "Store",
             file_pattern: "store.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "InnCost".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Unknown".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "Products".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "InnCost".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Unknown".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "Products".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "ChData",
             file_pattern: "chdata.db",
             columns: vec![
-                ColumnDef { name: "W_Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "W_Con".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "K_Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "K_Con".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "A_Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "A_Con".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "M_Str".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "M_Con".to_string(), width: 60, align_right: true },
+                ColumnDef { name: "W_Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "W_Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "K_Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "K_Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "A_Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "A_Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "M_Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "M_Con".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "PartyLevelNpc",
             file_pattern: "prtlevel.db",
             columns: vec![
-                ColumnDef { name: "NpcIdx".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Records".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "NpcIdx".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Records".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "PartyIniNpc",
             file_pattern: "prtini.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "U1".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U2".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U3".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U4".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U5".to_string(), width: 50, align_right: true },
-                ColumnDef { name: "U6".to_string(), width: 50, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "U1".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U2".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U3".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U4".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U5".to_string(), width: 50, align_right: true, numeric: true },
+                ColumnDef { name: "U6".to_string(), width: 50, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "MonsterIni",
             file_pattern: "monster.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false },
-                ColumnDef { name: "AtkAnim".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "HitAnim".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "DeathAnim".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "WalkAnim".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "CastAnim".to_string(), width: 70, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false, numeric: false },
+                ColumnDef { name: "AtkAnim".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "HitAnim".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "DeathAnim".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "WalkAnim".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "CastAnim".to_string(), width: 70, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "NpcIni",
             file_pattern: "npc.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false },
-                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false, numeric: false },
+                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "EventIni",
             file_pattern: "event.ini",
             columns: vec![
-                ColumnDef { name: "EventID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "ReqEvent".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Counter".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "Filename".to_string(), width: 150, align_right: false },
+                ColumnDef { name: "EventID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "ReqEvent".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Counter".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "Filename".to_string(), width: 150, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "ExtraIni",
             file_pattern: "extra.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false },
-                ColumnDef { name: "Flag".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Desc".to_string(), width: 150, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Sprite".to_string(), width: 100, align_right: false, numeric: false },
+                ColumnDef { name: "Flag".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Desc".to_string(), width: 150, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "MapIni",
             file_pattern: "map.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "EventCam".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "StartX".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "StartY".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "MonsterFile".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "NpcFile".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "ExtraFile".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "Music".to_string(), width: 60, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "EventCam".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "StartX".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "StartY".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "MonsterFile".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "NpcFile".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "ExtraFile".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "Music".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "WaveIni",
             file_pattern: "wave.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "SNF".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "Flag".to_string(), width: 60, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "SNF".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "Flag".to_string(), width: 60, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "AllMapIni",
             file_pattern: "allmap.ini",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "MapFile".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "MapName".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "PGP".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "DLG".to_string(), width: 120, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MapFile".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "MapName".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "PGP".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "DLG".to_string(), width: 120, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "MonsterRef",
             file_pattern: "mon*.ref",
             columns: vec![
-                ColumnDef { name: "FileID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "MonsterID".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "X".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Y".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Flag1".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Flag2".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Pad3".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Flag3".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "FileID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MonsterID".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "X".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Y".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Flag1".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Flag2".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Pad3".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Flag3".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "NpcRef",
             file_pattern: "npccat*.ref",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "NpcID".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "NpcID".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "Desc".to_string(), width: 200, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "ExtraRef",
             file_pattern: "extdun*.ref",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Name".to_string(), width: 120, align_right: false },
-                ColumnDef { name: "Type".to_string(), width: 80, align_right: false },
-                ColumnDef { name: "X".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Y".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Gold".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "MsgID".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Name".to_string(), width: 120, align_right: false, numeric: false },
+                ColumnDef { name: "Type".to_string(), width: 80, align_right: false, numeric: false },
+                ColumnDef { name: "X".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Y".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Gold".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "MsgID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "EventNpcRef",
             file_pattern: "eventnpc.ref",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
             ],
         },
         EditorTypeInfo {
             name: "PartyRef",
             file_pattern: "partyref.ref",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "FullName".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "JobName".to_string(), width: 100, align_right: false },
-                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "NpcID".to_string(), width: 70, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "FullName".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "JobName".to_string(), width: 100, align_right: false, numeric: false },
+                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "NpcID".to_string(), width: 70, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "DrawItem",
             file_pattern: "drawitem.ref",
             columns: vec![
-                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true },
-                ColumnDef { name: "X".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Y".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Item".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "MapID".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "X".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Y".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Item".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "PartyIni",
             file_pattern: "prtini.db",
             columns: vec![
-                ColumnDef { name: "Name".to_string(), width: 160, align_right: false },
-                ColumnDef { name: "U1".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U2".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U3".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U4".to_string(), width: 40, align_right: true },
-                ColumnDef { name: "U5".to_string(), width: 50, align_right: true },
-                ColumnDef { name: "U6".to_string(), width: 50, align_right: true },
+                ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
+                ColumnDef { name: "U1".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U2".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U3".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U4".to_string(), width: 40, align_right: true, numeric: true },
+                ColumnDef { name: "U5".to_string(), width: 50, align_right: true, numeric: true },
+                ColumnDef { name: "U6".to_string(), width: 50, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "PartyLevelDbLevel",
             file_pattern: "prtlevel.db",
             columns: vec![
-                ColumnDef { name: "Level".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Exp".to_string(), width: 100, align_right: true },
-                ColumnDef { name: "HP".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "MP".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Def".to_string(), width: 60, align_right: true },
+                ColumnDef { name: "NpcIdx".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Level".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Str".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Wis".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "HP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MP".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Agi".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "MRechg".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "Def".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
             name: "DialogueScript",
             file_pattern: "*.dlg",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "PrevEvent".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "NextDlg".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Type".to_string(), width: 60, align_right: false },
-                ColumnDef { name: "Owner".to_string(), width: 60, align_right: false },
-                ColumnDef { name: "DlgID".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "Next1".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Next2".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Next3".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "PrevEvent".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "NextDlg".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Type".to_string(), width: 60, align_right: false, numeric: false },
+                ColumnDef { name: "Owner".to_string(), width: 60, align_right: false, numeric: false },
+                ColumnDef { name: "DlgID".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "Next1".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Next2".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Next3".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "EventID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
         },
@@ -426,11 +433,11 @@ pub fn editor_types() -> Vec<EditorTypeInfo> {
             name: "DialogueParagraph",
             file_pattern: "*.pgp",
             columns: vec![
-                ColumnDef { name: "ID".to_string(), width: 60, align_right: true },
-                ColumnDef { name: "Text".to_string(), width: 300, align_right: false },
-                ColumnDef { name: "Comment".to_string(), width: 200, align_right: false },
-                ColumnDef { name: "Param1".to_string(), width: 80, align_right: true },
-                ColumnDef { name: "WaveID".to_string(), width: 80, align_right: true },
+                ColumnDef { name: "ID".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Text".to_string(), width: 300, align_right: false, numeric: false },
+                ColumnDef { name: "Comment".to_string(), width: 200, align_right: false, numeric: false },
+                ColumnDef { name: "Param1".to_string(), width: 80, align_right: true, numeric: true },
+                ColumnDef { name: "WaveID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
     ]
@@ -529,11 +536,11 @@ impl EditorTypeId {
 }
 
 /// Create a spreadsheet editor for the given editor type.
-pub fn create_editor(editor_type: EditorTypeId, parent: HWND) -> Result<Spreadsheet> {
+pub fn create_editor(editor_type: EditorTypeId, parent: HWND, hwnd_main: HWND, tab_id: usize) -> Result<Spreadsheet> {
     let info = editor_types();
     let idx = editor_type_index(editor_type);
     let et = &info[idx];
-    Spreadsheet::new(parent, et.columns.clone())
+    Spreadsheet::new(parent, hwnd_main, et.columns.clone(), tab_id)
 }
 
 // ── Per-type row conversion ───────────────────────────────────────────────
@@ -1226,6 +1233,94 @@ pub fn save_dialogue_paragraphs(rows: &[Row], original_data: &[u8], path: &std::
         if let CellValue::Integer(v) = &row[4] { items[i].wave_ini_entry_id = *v as i32; }
     }
     DialogueParagraph::save_file(&items, path)
+}
+
+// ── EventNpcRef ────────────────────────────────────────────────────────
+
+pub fn event_npc_ref_to_row(item: &EventNpcRef) -> Row {
+    vec![
+        CellValue::Integer(item.id as i64),
+        CellValue::Integer(item.event_id as i64),
+        CellValue::String(item.name.clone()),
+    ]
+}
+
+pub fn save_event_npc_refs(rows: &[Row], original_data: &[u8], path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Cursor;
+    let mut items = EventNpcRef::parse(&mut Cursor::new(original_data), original_data.len() as u64).unwrap_or_default();
+    for i in 0..items.len().min(rows.len()) {
+        let row = &rows[i]; if row.len() < 3 { continue; }
+        if let CellValue::Integer(v) = &row[0] { items[i].id = *v as i32; }
+        if let CellValue::Integer(v) = &row[1] { items[i].event_id = *v as i32; }
+        if let CellValue::String(s) = &row[2] { items[i].name = s.clone(); }
+    }
+    EventNpcRef::save_file(&items, path)
+}
+
+// ── PartyLevelNpc ──────────────────────────────────────────────────────
+
+pub fn party_level_npc_to_row(item: &PartyLevelNpc) -> Row {
+    vec![
+        CellValue::Integer(item.npc_index as i64),
+        CellValue::Integer(item.records.len() as i64),
+    ]
+}
+
+pub fn save_party_level_npcs(rows: &[Row], original_data: &[u8], path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Cursor;
+    let mut items = PartyLevelNpc::parse(&mut Cursor::new(original_data), original_data.len() as u64).unwrap_or_default();
+    // PartyLevelNpc save only supports NPC index tracking; records are complex sub-structures
+    // For now, just save the original data back (preserving unsupported edits to record count won't work)
+    PartyLevelNpc::save_file(&items, path)
+}
+
+/// Flatten PartyLevelRecord entries into individual rows for the DbLevel sub-view.
+pub fn party_level_db_level_to_rows(items: &[PartyLevelNpc]) -> Vec<Row> {
+    let mut rows = Vec::new();
+    for npc in items {
+        for rec in &npc.records {
+            rows.push(vec![
+                CellValue::Integer(npc.npc_index as i64),
+                CellValue::Integer(rec.level as i64),
+                CellValue::Integer(rec.strength as i64),
+                CellValue::Integer(rec.constitution as i64),
+                CellValue::Integer(rec.wisdom as i64),
+                CellValue::Integer(rec.health_points as i64),
+                CellValue::Integer(rec.mana_points as i64),
+                CellValue::Integer(rec.agility as i64),
+                CellValue::Integer(rec.attack as i64),
+                CellValue::Integer(rec.mana_recharge as i64),
+                CellValue::Integer(rec.defense as i64),
+            ])
+        }
+    }
+    rows
+}
+
+pub fn save_party_level_db_levels(rows: &[Row], original_data: &[u8], path: &std::path::Path) -> std::io::Result<()> {
+    use std::io::Cursor;
+    let mut items = PartyLevelNpc::parse(&mut Cursor::new(original_data), original_data.len() as u64).unwrap_or_default();
+    // Apply flattened edits back to the nested records
+    let mut row_idx = 0;
+    for npc in &mut items {
+        for rec in &mut npc.records {
+            if row_idx >= rows.len() { break; }
+            let row = &rows[row_idx];
+            row_idx += 1;
+            if row.len() < 11 { continue; }
+            // Skip npc_index (0) and level (1) — these are structural identifiers
+            if let CellValue::Integer(v) = &row[2] { rec.strength = *v as u32; }
+            if let CellValue::Integer(v) = &row[3] { rec.constitution = *v as u32; }
+            if let CellValue::Integer(v) = &row[4] { rec.wisdom = *v as u32; }
+            if let CellValue::Integer(v) = &row[5] { rec.health_points = *v as u16; }
+            if let CellValue::Integer(v) = &row[6] { rec.mana_points = *v as u16; }
+            if let CellValue::Integer(v) = &row[7] { rec.agility = *v as u32; }
+            if let CellValue::Integer(v) = &row[8] { rec.attack = *v as u32; }
+            if let CellValue::Integer(v) = &row[9] { rec.mana_recharge = *v as u32; }
+            if let CellValue::Integer(v) = &row[10] { rec.defense = *v as u16; }
+        }
+    }
+    PartyLevelNpc::save_file(&items, path)
 }
 
 pub fn editor_type_index(editor_type: EditorTypeId) -> usize {

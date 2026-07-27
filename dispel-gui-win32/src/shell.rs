@@ -15,8 +15,34 @@ use windows::Win32::Graphics::Gdi::*;
 use crate::app::App;
 use crate::editors::*;
 use crate::file_tree::{FileTree, FileType};
-use crate::spreadsheet::{Spreadsheet, Row};
-use dispel_core::*;
+use crate::spreadsheet::{Spreadsheet, Row, WM_SPREADSHEET_EDIT_COMMAND};
+use dispel_core::WeaponItem;
+use dispel_core::Monster;
+use dispel_core::HealItem;
+use dispel_core::MiscItem;
+use dispel_core::EditItem;
+use dispel_core::EventItem;
+use dispel_core::MagicSpell;
+use dispel_core::ChData;
+use dispel_core::PartyIniNpc;
+use dispel_core::PartyLevelNpc;
+use dispel_core::MonsterRef;
+use dispel_core::ExtraRef;
+use dispel_core::NPC;
+use dispel_core::MonsterIni;
+use dispel_core::NpcIni;
+use dispel_core::Extra;
+use dispel_core::Event;
+use dispel_core::EventNpcRef;
+use dispel_core::MapIni;
+use dispel_core::WaveIni;
+use dispel_core::Map;
+use dispel_core::Extractor;
+use dispel_core::Store;
+use dispel_core::PartyRef;
+use dispel_core::DrawItem;
+use dispel_core::DialogueParagraph;
+use dispel_core::DialogueScript;
 
 const ID_FILE_OPEN: u16 = 1001;
 const ID_FILE_SAVE: u16 = 1002;
@@ -143,7 +169,29 @@ unsafe extern "system" fn main_wnd_proc(
             LRESULT(0)
         }
         WM_PAINT => on_paint(hwnd),
-        _ => DefWindowProcW(hwnd, msg, wparam, lparam),
+        _ => {
+            // Check for custom registered messages
+            let cmd_msg = *WM_SPREADSHEET_EDIT_COMMAND;
+            if cmd_msg != 0 && msg == cmd_msg {
+                // Edit control sent Enter or Escape
+                let edit_hwnd = HWND(lparam.0 as *mut std::ffi::c_void);
+                // Find which spreadsheet owns this edit and apply/cancel
+                let apply = wparam.0 != 0; // 1 = apply (Enter), 0 = cancel (Escape)
+                for (_id, ss) in app.spreadsheets.iter_mut() {
+                    if ss.edit_hwnd == Some(edit_hwnd) {
+                        if apply {
+                            ss.apply_edit();
+                        } else {
+                            ss.cancel_edit();
+                        }
+                        break;
+                    }
+                }
+                LRESULT(0)
+            } else {
+                DefWindowProcW(hwnd, msg, wparam, lparam)
+            }
+        }
     }
 }
 
@@ -204,9 +252,37 @@ unsafe fn on_command(hwnd: HWND, app: &mut App, wparam: WPARAM) -> LRESULT {
     LRESULT(0)
 }
 
+/// NMITEMACTIVATE structure for ListView double-click notifications.
+#[repr(C)]
+struct NMITEMACTIVATE {
+    hdr: NMHDR,
+    iItem: i32,
+    iSubItem: i32,
+    uNewState: u32,
+    uOldState: u32,
+    uChanged: u32,
+    ptAction: POINT,
+    lParam: isize,
+}
+
 unsafe fn on_notify(hwnd: HWND, app: &mut App, _wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     let nmhdr = &*(lparam.0 as *const NMHDR);
     match nmhdr.code {
+        NM_DBLCLK => {
+            // Double-click on a ListView cell → start in-place editing
+            let nmia = &*(lparam.0 as *const NMITEMACTIVATE);
+            let row = nmia.iItem;
+            let col = nmia.iSubItem;
+            if row >= 0 && col >= 0 {
+                // Find which spreadsheet this notification belongs to
+                for (_id, ss) in app.spreadsheets.iter_mut() {
+                    if ss.hwnd == nmhdr.hwndFrom {
+                        ss.on_double_click(row as usize, col as usize);
+                        break;
+                    }
+                }
+            }
+        }
         TCN_SELCHANGE => {
             // Tab selection changed
         }
@@ -282,7 +358,7 @@ unsafe fn open_editor_for_type(hwnd: HWND, app: &mut App, editor_type: EditorTyp
     app.next_tab_id += 1;
 
     // Create spreadsheet with correct columns for the editor type
-    let mut spreadsheet = match create_editor(editor_type, hwnd) {
+    let mut spreadsheet = match create_editor(editor_type, hwnd, hwnd, tab_id) {
         Ok(ss) => ss,
         Err(_) => return,
     };
@@ -409,6 +485,32 @@ unsafe fn open_editor_for_type(hwnd: HWND, app: &mut App, editor_type: EditorTyp
             spreadsheet.load_rows(items.iter().map(party_ref_to_row).collect());
             count
         }
+        EditorTypeId::EventNpcRef => {
+            let items = EventNpcRef::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(event_npc_ref_to_row).collect());
+            count
+        }
+        EditorTypeId::PartyLevelNpc => {
+            let items = PartyLevelNpc::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(party_level_npc_to_row).collect());
+            count
+        }
+        EditorTypeId::PartyIni => {
+            // PartyIni maps to same file/data as PartyIniNpc
+            let items = PartyIniNpc::read_file(path).unwrap_or_default();
+            let count = items.len();
+            spreadsheet.load_rows(items.iter().map(party_ini_npc_to_row).collect());
+            count
+        }
+        EditorTypeId::PartyLevelDbLevel => {
+            let items = PartyLevelNpc::read_file(path).unwrap_or_default();
+            let rows = party_level_db_level_to_rows(&items);
+            let count = rows.len();
+            spreadsheet.load_rows(rows);
+            count
+        }
         EditorTypeId::DrawItem => {
             let items = DrawItem::read_file(path).unwrap_or_default();
             let count = items.len();
@@ -492,6 +594,10 @@ unsafe fn on_file_save(hwnd: HWND, app: &mut App) {
         EditorTypeId::AllMapIni => save_all_map_ini(&rows, &raw_data, &path),
         EditorTypeId::NpcRef => save_npc_refs(&rows, &raw_data, &path),
         EditorTypeId::PartyRef => save_party_refs(&rows, &raw_data, &path),
+        EditorTypeId::EventNpcRef => save_event_npc_refs(&rows, &raw_data, &path),
+        EditorTypeId::PartyLevelNpc => save_party_level_npcs(&rows, &raw_data, &path),
+        EditorTypeId::PartyIni => save_party_ini_npcs(&rows, &raw_data, &path),
+        EditorTypeId::PartyLevelDbLevel => save_party_level_db_levels(&rows, &raw_data, &path),
         EditorTypeId::DrawItem => save_draw_items(&rows, &raw_data, &path),
         EditorTypeId::Store => save_stores(&rows, &raw_data, &path),
         EditorTypeId::DialogueScript => save_dialogue_scripts(&rows, &raw_data, &path),
