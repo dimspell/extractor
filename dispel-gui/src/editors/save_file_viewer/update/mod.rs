@@ -858,6 +858,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             match result {
                 Ok(loaded) => {
                     state.save_file = Some(loaded.save_file.clone());
+                    state.map_name_lookup = loaded.map_names;
                     // Build events display cache
                     let n = loaded.save_file.events.len();
                     let mut display_cache = Vec::with_capacity(n);

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::components::filter::{ColumnFilterAction, GlobalFilterMode};
@@ -271,6 +272,8 @@ impl std::fmt::Debug for PreviewSpritesLoaded {
 pub struct SaveFileLoaded {
     pub save_file: dispel_core::references::save_file::SaveFile,
     pub hex_editors: Vec<RawHexEditorData>,
+    /// Map ID → display name lookup from AllMap.ini (empty if unavailable).
+    pub map_names: HashMap<u32, String>,
 }
 
 /// Data to initialize one embedded hex editor for a raw section.

@@ -35,7 +35,12 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .width(120);
         for (i, map) in sf.maps.iter().enumerate() {
             let is_active = state.selected_map == Some(i);
-            let mut btn = button(text(format!("Map {}", map.map_id)).size(12));
+            let label = state
+                .map_name_lookup
+                .get(&map.map_id)
+                .map(|name| format!("[{}] {}", map.map_id, name))
+                .unwrap_or_else(|| format!("Map {}", map.map_id));
+            let mut btn = button(text(label).size(12));
             if is_active {
                 btn = btn.style(iced::widget::button::primary);
             }

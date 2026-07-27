@@ -361,11 +361,37 @@ impl App {
                         ..Default::default()
                     });
                 let path_buf = path.to_path_buf();
+                let game_path = self.state.workspace.game_path.clone();
                 Task::perform(
                     async move {
                         let data = std::fs::read(&path_buf).map_err(|e| e.to_string())?;
                         let save_file = dispel_core::references::save_file::SaveFile::parse(&data)
                             .map_err(|e| e.to_string())?;
+
+                        // Load AllMap.ini to get display names for map IDs
+                        let map_names: std::collections::HashMap<u32, String> = game_path
+                            .as_ref()
+                            .and_then(|gp| {
+                                let all_map_path = gp.join("AllMap.ini");
+                                if all_map_path.exists() {
+                                    match dispel_core::references::all_map_ini::read_all_map_ini(
+                                        &all_map_path,
+                                    ) {
+                                        Ok(maps) => Some(
+                                            maps.into_iter()
+                                                .map(|m| (m.id as u32, m.map_name))
+                                                .collect(),
+                                        ),
+                                        Err(e) => {
+                                            eprintln!("Failed to read AllMap.ini: {e}");
+                                            None
+                                        }
+                                    }
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_default();
 
                         // Build embedded hex viewers for unknown/raw blocks
                         let hex_editors: Vec<RawHexEditorData> = vec![
@@ -406,6 +432,7 @@ impl App {
                         Ok(crate::editors::save_file_viewer::message::SaveFileLoaded {
                             save_file,
                             hex_editors,
+                            map_names,
                         })
                     },
                     move |result| {

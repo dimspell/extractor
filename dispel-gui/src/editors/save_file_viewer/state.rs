@@ -471,6 +471,8 @@ pub struct SaveFileViewerState {
     pub save_file: Option<dispel_core::references::save_file::SaveFile>,
     pub raw_hex_viewers: Vec<RawHexViewer>,
     pub active_section: SaveFileSection,
+    /// Map ID → display name lookup from AllMap.ini (empty if unavailable).
+    pub map_name_lookup: HashMap<u32, String>,
     pub loading: bool,
     pub error: Option<String>,
     /// Transient status message (CSV export progress/results, etc.).
@@ -526,6 +528,7 @@ impl Default for SaveFileViewerState {
             save_file: None,
             raw_hex_viewers: Vec::new(),
             active_section: SaveFileSection::Overview,
+            map_name_lookup: HashMap::new(),
             loading: false,
             error: None,
             status_msg: None,
