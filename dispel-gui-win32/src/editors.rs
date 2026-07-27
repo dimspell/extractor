@@ -92,18 +92,29 @@ pub fn editor_types() -> Vec<EditorTypeInfo> {
                 ColumnDef { name: "Name".to_string(), width: 160, align_right: false, numeric: false },
                 ColumnDef { name: "Desc".to_string(), width: 200, align_right: false, numeric: false },
                 ColumnDef { name: "Price".to_string(), width: 80, align_right: true, numeric: true },
-                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true, numeric: true },
-                ColumnDef { name: "Def".to_string(), width: 60, align_right: true, numeric: true },
-                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true, numeric: true },
-                ColumnDef { name: "Avo".to_string(), width: 60, align_right: true, numeric: true },
-                ColumnDef { name: "Hit".to_string(), width: 60, align_right: true, numeric: true },
-                ColumnDef { name: "Dur".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "P1".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "HP".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "MP".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "Str".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "Agi".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "Wis".to_string(), width: 60, align_right: true, numeric: true },
                 ColumnDef { name: "Con".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Avo".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Hit".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Atk".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Def".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Mat".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "Dur".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "P2".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "P3".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "ReqStr".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "P4".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "ReqAgi".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "P5".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "ReqWis".to_string(), width: 70, align_right: true, numeric: true },
+                ColumnDef { name: "P6".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "P7".to_string(), width: 60, align_right: true, numeric: true },
+                ColumnDef { name: "P8".to_string(), width: 60, align_right: true, numeric: true },
             ],
         },
         EditorTypeInfo {
@@ -574,24 +585,37 @@ pub fn create_editor(editor_type: EditorTypeId, parent: HWND, hwnd_main: HWND, t
 // ── Per-type row conversion ───────────────────────────────────────────────
 
 /// Convert a WeaponItem record to a Row of CellValue.
+/// All 27 struct fields are emitted in display-friendly order
+/// (matches column definitions and save function indices).
 pub fn weapon_item_to_row(item: &WeaponItem) -> Row {
     vec![
-        CellValue::Integer(item.id as i64),
-        CellValue::String(item.name.clone()),
-        CellValue::String(item.description.clone()),
-        CellValue::Integer(item.base_price as i64),
-        CellValue::Integer(item.attack as i64),
-        CellValue::Integer(item.defense as i64),
-        CellValue::Integer(item.magical_strength as i64),
-        CellValue::Integer(item.to_dodge as i64),
-        CellValue::Integer(item.to_hit as i64),
-        CellValue::Integer(item.durability as i64),
-        CellValue::Integer(item.health_points as i64),
-        CellValue::Integer(item.mana_points as i64),
-        CellValue::Integer(item.strength as i64),
-        CellValue::Integer(item.agility as i64),
-        CellValue::Integer(item.wisdom as i64),
-        CellValue::Integer(item.constitution as i64),
+        CellValue::Integer(item.id as i64),                    // 0: ID
+        CellValue::String(item.name.clone()),                  // 1: Name
+        CellValue::String(item.description.clone()),           // 2: Desc
+        CellValue::Integer(item.base_price as i64),            // 3: Price
+        CellValue::Integer(item.padding1 as i64),              // 4: P1
+        CellValue::Integer(item.health_points as i64),         // 5: HP
+        CellValue::Integer(item.mana_points as i64),            // 6: MP
+        CellValue::Integer(item.strength as i64),              // 7: Str
+        CellValue::Integer(item.agility as i64),               // 8: Agi
+        CellValue::Integer(item.wisdom as i64),                 // 9: Wis
+        CellValue::Integer(item.constitution as i64),          // 10: Con
+        CellValue::Integer(item.to_dodge as i64),              // 11: Avo
+        CellValue::Integer(item.to_hit as i64),                // 12: Hit
+        CellValue::Integer(item.attack as i64),                // 13: Atk
+        CellValue::Integer(item.defense as i64),               // 14: Def
+        CellValue::Integer(item.magical_strength as i64),      // 15: Mat
+        CellValue::Integer(item.durability as i64),            // 16: Dur
+        CellValue::Integer(item.padding2 as i64),              // 17: P2
+        CellValue::Integer(item.padding3 as i64),              // 18: P3
+        CellValue::Integer(item.req_strength as i64),          // 19: ReqStr
+        CellValue::Integer(item.padding4 as i64),              // 20: P4
+        CellValue::Integer(item.req_agility as i64),           // 21: ReqAgi
+        CellValue::Integer(item.padding5 as i64),              // 22: P5
+        CellValue::Integer(item.req_wisdom as i64),            // 23: ReqWis
+        CellValue::Integer(item.padding6 as i64),              // 24: P6
+        CellValue::Integer(item.padding7 as i64),              // 25: P7
+        CellValue::Integer(item.padding8 as i64),              // 26: P8
     ]
 }
 
@@ -602,24 +626,62 @@ pub fn save_weapon_items(rows: &[Row], original_data: &[u8], path: &std::path::P
     let mut items = originals;
     for i in 0..items.len().min(rows.len()) {
         let row = &rows[i];
-        if row.len() < 16 { continue; }
+        if row.len() < 27 { continue; }
         let item = &mut items[i];
+        // 0:  ID
         if let CellValue::Integer(v) = &row[0] { item.id = *v as i32; }
+        // 1:  Name
         if let CellValue::String(s) = &row[1] { item.name = s.clone(); }
+        // 2:  Desc
         if let CellValue::String(s) = &row[2] { item.description = s.clone(); }
+        // 3:  Price
         if let CellValue::Integer(v) = &row[3] { item.base_price = *v as i32; }
-        if let CellValue::Integer(v) = &row[4] { item.attack = *v as i16; }
-        if let CellValue::Integer(v) = &row[5] { item.defense = *v as i16; }
-        if let CellValue::Integer(v) = &row[6] { item.magical_strength = *v as i16; }
-        if let CellValue::Integer(v) = &row[7] { item.to_dodge = *v as i16; }
-        if let CellValue::Integer(v) = &row[8] { item.to_hit = *v as i16; }
-        if let CellValue::Integer(v) = &row[9] { item.durability = *v as i16; }
-        if let CellValue::Integer(v) = &row[10] { item.health_points = *v as i16; }
-        if let CellValue::Integer(v) = &row[11] { item.mana_points = *v as i16; }
-        if let CellValue::Integer(v) = &row[12] { item.strength = *v as i16; }
-        if let CellValue::Integer(v) = &row[13] { item.agility = *v as i16; }
-        if let CellValue::Integer(v) = &row[14] { item.wisdom = *v as i16; }
-        if let CellValue::Integer(v) = &row[15] { item.constitution = *v as i16; }
+        // 4:  P1 (i32)
+        if let CellValue::Integer(v) = &row[4] { item.padding1 = *v as i32; }
+        // 5:  HP
+        if let CellValue::Integer(v) = &row[5] { item.health_points = *v as i16; }
+        // 6:  MP
+        if let CellValue::Integer(v) = &row[6] { item.mana_points = *v as i16; }
+        // 7:  Str
+        if let CellValue::Integer(v) = &row[7] { item.strength = *v as i16; }
+        // 8:  Agi
+        if let CellValue::Integer(v) = &row[8] { item.agility = *v as i16; }
+        // 9:  Wis
+        if let CellValue::Integer(v) = &row[9] { item.wisdom = *v as i16; }
+        // 10: Con
+        if let CellValue::Integer(v) = &row[10] { item.constitution = *v as i16; }
+        // 11: Avo (to_dodge)
+        if let CellValue::Integer(v) = &row[11] { item.to_dodge = *v as i16; }
+        // 12: Hit (to_hit)
+        if let CellValue::Integer(v) = &row[12] { item.to_hit = *v as i16; }
+        // 13: Atk (attack)
+        if let CellValue::Integer(v) = &row[13] { item.attack = *v as i16; }
+        // 14: Def (defense)
+        if let CellValue::Integer(v) = &row[14] { item.defense = *v as i16; }
+        // 15: Mat (magical_strength)
+        if let CellValue::Integer(v) = &row[15] { item.magical_strength = *v as i16; }
+        // 16: Dur (durability)
+        if let CellValue::Integer(v) = &row[16] { item.durability = *v as i16; }
+        // 17: P2
+        if let CellValue::Integer(v) = &row[17] { item.padding2 = *v as i16; }
+        // 18: P3
+        if let CellValue::Integer(v) = &row[18] { item.padding3 = *v as i16; }
+        // 19: ReqStr
+        if let CellValue::Integer(v) = &row[19] { item.req_strength = *v as i16; }
+        // 20: P4
+        if let CellValue::Integer(v) = &row[20] { item.padding4 = *v as i16; }
+        // 21: ReqAgi
+        if let CellValue::Integer(v) = &row[21] { item.req_agility = *v as i16; }
+        // 22: P5
+        if let CellValue::Integer(v) = &row[22] { item.padding5 = *v as i16; }
+        // 23: ReqWis
+        if let CellValue::Integer(v) = &row[23] { item.req_wisdom = *v as i16; }
+        // 24: P6
+        if let CellValue::Integer(v) = &row[24] { item.padding6 = *v as i16; }
+        // 25: P7
+        if let CellValue::Integer(v) = &row[25] { item.padding7 = *v as i16; }
+        // 26: P8
+        if let CellValue::Integer(v) = &row[26] { item.padding8 = *v as i16; }
     }
     WeaponItem::save_file(&items, path)
 }
