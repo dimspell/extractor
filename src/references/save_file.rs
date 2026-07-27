@@ -3,7 +3,7 @@
 // This module provides comprehensive parsing of Dispel RPG save files (.sav)
 // following the binary format documented in SAVE_FILE_RESEARCH.md
 
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
@@ -1064,6 +1064,233 @@ impl SaveFile {
 
         Ok(entries)
     }
+
+    // ── Write helpers ─────────────────────────────────────────────────────────
+
+    /// Write the maps section to a writer (used internally to pre-compute size).
+    fn write_maps_section<W: Write>(maps: &[MapSectionData], writer: &mut W) -> std::io::Result<()> {
+        for map in maps {
+            writer.write_u32::<LittleEndian>(map.map_id)?;
+
+            // Monsters: u32 count + 329-byte records
+            writer.write_u32::<LittleEndian>(map.monsters.len() as u32)?;
+            for m in &map.monsters {
+                m.write(writer)?;
+            }
+
+            // NPCs: u32 count + 349-byte records
+            writer.write_u32::<LittleEndian>(map.npcs.len() as u32)?;
+            for n in &map.npcs {
+                n.write(writer)?;
+            }
+
+            // Separator (always 0)
+            writer.write_u32::<LittleEndian>(0)?;
+
+            // Extra objects: u32 count + 200-byte records
+            writer.write_u32::<LittleEndian>(map.extra_objects.len() as u32)?;
+            for e in &map.extra_objects {
+                e.write(writer)?;
+            }
+
+            // 11-byte separator (unknown meaning)
+            writer.write_all(&[0u8; 11])?;
+
+            // Ground items (5 types, each u16 count + fixed-size records)
+            writer.write_u16::<LittleEndian>(map.draw_items_weapon.len() as u16)?;
+            for d in &map.draw_items_weapon {
+                d.write(writer)?;
+            }
+            writer.write_u16::<LittleEndian>(map.draw_items_heal.len() as u16)?;
+            for d in &map.draw_items_heal {
+                d.write(writer)?;
+            }
+            writer.write_u16::<LittleEndian>(map.draw_items_edit.len() as u16)?;
+            for d in &map.draw_items_edit {
+                d.write(writer)?;
+            }
+            writer.write_u16::<LittleEndian>(map.draw_items_misc.len() as u16)?;
+            for d in &map.draw_items_misc {
+                d.write(writer)?;
+            }
+            writer.write_u16::<LittleEndian>(map.draw_items_event.len() as u16)?;
+            for d in &map.draw_items_event {
+                d.write(writer)?;
+            }
+
+            // End-of-map separator (always 0)
+            writer.write_u32::<LittleEndian>(0)?;
+        }
+        Ok(())
+    }
+
+    /// Write post-maps data block.
+    fn write_post_maps_data<W: Write>(data: &PostMapsData, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u32::<LittleEndian>(data.save_slot_id)?;
+        writer.write_f32::<LittleEndian>(data.game_version)?;
+        writer.write_u32::<LittleEndian>(data.unknowns_a[0])?;
+        writer.write_u32::<LittleEndian>(data.unknowns_a[1])?;
+        writer.write_u32::<LittleEndian>(data.unknowns_a[2])?;
+        writer.write_u32::<LittleEndian>(data.monster_block_size)?;
+        writer.write_u32::<LittleEndian>(data.npc_block_size)?;
+        writer.write_u32::<LittleEndian>(data.unknown_b)?;
+        writer.write_u32::<LittleEndian>(data.extra_object_block_size)?;
+        writer.write_u32::<LittleEndian>(data.number_of_visited_maps)?;
+        for id in &data.map_ids {
+            writer.write_u32::<LittleEndian>(*id)?;
+        }
+        for c in &data.unknown_c {
+            writer.write_u32::<LittleEndian>(*c)?;
+        }
+        writer.write_all(&data.unknown_block)?;
+        Ok(())
+    }
+
+    /// Write sprite paths (always 4 × 60-byte fixed buffers).
+    fn write_sprite_paths<W: Write>(paths: &[String], writer: &mut W) -> std::io::Result<()> {
+        for i in 0..4 {
+            let s = paths.get(i).map(|s| s.as_str()).unwrap_or("");
+            let mut buf = [0u8; 60];
+            let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(s);
+            let len = std::cmp::min(cow.len(), 60);
+            buf[..len].copy_from_slice(&cow[..len]);
+            writer.write_all(&buf)?;
+        }
+        Ok(())
+    }
+
+    /// Write belt data + character stats + trailing unknown bytes.
+    fn write_character_stats<W: Write>(
+        unknown_before: &[u8],
+        stats: &CharacterStats,
+        unknown_after: &[u8],
+        writer: &mut W,
+    ) -> std::io::Result<()> {
+        writer.write_all(unknown_before)?;
+        writer.write_u16::<LittleEndian>(stats.strength)?;
+        writer.write_u16::<LittleEndian>(stats.agility)?;
+        writer.write_u16::<LittleEndian>(stats.wisdom)?;
+        writer.write_u16::<LittleEndian>(stats.constitution)?;
+        writer.write_u16::<LittleEndian>(stats.morale)?;
+        writer.write_u16::<LittleEndian>(stats.hp_current)?;
+        writer.write_u16::<LittleEndian>(stats.hp_maximum)?;
+        writer.write_u16::<LittleEndian>(stats.mp_current)?;
+        writer.write_u16::<LittleEndian>(stats.mp_maximum)?;
+        writer.write_u32::<LittleEndian>(stats.experience)?;
+        writer.write_u16::<LittleEndian>(stats.level)?;
+        writer.write_u32::<LittleEndian>(stats.gold)?;
+        writer.write_u16::<LittleEndian>(stats.offense)?;
+        writer.write_u16::<LittleEndian>(stats.defense)?;
+        writer.write_u8(stats.dodge_rate)?;
+        writer.write_u8(stats.hit_rate)?;
+        writer.write_u16::<LittleEndian>(stats.magic_power)?;
+        writer.write_u8(stats.attack_modifier)?;
+        writer.write_u8(stats.pickpocketing)?;
+        writer.write_u8(stats.lockpicking)?;
+        writer.write_u8(stats.haggling)?;
+        writer.write_u8(stats.perception)?;
+        writer.write_u8(stats.traps)?;
+        writer.write_u8(stats.swords_level)?;
+        writer.write_u16::<LittleEndian>(stats.swords_kills)?;
+        writer.write_u8(stats.axes_level)?;
+        writer.write_u16::<LittleEndian>(stats.axes_kills)?;
+        writer.write_u8(stats.archery_level)?;
+        writer.write_u16::<LittleEndian>(stats.archery_kills)?;
+        writer.write_u8(stats.polearm_level)?;
+        writer.write_u16::<LittleEndian>(stats.polearm_kills)?;
+        writer.write_u8(stats.magic_level)?;
+        writer.write_u16::<LittleEndian>(stats.magic_kills)?;
+        writer.write_u8(stats.holy_magic_level)?;
+        writer.write_u16::<LittleEndian>(stats.holy_magic_kills)?;
+        writer.write_u8(stats.dark_magic_level)?;
+        writer.write_u16::<LittleEndian>(stats.dark_magic_kills)?;
+        writer.write_all(unknown_after)?;
+        Ok(())
+    }
+
+    /// Write inventory (5 categories, each u16 count + fixed-size records).
+    fn write_inventory<W: Write>(inv: &InventoryData, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u16::<LittleEndian>(inv.event_items.len() as u16)?;
+        for item in &inv.event_items {
+            item.write(writer)?;
+        }
+        writer.write_u16::<LittleEndian>(inv.misc_items.len() as u16)?;
+        for item in &inv.misc_items {
+            item.write(writer)?;
+        }
+        writer.write_u16::<LittleEndian>(inv.edit_items.len() as u16)?;
+        for item in &inv.edit_items {
+            item.write(writer)?;
+        }
+        writer.write_u16::<LittleEndian>(inv.weapon_items.len() as u16)?;
+        for item in &inv.weapon_items {
+            item.write(writer)?;
+        }
+        writer.write_u16::<LittleEndian>(inv.heal_items.len() as u16)?;
+        for item in &inv.heal_items {
+            item.write(writer)?;
+        }
+        Ok(())
+    }
+
+    /// Write character identity (96B unknown + 11B name + u16 class + 11B class name + 4040B unknown).
+    fn write_character_identity<W: Write>(
+        identity: &CharacterIdentity,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
+        writer.write_all(&identity.unknown_block)?;
+
+        // Player name: 11-byte WINDOWS-1250 fixed buffer
+        let mut name_buf = [0u8; 11];
+        let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(&identity.player_name);
+        let len = std::cmp::min(cow.len(), 11);
+        name_buf[..len].copy_from_slice(&cow[..len]);
+        writer.write_all(&name_buf)?;
+
+        writer.write_u16::<LittleEndian>(identity.player_class_id)?;
+
+        // Class name: 11-byte WINDOWS-1250 fixed buffer
+        let mut class_buf = [0u8; 11];
+        let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(&identity.player_class_name);
+        let len = std::cmp::min(cow.len(), 11);
+        class_buf[..len].copy_from_slice(&cow[..len]);
+        writer.write_all(&class_buf)?;
+
+        writer.write_all(&identity.unknown_data)?;
+        Ok(())
+    }
+
+    /// Write event scripts in order.
+    fn write_events<W: Write>(events: &[EventScript], writer: &mut W) -> std::io::Result<()> {
+        for event in events {
+            event.write(writer)?;
+        }
+        Ok(())
+    }
+
+    /// Write post-events unknown data block.
+    fn write_post_events<W: Write>(data: &PostEventsData, writer: &mut W) -> std::io::Result<()> {
+        writer.write_all(&data.block_a)?;
+        let count = data.records.len() / 24;
+        writer.write_u32::<LittleEndian>(count as u32)?;
+        writer.write_all(&data.records)?;
+        writer.write_all(&data.block_b)?;
+        Ok(())
+    }
+
+    /// Write journal (3 sections × entries in order).
+    fn write_journal<W: Write>(journal: &JournalData, writer: &mut W) -> std::io::Result<()> {
+        for entry in &journal.main {
+            entry.write(writer)?;
+        }
+        for entry in &journal.side {
+            entry.write(writer)?;
+        }
+        for entry in &journal.trade {
+            entry.write(writer)?;
+        }
+        Ok(())
+    }
 }
 
 impl Extractor for SaveFile {
@@ -1075,34 +1302,55 @@ impl Extractor for SaveFile {
         Ok(vec![save])
     }
 
-    fn to_writer<W: Write>(records: &[Self], _writer: &mut W) -> std::io::Result<()> {
+    fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         if records.len() != 1 {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "SaveFile can only serialize one record at a time",
             ));
         }
+        let save = &records[0];
 
-        // let save = &records[0];
+        // Pre-compute maps section to determine jump_addr_after_maps
+        let mut maps_buf = Vec::new();
+        Self::write_maps_section(&save.maps, &mut maps_buf)?;
+        let jump_addr = 8u32 + maps_buf.len() as u32;
 
-        // // Write header (12 bytes)
-        // writer.write_all(&save.header)?;
-        //
-        // // Write surface monster count + raw data
-        // writer.write_u32::<LittleEndian>(save.surface_monsters.len() as u32)?;
-        // writer.write_all(&save.monsters_data)?;
-        //
-        // // Write NPC count + raw data
-        // writer.write_u32::<LittleEndian>(save.npcs.len() as u32)?;
-        // writer.write_all(&save.npcs_data)?;
-        //
-        // // Write surface objects: separator (u32=0) + count + raw data
-        // writer.write_u32::<LittleEndian>(0)?;
-        // writer.write_u32::<LittleEndian>(save.surface_objects.len() as u32)?;
-        // writer.write_all(&save.extras_data)?;
-        //
-        // // Write remaining data (everything from after surface objects to EOF)
-        // writer.write_all(&save.remaining_data)?;
+        // 1. Header: jump address after all maps data
+        writer.write_u32::<LittleEndian>(jump_addr)?;
+
+        // 2. Map count + maps data
+        writer.write_u32::<LittleEndian>(save.maps.len() as u32)?;
+        writer.write_all(&maps_buf)?;
+
+        // 3. Post-maps data
+        Self::write_post_maps_data(&save.post_maps, writer)?;
+
+        // 4. Sprite paths (always 4 × 60-byte fixed buffers)
+        Self::write_sprite_paths(&save.sprite_paths, writer)?;
+
+        // 5. Belt data + character stats + trailing bytes
+        Self::write_character_stats(
+            &save.unknown_before_stats,
+            &save.character_stats,
+            &save.unknown_after_stats,
+            writer,
+        )?;
+
+        // 6. Inventory (5 categories)
+        Self::write_inventory(&save.inventory, writer)?;
+
+        // 7. Character identity
+        Self::write_character_identity(&save.character_identity, writer)?;
+
+        // 8. Events
+        Self::write_events(&save.events, writer)?;
+
+        // 9. Post-events data
+        Self::write_post_events(&save.post_events, writer)?;
+
+        // 10. Journal (3 sections)
+        Self::write_journal(&save.journal, writer)?;
 
         Ok(())
     }
