@@ -1,16 +1,22 @@
-use iced::widget::image::Handle;
 use iced::Task;
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 
 use crate::app::App;
-use crate::components::map_render::EntitySpriteHandle;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
-use dispel_core::map::sprite_loader::{load_last_frame_of_sequence, load_sprite_frames};
-use dispel_core::sprite;
-use dispel_core::{Extra, Extractor, MonsterIni, NpcIni};
+
+pub(crate) mod csv_export;
+pub(crate) mod filter;
+pub(crate) mod preview;
+pub(crate) mod table;
+
+use self::csv_export::{csv_default_filename, resolve_csv_export_data};
+use self::filter::{compare_cells, handle_table_filter};
+use self::preview::load_preview_sprites;
+use self::table::{
+    apply_resize_cursor, events_table_data, hex_bytes, inventory_table_data,
+    journal_table_data, maps_table_data, maps_table_indices,
+};
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
     let tab_id = match app.state.workspace.active() {
@@ -58,7 +64,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
         }
         SaveFileViewerMessage::SelectEntityKind(kind) => {
             state.selected_entity_kind = kind;
-            state.maps_resizing = None;
+            state.resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::TogglePreview => {
@@ -420,8 +426,16 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         .collect();
 
                     // Decode internal sprites from the .map file (thrones, decor, etc.)
-                    let internal_sprites =
-                        decode_internal_preview_sprites(&map_path, &loaded.map_data);
+                    let internal_sprites = match std::fs::File::open(&map_path) {
+                        Ok(file) => {
+                            let mut reader = std::io::BufReader::new(file);
+                            crate::components::map_render::decode::decode_internal_sprites(
+                                &mut reader,
+                                &loaded.map_data,
+                            )
+                        }
+                        Err(_) => Vec::new(),
+                    };
 
                     crate::editors::save_file_viewer::message::MapPreviewTiles {
                         gtl,
@@ -539,10 +553,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .and_then(|m| m.get(&kind))
                 .and_then(|ts| ts.column_widths.get(col).copied())
                 .unwrap_or(80.0);
-            state.maps_resizing = Some(
-                crate::editors::save_file_viewer::state::MapsTableResizeDrag {
-                    map,
-                    kind,
+            state.resizing = Some(
+                crate::editors::save_file_viewer::state::ResizeDrag {
+                    key: crate::editors::save_file_viewer::message::TableKey::Map(map, kind),
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
@@ -569,30 +582,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::MapsTableResizeCursor(x) => {
-            if let Some(drag) = state.maps_resizing.as_mut() {
-                let anchor_x = match drag.anchor_cursor_x {
-                    Some(ax) => ax,
-                    None => {
-                        drag.anchor_cursor_x = Some(x);
-                        return Task::none();
-                    }
-                };
-                let new_width =
-                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
-                if let Some(ts) = state
-                    .maps_table_states
-                    .get_mut(drag.map)
-                    .and_then(|m| m.get_mut(&drag.kind))
-                {
-                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                        *w = new_width;
-                    }
-                }
-            }
+            apply_resize_cursor(state, x);
             Task::none()
         }
         SaveFileViewerMessage::MapsTableEndResize => {
-            state.maps_resizing = None;
+            state.resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::MapsTableScroll {
@@ -641,9 +635,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get(&cat)
                 .and_then(|ts| ts.column_widths.get(col).copied())
                 .unwrap_or(80.0);
-            state.inventory_resizing = Some(
-                crate::editors::save_file_viewer::state::InventoryResizeDrag {
-                    cat,
+            state.resizing = Some(
+                crate::editors::save_file_viewer::state::ResizeDrag {
+                    key: crate::editors::save_file_viewer::message::TableKey::Inventory(cat),
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
@@ -666,26 +660,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableResizeCursor(x) => {
-            if let Some(drag) = state.inventory_resizing.as_mut() {
-                let anchor_x = match drag.anchor_cursor_x {
-                    Some(ax) => ax,
-                    None => {
-                        drag.anchor_cursor_x = Some(x);
-                        return Task::none();
-                    }
-                };
-                let new_width =
-                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
-                if let Some(ts) = state.inventory_table_states.get_mut(&drag.cat) {
-                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                        *w = new_width;
-                    }
-                }
-            }
+            apply_resize_cursor(state, x);
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableEndResize => {
-            state.inventory_resizing = None;
+            state.resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableScroll { cat, x, y, .. } => {
@@ -722,8 +701,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get(col)
                 .copied()
                 .unwrap_or(80.0);
-            state.events_resizing =
-                Some(crate::editors::save_file_viewer::state::EventsResizeDrag {
+            state.resizing =
+                Some(crate::editors::save_file_viewer::state::ResizeDrag {
+                    key: crate::editors::save_file_viewer::message::TableKey::Events,
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
@@ -742,24 +722,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::EventsTableResizeCursor(x) => {
-            if let Some(drag) = state.events_resizing.as_mut() {
-                let anchor_x = match drag.anchor_cursor_x {
-                    Some(ax) => ax,
-                    None => {
-                        drag.anchor_cursor_x = Some(x);
-                        return Task::none();
-                    }
-                };
-                let new_width =
-                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
-                if let Some(w) = state.events_table_state.column_widths.get_mut(drag.col) {
-                    *w = new_width;
-                }
-            }
+            apply_resize_cursor(state, x);
             Task::none()
         }
         SaveFileViewerMessage::EventsTableEndResize => {
-            state.events_resizing = None;
+            state.resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::EventsTableScroll { x, y, .. } => {
@@ -804,9 +771,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .get(&section)
                 .and_then(|ts| ts.column_widths.get(col).copied())
                 .unwrap_or(80.0);
-            state.journal_resizing =
-                Some(crate::editors::save_file_viewer::state::JournalResizeDrag {
-                    section,
+            state.resizing =
+                Some(crate::editors::save_file_viewer::state::ResizeDrag {
+                    key: crate::editors::save_file_viewer::message::TableKey::Journal(section),
                     col,
                     anchor_width,
                     anchor_cursor_x: None,
@@ -828,26 +795,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::JournalTableResizeCursor(x) => {
-            if let Some(drag) = state.journal_resizing.as_mut() {
-                let anchor_x = match drag.anchor_cursor_x {
-                    Some(ax) => ax,
-                    None => {
-                        drag.anchor_cursor_x = Some(x);
-                        return Task::none();
-                    }
-                };
-                let new_width =
-                    (drag.anchor_width + (x - anchor_x)).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX);
-                if let Some(ts) = state.journal_table_states.get_mut(&drag.section) {
-                    if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                        *w = new_width;
-                    }
-                }
-            }
+            apply_resize_cursor(state, x);
             Task::none()
         }
         SaveFileViewerMessage::JournalTableEndResize => {
-            state.journal_resizing = None;
+            state.resizing = None;
             Task::none()
         }
         SaveFileViewerMessage::JournalTableScroll { section, x, y, .. } => {
@@ -1477,9 +1429,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     state.maps_display_caches = maps_caches;
                     // Build per-map, per-table interaction state. Column widths
                     // are initialised from each table kind's default layout.
-                    use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind};
+                    use crate::editors::save_file_viewer::state::MapsTableKind;
                     let mut table_states: Vec<
-                        std::collections::HashMap<MapsTableKind, MapTableState>,
+                        std::collections::HashMap<MapsTableKind, TableInteractionState>,
                     > = Vec::with_capacity(state.maps_display_caches.len());
                     for _ in &state.maps_display_caches {
                         let mut per_map = std::collections::HashMap::new();
@@ -1488,7 +1440,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 kind.default_columns().iter().map(|c| c.width_px).collect();
                             per_map.insert(
                                 *kind,
-                                MapTableState {
+                                TableInteractionState {
                                     column_widths: widths,
                                     ..Default::default()
                                 },
@@ -1534,6 +1486,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        SaveFileViewerMessage::MapPreview(msg) => {
+            let Some(preview) = state.map_preview.as_mut() else {
+                return Task::none();
+            };
+            crate::editors::save_file_viewer::map_preview::handle(msg, preview)
+        }
         SaveFileViewerMessage::CsvExported(result) => {
             match result {
                 Ok(path) => {
@@ -1547,868 +1505,4 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
     }
-}
-
-/// Render raw bytes as uppercase, space-separated hex (e.g. "DE AD BE EF").
-fn hex_bytes(v: &[u8]) -> String {
-    v.iter()
-        .map(|b| format!("{:02X}", b))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// Clamp bounds for column resize widths.
-const COL_WIDTH_MIN: f32 = 24.0;
-const COL_WIDTH_MAX: f32 = 600.0;
-
-/// Return the (immutable) indices slice for a given map table kind.
-fn maps_table_indices(
-    cache: &crate::editors::save_file_viewer::state::MapsDisplayCaches,
-    kind: crate::editors::save_file_viewer::state::MapsTableKind,
-) -> &[usize] {
-    use crate::editors::save_file_viewer::state::MapsTableKind;
-    match kind {
-        MapsTableKind::Monsters => &cache.monsters_indices,
-        MapsTableKind::Npcs => &cache.npcs_indices,
-        MapsTableKind::ExtraObjects => &cache.extra_objects_indices,
-        MapsTableKind::Weapon => &cache.draw_items_weapon_indices,
-        MapsTableKind::Heal => &cache.draw_items_heal_indices,
-        MapsTableKind::Edit => &cache.draw_items_edit_indices,
-        MapsTableKind::Misc => &cache.draw_items_misc_indices,
-        MapsTableKind::Event => &cache.draw_items_event_indices,
-    }
-}
-
-/// Return the (immutable rows, mutable indices) pair for a given map table
-/// kind. The two borrows are disjoint fields of `MapsDisplayCaches`.
-fn maps_table_data(
-    cache: &mut crate::editors::save_file_viewer::state::MapsDisplayCaches,
-    kind: crate::editors::save_file_viewer::state::MapsTableKind,
-) -> (&[Vec<String>], &mut Vec<usize>) {
-    use crate::editors::save_file_viewer::state::MapsTableKind;
-    match kind {
-        MapsTableKind::Monsters => (&cache.monsters, &mut cache.monsters_indices),
-        MapsTableKind::Npcs => (&cache.npcs, &mut cache.npcs_indices),
-        MapsTableKind::ExtraObjects => (&cache.extra_objects, &mut cache.extra_objects_indices),
-        MapsTableKind::Weapon => (
-            &cache.draw_items_weapon,
-            &mut cache.draw_items_weapon_indices,
-        ),
-        MapsTableKind::Heal => (&cache.draw_items_heal, &mut cache.draw_items_heal_indices),
-        MapsTableKind::Edit => (&cache.draw_items_edit, &mut cache.draw_items_edit_indices),
-        MapsTableKind::Misc => (&cache.draw_items_misc, &mut cache.draw_items_misc_indices),
-        MapsTableKind::Event => (&cache.draw_items_event, &mut cache.draw_items_event_indices),
-    }
-}
-
-/// Return the (immutable rows, mutable indices) pair for a given inventory
-/// category. The two borrows are disjoint fields of the two HashMaps.
-fn inventory_table_data<'a>(
-    cache: &'a mut std::collections::HashMap<
-        crate::editors::save_file_viewer::state::InventoryCategory,
-        Vec<Vec<String>>,
-    >,
-    indices: &'a mut std::collections::HashMap<
-        crate::editors::save_file_viewer::state::InventoryCategory,
-        Vec<usize>,
-    >,
-    cat: crate::editors::save_file_viewer::state::InventoryCategory,
-) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
-    let rows = cache.get(&cat).map(|v| &v[..]).unwrap_or(&[]);
-    let idx = indices.get_mut(&cat).expect("inventory indices missing");
-    (rows, idx)
-}
-
-/// Return the (immutable rows, mutable indices) pair for the events table.
-fn events_table_data<'a>(
-    cache: &'a mut [Vec<String>],
-    indices: &'a mut Vec<usize>,
-) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
-    (&cache[..], indices)
-}
-
-/// Return the (immutable rows, mutable indices) pair for a journal table.
-fn journal_table_data<'a>(
-    cache: &'a mut std::collections::HashMap<
-        crate::editors::save_file_viewer::state::JournalSection,
-        Vec<Vec<String>>,
-    >,
-    indices: &'a mut std::collections::HashMap<
-        crate::editors::save_file_viewer::state::JournalSection,
-        Vec<usize>,
-    >,
-    section: crate::editors::save_file_viewer::state::JournalSection,
-) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
-    let rows = cache.get(&section).map(|v| &v[..]).unwrap_or(&[]);
-    let idx = indices.get_mut(&section).expect("journal indices missing");
-    (rows, idx)
-}
-
-/// Numeric-aware cell comparison for sorting. Falls back to lexicographic
-/// string comparison when either value is not a parseable float.
-fn compare_cells(
-    rows: &[Vec<String>],
-    a: usize,
-    b: usize,
-    col: usize,
-    ascending: bool,
-) -> std::cmp::Ordering {
-    let av = rows.get(a).and_then(|r| r.get(col));
-    let bv = rows.get(b).and_then(|r| r.get(col));
-    let ord = match (av, bv) {
-        (Some(a), Some(b)) => match (a.parse::<f64>(), b.parse::<f64>()) {
-            (Ok(an), Ok(bn)) => an.partial_cmp(&bn).unwrap_or(std::cmp::Ordering::Equal),
-            _ => a.cmp(b),
-        },
-        (Some(_), None) => std::cmp::Ordering::Greater,
-        (None, Some(_)) => std::cmp::Ordering::Less,
-        (None, None) => std::cmp::Ordering::Equal,
-    };
-    if ascending {
-        ord
-    } else {
-        ord.reverse()
-    }
-}
-
-/// Row height used by every save-file-viewer table (kept in sync with the
-/// `TableWidget::new` `row_height` argument in the view files). Used to scroll
-/// a highlighted row into view during Highlight-mode navigation.
-const FILTER_ROW_HEIGHT: f32 = 22.0;
-
-/// Dispatches a unified column-filter action to the table identified by `key`.
-fn handle_table_filter(
-    state: &mut crate::editors::save_file_viewer::state::SaveFileViewerState,
-    key: crate::editors::save_file_viewer::message::TableKey,
-    action: crate::editors::save_file_viewer::message::TableFilterAction,
-) -> Task<Message> {
-    use crate::editors::save_file_viewer::message::TableFilterAction;
-
-    match action {
-        TableFilterAction::NextHighlight => return navigate_highlight(state, key, true),
-        TableFilterAction::PrevHighlight => return navigate_highlight(state, key, false),
-        _ => {}
-    }
-
-    let Some((filter, rows, indices)) = table_filter_access(state, key) else {
-        return Task::none();
-    };
-
-    match action {
-        TableFilterAction::OpenColumnFilter(col) => {
-            filter.active_column_filter = Some(col);
-            filter.column_filter_search.clear();
-            filter.column_filter_options = unique_values(rows, col);
-        }
-        TableFilterAction::ToggleColumnFilterValue(col, value) => {
-            let set = filter.column_filters.entry(col).or_default();
-            if !set.insert(value.clone()) {
-                set.remove(&value);
-            }
-            if set.is_empty() {
-                filter.column_filters.remove(&col);
-            }
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::SelectAllColumnFilter(col) => {
-            let search = filter.column_filter_search.to_lowercase();
-            let values: std::collections::HashSet<String> = filter
-                .column_filter_options
-                .iter()
-                .filter(|o| o.value.to_lowercase().contains(&search))
-                .map(|o| o.value.clone())
-                .collect();
-            filter.column_filters.insert(col, values);
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::ClearAllColumnFilter(col) => {
-            let search = filter.column_filter_search.to_lowercase();
-            let remove: std::collections::HashSet<String> = filter
-                .column_filter_options
-                .iter()
-                .filter(|o| o.value.to_lowercase().contains(&search))
-                .map(|o| o.value.clone())
-                .collect();
-            let current = filter.column_filters.entry(col).or_default();
-            *current = current.difference(&remove).cloned().collect();
-            if current.is_empty() {
-                filter.column_filters.remove(&col);
-            }
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::ColumnFilterSearch(s) => {
-            filter.column_filter_search = s;
-        }
-        TableFilterAction::CloseColumnFilterModal => {
-            filter.active_column_filter = None;
-        }
-        TableFilterAction::ClearColumnFilter(col) => {
-            filter.column_filters.remove(&col);
-            filter.active_column_filter = None;
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::QuickFilter(col, value) => {
-            let mut set = std::collections::HashSet::new();
-            set.insert(value);
-            filter.column_filters.insert(col, set);
-            filter.active_column_filter = None;
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::QueryChanged(s) => {
-            filter.filter_query = s;
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::SetMode(mode) => {
-            filter.filter_mode = mode;
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::ClearAllFilters => {
-            filter.column_filters.clear();
-            filter.filter_query.clear();
-            filter.active_column_filter = None;
-            apply_table_filter(rows, filter, indices);
-        }
-        TableFilterAction::NextHighlight | TableFilterAction::PrevHighlight => {}
-    }
-    Task::none()
-}
-
-/// Borrow the filter state alongside the (immutable) display rows and the
-/// (mutable) filtered indices for the table identified by `key`. The filter
-/// state and the caches live in disjoint fields of `SaveFileViewerState`, so
-/// both can be mutably borrowed at once.
-#[allow(clippy::type_complexity)]
-fn table_filter_access(
-    state: &mut crate::editors::save_file_viewer::state::SaveFileViewerState,
-    key: crate::editors::save_file_viewer::message::TableKey,
-) -> Option<(
-    &mut crate::editors::save_file_viewer::state::TableFilterState,
-    &[Vec<String>],
-    &mut Vec<usize>,
-)> {
-    use crate::editors::save_file_viewer::message::TableKey;
-    match key {
-        TableKey::Map(map, kind) => {
-            let ts = state.maps_table_states.get_mut(map)?.get_mut(&kind)?;
-            let filter = &mut ts.filter;
-            let (rows, indices) = maps_table_data(&mut state.maps_display_caches[map], kind);
-            Some((filter, rows, indices))
-        }
-        TableKey::Inventory(cat) => {
-            let ts = state.inventory_table_states.get_mut(&cat)?;
-            let filter = &mut ts.filter;
-            let (rows, indices) = inventory_table_data(
-                &mut state.inventory_display_caches,
-                &mut state.inventory_filtered_indices,
-                cat,
-            );
-            Some((filter, rows, indices))
-        }
-        TableKey::Events => {
-            let filter = &mut state.events_table_state.filter;
-            let (rows, indices) = events_table_data(
-                &mut state.events_display_cache,
-                &mut state.events_filtered_indices,
-            );
-            Some((filter, rows, indices))
-        }
-        TableKey::Journal(section) => {
-            let ts = state.journal_table_states.get_mut(&section)?;
-            let filter = &mut ts.filter;
-            let (rows, indices) = journal_table_data(
-                &mut state.journal_display_caches,
-                &mut state.journal_filtered_indices,
-                section,
-            );
-            Some((filter, rows, indices))
-        }
-    }
-}
-
-/// Rebuild `filtered_indices` / `highlighted_indices` from the current
-/// `filter_query`, `filter_mode`, and `column_filters`. Mirrors the
-/// spreadsheet editor's `apply_filter`.
-fn apply_table_filter(
-    rows: &[Vec<String>],
-    filter: &mut crate::editors::save_file_viewer::state::TableFilterState,
-    indices: &mut Vec<usize>,
-) {
-    use crate::components::filter::GlobalFilterMode;
-
-    filter.highlighted_indices.clear();
-
-    let has_query = !filter.filter_query.is_empty();
-    let has_col = !filter.column_filters.is_empty();
-
-    let col_matches = |row: &[String]| -> bool {
-        for (&col, selected) in &filter.column_filters {
-            if let Some(value) = row.get(col) {
-                if !selected.is_empty() && !selected.contains(value) {
-                    return false;
-                }
-            }
-        }
-        true
-    };
-
-    if !has_query && !has_col {
-        *indices = (0..rows.len()).collect();
-        return;
-    }
-
-    let query = filter.filter_query.to_lowercase();
-    let matches_query =
-        |row: &[String]| -> bool { row.iter().any(|cell| cell.to_lowercase().contains(&query)) };
-
-    match filter.filter_mode {
-        GlobalFilterMode::FilterOut => {
-            indices.clear();
-            for (idx, row) in rows.iter().enumerate() {
-                let col_ok = !has_col || col_matches(row);
-                let q_ok = !has_query || matches_query(row);
-                if col_ok && q_ok {
-                    indices.push(idx);
-                }
-            }
-        }
-        GlobalFilterMode::Highlight => {
-            // Column filters hard-filter; global query only highlights.
-            indices.clear();
-            for (idx, row) in rows.iter().enumerate() {
-                if !has_col || col_matches(row) {
-                    indices.push(idx);
-                    if has_query && matches_query(row) {
-                        filter.highlighted_indices.push(idx);
-                    }
-                }
-            }
-            if !filter.highlighted_indices.is_empty() {
-                filter.current_highlight_pos = Some(0);
-            }
-        }
-    }
-}
-
-/// Distinct values (with counts) for a column, sorted by value.
-fn unique_values(
-    rows: &[Vec<String>],
-    col: usize,
-) -> Vec<crate::components::filter::ColumnFilterOption> {
-    use crate::components::filter::ColumnFilterOption;
-    use std::collections::HashMap;
-
-    let mut counts: HashMap<&str, usize> = HashMap::new();
-    for row in rows {
-        if let Some(v) = row.get(col) {
-            *counts.entry(v.as_str()).or_insert(0) += 1;
-        }
-    }
-    let mut opts: Vec<ColumnFilterOption> = counts
-        .into_iter()
-        .map(|(v, count)| ColumnFilterOption {
-            value: v.to_string(),
-            count,
-        })
-        .collect();
-    opts.sort_by(|a, b| a.value.cmp(&b.value));
-    opts
-}
-
-/// Return the visible (filtered) indices for the table identified by `key`,
-/// used to translate an original index to a visible position for scrolling.
-fn filtered_indices_for(
-    state: &crate::editors::save_file_viewer::state::SaveFileViewerState,
-    key: crate::editors::save_file_viewer::message::TableKey,
-) -> Option<&[usize]> {
-    use crate::editors::save_file_viewer::message::TableKey;
-    match key {
-        TableKey::Map(map, kind) => state
-            .maps_display_caches
-            .get(map)
-            .map(|c| maps_table_indices(c, kind)),
-        TableKey::Inventory(cat) => state.inventory_filtered_indices.get(&cat).map(|v| &v[..]),
-        TableKey::Events => Some(&state.events_filtered_indices),
-        TableKey::Journal(section) => state.journal_filtered_indices.get(&section).map(|v| &v[..]),
-    }
-}
-
-/// Step the Highlight-mode highlight cursor and bring the focused row into
-/// view, mirroring the spreadsheet editor's `Navigate{Next,Prev}Highlight`.
-fn navigate_highlight(
-    state: &mut crate::editors::save_file_viewer::state::SaveFileViewerState,
-    key: crate::editors::save_file_viewer::message::TableKey,
-    next: bool,
-) -> Task<Message> {
-    use crate::editors::save_file_viewer::message::TableKey;
-
-    // Advance the cursor on the table's filter state.
-    match key {
-        TableKey::Map(map, kind) => {
-            let Some(ts) = state
-                .maps_table_states
-                .get_mut(map)
-                .and_then(|m| m.get_mut(&kind))
-            else {
-                return Task::none();
-            };
-            if next {
-                ts.filter.navigate_next_highlight();
-            } else {
-                ts.filter.navigate_prev_highlight();
-            }
-        }
-        TableKey::Inventory(cat) => {
-            let Some(ts) = state.inventory_table_states.get_mut(&cat) else {
-                return Task::none();
-            };
-            if next {
-                ts.filter.navigate_next_highlight();
-            } else {
-                ts.filter.navigate_prev_highlight();
-            }
-        }
-        TableKey::Events => {
-            if next {
-                state.events_table_state.filter.navigate_next_highlight();
-            } else {
-                state.events_table_state.filter.navigate_prev_highlight();
-            }
-        }
-        TableKey::Journal(section) => {
-            let Some(ts) = state.journal_table_states.get_mut(&section) else {
-                return Task::none();
-            };
-            if next {
-                ts.filter.navigate_next_highlight();
-            } else {
-                ts.filter.navigate_prev_highlight();
-            }
-        }
-    }
-
-    // Resolve the focused original index, then the focused table state so we
-    // can update selection + scroll. We re-fetch the table state here because
-    // the filter state above lives inside it.
-    let orig = match key {
-        TableKey::Map(map, kind) => state
-            .maps_table_states
-            .get(map)
-            .and_then(|m| m.get(&kind))
-            .and_then(|ts| ts.filter.current_highlight_orig_idx()),
-        TableKey::Inventory(cat) => state
-            .inventory_table_states
-            .get(&cat)
-            .and_then(|ts| ts.filter.current_highlight_orig_idx()),
-        TableKey::Events => state.events_table_state.filter.current_highlight_orig_idx(),
-        TableKey::Journal(section) => state
-            .journal_table_states
-            .get(&section)
-            .and_then(|ts| ts.filter.current_highlight_orig_idx()),
-    };
-
-    let Some(orig) = orig else {
-        return Task::none();
-    };
-
-    let visible =
-        filtered_indices_for(state, key).and_then(|idxs| idxs.iter().position(|&i| i == orig));
-
-    match (key, visible) {
-        (TableKey::Map(map, kind), Some(fidx)) => {
-            if let Some(ts) = state
-                .maps_table_states
-                .get_mut(map)
-                .and_then(|m| m.get_mut(&kind))
-            {
-                ts.selected_orig = Some(orig);
-                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
-            }
-        }
-        (TableKey::Inventory(cat), Some(fidx)) => {
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                ts.selected_orig = Some(orig);
-                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
-            }
-        }
-        (TableKey::Events, Some(fidx)) => {
-            state.events_table_state.selected_orig = Some(orig);
-            state.events_table_state.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
-        }
-        (TableKey::Journal(section), Some(fidx)) => {
-            if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                ts.selected_orig = Some(orig);
-                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
-            }
-        }
-        _ => {}
-    }
-    Task::none()
-}
-
-/// Async-load entity sprites for the map preview.
-///
-/// Reads `Monster.ini` / `Npc.ini` / `Extra.ini` to map entity DB IDs → sprite
-/// filenames, then decodes frame[0] of each unique `.spr` file.  Returns a
-/// `Vec` parallel to `entity_markers` (None for entities without a resolvable
-/// sprite).
-async fn load_preview_sprites(
-    game_path: PathBuf,
-    entity_markers: Vec<crate::editors::save_file_viewer::map_preview::state::PreviewEntity>,
-) -> Result<crate::editors::save_file_viewer::message::PreviewSpritesLoaded, String> {
-    // 1. Load Monster.ini → HashMap<id, sprite_filename>
-    let monster_id_to_sprite: HashMap<i32, String> =
-        MonsterIni::read_file(&game_path.join("Monster.ini"))
-            .map_err(|e| format!("Failed to load Monster.ini: {}", e))?
-            .into_iter()
-            .filter_map(|m| m.sprite_filename.map(|s| (m.id, s)))
-            .collect();
-
-    // 2. Load Npc.ini → HashMap<id, sprite_filename>
-    let npc_id_to_sprite: HashMap<i32, String> = NpcIni::read_file(&game_path.join("Npc.ini"))
-        .map_err(|e| format!("Failed to load Npc.ini: {}", e))?
-        .into_iter()
-        .filter_map(|n| n.sprite_filename.map(|s| (n.id, s)))
-        .collect();
-
-    // 3. Load Extra.ini → HashMap<id, sprite_filename>
-    let extra_id_to_sprite: HashMap<i32, String> = load_extra_ini_sprites(&game_path)
-        .map_err(|e| format!("Failed to load Extra.ini: {}", e))?;
-
-    // 4. Resolve sprites for each entity (parallel to entity_markers)
-    // Cache key includes `is_dead` and `look_direction` because the same sprite
-    // path can be shared by entities in different states (alive vs dead) or
-    // facing different directions — without this the first loaded variant would
-    // be reused for all others, showing the wrong frame or flip.
-    let mut sprite_cache: HashMap<(PathBuf, bool, u8), Option<EntitySpriteHandle>> =
-        HashMap::new();
-    let sprites: Vec<Option<EntitySpriteHandle>> = entity_markers
-        .iter()
-        .map(|entity| {
-            let db_id = entity.db_id?;
-            let (sub_dir, id_to_sprite) = match entity.kind {
-                EntityKind::Monster => ("MonsterInGame", &monster_id_to_sprite),
-                EntityKind::Npc => ("NpcInGame", &npc_id_to_sprite),
-                EntityKind::Extra => ("ExtraInGame", &extra_id_to_sprite),
-                EntityKind::DrawItem => return None,
-            };
-            // The save file stores the Monster.db ID (0-based archetype index),
-            // but Monster.ini / .ref files are keyed by the visual ID which is
-            // offset by one (e.g. db 24 → ini 25). Translate before lookup.
-            let lookup_id = if matches!(entity.kind, EntityKind::Monster) {
-                db_id + 1
-            } else {
-                db_id
-            };
-            let sprite_name = id_to_sprite.get(&lookup_id)?;
-            let path = resolve_sprite_path(&game_path, sub_dir, sprite_name)?;
-            // Dead monsters render the LAST frame of the LAST sequence (the
-            // death animation's final "corpse" pose).  Alive entities use the
-            // NPC looking-direction formula (mirrors map_editor/update/map.rs)
-            // to select a sprite sequence + flip.
-            sprite_cache
-                .entry((path.clone(), entity.is_dead, entity.look_direction))
-                .or_insert_with(|| {
-                    let frame = if entity.is_dead {
-                        let seq_count = sprite::read_sprite_file(&path)
-                            .ok()
-                            .map(|sf| sf.sequences.len())
-                            .unwrap_or(0);
-                        if seq_count == 0 {
-                            return None;
-                        }
-                        load_last_frame_of_sequence(&path, seq_count - 1)?
-                    } else {
-                        // Compute (sequence, flip) from looking direction,
-                        // mirroring the map editor's formula in map.rs:473-479.
-                        let dir = entity.look_direction;
-                        let (seq, flip) = if dir > 4 {
-                            ((8 - dir) as usize, true)
-                        } else {
-                            (dir as usize, false)
-                        };
-                        let frames = load_sprite_frames(&path)?;
-                        let frame = frames.get(seq).or_else(|| frames.first())?;
-                        let w = frame.image.width();
-                        let h = frame.image.height();
-                        return Some(EntitySpriteHandle {
-                            handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
-                            width: w,
-                            height: h,
-                            origin_x: frame.origin_x,
-                            origin_y: frame.origin_y,
-                            flip,
-                        });
-                    };
-                    let w = frame.image.width();
-                    let h = frame.image.height();
-                    Some(EntitySpriteHandle {
-                        handle: Handle::from_rgba(w, h, frame.image.as_raw().to_vec()),
-                        width: w,
-                        height: h,
-                        origin_x: frame.origin_x,
-                        origin_y: frame.origin_y,
-                        flip: false,
-                    })
-                })
-                .clone()
-        })
-        .collect();
-
-    Ok(crate::editors::save_file_viewer::message::PreviewSpritesLoaded { sprites })
-}
-
-/// Decode all internal sprites (thrones, decor, vases …) from the .map file.
-///
-/// Each sprite block references a sprite sequence + frame, and we decode
-/// frame[0] of each placement.  This mirrors `decode_internal_map_sprites()`
-/// in `map_editor/update/map.rs`.
-fn decode_internal_preview_sprites(
-    map_path: &Path,
-    map_data: &dispel_core::map::MapData,
-) -> Vec<crate::components::map_render::InternalSpriteHandle> {
-    use iced::widget::image::Handle;
-    use std::io::{Read, Seek, SeekFrom};
-
-    let mut file = match std::fs::File::open(map_path) {
-        Ok(f) => f,
-        Err(_) => return Vec::new(),
-    };
-    let nox = map_data.model.map_non_occluded_start_x;
-    let noy = map_data.model.map_non_occluded_start_y;
-
-    let mut result = Vec::new();
-    for block in &map_data.sprite_blocks {
-        let Some(sequence) = map_data.internal_sprites.get(block.sprite_id) else {
-            continue;
-        };
-        let Some(frame) = sequence.frame_infos.first() else {
-            continue;
-        };
-        if frame.width <= 0 || frame.height <= 0 {
-            continue;
-        }
-        if file
-            .seek(SeekFrom::Start(frame.image_start_position))
-            .is_err()
-        {
-            continue;
-        }
-
-        let w = frame.width as u32;
-        let h = frame.height as u32;
-        let pixel_count = (w * h) as usize;
-        let mut raw = vec![0u8; pixel_count * 2];
-        if file.read_exact(&mut raw).is_err() {
-            continue;
-        }
-
-        let mut pixels = vec![0u8; pixel_count * 4];
-        for i in 0..pixel_count {
-            let lo = raw[i * 2] as u16;
-            let hi = raw[i * 2 + 1] as u16;
-            let pixel = lo | (hi << 8);
-            if pixel > 0 {
-                let r5 = ((pixel >> 11) & 0x1F) as u32;
-                let g6 = ((pixel >> 5) & 0x3F) as u32;
-                let b5 = (pixel & 0x1F) as u32;
-                let idx = i * 4;
-                pixels[idx] = (r5 * 255 / 31) as u8;
-                pixels[idx + 1] = (g6 * 255 / 63) as u8;
-                pixels[idx + 2] = (b5 * 255 / 31) as u8;
-                pixels[idx + 3] = 255;
-            }
-        }
-
-        result.push(crate::components::map_render::InternalSpriteHandle {
-            handle: Handle::from_rgba(w, h, pixels),
-            x: block.sprite_x + nox,
-            y: block.sprite_y + noy,
-            sort_y: block.sprite_bottom_right_y,
-            width: w,
-            height: h,
-        });
-    }
-    result
-}
-
-/// Load Extra.ini → `HashMap<id, sprite_filename>`.
-///
-/// Tries `Extra::read_file()` (EUC-KR encoding per struct definition) first.
-/// If the declared encoding rejects the file (Polish game version uses
-/// WINDOWS-1250 for non-ASCII description fields), falls back to a raw-ASCII
-/// CSV parse — the first two columns (id and sprite_filename) are always
-/// pure ASCII and encoding-independent.
-fn load_extra_ini_sprites(game_path: &Path) -> Result<HashMap<i32, String>, String> {
-    let path = game_path.join("Extra.ini");
-    // Try canonical Extractor read (EUC-KR encoding) first.
-    if let Ok(extras) = Extra::read_file(&path) {
-        return Ok(extras
-            .into_iter()
-            .filter_map(|e| e.sprite_filename.map(|s| (e.id, s)))
-            .collect());
-    }
-    // Fallback: raw-bytes CSV parse (encoding-agnostic).
-    let data = std::fs::read(&path).map_err(|e| format!("Cannot read Extra.ini: {}", e))?;
-    let text = String::from_utf8_lossy(&data);
-    let mut map = HashMap::new();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with(';') {
-            continue;
-        }
-        let mut cols = line.splitn(4, ',');
-        let id: i32 = match cols.next().and_then(|s| s.trim().parse().ok()) {
-            Some(id) => id,
-            None => continue,
-        };
-        let sprite = cols
-            .next()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty() && s != "null");
-        if let Some(s) = sprite {
-            map.insert(id, s);
-        }
-    }
-    Ok(map)
-}
-
-// ── CSV export helpers ─────────────────────────────────────────────────────
-
-/// Build a default filename for a CSV export based on the table key.
-fn csv_default_filename(key: crate::editors::save_file_viewer::message::TableKey) -> String {
-    use crate::editors::save_file_viewer::message::TableKey;
-    match key {
-        TableKey::Inventory(cat) => format!("inventory-{}.csv", cat.label()),
-        TableKey::Events => "events.csv".to_string(),
-        TableKey::Journal(section) => {
-            let label = match section {
-                crate::editors::save_file_viewer::state::JournalSection::Main => "main",
-                crate::editors::save_file_viewer::state::JournalSection::Side => "side",
-                crate::editors::save_file_viewer::state::JournalSection::Trade => "trade",
-            };
-            format!("journal-{label}.csv")
-        }
-        TableKey::Map(_, kind) => {
-            let label = match kind {
-                crate::editors::save_file_viewer::state::MapsTableKind::Monsters => {
-                    "monsters"
-                }
-                crate::editors::save_file_viewer::state::MapsTableKind::Npcs => "npcs",
-                crate::editors::save_file_viewer::state::MapsTableKind::ExtraObjects => {
-                    "extra-objects"
-                }
-                crate::editors::save_file_viewer::state::MapsTableKind::Weapon => {
-                    "weapons"
-                }
-                crate::editors::save_file_viewer::state::MapsTableKind::Heal => "heals",
-                crate::editors::save_file_viewer::state::MapsTableKind::Edit => "edits",
-                crate::editors::save_file_viewer::state::MapsTableKind::Misc => "misc",
-                crate::editors::save_file_viewer::state::MapsTableKind::Event => {
-                    "events"
-                }
-            };
-            format!("map-{label}.csv")
-        }
-    }
-}
-
-/// Resolve (column headers, filtered rows) for a table identified by `key`.
-/// Returns `None` when the table has no data (empty cache or missing state).
-fn resolve_csv_export_data(
-    state: &crate::editors::save_file_viewer::state::SaveFileViewerState,
-    key: crate::editors::save_file_viewer::message::TableKey,
-) -> Option<(Vec<String>, Vec<Vec<String>>)> {
-    use crate::editors::save_file_viewer::message::TableKey;
-    use crate::editors::save_file_viewer::state::MapsTableKind;
-
-    match key {
-        TableKey::Inventory(cat) => {
-            let headers: Vec<String> = cat
-                .default_columns()
-                .iter()
-                .map(|c| c.label.clone())
-                .collect();
-            let cache = state.inventory_display_caches.get(&cat)?;
-            let indices = state.inventory_filtered_indices.get(&cat)?;
-            let rows: Vec<Vec<String>> = indices
-                .iter()
-                .filter_map(|&i| cache.get(i).cloned())
-                .collect();
-            Some((headers, rows))
-        }
-        TableKey::Events => {
-            let headers: Vec<String> =
-                crate::editors::save_file_viewer::state::events_default_columns()
-                    .iter()
-                    .map(|c| c.label.clone())
-                    .collect();
-            let rows: Vec<Vec<String>> = state
-                .events_filtered_indices
-                .iter()
-                .filter_map(|&i| state.events_display_cache.get(i).cloned())
-                .collect();
-            Some((headers, rows))
-        }
-        TableKey::Journal(section) => {
-            let headers: Vec<String> = section
-                .default_columns()
-                .iter()
-                .map(|c| c.label.clone())
-                .collect();
-            let cache = state.journal_display_caches.get(&section)?;
-            let indices = state.journal_filtered_indices.get(&section)?;
-            let rows: Vec<Vec<String>> = indices
-                .iter()
-                .filter_map(|&i| cache.get(i).cloned())
-                .collect();
-            Some((headers, rows))
-        }
-        TableKey::Map(map_idx, kind) => {
-            let headers: Vec<String> = kind
-                .default_columns()
-                .iter()
-                .map(|c| c.label.clone())
-                .collect();
-            let cache = state.maps_display_caches.get(map_idx)?;
-            let (rows_data, indices_slice): (&[Vec<String>], &[usize]) = match kind {
-                MapsTableKind::Monsters => (&cache.monsters, &cache.monsters_indices),
-                MapsTableKind::Npcs => (&cache.npcs, &cache.npcs_indices),
-                MapsTableKind::ExtraObjects => {
-                    (&cache.extra_objects, &cache.extra_objects_indices)
-                }
-                MapsTableKind::Weapon => {
-                    (&cache.draw_items_weapon, &cache.draw_items_weapon_indices)
-                }
-                MapsTableKind::Heal => (&cache.draw_items_heal, &cache.draw_items_heal_indices),
-                MapsTableKind::Edit => (&cache.draw_items_edit, &cache.draw_items_edit_indices),
-                MapsTableKind::Misc => (&cache.draw_items_misc, &cache.draw_items_misc_indices),
-                MapsTableKind::Event => {
-                    (&cache.draw_items_event, &cache.draw_items_event_indices)
-                }
-            };
-            let rows: Vec<Vec<String>> = indices_slice
-                .iter()
-                .filter_map(|&i| rows_data.get(i).cloned())
-                .collect();
-            Some((headers, rows))
-        }
-    }
-}
-
-/// Case-insensitive sprite file path resolution.
-///
-/// Tries original → uppercase → lowercase under `game_path/{sub_dir}/{filename}`.
-fn resolve_sprite_path(game_path: &Path, sub_dir: &str, filename: &str) -> Option<PathBuf> {
-    let base = game_path.join(sub_dir);
-    for name in [
-        filename.to_string(),
-        filename.to_ascii_uppercase(),
-        filename.to_ascii_lowercase(),
-    ] {
-        let p = base.join(&name);
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    None
 }

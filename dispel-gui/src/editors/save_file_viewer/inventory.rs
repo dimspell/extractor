@@ -12,7 +12,6 @@ use crate::editors::save_file_viewer::state::{
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 
 /// Inventory section: category buttons + TableWidget per category.
@@ -67,7 +66,9 @@ fn inventory_table<'a>(
     cat: InventoryCategory,
 ) -> Element<'a, Message> {
     let ts = state.inventory_table_states.get(&cat);
-    let resizing = state.inventory_resizing.as_ref().map(|d| d.cat);
+    let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+        matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Inventory(c) if c == cat)
+    });
 
     // Build columns from the category's default layout, then apply the
     // per-table width overrides, active sort state, and column-filter badges.
@@ -127,6 +128,7 @@ fn inventory_table<'a>(
         }
     };
 
+    let paragraph_cache = state.paragraph_cache.clone();
     let key = TableKey::Inventory(cat);
     let msg_fn = move |action: TableFilterAction| {
         Message::save_file_viewer(SaveFileViewerMessage::TableFilter { key, action })
@@ -140,7 +142,7 @@ fn inventory_table<'a>(
         0.0,
         row_flags,
         22.0,
-        ParagraphCache::default(),
+        paragraph_cache.clone(),
     )
     .on_select(move |visible_idx| {
         Message::save_file_viewer(SaveFileViewerMessage::InventoryTableSelect { cat, visible_idx })
@@ -177,7 +179,7 @@ fn inventory_table<'a>(
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.
-    let table_elem: Element<'a, Message> = if resizing == Some(cat) {
+    let table_elem: Element<'a, Message> = if is_resizing {
         mouse_area(table)
             .on_move(move |p| {
                 Message::save_file_viewer(SaveFileViewerMessage::InventoryTableResizeCursor(p.x))

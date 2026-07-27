@@ -10,7 +10,6 @@ use crate::editors::save_file_viewer::state::{events_default_columns, SaveFileVi
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 
 /// Events section: virtualized table of event script records.
@@ -25,7 +24,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     }
 
     let ts = &state.events_table_state;
-    let resizing = state.events_resizing.is_some();
+    let paragraph_cache = state.paragraph_cache.clone();
+    let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+        matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Events)
+    });
     let filter = &ts.filter;
     let key = TableKey::Events;
     let msg_fn = move |action: TableFilterAction| {
@@ -72,7 +74,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         0.0, // no separate id col
         row_flags,
         22.0,
-        ParagraphCache::default(),
+        paragraph_cache.clone(),
     )
     .table_state(&ts.table_state)
     .on_select(|visible_idx| {
@@ -100,7 +102,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.
-    let table_element: Element<'a, Message> = if resizing {
+    let table_element: Element<'a, Message> = if is_resizing {
         mouse_area(table)
             .on_move(|p| {
                 Message::save_file_viewer(SaveFileViewerMessage::EventsTableResizeCursor(p.x))

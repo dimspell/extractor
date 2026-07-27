@@ -1,6 +1,7 @@
 use iced::widget::{container, scrollable, text, Column, Row};
 use iced::{Element, Fill};
 
+use crate::editors::save_file_viewer::helpers::section_header;
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
 
@@ -68,13 +69,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .padding(16),
     )
     .into()
-}
-
-fn section_header(label: &str) -> Element<'static, Message> {
-    container(text(label.to_string()).size(16))
-        .padding([8, 0])
-        .width(Fill)
-        .into()
 }
 
 fn grid_block(pairs: &[(&str, String)]) -> Element<'static, Message> {

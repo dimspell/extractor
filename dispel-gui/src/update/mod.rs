@@ -13,21 +13,6 @@ impl App {
             }
             crate::message::Message::System(msg) => system::handle(msg, self),
             crate::message::Message::StartPage(msg) => startpage::handle(msg, self),
-            crate::message::Message::MapPreview(msg) => {
-                // Route map preview messages to the active save file viewer
-                let tab_id = match self.state.workspace.active() {
-                    Some(t) => t.id,
-                    None => return Task::none(),
-                };
-                let state = match self.state.editors.save_file_viewers.get_mut(&tab_id) {
-                    Some(s) => s,
-                    None => return Task::none(),
-                };
-                let Some(preview) = state.map_preview.as_mut() else {
-                    return Task::none();
-                };
-                crate::editors::save_file_viewer::map_preview::handle(msg, preview)
-            }
         }
     }
 }

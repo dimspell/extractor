@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::components::filter::{ColumnFilterAction, GlobalFilterMode};
+use crate::editors::save_file_viewer::map_preview::PreviewMessage;
 use crate::editors::save_file_viewer::state::{
     InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
 };
@@ -142,6 +143,8 @@ pub enum SaveFileViewerMessage {
     ExportCsv(TableKey),
     /// Result of an async CSV export.
     CsvExported(Result<std::path::PathBuf, String>),
+    /// Map preview interaction (pan, zoom, layer toggles).
+    MapPreview(PreviewMessage),
 }
 
 /// Identifies a single save-file-viewer table for filter routing.

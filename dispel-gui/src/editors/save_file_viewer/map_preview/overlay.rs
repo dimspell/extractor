@@ -6,7 +6,8 @@ use crate::components::map_render::{
 };
 use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
 use crate::editors::save_file_viewer::map_preview::state::{EntityKind, MapPreviewState};
-use crate::message::Message;
+use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::message::{Message, MessageExt};
 use iced::widget::canvas::{self, Frame, Geometry, Text as CanvasText};
 use iced::widget::text::Alignment as TextAlignment;
 use iced::{alignment, mouse, Color, Event, Font, Point, Rectangle, Size};
@@ -32,9 +33,9 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
             event,
             bounds,
             cursor,
-            |cx, cy| Message::MapPreview(PreviewMessage::Click(cx, cy)),
-            |dx, dy| Message::MapPreview(PreviewMessage::Pan(dx, dy)),
-            |f, cx, cy| Message::MapPreview(PreviewMessage::Zoom(f, cx, cy)),
+            |cx, cy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Click(cx, cy))),
+            |dx, dy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Pan(dx, dy))),
+            |f, cx, cy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(f, cx, cy))),
         )
     }
 

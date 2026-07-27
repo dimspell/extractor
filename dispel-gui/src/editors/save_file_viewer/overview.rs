@@ -1,6 +1,7 @@
 use iced::widget::{container, scrollable, text, Column};
-use iced::{Element, Fill};
+use iced::Element;
 
+use crate::editors::save_file_viewer::helpers::{label_row, section_header};
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
 
@@ -54,18 +55,4 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     .into()
 }
 
-fn section_header(label: &str) -> Element<'static, Message> {
-    container(text(label.to_string()).size(16))
-        .padding([8, 0])
-        .width(Fill)
-        .into()
-}
 
-fn label_row(key: impl Into<String>, value: impl Into<String>) -> Element<'static, Message> {
-    use iced::widget::Row;
-    Row::new()
-        .push(text(key.into()).width(150))
-        .push(text(value.into()))
-        .spacing(8)
-        .into()
-}

@@ -10,7 +10,6 @@ use crate::editors::save_file_viewer::state::{JournalSection, SaveFileViewerStat
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 
 /// Journal section: sub-tabs (Main/Side/Trade) + table per section.
@@ -42,8 +41,11 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     let display_cache = state.journal_display_caches.get(&section);
     let filtered_indices = state.journal_filtered_indices.get(&section);
     let ts = state.journal_table_states.get(&section);
-    let resizing = state.journal_resizing.as_ref().map(|d| d.section) == Some(section);
+    let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+        matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Journal(s) if s == section)
+    });
 
+    let paragraph_cache = state.paragraph_cache.clone();
     let table: Element<'a, Message> = match (display_cache, filtered_indices, ts) {
         (Some(cache), Some(indices), Some(ts)) if !cache.is_empty() => {
             // Build columns from the section's default layout, then apply the
@@ -89,7 +91,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 0.0,
                 row_flags,
                 22.0,
-                ParagraphCache::default(),
+                paragraph_cache.clone(),
             )
             .table_state(&ts.table_state)
             .on_select(move |visible_idx| {
@@ -129,7 +131,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
             // While resizing this table, capture cursor moves / release across
             // the whole table area so the drag isn't interrupted.
-            let table_elem: Element<'a, Message> = if resizing {
+            let table_elem: Element<'a, Message> = if is_resizing {
                 mouse_area(table)
                     .on_move(move |p| {
                         Message::save_file_viewer(SaveFileViewerMessage::JournalTableResizeCursor(

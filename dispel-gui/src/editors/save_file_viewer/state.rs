@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
 
@@ -411,35 +412,8 @@ impl TableFilterState {
     }
 }
 
-/// Per-table interaction state for one map's entity tables.
-#[derive(Debug, Clone, Default)]
-pub struct MapTableState {
-    /// Currently selected original row index (highlighted).
-    pub selected_orig: Option<usize>,
-    /// Active sort column, if any.
-    pub sort_column: Option<usize>,
-    /// Sort direction for `sort_column`.
-    pub sort_ascending: bool,
-    /// Per-column widths (px), parallel to `default_columns()`.
-    pub column_widths: Vec<f32>,
-    /// Shared scroll state consumed by the table widget every frame.
-    pub table_state: gui_widgets::TableState,
-    /// Column filtering state.
-    pub filter: TableFilterState,
-}
-
-/// Active column-resize drag for a maps table.
-#[derive(Debug, Clone)]
-pub struct MapsTableResizeDrag {
-    pub map: usize,
-    pub kind: MapsTableKind,
-    pub col: usize,
-    pub anchor_width: f32,
-    pub anchor_cursor_x: Option<f32>,
-}
-
-/// Per-table interaction state (selection / sort / column widths / scroll)
-/// shared by the inventory, events, and journal tables.
+/// Per-table interaction state (selection / sort / column widths / scroll / filter)
+/// shared by all save-file-viewer tables (maps, inventory, events, journal).
 #[derive(Debug, Clone, Default)]
 pub struct TableInteractionState {
     /// Currently selected original row index (highlighted).
@@ -456,29 +430,18 @@ pub struct TableInteractionState {
     pub filter: TableFilterState,
 }
 
-/// Active column-resize drag for an inventory table.
-#[derive(Debug, Clone)]
-pub struct InventoryResizeDrag {
-    pub cat: InventoryCategory,
-    pub col: usize,
-    pub anchor_width: f32,
-    pub anchor_cursor_x: Option<f32>,
-}
+/// Active column-resize drag for a table, keyed by `TableKey`.
+use crate::editors::save_file_viewer::message::TableKey;
 
-/// Active column-resize drag for the events table (single table, no key).
 #[derive(Debug, Clone)]
-pub struct EventsResizeDrag {
+pub struct ResizeDrag {
+    /// Which table the resize is happening on.
+    pub key: TableKey,
+    /// Column index being dragged.
     pub col: usize,
+    /// The column width at the start of the drag.
     pub anchor_width: f32,
-    pub anchor_cursor_x: Option<f32>,
-}
-
-/// Active column-resize drag for a journal table (keyed by section).
-#[derive(Debug, Clone)]
-pub struct JournalResizeDrag {
-    pub section: JournalSection,
-    pub col: usize,
-    pub anchor_width: f32,
+    /// Cursor x at the start of the drag (None on first cursor event).
     pub anchor_cursor_x: Option<f32>,
 }
 
@@ -512,6 +475,8 @@ pub struct SaveFileViewerState {
     pub error: Option<String>,
     /// Transient status message (CSV export progress/results, etc.).
     pub status_msg: Option<String>,
+    /// Shared paragraph cache reused across all tables (avoids per-frame alloc).
+    pub paragraph_cache: ParagraphCache,
 
     // Per-section navigation
     pub selected_map: Option<usize>,
@@ -537,26 +502,16 @@ pub struct SaveFileViewerState {
 
     // Inventory table interaction state, keyed by category.
     pub inventory_table_states: HashMap<InventoryCategory, TableInteractionState>,
-    // Active column-resize drag for an inventory table, if any.
-    pub inventory_resizing: Option<InventoryResizeDrag>,
-
     // Events table interaction state (single table).
     pub events_table_state: TableInteractionState,
-    // Active column-resize drag for the events table, if any.
-    pub events_resizing: Option<EventsResizeDrag>,
-
     // Journal table interaction state, keyed by section.
     pub journal_table_states: HashMap<JournalSection, TableInteractionState>,
-    // Active column-resize drag for a journal table, if any.
-    pub journal_resizing: Option<JournalResizeDrag>,
-
     // Maps display caches (built on load, one per map at positional index)
     pub maps_display_caches: Vec<MapsDisplayCaches>,
-
     // Maps table interaction state, indexed by map position then table kind.
-    pub maps_table_states: Vec<HashMap<MapsTableKind, MapTableState>>,
-    // Active column-resize drag for a maps table, if any.
-    pub maps_resizing: Option<MapsTableResizeDrag>,
+    pub maps_table_states: Vec<HashMap<MapsTableKind, TableInteractionState>>,
+    // Active column-resize drag, if any (unified across all tables).
+    pub resizing: Option<ResizeDrag>,
 
     // ── Map preview ────────────────────────────────────────────────────────
     /// Whether the map preview canvas is shown instead of the entity table.
@@ -574,6 +529,7 @@ impl Default for SaveFileViewerState {
             loading: false,
             error: None,
             status_msg: None,
+            paragraph_cache: ParagraphCache::default(),
             selected_map: None,
             selected_entity_kind: MapsTableKind::Monsters,
             journal_section: JournalSection::Main,
@@ -586,14 +542,11 @@ impl Default for SaveFileViewerState {
             inventory_display_caches: HashMap::new(),
             inventory_filtered_indices: HashMap::new(),
             inventory_table_states: HashMap::new(),
-            inventory_resizing: None,
             events_table_state: TableInteractionState::default(),
-            events_resizing: None,
             journal_table_states: HashMap::new(),
-            journal_resizing: None,
             maps_display_caches: Vec::new(),
             maps_table_states: Vec::new(),
-            maps_resizing: None,
+            resizing: None,
             show_preview: false,
             map_preview: None,
         }

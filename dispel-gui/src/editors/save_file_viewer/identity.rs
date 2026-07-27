@@ -1,6 +1,7 @@
-use iced::widget::{container, scrollable, text, Column, Row};
-use iced::{Element, Fill};
+use iced::widget::{container, scrollable, text, Column};
+use iced::Element;
 
+use crate::editors::save_file_viewer::helpers::{label_row, section_header};
 use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
 
@@ -35,21 +36,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .padding(16),
     )
     .into()
-}
-
-fn section_header(label: &str) -> Element<'static, Message> {
-    container(text(label.to_string()).size(16))
-        .padding([8, 0])
-        .width(Fill)
-        .into()
-}
-
-fn label_row(key: &str, value: &str) -> Element<'static, Message> {
-    Row::new()
-        .push(text(key.to_string()).width(150))
-        .push(text(value.to_string()))
-        .spacing(8)
-        .into()
 }
 
 /// Compact hex dump: first 64 bytes as hex pairs.

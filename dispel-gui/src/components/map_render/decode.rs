@@ -4,6 +4,8 @@ use std::collections::{HashMap, HashSet};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
+use crate::components::map_render::InternalSpriteHandle;
+
 /// Decode a single tile from raw RGB565 bytes to a 62×32 RGBA image.
 pub fn decode_tile_to_rgba(tile_bytes: &[u8]) -> Vec<u8> {
     let mut rgba = vec![0u8; 62 * 32 * 4];
@@ -73,4 +75,73 @@ pub fn decode_tileset_file(
     }
 
     Ok(result)
+}
+
+/// Decode all internal map sprites (thrones, decor, vases …) from a .map file.
+///
+/// Reads each sprite block's first frame from the open file, decoding RGB565 to
+/// RGBA and packing the result into `InternalSpriteHandle` (ready for the GPU).
+/// `nox`/`noy` are `map_non_occluded_start_{x,y}` from the map model.
+pub fn decode_internal_sprites<R>(
+    reader: &mut R,
+    map_data: &dispel_core::map::MapData,
+) -> Vec<InternalSpriteHandle>
+where
+    R: Read + Seek,
+{
+    use iced::widget::image::Handle;
+
+    let nox = map_data.model.map_non_occluded_start_x;
+    let noy = map_data.model.map_non_occluded_start_y;
+
+    let mut result = Vec::new();
+    for block in &map_data.sprite_blocks {
+        let Some(sequence) = map_data.internal_sprites.get(block.sprite_id) else {
+            continue;
+        };
+        let Some(frame) = sequence.frame_infos.first() else {
+            continue;
+        };
+        if frame.width <= 0 || frame.height <= 0 {
+            continue;
+        }
+        if reader.seek(SeekFrom::Start(frame.image_start_position)).is_err() {
+            continue;
+        }
+
+        let w = frame.width as u32;
+        let h = frame.height as u32;
+        let pixel_count = (w * h) as usize;
+        let mut raw = vec![0u8; pixel_count * 2];
+        if reader.read_exact(&mut raw).is_err() {
+            continue;
+        }
+
+        let mut pixels = vec![0u8; pixel_count * 4];
+        for i in 0..pixel_count {
+            let lo = raw[i * 2] as u16;
+            let hi = raw[i * 2 + 1] as u16;
+            let pixel = lo | (hi << 8);
+            if pixel > 0 {
+                let r5 = ((pixel >> 11) & 0x1F) as u32;
+                let g6 = ((pixel >> 5) & 0x3F) as u32;
+                let b5 = (pixel & 0x1F) as u32;
+                let idx = i * 4;
+                pixels[idx] = (r5 * 255 / 31) as u8;
+                pixels[idx + 1] = (g6 * 255 / 63) as u8;
+                pixels[idx + 2] = (b5 * 255 / 31) as u8;
+                pixels[idx + 3] = 255;
+            }
+        }
+
+        result.push(InternalSpriteHandle {
+            handle: Handle::from_rgba(w, h, pixels),
+            x: block.sprite_x + nox,
+            y: block.sprite_y + noy,
+            sort_y: block.sprite_bottom_right_y,
+            width: w,
+            height: h,
+        });
+    }
+    result
 }

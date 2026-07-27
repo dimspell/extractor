@@ -12,9 +12,10 @@ pub use update::handle;
 pub use view::view;
 
 pub(crate) mod events;
+pub(crate) mod helpers;
 pub(crate) mod identity;
-pub(crate) mod inventory;
 pub(crate) mod journal;
+pub(crate) mod inventory;
 pub(crate) mod map_preview;
 pub(crate) mod maps;
 pub(crate) mod message;

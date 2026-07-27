@@ -5,11 +5,10 @@ use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, Globa
 use crate::editors::save_file_viewer::message::{
     SaveFileViewerMessage, TableFilterAction, TableKey,
 };
-use crate::editors::save_file_viewer::state::{MapTableState, MapsTableKind, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::{MapsTableKind, SaveFileViewerState, TableInteractionState};
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::{RowFlags, TableWidget};
 use iced::mouse::Interaction;
 
@@ -92,8 +91,11 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         } else {
             let caches = state.maps_display_caches.get(idx);
             let ts_map = state.maps_table_states.get(idx);
-            let resizing = state.maps_resizing.as_ref().map(|d| (d.map, d.kind));
             let kind = state.selected_entity_kind;
+            let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+                matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Map(i, k) if i == idx && k == kind)
+            });
+            let paragraph_cache = state.paragraph_cache.clone();
 
             // Render only the selected entity table
             let table = match (caches, ts_map) {
@@ -101,7 +103,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     let (rows, indices) = table_rows(caches, kind);
                     if let Some(ts) = ts_map.get(&kind) {
                         if !rows.is_empty() {
-                            entity_table(idx, kind, rows, indices, ts, resizing)
+                            entity_table(idx, kind, rows, indices, ts, is_resizing, paragraph_cache)
                         } else {
                             empty_text("(none)")
                         }
@@ -238,8 +240,9 @@ fn entity_table<'a>(
     kind: MapsTableKind,
     display_cache: &'a [Vec<String>],
     indices: &'a [usize],
-    ts: &'a MapTableState,
-    resizing: Option<(usize, MapsTableKind)>,
+    ts: &'a TableInteractionState,
+    is_resizing: bool,
+    paragraph_cache: gui_widgets::components::paragraph_cache::ParagraphCache,
 ) -> Element<'a, Message> {
     // Build columns from the kind's default layout, then apply the
     // per-table width overrides, active sort state, and column-filter badges.
@@ -283,7 +286,7 @@ fn entity_table<'a>(
         0.0,
         row_flags,
         22.0,
-        ParagraphCache::default(),
+         paragraph_cache.clone(),
     )
     .table_state(&ts.table_state)
     .on_select(move |visible_idx| {
@@ -336,7 +339,7 @@ fn entity_table<'a>(
 
     // While resizing this table, capture cursor moves / release across the
     // whole table area so the drag isn't interrupted by the inner widget.
-    let table_elem: Element<'a, Message> = if resizing == Some((map_idx, kind)) {
+    let table_elem: Element<'a, Message> = if is_resizing {
         mouse_area(table_elem)
             .on_move(move |p| {
                 Message::save_file_viewer(SaveFileViewerMessage::MapsTableResizeCursor(p.x))
