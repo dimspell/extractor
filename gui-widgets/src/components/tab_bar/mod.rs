@@ -946,22 +946,24 @@ where
             self.ghost_background,
         );
 
-        // Ghost label
+        // Ghost label — follow the same positioning as normal tabs:
+        // left-aligned with horizontal padding, vertically centered.
+        let label_pad = TAB_PADDING;
         renderer.fill_text(
             text::Text {
                 content: self.label.clone(),
-                bounds: Size::new(bounds.width, bounds.height),
+                bounds: Size::new(bounds.width - label_pad * 2.0, bounds.height),
                 size: LABEL_SIZE,
                 line_height: text::LineHeight::Relative(1.0),
                 font: default_font,
-                align_x: text::Alignment::Center,
+                align_x: text::Alignment::Left,
                 align_y: alignment::Vertical::Center,
                 shaping: text::Shaping::Basic,
                 wrapping: text::Wrapping::None,
                 ellipsis: text::Ellipsis::None,
                 hint_factor: None,
             },
-            Point::new(bounds.x, bounds.y),
+            Point::new(bounds.x + label_pad, bounds.center_y()),
             self.ghost_text_color,
             bounds,
         );
