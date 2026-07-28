@@ -22,6 +22,7 @@ mod state;
 pub use draw::{first_hex_char, first_printable_char};
 pub use state::{EditView, State};
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use iced::advanced::layout::{Layout, Limits, Node};
@@ -89,7 +90,13 @@ pub struct HexMatrix<'a, Message> {
     /// When `Some(addr)`, the draw function will centre the viewport on
     /// this address using [`center_scroll_on`]. Set by the view function
     /// from [`HexEditorState::pending_center_on`] via [`Cell::take`].
-    pub(super) pending_center_on: Option<u64>,
+    ///
+    /// Uses [`Cell`] so the draw method (which only has `&self`) can
+    /// consume the one-shot request via [`Cell::take`] after centering.
+    /// This prevents re-centering on every frame — the widget instance is
+    /// reused across frames in Iced when no messages are produced, so a
+    /// plain `Option` would persist the center request indefinitely.
+    pub(super) pending_center_on: Cell<Option<u64>>,
 
     /// Active colour theme.
     pub(super) theme: &'static HexEditorTheme,
@@ -159,7 +166,7 @@ impl<'a, Message> HexMatrix<'a, Message> {
             on_toggle_addr_format: None,
             entropy_bands: None,
             show_minimap: true,
-            pending_center_on: None,
+            pending_center_on: Cell::new(None),
             theme,
         }
     }
@@ -278,8 +285,8 @@ impl<'a, Message> HexMatrix<'a, Message> {
         self
     }
 
-    pub fn center_on(mut self, addr: Option<u64>) -> Self {
-        self.pending_center_on = addr;
+    pub fn center_on(self, addr: Option<u64>) -> Self {
+        self.pending_center_on.set(addr);
         self
     }
 }
@@ -624,6 +631,35 @@ mod tests {
         assert_eq!(scroll, 0.0); // total_h < viewport_h → max_offset = 0
     }
 
+    /// After centering on an address with `center_scroll_on`, the cursor is
+    /// fully visible in the viewport. A subsequent `scroll_to_make_visible`
+    /// for the same address must therefore be a no-op (same scroll).
+    ///
+    /// This regression test validates the fix for the "scroll-lock after
+    /// go-to" bug: `draw_matrix` now updates `last_cursor_row` in the
+    /// `pending_center_on` branch so that the next frame's cursor tracking
+    /// doesn't re-trigger `scroll_to_make_visible` and override user scroll.
+    #[test]
+    fn center_scroll_on_then_scroll_to_make_visible_is_no_op() {
+        // Address in the middle of a large file.
+        let addr = 100 * 16;
+        let centered = center_scroll_on(0.0, addr, 16, 320.0, 100_000.0);
+        let still = scroll_to_make_visible(centered, addr, 16, 320.0, 100_000.0);
+        assert_eq!(
+            centered, still,
+            "scroll_to_make_visible should not change scroll after center_scroll_on"
+        );
+
+        // Address near the end of a short file (clamping edge case).
+        let addr = 5000;
+        let centered = center_scroll_on(0.0, addr, 16, 320.0, 6000.0);
+        let still = scroll_to_make_visible(centered, addr, 16, 320.0, 6000.0);
+        assert_eq!(
+            centered, still,
+            "no-op also holds when center_scroll_on was clamped"
+        );
+    }
+
     #[test]
     fn page_rows_at_least_one() {
         assert_eq!(page_rows(0.0), 1);
@@ -800,5 +836,64 @@ mod tests {
             .is_some(),
             "click within content bounds should resolve"
         );
+    }
+
+    // ── One-shot center request ────────────────────────────────────────
+    //
+    // `pending_center_on` is a `Cell<Option<u64>>` so the draw method can
+    // consume it via `Cell::take`. Without this, the center request would
+    // persist across frames (the widget instance is reused when no messages
+    // are produced) and re-center every time the cursor goes off-screen.
+
+    #[test]
+    fn pending_center_on_is_consumed_on_first_take() {
+        // We only need the builder — no rendering, no Iced runtime.
+        use std::collections::{BTreeMap, BTreeSet};
+
+        use gui_widgets::components::paragraph_cache::ParagraphCache;
+
+        use crate::coloring::ColorScheme;
+        use crate::selection::Selection;
+        use crate::ui::theme::DARK_THEME;
+
+        let dirty = BTreeSet::new();
+        let diff = BTreeSet::new();
+        let patterns = BTreeMap::new();
+        let search_match_set = BTreeSet::new();
+        let row_annotations = BTreeMap::new();
+        let active_patterns = BTreeSet::new();
+        let alternate_patterns = BTreeSet::new();
+
+        let matrix = super::HexMatrix::<()>::new(
+            &[],                           // bytes (empty)
+            16,                            // bytes_per_row
+            Selection::default(),          // selection
+            None,                          // edit
+            &dirty,                        // dirty
+            &diff,                         // vanilla_diff
+            &patterns,                     // patterns
+            &search_match_set,             // search_match_set
+            0,                             // search_query_len
+            None,                          // search_current_addr
+            &[],                           // search_match_starts
+            &row_annotations,              // row_annotations
+            &active_patterns,              // active_patterns
+            alternate_patterns,            // alternate_patterns
+            ParagraphCache::default(),     // cache
+            ColorScheme::Monochrome,       // color_scheme
+            false,                         // dim_nulls
+            &DARK_THEME,                   // theme
+        )
+        .center_on(Some(5000));
+
+        // Builder set it.
+        assert_eq!(matrix.pending_center_on.get(), Some(5000));
+
+        // First take → Some (simulating what draw_matrix does).
+        assert_eq!(matrix.pending_center_on.take(), Some(5000));
+        assert_eq!(matrix.pending_center_on.get(), None);
+
+        // Second take → None (one-shot contract).
+        assert_eq!(matrix.pending_center_on.take(), None);
     }
 }
