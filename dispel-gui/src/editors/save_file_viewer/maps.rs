@@ -8,6 +8,7 @@ use crate::editors::save_file_viewer::message::{
 use crate::editors::save_file_viewer::state::{MapsTableKind, SaveFileViewerState, TableInteractionState};
 use crate::message::Message;
 use crate::message::MessageExt;
+use crate::style;
 use gui_widgets::components::modal;
 use gui_widgets::{RowFlags, TableWidget};
 use iced::mouse::Interaction;
@@ -42,7 +43,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 .unwrap_or_else(|| format!("Map {}", map.map_id));
             let mut btn = button(text(label).size(12));
             if is_active {
-                btn = btn.style(iced::widget::button::primary);
+                btn = btn.style(style::selected_button);
             }
             col = col.push(
                 btn.on_press(Message::save_file_viewer(SaveFileViewerMessage::SelectMap(
@@ -163,7 +164,9 @@ fn build_sub_nav<'a>(
         let label = format!("{} ({})", base_label, count);
         let mut btn = button(text(label).size(12));
         if is_active {
-            btn = btn.style(iced::widget::button::primary);
+            btn = btn.style(style::active_tab_button);
+        } else {
+            btn = btn.style(style::tab_button);
         }
         nav = nav.push(
             btn.on_press(Message::save_file_viewer(

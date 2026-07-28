@@ -11,6 +11,7 @@ use crate::editors::save_file_viewer::state::{
 };
 use crate::message::Message;
 use crate::message::MessageExt;
+use crate::style;
 use gui_widgets::components::modal;
 use gui_widgets::{RowFlags, TableWidget};
 
@@ -38,7 +39,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         let label = format!("{} ({})", cat.label(), count);
         let mut btn = button(text(label).size(12));
         if is_active {
-            btn = btn.style(iced::widget::button::primary);
+            btn = btn.style(style::active_tab_button);
+        } else {
+            btn = btn.style(style::tab_button);
         }
         buttons = buttons.push(
             btn.on_press(Message::save_file_viewer(

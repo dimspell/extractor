@@ -5,6 +5,7 @@ use crate::app::App;
 use crate::editors::save_file_viewer::state::SaveFileSection;
 use crate::message::Message;
 use crate::message::MessageExt;
+use crate::style;
 
 pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
     let tab_id = match app.state.workspace.active() {
@@ -36,7 +37,9 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
             let is_active = *section == state.active_section;
             let mut btn = button(text(section.label().to_string()).size(13));
             if is_active {
-                btn = btn.style(iced::widget::button::primary);
+                btn = btn.style(style::active_tab_button);
+            } else {
+                btn = btn.style(style::tab_button);
             }
             btn.on_press(Message::save_file_viewer(
                 crate::editors::save_file_viewer::SaveFileViewerMessage::SelectSection(*section),
