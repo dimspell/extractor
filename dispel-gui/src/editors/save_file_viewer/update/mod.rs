@@ -951,8 +951,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.petrif_heal.to_string(),
                                     item.polimorph_heal.to_string(),
                                     item.unknown_1.to_string(),
-                                    item.unknown_2.to_string(),
-                                    item.unknown_3.to_string(),
+                                    item.item_type_id.to_string(),
+                                    item.position_index.to_string(),
                                     item.unknown_4.to_string(),
                                     item.unknown_5.to_string(),
                                 ]
@@ -985,7 +985,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.unknown_3.to_string(),
                                     item.modifies_item.to_string(),
                                     item.additional_effect.to_string(),
-                                    item.unknown_4.to_string(),
+                                    item.item_type_id.to_string(),
                                     item.unknown_5.to_string(),
                                     item.unknown_6.to_string(),
                                 ]
@@ -1002,7 +1002,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.description.clone(),
                                     item.base_price.to_string(),
                                     item.event_item_id.to_string(),
-                                    item.unknown_2.to_string(),
+                                    item.item_type_id.to_string(),
                                     item.unknown_3.to_string(),
                                     item.unknown_4.to_string(),
                                 ]
@@ -1020,7 +1020,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.base_price.to_string(),
                                     hex_bytes(&item.unknown_1),
                                     item.misc_item_id.to_string(),
-                                    item.unknown_3.to_string(),
+                                    item.item_type_id.to_string(),
                                     item.unknown_4.to_string(),
                                     item.unknown_5.to_string(),
                                     item.unknown_6.to_string(),

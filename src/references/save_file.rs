@@ -326,7 +326,7 @@ pub struct InventoryMiscItem {
     #[binary_record(size = 16)]
     pub unknown_1: Vec<u8>,
     pub misc_item_id: u32, // misc_item_id
-    pub unknown_3: u16,
+    pub item_type_id: u16,
     pub unknown_4: u16, // 260
     pub unknown_5: u8,  // inventory position
     pub unknown_6: u8,  // inventory position
@@ -356,7 +356,7 @@ pub struct InventoryEventItem {
     pub description: String, // 232
     pub base_price: u32,    // 236
     pub event_item_id: u32, // 240
-    pub unknown_2: u8,      // inventory position 241
+    pub item_type_id: u8,      // inventory position 241
     pub unknown_3: u8,      // inventory position 242
     pub unknown_4: u16,     // 244
 }
@@ -399,7 +399,7 @@ pub struct InventoryEditItem {
     pub unknown_3: u8,              // 265
     pub modifies_item: u8,          // 266
     pub additional_effect: i16,     // 268
-    pub unknown_4: u8,              // inventory position 269
+    pub item_type_id: u8,              // inventory position 269
     pub unknown_5: u8,              // inventory position 270
     pub unknown_6: u16,             // 272
 }
@@ -450,10 +450,10 @@ pub struct InventoryHealItem {
     pub petrif_heal: u8,         // 248
     pub polimorph_heal: u8,      // 249
     pub unknown_1: u8,           // 250
-    pub unknown_2: u16,          // 252
-    pub unknown_3: u8,           // inventory position 253
-    pub unknown_4: u8,           // inventory position 254
-    pub unknown_5: u16,          // 6c 6c (108, 108) for the first row 256
+    pub item_type_id: u16,          // 252
+    pub position_index: u16,           // inventory position 254
+    pub unknown_4: u8,           // inventory position 255
+    pub unknown_5: u8,          // 6c 6c (108, 108) for the first row 256
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
