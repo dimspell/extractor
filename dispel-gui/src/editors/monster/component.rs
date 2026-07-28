@@ -21,7 +21,7 @@ crate::editable_record_fields!(Monster, {
     { magic_attack_min = Integer / "Magic Atk Min:" },
     { is_undead = FlagBool(PropertyFlag) / "Undead:" },
     { has_blood = FlagBool(PropertyFlag) / "Has Blood:" },
-    { ai_type = i32Enum(MonsterAiType, ["Passive", "Aggressive", "Defensive", "Ranged", "Boss", "Special", "Custom"]) / "AI Type:" },
+    { ai_type = i32Enum(MonsterAiType, ["Aggressor", "HitAndFlee", "FleeWhenApproached", "AttackWhenOutnumbered", "TeleportTactic", "AttackWhenProvoked", "RunAwayWhenAttacked"]) / "AI Type:" },
     { exp_gain_max = Integer / "EXP Max:" },
     { exp_gain_min = Integer / "EXP Min:" },
     { gold_drop_max = Integer / "Gold Max:" },

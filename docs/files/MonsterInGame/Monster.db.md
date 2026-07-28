@@ -106,13 +106,13 @@ Binary database file that defines all monster types with complete combat statist
 - **1**: Present - Property is true/present
 
 **MonsterAiType (ai_type):**
-- **0**: Passive - No AI, doesn't attack
-- **1**: Aggressive - Attacks on sight
-- **2**: Defensive - Attacks when provoked
-- **3**: Ranged - Uses ranged attacks
-- **4**: Boss - Special boss behavior
-- **5**: Special - Unique AI patterns
-- **6**: Custom - Scripted AI behavior
+- **0**: Aggressor — Actively seeks and engages the player
+- **1**: HitAndFlee — Attacks then retreats (hit-and-run)
+- **2**: FleeWhenApproached — Runs away when player approaches
+- **3**: AttackWhenOutnumbered — Engages only when it has numerical advantage
+- **4**: TeleportTactic — Uses teleportation during combat
+- **5**: AttackWhenProvoked — Only attacks when attacked first
+- **6**: RunAwayWhenAttacked — Flees upon taking damage
 
 ### Data Structure
 
@@ -209,10 +209,6 @@ Offset | Size | Field | Description
 - **is_undead = 1**: Holy weakness, no bleed
 - **has_blood = 0**: No blood effects (golems)
 - **is_oversize = 1**: Large monsters (dragons, etc.)
-- **ai_type = 1**: Melee fighters (goblins, chickens)
-- **ai_type = 2**: Archers
-- **ai_type = 3**: Casters (worms, zombies)
-- **ai_type = 5**: Passive (deer, dogs)
 
 ### Usage in Game
 

@@ -70,34 +70,27 @@ impl std::fmt::Display for EventType {
 #[repr(i32)]
 #[derive(Default)]
 pub enum MonsterAiType {
-    /// Passive monster with no AI
     #[default]
-    Passive = 0,
-    /// Aggressive monster that attacks on sight
-    Aggressive = 1,
-    /// Defensive monster that only attacks when provoked
-    Defensive = 2,
-    /// Ranged attacker
-    Ranged = 3,
-    /// Boss monster with special behavior
-    Boss = 4,
-    /// Special AI behavior
-    Special = 5,
-    /// Custom scripted AI
-    Custom = 6,
+    Aggressor = 0,
+    HitAndFlee = 1,
+    FleeWhenApproached = 2,
+    AttackWhenOutnumbered = 3,
+    TeleportTactic = 4,
+    AttackWhenProvoked = 5,
+    RunAwayWhenAttacked = 6,
 }
 
 impl MonsterAiType {
     /// Convert from i32 with validation
     pub fn from_i32(value: i32) -> Option<Self> {
         match value {
-            0 => Some(MonsterAiType::Passive),
-            1 => Some(MonsterAiType::Aggressive),
-            2 => Some(MonsterAiType::Defensive),
-            3 => Some(MonsterAiType::Ranged),
-            4 => Some(MonsterAiType::Boss),
-            5 => Some(MonsterAiType::Special),
-            6 => Some(MonsterAiType::Custom),
+            0 => Some(MonsterAiType::Aggressor),
+            1 => Some(MonsterAiType::HitAndFlee),
+            2 => Some(MonsterAiType::FleeWhenApproached),
+            3 => Some(MonsterAiType::AttackWhenOutnumbered),
+            4 => Some(MonsterAiType::TeleportTactic),
+            5 => Some(MonsterAiType::AttackWhenProvoked),
+            6 => Some(MonsterAiType::RunAwayWhenAttacked),
             _ => None,
         }
     }
@@ -111,13 +104,13 @@ impl MonsterAiType {
 impl std::fmt::Display for MonsterAiType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MonsterAiType::Passive => write!(f, "Passive"),
-            MonsterAiType::Aggressive => write!(f, "Aggressive"),
-            MonsterAiType::Defensive => write!(f, "Defensive"),
-            MonsterAiType::Ranged => write!(f, "Ranged"),
-            MonsterAiType::Boss => write!(f, "Boss"),
-            MonsterAiType::Special => write!(f, "Special"),
-            MonsterAiType::Custom => write!(f, "Custom"),
+            MonsterAiType::Aggressor => write!(f, "Aggressor"),
+            MonsterAiType::HitAndFlee => write!(f, "HitAndFlee"),
+            MonsterAiType::FleeWhenApproached => write!(f, "FleeWhenApproached"),
+            MonsterAiType::AttackWhenOutnumbered => write!(f, "AttackWhenOutnumbered"),
+            MonsterAiType::TeleportTactic => write!(f, "TeleportTactic"),
+            MonsterAiType::AttackWhenProvoked => write!(f, "AttackWhenProvoked"),
+            MonsterAiType::RunAwayWhenAttacked => write!(f, "RunAwayWhenAttacked"),
         }
     }
 }
@@ -1974,11 +1967,11 @@ mod tests {
 
     #[test]
     fn test_monster_ai_type_conversion() {
-        assert_eq!(MonsterAiType::from_i32(1), Some(MonsterAiType::Aggressive));
-        assert_eq!(MonsterAiType::from_i32(4), Some(MonsterAiType::Boss));
+        assert_eq!(MonsterAiType::from_i32(1), Some(MonsterAiType::HitAndFlee));
+        assert_eq!(MonsterAiType::from_i32(4), Some(MonsterAiType::TeleportTactic));
         assert_eq!(MonsterAiType::from_i32(7), None);
 
-        assert_eq!(i32::from(MonsterAiType::Ranged), 3);
+        assert_eq!(i32::from(MonsterAiType::AttackWhenOutnumbered), 3);
     }
 
     #[test]

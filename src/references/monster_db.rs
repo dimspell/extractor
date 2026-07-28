@@ -338,7 +338,7 @@ mod tests {
         assert_eq!(m.health_points_min, 80);
         assert_eq!(m.is_undead, PropertyFlag::Absent);
         assert_eq!(m.has_blood, PropertyFlag::Present);
-        assert_eq!(m.ai_type, MonsterAiType::Aggressive);
+        assert_eq!(m.ai_type, MonsterAiType::HitAndFlee);
         assert_eq!(m.attack_speed, 4);
     }
 
