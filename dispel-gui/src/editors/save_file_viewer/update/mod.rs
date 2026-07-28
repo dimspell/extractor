@@ -2,7 +2,8 @@ use iced::Task;
 
 use crate::app::App;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
-use crate::editors::save_file_viewer::message::SaveFileViewerMessage;
+use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableKey};
+use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileViewerState};
 use crate::message::{Message, MessageExt};
 
 pub(crate) mod csv_export;
@@ -18,6 +19,159 @@ use self::table::{
     inventory_table_data, journal_table_data, maps_table_data, maps_table_indices,
     maps_table_rows,
 };
+
+/// Handle a `*StartResize` press for any table. Returns `None` when the press
+/// is recognised as a double-press (same table + column within 400 ms) — the
+/// column is auto-sized and no drag should start. Returns `Some(drag)` for a
+/// normal single press, which the caller should set as `state.resizing`.
+///
+/// We detect double-press here at the app level rather than relying on the
+/// widget's built-in double-click detection because the first press makes
+/// `state.resizing = Some(…)` which causes the view to wrap the table in a
+/// `mouse_area`; that outer layer intercepts the second click before it can
+/// reach the widget's internal handler.
+pub fn try_begin_column_resize(
+    state: &mut SaveFileViewerState,
+    key: TableKey,
+    col: usize,
+) -> Option<ResizeDrag> {
+    const DOUBLE_PRESS_MS: u128 = 400;
+    let now = std::time::Instant::now();
+
+    // Check for double-press
+    if let Some((last_key, last_col, last_time)) = state.last_resize_press {
+        if last_key == key && last_col == col
+            && now.duration_since(last_time).as_millis() < DOUBLE_PRESS_MS
+        {
+            state.last_resize_press = None;
+            // Auto-size the column
+            auto_size_column_by_key(state, key, col);
+            return None; // Don't start a drag
+        }
+    }
+
+    state.last_resize_press = Some((key, col, now));
+
+    let anchor_width = column_width_by_key(state, key, col);
+    Some(ResizeDrag {
+        key,
+        col,
+        anchor_width,
+        anchor_cursor_x: None,
+    })
+}
+
+/// Get the current width of a column for a given table key.
+fn column_width_by_key(state: &SaveFileViewerState, key: TableKey, col: usize) -> f32 {
+    match key {
+        TableKey::Events => state
+            .events_table_state
+            .column_widths
+            .get(col)
+            .copied()
+            .unwrap_or(80.0),
+        TableKey::Map(map, kind) => state
+            .maps_table_states
+            .get(map)
+            .and_then(|m| m.get(&kind))
+            .and_then(|ts| ts.column_widths.get(col).copied())
+            .unwrap_or(80.0),
+        TableKey::Inventory(cat) => state
+            .inventory_table_states
+            .get(&cat)
+            .and_then(|ts| ts.column_widths.get(col).copied())
+            .unwrap_or(80.0),
+        TableKey::Journal(section) => state
+            .journal_table_states
+            .get(&section)
+            .and_then(|ts| ts.column_widths.get(col).copied())
+            .unwrap_or(80.0),
+    }
+}
+
+/// Compute and apply an auto-size width for a column identified by `key`.
+fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: usize) {
+    let header = column_label_by_key(key, col);
+
+    let width = match key {
+        TableKey::Events => auto_size_column(
+            &state.events_display_cache,
+            &state.events_filtered_indices,
+            col,
+            &header,
+        ),
+        TableKey::Inventory(cat) => {
+            let Some(rows) = state.inventory_display_caches.get(&cat) else { return; };
+            let Some(indices) = state.inventory_filtered_indices.get(&cat) else { return; };
+            auto_size_column(rows, indices, col, &header)
+        }
+        TableKey::Journal(section) => {
+            let Some(rows) = state.journal_display_caches.get(&section) else { return; };
+            let Some(indices) = state.journal_filtered_indices.get(&section) else { return; };
+            auto_size_column(rows, indices, col, &header)
+        }
+        TableKey::Map(map, kind) => {
+            let Some(cache) = state.maps_display_caches.get(map) else { return; };
+            let rows = maps_table_rows(cache, kind);
+            let indices = maps_table_indices(cache, kind);
+            auto_size_column(rows, indices, col, &header)
+        }
+    };
+
+    apply_column_width(state, key, col, width);
+}
+
+/// Get the column header label for a table key.
+fn column_label_by_key(key: TableKey, col: usize) -> String {
+    match key {
+        TableKey::Events => {
+            crate::editors::save_file_viewer::state::events_default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.label)
+                .unwrap_or_default()
+        }
+        TableKey::Map(_, kind) => kind.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
+        TableKey::Inventory(cat) => cat.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
+        TableKey::Journal(section) => section.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
+    }
+}
+
+/// Set the width of a column for a given table key.
+fn apply_column_width(state: &mut SaveFileViewerState, key: TableKey, col: usize, width: f32) {
+    match key {
+        TableKey::Events => {
+            if let Some(w) = state.events_table_state.column_widths.get_mut(col) {
+                *w = width;
+            }
+        }
+        TableKey::Map(map, kind) => {
+            if let Some(ts) = state
+                .maps_table_states
+                .get_mut(map)
+                .and_then(|m| m.get_mut(&kind))
+            {
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = width;
+                }
+            }
+        }
+        TableKey::Inventory(cat) => {
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = width;
+                }
+            }
+        }
+        TableKey::Journal(section) => {
+            if let Some(ts) = state.journal_table_states.get_mut(&section) {
+                if let Some(w) = ts.column_widths.get_mut(col) {
+                    *w = width;
+                }
+            }
+        }
+    }
+}
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
     let tab_id = match app.state.workspace.active() {
@@ -548,20 +702,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::MapsTableStartResize { map, kind, col } => {
-            let anchor_width = state
-                .maps_table_states
-                .get(map)
-                .and_then(|m| m.get(&kind))
-                .and_then(|ts| ts.column_widths.get(col).copied())
-                .unwrap_or(80.0);
-            state.resizing = Some(
-                crate::editors::save_file_viewer::state::ResizeDrag {
-                    key: crate::editors::save_file_viewer::message::TableKey::Map(map, kind),
-                    col,
-                    anchor_width,
-                    anchor_cursor_x: None,
-                },
-            );
+            let drag = try_begin_column_resize(state, TableKey::Map(map, kind), col);
+            state.resizing = drag;
             Task::none()
         }
         SaveFileViewerMessage::MapsTableResetColumnWidth { map, kind, col } => {
@@ -642,19 +784,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableStartResize { cat, col } => {
-            let anchor_width = state
-                .inventory_table_states
-                .get(&cat)
-                .and_then(|ts| ts.column_widths.get(col).copied())
-                .unwrap_or(80.0);
-            state.resizing = Some(
-                crate::editors::save_file_viewer::state::ResizeDrag {
-                    key: crate::editors::save_file_viewer::message::TableKey::Inventory(cat),
-                    col,
-                    anchor_width,
-                    anchor_cursor_x: None,
-                },
-            );
+            let drag = try_begin_column_resize(state, TableKey::Inventory(cat), col);
+            state.resizing = drag;
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableResetColumnWidth { cat, col } => {
@@ -719,19 +850,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::EventsTableStartResize { col } => {
-            let anchor_width = state
-                .events_table_state
-                .column_widths
-                .get(col)
-                .copied()
-                .unwrap_or(80.0);
-            state.resizing =
-                Some(crate::editors::save_file_viewer::state::ResizeDrag {
-                    key: crate::editors::save_file_viewer::message::TableKey::Events,
-                    col,
-                    anchor_width,
-                    anchor_cursor_x: None,
-                });
+            let drag = try_begin_column_resize(state, TableKey::Events, col);
+            state.resizing = drag;
             Task::none()
         }
         SaveFileViewerMessage::EventsTableResetColumnWidth { col } => {
@@ -796,18 +916,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::JournalTableStartResize { section, col } => {
-            let anchor_width = state
-                .journal_table_states
-                .get(&section)
-                .and_then(|ts| ts.column_widths.get(col).copied())
-                .unwrap_or(80.0);
-            state.resizing =
-                Some(crate::editors::save_file_viewer::state::ResizeDrag {
-                    key: crate::editors::save_file_viewer::message::TableKey::Journal(section),
-                    col,
-                    anchor_width,
-                    anchor_cursor_x: None,
-                });
+            let drag = try_begin_column_resize(state, TableKey::Journal(section), col);
+            state.resizing = drag;
             Task::none()
         }
         SaveFileViewerMessage::JournalTableResetColumnWidth { section, col } => {
@@ -1190,7 +1300,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             m.oversize.to_string(),
                                             m.magic_level.to_string(),
                                             m.unknown_2.to_string(),
-                                            hex_bytes(&m.unknown_3),
+                                            m.unknown_3a.to_string(),
+                                            m.unknown_3b.to_string(),
+                                            m.unknown_3c.to_string(),
+                                            m.unknown_3d.to_string(),
+                                            hex_bytes(&m.unknown_3e),
+                                            m.unknown_3f.to_string(),
                                             m.event_id_on_kill.to_string(),
                                             m.unknown_5.to_string(),
                                             m.current_position_x.to_string(),

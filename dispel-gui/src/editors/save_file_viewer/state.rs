@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
+use crate::editors::save_file_viewer::message::TableKey;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
@@ -431,7 +433,6 @@ pub struct TableInteractionState {
 }
 
 /// Active column-resize drag for a table, keyed by `TableKey`.
-use crate::editors::save_file_viewer::message::TableKey;
 
 #[derive(Debug, Clone)]
 pub struct ResizeDrag {
@@ -514,6 +515,10 @@ pub struct SaveFileViewerState {
     pub maps_table_states: Vec<HashMap<MapsTableKind, TableInteractionState>>,
     // Active column-resize drag, if any (unified across all tables).
     pub resizing: Option<ResizeDrag>,
+    /// Tracks the last `*StartResize` press `(key, col, time)` so that a
+    /// second press on the same column within 400 ms is recognised as a
+    /// double-press and triggers auto-size instead of starting a new drag.
+    pub last_resize_press: Option<(TableKey, usize, Instant)>,
 
     // ── Map preview ────────────────────────────────────────────────────────
     /// Whether the map preview canvas is shown instead of the entity table.
@@ -550,6 +555,7 @@ impl Default for SaveFileViewerState {
             maps_display_caches: Vec::new(),
             maps_table_states: Vec::new(),
             resizing: None,
+            last_resize_press: None,
             show_preview: false,
             map_preview: None,
         }
