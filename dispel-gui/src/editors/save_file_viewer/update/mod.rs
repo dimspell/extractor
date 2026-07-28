@@ -1622,12 +1622,19 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         let cache: Vec<Vec<String>> = entries
                             .iter()
                             .map(|entry| {
-                                let hex_rest: Vec<String> =
-                                    entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
+                                // let hex_rest: Vec<String> =
+                                //     entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
                                 vec![
                                     format!("{}", entry.index),
                                     entry.name.clone(),
-                                    hex_rest.join(" "),
+                                    entry.unknown_1.to_string(),
+                                    entry.unknown_2.to_string(),
+                                    entry.unknown_3.to_string(),
+                                    entry.unknown_4.to_string(),
+                                    entry.unknown_5.to_string(),
+                                    entry.unknown_6.to_string(),
+                                    entry.is_completed.to_string(),
+                                    // hex_rest.join(" "),
                                 ]
                             })
                             .collect();

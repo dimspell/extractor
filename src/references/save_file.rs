@@ -43,7 +43,12 @@ pub struct MonsterRecord {
     pub oversize: u8,
     pub magic_level: u8,
     pub unknown_2: u32,
-    pub unknown_3: [u8; 25],
+    pub unknown_3a: i16,
+    pub unknown_3b: i16,
+    pub unknown_3c: i32,
+    pub unknown_3d: i32,
+    pub unknown_3e: [u8; 9],
+    pub unknown_3f: i32,
     pub event_id_on_kill: u32,
     pub unknown_5: i32, // -1 if [255, 255, 255, 255]
     pub current_position_x: u16,
@@ -220,8 +225,13 @@ pub struct JournalEntry {
     pub index: u8,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 24))]
     pub name: String,
-    #[binary_record(size = 12)]
-    pub rest: Vec<u8>,
+    pub unknown_1: u8,
+    pub unknown_2: u16,
+    pub unknown_3: u16,
+    pub unknown_4: u16,
+    pub unknown_5: u16,
+    pub unknown_6: u16,
+    pub is_completed: u8,
 }
 
 /// Data for one map section in a save file.
@@ -510,7 +520,7 @@ pub struct InventoryWeaponItem {
     pub padding6: i16,         // 280
     pub padding7: i16,         // 282
     pub padding8: i16,         // 284
-    pub unknown_1: u32,        // 288
+    pub unknown_1: u32,        // 288 // item_type_id ?
     pub unknown_2: u8,         // inventory position 289
     pub unknown_3: u8,         // inventory position 290
     pub unknown_4: u16,        // 292
