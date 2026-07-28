@@ -57,6 +57,8 @@ enum Action {
         origin: Point,
         /// The cursor X since last layout (for overlay position).
         current_x: f32,
+        /// The cursor Y since last layout (for overlay position).
+        current_y: f32,
     },
 }
 
@@ -430,7 +432,7 @@ where
                     Action::Dragging {
                         tab_idx,
                         origin,
-                        current_x: _,
+                        ..
                     } => {
                         if let Some(cursor_pos) = cursor.position() {
                             if cursor_pos.distance(origin) > DRAG_DEADBAND {
@@ -494,6 +496,7 @@ where
                                     tab_idx,
                                     origin,
                                     current_x: cursor_pos.x,
+                                    current_y: cursor_pos.y,
                                 };
                                 shell.request_redraw();
                             }
@@ -502,11 +505,13 @@ where
                             tab_idx,
                             origin,
                             current_x: _,
+                            current_y: _,
                         } => {
                             state.action = Action::Dragging {
                                 tab_idx,
                                 origin,
                                 current_x: cursor_pos.x,
+                                current_y: cursor_pos.y,
                             };
                             // Compute drop-target gap from cursor x (content-relative)
                             let content_x = content_rel_x(bounds, cursor_pos);
@@ -849,8 +854,9 @@ where
         match state_ref.action {
             Action::Dragging {
                 tab_idx,
-                origin,
                 current_x,
+                current_y,
+                ..
             } if tab_idx < self.tabs.len() => {
                 let tab = &self.tabs[tab_idx];
                 let tab_width = state_ref.tab_widths.get(tab_idx).copied().unwrap_or(100.0);
@@ -860,8 +866,8 @@ where
                 Some(iced_overlay::Element::new(Box::new(PickedTab {
                     label: tab.label.clone(),
                     tab_width,
-                    origin,
                     current_x,
+                    current_y,
                     ghost_background: Background::Color(Color::from_rgba(0.3, 0.25, 0.15, 0.85)),
                     ghost_text_color: Color::from_rgba(1.0, 0.9, 0.7, 0.9),
                     ghost_shadow_color: Color::from_rgba(0.0, 0.0, 0.0, 0.35),
@@ -877,8 +883,9 @@ where
 struct PickedTab {
     label: String,
     tab_width: f32,
-    origin: Point,
     current_x: f32,
+    /// Absolute cursor Y in the viewport.
+    current_y: f32,
     // Ghost styling — resolved from theme
     ghost_background: Background,
     ghost_text_color: Color,
@@ -896,10 +903,11 @@ where
     Renderer: text::Renderer,
 {
     fn layout(&mut self, _renderer: &Renderer, _bounds: Size) -> layout::Node {
-        // Lift the ghost up and position it relative to cursor
-        let ghost_x = self.current_x - self.origin.x;
+        // Position the ghost at the absolute cursor position (viewport
+        // coordinates), lifted slightly above the cursor so it appears
+        // "peeled off" the tab bar.
         layout::Node::new(Size::new(self.tab_width, TAB_HEIGHT))
-            .move_to(Point::new(ghost_x, GHOST_Y_OFFSET))
+            .move_to(Point::new(self.current_x, self.current_y + GHOST_Y_OFFSET))
     }
 
     fn draw(

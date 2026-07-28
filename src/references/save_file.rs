@@ -151,21 +151,21 @@ pub struct ExtraObjectRecord {
     pub unknown_1: u32,
     pub unknown_2: u32,
     pub unknown_3: u32,
-    pub unknown_4: u16,
+    /// Maps to the `ExtraRef.number_in_file` field.
+    pub extra_ref_record_id: u16,
     /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
     /// extra in the save maps to exactly one Extra.ini record via this value
     /// (e.g. extra_ini_id=1 -> chest1.spr, 2 -> door.spr)
     pub extra_ini_id: u8,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub name: String,
-    pub unknown_6: u8,
-    /// Likely tile coordinate X — structural parallel to ExtraRef.x_pos
-    /// (both appear right after name + type byte in their struct layouts).
-    pub unknown_7: u32,
-    /// Likely tile coordinate Y — structural parallel to ExtraRef.y_pos.
-    pub unknown_8: u32,
-    pub unknown_9: u32,
-    #[binary_record(size = 8)]
+    pub object_type: u8,
+    /// Tile coordinate X — structural parallel to ExtraRef.x_pos
+    pub position_x: u32,
+    /// Tile coordinate Y — structural parallel to ExtraRef.y_pos.
+    pub position_y: u32,
+    pub unknown_9: u8,
+    #[binary_record(size = 11)]
     pub unknown_10: Vec<u8>,
     pub unknown_11: u32,
     pub unknown_12: u32,

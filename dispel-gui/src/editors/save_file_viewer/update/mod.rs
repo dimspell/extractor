@@ -277,8 +277,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // in their respective struct layouts).  Keep confirmed:false
                     // pending empirical verification against real save files.
                     for e in &map_data.extra_objects {
-                        let x = to_tile(e.unknown_7);
-                        let y = to_tile(e.unknown_8);
+                        let x = to_tile(e.position_x);
+                        let y = to_tile(e.position_y);
                         if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Extra,
@@ -1257,12 +1257,12 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.unknown_1.to_string(),
                                             e.unknown_2.to_string(),
                                             e.unknown_3.to_string(),
-                                            e.unknown_4.to_string(),
+                                            e.extra_ref_record_id.to_string(),
                                             e.extra_ini_id.to_string(),
                                             e.name.clone(),
-                                            e.unknown_6.to_string(),
-                                            e.unknown_7.to_string(),
-                                            e.unknown_8.to_string(),
+                                            e.object_type.to_string(),
+                                            e.position_x.to_string(),
+                                            e.position_y.to_string(),
                                             e.unknown_9.to_string(),
                                             hex_bytes(&e.unknown_10),
                                             e.unknown_11.to_string(),
