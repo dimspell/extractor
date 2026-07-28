@@ -644,7 +644,7 @@ pub struct SaveFile {
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
-    /// Raw belt/quick-slot data (40 bytes before character stats).
+    /// Raw belt/quick-slot data (40 bytes before character stats, 8 bytes unknown, then i16 position x, then i16 position y, unknown after).
     pub unknown_before_stats: Vec<u8>,
     /// Parsed character stats (core, combat, skills, weapon skills).
     pub character_stats: CharacterStats,

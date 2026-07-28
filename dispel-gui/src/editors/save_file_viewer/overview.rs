@@ -49,6 +49,72 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     .enumerate()
                     .map(|(i, path)| label_row(format!("Sprite {}", i + 1), path.clone())),
             )
+            .push(section_header("Save Metadata"))
+            .push(label_row(
+                "Save Slot ID",
+                sf.post_maps.save_slot_id.to_string(),
+            ))
+            .push(label_row(
+                "Game Version",
+                sf.post_maps.game_version.to_string(),
+            ))
+            .push(label_row(
+                "Unknowns A",
+                format!(
+                    "{}, {}, {}",
+                    sf.post_maps.unknowns_a[0],
+                    sf.post_maps.unknowns_a[1],
+                    sf.post_maps.unknowns_a[2]
+                ),
+            ))
+            .push(label_row(
+                "Monster Block Size",
+                sf.post_maps.monster_block_size.to_string(),
+            ))
+            .push(label_row(
+                "NPC Block Size",
+                sf.post_maps.npc_block_size.to_string(),
+            ))
+            .push(label_row(
+                "Extra Object Block Size",
+                sf.post_maps.extra_object_block_size.to_string(),
+            ))
+            .push(label_row(
+                "Unknown B",
+                sf.post_maps.unknown_b.to_string(),
+            ))
+            .push(label_row(
+                "Visited Maps",
+                sf.post_maps.number_of_visited_maps.to_string(),
+            ))
+            .push(label_row(
+                "Map IDs",
+                if sf.post_maps.map_ids.is_empty() {
+                    "(none)".to_string()
+                } else {
+                    let mut s = sf.post_maps
+                        .map_ids
+                        .iter()
+                        .take(20)
+                        .map(|id| id.to_string())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    if sf.post_maps.map_ids.len() > 20 {
+                        s.push_str(&format!(" … ({} total)", sf.post_maps.map_ids.len()));
+                    }
+                    s
+                },
+            ))
+            .push(label_row(
+                "Unknown C",
+                format!(
+                    "{}, {}, {}, {}",
+                    sf.post_maps.unknown_c[0],
+                    sf.post_maps.unknown_c[1],
+                    sf.post_maps.unknown_c[2],
+                    sf.post_maps.unknown_c[3]
+                ),
+            ))
             .spacing(4)
             .padding(16),
     )

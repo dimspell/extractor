@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS extra_refs
     required_item_id2        INTEGER,
     required_item_type_id2   INTEGER,
     required_item2_raw       INTEGER,
-    unknown5                 INTEGER,
     unknown6                 INTEGER,
     unknown7                 INTEGER,
     unknown8                 INTEGER,
