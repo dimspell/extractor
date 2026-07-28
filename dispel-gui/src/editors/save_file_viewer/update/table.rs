@@ -136,6 +136,38 @@ pub fn journal_table_data<'a>(
     (rows, idx)
 }
 
+/// Auto-size a column to fit the longest visible cell value plus the column
+/// header label, clamped to [`COL_WIDTH_MIN`, `COL_WIDTH_MAX`].
+///
+/// Uses a fixed per-character width of 7px + 16px padding, matching the
+/// standard spreadsheet editor's [`SpreadsheetState::auto_size_column`].
+pub fn auto_size_column(rows: &[Vec<String>], indices: &[usize], col: usize, header: &str) -> f32 {
+    let mut max_chars = header.chars().count().max(1);
+    for &idx in indices {
+        if let Some(cell) = rows.get(idx).and_then(|r| r.get(col)) {
+            let chars = cell.chars().count();
+            if chars > max_chars {
+                max_chars = chars;
+            }
+        }
+    }
+    ((max_chars as f32) * 7.0 + 16.0).clamp(COL_WIDTH_MIN, COL_WIDTH_MAX)
+}
+
+/// Return the display rows slice for a given map table kind (immutable).
+pub fn maps_table_rows(cache: &MapsDisplayCaches, kind: MapsTableKind) -> &[Vec<String>] {
+    match kind {
+        MapsTableKind::Monsters => &cache.monsters,
+        MapsTableKind::Npcs => &cache.npcs,
+        MapsTableKind::ExtraObjects => &cache.extra_objects,
+        MapsTableKind::Weapon => &cache.draw_items_weapon,
+        MapsTableKind::Heal => &cache.draw_items_heal,
+        MapsTableKind::Edit => &cache.draw_items_edit,
+        MapsTableKind::Misc => &cache.draw_items_misc,
+        MapsTableKind::Event => &cache.draw_items_event,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::hex_bytes;

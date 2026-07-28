@@ -14,8 +14,9 @@ use self::csv_export::{csv_default_filename, resolve_csv_export_data};
 use self::filter::{compare_cells, handle_table_filter};
 use self::preview::load_preview_sprites;
 use self::table::{
-    apply_resize_cursor, events_table_data, hex_bytes, inventory_table_data,
-    journal_table_data, maps_table_data, maps_table_indices,
+    apply_resize_cursor, auto_size_column, events_table_data, hex_bytes,
+    inventory_table_data, journal_table_data, maps_table_data, maps_table_indices,
+    maps_table_rows,
 };
 
 pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
@@ -564,19 +565,30 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::MapsTableResetColumnWidth { map, kind, col } => {
+            let header = kind
+                .default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.label)
+                .unwrap_or_default();
+            let width = if let Some(cache) = state.maps_display_caches.get(map) {
+                let rows = maps_table_rows(cache, kind);
+                let indices = maps_table_indices(cache, kind);
+                auto_size_column(rows, indices, col, &header)
+            } else {
+                kind.default_columns()
+                    .into_iter()
+                    .nth(col)
+                    .map(|c| c.width_px)
+                    .unwrap_or(80.0)
+            };
             if let Some(ts) = state
                 .maps_table_states
                 .get_mut(map)
                 .and_then(|m| m.get_mut(&kind))
             {
-                let default_width = kind
-                    .default_columns()
-                    .into_iter()
-                    .nth(col)
-                    .map(|c| c.width_px)
-                    .unwrap_or(80.0);
                 if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = default_width;
+                    *w = width;
                 }
             }
             Task::none()
@@ -646,15 +658,27 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::InventoryTableResetColumnWidth { cat, col } => {
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                let default_width = cat
-                    .default_columns()
+            let header = cat
+                .default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.label)
+                .unwrap_or_default();
+            let width = if let (Some(cache), Some(indices)) = (
+                state.inventory_display_caches.get(&cat),
+                state.inventory_filtered_indices.get(&cat),
+            ) {
+                auto_size_column(cache, indices, col, &header)
+            } else {
+                cat.default_columns()
                     .into_iter()
                     .nth(col)
                     .map(|c| c.width_px)
-                    .unwrap_or(80.0);
+                    .unwrap_or(80.0)
+            };
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
                 if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = default_width;
+                    *w = width;
                 }
             }
             Task::none()
@@ -711,13 +735,19 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::EventsTableResetColumnWidth { col } => {
-            let default_width = crate::editors::save_file_viewer::state::events_default_columns()
+            let header = crate::editors::save_file_viewer::state::events_default_columns()
                 .into_iter()
                 .nth(col)
-                .map(|c| c.width_px)
-                .unwrap_or(80.0);
+                .map(|c| c.label)
+                .unwrap_or_default();
+            let width = auto_size_column(
+                &state.events_display_cache,
+                &state.events_filtered_indices,
+                col,
+                &header,
+            );
             if let Some(w) = state.events_table_state.column_widths.get_mut(col) {
-                *w = default_width;
+                *w = width;
             }
             Task::none()
         }
@@ -781,15 +811,28 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         SaveFileViewerMessage::JournalTableResetColumnWidth { section, col } => {
-            if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                let default_width = section
+            let header = section
+                .default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.label)
+                .unwrap_or_default();
+            let width = if let (Some(cache), Some(indices)) = (
+                state.journal_display_caches.get(&section),
+                state.journal_filtered_indices.get(&section),
+            ) {
+                auto_size_column(cache, indices, col, &header)
+            } else {
+                section
                     .default_columns()
                     .into_iter()
                     .nth(col)
                     .map(|c| c.width_px)
-                    .unwrap_or(80.0);
+                    .unwrap_or(80.0)
+            };
+            if let Some(ts) = state.journal_table_states.get_mut(&section) {
                 if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = default_width;
+                    *w = width;
                 }
             }
             Task::none()
