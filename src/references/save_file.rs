@@ -13,7 +13,7 @@ use super::extractor::{read_null_terminated_windows_1250, Extractor};
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct MonsterRecord {
-    pub signature_a: u32, // 0 = alive, 1 = ???, 8 = dead
+    pub monster_state: u32, // 0 = alive, 1 = ???, 8 = dead
     pub record_index: u32,
     pub signature_b: u32,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
@@ -44,7 +44,7 @@ pub struct MonsterRecord {
     pub magic_level: u8,
     pub unknown_2: u32,
     pub unknown_3: [u8; 25],
-    pub unknown_4: u32,
+    pub event_id_on_kill: u32,
     pub unknown_5: i32, // -1 if [255, 255, 255, 255]
     pub current_position_x: u16,
     pub current_position_y: u16,
@@ -161,43 +161,47 @@ pub struct ExtraObjectRecord {
     pub name: String,
     pub object_type: u8,
     /// Tile coordinate X — structural parallel to ExtraRef.x_pos
-    pub position_x: u32,
+    pub x_pos: u32,
     /// Tile coordinate Y — structural parallel to ExtraRef.y_pos.
-    pub position_y: u32,
-    pub unknown_9: u8,
-    #[binary_record(size = 11)]
-    pub unknown_10: Vec<u8>,
-    pub unknown_11: u32,
-    pub unknown_12: u32,
-    pub unknown_13: u32,
-    pub unknown_14: u32,
-    pub unknown_15: u32,
-    pub unknown_16: u32,
-    pub unknown_17: u32,
-    pub unknown_18: u32,
-    pub unknown_19: u32,
-    pub unknown_20: u32,
-    pub unknown_21: u32,
-    pub unknown_22: u32,
-    #[binary_record(size = 24)]
-    pub unknown_23: Vec<u8>,
-    pub unknown_24: u32,
-    pub unknown_25: u32,
-    pub unknown_26: u32,
-    pub unknown_27: u32,
-    pub unknown_28: u32,
-    pub unknown_29: i16,
-    #[binary_record(size = 2)]
-    pub unknown_30: Vec<u8>,
+    pub y_pos: u32,
+    /// Structural parallel to ExtraRef.rotation.
+    pub rotation: u8,
+    // Always 205, 205, 205
+    #[binary_record(size = 3)]
+    pub unknown_10_rotation_padding: Vec<u8>,
     #[binary_record(size = 8)]
-    pub unknown_31: Vec<u8>,
-    pub unknown_32: u32,
-    pub unknown_33: u32,
-    pub unknown_34: u32,
-    pub unknown_35: u32,
-    pub unknown_36: u32,
-    pub unknown_37: u32,
-    pub unknown_38: u32,
+    pub unknown_10: Vec<u8>, // likely extra_ref.unknown3 (chest opened) and unknown3.closed (initial open status / openable).
+    pub unknown_11: u32, // required_item
+    pub unknown_12: u32, // required_item2
+    pub unknown_13: u32, // unknown6
+    pub unknown_14: u32, // unknown7
+    pub unknown_15: u32, // unknown8
+    pub unknown_16: u32, // unknown9
+    pub unknown_17: u32, // gold_amount
+    pub unknown_18: u32, // loot_item
+    pub unknown_19: u32, // item_count
+    pub unknown_20: u32, // unknown11
+    pub unknown_21: u32, // unknown12
+    pub unknown_22: u32, // unknown13
+    #[binary_record(size = 24)]
+    pub unknown_23: Vec<u8>, // unknown14
+    pub unknown_24: u32, // unknown14 (last 4 bytes)
+    pub event_ini_id: u32,
+    pub message_scr_id: u32,
+    pub unknown_27: u32, // unknown15
+    pub unknown_28: u32, // unknown16
+    pub unknown_29: u8, // unknown17
+    #[binary_record(size = 3)]
+    pub unknown_30: Vec<u8>, // interactive_element_type + unknown18
+    #[binary_record(size = 8)]
+    pub unknown_31: Vec<u8>, // is_quest_element + unknown20
+    pub unknown_32: u32, // unknown21
+    pub unknown_33: u32, // unknown22
+    pub unknown_34: u32, // unknown23
+    pub unknown_35: u32, // visibility
+    pub unknown_36: u32, // unknown24 + unknown25
+    pub unknown_37: u32, // unknown26
+    pub unknown_38: u32, // unknown27
 }
 
 /// Event script record (save file format: 284 bytes each)

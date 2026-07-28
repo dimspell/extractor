@@ -46,7 +46,7 @@ pub struct ExtraRef {
     /// Unrecognized (always [205, 205, 205])
     #[extractor(vec_u8(size = 3))]
     pub unknown2: Vec<u8>,
-    /// Unrecognized (always zero)
+    /// Unrecognized (always zero) - likely, opened sprite 0 = closed, 1 = opened.
     #[extractor(primitive(type = "i32"))]
     pub unknown3: i32,
     /// Interaction status for chests (0=open, 1=closed).
@@ -59,11 +59,11 @@ pub struct ExtraRef {
     #[extractor(primitive(type = "i16"))]
     pub unknown4: i16,
     /// Secondary requirement / Key upper bound.
-    #[extractor(inventory_item(wire_type = "i16"))]
+    #[extractor(inventory_item(wire_type = "i32"))]
     pub required_item2: InventoryItem,
     /// Unrecognized (always zero)
-    #[extractor(primitive(type = "i16"))]
-    pub unknown5: i16,
+    // #[extractor(primitive(type = "i16"))]
+    // pub unknown5: i16,
     /// Unrecognized (0 or 9999)
     #[extractor(enum_from_i32(type = "Special9999Flag"))]
     pub unknown6: Special9999Flag,
@@ -196,7 +196,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                         .unwrap_or(ItemTypeId::Other)
                 ) as i32, // 19
                 extra_ref.required_item2.raw(), // 20 — raw
-                extra_ref.unknown5,       // 21
+                // extra_ref.unknown5,       // 21
                 i32::from(extra_ref.unknown6), // 22
                 i32::from(extra_ref.unknown7), // 23
                 i32::from(extra_ref.unknown8), // 24

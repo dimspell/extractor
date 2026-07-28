@@ -277,8 +277,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // in their respective struct layouts).  Keep confirmed:false
                     // pending empirical verification against real save files.
                     for e in &map_data.extra_objects {
-                        let x = to_tile(e.position_x);
-                        let y = to_tile(e.position_y);
+                        let x = to_tile(e.x_pos);
+                        let y = to_tile(e.y_pos);
                         if x != 0 || y != 0 {
                             entities.push(PreviewEntity {
                                 kind: EntityKind::Extra,
@@ -1118,7 +1118,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     .iter()
                                     .map(|m| {
                                         vec![
-                                            m.signature_a.to_string(),
+                                            m.monster_state.to_string(),
                                             m.record_index.to_string(),
                                             m.signature_b.to_string(),
                                             m.name.clone(),
@@ -1148,7 +1148,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             m.magic_level.to_string(),
                                             m.unknown_2.to_string(),
                                             hex_bytes(&m.unknown_3),
-                                            m.unknown_4.to_string(),
+                                            m.event_id_on_kill.to_string(),
                                             m.unknown_5.to_string(),
                                             m.current_position_x.to_string(),
                                             m.current_position_y.to_string(),
@@ -1261,9 +1261,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.extra_ini_id.to_string(),
                                             e.name.clone(),
                                             e.object_type.to_string(),
-                                            e.position_x.to_string(),
-                                            e.position_y.to_string(),
-                                            e.unknown_9.to_string(),
+                                            e.x_pos.to_string(),
+                                            e.y_pos.to_string(),
+                                            e.rotation.to_string(),
                                             hex_bytes(&e.unknown_10),
                                             e.unknown_11.to_string(),
                                             e.unknown_12.to_string(),
@@ -1279,8 +1279,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.unknown_22.to_string(),
                                             hex_bytes(&e.unknown_23),
                                             e.unknown_24.to_string(),
-                                            e.unknown_25.to_string(),
-                                            e.unknown_26.to_string(),
+                                            e.event_ini_id.to_string(),
+                                            e.message_scr_id.to_string(),
                                             e.unknown_27.to_string(),
                                             e.unknown_28.to_string(),
                                             e.unknown_29.to_string(),

@@ -111,7 +111,8 @@ pub struct MonsterRef {
     /// Unknown flag (observed values: -1, 0, or 1).
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
     pub padding4: TriStateFlag,
-    /// Event trigger ID, links to Event.ini.
+    /// Event trigger ID on kill, links to Event.ini.
+    /// Todo: rename field to event_id_on_kill
     #[extractor(primitive(type = "i32"))]
     pub event_id: i32,
     /// First loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).

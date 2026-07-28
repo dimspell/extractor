@@ -21,7 +21,7 @@ editable_record_fields!(ExtraRef, {
     { required_item = CompositeItem("items") / "Required Item:" },
     { unknown4 = Integer / "Unknown 4:" },
     { required_item2 = CompositeItem("items") / "Required Item 2:" },
-    { unknown5 = Integer / "Unknown 5:" },
+    // { unknown5 = Integer / "Unknown 5:" },
     { unknown6 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 6:" },
     { unknown7 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 7:" },
     { unknown8 = DispEnum(Special9999Flag, ["0", "9999"]) / "Unknown 8:" },
