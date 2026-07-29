@@ -397,7 +397,7 @@ impl App {
                         let hex_editors: Vec<RawHexEditorData> = vec![
                             RawHexEditorData {
                                 label: "Belt Data (before stats) - A",
-                                data: save_file.unknown_before_stats.clone(),
+                                data: save_file.unknown_before_stats_a.clone(),
                             },
                             RawHexEditorData {
                                 label: "Belt Data (before stats) - B",

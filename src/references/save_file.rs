@@ -195,7 +195,7 @@ pub struct ExtraObjectRecord {
     pub message_scr_id: u32,
     pub unknown_27: u32, // unknown15
     pub unknown_28: u32, // unknown16
-    pub unknown_29: u8, // unknown17
+    pub unknown_29: u8,  // unknown17
     #[binary_record(size = 3)]
     pub unknown_30: Vec<u8>, // interactive_element_type + unknown18
     #[binary_record(size = 8)]
@@ -373,7 +373,7 @@ pub struct InventoryEventItem {
     pub description: String, // 232
     pub base_price: u32,    // 236
     pub event_item_id: u32, // 240
-    pub item_type_id: u8,      // inventory position 241
+    pub item_type_id: u8,   // inventory position 241
     pub unknown_3: u8,      // inventory position 242
     pub unknown_4: u16,     // 244
 }
@@ -416,7 +416,7 @@ pub struct InventoryEditItem {
     pub unknown_3: u8,              // 265
     pub modifies_item: u8,          // 266
     pub additional_effect: i16,     // 268
-    pub item_type_id: u8,              // inventory position 269
+    pub item_type_id: u8,           // inventory position 269
     pub unknown_5: u8,              // inventory position 270
     pub unknown_6: u16,             // 272
 }
@@ -467,10 +467,10 @@ pub struct InventoryHealItem {
     pub petrif_heal: u8,         // 248
     pub polimorph_heal: u8,      // 249
     pub unknown_1: u8,           // 250
-    pub item_type_id: u16,          // 252
-    pub position_index: u16,           // inventory position 254
+    pub item_type_id: u16,       // 252
+    pub position_index: u16,     // inventory position 254
     pub unknown_4: u8,           // inventory position 255
-    pub unknown_5: u8,          // 6c 6c (108, 108) for the first row 256
+    pub unknown_5: u8,           // 6c 6c (108, 108) for the first row 256
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -651,10 +651,11 @@ pub struct SaveFile {
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
-    /// Raw belt/quick-slot data (40 bytes before character stats - 8 bytes unknown, then i16 position x, then i16 position y, unknown after).
-    pub unknown_before_stats: Vec<u8>,
+    /// Unknown 8 bytes
+    pub unknown_before_stats_a: Vec<u8>,
     pub character_position_x: i16,
     pub character_position_y: i16,
+    // Unknown 28 bytes
     pub unknown_before_stats_b: Vec<u8>,
     /// Parsed character stats (core, combat, skills, weapon skills).
     pub character_stats: CharacterStats,
@@ -662,14 +663,14 @@ pub struct SaveFile {
     pub unknown_after_stats: Vec<u8>,
     /// Raw inventory data (5 item categories).
     pub inventory: InventoryData,
-    /// Journal entries (main, side, trade — 100 entries each).
-    pub journal: JournalData,
-    /// Event scripts (2251 × 284 bytes).
-    pub events: Vec<EventScript>,
     /// Character identity (name, class, unknown blocks).
     pub character_identity: CharacterIdentity,
+    /// Event scripts (2251 × 284 bytes).
+    pub events: Vec<EventScript>,
     /// Unknown data between events and journal (3 sub-blocks).
     pub post_events: PostEventsData,
+    /// Journal entries (main, side, trade — 100 entries each).
+    pub journal: JournalData,
 }
 
 impl SaveFile {
@@ -701,8 +702,14 @@ impl SaveFile {
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
 
         // ── 5 Character stats ──
-        let (unknown_before_stats, character_position_x, character_position_y, unknown_before_stats_b, character_stats, unknown_after_stats) =
-            Self::parse_character_stats(&mut reader)?;
+        let (
+            unknown_before_stats,
+            character_position_x,
+            character_position_y,
+            unknown_before_stats_b,
+            character_stats,
+            unknown_after_stats,
+        ) = Self::parse_character_stats(&mut reader)?;
 
         // ── 6. Inventory (5 categories, each count-prefixed) ──
         let inventory = Self::parse_inventory_section(&mut reader)?;
@@ -724,7 +731,7 @@ impl SaveFile {
             maps,
             post_maps,
             sprite_paths,
-            unknown_before_stats,
+            unknown_before_stats_a: unknown_before_stats,
             character_position_x,
             character_position_y,
             unknown_before_stats_b,
@@ -970,7 +977,14 @@ impl SaveFile {
         let mut unknown_after_stats = vec![0u8; 9];
         reader.read_exact(&mut unknown_after_stats)?;
 
-        Ok((unknown_before_stats, character_position_x, character_position_y, unknown_before_stats_b, character_stats, unknown_after_stats))
+        Ok((
+            unknown_before_stats,
+            character_position_x,
+            character_position_y,
+            unknown_before_stats_b,
+            character_stats,
+            unknown_after_stats,
+        ))
     }
 
     /// Parse the inventory section (5 count-prefixed item categories).
@@ -1100,7 +1114,10 @@ impl SaveFile {
     // ── Write helpers ─────────────────────────────────────────────────────────
 
     /// Write the maps section to a writer (used internally to pre-compute size).
-    fn write_maps_section<W: Write>(maps: &[MapSectionData], writer: &mut W) -> std::io::Result<()> {
+    fn write_maps_section<W: Write>(
+        maps: &[MapSectionData],
+        writer: &mut W,
+    ) -> std::io::Result<()> {
         for map in maps {
             writer.write_u32::<LittleEndian>(map.map_id)?;
 
@@ -1363,7 +1380,7 @@ impl Extractor for SaveFile {
 
         // 5. Belt data + character stats + trailing bytes
         Self::write_character_stats(
-            &save.unknown_before_stats,
+            &save.unknown_before_stats_a,
             &save.character_stats,
             &save.unknown_after_stats,
             writer,
