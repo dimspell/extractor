@@ -209,6 +209,15 @@ pub struct ExtraObjectRecord {
     pub unknown_38: u32, // unknown27
 }
 
+/// PartyMember is 321 bytes long
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct PartyMember {
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
+    pub name: String,
+    #[binary_record(size = 300)]
+    pub unknown_1: Vec<u8>,
+}
+
 /// Event script record (save file format: 284 bytes each)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct EventScript {
@@ -591,8 +600,12 @@ pub struct CharacterIdentity {
     pub player_class_id: u16,
     /// Player class name (11-byte WINDOWS-1250 null-terminated).
     pub player_class_name: String,
-    /// Large unknown data block after identity (4040 bytes).
+    /// Large unknown data block after identity (4036 bytes).
     pub unknown_data: Vec<u8>,
+
+    pub party_members_count: u32,
+    /// Party members (321 bytes each)
+    pub party_members: Vec<PartyMember>
 }
 
 /// Unknown data block between map data and sprite paths (section 3).
@@ -1058,8 +1071,19 @@ impl SaveFile {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         // ── 7.4. Large unknown data block ──
-        let mut unknown_data = vec![0u8; 4040];
+        let mut unknown_data = vec![0u8; 4036];
         reader.read_exact(&mut unknown_data)?;
+
+        let party_members_count = reader.read_u32::<LittleEndian>()?;
+        // Party member= 321 bytes
+        let mut party_members = Vec::with_capacity(party_members_count as usize);
+        for _i in 0..party_members_count {
+            let party_member_data = vec![0u8; 321];
+            reader.read_exact(&mut unknown_data)?;
+
+            let entry = PartyMember::parse(&party_member_data)?;
+            party_members.push(entry);
+        }
 
         Ok(CharacterIdentity {
             unknown_block,
@@ -1067,6 +1091,8 @@ impl SaveFile {
             player_class_id,
             player_class_name,
             unknown_data,
+            party_members_count,
+            party_members,
         })
     }
 
