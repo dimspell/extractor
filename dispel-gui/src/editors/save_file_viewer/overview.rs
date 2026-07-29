@@ -88,6 +88,14 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 sf.post_maps.number_of_visited_maps.to_string(),
             ))
             .push(label_row(
+                "Position X (tile)",
+                sf.character_position_x.to_string(),
+            ))
+            .push(label_row(
+                "Position Y (tile)",
+                sf.character_position_y.to_string(),
+            ))
+            .push(label_row(
                 "Map IDs",
                 if sf.post_maps.map_ids.is_empty() {
                     "(none)".to_string()
@@ -120,5 +128,3 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     )
     .into()
 }
-
-

@@ -396,8 +396,12 @@ impl App {
                         // Build embedded hex viewers for unknown/raw blocks
                         let hex_editors: Vec<RawHexEditorData> = vec![
                             RawHexEditorData {
-                                label: "Belt Data (before stats)",
+                                label: "Belt Data (before stats) - A",
                                 data: save_file.unknown_before_stats.clone(),
+                            },
+                            RawHexEditorData {
+                                label: "Belt Data (before stats) - B",
+                                data: save_file.unknown_before_stats_b.clone(),
                             },
                             RawHexEditorData {
                                 label: "Unknown After Stats",

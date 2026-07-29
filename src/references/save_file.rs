@@ -226,11 +226,18 @@ pub struct JournalEntry {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 24))]
     pub name: String,
     pub unknown_1: u8,
-    pub unknown_2: u16,
-    pub unknown_3: u16,
-    pub unknown_4: u16,
-    pub unknown_5: u16,
-    pub unknown_6: u16,
+    pub unknown_2a: u8,
+    pub unknown_2b: u8,
+    pub unknown_3a: u8,
+    pub unknown_3b: u8,
+    pub unknown_4a: u8,
+    pub unknown_4b: u8,
+    pub unknown_5a: u8,
+    /// ID to the quest from ExtraInGame/Quest.scr
+    pub quest_scr_id: u8,
+    /// When the quest is more complex (has multiple stages), then it is non-zero when some additional stage has been completed. Otherwise it is zero. It makes possible the description of next quest story.
+    pub quest_scr_id_progress1: u8,
+    pub quest_scr_id_progress2: u8,
     pub is_completed: u8,
 }
 
@@ -644,8 +651,11 @@ pub struct SaveFile {
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
-    /// Raw belt/quick-slot data (40 bytes before character stats, 8 bytes unknown, then i16 position x, then i16 position y, unknown after).
+    /// Raw belt/quick-slot data (40 bytes before character stats - 8 bytes unknown, then i16 position x, then i16 position y, unknown after).
     pub unknown_before_stats: Vec<u8>,
+    pub character_position_x: i16,
+    pub character_position_y: i16,
+    pub unknown_before_stats_b: Vec<u8>,
     /// Parsed character stats (core, combat, skills, weapon skills).
     pub character_stats: CharacterStats,
     /// Unknown bytes after stats block (9 bytes).
@@ -691,7 +701,7 @@ impl SaveFile {
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
 
         // ── 5 Character stats ──
-        let (unknown_before_stats, character_stats, unknown_after_stats) =
+        let (unknown_before_stats, character_position_x, character_position_y, unknown_before_stats_b, character_stats, unknown_after_stats) =
             Self::parse_character_stats(&mut reader)?;
 
         // ── 6. Inventory (5 categories, each count-prefixed) ──
@@ -715,6 +725,9 @@ impl SaveFile {
             post_maps,
             sprite_paths,
             unknown_before_stats,
+            character_position_x,
+            character_position_y,
+            unknown_before_stats_b,
             character_stats,
             unknown_after_stats,
             inventory,
@@ -900,10 +913,17 @@ impl SaveFile {
     ///    [dark_lv u8][dark_kills u16][unknown: 9B]`
     fn parse_character_stats<R: Read>(
         reader: &mut R,
-    ) -> std::io::Result<(Vec<u8>, CharacterStats, Vec<u8>)> {
-        // ── Leading data (40 bytes, purpose unknown) ──
-        let mut unknown_before_stats = vec![0u8; 40];
+    ) -> std::io::Result<(Vec<u8>, i16, i16, Vec<u8>, CharacterStats, Vec<u8>)> {
+        // ── Leading data (8 bytes, purpose unknown) ──
+        let mut unknown_before_stats = vec![0u8; 8];
         reader.read_exact(&mut unknown_before_stats)?;
+
+        let character_position_x = reader.read_i16::<LittleEndian>()?;
+        let character_position_y = reader.read_i16::<LittleEndian>()?;
+
+        // ── Leading data (28 bytes, purpose unknown) ──
+        let mut unknown_before_stats_b = vec![0u8; 28];
+        reader.read_exact(&mut unknown_before_stats_b)?;
 
         // ── Structured stats block ──
         let character_stats = CharacterStats {
@@ -950,7 +970,7 @@ impl SaveFile {
         let mut unknown_after_stats = vec![0u8; 9];
         reader.read_exact(&mut unknown_after_stats)?;
 
-        Ok((unknown_before_stats, character_stats, unknown_after_stats))
+        Ok((unknown_before_stats, character_position_x, character_position_y, unknown_before_stats_b, character_stats, unknown_after_stats))
     }
 
     /// Parse the inventory section (5 count-prefixed item categories).

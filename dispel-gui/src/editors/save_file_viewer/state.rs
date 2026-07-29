@@ -735,7 +735,19 @@ impl JournalSection {
             },
             TableColumn {
                 width_px: 60.0,
+                label: "unknown_2b".into(),
+                sort: None,
+                has_filter: false,
+            },
+            TableColumn {
+                width_px: 60.0,
                 label: "unknown_3".into(),
+                sort: None,
+                has_filter: false,
+            },
+            TableColumn {
+                width_px: 60.0,
+                label: "unknown_3c".into(),
                 sort: None,
                 has_filter: false,
             },
@@ -747,13 +759,31 @@ impl JournalSection {
             },
             TableColumn {
                 width_px: 60.0,
+                label: "unknown_4d".into(),
+                sort: None,
+                has_filter: false,
+            },
+            TableColumn {
+                width_px: 60.0,
                 label: "unknown_5".into(),
                 sort: None,
                 has_filter: false,
             },
             TableColumn {
                 width_px: 60.0,
-                label: "unknown_6".into(),
+                label: "quest_scr_id".into(),
+                sort: None,
+                has_filter: false,
+            },
+            TableColumn {
+                width_px: 60.0,
+                label: "quest_scr_id_progress1".into(),
+                sort: None,
+                has_filter: false,
+            },
+            TableColumn {
+                width_px: 60.0,
+                label: "quest_scr_id_progress2".into(),
                 sort: None,
                 has_filter: false,
             },
