@@ -602,10 +602,10 @@ pub struct CharacterIdentity {
     pub player_class_name: String,
     /// Large unknown data block after identity (4036 bytes).
     pub unknown_data: Vec<u8>,
-
+    // TODO: Those fields are not handled by the writer method.
     pub party_members_count: u32,
     /// Party members (321 bytes each)
-    pub party_members: Vec<PartyMember>
+    pub party_members: Vec<PartyMember>,
 }
 
 /// Unknown data block between map data and sprite paths (section 3).
@@ -780,7 +780,7 @@ impl SaveFile {
     ///   `[map_id: u32][monsters][npcs][sep: u32][extra_objects][sep: 11B]
     ///    [draw_items_weapon][draw_items_heal][draw_items_edit]
     ///    [draw_items_misc][draw_items_event][end_sep: u32]`
-    fn parse_maps_section<R: Read>(
+    fn parse_maps_section<R: Read + Seek>(
         reader: &mut R,
         map_count: u32,
     ) -> std::io::Result<Vec<MapSectionData>> {
@@ -820,8 +820,22 @@ impl SaveFile {
                 .collect::<std::io::Result<Vec<_>>>()?;
 
             // ── 2.5. Separator (11 bytes, unknown meaning) ──
-            let mut _separator = vec![0u8; 11];
+            let mut _separator = vec![0u8; 4];
             reader.read_exact(&mut _separator)?;
+            eprintln!("{:?}", _separator);
+
+            let _counter = reader.read_u16::<LittleEndian>()?;
+            eprintln!("{:?}", _counter);
+
+            let mut _separator = vec![0u8; 11 - 4 - 2];
+            reader.read_exact(&mut _separator)?;
+            eprintln!("{:?}", _separator);
+
+            if _counter > 0 {
+                let mut _separator = vec![0u8; _counter as usize * 24];
+                reader.read_exact(&mut _separator)?;
+                eprintln!("{:?}", _separator);
+            }
 
             // ── 2.6–2.10. Ground items (5 types) ──
             let draw_items_weapon =
@@ -1052,7 +1066,9 @@ impl SaveFile {
     ///
     /// Layout:
     ///   `[unknown_96B][name: 11B][class_id: u16][class_name: 11B][unknown_4040B]`
-    fn parse_character_identity<R: Read>(reader: &mut R) -> std::io::Result<CharacterIdentity> {
+    fn parse_character_identity<R: Read + Seek>(
+        reader: &mut R,
+    ) -> std::io::Result<CharacterIdentity> {
         // ── 7.1. Unknown block (96 bytes before name) ──
         let mut unknown_block = vec![0u8; 96];
         reader.read_exact(&mut unknown_block)?;
@@ -1078,12 +1094,13 @@ impl SaveFile {
         // Party member= 321 bytes
         let mut party_members = Vec::with_capacity(party_members_count as usize);
         for _i in 0..party_members_count {
-            let party_member_data = vec![0u8; 321];
-            reader.read_exact(&mut unknown_data)?;
+            let mut party_member_data = vec![0u8; 321];
+            reader.read_exact(&mut party_member_data)?;
 
             let entry = PartyMember::parse(&party_member_data)?;
             party_members.push(entry);
         }
+
 
         Ok(CharacterIdentity {
             unknown_block,
