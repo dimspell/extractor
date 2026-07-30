@@ -156,7 +156,7 @@ pub fn handle_event<Message>(
                     let scroll = state.scroll_offset.get();
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
-                    let col = draw::col_at_x(pos.x, bpr);
+                    let col = draw::col_at_x(rel_x, bpr);
                     if let Some((byte_col, _is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
@@ -164,6 +164,36 @@ pub fn handle_event<Message>(
                                 shell.publish(cb(addr));
                                 shell.request_redraw();
                                 shell.capture_event();
+                            }
+                            // Begin drag-extend tracking.
+                            state.dragging_cursor = true;
+                        }
+                    }
+                }
+            }
+
+            mouse::Event::ButtonPressed(mouse::Button::Right) => {
+                if !cursor.is_over(bounds) {
+                    return;
+                }
+                let pos = cursor.position().unwrap_or_default();
+                let rel_x = pos.x - bounds.x;
+                let rel_y = pos.y - content_top;
+                // Right-click in data area → context menu.
+                if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
+                    let scroll = state.scroll_offset.get();
+                    let row = (scroll + rel_y) / ROW_HEIGHT;
+                    let base_addr = (row as u64) * bpr64;
+                    let col = draw::col_at_x(rel_x, bpr);
+                    if let Some((byte_col, _is_baseline)) = col {
+                        let addr = base_addr + byte_col as u64;
+                        if (addr as usize) < total_bytes {
+                            if let Some(cb) = &widget.on_right_click {
+                                shell.publish(cb(addr));
+                                shell.request_redraw();
+                                // Note: intentionally NOT capturing the event here —
+                                // the ContextMenu wrapper reads shell.is_event_captured()
+                                // and skips opening if the event was captured.
                             }
                         }
                     }
@@ -173,6 +203,7 @@ pub fn handle_event<Message>(
             mouse::Event::ButtonReleased(mouse::Button::Left) => {
                 state.dragging_scrollbar = false;
                 state.dragging_scrollbar_x = false;
+                state.dragging_cursor = false;
                 shell.capture_event();
             }
 
@@ -211,6 +242,25 @@ pub fn handle_event<Message>(
                         shell.request_redraw();
                     }
                     return;
+                }
+
+                // ── Drag-extend selection ──
+                if state.dragging_cursor && rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
+                    let scroll = state.scroll_offset.get();
+                    let row = (scroll + rel_y) / ROW_HEIGHT;
+                    let base_addr = (row as u64) * bpr64;
+                    let col = draw::col_at_x(rel_x, bpr);
+                    if let Some((byte_col, _is_baseline)) = col {
+                        let addr = base_addr + byte_col as u64;
+                        if (addr as usize) < total_bytes {
+                            if let Some(cb) = &widget.on_extend_to {
+                                shell.publish(cb(addr));
+                                shell.request_redraw();
+                                shell.capture_event();
+                                return;
+                            }
+                        }
+                    }
                 }
 
                 // ── Hover over scrollbar ──
@@ -278,10 +328,15 @@ fn handle_keyboard_event<Message>(
         };
         if let Some(dir) = dir {
             let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
-            if let Some(cb) = &widget.on_select_at {
+            let extend = modifiers.shift();
+            if extend {
+                if let Some(cb) = &widget.on_extend_to {
+                    shell.publish(cb(new_addr));
+                }
+            } else if let Some(cb) = &widget.on_select_at {
                 shell.publish(cb(new_addr));
-                shell.request_redraw();
             }
+            shell.request_redraw();
             // Scroll to new cursor.
             let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
             let new_scroll = layout::scroll_to_make_visible(
@@ -308,20 +363,38 @@ fn handle_keyboard_event<Message>(
     };
 
     if let Some(dir) = dir {
-        let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
-        if let Some(cb) = &widget.on_select_at {
-            shell.publish(cb(new_addr));
-            shell.request_redraw();
+        let extend = modifiers.shift();
+        if extend {
+            if let Some(cb) = &widget.on_nav {
+                shell.publish(cb(dir, true));
+                shell.request_redraw();
+            }
+            // Scroll to make new cursor visible, using nav_target as best estimate.
+            let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
+            let new_scroll = layout::scroll_to_make_visible(
+                state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
+            );
+            if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
+                state.scroll_offset.set(new_scroll);
+            }
+            shell.capture_event();
+        } else {
+            let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            if let Some(cb) = &widget.on_select_at {
+                shell.publish(cb(new_addr));
+                shell.request_redraw();
+            }
+            // Scroll to make new cursor visible.
+            let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
+            let new_scroll = layout::scroll_to_make_visible(
+                state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
+            );
+            if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
+                state.scroll_offset.set(new_scroll);
+            }
+            shell.capture_event();
         }
-        // Scroll to make new cursor visible.
-        let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
-        let new_scroll = layout::scroll_to_make_visible(
-            state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
-        );
-        if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
-            state.scroll_offset.set(new_scroll);
-        }
-        shell.capture_event();
     }
 }
 

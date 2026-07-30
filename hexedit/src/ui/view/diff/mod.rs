@@ -80,6 +80,12 @@ pub struct DiffView<'a, Message> {
     // ── Callbacks ──────────────────────────────────────────────────────
     /// Called when the user clicks/navigates to a byte address.
     pub(super) on_select_at: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    /// Called when the user right-clicks a byte address (for context menus).
+    pub(super) on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    /// Called when the user extends selection to an address (shift-click / drag).
+    pub(super) on_extend_to: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    /// Called on arrow/navigation key (dir, extend).
+    pub(super) on_nav: Option<Box<dyn Fn(crate::domain::selection::NavDir, bool) -> Message + 'a>>,
 }
 
 // ── Constructor ─────────────────────────────────────────────────────────
@@ -126,6 +132,9 @@ impl<'a, Message> DiffView<'a, Message> {
             width: Length::Fill,
             height: Length::Fill,
             on_select_at: None,
+            on_right_click: None,
+            on_extend_to: None,
+            on_nav: None,
             theme,
         }
     }
@@ -136,6 +145,21 @@ impl<'a, Message> DiffView<'a, Message> {
 impl<'a, Message> DiffView<'a, Message> {
     pub fn on_select_at(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
         self.on_select_at = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_right_click(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_right_click = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_extend_to(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+        self.on_extend_to = Some(Box::new(f));
+        self
+    }
+
+    pub fn on_nav(mut self, f: impl Fn(crate::domain::selection::NavDir, bool) -> Message + 'a) -> Self {
+        self.on_nav = Some(Box::new(f));
         self
     }
 
@@ -282,12 +306,12 @@ pub fn view<'a>(
     _config: &crate::config::HexEditorConfig,
 ) -> iced::Element<'a, crate::HexEditorMessage> {
     use crate::domain::provider::HexProvider;
-    use iced::widget::container;
-    use iced::Fill;
+    use iced::widget::{button, column, container, row, text};
+    use iced::{Fill, Font};
 
     let Some(ref cf) = state.comparison_file else {
         return container(
-            iced::widget::text("No comparison file loaded. Right-click to select one.")
+            text("No comparison file loaded. Right-click to select one.")
                 .size(11),
         )
         .width(Fill)
@@ -296,6 +320,29 @@ pub fn view<'a>(
         .center_y(Fill)
         .into();
     };
+
+    // ── Diff header bar with close button ──
+    let close_btn = button(
+        row![
+            text("✕").size(12).font(Font::MONOSPACE),
+            text(" Close Diff").size(11).font(Font::MONOSPACE),
+        ]
+        .spacing(2)
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([2, 8])
+    .on_press(crate::HexEditorMessage::CloseComparison);
+
+    let comparison_name = text(&cf.name).size(11).font(Font::MONOSPACE);
+    let header = container(
+        row![
+            comparison_name,
+            container(close_btn).width(Fill).align_x(iced::alignment::Horizontal::Right),
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([4, 12]);
 
     // Compute zebra-striping for patterns (same logic as matrix_content).
     let mut alternate_patterns = BSet::new();
@@ -323,7 +370,7 @@ pub fn view<'a>(
         state.selection
     };
 
-    DiffView::new(
+    let diff_view: iced::Element<'a, crate::HexEditorMessage> = DiffView::new(
         state.provider.as_slice(),
         &cf.data,
         state.bytes_per_row,
@@ -343,7 +390,12 @@ pub fn view<'a>(
         state.theme,
     )
     .on_select_at(crate::HexEditorMessage::DiffAddrSelected)
-    .into()
+    .on_extend_to(crate::HexEditorMessage::ExtendTo)
+    .on_right_click(crate::HexEditorMessage::RightClickAt)
+    .on_nav(|dir, extend| crate::HexEditorMessage::Nav { dir, extend })
+    .into();
+
+    column![header, diff_view].spacing(0).width(Fill).height(Fill).into()
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────
@@ -355,56 +407,236 @@ mod tests {
     use gui_widgets::components::paragraph_cache::ParagraphCache;
 
     use super::layout::*;
+    use super::draw::col_at_x;
 
     fn sel() -> crate::domain::selection::Selection {
         crate::domain::selection::Selection::default()
     }
 
-    #[test]
-    fn empty_buffers_yield_zero_rows() {
-        let pats: BTreeMap<u64, (usize, u8)> = BTreeMap::new();
-        let ann: BTreeMap<u64, Vec<(usize, String)>> = BTreeMap::new();
-        let diff = BTreeSet::new();
-        let search = BTreeSet::new();
-        let active = BTreeSet::new();
-        let dv = super::DiffView::<()>::new(
-            &[], &[], 16, sel(), &diff, &pats, &search, 0, None, &[], &ann, &active,
+    fn empty_set() -> BTreeSet<u64> { BTreeSet::new() }
+    fn empty_map() -> BTreeMap<u64, (usize, u8)> { BTreeMap::new() }
+    fn empty_ann() -> BTreeMap<u64, Vec<(usize, String)>> { BTreeMap::new() }
+    fn empty_active() -> BTreeSet<usize> { BTreeSet::new() }
+
+    /// Construct a minimal DiffView for tests. All non-essential buffers
+    /// reference static empty collections.
+    fn minimal_dv<'a>(a: &'a [u8], b: &'a [u8], bpr: u8) -> super::DiffView<'a, ()> {
+        static EMPTY_SET: BTreeSet<u64> = BTreeSet::new();
+        static EMPTY_MAP: BTreeMap<u64, (usize, u8)> = BTreeMap::new();
+        static EMPTY_ANN: BTreeMap<u64, Vec<(usize, String)>> = BTreeMap::new();
+        static EMPTY_ACTIVE: BTreeSet<usize> = BTreeSet::new();
+        super::DiffView::new(
+            a, b, bpr, sel(),
+            &EMPTY_SET, &EMPTY_MAP, &EMPTY_SET,
+            0, None, &[], &EMPTY_ANN, &EMPTY_ACTIVE,
             BTreeSet::new(), ParagraphCache::default(),
             crate::coloring::ColorScheme::Monochrome, false,
             &crate::ui::theme::DARK_THEME,
-        );
+        )
+    }
+
+    // ── Constructor / geometry ─────────────────────────────────────────
+
+    #[test]
+    fn empty_buffers_yield_zero_rows() {
+        let dv = minimal_dv(&[], &[], 16);
         assert_eq!(dv.total_rows(), 0);
     }
 
     #[test]
     fn total_rows_computed_from_longer_buffer() {
-        let pats: BTreeMap<u64, (usize, u8)> = BTreeMap::new();
-        let ann: BTreeMap<u64, Vec<(usize, String)>> = BTreeMap::new();
-        let diff = BTreeSet::new();
-        let search = BTreeSet::new();
-        let active = BTreeSet::new();
-        let dv = super::DiffView::<()>::new(
-            &[0u8; 32], &[0u8; 48], 16, sel(), &diff, &pats, &search, 0, None, &[], &ann, &active,
-            BTreeSet::new(), ParagraphCache::default(),
-            crate::coloring::ColorScheme::Monochrome, false,
-            &crate::ui::theme::DARK_THEME,
-        );
+        let dv = minimal_dv(&[0u8; 32], &[0u8; 48], 16);
         assert_eq!(dv.total_rows(), 3);
     }
 
     #[test]
     fn right_strip_is_scrollbar_only() {
-        let pats: BTreeMap<u64, (usize, u8)> = BTreeMap::new();
-        let ann: BTreeMap<u64, Vec<(usize, String)>> = BTreeMap::new();
-        let diff = BTreeSet::new();
-        let search = BTreeSet::new();
-        let active = BTreeSet::new();
-        let dv = super::DiffView::<()>::new(
-            &[0u8; 16], &[0u8; 16], 16, sel(), &diff, &pats, &search, 0, None, &[], &ann, &active,
-            BTreeSet::new(), ParagraphCache::default(),
-            crate::coloring::ColorScheme::Monochrome, false,
-            &crate::ui::theme::DARK_THEME,
-        );
+        let dv = minimal_dv(&[0u8; 16], &[0u8; 16], 16);
         assert_eq!(dv.right_strip(), SCROLLBAR_THICKNESS);
+    }
+
+    // ── Builder methods ────────────────────────────────────────────────
+
+    #[test]
+    fn builder_on_right_click_sets_callback() {
+        let called = std::cell::Cell::new(None);
+        let dv = minimal_dv(&[0], &[0], 16)
+            .on_right_click(|addr| { called.set(Some(addr)); () });
+        let cb = dv.on_right_click.as_ref().unwrap();
+        cb(42);
+        assert_eq!(called.get(), Some(42));
+    }
+
+    #[test]
+    fn builder_on_extend_to_sets_callback() {
+        let called = std::cell::Cell::new(None);
+        let dv = minimal_dv(&[0], &[0], 16)
+            .on_extend_to(|addr| { called.set(Some(addr)); () });
+        let cb = dv.on_extend_to.as_ref().unwrap();
+        cb(99);
+        assert_eq!(called.get(), Some(99));
+    }
+
+    #[test]
+    fn builder_on_nav_sets_callback() {
+        // NavDir does not implement PartialEq, so verify invocation by flag
+        let called = std::cell::Cell::new(false);
+        let dv = minimal_dv(&[0], &[0], 16)
+            .on_nav(|_, _| { called.set(true); () });
+        let cb = dv.on_nav.as_ref().unwrap();
+        cb(crate::domain::selection::NavDir::Right, true);
+        assert!(called.get(), "on_nav callback should have been invoked");
+    }
+
+    #[test]
+    fn builder_show_decimal_sets_flag() {
+        let dv = minimal_dv(&[0], &[0], 16).show_decimal(true);
+        assert!(dv.show_decimal);
+
+        let dv = minimal_dv(&[0], &[0], 16).show_decimal(false);
+        assert!(!dv.show_decimal);
+    }
+
+    // ── col_at_x coordinate mapping ─────────────────────────────────────
+    //
+    // Layout for bpr=16:
+    //   [ADDR=88] [hex_A (16*18 + gaps)] [ascii_A (16*9)] [MID_GAP=18]
+    //   [hex_B (16*18 + gaps)] [ascii_B (16*9)] [ANN gap]
+
+    fn hex_a_start() -> f32 {
+        baseline_hex_start(ADDR_COL_WIDTH)
+    }
+
+    fn ascii_a_start() -> f32 {
+        baseline_ascii_start(ADDR_COL_WIDTH, 16)
+    }
+
+    fn comp_hex_start() -> f32 {
+        comparison_hex_start(ADDR_COL_WIDTH, 16)
+    }
+
+    fn comp_ascii_start() -> f32 {
+        comparison_ascii_start(ADDR_COL_WIDTH, 16)
+    }
+
+    #[test]
+    fn col_at_x_baseline_hex_first_byte() {
+        let x = hex_a_start() + 2.0;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 0);
+        assert!(is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_baseline_hex_tenth_byte() {
+        let x = hex_a_start() + 10.0 * HEX_CELL_WIDTH + GROUP_GAP;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 10);
+        assert!(is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_baseline_ascii_first_byte() {
+        let x = ascii_a_start() + 2.0;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 0);
+        assert!(is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_baseline_ascii_last_byte() {
+        let x = ascii_a_start() + 15.0 * ASCII_CELL_WIDTH + 1.0;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 15);
+        assert!(is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_comparison_hex_first_byte() {
+        let x = comp_hex_start() + 2.0;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 0);
+        assert!(!is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_comparison_ascii_middle_byte() {
+        let x = comp_ascii_start() + 7.0 * ASCII_CELL_WIDTH + 1.0;
+        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        assert_eq!(col, 7);
+        assert!(!is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_address_gutter_returns_none() {
+        let x = ADDR_COL_WIDTH - 4.0;
+        assert!(col_at_x(x, 16).is_none());
+    }
+
+    #[test]
+    fn col_at_x_mid_gap_returns_none() {
+        let x = ascii_a_start() + 16.0 * ASCII_CELL_WIDTH + 2.0;
+        assert!(col_at_x(x, 16).is_none());
+    }
+
+    #[test]
+    fn col_at_x_beyond_ascii_b_returns_none() {
+        let x = comp_ascii_start() + 16.0 * ASCII_CELL_WIDTH + 20.0;
+        assert!(col_at_x(x, 16).is_none());
+    }
+
+    #[test]
+    fn col_at_x_bpr_8_baseline() {
+        let x = baseline_hex_start(ADDR_COL_WIDTH) + 3.0 * HEX_CELL_WIDTH;
+        let (col, is_baseline) = col_at_x(x, 8).unwrap();
+        assert_eq!(col, 3);
+        assert!(is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_bpr_32_comparison() {
+        let x = comparison_hex_start(ADDR_COL_WIDTH, 32) + 25.0 * HEX_CELL_WIDTH + 3.0 * GROUP_GAP;
+        let (col, is_baseline) = col_at_x(x, 32).unwrap();
+        assert_eq!(col, 25);
+        assert!(!is_baseline);
+    }
+
+    // ── Diff-specific layout functions ──────────────────────────────────
+
+    #[test]
+    fn diff_total_content_width_no_annotations() {
+        let side_a = ADDR_COL_WIDTH
+            + 16.0 * HEX_CELL_WIDTH + 1.0 * GROUP_GAP + COLUMN_GAP + 16.0 * ASCII_CELL_WIDTH;
+        let side_b = 16.0 * HEX_CELL_WIDTH + 1.0 * GROUP_GAP + COLUMN_GAP + 16.0 * ASCII_CELL_WIDTH;
+        let expected = side_a + MID_GAP + side_b;
+        assert_eq!(total_content_width(16, false), expected);
+    }
+
+    #[test]
+    fn diff_total_content_width_with_annotations() {
+        let without_ann = total_content_width(16, false);
+        let with_ann = total_content_width(16, true);
+        assert_eq!(with_ann - without_ann, ANN_COL_GAP + MAX_ANN_COL_WIDTH);
+    }
+
+    #[test]
+    fn diff_layout_column_starts_are_monotonic() {
+        let bpr = 16;
+        let hex_a = baseline_hex_start(ADDR_COL_WIDTH);
+        let ascii_a = baseline_ascii_start(ADDR_COL_WIDTH, bpr);
+        let comp_hex = comparison_hex_start(ADDR_COL_WIDTH, bpr);
+        let comp_ascii = comparison_ascii_start(ADDR_COL_WIDTH, bpr);
+        assert!(hex_a < ascii_a, "hex_a before ascii_a");
+        assert!(ascii_a < comp_hex, "ascii_a before comp_hex");
+        assert!(comp_hex < comp_ascii, "comp_hex before comp_ascii");
+    }
+
+    // ── State defaults ──────────────────────────────────────────────────
+
+    #[test]
+    fn state_dragging_cursor_starts_false() {
+        use super::state::State;
+        let s = State::default();
+        assert!(!s.dragging_cursor);
     }
 }

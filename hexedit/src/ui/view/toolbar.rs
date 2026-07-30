@@ -73,6 +73,26 @@ pub fn build_toolbar<'a>(
             .padding([3, 10])
             .on_press(HexEditorMessage::LoadComparisonFile)
     };
+    // Diff chunk navigation buttons (◀ ▶), visible when comparison loaded.
+    let nav_prev_btn = if has_comparison {
+        button(text("◀").size(11).font(Font::MONOSPACE))
+            .padding([3, 6])
+            .on_press(HexEditorMessage::DiffNavPrev)
+    } else {
+        button(text("◀").size(11).font(Font::MONOSPACE))
+            .padding([3, 6])
+            .style(button::secondary)
+    };
+    let nav_next_btn = if has_comparison {
+        button(text("▶").size(11).font(Font::MONOSPACE))
+            .padding([3, 6])
+            .on_press(HexEditorMessage::DiffNavNext)
+    } else {
+        button(text("▶").size(11).font(Font::MONOSPACE))
+            .padding([3, 6])
+            .style(button::secondary)
+    };
+
     let diff_review_btn = if has_comparison {
         let label = if editor.diff_review { "Full View" } else { "Show Diffs Only" };
         button(text(label).size(11).font(Font::MONOSPACE))
@@ -125,6 +145,8 @@ pub fn build_toolbar<'a>(
             patterns_btn,
             stats_btn,
             diff_btn,
+            nav_prev_btn,
+            nav_next_btn,
             diff_review_btn,
             export_btn,
             settings_btn,

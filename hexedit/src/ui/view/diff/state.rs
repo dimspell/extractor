@@ -19,4 +19,6 @@ pub struct State {
     pub dragging_scrollbar_x: bool,
     /// Tracks whether cursor is over either scrollbar.
     pub hovering_scrollbar: Cell<bool>,
+    /// True while dragging the mouse to extend a selection range.
+    pub dragging_cursor: bool,
 }
