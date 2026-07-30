@@ -62,6 +62,28 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::ToggleStats);
 
+    // Diff / comparison button.
+    let has_comparison = editor.comparison_file.is_some();
+    let diff_btn = if has_comparison {
+        button(text("Close Diff").size(11).font(Font::MONOSPACE))
+            .padding([3, 10])
+            .on_press(HexEditorMessage::CloseComparison)
+    } else {
+        button(text("Diff Against…").size(11).font(Font::MONOSPACE))
+            .padding([3, 10])
+            .on_press(HexEditorMessage::LoadComparisonFile)
+    };
+    let diff_review_btn = if has_comparison {
+        let label = if editor.diff_review { "Full View" } else { "Show Diffs Only" };
+        button(text(label).size(11).font(Font::MONOSPACE))
+            .padding([3, 10])
+            .on_press(HexEditorMessage::ToggleDiffReview)
+    } else {
+        button(text("Show Diffs Only").size(11).font(Font::MONOSPACE))
+            .padding([3, 10])
+            .style(button::secondary)
+    };
+
     let export_btn = button(text("Export TXT").size(11).font(Font::MONOSPACE))
         .padding([3, 10])
         .on_press(HexEditorMessage::OpenExportConfig);
@@ -102,6 +124,8 @@ pub fn build_toolbar<'a>(
             inspector_btn,
             patterns_btn,
             stats_btn,
+            diff_btn,
+            diff_review_btn,
             export_btn,
             settings_btn,
             row![
