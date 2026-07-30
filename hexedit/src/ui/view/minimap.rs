@@ -168,7 +168,10 @@ pub fn compute_block_pixels(h_px: u32, ctx: &BlockContext) -> [Vec<Color>; 4] {
     ];
 
     for block_idx in 0..total_blocks as usize {
-        let start = (block_idx as u64).saturating_mul(stride).min(ctx.total_len);
+        let start = (block_idx as u64)
+            .saturating_mul(stride)
+            .min(ctx.total_len)
+            .min(ctx.bytes.len() as u64);
         let end = ((block_idx as u64 + 1).saturating_mul(stride))
             .min(ctx.total_len)
             .min(ctx.bytes.len() as u64);

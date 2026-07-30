@@ -3,6 +3,8 @@
 //! Inspired by the matrix's `draw.rs` but adapted for two byte sources with
 //! a shared address column and diff-coloured cells on both sides.
 
+use std::collections::BTreeSet;
+
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::Layout;
 use iced::advanced::renderer;
@@ -14,6 +16,7 @@ use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 use crate::coloring::{default_byte_colors, ColorScheme};
+use crate::ui::view::minimap;
 use crate::ui::theme::HexEditorTheme;
 
 use super::layout::{
@@ -258,6 +261,60 @@ pub fn draw_diff_view<'a, Message>(
                 }
             }
         }
+    }
+
+    // ── Minimap overview strip (between content and scrollbar) ──────────
+    let needs_vscroll = total_h > viewport_h;
+    if needs_vscroll && widget.show_minimap {
+        let total_len = total_bytes as u64;
+        let h_px = viewport_h.max(1.0) as u32;
+        let empty_dirty = BTreeSet::new();
+        let ctx = minimap::BlockContext {
+            bytes: widget.baseline_bytes,
+            total_len,
+            pattern_by_addr: widget.patterns,
+            alternate_patterns: &widget.alternate_patterns,
+            dirty: &empty_dirty,
+            vanilla_diff: widget.diff,
+            color_scheme: widget.color_scheme,
+            dim_nulls: widget.dim_nulls,
+            theme: widget.theme,
+        };
+        let mut cache = state.minimap_cache.borrow_mut();
+        let needs_recompute = match &*cache {
+            Some(c) => !minimap::minimap_cache_valid(c, h_px, &ctx),
+            None => true,
+        };
+        if needs_recompute {
+            let cols = minimap::compute_block_pixels(h_px, &ctx);
+            *cache = Some(minimap::MinimapCache {
+                columns: cols,
+                total_len,
+                h_px,
+                color_scheme: widget.color_scheme,
+                dim_nulls: widget.dim_nulls,
+                pattern_hash: minimap::pattern_hash(widget.patterns),
+                dirty_fingerprint: minimap::set_fingerprint(&empty_dirty),
+                diff_fingerprint: minimap::set_fingerprint(widget.diff),
+                content_ptr: widget.baseline_bytes.as_ptr() as usize,
+            });
+        }
+        let columns = &cache.as_ref().unwrap().columns;
+
+        minimap::draw_minimap(
+            renderer,
+            content_bounds,
+            scroll,
+            total_h,
+            viewport_h,
+            SCROLLBAR_THICKNESS,
+            columns,
+            widget.selection.start(),
+            widget.selection.end(),
+            widget.selection.cursor,
+            total_len,
+            widget.theme,
+        );
     }
 
     // ── Scrollbars ──────────────────────────────────────────────────────

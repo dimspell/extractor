@@ -4,7 +4,9 @@ use iced::advanced::layout::Layout;
 use iced::advanced::Shell;
 use iced::keyboard::{self, key};
 use iced::mouse;
-use iced::Event;
+use iced::{Event, Rectangle};
+
+use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
 use super::draw;
 use super::layout::{self, clamp_scroll, ROW_HEIGHT, SCROLLBAR_THICKNESS};
@@ -151,6 +153,33 @@ pub fn handle_event<Message>(
                     return;
                 }
 
+                // ── Minimap click / drag ──
+                let has_vscroll = total_h > viewport_h;
+                if widget.show_minimap && has_vscroll {
+                    let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
+                    let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    if mm_rect.contains(pos) {
+                        let thumb_r = minimap::minimap_thumb_rect(
+                            mm_rect,
+                            state.scroll_offset.get(),
+                            total_h,
+                            viewport_h,
+                        );
+                        if thumb_r.contains(pos) {
+                            state.dragging_minimap = true;
+                            state.drag_start_minimap_y = pos.y;
+                            state.drag_start_minimap_scroll = state.scroll_offset.get();
+                        } else {
+                            let new_scroll =
+                                minimap::minimap_scroll_from_y(pos.y, mm_rect, total_h, viewport_h);
+                            let clamped = clamp_scroll(new_scroll, total_h, viewport_h);
+                            state.scroll_offset.set(clamped);
+                        }
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
                 // ── Click in data area → set cursor ──
                 if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
                     let scroll = state.scroll_offset.get();
@@ -204,6 +233,7 @@ pub fn handle_event<Message>(
                 state.dragging_scrollbar = false;
                 state.dragging_scrollbar_x = false;
                 state.dragging_cursor = false;
+                state.dragging_minimap = false;
                 shell.capture_event();
             }
 
@@ -259,6 +289,36 @@ pub fn handle_event<Message>(
                                 shell.capture_event();
                                 return;
                             }
+                        }
+                    }
+                }
+
+                // ── Minimap drag continuation ──
+                if state.dragging_minimap {
+                    if let Some(p) = cursor.position() {
+                        let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
+                        let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                        let dy = p.y - state.drag_start_minimap_y;
+                        let new = state.drag_start_minimap_scroll
+                            + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
+                        state
+                            .scroll_offset
+                            .set(clamp_scroll(new, total_h, viewport_h));
+                        shell.request_redraw();
+                        shell.capture_event();
+                        return;
+                    }
+                }
+
+                // ── Hover over minimap ──
+                if widget.show_minimap && total_h > viewport_h {
+                    let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
+                    let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    if let Some(p) = cursor.position() {
+                        let now_mm = mm_rect.contains(p);
+                        if now_mm != state.hovering_minimap.get() {
+                            state.hovering_minimap.set(now_mm);
+                            shell.request_redraw();
                         }
                     }
                 }

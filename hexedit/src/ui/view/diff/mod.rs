@@ -34,6 +34,7 @@ use crate::ui::theme::HexEditorTheme;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
 use self::layout::{HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS};
+use super::minimap;
 
 /// A virtualized side-by-side binary diff widget.
 ///
@@ -72,6 +73,7 @@ pub struct DiffView<'a, Message> {
     pub(super) dim_nulls: bool,
     pub(super) show_decimal: bool,
     pub(super) diff_review: bool,
+    pub(super) show_minimap: bool,
     pub(super) theme: &'static HexEditorTheme,
 
     // ── Rendering ──────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ impl<'a, Message> DiffView<'a, Message> {
             dim_nulls,
             show_decimal: false,
             diff_review: false,
+            show_minimap: false,
             cache,
             width: Length::Fill,
             height: Length::Fill,
@@ -185,6 +188,12 @@ impl<'a, Message> DiffView<'a, Message> {
     /// bytes between the two buffers.
     pub fn diff_review(mut self, v: bool) -> Self {
         self.diff_review = v;
+        self
+    }
+
+    /// Show/hide the minimap overview strip.
+    pub fn show_minimap(mut self, v: bool) -> Self {
+        self.show_minimap = v;
         self
     }
 
@@ -240,8 +249,11 @@ impl<'a, Message> DiffView<'a, Message> {
     }
 
     pub(super) fn right_strip(&self) -> f32 {
-        // No minimap in diff view, just scrollbar.
-        SCROLLBAR_THICKNESS
+        if self.show_minimap {
+            SCROLLBAR_THICKNESS + minimap::MINIMAP_WIDTH
+        } else {
+            SCROLLBAR_THICKNESS
+        }
     }
 
     /// Whether the row starting at `base_addr` contains any differing bytes.
@@ -443,6 +455,7 @@ pub fn view<'a>(
     .on_diff_nav_prev(|| crate::HexEditorMessage::DiffNavPrev)
     .center_on(state.pending_center_on.take())
     .diff_review(state.diff_review)
+    .show_minimap(state.show_minimap)
     .into();
 
     column![header, diff_view].spacing(0).width(Fill).height(Fill).into()
