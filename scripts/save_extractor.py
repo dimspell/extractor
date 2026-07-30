@@ -112,7 +112,7 @@ def parse_monster_record(data: bytes) -> dict:
     return {
         "signature_a": read_u32(data, 0),
         "record_index": read_u32(data, 4),
-        "signature_b": read_u32(data, 8),
+        "sprite_frame_id": read_u32(data, 8),
         "name": read_cstr(data, 12, 24).strip(),
         "hp_current": read_u16(data, 36),
         "hp_maximum": read_u16(data, 38),

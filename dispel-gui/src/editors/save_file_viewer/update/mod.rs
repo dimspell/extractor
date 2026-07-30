@@ -1273,7 +1273,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                         vec![
                                             m.monster_state.to_string(),
                                             m.record_index.to_string(),
-                                            m.signature_b.to_string(),
+                                            m.sprite_frame_id.to_string(),
                                             m.name.clone(),
                                             m.monster_db_id.to_string(),
                                             m.hp_current.to_string(),

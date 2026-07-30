@@ -88,7 +88,7 @@ impl MapsTableKind {
             Monsters => &[
                 ("monster_state", 60.0),
                 ("record_index", 60.0),
-                ("signature_b", 60.0),
+                ("sprite_frame_id", 60.0),
                 ("name", 160.0),
                 ("monster_db_id", 60.0),
                 ("hp_current", 60.0),

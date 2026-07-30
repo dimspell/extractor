@@ -15,7 +15,7 @@ use super::extractor::{read_null_terminated_windows_1250, Extractor};
 pub struct MonsterRecord {
     pub monster_state: u32, // 0 = alive, 1 = ???, 8 = dead
     pub record_index: u32,
-    pub signature_b: u32,
+    pub sprite_frame_id: u32,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
     pub name: String,
     pub monster_db_id: u32,
