@@ -126,7 +126,6 @@ pub fn clamp_scroll(scroll: f32, total_h: f32, viewport_h: f32) -> f32 {
 }
 
 /// Compute the scroll offset that centres `addr` in the viewport.
-#[allow(dead_code)]
 pub fn center_scroll_on(
     current_scroll: f32,
     addr: u64,

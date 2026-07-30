@@ -108,6 +108,18 @@ pub fn draw_diff_view<'a, Message>(
     let sel_range = widget.selection.range();
     let cursor_addr = widget.selection.cursor;
 
+    // ── Center-on-scroll request (one-shot, set by ◀▶ nav buttons) ──
+    if let Some(addr) = widget.pending_center_on.take() {
+        let scroll = layout::center_scroll_on(
+            state.scroll_offset.get(),
+            addr,
+            bpr64,
+            viewport_h.max(1.0),
+            total_h,
+        );
+        state.scroll_offset.set(scroll);
+    }
+
     let scroll = state.scroll_offset.get();
     let adj_addr_col_w = ADDR_COL_WIDTH;
 
@@ -138,6 +150,12 @@ pub fn draw_diff_view<'a, Message>(
     // ── Data rows ──────────────────────────────────────────────────────
     for row_idx in visible.clone() {
         let base_addr = row_idx as u64 * bpr64;
+
+        // "Show Diffs Only" — skip rows with zero differing bytes.
+        if widget.diff_review && !widget.row_has_diff(base_addr) {
+            continue;
+        }
+
         let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
         // ── Address gutter ─────────────────────────────────────────────

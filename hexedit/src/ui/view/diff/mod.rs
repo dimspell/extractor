@@ -19,6 +19,7 @@ mod event;
 mod layout;
 mod state;
 
+use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
 use iced::advanced::layout::{Limits, Node};
@@ -70,12 +71,16 @@ pub struct DiffView<'a, Message> {
     pub(super) color_scheme: ColorScheme,
     pub(super) dim_nulls: bool,
     pub(super) show_decimal: bool,
+    pub(super) diff_review: bool,
     pub(super) theme: &'static HexEditorTheme,
 
     // ── Rendering ──────────────────────────────────────────────────────
     pub(super) cache: ParagraphCache,
     pub(super) width: Length,
     pub(super) height: Length,
+
+    /// One-shot center-on request consumed by the draw method.
+    pub(super) pending_center_on: Cell<Option<u64>>,
 
     // ── Callbacks ──────────────────────────────────────────────────────
     /// Called when the user clicks/navigates to a byte address.
@@ -86,6 +91,10 @@ pub struct DiffView<'a, Message> {
     pub(super) on_extend_to: Option<Box<dyn Fn(u64) -> Message + 'a>>,
     /// Called on arrow/navigation key (dir, extend).
     pub(super) on_nav: Option<Box<dyn Fn(crate::domain::selection::NavDir, bool) -> Message + 'a>>,
+    /// Called on Ctrl+Down → jump to next diff chunk.
+    pub(super) on_diff_nav_next: Option<Box<dyn Fn() -> Message + 'a>>,
+    /// Called on Ctrl+Up → jump to previous diff chunk.
+    pub(super) on_diff_nav_prev: Option<Box<dyn Fn() -> Message + 'a>>,
 }
 
 // ── Constructor ─────────────────────────────────────────────────────────
@@ -128,13 +137,17 @@ impl<'a, Message> DiffView<'a, Message> {
             color_scheme,
             dim_nulls,
             show_decimal: false,
+            diff_review: false,
             cache,
             width: Length::Fill,
             height: Length::Fill,
+            pending_center_on: Cell::new(None),
             on_select_at: None,
             on_right_click: None,
             on_extend_to: None,
             on_nav: None,
+            on_diff_nav_next: None,
+            on_diff_nav_prev: None,
             theme,
         }
     }
@@ -165,6 +178,30 @@ impl<'a, Message> DiffView<'a, Message> {
 
     pub fn show_decimal(mut self, v: bool) -> Self {
         self.show_decimal = v;
+        self
+    }
+
+    /// Enable "Show Diffs Only" mode — hides rows that have zero differing
+    /// bytes between the two buffers.
+    pub fn diff_review(mut self, v: bool) -> Self {
+        self.diff_review = v;
+        self
+    }
+
+    /// Ctrl+Down → jump to next diff chunk.
+    pub fn on_diff_nav_next(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_diff_nav_next = Some(Box::new(f));
+        self
+    }
+
+    /// Ctrl+Up → jump to previous diff chunk.
+    pub fn on_diff_nav_prev(mut self, f: impl Fn() -> Message + 'a) -> Self {
+        self.on_diff_nav_prev = Some(Box::new(f));
+        self
+    }
+
+    pub fn center_on(self, addr: Option<u64>) -> Self {
+        self.pending_center_on.set(addr);
         self
     }
 }
@@ -205,6 +242,15 @@ impl<'a, Message> DiffView<'a, Message> {
     pub(super) fn right_strip(&self) -> f32 {
         // No minimap in diff view, just scrollbar.
         SCROLLBAR_THICKNESS
+    }
+
+    /// Whether the row starting at `base_addr` contains any differing bytes.
+    pub(super) fn row_has_diff(&self, base_addr: u64) -> bool {
+        let bpr = self.bytes_per_row as u64;
+        self.diff
+            .range(base_addr..base_addr + bpr)
+            .next()
+            .is_some()
     }
 }
 
@@ -393,6 +439,10 @@ pub fn view<'a>(
     .on_extend_to(crate::HexEditorMessage::ExtendTo)
     .on_right_click(crate::HexEditorMessage::RightClickAt)
     .on_nav(|dir, extend| crate::HexEditorMessage::Nav { dir, extend })
+    .on_diff_nav_next(|| crate::HexEditorMessage::DiffNavNext)
+    .on_diff_nav_prev(|| crate::HexEditorMessage::DiffNavPrev)
+    .center_on(state.pending_center_on.take())
+    .diff_review(state.diff_review)
     .into();
 
     column![header, diff_view].spacing(0).width(Fill).height(Fill).into()

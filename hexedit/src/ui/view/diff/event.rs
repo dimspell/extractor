@@ -348,6 +348,25 @@ fn handle_keyboard_event<Message>(
             shell.capture_event();
             return;
         }
+
+        // Ctrl+Down → next diff chunk.
+        if matches!(key, keyboard::Key::Named(key::Named::ArrowDown)) {
+            if let Some(cb) = &widget.on_diff_nav_next {
+                shell.publish(cb());
+                shell.request_redraw();
+                shell.capture_event();
+                return;
+            }
+        }
+        // Ctrl+Up → previous diff chunk.
+        if matches!(key, keyboard::Key::Named(key::Named::ArrowUp)) {
+            if let Some(cb) = &widget.on_diff_nav_prev {
+                shell.publish(cb());
+                shell.request_redraw();
+                shell.capture_event();
+                return;
+            }
+        }
     }
 
     let dir = match key {
