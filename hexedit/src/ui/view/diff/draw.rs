@@ -246,7 +246,7 @@ pub fn draw_diff_view<'a, Message>(
     draw_vscrollbar(
         renderer, bounds, scroll, total_h, viewport_h,
         state.hovering_scrollbar.get(),
-        &widget.search_match_starts, cursor_addr, total_bytes as u64,
+        widget.search_match_starts, cursor_addr, total_bytes as u64,
         widget.theme,
     );
     let content_w = layout::total_content_width(bpr, !widget.row_annotations.is_empty());
@@ -386,6 +386,7 @@ fn render_byte_cell<Message>(
 
 // ── Column headers ───────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn draw_column_headers(
     renderer: &mut iced::Renderer,
     cache: &ParagraphCache,
@@ -502,6 +503,7 @@ fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
     Rectangle { x: track.x + 1.0, y, width: track.width - 2.0, height: h }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_vscrollbar(
     renderer: &mut iced::Renderer,
     bounds: Rectangle,

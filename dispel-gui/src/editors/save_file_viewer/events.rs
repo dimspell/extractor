@@ -25,7 +25,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
     let ts = &state.events_table_state;
     let paragraph_cache = state.paragraph_cache.clone();
-    let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+    let is_resizing = state.resizing.as_ref().is_some_and(|d| {
         matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Events)
     });
     let filter = &ts.filter;

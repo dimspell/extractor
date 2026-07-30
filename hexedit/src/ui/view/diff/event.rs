@@ -165,7 +165,6 @@ pub fn handle_event<Message>(
                                 shell.request_redraw();
                                 shell.capture_event();
                             }
-                            return;
                         }
                     }
                 }

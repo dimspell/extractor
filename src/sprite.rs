@@ -724,7 +724,7 @@ pub fn parse_sprite_bytes(bytes: &[u8]) -> Result<SpriteFile> {
 
     while offset + 60 <= scan_end {
         // Read 15 consecutive i32 values (60 bytes) for sequence detection.
-        let ints = read_15_i32s(&bytes, offset);
+        let ints = read_15_i32s(bytes, offset);
 
         let valid = is_valid_sequence_header(&ints);
         if !valid {

@@ -885,9 +885,8 @@ impl SaveFile {
         ];
 
         let mut map_ids = vec![0u32; num_visited_maps as usize];
-        for i in 0..num_visited_maps as usize {
-            let map_id = reader.read_u32::<LittleEndian>()?;
-            map_ids[i] = map_id;
+        for map_id in &mut map_ids {
+            *map_id = reader.read_u32::<LittleEndian>()?;
         }
 
         let unknown_c = [
@@ -945,6 +944,7 @@ impl SaveFile {
     ///    [archery_lv u8][archery_kills u16][polearm_lv u8][polearm_kills u16]
     ///    [magic_lv u8][magic_kills u16][holy_lv u8][holy_kills u16]
     ///    [dark_lv u8][dark_kills u16][unknown: 9B]`
+    #[allow(clippy::type_complexity)]
     fn parse_character_stats<R: Read>(
         reader: &mut R,
     ) -> std::io::Result<(Vec<u8>, i16, i16, Vec<u8>, CharacterStats, Vec<u8>)> {

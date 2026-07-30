@@ -317,8 +317,8 @@ pub fn view<'a>(
     let max_addr = total_bytes.saturating_sub(1);
 
     // Clamp selection cursor to within the longer buffer.
-    let clamped_sel = if state.selection.cursor > max_addr as u64 {
-        crate::domain::selection::Selection::single(max_addr as u64)
+    let clamped_sel = if state.selection.cursor > max_addr {
+        crate::domain::selection::Selection::single(max_addr)
     } else {
         state.selection
     };
@@ -342,7 +342,7 @@ pub fn view<'a>(
         state.dim_nulls,
         state.theme,
     )
-    .on_select_at(move |addr| crate::HexEditorMessage::DiffAddrSelected(addr))
+    .on_select_at(crate::HexEditorMessage::DiffAddrSelected)
     .into()
 }
 

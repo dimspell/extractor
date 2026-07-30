@@ -19,7 +19,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .push(section_header("Player Identity"))
             .push(label_row("Player Name", &identity.player_name))
             .push(label_row("Class Name", &identity.player_class_name))
-            .push(label_row("Class ID", &identity.player_class_id.to_string()))
+            .push(label_row("Class ID", identity.player_class_id.to_string()))
             .push(
                 Column::new()
                     .spacing(4)

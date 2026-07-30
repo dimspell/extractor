@@ -69,7 +69,7 @@ fn inventory_table<'a>(
     cat: InventoryCategory,
 ) -> Element<'a, Message> {
     let ts = state.inventory_table_states.get(&cat);
-    let is_resizing = state.resizing.as_ref().map_or(false, |d| {
+    let is_resizing = state.resizing.as_ref().is_some_and(|d| {
         matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Inventory(c) if c == cat)
     });
 

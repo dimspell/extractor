@@ -44,7 +44,7 @@ fn find_closest_marker(state: &MapPreviewState, cx: f32, cy: f32) -> Option<usiz
         let tile_cy = py + TILE_H * zoom * 0.5;
 
         let d2 = (cx - tile_cx).powi(2) + (cy - tile_cy).powi(2);
-        if d2 < r2 && best.as_ref().map_or(true, |(bd, _)| d2 < *bd) {
+        if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
             best = Some((d2, i));
         }
     }
