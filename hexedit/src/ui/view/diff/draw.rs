@@ -318,10 +318,23 @@ pub fn draw_diff_view<'a, Message>(
     }
 
     // ── Scrollbars ──────────────────────────────────────────────────────
+    // Bucket diff addresses to row-level to avoid rendering one marker per
+    // differing byte (which can be tens of thousands for large diffs).
+    let mut diff_rows: Vec<u64> = Vec::new();
+    if !widget.diff.is_empty() {
+        let mut prev_row = u64::MAX;
+        for &addr in widget.diff {
+            let row = addr / bpr as u64;
+            if row != prev_row {
+                prev_row = row;
+                diff_rows.push(row * bpr as u64);
+            }
+        }
+    }
     draw_vscrollbar(
         renderer, bounds, scroll, total_h, viewport_h,
         state.hovering_scrollbar.get(),
-        widget.search_match_starts, cursor_addr, total_bytes as u64,
+        widget.search_match_starts, &diff_rows, cursor_addr, total_bytes as u64,
         widget.theme,
     );
     let content_w = layout::total_content_width(bpr, !widget.row_annotations.is_empty());
@@ -587,6 +600,7 @@ fn draw_vscrollbar(
     viewport_h: f32,
     active: bool,
     search_match_starts: &[u64],
+    diff_markers: &[u64],
     cursor_addr: u64,
     total_len: u64,
     theme: &HexEditorTheme,
@@ -600,6 +614,27 @@ fn draw_vscrollbar(
     );
     let thumb_color = if active { theme.scrollbar_thumb_hover } else { theme.scrollbar_thumb };
 
+    // ── Diff markers (skip overlapping ones) ──
+    let mut last_y: Option<f32> = None;
+    for &diff_addr in diff_markers {
+        let my = scrollbar_y_frac(diff_addr, total_len, track);
+        if last_y.map_or(true, |ly| (my - ly).abs() >= MARKER_SIZE) {
+            renderer.fill_quad(
+                renderer::Quad {
+                    bounds: Rectangle {
+                        x: track.x + (track.width - MARKER_SIZE) / 2.0,
+                        y: my - MARKER_SIZE / 2.0,
+                        width: MARKER_SIZE, height: MARKER_SIZE,
+                    },
+                    border: Border::default(), shadow: Shadow::default(), snap: true,
+                },
+                Background::Color(theme.diff_bg),
+            );
+            last_y = Some(my);
+        }
+    }
+
+    // ── Search result markers ──
     for &match_start in search_match_starts {
         let my = scrollbar_y_frac(match_start, total_len, track);
         renderer.fill_quad(
