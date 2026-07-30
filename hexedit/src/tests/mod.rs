@@ -48,6 +48,8 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         inspector_edit: None,
         vanilla: None,
         vanilla_diff: BTreeSet::new(),
+        comparison_file: None,
+        diff_review: false,
         patterns: Vec::new(),
         pattern_by_addr: BTreeMap::new(),
         show_pattern_list: false,

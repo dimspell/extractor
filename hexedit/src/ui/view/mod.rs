@@ -15,6 +15,8 @@ pub mod settings_modal;
 pub mod statistics;
 pub mod toolbar;
 
+pub(crate) mod diff;
+
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use gui_widgets::components::modal::modal;
 use iced::widget::pane_grid;
@@ -94,6 +96,7 @@ pub fn view<'a>(
                     !state.patterns.is_empty(),
                     have_pattern_at_addr,
                     group_id_at_cursor,
+                    state.comparison_file.is_some(),
                 );
                 ContextMenu::new(matrix, entries).into()
             } else {
@@ -222,8 +225,23 @@ pub(crate) fn build_pattern_menu_entries(
     has_patterns: bool,
     have_pattern_at_addr: bool,
     group_id_at_cursor: Option<usize>,
+    has_comparison: bool,
 ) -> Vec<MenuEntry<HexEditorMessage>> {
     let mut entries = Vec::new();
+    // ── Diff actions ───────────────────────────────────────────────────
+    if has_comparison {
+        entries.push(MenuEntry::item(
+            "Close Diff",
+            HexEditorMessage::CloseComparison,
+        ));
+    } else {
+        entries.push(MenuEntry::item(
+            "Diff Against File…",
+            HexEditorMessage::LoadComparisonFile,
+        ));
+    }
+    entries.push(MenuEntry::separator());
+
     if has_selection_range {
         entries.push(MenuEntry::item(
             "Create Pattern",

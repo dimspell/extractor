@@ -48,6 +48,7 @@ pub fn pane_content<'a>(
         HexPanelContent::Inspector => super::inspector::view(state, config),
         HexPanelContent::PatternList => super::patterns::view(state),
         HexPanelContent::Statistics => super::statistics::view(state),
+        HexPanelContent::Diff => super::diff::view(state, config),
     }
 }
 
@@ -150,6 +151,7 @@ pub fn title_bar<'a>(
         HexPanelContent::Inspector => "Inspector",
         HexPanelContent::PatternList => "Patterns",
         HexPanelContent::Statistics => "Statistics",
+        HexPanelContent::Diff => "Diff",
     };
 
     let can_close = pane_count > 1;
@@ -242,6 +244,7 @@ mod tests {
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
+            HexPanelContent::Diff => "Diff",
         };
         assert_eq!(label, "Hex Dump");
     }
@@ -254,6 +257,7 @@ mod tests {
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
+            HexPanelContent::Diff => "Diff",
         };
         assert_eq!(label, "Inspector");
     }
@@ -266,6 +270,7 @@ mod tests {
             HexPanelContent::Inspector => "Inspector",
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
+            HexPanelContent::Diff => "Diff",
         };
         assert_eq!(label, "Patterns");
     }

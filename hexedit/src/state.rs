@@ -21,6 +21,17 @@ use super::ui::coloring::ColorScheme;
 use super::ui::theme::{HexEditorTheme, ThemeVariant, DARK_THEME};
 use super::vanilla_diff::compute_diff;
 
+/// Metadata for a comparison file loaded for the side-by-side binary diff view.
+#[derive(Debug, Clone)]
+pub struct ComparisonFile {
+    /// Display name (typically the filename).
+    pub name: String,
+    /// Full file contents.
+    pub data: Vec<u8>,
+    /// Set of addresses where `provider[i] != data[i]`.
+    pub diff: BTreeSet<u64>,
+}
+
 /// Default cell width — 16 bytes per row matches every other hex editor on
 /// the planet and keeps the address column the same width across files.
 pub const DEFAULT_BYTES_PER_ROW: u8 = 16;
@@ -44,6 +55,12 @@ pub struct HexEditorState {
     /// Cached set of addresses where `provider != vanilla`. Recomputed on
     /// every write through [`recompute_vanilla_diff`].
     pub vanilla_diff: BTreeSet<u64>,
+    /// Optional comparison file for side-by-side diff view.
+    /// When `Some`, the Diff pane renders both files with diff-coloured cells.
+    pub comparison_file: Option<ComparisonFile>,
+    /// When `true`, the matrix (or diff view) only shows rows that contain at
+    /// least one differing address. Toggled via [`ToggleDiffReview`].
+    pub diff_review: bool,
     /// Highlighted byte ranges for pattern matching/debugging. In-memory only,
     /// not persisted to disk.
     pub patterns: Vec<Pattern>,
@@ -181,6 +198,8 @@ impl HexEditorState {
             inspector_edit: None,
             vanilla,
             vanilla_diff: BTreeSet::new(),
+            comparison_file: None,
+            diff_review: false,
             patterns: Vec::new(),
             pattern_by_addr: BTreeMap::new(),
             show_pattern_list: false,
@@ -266,6 +285,8 @@ impl HexEditorState {
             inspector_edit: None,
             vanilla,
             vanilla_diff: BTreeSet::new(),
+            comparison_file: None,
+            diff_review: false,
             patterns: Vec::new(),
             pattern_by_addr: BTreeMap::new(),
             show_pattern_list: false,

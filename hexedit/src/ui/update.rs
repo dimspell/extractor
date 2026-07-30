@@ -6,6 +6,7 @@ use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
+use crate::state::ComparisonFile;
 use crate::ui::coloring::ColorScheme;
 use crate::ui::theme::ThemeVariant;
 
@@ -807,7 +808,7 @@ pub fn update(
                                 Err("cancelled".to_string()),
                             );
                         };
-                        match tokio::fs::write(path.path(), json).await {
+                            match tokio::fs::write(path.path(), json).await {
                             Ok(()) => HexEditorMessage::PatternsExported(Ok(())),
                             Err(e) => HexEditorMessage::PatternsExported(Err(e.to_string())),
                         }
@@ -1066,6 +1067,111 @@ pub fn update(
         }
         HexEditorMessage::CloseFill => {
             state.fill_dialog = None;
+        }
+
+        // ── Side-by-side diff view ───────────────────────────────────────
+        HexEditorMessage::LoadComparisonFile => {
+            return Task::perform(
+                async move {
+                    let path = rfd::AsyncFileDialog::new()
+                        .set_title("Select Comparison File")
+                        .pick_file()
+                        .await;
+                    match path {
+                        Some(handle) => {
+                            let name = handle
+                                .path()
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("comparison")
+                                .to_string();
+                            match tokio::fs::read(handle.path()).await {
+                                Ok(data) => {
+                                    HexEditorMessage::ComparisonFileLoaded(Ok((data, name)))
+                                }
+                                Err(e) => HexEditorMessage::ComparisonFileLoaded(Err(format!(
+                                    "Failed to read comparison file: {e}"
+                                ))),
+                            }
+                        }
+                        None => HexEditorMessage::ClearStatus,
+                    }
+                },
+                std::convert::identity,
+            );
+        }
+        HexEditorMessage::ComparisonFileLoaded(result) => match result {
+            Ok((data, name)) => {
+                let diff = crate::vanilla_diff::compute_diff(state.provider.as_slice(), &data);
+                state.comparison_file = Some(ComparisonFile { name, data, diff });
+                state.status_msg = "Comparison file loaded".to_string();
+
+                // Ensure the focused pane switches to Diff view.
+                let focus = state.pane_focus;
+                if let Some(panel) = state.panes.get_mut(focus) {
+                    panel.content = crate::domain::panel::HexPanelContent::Diff;
+                }
+            }
+            Err(e) => {
+                state.status_msg = e;
+            }
+        },
+        HexEditorMessage::CloseComparison => {
+            state.comparison_file = None;
+            state.diff_review = false;
+            // Revert ALL panes that show Diff content, not just the focused one.
+            for (_, panel) in state.panes.iter_mut() {
+                if panel.content == crate::domain::panel::HexPanelContent::Diff {
+                    panel.content = crate::domain::panel::HexPanelContent::Matrix;
+                }
+            }
+            state.status_msg = "Diff closed".to_string();
+        }
+        HexEditorMessage::DiffAddrSelected(addr) => {
+            let max_addr = state.max_addr();
+            let clamped = addr.min(max_addr);
+            state.selection.select(clamped, max_addr);
+            state.pending_center_on.set(Some(clamped));
+            state.edit_mode = None;
+            state.refresh_active_patterns();
+        }
+        HexEditorMessage::DiffNavNext => {
+            // Jump to next diff chunk — find the first address in `comparison_file.diff`
+            // that is strictly greater than the cursor address.
+            if let Some(ref cf) = state.comparison_file {
+                let cursor = state.selection.cursor;
+                if let Some(&addr) = cf.diff.range(cursor + 1..).next() {
+                    state.selection.select(addr, state.max_addr());
+                    state.pending_center_on.set(Some(addr));
+                } else if let Some(&first) = cf.diff.first() {
+                    // Wrap around.
+                    state.selection.select(first, state.max_addr());
+                    state.pending_center_on.set(Some(first));
+                }
+            }
+        }
+        HexEditorMessage::DiffNavPrev => {
+            // Jump to previous diff chunk — find the last address in `comparison_file.diff`
+            // that is strictly less than the cursor address.
+            if let Some(ref cf) = state.comparison_file {
+                let cursor = state.selection.cursor;
+                if let Some(&addr) = cf.diff.range(..cursor).next_back() {
+                    state.selection.select(addr, state.max_addr());
+                    state.pending_center_on.set(Some(addr));
+                } else if let Some(&last) = cf.diff.last() {
+                    // Wrap around.
+                    state.selection.select(last, state.max_addr());
+                    state.pending_center_on.set(Some(last));
+                }
+            }
+        }
+        HexEditorMessage::ToggleDiffReview => {
+            state.diff_review = !state.diff_review;
+            state.status_msg = if state.diff_review {
+                "Showing only diff rows".to_string()
+            } else {
+                "Showing all rows".to_string()
+            };
         }
 
         // ── Export as text ──────────────────────────────────────────────

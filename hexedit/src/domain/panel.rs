@@ -19,6 +19,8 @@ pub enum HexPanelContent {
     PatternList,
     /// Byte statistics & entropy panel.
     Statistics,
+    /// Side-by-side binary diff view (baseline vs. comparison file).
+    Diff,
 }
 
 /// A single panel in the hex editor's pane grid.

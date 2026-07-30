@@ -244,6 +244,24 @@ pub enum HexEditorMessage {
     /// Async result: selection-level statistics computed.
     SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
 
+    // ── Side-by-side diff view ───────────────────────────────────────────
+    /// User clicked "Diff Against File…" — triggers async file picker + load.
+    LoadComparisonFile,
+    /// Async result: the comparison file was loaded or an error occurred.
+    /// `Ok((data, name))` on success, `Err(reason)` on failure.
+    ComparisonFileLoaded(Result<(Vec<u8>, String), String>),
+    /// Close the diff view and revert the pane to a regular matrix.
+    CloseComparison,
+    /// User clicked or navigated to a byte address in the diff view.
+    /// Selects the address and centers the viewport on it.
+    DiffAddrSelected(u64),
+    /// Jump to the next contiguous diff chunk in the comparison.
+    DiffNavNext,
+    /// Jump to the previous contiguous diff chunk.
+    DiffNavPrev,
+    /// Toggle "show only diff rows" mode in the diff view.
+    ToggleDiffReview,
+
     // ── Export as text ──────────────────────────────────────────────────
     /// Open the export config modal.
     OpenExportConfig,
