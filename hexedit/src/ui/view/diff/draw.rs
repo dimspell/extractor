@@ -34,7 +34,7 @@ pub fn draw_diff_view<'a, Message>(
     state: &State,
     renderer: &mut iced::Renderer,
     layout: Layout<'_>,
-    _cursor: mouse::Cursor,
+    cursor: mouse::Cursor,
     viewport: &Rectangle,
 ) {
     let bounds = layout.bounds();
@@ -346,18 +346,23 @@ pub fn draw_diff_view<'a, Message>(
     }
     draw_vscrollbar(
         renderer, content_bounds, scroll, total_h, viewport_h,
-        state.hovering_scrollbar.get(),
+        state.dragging_scrollbar || state.hovering_scrollbar.get(),
         widget.search_match_starts, &diff_rows, cursor_addr, total_bytes as u64,
         widget.theme,
     );
     let content_w = layout::total_content_width(bpr, !widget.row_annotations.is_empty());
     let avail_w = bounds.width - widget.right_strip();
     if content_w > avail_w {
+        let htrack = hscrollbar_track(bounds);
+        let hovering = cursor
+            .position_over(bounds)
+            .map(|p| htrack.contains(p))
+            .unwrap_or(false);
         draw_hscrollbar(
             renderer,
-            hscrollbar_track(bounds),
+            htrack,
             state.scroll_x.get(), content_w, avail_w,
-            state.hovering_scrollbar.get(),
+            state.dragging_scrollbar_x || hovering,
             widget.theme,
         );
     }
