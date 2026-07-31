@@ -332,7 +332,7 @@ pub fn draw_diff_view<'a, Message>(
         }
     }
     draw_vscrollbar(
-        renderer, bounds, scroll, total_h, viewport_h,
+        renderer, content_bounds, scroll, total_h, viewport_h,
         state.hovering_scrollbar.get(),
         widget.search_match_starts, &diff_rows, cursor_addr, total_bytes as u64,
         widget.theme,
