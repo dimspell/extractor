@@ -20,6 +20,7 @@ pub fn view<'a>(
             } else {
                 Space::default().into()
             },
+            source_label(editor),
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),
@@ -120,6 +121,32 @@ fn source_toggle<'a>(editor: &'a HexEditorState) -> Element<'a, HexEditorMessage
         toggle_button("B", b_active, InspectorSource::Comparison),
     ]
     .spacing(4)
+    .into()
+}
+
+/// Shows which file the decoded values come from. Always visible feedback
+/// when the A/B source changes — even on bytes that are identical in both
+/// files, the label switches so the toggle is never silently a no-op.
+fn source_label<'a>(editor: &'a HexEditorState) -> Element<'a, HexEditorMessage> {
+    let name = match editor.inspector_source {
+        InspectorSource::Baseline => editor.name.as_str(),
+        InspectorSource::Comparison => editor
+            .comparison_file
+            .as_ref()
+            .map(|cf| cf.name.as_str())
+            .unwrap_or("comparison"),
+    };
+    container(
+        text(format!("· {name}"))
+            .size(9)
+            .font(Font::MONOSPACE)
+            .color(iced::Color {
+                r: 0.55,
+                g: 0.55,
+                b: 0.55,
+                a: 1.0,
+            }),
+    )
     .into()
 }
 

@@ -30,6 +30,7 @@ pub(crate) mod error_dialog;
 pub(crate) mod file_tree;
 pub(crate) mod generic_editor_edge;
 pub(crate) mod global_search;
+pub(crate) mod hex_inspector_toggle;
 pub(crate) mod indexation;
 pub(crate) mod map_editor;
 pub(crate) mod message_routing;

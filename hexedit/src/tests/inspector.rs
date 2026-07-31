@@ -1,6 +1,8 @@
 use super::*;
 
-use crate::state::ComparisonFile;
+use std::collections::BTreeSet;
+
+use crate::state::{ComparisonFile, InspectorSource};
 
 // ============================================================================
 // Inspector panel
@@ -159,6 +161,98 @@ fn test_copy_inspector_value_sets_status() {
     assert!(
         state.status_msg.contains("42"),
         "status should contain decoded value"
+    );
+}
+
+// ============================================================================
+// Inspector — A/B source toggle buttons (on_press behaviour)
+// ============================================================================
+
+#[test]
+fn test_toggle_button_click_emits_set_inspector_source() {
+    // The "B" button's on_press must emit SetInspectorSource(Comparison),
+    // and "A" must emit SetInspectorSource(Baseline) — tested at the
+    // widget level, in isolation from any pane grid.
+    let state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B")
+        .expect("B toggle button must be clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Comparison)
+        )),
+        "clicking B must emit SetInspectorSource(Comparison), got {messages:?}"
+    );
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("A")
+        .expect("A toggle button must be clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Baseline)
+        )),
+        "clicking A must emit SetInspectorSource(Baseline), got {messages:?}"
+    );
+}
+
+#[test]
+fn test_toggle_button_updates_state_and_values() {
+    // Full loop: click the real button, feed the emitted message through
+    // update(), and verify the decoded value + label switch.
+    let mut state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Baseline value before the click.
+    {
+        let mut ui = simulator(view(&state, &config));
+        ui.find("42").expect("baseline byte 0x2A before click");
+        ui.find("· test.bin")
+            .expect("baseline label before click");
+    }
+
+    // Click B and route the message.
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B").expect("B toggle clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    for msg in messages {
+        send(&mut state, &config, msg);
+    }
+
+    // Values must now decode from the comparison file.
+    let mut ui = simulator(view(&state, &config));
+    ui.find("90").expect("comparison byte 0x5A after click");
+    ui.find("· other.bin")
+        .expect("label switches to the comparison file");
+}
+
+#[test]
+fn test_toggle_click_works_with_diff_pane_active_in_full_view() {
+    // Exact user repro at the hexedit level: the full editor view with the
+    // focused pane switched to Diff (exactly like ComparisonFileLoaded does).
+    let mut state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let focus = state.pane_focus;
+    if let Some(panel) = state.panes.get_mut(focus) {
+        panel.content = crate::domain::panel::HexPanelContent::Diff;
+    }
+    let config = default_config();
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B")
+        .expect("B toggle must be clickable in the full view with the diff pane active");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Comparison)
+        )),
+        "clicking B in the full view with the diff pane active must emit \
+         SetInspectorSource(Comparison), got {messages:?}"
     );
 }
 
@@ -493,6 +587,32 @@ fn test_inspector_toggle_hidden_without_comparison_file() {
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
     ui.find("A").expect_err("no A/B toggle without comparison file");
+}
+
+#[test]
+fn test_inspector_source_label_follows_source() {
+    // The header label shows the active file name, so toggling A/B is
+    // always visible — even on bytes that are identical in both files.
+    let mut state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Baseline: label shows the main file's name.
+    {
+        let mut ui = simulator(view(&state, &config));
+        ui.find("· test.bin")
+            .expect("baseline label should show the main file name");
+    }
+
+    // Comparison: label shows the comparison file's name.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    let mut ui = simulator(view(&state, &config));
+    ui.find("· other.bin")
+        .expect("comparison label should show the comparison file name");
+    ui.find("· test.bin").expect_err("baseline label must be gone");
 }
 
 #[test]

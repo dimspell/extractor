@@ -33,7 +33,7 @@ mod state;
 
 pub use config::{HexEditorConfig, OnSaveFn};
 pub use message::HexEditorMessage;
-pub use state::{ComparisonFile, HexEditorState, DEFAULT_BYTES_PER_ROW};
+pub use state::{ComparisonFile, HexEditorState, InspectorSource, DEFAULT_BYTES_PER_ROW};
 pub use ui::update::update;
 pub use ui::view::view;
 

@@ -232,11 +232,31 @@ pub fn handle_event<Message>(
             }
 
             mouse::Event::ButtonReleased(mouse::Button::Left) => {
-                state.dragging_scrollbar = false;
-                state.dragging_scrollbar_x = false;
-                state.dragging_cursor = false;
-                state.dragging_minimap = false;
-                shell.capture_event();
+                // Mirror the matrix view: only capture the release when a
+                // drag interaction actually started inside this view.
+                // Capturing unconditionally would poison the shared Shell for
+                // sibling panes updated after this one (e.g. the inspector's
+                // buttons never seeing their release → on_press never fires).
+                let mut consumed = false;
+                if state.dragging_scrollbar {
+                    state.dragging_scrollbar = false;
+                    consumed = true;
+                }
+                if state.dragging_scrollbar_x {
+                    state.dragging_scrollbar_x = false;
+                    consumed = true;
+                }
+                if state.dragging_cursor {
+                    state.dragging_cursor = false;
+                    consumed = true;
+                }
+                if state.dragging_minimap {
+                    state.dragging_minimap = false;
+                    consumed = true;
+                }
+                if consumed {
+                    shell.capture_event();
+                }
             }
 
             mouse::Event::CursorMoved { position } => {
