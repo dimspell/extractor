@@ -585,7 +585,7 @@ mod tests {
     #[test]
     fn col_at_x_baseline_hex_first_byte() {
         let x = hex_a_start() + 2.0;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 0);
         assert!(is_baseline);
     }
@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn col_at_x_baseline_hex_tenth_byte() {
         let x = hex_a_start() + 10.0 * HEX_CELL_WIDTH + GROUP_GAP;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 10);
         assert!(is_baseline);
     }
@@ -601,7 +601,7 @@ mod tests {
     #[test]
     fn col_at_x_baseline_ascii_first_byte() {
         let x = ascii_a_start() + 2.0;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 0);
         assert!(is_baseline);
     }
@@ -609,7 +609,7 @@ mod tests {
     #[test]
     fn col_at_x_baseline_ascii_last_byte() {
         let x = ascii_a_start() + 15.0 * ASCII_CELL_WIDTH + 1.0;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 15);
         assert!(is_baseline);
     }
@@ -617,7 +617,7 @@ mod tests {
     #[test]
     fn col_at_x_comparison_hex_first_byte() {
         let x = comp_hex_start() + 2.0;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 0);
         assert!(!is_baseline);
     }
@@ -625,7 +625,7 @@ mod tests {
     #[test]
     fn col_at_x_comparison_ascii_middle_byte() {
         let x = comp_ascii_start() + 7.0 * ASCII_CELL_WIDTH + 1.0;
-        let (col, is_baseline) = col_at_x(x, 16).unwrap();
+        let (col, is_baseline) = col_at_x(x, 16, 0.0).unwrap();
         assert_eq!(col, 7);
         assert!(!is_baseline);
     }
@@ -633,25 +633,25 @@ mod tests {
     #[test]
     fn col_at_x_address_gutter_returns_none() {
         let x = ADDR_COL_WIDTH - 4.0;
-        assert!(col_at_x(x, 16).is_none());
+        assert!(col_at_x(x, 16, 0.0).is_none());
     }
 
     #[test]
     fn col_at_x_mid_gap_returns_none() {
         let x = ascii_a_start() + 16.0 * ASCII_CELL_WIDTH + 2.0;
-        assert!(col_at_x(x, 16).is_none());
+        assert!(col_at_x(x, 16, 0.0).is_none());
     }
 
     #[test]
     fn col_at_x_beyond_ascii_b_returns_none() {
         let x = comp_ascii_start() + 16.0 * ASCII_CELL_WIDTH + 20.0;
-        assert!(col_at_x(x, 16).is_none());
+        assert!(col_at_x(x, 16, 0.0).is_none());
     }
 
     #[test]
     fn col_at_x_bpr_8_baseline() {
         let x = baseline_hex_start(ADDR_COL_WIDTH) + 3.0 * HEX_CELL_WIDTH;
-        let (col, is_baseline) = col_at_x(x, 8).unwrap();
+        let (col, is_baseline) = col_at_x(x, 8, 0.0).unwrap();
         assert_eq!(col, 3);
         assert!(is_baseline);
     }
@@ -659,9 +659,31 @@ mod tests {
     #[test]
     fn col_at_x_bpr_32_comparison() {
         let x = comparison_hex_start(ADDR_COL_WIDTH, 32) + 25.0 * HEX_CELL_WIDTH + 3.0 * GROUP_GAP;
-        let (col, is_baseline) = col_at_x(x, 32).unwrap();
+        let (col, is_baseline) = col_at_x(x, 32, 0.0).unwrap();
         assert_eq!(col, 25);
         assert!(!is_baseline);
+    }
+
+    #[test]
+    fn col_at_x_scrolled_maps_cells_to_same_columns() {
+        // Horizontal scrolling shifts all content columns left by scroll_x;
+        // a click at a scrolled cell position must still map to the same
+        // byte column as it would unscrolled.
+        let scroll_x = 120.0;
+        let hex_a = baseline_hex_start(ADDR_COL_WIDTH);
+        let x_scrolled = hex_a + 5.0 * HEX_CELL_WIDTH - scroll_x;
+        let (col, is_baseline) = col_at_x(x_scrolled, 16, scroll_x).unwrap();
+        assert_eq!(col, 5);
+        assert!(is_baseline);
+
+        let comp_ascii = comparison_ascii_start(ADDR_COL_WIDTH, 16);
+        let x_comp = comp_ascii + 3.0 * ASCII_CELL_WIDTH - scroll_x;
+        let (col, is_baseline) = col_at_x(x_comp, 16, scroll_x).unwrap();
+        assert_eq!(col, 3);
+        assert!(!is_baseline);
+
+        // The address gutter must still return None regardless of scroll.
+        assert!(col_at_x(40.0 - scroll_x, 16, scroll_x).is_none());
     }
 
     // ── Diff-specific layout functions ──────────────────────────────────

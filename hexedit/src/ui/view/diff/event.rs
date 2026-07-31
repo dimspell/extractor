@@ -185,7 +185,7 @@ pub fn handle_event<Message>(
                     let scroll = state.scroll_offset.get();
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
-                    let col = draw::col_at_x(rel_x, bpr);
+                    let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, _is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
@@ -213,7 +213,7 @@ pub fn handle_event<Message>(
                     let scroll = state.scroll_offset.get();
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
-                    let col = draw::col_at_x(rel_x, bpr);
+                    let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, _is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
@@ -279,7 +279,7 @@ pub fn handle_event<Message>(
                     let scroll = state.scroll_offset.get();
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
-                    let col = draw::col_at_x(rel_x, bpr);
+                    let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, _is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {

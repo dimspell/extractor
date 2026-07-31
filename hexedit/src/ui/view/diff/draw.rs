@@ -78,6 +78,17 @@ pub fn draw_diff_view<'a, Message>(
         height: (content_clip_bottom - content_clip_y).max(0.0),
     };
 
+    // Further clip hex/ASCII cells to exclude the address gutter, so
+    // horizontally-scrolled cells don't paint over the address column.
+    let cell_clip = Rectangle {
+        x: content_clip.x.max(bounds.x + ADDR_COL_WIDTH),
+        y: content_clip.y,
+        width: (content_clip.x + content_clip.width
+            - content_clip.x.max(bounds.x + ADDR_COL_WIDTH))
+        .max(0.0),
+        height: content_clip.height,
+    };
+
     let font = Font::MONOSPACE;
     let header_color = widget.theme.header_fg;
     let header_separator = widget.theme.header_separator;
@@ -124,12 +135,13 @@ pub fn draw_diff_view<'a, Message>(
     }
 
     let scroll = state.scroll_offset.get();
+    let scroll_x = state.scroll_x.get();
     let adj_addr_col_w = ADDR_COL_WIDTH;
 
     // ── Column headers ─────────────────────────────────────────────────
     let header_y = bounds.y;
     draw_column_headers(
-        renderer, &widget.cache, bounds, header_y, header_color, full_clip, bpr, font,
+        renderer, &widget.cache, bounds, header_y, header_color, full_clip, bpr, font, scroll_x,
     );
 
     renderer.fill_quad(
@@ -190,8 +202,8 @@ pub fn draw_diff_view<'a, Message>(
             .and_then(|s| s.get(..bpr))
             .unwrap_or(&[]);
 
-        let hex_a_start = layout::baseline_hex_start(adj_addr_col_w);
-        let ascii_a_start = layout::baseline_ascii_start(adj_addr_col_w, bpr);
+        let hex_a_start = layout::baseline_hex_start(adj_addr_col_w) - scroll_x;
+        let ascii_a_start = layout::baseline_ascii_start(adj_addr_col_w, bpr) - scroll_x;
 
         for (col, &b) in row_bytes_a.iter().enumerate() {
             let addr = base_addr + col as u64;
@@ -201,7 +213,7 @@ pub fn draw_diff_view<'a, Message>(
                 sel_range.clone(), cursor_addr,
                 diff_bg_baseline, diff_text_baseline,
                 selection_bg, selection_fg, cursor_bg,
-                hex_color, ascii_color, content_clip,
+                hex_color, ascii_color, cell_clip,
             );
         }
 
@@ -212,8 +224,8 @@ pub fn draw_diff_view<'a, Message>(
             .and_then(|s| s.get(..bpr))
             .unwrap_or(&[]);
 
-        let hex_b_start = layout::comparison_hex_start(adj_addr_col_w, bpr);
-        let ascii_b_start = layout::comparison_ascii_start(adj_addr_col_w, bpr);
+        let hex_b_start = layout::comparison_hex_start(adj_addr_col_w, bpr) - scroll_x;
+        let ascii_b_start = layout::comparison_ascii_start(adj_addr_col_w, bpr) - scroll_x;
 
         for (col, &b) in row_bytes_b.iter().enumerate() {
             let addr = base_addr + col as u64;
@@ -223,7 +235,7 @@ pub fn draw_diff_view<'a, Message>(
                 sel_range.clone(), cursor_addr,
                 diff_bg_comparison, diff_text_comparison,
                 selection_bg, selection_fg, cursor_bg,
-                hex_color, ascii_color, content_clip,
+                hex_color, ascii_color, cell_clip,
             );
         }
 
@@ -232,7 +244,8 @@ pub fn draw_diff_view<'a, Message>(
             if let Some(segments) = widget.row_annotations.get(&base_addr) {
                 let ann_start_x = layout::comparison_ascii_start(adj_addr_col_w, bpr)
                     + bpr as f32 * ASCII_CELL_WIDTH
-                    + ANN_COL_GAP;
+                    + ANN_COL_GAP
+                    - scroll_x;
                 let mut ann_x = ann_start_x;
                 for (pid, text) in segments {
                     let is_active = widget.active_patterns.contains(pid);
@@ -484,27 +497,28 @@ fn draw_column_headers(
     clip: Rectangle,
     bpr: usize,
     font: Font,
+    scroll_x: f32,
 ) {
     let labels = [
         ("Address", bounds.x, ADDR_COL_WIDTH),
         (
             "Hex (A)",
-            layout::baseline_hex_start(ADDR_COL_WIDTH),
+            layout::baseline_hex_start(ADDR_COL_WIDTH) - scroll_x,
             bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP,
         ),
         (
             "ASCII",
-            layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr),
+            layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * ASCII_CELL_WIDTH,
         ),
         (
             "Hex (B)",
-            layout::comparison_hex_start(ADDR_COL_WIDTH, bpr),
+            layout::comparison_hex_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP,
         ),
         (
             "ASCII",
-            layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr),
+            layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * ASCII_CELL_WIDTH,
         ),
     ];
@@ -710,11 +724,11 @@ fn draw_hscrollbar(
 /// Map a pixel x-coordinate to the byte column index (0..bpr) on the
 /// baseline or comparison side. Returns `None` if the click is in the
 /// address gutter, mid-gap, or annotation area.
-pub fn col_at_x(x: f32, bpr: usize) -> Option<(usize, bool)> {
-    let hex_a_start = layout::baseline_hex_start(ADDR_COL_WIDTH);
-    let ascii_a_start = layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr);
-    let comp_hex_start = layout::comparison_hex_start(ADDR_COL_WIDTH, bpr);
-    let comp_ascii_start = layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr);
+pub fn col_at_x(x: f32, bpr: usize, scroll_x: f32) -> Option<(usize, bool)> {
+    let hex_a_start = layout::baseline_hex_start(ADDR_COL_WIDTH) - scroll_x;
+    let ascii_a_start = layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x;
+    let comp_hex_start = layout::comparison_hex_start(ADDR_COL_WIDTH, bpr) - scroll_x;
+    let comp_ascii_start = layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x;
 
     // Baseline hex
     if x >= hex_a_start && x < hex_a_start + bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP {
