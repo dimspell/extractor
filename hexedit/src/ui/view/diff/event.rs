@@ -186,11 +186,12 @@ pub fn handle_event<Message>(
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
-                    if let Some((byte_col, _is_baseline)) = col {
+                    if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
+                            state.last_clicked_baseline.set(is_baseline);
                             if let Some(cb) = &widget.on_select_at {
-                                shell.publish(cb(addr));
+                                shell.publish(cb(addr, is_baseline));
                                 shell.request_redraw();
                                 shell.capture_event();
                             }
@@ -214,11 +215,12 @@ pub fn handle_event<Message>(
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
-                    if let Some((byte_col, _is_baseline)) = col {
+                    if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
+                            state.last_clicked_baseline.set(is_baseline);
                             if let Some(cb) = &widget.on_right_click {
-                                shell.publish(cb(addr));
+                                shell.publish(cb(addr, is_baseline));
                                 shell.request_redraw();
                                 // Note: intentionally NOT capturing the event here —
                                 // the ContextMenu wrapper reads shell.is_event_captured()
@@ -280,11 +282,12 @@ pub fn handle_event<Message>(
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
-                    if let Some((byte_col, _is_baseline)) = col {
+                    if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
                         if (addr as usize) < total_bytes {
+                            state.last_clicked_baseline.set(is_baseline);
                             if let Some(cb) = &widget.on_extend_to {
-                                shell.publish(cb(addr));
+                                shell.publish(cb(addr, is_baseline));
                                 shell.request_redraw();
                                 shell.capture_event();
                                 return;
@@ -389,12 +392,15 @@ fn handle_keyboard_event<Message>(
         if let Some(dir) = dir {
             let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
             let extend = modifiers.shift();
+            // Keyboard navigation has no side; keep the side of the last
+            // mouse click so the inspector stays on the inspected file.
+            let is_baseline = state.last_clicked_baseline.get();
             if extend {
                 if let Some(cb) = &widget.on_extend_to {
-                    shell.publish(cb(new_addr));
+                    shell.publish(cb(new_addr, is_baseline));
                 }
             } else if let Some(cb) = &widget.on_select_at {
-                shell.publish(cb(new_addr));
+                shell.publish(cb(new_addr, is_baseline));
             }
             shell.request_redraw();
             // Scroll to new cursor.
@@ -460,8 +466,11 @@ fn handle_keyboard_event<Message>(
             shell.capture_event();
         } else {
             let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            // Keyboard navigation has no side; keep the side of the last
+            // mouse click so the inspector stays on the inspected file.
+            let is_baseline = state.last_clicked_baseline.get();
             if let Some(cb) = &widget.on_select_at {
-                shell.publish(cb(new_addr));
+                shell.publish(cb(new_addr, is_baseline));
                 shell.request_redraw();
             }
             // Scroll to make new cursor visible.

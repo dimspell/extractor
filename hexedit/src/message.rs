@@ -2,6 +2,7 @@ use iced::widget::pane_grid;
 
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::selection::NavDir;
+use crate::state::InspectorSource;
 
 /// Messages produced by the hex editor.
 #[derive(Debug, Clone)]
@@ -49,6 +50,8 @@ pub enum HexEditorMessage {
     WriteBytes { addr: u64, bytes: Vec<u8> },
 
     // ── Inspector ────────────────────────────────────────────────────────
+    /// Switch which buffer the inspector decodes (main file vs comparison).
+    SetInspectorSource(InspectorSource),
     /// Copy the decoded value of inspector entry `idx` to the clipboard.
     CopyInspectorValue(usize),
 
@@ -253,8 +256,13 @@ pub enum HexEditorMessage {
     /// Close the diff view and revert the pane to a regular matrix.
     CloseComparison,
     /// User clicked or navigated to a byte address in the diff view.
-    /// Selects the address and centers the viewport on it.
-    DiffAddrSelected(u64),
+    /// Selects the address and centers the viewport on it. `is_baseline`
+    /// is `true` when the click landed on the left (baseline) side, so the
+    /// inspector follows the file being inspected.
+    DiffAddrSelected { addr: u64, is_baseline: bool },
+    /// User shift-dragged in the diff view to extend the selection.
+    /// `is_baseline` marks which side the drag ended on.
+    DiffExtendTo { addr: u64, is_baseline: bool },
     /// Jump to the next contiguous diff chunk in the comparison.
     DiffNavNext,
     /// Jump to the previous contiguous diff chunk.

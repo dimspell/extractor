@@ -32,6 +32,16 @@ pub struct ComparisonFile {
     pub diff: BTreeSet<u64>,
 }
 
+/// Which buffer the data inspector decodes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InspectorSource {
+    /// The main (editable) file buffer.
+    #[default]
+    Baseline,
+    /// The read-only comparison file loaded for the diff view.
+    Comparison,
+}
+
 /// Default cell width — 16 bytes per row matches every other hex editor on
 /// the planet and keeps the address column the same width across files.
 pub const DEFAULT_BYTES_PER_ROW: u8 = 16;
@@ -48,6 +58,8 @@ pub struct HexEditorState {
     pub selection: Selection,
     pub edit_mode: Option<EditState>,
     pub inspector_edit: Option<InspectorEditState>,
+    /// Which buffer the inspector panel decodes (main file vs comparison).
+    pub inspector_source: InspectorSource,
     /// Original bytes used as the diff baseline. Populated either from a
     /// workspace vanilla snapshot or, lacking that, from the on-disk file at
     /// load time. `None` when neither source is available.
@@ -196,6 +208,7 @@ impl HexEditorState {
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,
+            inspector_source: InspectorSource::Baseline,
             vanilla,
             vanilla_diff: BTreeSet::new(),
             comparison_file: None,
@@ -283,6 +296,7 @@ impl HexEditorState {
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,
+            inspector_source: InspectorSource::Baseline,
             vanilla,
             vanilla_diff: BTreeSet::new(),
             comparison_file: None,

@@ -6,7 +6,7 @@ use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
-use crate::state::ComparisonFile;
+use crate::state::{ComparisonFile, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::ui::theme::ThemeVariant;
 
@@ -28,6 +28,21 @@ const PAGE_ROWS: u64 = 24;
 /// value for copy-to-clipboard. 64 bytes covers every built-in inspector
 /// entry (largest is u128 + string at 18 bytes) with plenty of headroom.
 const INSPECTOR_READ_LIMIT: u64 = 64;
+
+/// Returns `(length, bytes)` of the buffer the inspector currently decodes.
+fn inspector_source_bytes(state: &crate::HexEditorState) -> (u64, &[u8]) {
+    match state.inspector_source {
+        InspectorSource::Baseline => (state.provider.len(), state.provider.as_slice()),
+        InspectorSource::Comparison => {
+            let data = state
+                .comparison_file
+                .as_ref()
+                .map(|cf| cf.data.as_slice())
+                .unwrap_or(&[]);
+            (data.len() as u64, data)
+        }
+    }
+}
 
 pub fn update(
     state: &mut crate::HexEditorState,
@@ -207,11 +222,22 @@ pub fn update(
         }
 
         // ── Inspector ───────────────────────────────────────────────────
+        HexEditorMessage::SetInspectorSource(source) => {
+            if state.inspector_source != source {
+                state.inspector_source = source;
+                // The edit modal (if open) holds a value decoded from the
+                // previous source — close it to avoid writing stale data.
+                state.inspector_edit = None;
+            }
+        }
+
         HexEditorMessage::CopyInspectorValue(idx) => {
             let cursor = state.selection.cursor;
-            let len = state.provider.len();
+            let (len, src) = inspector_source_bytes(state);
             let read_end = (cursor + INSPECTOR_READ_LIMIT).min(len);
-            let bytes = state.provider.read(cursor..read_end);
+            let start = (cursor as usize).min(src.len());
+            let end = (read_end as usize).min(src.len()).max(start);
+            let bytes = &src[start..end];
             let entry = if idx < ENTRIES.len() {
                 ENTRIES.get(idx)
             } else {
@@ -228,7 +254,9 @@ pub fn update(
         }
 
         HexEditorMessage::BeginInspectorEdit(idx) => {
-            if state.provider.is_empty() {
+            if state.provider.is_empty() || state.inspector_source != InspectorSource::Baseline {
+                // The comparison file is read-only — edits only apply to the
+                // main buffer, so the edit modal is unavailable there.
                 return Task::none();
             }
             let entry = if idx < ENTRIES.len() {
@@ -1127,13 +1155,30 @@ pub fn update(
             }
             state.status_msg = "Diff closed".to_string();
         }
-        HexEditorMessage::DiffAddrSelected(addr) => {
+        HexEditorMessage::DiffAddrSelected { addr, is_baseline } => {
             let max_addr = state.max_addr();
             let clamped = addr.min(max_addr);
             state.selection.select(clamped, max_addr);
             state.pending_center_on.set(Some(clamped));
             state.edit_mode = None;
             state.refresh_active_patterns();
+            // The inspector follows the side that was clicked.
+            state.inspector_source = if is_baseline {
+                InspectorSource::Baseline
+            } else {
+                InspectorSource::Comparison
+            };
+        }
+        HexEditorMessage::DiffExtendTo { addr, is_baseline } => {
+            let max_addr = state.max_addr();
+            state.selection.extend(addr.min(max_addr), max_addr);
+            state.refresh_active_patterns();
+            // The inspector follows the side the drag ended on.
+            state.inspector_source = if is_baseline {
+                InspectorSource::Baseline
+            } else {
+                InspectorSource::Comparison
+            };
         }
         HexEditorMessage::DiffNavNext => {
             // Jump to next diff chunk — find the first address in `comparison_file.diff`

@@ -16,7 +16,7 @@
 
 mod draw;
 mod event;
-mod layout;
+pub(crate) mod layout;
 mod state;
 
 use std::cell::Cell;
@@ -86,11 +86,13 @@ pub struct DiffView<'a, Message> {
 
     // ── Callbacks ──────────────────────────────────────────────────────
     /// Called when the user clicks/navigates to a byte address.
-    pub(super) on_select_at: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    /// The `bool` is `true` when the click landed on the baseline (left) side.
+    pub(super) on_select_at: Option<Box<dyn Fn(u64, bool) -> Message + 'a>>,
     /// Called when the user right-clicks a byte address (for context menus).
-    pub(super) on_right_click: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    pub(super) on_right_click: Option<Box<dyn Fn(u64, bool) -> Message + 'a>>,
     /// Called when the user extends selection to an address (shift-click / drag).
-    pub(super) on_extend_to: Option<Box<dyn Fn(u64) -> Message + 'a>>,
+    /// The `bool` is `true` when the drag landed on the baseline (left) side.
+    pub(super) on_extend_to: Option<Box<dyn Fn(u64, bool) -> Message + 'a>>,
     /// Called on arrow/navigation key (dir, extend).
     pub(super) on_nav: Option<Box<dyn Fn(crate::domain::selection::NavDir, bool) -> Message + 'a>>,
     /// Called on Ctrl+Down → jump to next diff chunk.
@@ -159,17 +161,17 @@ impl<'a, Message> DiffView<'a, Message> {
 // ── Builder methods ─────────────────────────────────────────────────────
 
 impl<'a, Message> DiffView<'a, Message> {
-    pub fn on_select_at(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+    pub fn on_select_at(mut self, f: impl Fn(u64, bool) -> Message + 'a) -> Self {
         self.on_select_at = Some(Box::new(f));
         self
     }
 
-    pub fn on_right_click(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+    pub fn on_right_click(mut self, f: impl Fn(u64, bool) -> Message + 'a) -> Self {
         self.on_right_click = Some(Box::new(f));
         self
     }
 
-    pub fn on_extend_to(mut self, f: impl Fn(u64) -> Message + 'a) -> Self {
+    pub fn on_extend_to(mut self, f: impl Fn(u64, bool) -> Message + 'a) -> Self {
         self.on_extend_to = Some(Box::new(f));
         self
     }
@@ -447,9 +449,9 @@ pub fn view<'a>(
         state.dim_nulls,
         state.theme,
     )
-    .on_select_at(crate::HexEditorMessage::DiffAddrSelected)
-    .on_extend_to(crate::HexEditorMessage::ExtendTo)
-    .on_right_click(crate::HexEditorMessage::RightClickAt)
+    .on_select_at(|addr, is_baseline| crate::HexEditorMessage::DiffAddrSelected { addr, is_baseline })
+    .on_extend_to(|addr, is_baseline| crate::HexEditorMessage::DiffExtendTo { addr, is_baseline })
+    .on_right_click(|addr, _is_baseline| crate::HexEditorMessage::RightClickAt(addr))
     .on_nav(|dir, extend| crate::HexEditorMessage::Nav { dir, extend })
     .on_diff_nav_next(|| crate::HexEditorMessage::DiffNavNext)
     .on_diff_nav_prev(|| crate::HexEditorMessage::DiffNavPrev)
@@ -524,9 +526,9 @@ mod tests {
     fn builder_on_right_click_sets_callback() {
         let called = std::cell::Cell::new(None);
         let dv = minimal_dv(&[0], &[0], 16)
-            .on_right_click(|addr| { called.set(Some(addr)); () });
+            .on_right_click(|addr, _is_baseline| { called.set(Some(addr)); () });
         let cb = dv.on_right_click.as_ref().unwrap();
-        cb(42);
+        cb(42, true);
         assert_eq!(called.get(), Some(42));
     }
 
@@ -534,9 +536,9 @@ mod tests {
     fn builder_on_extend_to_sets_callback() {
         let called = std::cell::Cell::new(None);
         let dv = minimal_dv(&[0], &[0], 16)
-            .on_extend_to(|addr| { called.set(Some(addr)); () });
+            .on_extend_to(|addr, _is_baseline| { called.set(Some(addr)); () });
         let cb = dv.on_extend_to.as_ref().unwrap();
-        cb(99);
+        cb(99, false);
         assert_eq!(called.get(), Some(99));
     }
 
@@ -723,5 +725,14 @@ mod tests {
         use super::state::State;
         let s = State::default();
         assert!(!s.dragging_cursor);
+    }
+
+    #[test]
+    fn state_last_clicked_baseline_starts_true() {
+        // Before any mouse interaction, keyboard navigation must assume
+        // the baseline side so the inspector stays on the main file.
+        use super::state::State;
+        let s = State::default();
+        assert!(s.last_clicked_baseline.get());
     }
 }

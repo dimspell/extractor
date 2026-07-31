@@ -9,7 +9,6 @@ use std::cell::{Cell, RefCell};
 use crate::ui::view::minimap::MinimapCache;
 
 /// Per-instance widget state for [`super::DiffView`].
-#[derive(Default)]
 pub struct State {
     /// Vertical scroll offset in logical pixels.
     pub scroll_offset: Cell<f32>,
@@ -23,6 +22,10 @@ pub struct State {
     pub hovering_scrollbar: Cell<bool>,
     /// True while dragging the mouse to extend a selection range.
     pub dragging_cursor: bool,
+    /// Side of the last mouse click/drag (`true` = baseline/left).
+    /// Keyboard navigation has no side, so it reuses this to keep the
+    /// inspector on the file the user was last inspecting.
+    pub last_clicked_baseline: Cell<bool>,
 
     // ── Minimap ────────────────────────────────────────────────────────
     /// True while dragging on the minimap strip.
@@ -35,4 +38,25 @@ pub struct State {
     pub hovering_minimap: Cell<bool>,
     /// Cached minimap pixel colours.
     pub minimap_cache: RefCell<Option<MinimapCache>>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            scroll_offset: Cell::new(0.0),
+            scroll_x: Cell::new(0.0),
+            dragging_scrollbar: false,
+            dragging_scrollbar_x: false,
+            hovering_scrollbar: Cell::new(false),
+            dragging_cursor: false,
+            // No mouse interaction yet → assume the baseline side so the
+            // inspector stays on the main file during keyboard navigation.
+            last_clicked_baseline: Cell::new(true),
+            dragging_minimap: false,
+            drag_start_minimap_y: 0.0,
+            drag_start_minimap_scroll: 0.0,
+            hovering_minimap: Cell::new(false),
+            minimap_cache: RefCell::new(None),
+        }
+    }
 }

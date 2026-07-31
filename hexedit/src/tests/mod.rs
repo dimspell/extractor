@@ -23,7 +23,7 @@ use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
 use crate::search::SearchState;
 use crate::selection::{NavDir, Selection};
-use crate::state::HexEditorState;
+use crate::state::{HexEditorState, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::update::update;
 use crate::view::view;
@@ -46,6 +46,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         selection: Selection::single(0),
         edit_mode: None,
         inspector_edit: None,
+        inspector_source: InspectorSource::Baseline,
         vanilla: None,
         vanilla_diff: BTreeSet::new(),
         comparison_file: None,
@@ -165,6 +166,7 @@ fn test_hex_matrix_uses_paragraph_cache() {
 
 pub mod pane_grid;
 
+pub mod diff;
 pub mod editing;
 pub mod footer;
 pub mod goto;
