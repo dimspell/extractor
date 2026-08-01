@@ -98,9 +98,7 @@ pub fn draw_matrix<'a, Message>(
     // plain `Option` field would re-center every frame (see also the field
     // docs on `HexMatrix::pending_center_on`).
     let scroll = if let Some(center_addr) = widget.pending_center_on.take() {
-        state
-            .last_cursor_row
-            .set(Some(center_addr / bpr64));
+        state.last_cursor_row.set(Some(center_addr / bpr64));
         center_scroll_on(
             state.scroll_offset.get(),
             center_addr,

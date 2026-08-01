@@ -197,20 +197,20 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 ) as i32, // 19
                 extra_ref.required_item2.raw(), // 20 — raw
                 // extra_ref.unknown5,       // 21
-                i32::from(extra_ref.unknown6), // 22
-                i32::from(extra_ref.unknown7), // 23
-                i32::from(extra_ref.unknown8), // 24
-                i32::from(extra_ref.unknown9), // 25
-                extra_ref.gold_amount,    // 26
+                i32::from(extra_ref.unknown6),   // 22
+                i32::from(extra_ref.unknown7),   // 23
+                i32::from(extra_ref.unknown8),   // 24
+                i32::from(extra_ref.unknown9),   // 25
+                extra_ref.gold_amount,           // 26
                 extra_ref.item.item_id() as i32, // 27
                 u8::from(extra_ref.item.item_type().unwrap_or(ItemTypeId::Other)) as i32, // 28
-                extra_ref.item.raw(),     // 29 — raw
-                extra_ref.unknown10,      // 30
-                extra_ref.item_count,     // 31
-                i32::from(extra_ref.unknown11), // 32
-                i32::from(extra_ref.unknown12), // 33
-                i32::from(extra_ref.unknown13), // 34
-                extra_ref.unknown14,      // 35
+                extra_ref.item.raw(),            // 29 — raw
+                extra_ref.unknown10,             // 30
+                extra_ref.item_count,            // 31
+                i32::from(extra_ref.unknown11),  // 32
+                i32::from(extra_ref.unknown12),  // 33
+                i32::from(extra_ref.unknown13),  // 34
+                extra_ref.unknown14,             // 35
                 if extra_ref.event_id > 0 {
                     Some(extra_ref.event_id)
                 } else {
@@ -221,21 +221,21 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 } else {
                     None
                 }, // 37
-                i32::from(extra_ref.unknown15), // 38
-                i32::from(extra_ref.unknown16), // 39
-                extra_ref.unknown17,      // 40
+                i32::from(extra_ref.unknown15),  // 38
+                i32::from(extra_ref.unknown16),  // 39
+                extra_ref.unknown17,             // 40
                 u8::from(extra_ref.interactive_element_type), // 41
-                extra_ref.unknown18,      // 42
+                extra_ref.unknown18,             // 42
                 i32::from(extra_ref.is_quest_element), // 43
-                i32::from(extra_ref.unknown20), // 44
-                i32::from(extra_ref.unknown21), // 45
-                extra_ref.unknown22,      // 46
-                i32::from(extra_ref.unknown23), // 47
-                u8::from(extra_ref.visibility), // 48
-                i32::from(extra_ref.unknown24), // 49
-                extra_ref.unknown25,      // 50
-                i32::from(extra_ref.unknown26), // 51
-                i32::from(extra_ref.unknown27), // 52
+                i32::from(extra_ref.unknown20),  // 44
+                i32::from(extra_ref.unknown21),  // 45
+                extra_ref.unknown22,             // 46
+                i32::from(extra_ref.unknown23),  // 47
+                u8::from(extra_ref.visibility),  // 48
+                i32::from(extra_ref.unknown24),  // 49
+                extra_ref.unknown25,             // 50
+                i32::from(extra_ref.unknown26),  // 51
+                i32::from(extra_ref.unknown27),  // 52
             ])?;
         }
     }

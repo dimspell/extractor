@@ -29,11 +29,7 @@ pub fn view<'a>(
     .width(Fill);
 
     let (src_len, src_bytes, editable) = match editor.inspector_source {
-        InspectorSource::Baseline => (
-            editor.provider.len(),
-            editor.provider.as_slice(),
-            true,
-        ),
+        InspectorSource::Baseline => (editor.provider.len(), editor.provider.as_slice(), true),
         InspectorSource::Comparison => {
             let data = editor
                 .comparison_file
@@ -155,7 +151,11 @@ fn toggle_button<'a>(
     active: bool,
     source: InspectorSource,
 ) -> Element<'a, HexEditorMessage> {
-    let style = if active { button::primary } else { button::secondary };
+    let style = if active {
+        button::primary
+    } else {
+        button::secondary
+    };
     button(text(label).size(10).font(Font::MONOSPACE))
         .padding([1, 6])
         .style(style)

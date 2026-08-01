@@ -26,7 +26,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     let ts = &state.events_table_state;
     let paragraph_cache = state.paragraph_cache.clone();
     let is_resizing = state.resizing.as_ref().is_some_and(|d| {
-        matches!(d.key, crate::editors::save_file_viewer::message::TableKey::Events)
+        matches!(
+            d.key,
+            crate::editors::save_file_viewer::message::TableKey::Events
+        )
     });
     let filter = &ts.filter;
     let key = TableKey::Events;
@@ -126,9 +129,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         state.events_filtered_indices.len(),
         filter_msg_fn,
         FilterBarExtras {
-            export_csv: Some(Message::save_file_viewer(
-                SaveFileViewerMessage::ExportCsv(TableKey::Events),
-            )),
+            export_csv: Some(Message::save_file_viewer(SaveFileViewerMessage::ExportCsv(
+                TableKey::Events,
+            ))),
             ..FilterBarExtras::default()
         },
     );

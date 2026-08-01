@@ -28,5 +28,3 @@ mod workspace_tab_tests {
         assert_eq!(task.units(), 0, "no path → no task");
     }
 }
-
-

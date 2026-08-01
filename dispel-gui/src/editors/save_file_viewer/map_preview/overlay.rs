@@ -33,9 +33,21 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
             event,
             bounds,
             cursor,
-            |cx, cy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Click(cx, cy))),
-            |dx, dy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Pan(dx, dy))),
-            |f, cx, cy| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(f, cx, cy))),
+            |cx, cy| {
+                Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Click(
+                    cx, cy,
+                )))
+            },
+            |dx, dy| {
+                Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Pan(
+                    dx, dy,
+                )))
+            },
+            |f, cx, cy| {
+                Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
+                    f, cx, cy,
+                )))
+            },
         )
     }
 

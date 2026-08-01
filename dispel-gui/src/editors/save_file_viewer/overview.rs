@@ -79,10 +79,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 "Extra Object Block Size",
                 sf.post_maps.extra_object_block_size.to_string(),
             ))
-            .push(label_row(
-                "Unknown B",
-                sf.post_maps.unknown_b.to_string(),
-            ))
+            .push(label_row("Unknown B", sf.post_maps.unknown_b.to_string()))
             .push(label_row(
                 "Visited Maps",
                 sf.post_maps.number_of_visited_maps.to_string(),
@@ -100,7 +97,8 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 if sf.post_maps.map_ids.is_empty() {
                     "(none)".to_string()
                 } else {
-                    let mut s = sf.post_maps
+                    let mut s = sf
+                        .post_maps
                         .map_ids
                         .iter()
                         .take(20)

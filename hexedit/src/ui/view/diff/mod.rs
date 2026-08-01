@@ -176,7 +176,10 @@ impl<'a, Message> DiffView<'a, Message> {
         self
     }
 
-    pub fn on_nav(mut self, f: impl Fn(crate::domain::selection::NavDir, bool) -> Message + 'a) -> Self {
+    pub fn on_nav(
+        mut self,
+        f: impl Fn(crate::domain::selection::NavDir, bool) -> Message + 'a,
+    ) -> Self {
         self.on_nav = Some(Box::new(f));
         self
     }
@@ -222,10 +225,7 @@ impl<'a, Message> DiffView<'a, Message> {
 impl<'a, Message> DiffView<'a, Message> {
     pub(super) fn total_rows(&self) -> u64 {
         let bpr = self.bytes_per_row as usize;
-        let total = self
-            .baseline_bytes
-            .len()
-            .max(self.comparison_bytes.len());
+        let total = self.baseline_bytes.len().max(self.comparison_bytes.len());
         if total == 0 {
             0
         } else {
@@ -241,8 +241,8 @@ impl<'a, Message> DiffView<'a, Message> {
     pub(super) fn content_viewport_h(&self, bounds_h: f32, bounds_w: f32) -> f32 {
         let bpr = self.bytes_per_row as usize;
         let right_reserved = self.right_strip();
-        let needs_hscroll =
-            layout::total_content_width(bpr, !self.row_annotations.is_empty()) > bounds_w - right_reserved;
+        let needs_hscroll = layout::total_content_width(bpr, !self.row_annotations.is_empty())
+            > bounds_w - right_reserved;
         if needs_hscroll {
             (bounds_h - HEADER_HEIGHT - SCROLLBAR_THICKNESS).max(0.0)
         } else {
@@ -261,10 +261,7 @@ impl<'a, Message> DiffView<'a, Message> {
     /// Whether the row starting at `base_addr` contains any differing bytes.
     pub(super) fn row_has_diff(&self, base_addr: u64) -> bool {
         let bpr = self.bytes_per_row as u64;
-        self.diff
-            .range(base_addr..base_addr + bpr)
-            .next()
-            .is_some()
+        self.diff.range(base_addr..base_addr + bpr).next().is_some()
     }
 }
 
@@ -287,12 +284,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for DiffView<'a,
         Size::new(self.width, self.height)
     }
 
-    fn layout(
-        &mut self,
-        _tree: &mut Tree,
-        _renderer: &iced::Renderer,
-        limits: &Limits,
-    ) -> Node {
+    fn layout(&mut self, _tree: &mut Tree, _renderer: &iced::Renderer, limits: &Limits) -> Node {
         Node::new(limits.resolve(self.width, self.height, Size::new(800.0, 320.0)))
     }
 
@@ -342,8 +334,7 @@ impl<'a, Message, Theme> Widget<Message, Theme, iced::Renderer> for DiffView<'a,
 
 // ── From<DiffView> for Element ─────────────────────────────────────────
 
-impl<'a, Message, Theme> From<DiffView<'a, Message>>
-    for Element<'a, Message, Theme, iced::Renderer>
+impl<'a, Message, Theme> From<DiffView<'a, Message>> for Element<'a, Message, Theme, iced::Renderer>
 where
     Theme: 'a,
     Message: 'a,
@@ -370,15 +361,12 @@ pub fn view<'a>(
     use iced::{Fill, Font};
 
     let Some(ref cf) = state.comparison_file else {
-        return container(
-            text("No comparison file loaded. Right-click to select one.")
-                .size(11),
-        )
-        .width(Fill)
-        .height(Fill)
-        .center_x(Fill)
-        .center_y(Fill)
-        .into();
+        return container(text("No comparison file loaded. Right-click to select one.").size(11))
+            .width(Fill)
+            .height(Fill)
+            .center_x(Fill)
+            .center_y(Fill)
+            .into();
     };
 
     // ── Diff header bar with close button ──
@@ -397,7 +385,9 @@ pub fn view<'a>(
     let header = container(
         row![
             comparison_name,
-            container(close_btn).width(Fill).align_x(iced::alignment::Horizontal::Right),
+            container(close_btn)
+                .width(Fill)
+                .align_x(iced::alignment::Horizontal::Right),
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),
@@ -449,7 +439,9 @@ pub fn view<'a>(
         state.dim_nulls,
         state.theme,
     )
-    .on_select_at(|addr, is_baseline| crate::HexEditorMessage::DiffAddrSelected { addr, is_baseline })
+    .on_select_at(
+        |addr, is_baseline| crate::HexEditorMessage::DiffAddrSelected { addr, is_baseline },
+    )
     .on_extend_to(|addr, is_baseline| crate::HexEditorMessage::DiffExtendTo { addr, is_baseline })
     .on_right_click(|addr, _is_baseline| crate::HexEditorMessage::RightClickAt(addr))
     .on_nav(|dir, extend| crate::HexEditorMessage::Nav { dir, extend })
@@ -460,7 +452,11 @@ pub fn view<'a>(
     .show_minimap(state.show_minimap)
     .into();
 
-    column![header, diff_view].spacing(0).width(Fill).height(Fill).into()
+    column![header, diff_view]
+        .spacing(0)
+        .width(Fill)
+        .height(Fill)
+        .into()
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────
@@ -471,17 +467,25 @@ mod tests {
 
     use gui_widgets::components::paragraph_cache::ParagraphCache;
 
-    use super::layout::*;
     use super::draw::col_at_x;
+    use super::layout::*;
 
     fn sel() -> crate::domain::selection::Selection {
         crate::domain::selection::Selection::default()
     }
 
-    fn empty_set() -> BTreeSet<u64> { BTreeSet::new() }
-    fn empty_map() -> BTreeMap<u64, (usize, u8)> { BTreeMap::new() }
-    fn empty_ann() -> BTreeMap<u64, Vec<(usize, String)>> { BTreeMap::new() }
-    fn empty_active() -> BTreeSet<usize> { BTreeSet::new() }
+    fn empty_set() -> BTreeSet<u64> {
+        BTreeSet::new()
+    }
+    fn empty_map() -> BTreeMap<u64, (usize, u8)> {
+        BTreeMap::new()
+    }
+    fn empty_ann() -> BTreeMap<u64, Vec<(usize, String)>> {
+        BTreeMap::new()
+    }
+    fn empty_active() -> BTreeSet<usize> {
+        BTreeSet::new()
+    }
 
     /// Construct a minimal DiffView for tests. All non-essential buffers
     /// reference static empty collections.
@@ -491,11 +495,22 @@ mod tests {
         static EMPTY_ANN: BTreeMap<u64, Vec<(usize, String)>> = BTreeMap::new();
         static EMPTY_ACTIVE: BTreeSet<usize> = BTreeSet::new();
         super::DiffView::new(
-            a, b, bpr, sel(),
-            &EMPTY_SET, &EMPTY_MAP, &EMPTY_SET,
-            0, None, &[], &EMPTY_ANN, &EMPTY_ACTIVE,
-            BTreeSet::new(), ParagraphCache::default(),
-            crate::coloring::ColorScheme::Monochrome, false,
+            a,
+            b,
+            bpr,
+            sel(),
+            &EMPTY_SET,
+            &EMPTY_MAP,
+            &EMPTY_SET,
+            0,
+            None,
+            &[],
+            &EMPTY_ANN,
+            &EMPTY_ACTIVE,
+            BTreeSet::new(),
+            ParagraphCache::default(),
+            crate::coloring::ColorScheme::Monochrome,
+            false,
             &crate::ui::theme::DARK_THEME,
         )
     }
@@ -525,8 +540,10 @@ mod tests {
     #[test]
     fn builder_on_right_click_sets_callback() {
         let called = std::cell::Cell::new(None);
-        let dv = minimal_dv(&[0], &[0], 16)
-            .on_right_click(|addr, _is_baseline| { called.set(Some(addr)); () });
+        let dv = minimal_dv(&[0], &[0], 16).on_right_click(|addr, _is_baseline| {
+            called.set(Some(addr));
+            ()
+        });
         let cb = dv.on_right_click.as_ref().unwrap();
         cb(42, true);
         assert_eq!(called.get(), Some(42));
@@ -535,8 +552,10 @@ mod tests {
     #[test]
     fn builder_on_extend_to_sets_callback() {
         let called = std::cell::Cell::new(None);
-        let dv = minimal_dv(&[0], &[0], 16)
-            .on_extend_to(|addr, _is_baseline| { called.set(Some(addr)); () });
+        let dv = minimal_dv(&[0], &[0], 16).on_extend_to(|addr, _is_baseline| {
+            called.set(Some(addr));
+            ()
+        });
         let cb = dv.on_extend_to.as_ref().unwrap();
         cb(99, false);
         assert_eq!(called.get(), Some(99));
@@ -546,8 +565,10 @@ mod tests {
     fn builder_on_nav_sets_callback() {
         // NavDir does not implement PartialEq, so verify invocation by flag
         let called = std::cell::Cell::new(false);
-        let dv = minimal_dv(&[0], &[0], 16)
-            .on_nav(|_, _| { called.set(true); () });
+        let dv = minimal_dv(&[0], &[0], 16).on_nav(|_, _| {
+            called.set(true);
+            ()
+        });
         let cb = dv.on_nav.as_ref().unwrap();
         cb(crate::domain::selection::NavDir::Right, true);
         assert!(called.get(), "on_nav callback should have been invoked");
@@ -693,7 +714,10 @@ mod tests {
     #[test]
     fn diff_total_content_width_no_annotations() {
         let side_a = ADDR_COL_WIDTH
-            + 16.0 * HEX_CELL_WIDTH + 1.0 * GROUP_GAP + COLUMN_GAP + 16.0 * ASCII_CELL_WIDTH;
+            + 16.0 * HEX_CELL_WIDTH
+            + 1.0 * GROUP_GAP
+            + COLUMN_GAP
+            + 16.0 * ASCII_CELL_WIDTH;
         let side_b = 16.0 * HEX_CELL_WIDTH + 1.0 * GROUP_GAP + COLUMN_GAP + 16.0 * ASCII_CELL_WIDTH;
         let expected = side_a + MID_GAP + side_b;
         assert_eq!(total_content_width(16, false), expected);

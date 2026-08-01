@@ -5,9 +5,7 @@ use crate::editors::save_file_viewer::message::{TableFilterAction, TableKey};
 use crate::editors::save_file_viewer::state::{SaveFileViewerState, TableFilterState};
 use crate::message::Message;
 
-use super::table::{
-    events_table_data, inventory_table_data, journal_table_data, maps_table_data,
-};
+use super::table::{events_table_data, inventory_table_data, journal_table_data, maps_table_data};
 
 /// Numeric-aware cell comparison for sorting. Falls back to lexicographic
 /// string comparison when either value is not a parseable float.
@@ -270,10 +268,7 @@ fn unique_values(rows: &[Vec<String>], col: usize) -> Vec<ColumnFilterOption> {
 
 /// Return the visible (filtered) indices for the table identified by `key`,
 /// used to translate an original index to a visible position for scrolling.
-fn filtered_indices_for(
-    state: &SaveFileViewerState,
-    key: TableKey,
-) -> Option<&[usize]> {
+fn filtered_indices_for(state: &SaveFileViewerState, key: TableKey) -> Option<&[usize]> {
     use super::table::maps_table_indices;
     match key {
         TableKey::Map(map, kind) => state
@@ -288,11 +283,7 @@ fn filtered_indices_for(
 
 /// Step the Highlight-mode highlight cursor and bring the focused row into
 /// view, mirroring the spreadsheet editor's `Navigate{Next,Prev}Highlight`.
-fn navigate_highlight(
-    state: &mut SaveFileViewerState,
-    key: TableKey,
-    next: bool,
-) -> Task<Message> {
+fn navigate_highlight(state: &mut SaveFileViewerState, key: TableKey, next: bool) -> Task<Message> {
     // Advance the cursor on the table's filter state.
     match key {
         TableKey::Map(map, kind) => {
@@ -452,10 +443,7 @@ mod tests {
 
     #[test]
     fn compare_cells_missing_column() {
-        let rows = vec![
-            vec!["a".to_string()],
-            vec!["b".to_string()],
-        ];
+        let rows = vec![vec!["a".to_string()], vec!["b".to_string()]];
         let mut indices: Vec<usize> = vec![0, 1];
         indices.sort_by(|&a, &b| compare_cells(&rows, a, b, 1, true));
         // Both None → Equal, stable sort preserves original order

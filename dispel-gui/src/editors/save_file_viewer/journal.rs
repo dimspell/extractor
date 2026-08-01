@@ -160,9 +160,9 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 indices.len(),
                 filter_msg_fn,
                 FilterBarExtras {
-                    export_csv: Some(Message::save_file_viewer(
-                        SaveFileViewerMessage::ExportCsv(TableKey::Journal(section)),
-                    )),
+                    export_csv: Some(Message::save_file_viewer(SaveFileViewerMessage::ExportCsv(
+                        TableKey::Journal(section),
+                    ))),
                     ..FilterBarExtras::default()
                 },
             );

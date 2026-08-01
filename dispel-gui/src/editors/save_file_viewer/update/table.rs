@@ -68,10 +68,7 @@ pub const COL_WIDTH_MIN: f32 = 24.0;
 pub const COL_WIDTH_MAX: f32 = 600.0;
 
 /// Return the (immutable) indices slice for a given map table kind.
-pub fn maps_table_indices(
-    cache: &MapsDisplayCaches,
-    kind: MapsTableKind,
-) -> &[usize] {
+pub fn maps_table_indices(cache: &MapsDisplayCaches, kind: MapsTableKind) -> &[usize] {
     match kind {
         MapsTableKind::Monsters => &cache.monsters_indices,
         MapsTableKind::Npcs => &cache.npcs_indices,

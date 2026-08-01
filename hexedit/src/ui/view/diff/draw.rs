@@ -16,8 +16,8 @@ use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
 use crate::coloring::{default_byte_colors, ColorScheme};
-use crate::ui::view::minimap;
 use crate::ui::theme::HexEditorTheme;
+use crate::ui::view::minimap;
 
 use super::layout::{
     self, visible_row_range, ADDR_COL_WIDTH, ANN_COL_GAP, ASCII_CELL_WIDTH, GROUP_GAP,
@@ -57,7 +57,10 @@ pub fn draw_diff_view<'a, Message>(
     let total_rows = widget.total_rows();
 
     // Use the longer of the two buffers for row count.
-    let total_bytes = widget.baseline_bytes.len().max(widget.comparison_bytes.len());
+    let total_bytes = widget
+        .baseline_bytes
+        .len()
+        .max(widget.comparison_bytes.len());
     let total_h = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
 
     let content_top = bounds.y + HEADER_HEIGHT;
@@ -141,7 +144,15 @@ pub fn draw_diff_view<'a, Message>(
     // ── Column headers ─────────────────────────────────────────────────
     let header_y = bounds.y;
     draw_column_headers(
-        renderer, &widget.cache, bounds, header_y, header_color, full_clip, bpr, font, scroll_x,
+        renderer,
+        &widget.cache,
+        bounds,
+        header_y,
+        header_color,
+        full_clip,
+        bpr,
+        font,
+        scroll_x,
     );
 
     renderer.fill_quad(
@@ -208,12 +219,26 @@ pub fn draw_diff_view<'a, Message>(
         for (col, &b) in row_bytes_a.iter().enumerate() {
             let addr = base_addr + col as u64;
             render_byte_cell(
-                renderer, widget, font, addr, b, col, y, bpr,
-                hex_a_start, ascii_a_start,
-                sel_range.clone(), cursor_addr,
-                diff_bg_baseline, diff_text_baseline,
-                selection_bg, selection_fg, cursor_bg,
-                hex_color, ascii_color, cell_clip,
+                renderer,
+                widget,
+                font,
+                addr,
+                b,
+                col,
+                y,
+                bpr,
+                hex_a_start,
+                ascii_a_start,
+                sel_range.clone(),
+                cursor_addr,
+                diff_bg_baseline,
+                diff_text_baseline,
+                selection_bg,
+                selection_fg,
+                cursor_bg,
+                hex_color,
+                ascii_color,
+                cell_clip,
             );
         }
 
@@ -230,12 +255,26 @@ pub fn draw_diff_view<'a, Message>(
         for (col, &b) in row_bytes_b.iter().enumerate() {
             let addr = base_addr + col as u64;
             render_byte_cell(
-                renderer, widget, font, addr, b, col, y, bpr,
-                hex_b_start, ascii_b_start,
-                sel_range.clone(), cursor_addr,
-                diff_bg_comparison, diff_text_comparison,
-                selection_bg, selection_fg, cursor_bg,
-                hex_color, ascii_color, cell_clip,
+                renderer,
+                widget,
+                font,
+                addr,
+                b,
+                col,
+                y,
+                bpr,
+                hex_b_start,
+                ascii_b_start,
+                sel_range.clone(),
+                cursor_addr,
+                diff_bg_comparison,
+                diff_text_comparison,
+                selection_bg,
+                selection_fg,
+                cursor_bg,
+                hex_color,
+                ascii_color,
+                cell_clip,
             );
         }
 
@@ -345,9 +384,16 @@ pub fn draw_diff_view<'a, Message>(
         }
     }
     draw_vscrollbar(
-        renderer, content_bounds, scroll, total_h, viewport_h,
+        renderer,
+        content_bounds,
+        scroll,
+        total_h,
+        viewport_h,
         state.dragging_scrollbar || state.hovering_scrollbar.get(),
-        widget.search_match_starts, &diff_rows, cursor_addr, total_bytes as u64,
+        widget.search_match_starts,
+        &diff_rows,
+        cursor_addr,
+        total_bytes as u64,
         widget.theme,
     );
     let content_w = layout::total_content_width(bpr, !widget.row_annotations.is_empty());
@@ -361,7 +407,9 @@ pub fn draw_diff_view<'a, Message>(
         draw_hscrollbar(
             renderer,
             htrack,
-            state.scroll_x.get(), content_w, avail_w,
+            state.scroll_x.get(),
+            content_w,
+            avail_w,
             state.dragging_scrollbar_x || hovering,
             widget.theme,
         );
@@ -403,12 +451,18 @@ fn render_byte_cell<Message>(
 
     // Background priority: selection > cursor > pattern > diff > none.
     let base_bg = if in_sel {
-        let bg = if addr == cursor_addr { cursor_bg } else { selection_bg };
+        let bg = if addr == cursor_addr {
+            cursor_bg
+        } else {
+            selection_bg
+        };
         Some(bg)
     } else if let Some((pid, color_idx)) = pat_entry {
         let mut bg = widget.theme.pattern_bg_palette[color_idx as usize % 16];
         if widget.alternate_patterns.contains(&pid) {
-            bg.r *= 0.5; bg.g *= 0.5; bg.b *= 0.5;
+            bg.r *= 0.5;
+            bg.g *= 0.5;
+            bg.b *= 0.5;
         }
         Some(bg)
     } else if is_diff {
@@ -472,9 +526,18 @@ fn render_byte_cell<Message>(
     // Hex glyph.
     let hex_str = format!("{:02X}", byte);
     draw_glyph_string(
-        renderer, &widget.cache, &hex_str, font,
-        Rectangle { x: cell_x + 1.0, y, width: HEX_CELL_WIDTH - 2.0, height: ROW_HEIGHT },
-        text_color, clip,
+        renderer,
+        &widget.cache,
+        &hex_str,
+        font,
+        Rectangle {
+            x: cell_x + 1.0,
+            y,
+            width: HEX_CELL_WIDTH - 2.0,
+            height: ROW_HEIGHT,
+        },
+        text_color,
+        clip,
     );
 
     // ASCII glyph.
@@ -484,9 +547,18 @@ fn render_byte_cell<Message>(
         "·".to_string()
     };
     draw_glyph_string(
-        renderer, &widget.cache, &ascii_char, font,
-        Rectangle { x: ax, y, width: ASCII_CELL_WIDTH, height: ROW_HEIGHT },
-        ascii_col, clip,
+        renderer,
+        &widget.cache,
+        &ascii_char,
+        font,
+        Rectangle {
+            x: ax,
+            y,
+            width: ASCII_CELL_WIDTH,
+            height: ROW_HEIGHT,
+        },
+        ascii_col,
+        clip,
     );
 }
 
@@ -529,9 +601,18 @@ fn draw_column_headers(
     ];
     for (label, x, w) in &labels {
         draw_glyph_string(
-            renderer, cache, label, font,
-            Rectangle { x: *x + 2.0, y, width: *w - 4.0, height: HEADER_HEIGHT },
-            color, clip,
+            renderer,
+            cache,
+            label,
+            font,
+            Rectangle {
+                x: *x + 2.0,
+                y,
+                width: *w - 4.0,
+                height: HEADER_HEIGHT,
+            },
+            color,
+            clip,
         );
     }
 }
@@ -546,10 +627,20 @@ fn fill_cell(
     color: Color,
     clip: Rectangle,
 ) {
-    let cell = Rectangle { x, y, width, height: ROW_HEIGHT };
+    let cell = Rectangle {
+        x,
+        y,
+        width,
+        height: ROW_HEIGHT,
+    };
     if let Some(rect) = clip.intersection(&cell) {
         renderer.fill_quad(
-            renderer::Quad { bounds: rect, border: Border::default(), shadow: Shadow::default(), snap: true },
+            renderer::Quad {
+                bounds: rect,
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
             Background::Color(color),
         );
     }
@@ -580,7 +671,11 @@ fn draw_glyph_string(
             hint_factor: None,
         })
     });
-    let pos = bounds.anchor(para.min_bounds(), alignment::Horizontal::Left, alignment::Vertical::Center);
+    let pos = bounds.anchor(
+        para.min_bounds(),
+        alignment::Horizontal::Left,
+        alignment::Vertical::Center,
+    );
     if let Some(cell_clip) = clip.intersection(&bounds) {
         <iced::Renderer as text::Renderer>::fill_paragraph(renderer, &para, pos, color, cell_clip);
     }
@@ -591,7 +686,12 @@ fn draw_glyph_string(
 const MARKER_SIZE: f32 = 4.0;
 
 fn scrollbar_track(bounds: Rectangle, viewport_h: f32) -> Rectangle {
-    Rectangle { x: bounds.x + bounds.width - SCROLLBAR_THICKNESS, y: bounds.y, width: SCROLLBAR_THICKNESS, height: viewport_h }
+    Rectangle {
+        x: bounds.x + bounds.width - SCROLLBAR_THICKNESS,
+        y: bounds.y,
+        width: SCROLLBAR_THICKNESS,
+        height: viewport_h,
+    }
 }
 
 fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
@@ -599,7 +699,9 @@ fn thumb_height(track: Rectangle, total_h: f32) -> f32 {
 }
 
 fn scrollbar_y_frac(addr: u64, total_len: u64, track: Rectangle) -> f32 {
-    if total_len <= 1 { return track.y; }
+    if total_len <= 1 {
+        return track.y;
+    }
     track.y + (addr as f32 / (total_len - 1) as f32) * track.height
 }
 
@@ -607,7 +709,12 @@ fn scrollbar_thumb(track: Rectangle, scroll: f32, total_h: f32) -> Rectangle {
     let h = thumb_height(track, total_h);
     let max_off = (total_h - track.height).max(1.0);
     let y = track.y + (scroll / max_off) * (track.height - h);
-    Rectangle { x: track.x + 1.0, y, width: track.width - 2.0, height: h }
+    Rectangle {
+        x: track.x + 1.0,
+        y,
+        width: track.width - 2.0,
+        height: h,
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -628,10 +735,19 @@ fn draw_vscrollbar(
     let thumb = scrollbar_thumb(track, scroll, total_h);
 
     renderer.fill_quad(
-        renderer::Quad { bounds: track, border: Border::default(), shadow: Shadow::default(), snap: true },
+        renderer::Quad {
+            bounds: track,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
         Background::Color(theme.scrollbar_bg),
     );
-    let thumb_color = if active { theme.scrollbar_thumb_hover } else { theme.scrollbar_thumb };
+    let thumb_color = if active {
+        theme.scrollbar_thumb_hover
+    } else {
+        theme.scrollbar_thumb
+    };
 
     // ── Diff markers (skip overlapping ones) ──
     let mut last_y: Option<f32> = None;
@@ -643,9 +759,12 @@ fn draw_vscrollbar(
                     bounds: Rectangle {
                         x: track.x + (track.width - MARKER_SIZE) / 2.0,
                         y: my - MARKER_SIZE / 2.0,
-                        width: MARKER_SIZE, height: MARKER_SIZE,
+                        width: MARKER_SIZE,
+                        height: MARKER_SIZE,
                     },
-                    border: Border::default(), shadow: Shadow::default(), snap: true,
+                    border: Border::default(),
+                    shadow: Shadow::default(),
+                    snap: true,
                 },
                 Background::Color(theme.diff_bg),
             );
@@ -661,9 +780,12 @@ fn draw_vscrollbar(
                 bounds: Rectangle {
                     x: track.x + (track.width - MARKER_SIZE) / 2.0,
                     y: my - MARKER_SIZE / 2.0,
-                    width: MARKER_SIZE, height: MARKER_SIZE,
+                    width: MARKER_SIZE,
+                    height: MARKER_SIZE,
                 },
-                border: Border::default(), shadow: Shadow::default(), snap: true,
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
             },
             Background::Color(theme.scrollbar_search_dot),
         );
@@ -675,21 +797,38 @@ fn draw_vscrollbar(
             bounds: Rectangle {
                 x: track.x + (track.width - MARKER_SIZE) / 2.0,
                 y: cy - MARKER_SIZE / 2.0,
-                width: MARKER_SIZE, height: MARKER_SIZE,
+                width: MARKER_SIZE,
+                height: MARKER_SIZE,
             },
-            border: Border::default(), shadow: Shadow::default(), snap: true,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
         },
         Background::Color(theme.scrollbar_cursor_dot),
     );
 
     renderer.fill_quad(
-        renderer::Quad { bounds: thumb, border: Border { color: thumb_color, width: 0.5, radius: 0.into() }, shadow: Shadow::default(), snap: true },
+        renderer::Quad {
+            bounds: thumb,
+            border: Border {
+                color: thumb_color,
+                width: 0.5,
+                radius: 0.into(),
+            },
+            shadow: Shadow::default(),
+            snap: true,
+        },
         Background::Color(thumb_color),
     );
 }
 
 fn hscrollbar_track(bounds: Rectangle) -> Rectangle {
-    Rectangle { x: bounds.x, y: bounds.y + bounds.height - SCROLLBAR_THICKNESS, width: bounds.width - SCROLLBAR_THICKNESS, height: SCROLLBAR_THICKNESS }
+    Rectangle {
+        x: bounds.x,
+        y: bounds.y + bounds.height - SCROLLBAR_THICKNESS,
+        width: bounds.width - SCROLLBAR_THICKNESS,
+        height: SCROLLBAR_THICKNESS,
+    }
 }
 
 fn hthumb_len(track: Rectangle, content_w: f32, _avail_w: f32) -> f32 {
@@ -700,7 +839,12 @@ fn hscrollbar_thumb(track: Rectangle, scroll_x: f32, content_w: f32, avail_w: f3
     let w = hthumb_len(track, content_w, avail_w);
     let max_off = (content_w - avail_w).max(1.0);
     let x = track.x + (scroll_x / max_off) * (track.width - w);
-    Rectangle { x, y: track.y + 1.0, width: w, height: track.height - 2.0 }
+    Rectangle {
+        x,
+        y: track.y + 1.0,
+        width: w,
+        height: track.height - 2.0,
+    }
 }
 
 fn draw_hscrollbar(
@@ -714,12 +858,30 @@ fn draw_hscrollbar(
 ) {
     let thumb = hscrollbar_thumb(track, scroll_x, content_w, avail_w);
     renderer.fill_quad(
-        renderer::Quad { bounds: track, border: Border::default(), shadow: Shadow::default(), snap: true },
+        renderer::Quad {
+            bounds: track,
+            border: Border::default(),
+            shadow: Shadow::default(),
+            snap: true,
+        },
         Background::Color(theme.scrollbar_bg),
     );
-    let thumb_color = if active { theme.scrollbar_thumb_hover } else { theme.scrollbar_thumb };
+    let thumb_color = if active {
+        theme.scrollbar_thumb_hover
+    } else {
+        theme.scrollbar_thumb
+    };
     renderer.fill_quad(
-        renderer::Quad { bounds: thumb, border: Border { color: thumb_color, width: 0.5, radius: 0.into() }, shadow: Shadow::default(), snap: true },
+        renderer::Quad {
+            bounds: thumb,
+            border: Border {
+                color: thumb_color,
+                width: 0.5,
+                radius: 0.into(),
+            },
+            shadow: Shadow::default(),
+            snap: true,
+        },
         Background::Color(thumb_color),
     );
 }
@@ -736,18 +898,27 @@ pub fn col_at_x(x: f32, bpr: usize, scroll_x: f32) -> Option<(usize, bool)> {
     let comp_ascii_start = layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x;
 
     // Baseline hex
-    if x >= hex_a_start && x < hex_a_start + bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP {
+    if x >= hex_a_start
+        && x < hex_a_start
+            + bpr as f32 * HEX_CELL_WIDTH
+            + layout::group_count(bpr) as f32 * GROUP_GAP
+    {
         let local = x - hex_a_start;
         let effective_col_w = HEX_CELL_WIDTH;
         let mut pos = 0.0;
         for col in 0..bpr {
-            if col > 0 && col % 8 == 0 { pos += GROUP_GAP; }
+            if col > 0 && col % 8 == 0 {
+                pos += GROUP_GAP;
+            }
             if local >= pos && local < pos + effective_col_w {
                 return Some((col, true));
             }
             pos += effective_col_w;
         }
-        return Some((((local / effective_col_w) as usize).min(bpr.saturating_sub(1)), true));
+        return Some((
+            ((local / effective_col_w) as usize).min(bpr.saturating_sub(1)),
+            true,
+        ));
     }
 
     // Baseline ASCII
@@ -757,18 +928,27 @@ pub fn col_at_x(x: f32, bpr: usize, scroll_x: f32) -> Option<(usize, bool)> {
     }
 
     // Comparison hex
-    if x >= comp_hex_start && x < comp_hex_start + bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP {
+    if x >= comp_hex_start
+        && x < comp_hex_start
+            + bpr as f32 * HEX_CELL_WIDTH
+            + layout::group_count(bpr) as f32 * GROUP_GAP
+    {
         let local = x - comp_hex_start;
         let effective_col_w = HEX_CELL_WIDTH;
         let mut pos = 0.0;
         for col in 0..bpr {
-            if col > 0 && col % 8 == 0 { pos += GROUP_GAP; }
+            if col > 0 && col % 8 == 0 {
+                pos += GROUP_GAP;
+            }
             if local >= pos && local < pos + effective_col_w {
                 return Some((col, false));
             }
             pos += effective_col_w;
         }
-        return Some((((local / effective_col_w) as usize).min(bpr.saturating_sub(1)), false));
+        return Some((
+            ((local / effective_col_w) as usize).min(bpr.saturating_sub(1)),
+            false,
+        ));
     }
 
     // Comparison ASCII

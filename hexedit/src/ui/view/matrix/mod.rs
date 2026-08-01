@@ -865,24 +865,24 @@ mod tests {
         let alternate_patterns = BTreeSet::new();
 
         let matrix = super::HexMatrix::<()>::new(
-            &[],                           // bytes (empty)
-            16,                            // bytes_per_row
-            Selection::default(),          // selection
-            None,                          // edit
-            &dirty,                        // dirty
-            &diff,                         // vanilla_diff
-            &patterns,                     // patterns
-            &search_match_set,             // search_match_set
-            0,                             // search_query_len
-            None,                          // search_current_addr
-            &[],                           // search_match_starts
-            &row_annotations,              // row_annotations
-            &active_patterns,              // active_patterns
-            alternate_patterns,            // alternate_patterns
-            ParagraphCache::default(),     // cache
-            ColorScheme::Monochrome,       // color_scheme
-            false,                         // dim_nulls
-            &DARK_THEME,                   // theme
+            &[],                       // bytes (empty)
+            16,                        // bytes_per_row
+            Selection::default(),      // selection
+            None,                      // edit
+            &dirty,                    // dirty
+            &diff,                     // vanilla_diff
+            &patterns,                 // patterns
+            &search_match_set,         // search_match_set
+            0,                         // search_query_len
+            None,                      // search_current_addr
+            &[],                       // search_match_starts
+            &row_annotations,          // row_annotations
+            &active_patterns,          // active_patterns
+            alternate_patterns,        // alternate_patterns
+            ParagraphCache::default(), // cache
+            ColorScheme::Monochrome,   // color_scheme
+            false,                     // dim_nulls
+            &DARK_THEME,               // theme
         )
         .center_on(Some(5000));
 

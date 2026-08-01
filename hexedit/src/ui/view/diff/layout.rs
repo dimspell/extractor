@@ -88,7 +88,8 @@ pub fn comparison_hex_start(addr_col_w: f32, bpr: usize) -> f32 {
 
 /// The x-coordinate of the comparison ASCII column start.
 pub fn comparison_ascii_start(addr_col_w: f32, bpr: usize) -> f32 {
-    comparison_hex_start(addr_col_w, bpr) + bpr as f32 * HEX_CELL_WIDTH
+    comparison_hex_start(addr_col_w, bpr)
+        + bpr as f32 * HEX_CELL_WIDTH
         + group_count(bpr) as f32 * GROUP_GAP
         + COLUMN_GAP
 }

@@ -430,9 +430,7 @@ where
                         }
                     }
                     Action::Dragging {
-                        tab_idx,
-                        origin,
-                        ..
+                        tab_idx, origin, ..
                     } => {
                         if let Some(cursor_pos) = cursor.position() {
                             if cursor_pos.distance(origin) > DRAG_DEADBAND {

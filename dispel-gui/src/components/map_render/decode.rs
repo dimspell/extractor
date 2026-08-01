@@ -105,7 +105,10 @@ where
         if frame.width <= 0 || frame.height <= 0 {
             continue;
         }
-        if reader.seek(SeekFrom::Start(frame.image_start_position)).is_err() {
+        if reader
+            .seek(SeekFrom::Start(frame.image_start_position))
+            .is_err()
+        {
             continue;
         }
 

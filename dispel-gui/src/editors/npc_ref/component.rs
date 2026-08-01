@@ -1,7 +1,5 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::references::enums::{
-    BooleanFlag, NpcLookingDirection, Unknown0110, Unknown012,
-};
+use dispel_core::references::enums::{BooleanFlag, NpcLookingDirection, Unknown0110, Unknown012};
 use dispel_core::NPC;
 
 use crate::editable_record_fields;

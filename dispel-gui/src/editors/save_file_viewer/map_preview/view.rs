@@ -88,20 +88,28 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             let zoom_controls = container(
                 column![
                     button(text("+").size(14))
-                        .on_press(Message::save_file_viewer(SaveFileViewerMessage::MapPreview(
-                            PreviewMessage::Zoom(1.25, f32::NAN, f32::NAN),
-                        )))
+                        .on_press(Message::save_file_viewer(
+                            SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
+                                1.25,
+                                f32::NAN,
+                                f32::NAN
+                            ),)
+                        ))
                         .padding([5, 10]),
                     text(zoom_label).size(10),
                     button(text("−").size(14))
-                        .on_press(Message::save_file_viewer(SaveFileViewerMessage::MapPreview(
-                            PreviewMessage::Zoom(1.0 / 1.25, f32::NAN, f32::NAN),
-                        )))
+                        .on_press(Message::save_file_viewer(
+                            SaveFileViewerMessage::MapPreview(PreviewMessage::Zoom(
+                                1.0 / 1.25,
+                                f32::NAN,
+                                f32::NAN
+                            ),)
+                        ))
                         .padding([5, 10]),
                     button(text("⊡").size(11))
-                        .on_press(Message::save_file_viewer(SaveFileViewerMessage::MapPreview(
-                            PreviewMessage::FitToWindow,
-                        )))
+                        .on_press(Message::save_file_viewer(
+                            SaveFileViewerMessage::MapPreview(PreviewMessage::FitToWindow,)
+                        ))
                         .padding([5, 10]),
                 ]
                 .spacing(4)
@@ -138,6 +146,10 @@ fn layer_toggle(
         .label(label)
         .text_size(11)
         .size(12)
-        .on_toggle(move |_| Message::save_file_viewer(SaveFileViewerMessage::MapPreview(PreviewMessage::LayerToggle(layer))))
+        .on_toggle(move |_| {
+            Message::save_file_viewer(SaveFileViewerMessage::MapPreview(
+                PreviewMessage::LayerToggle(layer),
+            ))
+        })
         .into()
 }

@@ -207,9 +207,9 @@ fn inventory_table<'a>(
             filtered_indices.len(),
             filter_msg_fn,
             FilterBarExtras {
-                export_csv: Some(Message::save_file_viewer(
-                    SaveFileViewerMessage::ExportCsv(TableKey::Inventory(cat)),
-                )),
+                export_csv: Some(Message::save_file_viewer(SaveFileViewerMessage::ExportCsv(
+                    TableKey::Inventory(cat),
+                ))),
                 ..FilterBarExtras::default()
             },
         );

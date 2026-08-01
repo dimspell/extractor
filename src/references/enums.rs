@@ -850,7 +850,7 @@ impl BooleanFlag {
             _ => {
                 println!("BooleanFlag unknown value: {value:?}");
                 None
-            },
+            }
         }
     }
 
@@ -861,7 +861,7 @@ impl BooleanFlag {
             _ => {
                 println!("BooleanFlag unknown value: {value:?}");
                 None
-            },
+            }
         }
     }
 
@@ -1968,7 +1968,10 @@ mod tests {
     #[test]
     fn test_monster_ai_type_conversion() {
         assert_eq!(MonsterAiType::from_i32(1), Some(MonsterAiType::HitAndFlee));
-        assert_eq!(MonsterAiType::from_i32(4), Some(MonsterAiType::TeleportTactic));
+        assert_eq!(
+            MonsterAiType::from_i32(4),
+            Some(MonsterAiType::TeleportTactic)
+        );
         assert_eq!(MonsterAiType::from_i32(7), None);
 
         assert_eq!(i32::from(MonsterAiType::AttackWhenOutnumbered), 3);

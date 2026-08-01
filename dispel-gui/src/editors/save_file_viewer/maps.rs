@@ -5,7 +5,9 @@ use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, Globa
 use crate::editors::save_file_viewer::message::{
     SaveFileViewerMessage, TableFilterAction, TableKey,
 };
-use crate::editors::save_file_viewer::state::{MapsTableKind, SaveFileViewerState, TableInteractionState};
+use crate::editors::save_file_viewer::state::{
+    MapsTableKind, SaveFileViewerState, TableInteractionState,
+};
 use crate::message::Message;
 use crate::message::MessageExt;
 use crate::style;
@@ -294,7 +296,7 @@ fn entity_table<'a>(
         0.0,
         row_flags,
         22.0,
-         paragraph_cache.clone(),
+        paragraph_cache.clone(),
     )
     .table_state(&ts.table_state)
     .on_select(move |visible_idx| {
@@ -371,9 +373,9 @@ fn entity_table<'a>(
         indices.len(),
         filter_msg_fn,
         FilterBarExtras {
-            export_csv: Some(Message::save_file_viewer(
-                SaveFileViewerMessage::ExportCsv(TableKey::Map(map_idx, kind)),
-            )),
+            export_csv: Some(Message::save_file_viewer(SaveFileViewerMessage::ExportCsv(
+                TableKey::Map(map_idx, kind),
+            ))),
             ..FilterBarExtras::default()
         },
     );

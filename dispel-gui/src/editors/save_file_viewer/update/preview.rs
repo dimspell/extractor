@@ -2,9 +2,9 @@ use iced::widget::image::Handle;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::components::map_render::EntitySpriteHandle;
 use crate::editors::save_file_viewer::map_preview::state::{EntityKind, PreviewEntity};
 use crate::editors::save_file_viewer::message::PreviewSpritesLoaded;
-use crate::components::map_render::EntitySpriteHandle;
 use dispel_core::map::sprite_loader::{load_last_frame_of_sequence, load_sprite_frames};
 use dispel_core::sprite;
 use dispel_core::{Extra, Extractor, MonsterIni, NpcIni};
@@ -43,8 +43,7 @@ pub async fn load_preview_sprites(
     // path can be shared by entities in different states (alive vs dead) or
     // facing different directions — without this the first loaded variant would
     // be reused for all others, showing the wrong frame or flip.
-    let mut sprite_cache: HashMap<(PathBuf, bool, u8), Option<EntitySpriteHandle>> =
-        HashMap::new();
+    let mut sprite_cache: HashMap<(PathBuf, bool, u8), Option<EntitySpriteHandle>> = HashMap::new();
     let sprites: Vec<Option<EntitySpriteHandle>> = entity_markers
         .iter()
         .map(|entity| {

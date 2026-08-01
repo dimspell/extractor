@@ -1101,7 +1101,6 @@ impl SaveFile {
             party_members.push(entry);
         }
 
-
         Ok(CharacterIdentity {
             unknown_block,
             player_name,

@@ -1,7 +1,5 @@
 use crate::editors::save_file_viewer::message::TableKey;
-use crate::editors::save_file_viewer::state::{
-    JournalSection, MapsTableKind, SaveFileViewerState,
-};
+use crate::editors::save_file_viewer::state::{JournalSection, MapsTableKind, SaveFileViewerState};
 
 /// Build a default filename for a CSV export based on the table key.
 pub fn csv_default_filename(key: TableKey) -> String {
@@ -90,18 +88,14 @@ pub fn resolve_csv_export_data(
             let (rows_data, indices_slice): (&[Vec<String>], &[usize]) = match kind {
                 MapsTableKind::Monsters => (&cache.monsters, &cache.monsters_indices),
                 MapsTableKind::Npcs => (&cache.npcs, &cache.npcs_indices),
-                MapsTableKind::ExtraObjects => {
-                    (&cache.extra_objects, &cache.extra_objects_indices)
-                }
+                MapsTableKind::ExtraObjects => (&cache.extra_objects, &cache.extra_objects_indices),
                 MapsTableKind::Weapon => {
                     (&cache.draw_items_weapon, &cache.draw_items_weapon_indices)
                 }
                 MapsTableKind::Heal => (&cache.draw_items_heal, &cache.draw_items_heal_indices),
                 MapsTableKind::Edit => (&cache.draw_items_edit, &cache.draw_items_edit_indices),
                 MapsTableKind::Misc => (&cache.draw_items_misc, &cache.draw_items_misc_indices),
-                MapsTableKind::Event => {
-                    (&cache.draw_items_event, &cache.draw_items_event_indices)
-                }
+                MapsTableKind::Event => (&cache.draw_items_event, &cache.draw_items_event_indices),
             };
             let rows: Vec<Vec<String>> = indices_slice
                 .iter()
@@ -114,7 +108,7 @@ pub fn resolve_csv_export_data(
 
 #[cfg(test)]
 mod tests {
-    use super::{csv_default_filename, TableKey, JournalSection, MapsTableKind};
+    use super::{csv_default_filename, JournalSection, MapsTableKind, TableKey};
 
     #[test]
     fn csv_filename_inventory() {

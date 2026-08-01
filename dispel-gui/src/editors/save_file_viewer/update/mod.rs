@@ -15,9 +15,8 @@ use self::csv_export::{csv_default_filename, resolve_csv_export_data};
 use self::filter::{compare_cells, handle_table_filter};
 use self::preview::load_preview_sprites;
 use self::table::{
-    apply_resize_cursor, auto_size_column, events_table_data, hex_bytes,
-    inventory_table_data, journal_table_data, maps_table_data, maps_table_indices,
-    maps_table_rows,
+    apply_resize_cursor, auto_size_column, events_table_data, hex_bytes, inventory_table_data,
+    journal_table_data, maps_table_data, maps_table_indices, maps_table_rows,
 };
 
 /// Handle a `*StartResize` press for any table. Returns `None` when the press
@@ -40,7 +39,8 @@ pub fn try_begin_column_resize(
 
     // Check for double-press
     if let Some((last_key, last_col, last_time)) = state.last_resize_press {
-        if last_key == key && last_col == col
+        if last_key == key
+            && last_col == col
             && now.duration_since(last_time).as_millis() < DOUBLE_PRESS_MS
         {
             state.last_resize_press = None;
@@ -101,17 +101,27 @@ fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: 
             &header,
         ),
         TableKey::Inventory(cat) => {
-            let Some(rows) = state.inventory_display_caches.get(&cat) else { return; };
-            let Some(indices) = state.inventory_filtered_indices.get(&cat) else { return; };
+            let Some(rows) = state.inventory_display_caches.get(&cat) else {
+                return;
+            };
+            let Some(indices) = state.inventory_filtered_indices.get(&cat) else {
+                return;
+            };
             auto_size_column(rows, indices, col, &header)
         }
         TableKey::Journal(section) => {
-            let Some(rows) = state.journal_display_caches.get(&section) else { return; };
-            let Some(indices) = state.journal_filtered_indices.get(&section) else { return; };
+            let Some(rows) = state.journal_display_caches.get(&section) else {
+                return;
+            };
+            let Some(indices) = state.journal_filtered_indices.get(&section) else {
+                return;
+            };
             auto_size_column(rows, indices, col, &header)
         }
         TableKey::Map(map, kind) => {
-            let Some(cache) = state.maps_display_caches.get(map) else { return; };
+            let Some(cache) = state.maps_display_caches.get(map) else {
+                return;
+            };
             let rows = maps_table_rows(cache, kind);
             let indices = maps_table_indices(cache, kind);
             auto_size_column(rows, indices, col, &header)
@@ -124,16 +134,29 @@ fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: 
 /// Get the column header label for a table key.
 fn column_label_by_key(key: TableKey, col: usize) -> String {
     match key {
-        TableKey::Events => {
-            crate::editors::save_file_viewer::state::events_default_columns()
-                .into_iter()
-                .nth(col)
-                .map(|c| c.label)
-                .unwrap_or_default()
-        }
-        TableKey::Map(_, kind) => kind.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
-        TableKey::Inventory(cat) => cat.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
-        TableKey::Journal(section) => section.default_columns().into_iter().nth(col).map(|c| c.label).unwrap_or_default(),
+        TableKey::Events => crate::editors::save_file_viewer::state::events_default_columns()
+            .into_iter()
+            .nth(col)
+            .map(|c| c.label)
+            .unwrap_or_default(),
+        TableKey::Map(_, kind) => kind
+            .default_columns()
+            .into_iter()
+            .nth(col)
+            .map(|c| c.label)
+            .unwrap_or_default(),
+        TableKey::Inventory(cat) => cat
+            .default_columns()
+            .into_iter()
+            .nth(col)
+            .map(|c| c.label)
+            .unwrap_or_default(),
+        TableKey::Journal(section) => section
+            .default_columns()
+            .into_iter()
+            .nth(col)
+            .map(|c| c.label)
+            .unwrap_or_default(),
     }
 }
 
@@ -991,11 +1014,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         None => Err("cancelled".to_string()),
                     }
                 },
-                move |result| {
-                    Message::save_file_viewer(SaveFileViewerMessage::CsvExported(
-                        result,
-                    ))
-                },
+                move |result| Message::save_file_viewer(SaveFileViewerMessage::CsvExported(result)),
             )
         }
         SaveFileViewerMessage::Load(_) => {

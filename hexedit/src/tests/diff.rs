@@ -3,12 +3,10 @@
 
 use super::*;
 
-use iced::{Event, mouse};
+use iced::{mouse, Event};
 use iced_test::simulator::click;
 
-use crate::ui::view::diff::layout::{
-    ADDR_COL_WIDTH, HEADER_HEIGHT, HEX_CELL_WIDTH, ROW_HEIGHT,
-};
+use crate::ui::view::diff::layout::{ADDR_COL_WIDTH, HEADER_HEIGHT, HEX_CELL_WIDTH, ROW_HEIGHT};
 use crate::ui::view::diff::DiffView;
 
 fn sel() -> Selection {
@@ -60,11 +58,9 @@ fn row_0_y() -> f32 {
 #[test]
 fn test_diff_click_on_comparison_side_publishes_side() {
     let mut ui = simulator::<HexEditorMessage, iced::Theme, iced::Renderer>(
-        minimal_dv::<HexEditorMessage>(&[0u8; 32], &[0u8; 32], 16)
-            .on_select_at(|addr, is_baseline| HexEditorMessage::DiffAddrSelected {
-                addr,
-                is_baseline,
-            }),
+        minimal_dv::<HexEditorMessage>(&[0u8; 32], &[0u8; 32], 16).on_select_at(
+            |addr, is_baseline| HexEditorMessage::DiffAddrSelected { addr, is_baseline },
+        ),
     );
     ui.point_at((comparison_x(0), row_0_y()));
     let _ = ui.simulate(click());
@@ -72,7 +68,10 @@ fn test_diff_click_on_comparison_side_publishes_side() {
     assert!(
         messages.iter().any(|m| matches!(
             m,
-            HexEditorMessage::DiffAddrSelected { addr: 0, is_baseline: false }
+            HexEditorMessage::DiffAddrSelected {
+                addr: 0,
+                is_baseline: false
+            }
         )),
         "click on the comparison side must publish is_baseline=false, got {messages:?}"
     );
@@ -81,11 +80,9 @@ fn test_diff_click_on_comparison_side_publishes_side() {
 #[test]
 fn test_diff_click_on_baseline_side_publishes_side() {
     let mut ui = simulator::<HexEditorMessage, iced::Theme, iced::Renderer>(
-        minimal_dv::<HexEditorMessage>(&[0u8; 32], &[0u8; 32], 16)
-            .on_select_at(|addr, is_baseline| HexEditorMessage::DiffAddrSelected {
-                addr,
-                is_baseline,
-            }),
+        minimal_dv::<HexEditorMessage>(&[0u8; 32], &[0u8; 32], 16).on_select_at(
+            |addr, is_baseline| HexEditorMessage::DiffAddrSelected { addr, is_baseline },
+        ),
     );
     ui.point_at((baseline_x(0), row_0_y()));
     let _ = ui.simulate(click());
@@ -93,7 +90,10 @@ fn test_diff_click_on_baseline_side_publishes_side() {
     assert!(
         messages.iter().any(|m| matches!(
             m,
-            HexEditorMessage::DiffAddrSelected { addr: 0, is_baseline: true }
+            HexEditorMessage::DiffAddrSelected {
+                addr: 0,
+                is_baseline: true
+            }
         )),
         "click on the baseline side must publish is_baseline=true, got {messages:?}"
     );
@@ -105,22 +105,19 @@ fn test_diff_drag_on_comparison_side_publishes_side() {
     // the extend message must carry the comparison side.
     let mut ui = simulator::<HexEditorMessage, iced::Theme, iced::Renderer>(
         minimal_dv::<HexEditorMessage>(&[0u8; 32], &[0u8; 32], 16)
-            .on_extend_to(|addr, is_baseline| HexEditorMessage::DiffExtendTo {
-                addr,
-                is_baseline,
-            }),
+            .on_extend_to(|addr, is_baseline| HexEditorMessage::DiffExtendTo { addr, is_baseline }),
     );
     ui.point_at((comparison_x(0), row_0_y()));
-    let _ = ui.simulate([
-        Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)),
-    ]);
+    let _ = ui.simulate([Event::Mouse(mouse::Event::ButtonPressed(
+        mouse::Button::Left,
+    ))]);
     ui.point_at((comparison_x(1), row_0_y()));
-    let _ = ui.simulate([
-        Event::Mouse(mouse::Event::CursorMoved { position: iced::Point::new(comparison_x(1), row_0_y()) }),
-    ]);
-    let _ = ui.simulate([
-        Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Left)),
-    ]);
+    let _ = ui.simulate([Event::Mouse(mouse::Event::CursorMoved {
+        position: iced::Point::new(comparison_x(1), row_0_y()),
+    })]);
+    let _ = ui.simulate([Event::Mouse(mouse::Event::ButtonReleased(
+        mouse::Button::Left,
+    ))]);
     let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
     assert!(
         messages.iter().any(|m| matches!(

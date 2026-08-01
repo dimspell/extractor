@@ -51,11 +51,8 @@ pub fn handle_event<Message>(
                             let avail_w = bounds.width - widget.right_strip();
                             if content_w > avail_w {
                                 let dx = x * layout::HEX_CELL_WIDTH * 3.0;
-                                let new_scroll = clamp_scroll_h(
-                                    state.scroll_x.get() + dx,
-                                    content_w,
-                                    avail_w,
-                                );
+                                let new_scroll =
+                                    clamp_scroll_h(state.scroll_x.get() + dx, content_w, avail_w);
                                 if (new_scroll - state.scroll_x.get()).abs() > f32::EPSILON {
                                     state.scroll_x.set(new_scroll);
                                     shell.request_redraw();
@@ -63,11 +60,8 @@ pub fn handle_event<Message>(
                             }
                         } else {
                             let dy = -y * ROW_HEIGHT * 3.0;
-                            let new = clamp_scroll(
-                                state.scroll_offset.get() + dy,
-                                total_h,
-                                viewport_h,
-                            );
+                            let new =
+                                clamp_scroll(state.scroll_offset.get() + dy, total_h, viewport_h);
                             if (new - state.scroll_offset.get()).abs() > f32::EPSILON {
                                 state.scroll_offset.set(new);
                                 shell.request_redraw();
@@ -83,22 +77,16 @@ pub fn handle_event<Message>(
                             );
                             let avail_w = bounds.width - widget.right_strip();
                             if content_w > avail_w {
-                                let new_scroll = clamp_scroll_h(
-                                    state.scroll_x.get() + *x,
-                                    content_w,
-                                    avail_w,
-                                );
+                                let new_scroll =
+                                    clamp_scroll_h(state.scroll_x.get() + *x, content_w, avail_w);
                                 if (new_scroll - state.scroll_x.get()).abs() > f32::EPSILON {
                                     state.scroll_x.set(new_scroll);
                                     shell.request_redraw();
                                 }
                             }
                         } else {
-                            let new = clamp_scroll(
-                                state.scroll_offset.get() - *y,
-                                total_h,
-                                viewport_h,
-                            );
+                            let new =
+                                clamp_scroll(state.scroll_offset.get() - *y, total_h, viewport_h);
                             if (new - state.scroll_offset.get()).abs() > f32::EPSILON {
                                 state.scroll_offset.set(new);
                                 shell.request_redraw();
@@ -156,8 +144,14 @@ pub fn handle_event<Message>(
                 // ── Minimap click / drag ──
                 let has_vscroll = total_h > viewport_h;
                 if widget.show_minimap && has_vscroll {
-                    let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
-                    let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    let cb = Rectangle {
+                        x: bounds.x,
+                        y: content_top,
+                        width: bounds.width,
+                        height: viewport_h,
+                    };
+                    let mm_rect =
+                        minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
                     if mm_rect.contains(pos) {
                         let thumb_r = minimap::minimap_thumb_rect(
                             mm_rect,
@@ -270,8 +264,7 @@ pub fn handle_event<Message>(
                         let track_h = viewport_h;
                         let thumb_h = (track_h / total_h * track_h).max(20.0);
                         let max_off = (total_h - viewport_h).max(1.0);
-                        let frac =
-                            ((rel_y - thumb_h / 2.0) / (track_h - thumb_h)).clamp(0.0, 1.0);
+                        let frac = ((rel_y - thumb_h / 2.0) / (track_h - thumb_h)).clamp(0.0, 1.0);
                         state.scroll_offset.set(frac * max_off);
                         shell.request_redraw();
                     }
@@ -279,17 +272,14 @@ pub fn handle_event<Message>(
                 }
 
                 if state.dragging_scrollbar_x {
-                    let content_w = layout::total_content_width(
-                        bpr,
-                        !widget.row_annotations.is_empty(),
-                    );
+                    let content_w =
+                        layout::total_content_width(bpr, !widget.row_annotations.is_empty());
                     let avail_w = bounds.width - widget.right_strip();
                     if content_w > avail_w {
                         let track_w = bounds.width - SCROLLBAR_THICKNESS;
                         let thumb_w = (track_w / content_w * track_w).max(20.0);
                         let max_off = (content_w - avail_w).max(1.0);
-                        let frac =
-                            ((rel_x - thumb_w / 2.0) / (track_w - thumb_w)).clamp(0.0, 1.0);
+                        let frac = ((rel_x - thumb_w / 2.0) / (track_w - thumb_w)).clamp(0.0, 1.0);
                         state.scroll_x.set(frac * max_off);
                         shell.request_redraw();
                     }
@@ -297,7 +287,12 @@ pub fn handle_event<Message>(
                 }
 
                 // ── Drag-extend selection ──
-                if state.dragging_cursor && rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
+                if state.dragging_cursor
+                    && rel_y >= 0.0
+                    && rel_y <= viewport_h
+                    && rel_x >= 0.0
+                    && rel_x <= bounds.width
+                {
                     let scroll = state.scroll_offset.get();
                     let row = (scroll + rel_y) / ROW_HEIGHT;
                     let base_addr = (row as u64) * bpr64;
@@ -319,8 +314,18 @@ pub fn handle_event<Message>(
                 // ── Minimap drag continuation ──
                 if state.dragging_minimap {
                     if let Some(p) = cursor.position() {
-                        let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
-                        let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                        let cb = Rectangle {
+                            x: bounds.x,
+                            y: content_top,
+                            width: bounds.width,
+                            height: viewport_h,
+                        };
+                        let mm_rect = minimap::minimap_rect(
+                            cb,
+                            viewport_h,
+                            MINIMAP_WIDTH,
+                            SCROLLBAR_THICKNESS,
+                        );
                         let dy = p.y - state.drag_start_minimap_y;
                         let new = state.drag_start_minimap_scroll
                             + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
@@ -335,8 +340,14 @@ pub fn handle_event<Message>(
 
                 // ── Hover over minimap ──
                 if widget.show_minimap && total_h > viewport_h {
-                    let cb = Rectangle { x: bounds.x, y: content_top, width: bounds.width, height: viewport_h };
-                    let mm_rect = minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    let cb = Rectangle {
+                        x: bounds.x,
+                        y: content_top,
+                        width: bounds.width,
+                        height: viewport_h,
+                    };
+                    let mm_rect =
+                        minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
                     if let Some(p) = cursor.position() {
                         let now_mm = mm_rect.contains(p);
                         if now_mm != state.hovering_minimap.get() {
@@ -376,12 +387,7 @@ fn handle_keyboard_event<Message>(
     cursor: Cursor,
     shell: &mut Shell<'_, Message>,
 ) {
-    let keyboard::Event::KeyPressed {
-        key,
-        modifiers,
-        ..
-    } = event
-    else {
+    let keyboard::Event::KeyPressed { key, modifiers, .. } = event else {
         return;
     };
 
@@ -405,12 +411,17 @@ fn handle_keyboard_event<Message>(
     // Ctrl/Cmd+Home/End → document start/end.
     if modifiers.command() || modifiers.control() {
         let dir = match key {
-            keyboard::Key::Named(key::Named::Home) => Some(crate::domain::selection::NavDir::DocumentStart),
-            keyboard::Key::Named(key::Named::End) => Some(crate::domain::selection::NavDir::DocumentEnd),
+            keyboard::Key::Named(key::Named::Home) => {
+                Some(crate::domain::selection::NavDir::DocumentStart)
+            }
+            keyboard::Key::Named(key::Named::End) => {
+                Some(crate::domain::selection::NavDir::DocumentEnd)
+            }
             _ => None,
         };
         if let Some(dir) = dir {
-            let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            let new_addr =
+                crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
             let extend = modifiers.shift();
             // Keyboard navigation has no side; keep the side of the last
             // mouse click so the inspector stays on the inspected file.
@@ -426,7 +437,11 @@ fn handle_keyboard_event<Message>(
             // Scroll to new cursor.
             let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
             let new_scroll = layout::scroll_to_make_visible(
-                state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
+                state.scroll_offset.get(),
+                new_addr,
+                bpr,
+                viewport_h,
+                total_h_f,
             );
             if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
                 state.scroll_offset.set(new_scroll);
@@ -457,13 +472,17 @@ fn handle_keyboard_event<Message>(
 
     let dir = match key {
         keyboard::Key::Named(key::Named::ArrowLeft) => Some(crate::domain::selection::NavDir::Left),
-        keyboard::Key::Named(key::Named::ArrowRight) => Some(crate::domain::selection::NavDir::Right),
+        keyboard::Key::Named(key::Named::ArrowRight) => {
+            Some(crate::domain::selection::NavDir::Right)
+        }
         keyboard::Key::Named(key::Named::ArrowUp) => Some(crate::domain::selection::NavDir::Up),
         keyboard::Key::Named(key::Named::ArrowDown) => Some(crate::domain::selection::NavDir::Down),
         keyboard::Key::Named(key::Named::Home) => Some(crate::domain::selection::NavDir::LineStart),
         keyboard::Key::Named(key::Named::End) => Some(crate::domain::selection::NavDir::LineEnd),
         keyboard::Key::Named(key::Named::PageUp) => Some(crate::domain::selection::NavDir::PageUp),
-        keyboard::Key::Named(key::Named::PageDown) => Some(crate::domain::selection::NavDir::PageDown),
+        keyboard::Key::Named(key::Named::PageDown) => {
+            Some(crate::domain::selection::NavDir::PageDown)
+        }
         _ => None,
     };
 
@@ -475,17 +494,23 @@ fn handle_keyboard_event<Message>(
                 shell.request_redraw();
             }
             // Scroll to make new cursor visible, using nav_target as best estimate.
-            let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            let new_addr =
+                crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
             let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
             let new_scroll = layout::scroll_to_make_visible(
-                state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
+                state.scroll_offset.get(),
+                new_addr,
+                bpr,
+                viewport_h,
+                total_h_f,
             );
             if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
                 state.scroll_offset.set(new_scroll);
             }
             shell.capture_event();
         } else {
-            let new_addr = crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
+            let new_addr =
+                crate::domain::selection::nav_target(cursor_addr, dir, bpr, page, max_addr);
             // Keyboard navigation has no side; keep the side of the last
             // mouse click so the inspector stays on the inspected file.
             let is_baseline = state.last_clicked_baseline.get();
@@ -496,7 +521,11 @@ fn handle_keyboard_event<Message>(
             // Scroll to make new cursor visible.
             let total_h_f = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
             let new_scroll = layout::scroll_to_make_visible(
-                state.scroll_offset.get(), new_addr, bpr, viewport_h, total_h_f,
+                state.scroll_offset.get(),
+                new_addr,
+                bpr,
+                viewport_h,
+                total_h_f,
             );
             if (new_scroll - state.scroll_offset.get()).abs() > f32::EPSILON {
                 state.scroll_offset.set(new_scroll);
