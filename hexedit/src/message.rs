@@ -221,6 +221,18 @@ pub enum HexEditorMessage {
     /// Dismiss the fill dialog without writing.
     CloseFill,
 
+    // ── Extend File ─────────────────────────────────────────────────────
+    /// Open the extend-file dialog (context menu at cursor).
+    BeginExtend,
+    /// Update the byte-count draft text.
+    SetExtendCount(String),
+    /// Update the fill-pattern draft text.
+    SetExtendPattern(String),
+    /// Insert the drafted byte count, filled with the drafted pattern.
+    CommitExtend,
+    /// Dismiss the extend dialog without inserting.
+    CloseExtend,
+
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.
     CopySelection,

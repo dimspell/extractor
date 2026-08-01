@@ -68,6 +68,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         lua_engine: LuaScriptEngine::default(),
         export_config: None,
         fill_dialog: None,
+        extend_dialog: None,
         repeat_pattern: None,
         row_annotations: BTreeMap::new(),
         active_patterns: BTreeSet::new(),
@@ -168,6 +169,7 @@ pub mod pane_grid;
 
 pub mod diff;
 pub mod editing;
+pub mod extend;
 pub mod footer;
 pub mod goto;
 pub mod header;

@@ -1,5 +1,6 @@
 pub mod encoding_modal;
 pub mod export_modal;
+pub mod extend_modal;
 pub mod fill_modal;
 pub mod footer;
 pub mod goto_modal;
@@ -209,6 +210,15 @@ pub fn view<'a>(
         );
     }
 
+    if let Some(ref dlg) = state.extend_dialog {
+        base = modal(
+            base,
+            extend_modal::view(dlg, state.theme),
+            || HexEditorMessage::CloseExtend,
+            0.3,
+        );
+    }
+
     base
 }
 
@@ -301,5 +311,8 @@ pub(crate) fn build_pattern_menu_entries(
     } else {
         entries.push(MenuEntry::disabled("Fill…"));
     }
+    // "Extend…" needs no selection — a single cursor suffices (the context
+    // menu only appears on a right-click over a byte).
+    entries.push(MenuEntry::item("Extend…", HexEditorMessage::BeginExtend));
     entries
 }

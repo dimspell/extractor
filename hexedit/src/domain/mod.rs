@@ -1,6 +1,7 @@
 pub mod byte_stats;
 pub mod editing;
 pub mod export_config;
+pub mod extend_dialog;
 pub mod fill_dialog;
 pub mod goto;
 pub mod layout;

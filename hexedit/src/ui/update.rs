@@ -836,7 +836,7 @@ pub fn update(
                                 Err("cancelled".to_string()),
                             );
                         };
-                            match tokio::fs::write(path.path(), json).await {
+                        match tokio::fs::write(path.path(), json).await {
                             Ok(()) => HexEditorMessage::PatternsExported(Ok(())),
                             Err(e) => HexEditorMessage::PatternsExported(Err(e.to_string())),
                         }
@@ -1095,6 +1095,125 @@ pub fn update(
         }
         HexEditorMessage::CloseFill => {
             state.fill_dialog = None;
+        }
+
+        // ── Extend File ─────────────────────────────────────────────────
+        HexEditorMessage::BeginExtend => {
+            if state.provider.is_empty() {
+                state.status_msg = "Cannot extend an empty file".to_string();
+                return Task::none();
+            }
+            state.extend_dialog = Some(crate::domain::extend_dialog::ExtendDialog::new());
+            return iced::widget::operation::focus(
+                crate::domain::extend_dialog::ExtendDialog::count_input_id(),
+            );
+        }
+        HexEditorMessage::SetExtendCount(s) => {
+            if let Some(ref mut dlg) = state.extend_dialog {
+                dlg.count_draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::SetExtendPattern(s) => {
+            if let Some(ref mut dlg) = state.extend_dialog {
+                dlg.pattern_draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::CommitExtend => {
+            let parse_result = state.extend_dialog.as_ref().map(|dlg| dlg.parse());
+            match parse_result {
+                Some(Ok((count, pattern))) => {
+                    // The dialog is modal, so context_menu_addr can't change
+                    // between BeginExtend and CommitExtend — the right-clicked
+                    // byte is the authoritative insert point.
+                    let addr = state.context_menu_addr.unwrap_or(state.selection.cursor);
+                    // A right-clicked byte past the editable buffer's last
+                    // address (only reachable via the diff pane) can't be a
+                    // valid insert point — reject instead of clamping to
+                    // max_addr.
+                    if state.context_menu_addr.is_some() && addr > state.max_addr() {
+                        state.status_msg = "Cannot extend: clicked past end of file".to_string();
+                        return Task::none();
+                    }
+                    // Selection-driven path: `addr == len` is a valid append;
+                    // anything past EOF is rejected.
+                    if addr > state.provider.len() {
+                        state.status_msg = "Cannot extend: cursor is past end of file".to_string();
+                        return Task::none();
+                    }
+                    // Repeat the pattern to exactly `count` bytes (count > 0
+                    // and a non-empty pattern are guaranteed by parse).
+                    let mut fill: Vec<u8> = Vec::with_capacity(count as usize);
+                    let mut written = 0usize;
+                    while written < count as usize {
+                        let take = pattern.len().min(count as usize - written);
+                        fill.extend_from_slice(&pattern[..take]);
+                        written += take;
+                    }
+
+                    state.provider.insert(addr, &fill);
+                    state.recompute_vanilla_diff();
+                    // The comparison file's diff addresses shift with the
+                    // insert — recompute so the diff pane stays accurate.
+                    if let Some(cf) = state.comparison_file.as_mut() {
+                        cf.diff =
+                            crate::vanilla_diff::compute_diff(state.provider.as_slice(), &cf.data);
+                    }
+                    // Extend shifts every row boundary after the insert, so the
+                    // per-row entropy band and cached stats are stale until the
+                    // next analysis pass.
+                    state.invalidate_stats();
+
+                    // Pattern rebase: a span starting at/after the insert point
+                    // shifts forward by `count`. A span straddling the insert
+                    // point (start < addr <= end) keeps its start and absorbs
+                    // the inserted bytes into its tail (end += count); a span
+                    // fully before the insert point is untouched.
+                    for p in &mut state.patterns {
+                        if p.start >= addr {
+                            p.start += count;
+                            p.end += count;
+                        } else if p.end >= addr {
+                            p.end += count;
+                        }
+                    }
+
+                    // Search results point at stale addresses after the
+                    // insert — drop them (keep the overlay open/visible).
+                    state.search.results.clear();
+                    state.search.match_set.clear();
+                    state.search.current_match = None;
+                    state.search.query_len = 0;
+
+                    // Select the inserted range BEFORE refreshing pattern
+                    // lookups so refresh_active_patterns() sees the final
+                    // cursor, not the pre-extend position.
+                    state.selection.anchor = addr;
+                    state.selection.cursor = addr + count - 1;
+
+                    state.rebuild_pattern_lookup();
+                    state.recompute_row_annotations();
+
+                    // A pending in-matrix edit would now point at a shifted
+                    // byte — cancel it so the next keystroke can't overwrite
+                    // inserted data.
+                    state.edit_mode = None;
+
+                    state.status_msg =
+                        format!("Extended file by {} byte(s) with {:02X?}", count, pattern);
+                    state.extend_dialog = None;
+                }
+                Some(Err(msg)) => {
+                    if let Some(ref mut dlg) = state.extend_dialog {
+                        dlg.error = Some(msg);
+                    }
+                }
+                None => {}
+            }
+        }
+        HexEditorMessage::CloseExtend => {
+            state.extend_dialog = None;
         }
 
         // ── Side-by-side diff view ───────────────────────────────────────

@@ -42,6 +42,7 @@ pub use domain::byte_stats::{
     entropy_to_color, ByteStatistics, RowEntropyCache, StructureHeuristic,
 };
 pub use domain::editing::{EditState, InspectorEditState};
+pub use domain::extend_dialog::ExtendDialog;
 pub use domain::fill_dialog::FillDialog;
 pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
 pub use domain::panel::{HexPanel, HexPanelContent};

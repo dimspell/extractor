@@ -7,6 +7,7 @@ use iced::widget::pane_grid;
 
 use super::domain::byte_stats::{compute_row_entropies, ByteStatistics, RowEntropyCache};
 use super::domain::export_config::ExportConfig;
+use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
 use super::domain::panel::{default_pane_grid, HexPanel};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
@@ -107,6 +108,8 @@ pub struct HexEditorState {
     pub export_config: Option<ExportConfig>,
     /// Fill-selection dialog state (None when closed).
     pub fill_dialog: Option<FillDialog>,
+    /// Extend-file dialog state (None when closed).
+    pub extend_dialog: Option<ExtendDialog>,
     /// Search & replace overlay state.
     pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
@@ -228,6 +231,7 @@ impl HexEditorState {
             goto: None,
             export_config: None,
             fill_dialog: None,
+            extend_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
             status_msg: String::new(),
@@ -316,6 +320,7 @@ impl HexEditorState {
             goto: None,
             export_config: None,
             fill_dialog: None,
+            extend_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
             status_msg: String::new(),
