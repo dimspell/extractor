@@ -4,12 +4,8 @@ version = "0.8.0"
 edition = "2021"
 
 [[bin]]
-name = "hexedit-bin"
-path = "src/main.rs"
-
-[[bin]]
 name = "hexedit"
-path = "src/bin/hexedit.rs"
+path = "src/main.rs"
 
 [dependencies]
 iced = { workspace = true, default-features = false, features = ["advanced", "tokio", "wgpu", "canvas", "lazy"] }

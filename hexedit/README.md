@@ -1,8 +1,8 @@
 # hexedit — A standalone, embeddable hex editor widget for Iced
 
 **hexedit** is a full-featured hex editor library built on [Iced 0.15](https://iced.rs/).
-It ships as a reusable Rust library (`hexedit` crate) and two standalone binaries
-(`hexedit` and `hexedit-bin`).
+It ships as a reusable Rust library (`hexedit` crate) and one standalone binary
+(`hexedit`).
 
 Designed for the [Dispel RPG modding toolkit](https://github.com/piotr/dispel-extractor),
 it is embeddable inside any Iced application and powers the hex-editing tab in `dispel-gui`.
@@ -168,8 +168,7 @@ hexedit/
 │   ├── message.rs       # HexEditorMessage enum (~48 variant categories, ~200+ total)
 │   ├── state.rs         # HexEditorState (aggregate state, ~30 fields)
 │   ├── lua_engine.rs    # Lua 5.4 scripting engine (feature-gated, sandboxed)
-│   ├── main.rs          # Standalone bin: hexedit-bin (takes file path as arg)
-│   ├── bin/hexedit.rs   # Standalone bin: hexedit (opens file dialog)
+│   ├── main.rs          # Standalone bin: hexedit (file dialog + file path arg)
 │   ├── lib.rs           # Public API re-exports
 │   └── tests/           # iced_test integration tests (12 files)
 ├── examples/            # Lua decoder script examples
@@ -909,14 +908,14 @@ should be wired to mod recording or direct file saves.
 ## Usage (standalone binaries)
 
 ```bash
-# hexedit — Opens with a file dialog
+# hexedit — Opens with a file dialog (no path given)
 cargo run -p hexedit
 
-# hexedit-bin — Opens a specific file from the command line
-cargo run -p hexedit-bin -- path/to/file.bin
+# Opens a specific file from the command line
+cargo run -p hexedit -- path/to/file.bin
 
 # Load Lua scripts from a directory
-cargo run -p hexedit-bin -- path/to/file.bin --script-dir ./scripts/
+cargo run -p hexedit -- path/to/file.bin --script-dir ./scripts/
 ```
 
 ---
