@@ -22,6 +22,7 @@
 pub mod domain;
 pub mod ui;
 
+mod app;
 mod config;
 pub mod lua_engine;
 mod message;
@@ -31,6 +32,7 @@ mod state;
 //
 // Keep the same public API surface that existed before the domain/ui split.
 
+pub use app::{app_update, app_view, AppMessage, HexEditorApp, HexEditorDocument};
 pub use config::{HexEditorConfig, OnSaveFn};
 pub use message::HexEditorMessage;
 pub use state::{ComparisonFile, HexEditorState, InspectorSource, DEFAULT_BYTES_PER_ROW};

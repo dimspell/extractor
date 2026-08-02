@@ -753,7 +753,7 @@ fn draw_vscrollbar(
     let mut last_y: Option<f32> = None;
     for &diff_addr in diff_markers {
         let my = scrollbar_y_frac(diff_addr, total_len, track);
-        if last_y.map_or(true, |ly| (my - ly).abs() >= MARKER_SIZE) {
+        if last_y.is_none_or(|ly| (my - ly).abs() >= MARKER_SIZE) {
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: Rectangle {
