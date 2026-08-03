@@ -443,7 +443,6 @@ pub fn editor_types() -> Vec<EditorTypeInfo> {
                 ColumnDef { name: "EventID".to_string(), width: 80, align_right: true, numeric: true },
             ],
         },
-        },
         EditorTypeInfo {
             name: "DialogueParagraph",
             file_pattern: "*.pgp",
