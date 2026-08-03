@@ -594,3 +594,11 @@ mod-pack-single:
 
 test-hello:
 	cargo run -- test -m "$(MESSAGE)"
+
+# --- windows
+# brew install zig 2>&1 | tail -3
+# rustup target add x86_64-pc-windows-gnu 2>&1 | tail -2
+# cd /Users/piotr/Projects/dispel-re/dispel-extractor && CC="zig cc" CFLAGS="--target=x86_64-windows-gnu" rtk cargo check --target x86_64-pc-windows-gnu -p dispel-gui-win32 2>&1 | tail -40
+# cd /Users/piotr/Projects/dispel-re/dispel-extractor && LOG="$HOME/Library/Application Support/rtk/tee/1785744896_cargo_check.log" && grep -E "^error\[E[0-9]+\]" "$LOG" | sed 's/.*error\[\(E[0-9]*\)\].*/\1/' | sort | uniq -c | sort -rn; echo "===BY FILE==="; grep -E "^error" "$LOG" | grep -oE "dispel-gui-win32/src/[a-z_]+\.rs" | sort | uniq -c | sort -rn
+# # cd /Users/piotr/Projects/dispel-re/dispel-extractor
+# CC="zig cc" CFLAGS="--target=x86_64-windows-gnu" cargo check --target x86_64-pc-windows-gnu -p dispel-gui-win32 2>&1 | grep -A6 "src/shell.rs"

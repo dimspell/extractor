@@ -3,7 +3,15 @@
 use windows::core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use std::path::Path;
+use std::path::PathBuf;
+
+/// Scintilla message IDs (the windows crate has no Scintilla bindings).
+const SCI_SETCODEPAGE: u32 = 2037;
+const SCI_SETLEXER: u32 = 4001;
+const SCI_SETTEXT: u32 = 2181;
+const SCI_SETSAVEPOINT: u32 = 2154;
 
 /// Hex editor using Scintilla control in hex mode.
 pub struct HexEditor {
@@ -26,7 +34,7 @@ impl HexEditor {
                 None,
                 GetModuleHandleW(None)?,
                 None,
-            );
+            )?;
 
             // Set code page to UTF-8
             SendMessageW(hwnd, SCI_SETCODEPAGE, WPARAM(65001), LPARAM(0));
@@ -100,7 +108,7 @@ impl HexEditor {
             // ASCII representation
             result.push(' ');
             for byte in chunk {
-                if byte.is_ascii_graphic() || byte == b' ' {
+                if byte.is_ascii_graphic() || *byte == b' ' {
                     result.push(*byte as char);
                 } else {
                     result.push('.');

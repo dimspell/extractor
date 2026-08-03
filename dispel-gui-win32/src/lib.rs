@@ -28,3 +28,5 @@ pub mod search;
 pub mod theme;
 pub mod native_dialogs;
 pub mod style;
+
+pub use shell::run;

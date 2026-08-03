@@ -5,8 +5,11 @@ use windows::core::*;
 use windows::Win32::Foundation::*;
 use windows::Win32::UI::Controls::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
-use windows::Win32::Storage::FileSystem::*;
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use std::ffi::OsStr;
+use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
+use std::path::PathBuf;
 
 const ID_TEXT_FIND: u16 = 5001;
 const ID_TEXT_REPLACE: u16 = 5002;
@@ -37,6 +40,24 @@ const SCFIND_REGEXP: u32 = 8;
 
 /// Scintilla code page.
 const SC_CP_UTF8: u32 = 65001;
+
+/// Scintilla message IDs (the windows crate has no Scintilla bindings).
+const SCI_SETCODEPAGE: u32 = 2037;
+const SCI_SETMARGINWIDTHN: u32 = 2262;
+const SCI_STYLESETSIZE: u32 = 2051;
+const SCI_STYLESETFONT: u32 = 2052;
+const SCI_SETLEXER: u32 = 4001;
+const SCI_SETTEXT: u32 = 2181;
+const SCI_GETTEXT: u32 = 2182;
+const SCI_GETTEXTLENGTH: u32 = 2183;
+const SCI_SETSAVEPOINT: u32 = 2154;
+const SCI_UNDO: u32 = 2174;
+const SCI_REDO: u32 = 2011;
+const SCI_CANUNDO: u32 = 2175;
+const SCI_CANREDO: u32 = 2012;
+const SCI_SEARCHINTARGET: u32 = 2197;
+const SCI_REPLACETARGET: u32 = 2194;
+const SCI_GETMODIFY: u32 = 2180;
 
 /// Text editor language types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -69,13 +90,13 @@ impl TextEditor {
                 None,
                 GetModuleHandleW(None)?,
                 None,
-            );
+            )?;
 
             // Set code page to UTF-8
-            SendMessageW(hwnd, SCI_SETCODEPAGE, WPARAM(SC_CP_UTF8), LPARAM(0));
+            SendMessageW(hwnd, SCI_SETCODEPAGE, WPARAM(SC_CP_UTF8 as usize), LPARAM(0));
 
             // Enable margin for line numbers
-            SendMessageW(hwnd, SCI_SETMARGINWIDTHN, WPARAM(SC_MARGIN_NUMBER), LPARAM(40));
+            SendMessageW(hwnd, SCI_SETMARGINWIDTHN, WPARAM(SC_MARGIN_NUMBER as usize), LPARAM(40));
 
             // Set default style
             SendMessageW(hwnd, SCI_STYLESETSIZE, WPARAM(0), LPARAM(10));
@@ -86,7 +107,7 @@ impl TextEditor {
             SendMessageW(hwnd, SCI_STYLESETFONT, WPARAM(0), LPARAM(font_name.as_ptr() as isize));
 
             // Set null lexer initially
-            SendMessageW(hwnd, SCI_SETLEXER, WPARAM(SCLEX_NULL), LPARAM(0));
+            SendMessageW(hwnd, SCI_SETLEXER, WPARAM(SCLEX_NULL as usize), LPARAM(0));
 
             Ok(Self {
                 hwnd,
@@ -131,7 +152,7 @@ impl TextEditor {
     /// Get the current text content.
     pub fn get_text(&self) -> Result<String> {
         unsafe {
-            let len = SendMessageW(self.hwnd, SCI_GETTEXTLENGTH, WPARAM(0), LPARAM(0)) as usize;
+            let len = SendMessageW(self.hwnd, SCI_GETTEXTLENGTH, WPARAM(0), LPARAM(0)).0 as usize;
             let mut buf = vec![0u16; len + 1];
             SendMessageW(
                 self.hwnd,
@@ -158,28 +179,28 @@ impl TextEditor {
     /// Undo the last edit.
     pub fn undo(&self) -> bool {
         unsafe {
-            SendMessageW(self.hwnd, SCI_UNDO, WPARAM(0), LPARAM(0)).as_bool()
+            SendMessageW(self.hwnd, SCI_UNDO, WPARAM(0), LPARAM(0)).0 != 0
         }
     }
 
     /// Redo the last undone edit.
     pub fn redo(&self) -> bool {
         unsafe {
-            SendMessageW(self.hwnd, SCI_REDO, WPARAM(0), LPARAM(0)).as_bool()
+            SendMessageW(self.hwnd, SCI_REDO, WPARAM(0), LPARAM(0)).0 != 0
         }
     }
 
     /// Check if undo is available.
     pub fn can_undo(&self) -> bool {
         unsafe {
-            SendMessageW(self.hwnd, SCI_CANUNDO, WPARAM(0), LPARAM(0)).as_bool()
+            SendMessageW(self.hwnd, SCI_CANUNDO, WPARAM(0), LPARAM(0)).0 != 0
         }
     }
 
     /// Check if redo is available.
     pub fn can_redo(&self) -> bool {
         unsafe {
-            SendMessageW(self.hwnd, SCI_CANREDO, WPARAM(0), LPARAM(0)).as_bool()
+            SendMessageW(self.hwnd, SCI_CANREDO, WPARAM(0), LPARAM(0)).0 != 0
         }
     }
 
@@ -187,18 +208,13 @@ impl TextEditor {
     pub fn find(&self, text: &str) -> bool {
         unsafe {
             let search_text: Vec<u16> = text.encode_utf16().chain(std::iter::once(0)).collect();
-            let lfr = SCFINDREGEX {
-                chrg: CHARRANGE { cpMin: 0, cpMax: -1 },
-                lpstrText: search_text.as_ptr(),
-                iMessage: SCI_SEARCHINTARGET,
-            };
             let result = SendMessageW(
                 self.hwnd,
                 SCI_SEARCHINTARGET,
                 WPARAM(search_text.len()),
                 LPARAM(search_text.as_ptr() as isize),
             );
-            result >= 0
+            result.0 >= 0
         }
     }
 
@@ -230,7 +246,7 @@ impl TextEditor {
             TextLanguage::Ini => SCLEX_NULL,
         };
         unsafe {
-            SendMessageW(self.hwnd, SCI_SETLEXER, WPARAM(lexer), LPARAM(0));
+            SendMessageW(self.hwnd, SCI_SETLEXER, WPARAM(lexer as usize), LPARAM(0));
         }
     }
 
@@ -243,7 +259,7 @@ impl TextEditor {
     /// Check if the document has been modified.
     pub fn is_modified(&self) -> bool {
         unsafe {
-            SendMessageW(self.hwnd, SCI_GETMODIFY, WPARAM(0), LPARAM(0)).as_bool()
+            SendMessageW(self.hwnd, SCI_GETMODIFY, WPARAM(0), LPARAM(0)).0 != 0
         }
     }
 }
