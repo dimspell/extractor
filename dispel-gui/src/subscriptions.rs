@@ -7,7 +7,7 @@ use crate::message::WorkspaceMessage;
 use crate::workspace::EditorType;
 use iced::Subscription;
 
-pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
+pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
     use iced::keyboard::{self, key::Named, Key};
     use iced::window;
 
@@ -18,17 +18,19 @@ pub fn subscription(app: &crate::app::App) -> iced::Subscription<Message> {
             if modifiers.control() || modifiers.command() {
                 if let Key::Character(c) = key.as_ref() {
                     let ch = c.chars().next()?;
-                    // Shift+X → reopen active file in hex editor
-                    if modifiers.shift() && ch == 'x' {
-                        return Some(Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex));
+                    if modifiers.shift() {
+                        return match ch {
+                            'x' => Some(Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex)),
+                            'p' => Some(Message::Workspace(WorkspaceMessage::ToggleCommandPalette)),
+                            _ => None,
+                        };
                     }
                     return match ch {
                         'z' => Some(Message::System(SystemMessage::Undo)),
                         'y' => Some(Message::System(SystemMessage::Redo)),
                         's' => Some(Message::System(SystemMessage::Save)),
                         'h' => Some(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel)),
-                        'p' => Some(Message::Workspace(WorkspaceMessage::ToggleCommandPalette)),
-                        'f' => Some(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch)),
+                        'p' => Some(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch)),
                         'w' => Some(Message::tab_bar(TabBarMessage::CloseActiveTab)),
                         _ => None,
                     };

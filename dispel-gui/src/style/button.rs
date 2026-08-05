@@ -177,6 +177,27 @@ pub fn browse_button(_theme: &Theme, status: button::Status) -> button::Style {
     }
 }
 
+pub fn command_palette_button(_theme: &Theme, status: button::Status) -> button::Style {
+    let base = button::Style {
+        background: Some(Background::Color(color!(0x121212))), // Silver dark button
+        text_color: color!(0xbdbdbd),                          // Silver
+        border: Border {
+            color: color!(0x5d4037),
+            width: 1.0,
+            radius: 4.into(),
+        },
+        ..Default::default()
+    };
+    match status {
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(color!(0x5d4037))),
+            text_color: Color::WHITE,
+            ..base
+        },
+        _ => base,
+    }
+}
+
 pub fn grid_header_button(_theme: &Theme, status: button::Status) -> button::Style {
     let base = button::Style {
         background: Some(Background::Color(Color::TRANSPARENT)),

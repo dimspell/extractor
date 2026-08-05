@@ -1,18 +1,18 @@
 use crate::app::{App, AppMode};
 use crate::components::tab_bar::view as tab_bar;
-use crate::components::utils::{truncate_path, vertical_space};
+use crate::components::utils::vertical_space;
 use crate::message::{
-    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
-    WorkspaceMessage,
+    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt,
+    SystemMessage, WorkspaceMessage,
 };
 use crate::state::PaneContent;
 use crate::style;
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use gui_widgets::components::modal::modal;
-use iced::widget::pane_grid;
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
-use iced::{Element, Fill, Font, Length};
+use iced::widget::{pane_grid, Space};
+use iced::{alignment, Element, Fill, Font, Length};
 
 pub mod editor;
 pub mod history_panel;
@@ -44,7 +44,7 @@ impl App {
                             Some(EditorType::DbViewer) => self.view_db_viewer(),
                             Some(EditorType::EventScrEditor) => {
                                 crate::editors::event_scr::view(self).map(|msg| {
-                                    crate::message::Message::Editor(
+                                    Message::Editor(
                                         crate::message::editor::EditorMessage::EventScr(msg),
                                     )
                                 })
@@ -86,8 +86,8 @@ impl App {
                                         container(content)
                                             .center_x(Fill)
                                             .center_y(Fill)
-                                            .height(Length::Fill)
-                                            .width(Length::Fill)
+                                            .height(Fill)
+                                            .width(Fill)
                                             .accessible_label("Select a file")
                                             .into()
                                     }
@@ -95,7 +95,7 @@ impl App {
                             }
                         };
                         let tab_bar = tab_bar::view_tab_bar(self);
-                        column![self.view_shared_game_path_toolbar(), tab_bar, content]
+                        column![tab_bar, content]
                             .spacing(0)
                             .height(Fill)
                             .accessible_label("Editor content")
@@ -124,7 +124,7 @@ impl App {
                 Message::Workspace(WorkspaceMessage::PaneResized(event))
             });
 
-        let main_container = container(pane_grid)
+        let main_container = container(column![self.view_shared_game_path_toolbar(), pane_grid])
             .width(Fill)
             .height(Fill)
             .style(style::root_container)
@@ -140,7 +140,7 @@ impl App {
                 .height(Fill)
                 .center_x(Fill)
                 .center_y(Fill)
-                .style(|_theme| iced::widget::container::Style {
+                .style(|_theme| container::Style {
                     background: Some(iced::Background::Color(iced::Color {
                         r: 0.0,
                         g: 0.0,
@@ -159,7 +159,7 @@ impl App {
             let backdrop = container(column![].width(Fill).height(Fill))
                 .width(Fill)
                 .height(Fill)
-                .style(|_theme| iced::widget::container::Style {
+                .style(|_theme| container::Style {
                     background: Some(iced::Background::Color(iced::Color {
                         r: 0.0,
                         g: 0.0,
@@ -211,32 +211,33 @@ impl App {
     }
 
     fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {
-        let path_display = if self.state.shared_game_path.is_empty() {
-            "No game path set"
-        } else {
-            &self.state.shared_game_path
-        };
+        let toggle_sidebar_button = button(text("Toggle Sidebar").size(12))
+            .on_press(Message::Workspace(WorkspaceMessage::ToggleSidebar))
+            .padding([4, 12])
+            .style(style::browse_button);
 
-        let path_text = container(
-            text(truncate_path(path_display, 80))
-                .size(12)
+        let change_path_button = button(text("Change Path").size(12))
+            .on_press(Message::StartPage(StartPageMessage::BackToStart))
+            .padding([4, 12])
+            .style(style::browse_button);
+
+        let command_palette_button = button(
+            text("Press Ctrl+P to find the file or Ctrl+Shift+P to open command palette")
+                .align_x(alignment::Horizontal::Center)
+                .size(11)
                 .font(Font::MONOSPACE),
         )
-        .padding([4, 12])
+        .on_press(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch))
         .width(Fill)
-        .style(style::sql_editor_container);
+        .style(style::command_palette_button);
 
         container(
             row![
-                text("Game Path:")
-                    .size(12)
-                    .width(80)
-                    .style(style::subtle_text),
-                path_text,
-                button(text("Change Path").size(12))
-                    .on_press(Message::StartPage(StartPageMessage::BackToStart))
-                    .padding([4, 12])
-                    .style(style::browse_button),
+                toggle_sidebar_button,
+                Space::default().width(50.0),
+                command_palette_button,
+                Space::default().width(50.0),
+                change_path_button,
             ]
             .spacing(8)
             .align_y(iced::Alignment::Center)
@@ -265,8 +266,6 @@ impl App {
                 .height(Fill)
                 .into();
         }
-
-        let title = text("Dispel Extractor").size(18).font(Font::MONOSPACE);
 
         // File tree component - core of the Sublime-inspired navigation
         // Maps FileTreeMessage to WorkspaceMessage for proper routing
@@ -312,9 +311,9 @@ impl App {
         };
 
         let sidebar_content = column![
-            vertical_space().height(12),
-            container(title).padding([0, 16]),
-            vertical_space().height(16),
+            // vertical_space().height(8),
+            // container(change_path_button).padding([0, 8]),
+            vertical_space().height(8),
             file_tree_area,
             vertical_space().height(8),
             tools_section,

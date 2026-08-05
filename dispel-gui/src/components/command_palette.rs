@@ -33,7 +33,7 @@ impl Command {
                 shortcut: Some("Ctrl+H"),
                 action: || {
                     Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleHistoryPanel,
+                        WorkspaceMessage::ToggleHistoryPanel,
                     )
                 },
             },
@@ -42,26 +42,26 @@ impl Command {
                 label: "Toggle Sidebar",
                 shortcut: None,
                 action: || {
-                    Message::Workspace(crate::message::workspace::WorkspaceMessage::ToggleSidebar)
+                    Message::Workspace(WorkspaceMessage::ToggleSidebar)
                 },
             },
             Command {
                 id: "toggle-command-palette",
                 label: "Toggle Command Palette",
-                shortcut: Some("Ctrl+P"),
+                shortcut: Some("Ctrl+Shift+P"),
                 action: || {
                     Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleCommandPalette,
+                        WorkspaceMessage::ToggleCommandPalette,
                     )
                 },
             },
             Command {
                 id: "toggle-global-search",
                 label: "Toggle Global Search",
-                shortcut: Some("Ctrl+F"),
+                shortcut: Some("Ctrl+P"),
                 action: || {
                     Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleGlobalSearch,
+                        WorkspaceMessage::ToggleGlobalSearch,
                     )
                 },
             },
@@ -100,7 +100,7 @@ impl Command {
                 shortcut: Some("Ctrl+Shift+X"),
                 action: || {
                     Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ReopenActiveTabAsHex,
+                        WorkspaceMessage::ReopenActiveTabAsHex,
                     )
                 },
             },

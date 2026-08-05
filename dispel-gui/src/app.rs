@@ -136,6 +136,15 @@ impl App {
         )
     }
 
+    pub(crate) fn set_title(&self) -> String {
+        let default_title: String = "Dispel Extractor".to_owned();
+
+        match self.state.shared_game_path.is_empty() {
+            true => default_title,
+            false => default_title + " - " + self.state.shared_game_path.as_str(),
+        }
+    }
+
     #[cfg(test)]
     pub fn test_new(workspace: crate::workspace::Workspace) -> Self {
         use crate::state::AppState;

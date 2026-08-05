@@ -44,7 +44,7 @@ pub fn main() -> iced::Result {
                 },
             )
         })
-        .title("Dispel Extractor")
+        .title(|app: &App| App::set_title(app))
         .subscription(|app: &App| crate::subscriptions::subscription(app))
         .window_size((1100.0, 800.0))
         .run()
