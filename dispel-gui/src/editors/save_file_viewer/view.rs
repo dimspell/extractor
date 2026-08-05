@@ -55,7 +55,7 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
     let content: Element<'a, Message> = match state.active_section {
         SaveFileSection::Overview => crate::editors::save_file_viewer::overview::view(state),
         SaveFileSection::Stats => crate::editors::save_file_viewer::stats::view(state),
-        SaveFileSection::Identity => crate::editors::save_file_viewer::identity::view(state),
+        SaveFileSection::PartyMembers => crate::editors::save_file_viewer::party_members::view(state),
         SaveFileSection::Inventory => crate::editors::save_file_viewer::inventory::view(state),
         SaveFileSection::Raw => crate::editors::save_file_viewer::raw::view(state),
         SaveFileSection::Events => crate::editors::save_file_viewer::events::view(state),

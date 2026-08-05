@@ -13,7 +13,7 @@ pub use view::view;
 
 pub(crate) mod events;
 pub(crate) mod helpers;
-pub(crate) mod identity;
+pub(crate) mod party_members;
 pub(crate) mod inventory;
 pub(crate) mod journal;
 pub(crate) mod map_preview;

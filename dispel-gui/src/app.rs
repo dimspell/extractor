@@ -417,6 +417,10 @@ impl App {
                                 data: save_file.unknown_after_stats.clone(),
                             },
                             RawHexEditorData {
+                                label: "Party Member 1",
+                                data: save_file.character_identity.party_members.get(0).map_or().clone(),
+                            },
+                            RawHexEditorData {
                                 label: "Post-Maps unknown remainder",
                                 data: save_file.post_maps.unknown_block.clone(),
                             },

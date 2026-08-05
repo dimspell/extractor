@@ -602,7 +602,7 @@ pub struct CharacterIdentity {
     pub player_class_name: String,
     /// Large unknown data block after identity (4036 bytes).
     pub unknown_data: Vec<u8>,
-    // TODO: Those fields are not handled by the writer method.
+    /// Number of NPCs that accompany the player on their adventures.
     pub party_members_count: u32,
     /// Party members (321 bytes each)
     pub party_members: Vec<PartyMember>,
@@ -1348,6 +1348,11 @@ impl SaveFile {
         writer.write_all(&class_buf)?;
 
         writer.write_all(&identity.unknown_data)?;
+
+        writer.write_u32::<LittleEndian>(identity.party_members_count)?;
+        for member in &identity.party_members {
+            member.write(writer)?;
+        }
         Ok(())
     }
 

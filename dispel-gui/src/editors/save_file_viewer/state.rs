@@ -14,7 +14,7 @@ pub enum SaveFileSection {
     Maps,
     Stats,
     Inventory,
-    Identity,
+    PartyMembers,
     Events,
     Journal,
     Raw,
@@ -28,7 +28,7 @@ impl SaveFileSection {
             SaveFileSection::Maps => "Maps",
             SaveFileSection::Stats => "Stats",
             SaveFileSection::Inventory => "Inventory",
-            SaveFileSection::Identity => "Identity",
+            SaveFileSection::PartyMembers => "Party Members",
             SaveFileSection::Events => "Events",
             SaveFileSection::Journal => "Journal",
             SaveFileSection::Raw => "Raw",
@@ -39,7 +39,14 @@ impl SaveFileSection {
     pub fn all() -> &'static [SaveFileSection] {
         use SaveFileSection::*;
         &[
-            Overview, Maps, Stats, Inventory, Identity, Events, Journal, Raw,
+            Overview,
+            Maps,
+            Stats,
+            Inventory,
+            PartyMembers,
+            Events,
+            Journal,
+            Raw,
         ]
     }
 }

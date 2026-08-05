@@ -317,10 +317,7 @@ impl App {
             file_tree_view
         };
 
-        let sidebar_content = column![
-            // vertical_space().height(8),
-            // container(change_path_button).padding([0, 8]),
-            vertical_space().height(8),
+        let sidebar_content = column![ 
             file_tree_area,
             vertical_space().height(8),
             tools_section,
