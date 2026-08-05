@@ -31,39 +31,25 @@ impl Command {
                 id: "toggle-history",
                 label: "Toggle Edit History",
                 shortcut: Some("Ctrl+H"),
-                action: || {
-                    Message::Workspace(
-                        WorkspaceMessage::ToggleHistoryPanel,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleHistoryPanel),
             },
             Command {
                 id: "toggle-sidebar",
                 label: "Toggle Sidebar",
                 shortcut: None,
-                action: || {
-                    Message::Workspace(WorkspaceMessage::ToggleSidebar)
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleSidebar),
             },
             Command {
                 id: "toggle-command-palette",
                 label: "Toggle Command Palette",
                 shortcut: Some("Ctrl+Shift+P"),
-                action: || {
-                    Message::Workspace(
-                        WorkspaceMessage::ToggleCommandPalette,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleCommandPalette),
             },
             Command {
                 id: "toggle-global-search",
                 label: "Toggle Global Search",
                 shortcut: Some("Ctrl+P"),
-                action: || {
-                    Message::Workspace(
-                        WorkspaceMessage::ToggleGlobalSearch,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleGlobalSearch),
             },
             Command {
                 id: "rebuild-index",
@@ -98,11 +84,7 @@ impl Command {
                 id: "open-as-hex",
                 label: "Open current file in the hex editor",
                 shortcut: Some("Ctrl+Shift+X"),
-                action: || {
-                    Message::Workspace(
-                        WorkspaceMessage::ReopenActiveTabAsHex,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex),
             },
             Command {
                 id: "hex-search",

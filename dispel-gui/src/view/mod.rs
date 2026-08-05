@@ -2,8 +2,8 @@ use crate::app::{App, AppMode};
 use crate::components::tab_bar::view as tab_bar;
 use crate::components::utils::vertical_space;
 use crate::message::{
-    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt,
-    SystemMessage, WorkspaceMessage,
+    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
+    WorkspaceMessage,
 };
 use crate::state::PaneContent;
 use crate::style;
