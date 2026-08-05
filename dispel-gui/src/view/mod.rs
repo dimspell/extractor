@@ -10,9 +10,11 @@ use crate::style;
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use gui_widgets::components::modal::modal;
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
 use iced::widget::{pane_grid, Space};
 use iced::{alignment, Element, Fill, Font, Length};
+use lucide_icons::Icon;
 
 pub mod editor;
 pub mod history_panel;
@@ -211,10 +213,15 @@ impl App {
     }
 
     fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {
-        let toggle_sidebar_button = button(text("Toggle Sidebar").size(12))
-            .on_press(Message::Workspace(WorkspaceMessage::ToggleSidebar))
-            .padding([4, 12])
-            .style(style::browse_button);
+        let toggle_sidebar_button = button(row![
+            text(icon_char(Icon::PanelLeftClose))
+                .font(LUCIDE_FONT)
+                .size(12),
+            text(" Toggle Sidebar").size(12),
+        ])
+        .on_press(Message::Workspace(WorkspaceMessage::ToggleSidebar))
+        .padding([4, 12])
+        .style(style::browse_button);
 
         let change_path_button = button(text("Change Path").size(12))
             .on_press(Message::StartPage(StartPageMessage::BackToStart))
