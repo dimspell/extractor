@@ -1,11 +1,12 @@
-use std::collections::{HashMap, HashSet};
-use std::time::Instant;
-
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 use crate::editors::save_file_viewer::message::TableKey;
+use crate::editors::save_file_viewer::RawHexEditorData;
+use dispel_core::SaveFile;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::TableColumn;
 use hexedit::HexEditorState;
+use std::collections::{HashMap, HashSet};
+use std::time::Instant;
 
 /// Section tabs displayed in the save file viewer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -841,4 +842,62 @@ pub enum InventoryCategory {
     Edit,
     Weapon,
     Heal,
+}
+
+pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
+    // Build embedded hex viewers for unknown/raw blocks
+    let mut hex_editors: Vec<RawHexEditorData> = vec![
+        RawHexEditorData {
+            label: "Belt Data (before stats) - A",
+            data: save_file.unknown_before_stats_a.clone(),
+        },
+        RawHexEditorData {
+            label: "Belt Data (before stats) - B",
+            data: save_file.unknown_before_stats_b.clone(),
+        },
+        RawHexEditorData {
+            label: "Unknown After Stats",
+            data: save_file.unknown_after_stats.clone(),
+        },
+        RawHexEditorData {
+            label: "Post-Maps unknown remainder",
+            data: save_file.post_maps.unknown_block.clone(),
+        },
+        RawHexEditorData {
+            label: "Post-Events Block A",
+            data: save_file.post_events.block_a.clone(),
+        },
+        RawHexEditorData {
+            label: "Post-Events Records",
+            data: save_file.post_events.records.clone(),
+        },
+        RawHexEditorData {
+            label: "Post-Events Block B",
+            data: save_file.post_events.block_b.clone(),
+        },
+        RawHexEditorData {
+            label: "Identity Unknown Block",
+            data: save_file.character_identity.unknown_block.clone(),
+        },
+        RawHexEditorData {
+            label: "Identity Large Data",
+            data: save_file.character_identity.unknown_data.clone(),
+        },
+    ];
+
+    if let Some(member) = save_file.character_identity.party_members.get(0) {
+        hex_editors.push(RawHexEditorData {
+            label: "Party Member (1)",
+            data: member.unknown_1.clone(),
+        })
+    }
+
+    if let Some(member) = save_file.character_identity.party_members.get(1) {
+        hex_editors.push(RawHexEditorData {
+            label: "Party Member (2)",
+            data: member.unknown_1.clone(),
+        })
+    }
+
+    return hex_editors;
 }

@@ -360,7 +360,7 @@ impl App {
                 let Some(tab_id) = self.active_tab_id() else {
                     return Task::none();
                 };
-                use crate::editors::save_file_viewer::{RawHexEditorData, SaveFileViewerState};
+                use crate::editors::save_file_viewer::SaveFileViewerState;
                 self.state
                     .editors
                     .save_file_viewers
@@ -402,49 +402,8 @@ impl App {
                             })
                             .unwrap_or_default();
 
-                        // Build embedded hex viewers for unknown/raw blocks
-                        let hex_editors: Vec<RawHexEditorData> = vec![
-                            RawHexEditorData {
-                                label: "Belt Data (before stats) - A",
-                                data: save_file.unknown_before_stats_a.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Belt Data (before stats) - B",
-                                data: save_file.unknown_before_stats_b.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Unknown After Stats",
-                                data: save_file.unknown_after_stats.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Party Member 1",
-                                data: save_file.character_identity.party_members.get(0).map_or().clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Post-Maps unknown remainder",
-                                data: save_file.post_maps.unknown_block.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Post-Events Block A",
-                                data: save_file.post_events.block_a.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Post-Events Records",
-                                data: save_file.post_events.records.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Post-Events Block B",
-                                data: save_file.post_events.block_b.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Identity Unknown Block",
-                                data: save_file.character_identity.unknown_block.clone(),
-                            },
-                            RawHexEditorData {
-                                label: "Identity Large Data",
-                                data: save_file.character_identity.unknown_data.clone(),
-                            },
-                        ];
+                        let hex_editors =
+                            crate::editors::save_file_viewer::state::get_hex_editors(&save_file);
 
                         Ok(crate::editors::save_file_viewer::message::SaveFileLoaded {
                             save_file,
