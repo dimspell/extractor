@@ -46,6 +46,7 @@ objc2-foundation = { version = "0.3", features = ["std", "NSString", "NSGeometry
 [features]
 default = []
 iced_test = ["dep:iced_test"]
+debug = ["iced/hot"]
 
 [dependencies.rusqlite]
 version = "0.39.0"
