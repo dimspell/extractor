@@ -6,6 +6,7 @@ use super::message::TabBarMessage;
 use crate::app::App;
 use crate::message::ext::MessageExt;
 use crate::message::Message;
+use crate::workspace::EditorType::HexEditor;
 use crate::workspace::WorkspaceTab;
 
 /// Build the context menu entries for a given tab.
@@ -60,9 +61,11 @@ pub fn view_tab_bar(app: &App) -> Element<'_, Message> {
         .tabs
         .iter()
         .map(|t| {
-            Tab::new(t.id, t.label.clone())
-                .modified(t.modified)
-                .pinned(t.pinned)
+            let label = match t.editor_type {
+                HexEditor => t.label.clone() + " (hex)",
+                _ => t.label.clone(),
+            };
+            Tab::new(t.id, label).modified(t.modified).pinned(t.pinned)
         })
         .collect();
 
