@@ -1,6 +1,7 @@
 use iced::widget::{button, container, row, text};
 use iced::{Element, Fill, Font};
-
+use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use lucide_icons::Icon;
 use crate::config::HexEditorConfig;
 use crate::{HexEditorMessage, HexEditorState};
 
@@ -75,20 +76,20 @@ pub fn build_toolbar<'a>(
     };
     // Diff chunk navigation buttons (◀ ▶), visible when comparison loaded.
     let nav_prev_btn = if has_comparison {
-        button(text("◀").size(11).font(Font::MONOSPACE))
+        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
             .padding([3, 6])
             .on_press(HexEditorMessage::DiffNavPrev)
     } else {
-        button(text("◀").size(11).font(Font::MONOSPACE))
+        button(text(icon_char(Icon::ChevronLeft)).font(LUCIDE_FONT).size(11))
             .padding([3, 6])
             .style(button::secondary)
     };
     let nav_next_btn = if has_comparison {
-        button(text("▶").size(11).font(Font::MONOSPACE))
+        button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
             .padding([3, 6])
             .on_press(HexEditorMessage::DiffNavNext)
     } else {
-        button(text("▶").size(11).font(Font::MONOSPACE))
+        button(text(icon_char(Icon::ChevronRight)).font(LUCIDE_FONT).size(11))
             .padding([3, 6])
             .style(button::secondary)
     };
