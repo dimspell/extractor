@@ -144,8 +144,14 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 app.command_palette = None;
                 Task::none()
             } else {
-                app.command_palette =
-                    Some(crate::components::command_palette::CommandPalette::new());
+                let mut palette = crate::components::command_palette::CommandPalette::new();
+                // Set the active editor type based on the currently active tab
+                if let Some(tab) = app.state.workspace.active() {
+                    palette.set_active_editor_type(Some(tab.editor_type));
+                } else {
+                    palette.set_active_editor_type(None);
+                }
+                app.command_palette = Some(palette);
                 iced::widget::operation::focus(
                     crate::components::command_palette::CommandPalette::input_id(),
                 )
