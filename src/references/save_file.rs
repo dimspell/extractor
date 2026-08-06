@@ -1053,7 +1053,7 @@ impl SaveFile {
         const EVENT_COUNT: usize = 2251;
         const EVENT_SIZE: usize = 284;
 
-        let mut events = Vec::with_capacity(EVENT_COUNT);
+        let mut events: Vec<EventScript> = Vec::with_capacity(EVENT_COUNT);
         for _ in 0..EVENT_COUNT {
             let mut buf = [0u8; EVENT_SIZE];
             reader.read_exact(&mut buf)?;
@@ -1087,8 +1087,25 @@ impl SaveFile {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
         // ── 7.4. Large unknown data block ──
-        let mut unknown_data = vec![0u8; 4036];
-        reader.read_exact(&mut unknown_data)?;
+        // TODO: Add me to the GUI and to writer method
+        let _ = reader.read_u32::<LittleEndian>()?;
+        let _ = reader.read_u16::<LittleEndian>()?;
+        let _ = reader.read_u16::<LittleEndian>()?;
+        let _ = reader.read_u8()?;
+        let _ = reader.read_u8()?;
+        let _ = reader.read_u8()?;
+
+        let mut equiped_equipment_raw = vec![0u8; 12*9]; // 108
+        reader.read_exact(&mut equiped_equipment_raw)?;
+
+        let mut equiped_potions_in_belt_raw = vec![0u8; 6*16]; // 96
+        reader.read_exact(&mut equiped_potions_in_belt_raw)?;
+
+        let mut inventory_items_placement = vec![0u8; 189*20]; // 3780
+        reader.read_exact(&mut inventory_items_placement)?;
+
+        let mut learned_spells = vec![0u8; 41*1]; // 41
+        reader.read_exact(&mut learned_spells)?;
 
         let party_members_count = reader.read_u32::<LittleEndian>()?;
         // Party member= 321 bytes
