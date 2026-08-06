@@ -1,8 +1,8 @@
 //! Fixture-based tests for HealItem.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::heal_item_db::HealItem;
 use dispel_core::Extractor;
+use dispel_core::references::heal_item_db::HealItem;
 use std::path::Path;
 
 #[test]

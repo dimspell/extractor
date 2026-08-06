@@ -1,11 +1,10 @@
 // System message handlers
 
 use crate::app::App;
-use crate::components::utils::browse_folder;
 use crate::components::FileTree;
+use crate::components::utils::browse_folder;
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::chest::ChestEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
 use crate::editors::edit_item::EditItemEditorMessage;
 use crate::editors::event_ini::EventIniEditorMessage;
@@ -30,7 +29,7 @@ use crate::editors::store::StoreEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::editors::weapon::WeaponEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
-use crate::message::{system::SystemMessage, Message, MessageExt};
+use crate::message::{Message, MessageExt, system::SystemMessage};
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;
@@ -70,8 +69,12 @@ fn save_task_for_editor(
 
         // Custom editors with Save support
         EditorType::StoreEditor => Message::store(StoreEditorMessage::Save),
-        EditorType::ChestEditor => Message::chest(ChestEditorMessage::Save),
         EditorType::PartyLevelDbEditor => Message::party_level_db(PartyLevelDbEditorMessage::Save),
+
+        // Sprite editor
+        EditorType::SpriteViewer => {
+            Message::sprite_viewer(crate::editors::sprite_editor::SpriteViewerMessage::Save)
+        }
 
         // Map editor uses SaveEntities with tab_id
         EditorType::MapEditor => Message::map_editor(MapEditorMessage::SaveEntities(tab_id)),
@@ -237,8 +240,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     return Task::batch([file_tree_task, index_task]);
                 }
                 "viewer_db" => app.state.editors.viewer.db_path = s,
-                "chest_game_path" => app.state.shared_game_path = s,
-                "chest_map_file" => app.state.editors.chest_editor.current_map_file = s,
                 _ => {}
             }
             Task::none()
@@ -249,7 +250,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         SystemMessage::RebuildIndex => {
-            // TODO: Write information what it does
             if let Some(ref gp) = app.state.workspace.game_path {
                 app.search_index.clear();
                 app.search_index.game_path = Some(gp.to_string_lossy().to_string());
@@ -386,44 +386,6 @@ pub fn handle(message: SystemMessage, app: &mut App) -> Task<crate::message::Mes
                     }
                 },
             )
-        }
-        SystemMessage::ToggleAutoSave => {
-            app.draft_manager.toggle_auto_save();
-            let status = if app.draft_manager.is_auto_save_enabled() {
-                "Auto-save drafts enabled"
-            } else {
-                "Auto-save drafts disabled"
-            };
-            app.state.status_msg = status.to_string();
-            Task::none()
-        }
-        SystemMessage::CheckDraftConflicts => {
-            let conflicts = app.draft_manager.check_conflicts();
-            if conflicts.is_empty() {
-                app.state.status_msg = "No conflicts detected".to_string();
-            } else {
-                app.state.status_msg = format!("{} file(s) have conflicts", conflicts.len());
-            }
-            Task::none()
-        }
-        SystemMessage::ApplyDraft(file_path) => {
-            let path = std::path::PathBuf::from(&file_path);
-            match app.draft_manager.apply_draft(&path) {
-                Ok(()) => {
-                    app.draft_manager.discard_draft(&path);
-                    app.state.status_msg = format!("Draft applied for {}", file_path);
-                }
-                Err(e) => {
-                    app.state.status_msg = format!("Failed to apply draft: {}", e);
-                }
-            }
-            Task::none()
-        }
-        SystemMessage::DiscardDraft(file_path) => {
-            let path = std::path::PathBuf::from(&file_path);
-            app.draft_manager.discard_draft(&path);
-            app.state.status_msg = format!("Draft discarded for {}", file_path);
-            Task::none()
         }
         SystemMessage::IndexSaveComplete => Task::none(),
         SystemMessage::ShowError(msg) => {

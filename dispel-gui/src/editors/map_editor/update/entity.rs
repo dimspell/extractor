@@ -116,12 +116,11 @@ pub fn field_changed(
 
         // When an NPC's looking_direction or npc_id changes, re-resolve its
         // sprite so the map canvas reflects the new state immediately.
-        if field == "looking_direction" || field == "npc_id" {
-            if let SelectedEntity::Npc(i) = entity {
-                if let Some(ref game_path) = app.state.workspace.game_path {
-                    state.data.recompute_npc_sprite(i, game_path);
-                }
-            }
+        if (field == "looking_direction" || field == "npc_id")
+            && let SelectedEntity::Npc(i) = entity
+            && let Some(ref game_path) = app.state.workspace.game_path
+        {
+            state.data.recompute_npc_sprite(i, game_path);
         }
 
         // Entity positions live on the tile canvas; selection ring on the overlay.
@@ -171,42 +170,44 @@ pub fn undo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                if state.data.can_mutate_map_data() {
-                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                        let map_data = Arc::get_mut(&mut handle.0)
-                            .expect("MapData Arc has unexpected shared reference");
-                        let val = action.old_value.parse::<bool>().unwrap_or(false);
-                        map_data.collisions.insert((tx, ty), val);
-                    }
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.old_value.parse::<bool>().unwrap_or(false);
+                    map_data.collisions.insert((tx, ty), val);
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if state.data.can_mutate_map_data() {
-                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                        let map_data = Arc::get_mut(&mut handle.0)
-                            .expect("MapData Arc has unexpected shared reference");
-                        let val = action.old_value.parse::<i16>().unwrap_or(0);
-                        // The event may have been removed from the map since
-                        // the undo was recorded (e.g. the user saved the map
-                        // and the entry was culled). Re-insert it so undo
-                        // always succeeds.
-                        let ev = map_data.events.entry((tx, ty)).or_insert(
-                            dispel_core::map::EventBlock {
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.old_value.parse::<i16>().unwrap_or(0);
+                    // The event may have been removed from the map since
+                    // the undo was recorded (e.g. the user saved the map
+                    // and the entry was culled). Re-insert it so undo
+                    // always succeeds.
+                    let ev =
+                        map_data
+                            .events
+                            .entry((tx, ty))
+                            .or_insert(dispel_core::map::EventBlock {
                                 x: tx,
                                 y: ty,
                                 _unknown_value: 0,
                                 event_id: 0,
-                            },
-                        );
-                        ev.event_id = val;
-                    }
+                            });
+                    ev.event_id = val;
                 }
             }
         }
-        if let Some(idx) = npc_idx {
-            if let Some(ref game_path) = app.state.workspace.game_path {
-                state.data.recompute_npc_sprite(idx, game_path);
-            }
+        if let Some(idx) = npc_idx
+            && let Some(ref game_path) = app.state.workspace.game_path
+        {
+            state.data.recompute_npc_sprite(idx, game_path);
         }
 
         state.view.tile_layer_cache.clear();
@@ -256,34 +257,34 @@ pub fn redo(app: &mut App, tab_id: usize) -> Task<Message> {
                 }
             }
             SelectedEntity::CollisionTile(tx, ty) => {
-                if state.data.can_mutate_map_data() {
-                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                        let map_data = Arc::get_mut(&mut handle.0)
-                            .expect("MapData Arc has unexpected shared reference");
-                        let val = action.new_value.parse::<bool>().unwrap_or(false);
-                        map_data.collisions.insert((tx, ty), val);
-                    }
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.new_value.parse::<bool>().unwrap_or(false);
+                    map_data.collisions.insert((tx, ty), val);
                 }
             }
             SelectedEntity::EventTile(tx, ty) => {
-                if state.data.can_mutate_map_data() {
-                    if let LoadingState::Loaded(ref mut handle) = state.data.loading_state {
-                        let map_data = Arc::get_mut(&mut handle.0)
-                            .expect("MapData Arc has unexpected shared reference");
-                        let val = action.new_value.parse::<i16>().unwrap_or(0);
-                        if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
-                            ev.event_id = val;
-                        }
+                if state.data.can_mutate_map_data()
+                    && let LoadingState::Loaded(ref mut handle) = state.data.loading_state
+                {
+                    let map_data = Arc::get_mut(&mut handle.0)
+                        .expect("MapData Arc has unexpected shared reference");
+                    let val = action.new_value.parse::<i16>().unwrap_or(0);
+                    if let Some(ev) = map_data.events.get_mut(&(tx, ty)) {
+                        ev.event_id = val;
                     }
                 }
             }
         }
 
         // Recompute NPC sprite if looking_direction was re-applied.
-        if let Some(idx) = npc_idx {
-            if let Some(ref game_path) = app.state.workspace.game_path {
-                state.data.recompute_npc_sprite(idx, game_path);
-            }
+        if let Some(idx) = npc_idx
+            && let Some(ref game_path) = app.state.workspace.game_path
+        {
+            state.data.recompute_npc_sprite(idx, game_path);
         }
 
         state.view.tile_layer_cache.clear();
@@ -309,8 +310,10 @@ mod tests {
             map_id: 0,
             x_coord: 10,
             y_coord: 20,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 5,
+            item: dispel_core::InventoryItem::new(
+                dispel_core::references::enums::ItemTypeId::Event,
+                5,
+            ),
         }];
         // Also need a tab in workspace so set_tab_modified doesn't silently skip
         app.state

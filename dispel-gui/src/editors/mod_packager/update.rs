@@ -3,16 +3,18 @@ use std::sync::Arc;
 
 use dispel_core::modding::{
     ApplyReport, ChangeAction, ChangeOp, ModManifest, PatcherRegistry, RevertReport, Workspace,
+    apply_delta,
 };
+use hexedit::HexEditorState;
 use iced::Task;
 
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
+use crate::editors::mod_packager::ModPackagerMessage;
 use crate::editors::mod_packager::message::{
     ApplyOutcome, LibrarySnapshot, RevertOutcome, SelectedMod,
 };
-use crate::editors::mod_packager::recording::{ObservedAction, DEBOUNCE};
-use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction};
 use crate::message::{Message, MessageExt};
 use crate::state::{PendingEdit, RecordingKey, RecordingSession};
 
@@ -412,6 +414,176 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
 
+        // ----- Change detail (expandable rows) ---------------------------
+        ModPackagerMessage::ShowChangeDetail(idx) => {
+            let state = &mut app.state.editors.mod_packager_editor;
+            // Toggle — clicking the same row collapses it.
+            if state.selected_change_idx == Some(idx) {
+                state.selected_change_idx = None;
+            } else {
+                state.selected_change_idx = Some(idx);
+            }
+            Task::none()
+        }
+        ModPackagerMessage::HideChangeDetail => {
+            app.state.editors.mod_packager_editor.selected_change_idx = None;
+            Task::none()
+        }
+
+        // ----- Review tab — revert individual changes --------------------
+        ModPackagerMessage::RevertChange(action_id) => {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
+                return Task::none();
+            };
+            let Some(slug) = app.state.editors.mod_packager_editor.selected_slug.clone() else {
+                return Task::none();
+            };
+            // Guard: if recording is active for THIS mod, refuse.
+            if let Some(rec) = app.state.recording.as_ref()
+                && rec.mod_slug == slug
+            {
+                app.state.editors.mod_packager_editor.status_msg =
+                    "Stop recording before reverting changes.".into();
+                return Task::none();
+            }
+            Task::perform(
+                async move {
+                    tokio::task::spawn_blocking(move || {
+                        let ws = Workspace::open(root).map_err(|e| e.to_string())?;
+                        ws.remove_action(&slug, action_id)
+                            .map_err(|e| e.to_string())
+                    })
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
+                },
+                |result| Message::mod_packager(ModPackagerMessage::ChangeReverted(result)),
+            )
+        }
+        ModPackagerMessage::ChangeReverted(result) => {
+            let state = &mut app.state.editors.mod_packager_editor;
+            match result {
+                Ok(()) => {
+                    state.status_msg = "Change reverted.".into();
+                    // Re-select the mod to refresh the changelog
+                    if let Some(slug) = state.selected_slug.clone() {
+                        return Task::done(Message::mod_packager(ModPackagerMessage::SelectMod(
+                            slug,
+                        )));
+                    }
+                    Task::none()
+                }
+                Err(e) => {
+                    state.status_msg = format!("Revert failed: {e}");
+                    Task::none()
+                }
+            }
+        }
+
+        // ----- Hex diff integration --------------------------------------
+        ModPackagerMessage::OpenHexDiff(action_id) => {
+            let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
+                app.state.editors.mod_packager_editor.status_msg = "Open a workspace first.".into();
+                return Task::none();
+            };
+            let game_dir = PathBuf::from(&app.state.shared_game_path);
+            if !game_dir.is_dir() {
+                app.state.editors.mod_packager_editor.status_msg =
+                    "Set the game path first.".into();
+                return Task::none();
+            }
+
+            let action = match app
+                .state
+                .editors
+                .mod_packager_editor
+                .selected_changes
+                .iter()
+                .find(|a| a.id == action_id)
+            {
+                Some(a) => a.clone(),
+                None => {
+                    app.state.editors.mod_packager_editor.status_msg =
+                        "Change action not found.".into();
+                    return Task::none();
+                }
+            };
+            let file_path = action.file_path.clone();
+            let file_path_for_msg = file_path.clone();
+            let op = action.op.clone();
+
+            Task::perform(
+                async move {
+                    tokio::task::spawn_blocking(
+                        move || -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+                            let ws = Workspace::open(root).map_err(|e| e.to_string())?;
+                            let vanilla = ws
+                                .vanilla()
+                                .ensure_snapshot(&game_dir, &file_path)
+                                .map_err(|e| e.to_string())?
+                                .unwrap_or_default();
+
+                            let patched = match &op {
+                                ChangeOp::BinaryDelta { patch_bytes } => {
+                                    apply_delta(&vanilla, patch_bytes)
+                                        .map_err(|e| format!("apply delta: {e}"))?
+                                }
+                                ChangeOp::FileReplace { content } => content.clone(),
+                                _ => return Err("Unsupported operation for hex diff".into()),
+                            };
+
+                            Ok((patched, Some(vanilla)))
+                        },
+                    )
+                    .await
+                    .unwrap_or_else(|e| Err(e.to_string()))
+                },
+                move |result| match result {
+                    Ok((patched_bytes, vanilla_bytes)) => {
+                        Message::mod_packager(ModPackagerMessage::HexDiffReady {
+                            file_path: file_path_for_msg,
+                            patched_bytes,
+                            vanilla_bytes,
+                        })
+                    }
+                    Err(e) => Message::mod_packager(ModPackagerMessage::HexDiffFailed(e)),
+                },
+            )
+        }
+        ModPackagerMessage::HexDiffReady {
+            file_path,
+            patched_bytes,
+            vanilla_bytes,
+        } => {
+            let file_name = PathBuf::from(&file_path)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or(&file_path)
+                .to_string();
+
+            let _idx = app.state.workspace.open_with_editor_type(
+                format!("Diff: {file_name}"),
+                Some(PathBuf::from(&file_path)),
+                crate::workspace::EditorType::HexEditor,
+            );
+
+            if let Some(tab_id) = active_tab_id(app) {
+                let state = HexEditorState::from_bytes(
+                    format!("Diff: {file_name}"),
+                    patched_bytes,
+                    vanilla_bytes,
+                    Some(PathBuf::from(&file_path)),
+                );
+                app.state.editors.hex_editors.insert(tab_id, state);
+                app.state.editors.mod_packager_editor.status_msg =
+                    format!("Opened hex diff for {file_name}");
+            }
+            Task::none()
+        }
+        ModPackagerMessage::HexDiffFailed(e) => {
+            app.state.editors.mod_packager_editor.status_msg = format!("Hex diff failed: {e}");
+            Task::none()
+        }
+
         // ----- Conflict resolution ---------------------------------------
         ModPackagerMessage::PinConflict { key, mod_slug } => {
             let Some(root) = app.state.editors.mod_packager_editor.workspace_root.clone() else {
@@ -699,11 +871,11 @@ fn flush_one_pending(
         Some(p) => p,
         None => return Task::none(),
     };
-    if let Some(g) = expected_generation {
-        if pending.generation != g {
-            // A later keystroke superseded this timer; drop silently.
-            return Task::none();
-        }
+    if let Some(g) = expected_generation
+        && pending.generation != g
+    {
+        // A later keystroke superseded this timer; drop silently.
+        return Task::none();
     }
 
     // Skip no-op edits (user typed something then changed back to the original).
@@ -784,6 +956,13 @@ fn flush_all_pending(app: &mut App) -> Task<Message> {
         },
         |result| Message::mod_packager(ModPackagerMessage::RecordingPersisted(result)),
     )
+}
+
+/// Get the active tab's id from the workspace. Returns `None` if no tab is
+/// active or the active index is out of range.
+fn active_tab_id(app: &App) -> Option<usize> {
+    let idx = app.state.workspace.active_tab?;
+    app.state.workspace.tabs.get(idx).map(|t| t.id)
 }
 
 fn nonempty_path(s: &str) -> Option<PathBuf> {

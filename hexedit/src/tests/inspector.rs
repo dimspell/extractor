@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::state::{ComparisonFile, InspectorSource};
+
 // ============================================================================
 // Inspector panel
 // ============================================================================
@@ -157,6 +159,97 @@ fn test_copy_inspector_value_sets_status() {
     assert!(
         state.status_msg.contains("42"),
         "status should contain decoded value"
+    );
+}
+
+// ============================================================================
+// Inspector — A/B source toggle buttons (on_press behaviour)
+// ============================================================================
+
+#[test]
+fn test_toggle_button_click_emits_set_inspector_source() {
+    // The "B" button's on_press must emit SetInspectorSource(Comparison),
+    // and "A" must emit SetInspectorSource(Baseline) — tested at the
+    // widget level, in isolation from any pane grid.
+    let state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B").expect("B toggle button must be clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Comparison)
+        )),
+        "clicking B must emit SetInspectorSource(Comparison), got {messages:?}"
+    );
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("A").expect("A toggle button must be clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Baseline)
+        )),
+        "clicking A must emit SetInspectorSource(Baseline), got {messages:?}"
+    );
+}
+
+#[test]
+fn test_toggle_button_updates_state_and_values() {
+    // Full loop: click the real button, feed the emitted message through
+    // update(), and verify the decoded value + label switch.
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Baseline value before the click.
+    {
+        let mut ui = simulator(view(&state, &config));
+        ui.find("42").expect("baseline byte 0x2A before click");
+        ui.find("· test.bin").expect("baseline label before click");
+    }
+
+    // Click B and route the message.
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B").expect("B toggle clickable");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    for msg in messages {
+        send(&mut state, &config, msg);
+    }
+
+    // Values must now decode from the comparison file.
+    let mut ui = simulator(view(&state, &config));
+    ui.find("90").expect("comparison byte 0x5A after click");
+    ui.find("· other.bin")
+        .expect("label switches to the comparison file");
+}
+
+#[test]
+fn test_toggle_click_works_with_diff_pane_active_in_full_view() {
+    // Exact user repro at the hexedit level: the full editor view with the
+    // focused pane switched to Diff (exactly like ComparisonFileLoaded does).
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let focus = state.pane_focus;
+    if let Some(panel) = state.panes.get_mut(focus) {
+        panel.content = crate::domain::panel::HexPanelContent::Diff;
+    }
+    let config = default_config();
+
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B")
+        .expect("B toggle must be clickable in the full view with the diff pane active");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Comparison)
+        )),
+        "clicking B in the full view with the diff pane active must emit \
+         SetInspectorSource(Comparison), got {messages:?}"
     );
 }
 
@@ -395,4 +488,257 @@ fn test_inspector_displays_cstr_for_printable() {
     let mut ui = simulator(view(&state, &config));
     ui.find("\"hello\"")
         .expect("cstr should show quoted string");
+}
+
+// ============================================================================
+// Inspector — comparison-file source (A/B toggle)
+// ============================================================================
+
+fn state_with_comparison(baseline: Vec<u8>, comparison: Vec<u8>) -> HexEditorState {
+    let mut state = make_state(baseline);
+    let diff = state
+        .provider
+        .as_slice()
+        .iter()
+        .zip(comparison.iter())
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .map(|(i, _)| i as u64)
+        .collect();
+    state.comparison_file = Some(ComparisonFile {
+        name: "other.bin".into(),
+        data: comparison,
+        diff,
+    });
+    state
+}
+
+#[test]
+fn test_inspector_toggle_button_click_emits_message() {
+    let state = state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+    let mut ui = simulator(view(&state, &config));
+    ui.click("B")
+        .expect("inspector should have a B toggle button");
+    let messages: Vec<HexEditorMessage> = ui.into_messages().collect();
+    assert!(
+        messages.iter().any(|m| matches!(
+            m,
+            HexEditorMessage::SetInspectorSource(InspectorSource::Comparison)
+        )),
+        "clicking B should emit SetInspectorSource(Comparison), got {messages:?}"
+    );
+}
+
+#[test]
+fn test_inspector_tracks_cursor_position() {
+    // Decoded values must follow the cursor, not the buffer start.
+    let mut state = make_state(vec![0xAA, 0x2A, 0xBB, 0x00]);
+    let config = default_config();
+    state.selection = Selection::single(1);
+    let mut ui = simulator(view(&state, &config));
+    ui.find("42")
+        .expect("u8 at cursor 1 (0x2A) should show 42, not the byte at offset 0");
+}
+
+#[test]
+fn test_inspector_comparison_tracks_cursor_position() {
+    let mut state =
+        state_with_comparison(vec![0xAA, 0x2A, 0xBB, 0x00], vec![0xAA, 0x5A, 0xBB, 0x00]);
+    let config = default_config();
+    state.selection = Selection::single(1);
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    let mut ui = simulator(view(&state, &config));
+    ui.find("90")
+        .expect("comparison u8 at cursor 1 (0x5A) should show 90");
+    ui.find("42")
+        .expect_err("must not decode from buffer start");
+}
+
+#[test]
+fn test_inspector_shows_comparison_bytes_after_toggle() {
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Baseline (default): shows 42 for 0x2A.
+    {
+        let mut ui = simulator(view(&state, &config));
+        ui.find("42").expect("baseline u8 should be 42");
+    }
+
+    // Switch to comparison source: shows 90 for 0x5A.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    let mut ui = simulator(view(&state, &config));
+    ui.find("90").expect("comparison u8 should be 90");
+    ui.find("42").expect_err("baseline value must not be shown");
+}
+
+#[test]
+fn test_inspector_toggle_hidden_without_comparison_file() {
+    let state = make_state(vec![0x2A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+    let mut ui = simulator(view(&state, &config));
+    ui.find("A")
+        .expect_err("no A/B toggle without comparison file");
+}
+
+#[test]
+fn test_inspector_source_label_follows_source() {
+    // The header label shows the active file name, so toggling A/B is
+    // always visible — even on bytes that are identical in both files.
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Baseline: label shows the main file's name.
+    {
+        let mut ui = simulator(view(&state, &config));
+        ui.find("· test.bin")
+            .expect("baseline label should show the main file name");
+    }
+
+    // Comparison: label shows the comparison file's name.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    let mut ui = simulator(view(&state, &config));
+    ui.find("· other.bin")
+        .expect("comparison label should show the comparison file name");
+    ui.find("· test.bin")
+        .expect_err("baseline label must be gone");
+}
+
+#[test]
+fn test_inspector_edit_blocked_in_comparison_mode() {
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(0));
+    assert!(
+        state.inspector_edit.is_none(),
+        "edit modal must not open for the read-only comparison file"
+    );
+}
+
+#[test]
+fn test_inspector_switching_source_closes_open_edit_modal() {
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+    send(&mut state, &config, HexEditorMessage::BeginInspectorEdit(0));
+    assert!(state.inspector_edit.is_some());
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
+    );
+    assert!(
+        state.inspector_edit.is_none(),
+        "switching source must close the open edit modal"
+    );
+}
+
+// ============================================================================
+// Inspector — diff-view clicks drive the A/B source
+// ============================================================================
+
+#[test]
+fn test_diff_click_b_side_switches_inspector_to_comparison() {
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Clicking the comparison (right) side must switch the inspector.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DiffAddrSelected {
+            addr: 1,
+            is_baseline: false,
+        },
+    );
+    assert_eq!(state.inspector_source, InspectorSource::Comparison);
+    assert_eq!(
+        state.selection.cursor, 1,
+        "selection must follow the clicked address"
+    );
+
+    // Clicking the baseline (left) side must switch back.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DiffAddrSelected {
+            addr: 2,
+            is_baseline: true,
+        },
+    );
+    assert_eq!(state.inspector_source, InspectorSource::Baseline);
+}
+
+#[test]
+fn test_diff_drag_b_side_switches_inspector_to_comparison() {
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+
+    // Drag-extend ending on the comparison side must switch the inspector.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DiffExtendTo {
+            addr: 3,
+            is_baseline: false,
+        },
+    );
+    assert_eq!(state.inspector_source, InspectorSource::Comparison);
+    assert_eq!(state.selection.cursor, 3);
+
+    // Drag ending on the baseline side must switch back.
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DiffExtendTo {
+            addr: 1,
+            is_baseline: true,
+        },
+    );
+    assert_eq!(state.inspector_source, InspectorSource::Baseline);
+}
+
+#[test]
+fn test_diff_click_b_side_updates_inspector_values_end_to_end() {
+    // Full pipeline: B-side click message → update → inspector decodes
+    // the comparison file's bytes.
+    let mut state =
+        state_with_comparison(vec![0x2A, 0x00, 0x00, 0x00], vec![0x5A, 0x00, 0x00, 0x00]);
+    let config = default_config();
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DiffAddrSelected {
+            addr: 0,
+            is_baseline: false,
+        },
+    );
+    let mut ui = simulator(view(&state, &config));
+    ui.find("90")
+        .expect("inspector should decode comparison byte 0x5A after a B-side click");
+    ui.find("42")
+        .expect_err("baseline value must not be shown after a B-side click");
 }

@@ -1,13 +1,14 @@
-use iced::color;
 use iced::Theme;
+use iced::color;
 
 pub mod app;
-pub mod auto_save;
 pub mod components;
+pub mod dispatch_table;
 pub mod editor_registry;
 pub mod editors;
 pub mod indexation;
 pub mod message;
+pub mod subscriptions;
 
 pub mod platform;
 pub mod state;
@@ -29,10 +30,11 @@ pub fn main() -> iced::Result {
     env_logger::init();
 
     iced::application(App::new, App::update, App::view)
+        .font(lucide_icons::LUCIDE_FONT_BYTES)
         .theme(|_: &App| {
             Theme::custom(
                 "Medieval",
-                iced::theme::Palette {
+                iced::theme::palette::Seed {
                     background: color!(0x2a2a2a),
                     text: color!(0xeae0c8),
                     primary: color!(0x8b5a2b),
@@ -42,8 +44,8 @@ pub fn main() -> iced::Result {
                 },
             )
         })
-        .title("Dispel Extractor")
-        .subscription(App::subscription)
+        .title(|app: &App| App::set_title(app))
+        .subscription(|app: &App| crate::subscriptions::subscription(app))
         .window_size((1100.0, 800.0))
         .run()
 }

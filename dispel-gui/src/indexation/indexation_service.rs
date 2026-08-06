@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Instant, UNIX_EPOCH};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
 /// Background indexation service
@@ -244,17 +244,17 @@ impl IndexationService {
                 .unwrap_or("")
                 .to_string();
 
-            let icon = Self::get_file_icon(&path);
+            let icon_str = format!("{:?}", Self::get_file_icon(&path));
             let modified_time = match Self::get_modified_time(&path) {
                 Ok(time) => time,
                 Err(e) => {
                     // Log the error but continue with the file
                     let file_path = path.clone();
-                    Self::log_warning(&format!(
+                    log::warn!(
                         "Failed to get modified time for '{}': {}",
                         file_path.display(),
                         e
-                    ));
+                    );
                     0
                 }
             };
@@ -265,11 +265,7 @@ impl IndexationService {
                     Ok(metadata) => Some(metadata),
                     Err(e) => {
                         // Log the error but continue without metadata for this file
-                        Self::log_warning(&format!(
-                            "Failed to analyze sprite file '{}': {}",
-                            path.display(),
-                            e
-                        ));
+                        log::warn!("Failed to analyze sprite file '{}': {}", path.display(), e);
                         None
                     }
                 }
@@ -282,7 +278,7 @@ impl IndexationService {
                 name: name.clone(),
                 is_directory,
                 file_type,
-                icon,
+                icon: icon_str,
                 modified_time,
                 sprite_metadata,
             };
@@ -290,8 +286,8 @@ impl IndexationService {
             files.push(file_info);
 
             // Recursively scan directories
-            if is_directory {
-                if let Err(e) = Self::scan_directory_recursive(
+            if is_directory
+                && let Err(e) = Self::scan_directory_recursive(
                     progress_history,
                     &path,
                     files,
@@ -301,17 +297,13 @@ impl IndexationService {
                     start_time,
                     last_update_time,
                     update_count,
-                ) {
-                    // Log the error but continue with other directories
-                    if !e.is_cancelled() {
-                        Self::log_warning(&format!(
-                            "Error scanning directory '{}': {}",
-                            path.display(),
-                            e
-                        ));
-                    } else {
-                        return Err(e);
-                    }
+                )
+            {
+                // Log the error but continue with other directories
+                if !e.is_cancelled() {
+                    log::warn!("Error scanning directory '{}': {}", path.display(), e);
+                } else {
+                    return Err(e);
                 }
             }
 
@@ -367,21 +359,20 @@ impl IndexationService {
     }
 
     /// Get file icon based on extension
-    pub fn get_file_icon(path: &Path) -> String {
+    pub fn get_file_icon(path: &Path) -> lucide_icons::Icon {
         match path.extension().and_then(|ext| ext.to_str()) {
-            Some("db") => "🗃️",
-            Some("ini") => "📄",
-            Some("ref") => "📋",
-            Some("scr") => "📜",
-            Some("dlg") => "💬",
-            Some("pgp") => "📝",
-            Some("map") => "🗺️",
-            Some("gtl") | Some("btl") => "🖼️",
-            Some("spr") => "🎨",
-            Some("snf") => "🔊",
-            _ => "📎",
+            Some("db") => lucide_icons::Icon::Database,
+            Some("ini") => lucide_icons::Icon::FileText,
+            Some("ref") => lucide_icons::Icon::ClipboardList,
+            Some("scr") => lucide_icons::Icon::ScrollText,
+            Some("dlg") => lucide_icons::Icon::MessageSquare,
+            Some("pgp") => lucide_icons::Icon::FileEdit,
+            Some("map") => lucide_icons::Icon::Map,
+            Some("gtl") | Some("btl") => lucide_icons::Icon::Image,
+            Some("spr") => lucide_icons::Icon::Palette,
+            Some("snf") => lucide_icons::Icon::Music,
+            _ => lucide_icons::Icon::Paperclip,
         }
-        .to_string()
     }
 
     /// Get file modified time
@@ -422,24 +413,6 @@ impl IndexationService {
     /// Get the most recent progress update
     pub async fn get_latest_progress(&self) -> Option<IndexationProgress> {
         self.progress_history.lock().await.last().cloned()
-    }
-
-    /// Log a warning message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_warning(message: &str) {
-        eprintln!("[IndexationService WARNING] {}", message);
-    }
-
-    /// Log an error message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_error(message: &str) {
-        eprintln!("[IndexationService ERROR] {}", message);
-    }
-
-    /// Log a debug message (for debugging purposes)
-    #[allow(dead_code)]
-    fn log_debug(message: &str) {
-        println!("[IndexationService DEBUG] {}", message);
     }
 }
 

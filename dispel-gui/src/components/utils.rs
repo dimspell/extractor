@@ -1,4 +1,4 @@
-use crate::message::{system::SystemMessage, Message};
+use crate::message::{Message, system::SystemMessage};
 use crate::style;
 use iced::widget::{button, row, rule::Rule, space::Space, text, text_input};
 use iced::{Element, Length, Task};
@@ -44,7 +44,8 @@ where
     use iced::widget::pick_list;
     row![
         text(label).size(13).width(140),
-        pick_list(options, Some(value), on_change)
+        pick_list(Some(value), options, |v| v.to_string())
+            .on_select(on_change)
             .padding(6)
             .text_size(13)
     ]

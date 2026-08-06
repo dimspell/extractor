@@ -27,10 +27,9 @@ pub mod message;
 pub mod state;
 pub mod view;
 
-pub use caches::{compute_caches, resolve_lookup_displays, ComputedCaches};
+pub use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
+pub use caches::{ComputedCaches, compute_caches, resolve_lookup_displays};
 pub use export::export_csv_task;
 pub use message::SpreadsheetMessage;
-pub use state::{
-    ColumnDragState, ColumnFilterOption, GlobalFilterMode, SpreadsheetPaneContent, SpreadsheetState,
-};
+pub use state::{ColumnDragState, SpreadsheetPaneContent, SpreadsheetState};
 pub use view::view_spreadsheet;

@@ -7,9 +7,9 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::domain::pattern::RepeatPatternDialog;
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Modal body shown when "Add Repeated Pattern" is selected from the context
 /// menu with an active multi-byte selection.

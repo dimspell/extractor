@@ -1,6 +1,6 @@
-use iced::advanced::{layout, overlay, renderer, widget, Clipboard, Layout, Shell};
+use iced::advanced::{Layout, Shell, layout, overlay, renderer, widget};
 use iced::widget::{button, column, container, row, text};
-use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size};
+use iced::{Element, Event, Fill, Point, Rectangle, Size, mouse};
 
 use crate::style;
 
@@ -171,7 +171,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
     ) {
         match event {
@@ -185,11 +184,11 @@ where
                 }
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if let Some(idx) = *self.hovered_idx {
-                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
-                        shell.publish(action.clone());
-                        shell.capture_event();
-                    }
+                if let Some(idx) = *self.hovered_idx
+                    && let Some(Entry::Item { action, .. }) = self.entries.get(idx)
+                {
+                    shell.publish(action.clone());
+                    shell.capture_event();
                 }
                 *self.status = Status::Closed;
                 shell.request_redraw();
@@ -204,7 +203,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             shell,
             &layout.bounds(),
         );
@@ -216,12 +214,11 @@ where
         cursor: mouse::Cursor,
         _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        if let Some(pos) = cursor.position() {
-            if let Some(idx) = find_hovered_entry(layout, pos, self.entries.len()) {
-                if matches!(self.entries.get(idx), Some(Entry::Item { .. })) {
-                    return mouse::Interaction::Pointer;
-                }
-            }
+        if let Some(pos) = cursor.position()
+            && let Some(idx) = find_hovered_entry(layout, pos, self.entries.len())
+            && matches!(self.entries.get(idx), Some(Entry::Item { .. }))
+        {
+            return mouse::Interaction::Pointer;
         }
         mouse::Interaction::Idle
     }
@@ -230,7 +227,7 @@ where
         &mut self,
         layout: Layout<'_>,
         renderer: &iced::Renderer,
-        operation: &mut dyn widget::Operation<()>,
+        operation: &mut dyn widget::Operation,
     ) {
         self.menu
             .as_widget_mut()

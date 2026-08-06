@@ -11,7 +11,7 @@ This workspace is a **5-crate Cargo workspace** (Rust 2021, edition 2021) versio
 | Crate | Type | Role |
 |---|---|---|
 | `dispel-extractor` (root) | lib + bin | `dispel-core` library + CLI binary. Game logic only. |
-| `dispel-gui` | bin only | Iced 0.14 desktop GUI. No `lib.rs` — pure binary crate. |
+| `dispel-gui` | bin only | Iced 0.15 desktop GUI. No `lib.rs` — pure binary crate. |
 | `dispel-macros` | proc-macro | 5 derive macros used by `dispel-core`. |
 | `gui-widgets` | lib | Reusable custom Iced widgets (ContextMenu, modal, ParagraphCache). |
 | `hexedit` | lib + bin | Full hex editor with Lua scripting — used by `dispel-gui` as a tab type. |
@@ -46,7 +46,7 @@ dispel-extractor/
 │   └── src/components/       # ContextMenu, modal, ParagraphCache
 ├── hexedit/                  # Hex editor library + standalone bin
 │   └── src/                  # 20+ modules incl. Lua scripting
-├── dispel-gui/               # Iced 0.14 desktop GUI
+├── dispel-gui/               # Iced 0.15 desktop GUI
 │   └── src/
 │       ├── app.rs            # App (transient UI state)
 │       ├── state.rs          # AppState (persistent model)
@@ -199,7 +199,7 @@ See `docs/file_formats.md` and per-file `docs/files/*.md` for detailed specs.
 
 ## hexedit — Hex Editor Crate
 
-Standalone library + 2 binaries (`hexedit-bin`, `bin/hexedit`). 20+ source files. Iced 0.14 with optional `lua` feature (default on, Lua 5.4 vendored via `mlua`).
+Standalone library + 2 binaries (`hexedit-bin`, `bin/hexedit`). 20+ source files. Iced 0.15 with optional `lua` feature (default on, Lua 5.4 vendored via `mlua`).
 
 20+ files in `state`, `config`, `message`, `update`, `view/*`, `provider`, `selection`, `editing`, `inspector`, `pattern`, `search`, `goto`, `coloring`, `vanilla_diff`, `lua_engine`. **11 have unit tests.**
 
@@ -210,7 +210,7 @@ Standalone library + 2 binaries (`hexedit-bin`, `bin/hexedit`). 20+ source files
 ## dispel-gui Architecture
 
 ### Tech Stack
-- **UI**: Iced 0.14 (GPU via wgpu, Elm/MVU, advanced + lazy features)
+- **UI**: Iced 0.15 (GPU via wgpu, Elm/MVU, advanced + lazy features)
 - **Async**: Tokio multi-thread runtime + `iced::Task::perform`
 - **Core**: `dispel_core` (sibling crate)
 - **Search**: nucleo-matcher 0.3 (fuzzy full-text)
@@ -219,6 +219,7 @@ Standalone library + 2 binaries (`hexedit-bin`, `bin/hexedit`). 20+ source files
 - **File dialogs**: rfd 0.17.2
 - **Window**: 1100×800, custom "Medieval" theme (dark leather/gold)
 - **macOS native**: objc2 + objc2-app-kit + objc2-foundation (context menus, file manager reveal)
+- **Accessibility**: Iced 0.15 `accessibility` feature with **vendored `accesskit 0.24`** (`../../iced/vendor/accesskit`); enabled on `dispel-gui` only. The workspace `[patch.crates-io]` pins `winit` to the same iced-rs fork for version alignment. Only `table_widget` implements full accesskit nodes (`accessibility()` + `accessibility_action()`). Custom widgets (context menu, modal, hex matrix) use the default no-op methods.
 - **Tests**: `iced_test` 0.14 (optional feature), `proptest`, `syn`
 
 ### Flow
@@ -394,7 +395,7 @@ pub struct Workspace {
 - **SQLite**: only `DbViewer`. Other editors read/write game files directly.
 - **Enums over booleans**: e.g. `LoadingState<T> { Idle, Loading, Loaded(T), Failed(String) }`
 - **Editor state lives on `EditorRegistry`, not `AppState`**.
-- **Iced 0.14**: `center_x()` → `container(...).align_x(Horizontal::Center)`. Check Iced 0.14 docs for deprecated patterns.
+- **Iced 0.15**: `container(...).center_x(width)` is a convenience setter for `container(...).width(width).align_x(alignment::Horizontal::Center)`.
 
 ---
 
@@ -555,6 +556,29 @@ rtk ls .                                            # Token-optimized directory 
 rtk grep "pattern" .                                # Grouped search results
 rtk read file.rs                                    # Smart file reading
 ```
+
+## iced GUI patterns
+
+This project used the iced from the ../iced. It is a nightly version (v0.15-dev) with modifications to handle accesiblity features (like a VoiceOver screen reader).
+
+### Custom patterns
+
+Custom patterns are in the `gui-widgets` crate - `./gui-widgets/src`.
+
+### `min` and `max` methods for `Length`
+
+There are `min` and `max` methods to the `Length` type, allowing to define minimum and maximum constraints for any widget:
+
+```rs
+row![
+    container(sidebar).width(Fill.min(150).max(200)),
+    container(content).width(FillPortion(3).min(300)),
+]
+```
+
+### Notification on `scale_factor` change
+
+`window::Event::Resized` is notified when `scale_factor` changes.
 
 ---
 

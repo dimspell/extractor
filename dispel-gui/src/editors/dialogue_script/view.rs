@@ -34,6 +34,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("Dialogue script editor")
         .into();
     };
 
@@ -52,5 +53,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |pane| Message::dialogue_script(DialogueScriptEditorMessage::PaneClicked(pane)),
         None,
         None,
+        "Dialogue script editor",
     )
 }

@@ -2,8 +2,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-use super::types::Coords;
 use super::MapData;
+use super::types::Coords;
 
 /// Write map data back to a .map file by patching only the 3 end blocks
 /// (events, tiles+collisions, roofs) in-place. All header/sprite/object

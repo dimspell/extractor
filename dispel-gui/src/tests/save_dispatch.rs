@@ -1,29 +1,29 @@
 #[cfg(test)]
 mod save_dispatch_tests {
     use crate::app::App;
-    use crate::message::system::SystemMessage;
     use crate::message::Message;
+    use crate::message::system::SystemMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::{EditorType, Workspace};
 
     #[test]
     fn save_respects_editor_capability_across_all_types() {
         // Instead of duplicating a hand-rolled list (which drifts out of sync),
-        // we verify the CONTRACT: supports_save() == true  ⇔  save produces a task.
+        // we verify the CONTRACT: supports_save() == true  ⇔  save is dispatched.
+        // Save dispatch uses Task::done() which has units=0, so we check status_msg.
         for et in all_editor_types() {
             let mut app = app_with_tab(et);
-            let task = app.update(Message::System(SystemMessage::Save));
+            let _task = app.update(Message::System(SystemMessage::Save));
             if et.supports_save() {
-                assert!(
-                    task.units() > 0,
-                    "EditorType::{:?} supports_save() but Save returned Task::none()",
+                assert_ne!(
+                    app.state.status_msg, "This editor does not support saving",
+                    "EditorType::{:?} supports_save() but Save rejected it",
                     et
                 );
             } else {
                 assert_eq!(
-                    task.units(),
-                    0,
-                    "EditorType::{:?} !supports_save() but Save produced a task",
+                    app.state.status_msg, "This editor does not support saving",
+                    "EditorType::{:?} !supports_save() but Save was accepted",
                     et
                 );
             }
@@ -62,7 +62,6 @@ mod save_dispatch_tests {
             EditorType::EventScrEditor,
             EditorType::WaveIniEditor,
             EditorType::AllMapIniEditor,
-            EditorType::ChestEditor,
             EditorType::SpriteViewer,
             EditorType::SnfEditor,
             EditorType::DbViewer,
@@ -76,11 +75,12 @@ mod save_dispatch_tests {
     }
 
     #[test]
-    fn test_save_non_saving_tab_shows_correct_status() {
-        // SpriteViewer does not support saving.
+    fn test_save_sprite_viewer_returns_task() {
+        // SpriteViewer now supports saving.
         let mut app = app_with_tab(EditorType::SpriteViewer);
-        let _ = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(app.state.status_msg, "This editor does not support saving");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        // Status message is not the "no save" error.
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]

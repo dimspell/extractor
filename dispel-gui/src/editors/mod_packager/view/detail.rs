@@ -7,6 +7,7 @@ use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_space;
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::view::diff_panel;
 use crate::message::{Message, MessageExt};
 
 pub fn view(app: &App) -> Element<'_, Message> {
@@ -18,7 +19,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
     };
 
     let manifest_section = manifest_form(state);
-    let changelog_section = changelog_panel(&state.selected_changes);
+    let changelog_section = changelog_panel(&state.selected_changes, state.selected_change_idx);
 
     let is_recording_this = app
         .state
@@ -114,18 +115,18 @@ fn save_button(dirty: bool, busy: bool) -> button::Button<'static, Message> {
     }
 }
 
-fn changelog_panel(changes: &[ChangeAction]) -> Element<'_, Message> {
+fn changelog_panel(changes: &[ChangeAction], selected_idx: Option<usize>) -> Element<'_, Message> {
     let header = text(format!("Change Log ({})", changes.len())).size(14);
 
     let body: Element<'_, Message> = if changes.is_empty() {
-        text("No changes recorded yet. Edits captured via Recording mode (Phase 4) will land here.")
+        text("No changes recorded yet. Edits captured via Recording mode will land here.")
             .size(11)
             .into()
     } else {
         let rows: Vec<Element<'_, Message>> = changes
             .iter()
             .enumerate()
-            .map(|(i, a)| change_row(i, a))
+            .map(|(i, a)| change_row(i, a, selected_idx))
             .collect();
         scrollable(column(rows).spacing(4).padding(4).width(Fill))
             .height(Length::Fill)
@@ -139,7 +140,11 @@ fn changelog_panel(changes: &[ChangeAction]) -> Element<'_, Message> {
         .into()
 }
 
-fn change_row(index: usize, action: &ChangeAction) -> Element<'_, Message> {
+fn change_row(
+    index: usize,
+    action: &ChangeAction,
+    selected_idx: Option<usize>,
+) -> Element<'_, Message> {
     let summary = describe(action);
     let title = text(format!("#{}  {}", index + 1, summary)).size(12);
     let path = text(action.file_path.as_str()).size(10);
@@ -154,10 +159,21 @@ fn change_row(index: usize, action: &ChangeAction) -> Element<'_, Message> {
         col = col.push(d);
     }
 
-    container(col)
+    // Wrap the row content in a button so it's clickable.
+    let row_btn = button(col)
         .padding(6)
-        .style(container::bordered_box)
-        .into()
+        .style(button::secondary)
+        .on_press(Message::mod_packager(ModPackagerMessage::ShowChangeDetail(
+            index,
+        )));
+
+    // If this row is expanded, append the diff panel below it.
+    if selected_idx == Some(index) {
+        let diff = diff_panel::view(action);
+        column![row_btn, diff].spacing(2).into()
+    } else {
+        row_btn.into()
+    }
 }
 
 fn describe(action: &ChangeAction) -> String {

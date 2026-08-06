@@ -2,6 +2,7 @@ use iced::widget::pane_grid;
 
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::selection::NavDir;
+use crate::state::InspectorSource;
 
 /// Messages produced by the hex editor.
 #[derive(Debug, Clone)]
@@ -49,6 +50,8 @@ pub enum HexEditorMessage {
     WriteBytes { addr: u64, bytes: Vec<u8> },
 
     // ── Inspector ────────────────────────────────────────────────────────
+    /// Switch which buffer the inspector decodes (main file vs comparison).
+    SetInspectorSource(InspectorSource),
     /// Copy the decoded value of inspector entry `idx` to the clipboard.
     CopyInspectorValue(usize),
 
@@ -218,6 +221,18 @@ pub enum HexEditorMessage {
     /// Dismiss the fill dialog without writing.
     CloseFill,
 
+    // ── Extend File ─────────────────────────────────────────────────────
+    /// Open the extend-file dialog (context menu at cursor).
+    BeginExtend,
+    /// Update the byte-count draft text.
+    SetExtendCount(String),
+    /// Update the fill-pattern draft text.
+    SetExtendPattern(String),
+    /// Insert the drafted byte count, filled with the drafted pattern.
+    CommitExtend,
+    /// Dismiss the extend dialog without inserting.
+    CloseExtend,
+
     // ── Copy / Paste ────────────────────────────────────────────────────
     /// Copy the selected byte range as hex text to the clipboard.
     CopySelection,
@@ -225,6 +240,8 @@ pub enum HexEditorMessage {
     Paste,
     /// Async result: clipboard contents to paste as hex bytes.
     PasteContent(String),
+    /// Async result from clipboard write (always succeeds — we don't surface errors).
+    ClipboardWriteResult,
 
     // ── Byte statistics / entropy panel ───────────────────────────────
     /// Show/hide the byte statistics panel.
@@ -241,6 +258,29 @@ pub enum HexEditorMessage {
     ),
     /// Async result: selection-level statistics computed.
     SelectionAnalyzed(Box<crate::domain::byte_stats::ByteStatistics>),
+
+    // ── Side-by-side diff view ───────────────────────────────────────────
+    /// User clicked "Diff Against File…" — triggers async file picker + load.
+    LoadComparisonFile,
+    /// Async result: the comparison file was loaded or an error occurred.
+    /// `Ok((data, name))` on success, `Err(reason)` on failure.
+    ComparisonFileLoaded(Result<(Vec<u8>, String), String>),
+    /// Close the diff view and revert the pane to a regular matrix.
+    CloseComparison,
+    /// User clicked or navigated to a byte address in the diff view.
+    /// Selects the address and centers the viewport on it. `is_baseline`
+    /// is `true` when the click landed on the left (baseline) side, so the
+    /// inspector follows the file being inspected.
+    DiffAddrSelected { addr: u64, is_baseline: bool },
+    /// User shift-dragged in the diff view to extend the selection.
+    /// `is_baseline` marks which side the drag ended on.
+    DiffExtendTo { addr: u64, is_baseline: bool },
+    /// Jump to the next contiguous diff chunk in the comparison.
+    DiffNavNext,
+    /// Jump to the previous contiguous diff chunk.
+    DiffNavPrev,
+    /// Toggle "show only diff rows" mode in the diff view.
+    ToggleDiffReview,
 
     // ── Export as text ──────────────────────────────────────────────────
     /// Open the export config modal.

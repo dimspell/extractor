@@ -1,14 +1,16 @@
 use iced::widget::pane_grid;
-use iced::{clipboard, Task};
+use iced::{Task, clipboard};
 
 use crate::config::HexEditorConfig;
 use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
 use crate::domain::export_config::ExportConfig;
 use crate::domain::panel::HexPanel;
 use crate::domain::write_mode::{encode_text, is_text_mode, remap_write_mode};
+use crate::state::{ComparisonFile, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::ui::theme::ThemeVariant;
 
+use crate::HexProvider;
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
@@ -17,7 +19,6 @@ use crate::message::HexEditorMessage;
 use crate::pattern::Pattern;
 use crate::search::parse_hex_query;
 use crate::selection::nav_target;
-use crate::HexProvider;
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height
 /// up here, so PageUp/PageDown approximate a screenful.
@@ -27,6 +28,21 @@ const PAGE_ROWS: u64 = 24;
 /// value for copy-to-clipboard. 64 bytes covers every built-in inspector
 /// entry (largest is u128 + string at 18 bytes) with plenty of headroom.
 const INSPECTOR_READ_LIMIT: u64 = 64;
+
+/// Returns `(length, bytes)` of the buffer the inspector currently decodes.
+fn inspector_source_bytes(state: &crate::HexEditorState) -> (u64, &[u8]) {
+    match state.inspector_source {
+        InspectorSource::Baseline => (state.provider.len(), state.provider.as_slice()),
+        InspectorSource::Comparison => {
+            let data = state
+                .comparison_file
+                .as_ref()
+                .map(|cf| cf.data.as_slice())
+                .unwrap_or(&[]);
+            (data.len() as u64, data)
+        }
+    }
+}
 
 pub fn update(
     state: &mut crate::HexEditorState,
@@ -206,27 +222,40 @@ pub fn update(
         }
 
         // ── Inspector ───────────────────────────────────────────────────
+        HexEditorMessage::SetInspectorSource(source) => {
+            if state.inspector_source != source {
+                state.inspector_source = source;
+                // The edit modal (if open) holds a value decoded from the
+                // previous source — close it to avoid writing stale data.
+                state.inspector_edit = None;
+            }
+        }
+
         HexEditorMessage::CopyInspectorValue(idx) => {
             let cursor = state.selection.cursor;
-            let len = state.provider.len();
+            let (len, src) = inspector_source_bytes(state);
             let read_end = (cursor + INSPECTOR_READ_LIMIT).min(len);
-            let bytes = state.provider.read(cursor..read_end);
+            let start = (cursor as usize).min(src.len());
+            let end = (read_end as usize).min(src.len()).max(start);
+            let bytes = &src[start..end];
             let entry = if idx < ENTRIES.len() {
                 ENTRIES.get(idx)
             } else {
                 config.extra_entries.get(idx - ENTRIES.len())
             };
-            if let Some(entry) = entry {
-                if len - cursor >= entry.min_size as u64 {
-                    let decoded = (entry.decode)(bytes);
-                    state.status_msg = format!("Copied: {decoded}");
-                    return clipboard::write(decoded);
-                }
+            if let Some(entry) = entry
+                && len - cursor >= entry.min_size as u64
+            {
+                let decoded = (entry.decode)(bytes);
+                state.status_msg = format!("Copied: {decoded}");
+                return clipboard::write(decoded).map(|_| HexEditorMessage::ClipboardWriteResult);
             }
         }
 
         HexEditorMessage::BeginInspectorEdit(idx) => {
-            if state.provider.is_empty() {
+            if state.provider.is_empty() || state.inspector_source != InspectorSource::Baseline {
+                // The comparison file is read-only — edits only apply to the
+                // main buffer, so the edit modal is unavailable there.
                 return Task::none();
             }
             let entry = if idx < ENTRIES.len() {
@@ -310,10 +339,10 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
                 state.show_stats = false;
             } else {
@@ -403,6 +432,7 @@ pub fn update(
         HexEditorMessage::ClearStatus => {
             state.status_msg.clear();
         }
+        HexEditorMessage::ClipboardWriteResult => {}
 
         // ── Search & Find/Replace ──────────────────────────────────────
         HexEditorMessage::OpenSearch => {
@@ -496,10 +526,10 @@ pub fn update(
             state.context_menu_addr = None;
         }
         HexEditorMessage::RemovePatternAtContextMenu => {
-            if let Some(addr) = state.context_menu_addr {
-                if let Some(id) = state.pattern_id_at(addr) {
-                    state.remove_pattern(id);
-                }
+            if let Some(addr) = state.context_menu_addr
+                && let Some(id) = state.pattern_id_at(addr)
+            {
+                state.remove_pattern(id);
             }
             state.context_menu_addr = None;
         }
@@ -614,22 +644,22 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
             } else {
                 let focus = state.pane_focus;
                 let can_split = state.panes.len() < 8;
-                if can_split {
-                    if let Some((_, split)) = state.panes.split(
+                if can_split
+                    && let Some((_, split)) = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
                         focus,
                         HexPanel::new(crate::domain::panel::HexPanelContent::Inspector),
-                    ) {
-                        state.panes.resize(split, 0.75);
-                    }
+                    )
+                {
+                    state.panes.resize(split, 0.75);
                 }
             }
         }
@@ -650,10 +680,10 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
                 state.show_pattern_list = false;
             } else {
@@ -728,18 +758,17 @@ pub fn update(
                         let old_prefix = format!("{}[", old_label);
                         let new_prefix = format!("{}[", grp.label);
                         for pat in &mut state.patterns {
-                            if pat.group_id == Some(gid) {
-                                if let Some(ann) = &mut pat.annotation {
-                                    if ann.starts_with(&old_prefix) {
-                                        let after_bracket = &ann[old_prefix.len()..];
-                                        if let Some(bracket_end) = after_bracket.find(']') {
-                                            let digits = &after_bracket[..bracket_end];
-                                            if !digits.is_empty()
-                                                && digits.chars().all(|c| c.is_ascii_digit())
-                                            {
-                                                *ann = ann.replacen(&old_prefix, &new_prefix, 1);
-                                            }
-                                        }
+                            if pat.group_id == Some(gid)
+                                && let Some(ann) = &mut pat.annotation
+                                && ann.starts_with(&old_prefix)
+                            {
+                                let after_bracket = &ann[old_prefix.len()..];
+                                if let Some(bracket_end) = after_bracket.find(']') {
+                                    let digits = &after_bracket[..bracket_end];
+                                    if !digits.is_empty()
+                                        && digits.chars().all(|c| c.is_ascii_digit())
+                                    {
+                                        *ann = ann.replacen(&old_prefix, &new_prefix, 1);
                                     }
                                 }
                             }
@@ -971,15 +1000,17 @@ pub fn update(
                 .join(" ");
             let n = bytes.len();
             state.status_msg = format!("Copied {} byte(s) to clipboard", n);
-            return clipboard::write(hex_str);
+            return clipboard::write(hex_str).map(|_| HexEditorMessage::ClipboardWriteResult);
         }
 
         HexEditorMessage::Paste => {
             if state.provider.is_empty() {
                 return Task::none();
             }
-            return clipboard::read()
-                .map(|contents| HexEditorMessage::PasteContent(contents.unwrap_or_default()));
+            return clipboard::read_text().map(|contents| {
+                let text = contents.unwrap_or_default();
+                HexEditorMessage::PasteContent(text.to_string())
+            });
         }
 
         HexEditorMessage::PasteContent(contents) => {
@@ -1062,6 +1093,247 @@ pub fn update(
         }
         HexEditorMessage::CloseFill => {
             state.fill_dialog = None;
+        }
+
+        // ── Extend File ─────────────────────────────────────────────────
+        HexEditorMessage::BeginExtend => {
+            if state.provider.is_empty() {
+                state.status_msg = "Cannot extend an empty file".to_string();
+                return Task::none();
+            }
+            state.extend_dialog = Some(crate::domain::extend_dialog::ExtendDialog::new());
+            return iced::widget::operation::focus(
+                crate::domain::extend_dialog::ExtendDialog::count_input_id(),
+            );
+        }
+        HexEditorMessage::SetExtendCount(s) => {
+            if let Some(ref mut dlg) = state.extend_dialog {
+                dlg.count_draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::SetExtendPattern(s) => {
+            if let Some(ref mut dlg) = state.extend_dialog {
+                dlg.pattern_draft = s;
+                dlg.error = None;
+            }
+        }
+        HexEditorMessage::CommitExtend => {
+            let parse_result = state.extend_dialog.as_ref().map(|dlg| dlg.parse());
+            match parse_result {
+                Some(Ok((count, pattern))) => {
+                    // The dialog is modal, so context_menu_addr can't change
+                    // between BeginExtend and CommitExtend — the right-clicked
+                    // byte is the authoritative insert point.
+                    let addr = state.context_menu_addr.unwrap_or(state.selection.cursor);
+                    // A right-clicked byte past the editable buffer's last
+                    // address (only reachable via the diff pane) can't be a
+                    // valid insert point — reject instead of clamping to
+                    // max_addr.
+                    if state.context_menu_addr.is_some() && addr > state.max_addr() {
+                        state.status_msg = "Cannot extend: clicked past end of file".to_string();
+                        return Task::none();
+                    }
+                    // Selection-driven path: `addr == len` is a valid append;
+                    // anything past EOF is rejected.
+                    if addr > state.provider.len() {
+                        state.status_msg = "Cannot extend: cursor is past end of file".to_string();
+                        return Task::none();
+                    }
+                    // Repeat the pattern to exactly `count` bytes (count > 0
+                    // and a non-empty pattern are guaranteed by parse).
+                    let mut fill: Vec<u8> = Vec::with_capacity(count as usize);
+                    let mut written = 0usize;
+                    while written < count as usize {
+                        let take = pattern.len().min(count as usize - written);
+                        fill.extend_from_slice(&pattern[..take]);
+                        written += take;
+                    }
+
+                    state.provider.insert(addr, &fill);
+                    state.recompute_vanilla_diff();
+                    // The comparison file's diff addresses shift with the
+                    // insert — recompute so the diff pane stays accurate.
+                    if let Some(cf) = state.comparison_file.as_mut() {
+                        cf.diff =
+                            crate::vanilla_diff::compute_diff(state.provider.as_slice(), &cf.data);
+                    }
+                    // Extend shifts every row boundary after the insert, so the
+                    // per-row entropy band and cached stats are stale until the
+                    // next analysis pass.
+                    state.invalidate_stats();
+
+                    // Pattern rebase: a span starting at/after the insert point
+                    // shifts forward by `count`. A span straddling the insert
+                    // point (start < addr <= end) keeps its start and absorbs
+                    // the inserted bytes into its tail (end += count); a span
+                    // fully before the insert point is untouched.
+                    for p in &mut state.patterns {
+                        if p.start >= addr {
+                            p.start += count;
+                            p.end += count;
+                        } else if p.end >= addr {
+                            p.end += count;
+                        }
+                    }
+
+                    // Search results point at stale addresses after the
+                    // insert — drop them (keep the overlay open/visible).
+                    state.search.results.clear();
+                    state.search.match_set.clear();
+                    state.search.current_match = None;
+                    state.search.query_len = 0;
+
+                    // Select the inserted range BEFORE refreshing pattern
+                    // lookups so refresh_active_patterns() sees the final
+                    // cursor, not the pre-extend position.
+                    state.selection.anchor = addr;
+                    state.selection.cursor = addr + count - 1;
+
+                    state.rebuild_pattern_lookup();
+                    state.recompute_row_annotations();
+
+                    // A pending in-matrix edit would now point at a shifted
+                    // byte — cancel it so the next keystroke can't overwrite
+                    // inserted data.
+                    state.edit_mode = None;
+
+                    state.status_msg =
+                        format!("Extended file by {} byte(s) with {:02X?}", count, pattern);
+                    state.extend_dialog = None;
+                }
+                Some(Err(msg)) => {
+                    if let Some(ref mut dlg) = state.extend_dialog {
+                        dlg.error = Some(msg);
+                    }
+                }
+                None => {}
+            }
+        }
+        HexEditorMessage::CloseExtend => {
+            state.extend_dialog = None;
+        }
+
+        // ── Side-by-side diff view ───────────────────────────────────────
+        HexEditorMessage::LoadComparisonFile => {
+            return Task::perform(
+                async move {
+                    let path = rfd::AsyncFileDialog::new()
+                        .set_title("Select Comparison File")
+                        .pick_file()
+                        .await;
+                    match path {
+                        Some(handle) => {
+                            let name = handle
+                                .path()
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("comparison")
+                                .to_string();
+                            match tokio::fs::read(handle.path()).await {
+                                Ok(data) => {
+                                    HexEditorMessage::ComparisonFileLoaded(Ok((data, name)))
+                                }
+                                Err(e) => HexEditorMessage::ComparisonFileLoaded(Err(format!(
+                                    "Failed to read comparison file: {e}"
+                                ))),
+                            }
+                        }
+                        None => HexEditorMessage::ClearStatus,
+                    }
+                },
+                std::convert::identity,
+            );
+        }
+        HexEditorMessage::ComparisonFileLoaded(result) => match result {
+            Ok((data, name)) => {
+                let diff = crate::vanilla_diff::compute_diff(state.provider.as_slice(), &data);
+                state.comparison_file = Some(ComparisonFile { name, data, diff });
+                state.status_msg = "Comparison file loaded".to_string();
+
+                // Ensure the focused pane switches to Diff view.
+                let focus = state.pane_focus;
+                if let Some(panel) = state.panes.get_mut(focus) {
+                    panel.content = crate::domain::panel::HexPanelContent::Diff;
+                }
+            }
+            Err(e) => {
+                state.status_msg = e;
+            }
+        },
+        HexEditorMessage::CloseComparison => {
+            state.comparison_file = None;
+            state.diff_review = false;
+            // Revert ALL panes that show Diff content, not just the focused one.
+            for (_, panel) in state.panes.iter_mut() {
+                if panel.content == crate::domain::panel::HexPanelContent::Diff {
+                    panel.content = crate::domain::panel::HexPanelContent::Matrix;
+                }
+            }
+            state.status_msg = "Diff closed".to_string();
+        }
+        HexEditorMessage::DiffAddrSelected { addr, is_baseline } => {
+            let max_addr = state.max_addr();
+            let clamped = addr.min(max_addr);
+            state.selection.select(clamped, max_addr);
+            state.pending_center_on.set(Some(clamped));
+            state.edit_mode = None;
+            state.refresh_active_patterns();
+            // The inspector follows the side that was clicked.
+            state.inspector_source = if is_baseline {
+                InspectorSource::Baseline
+            } else {
+                InspectorSource::Comparison
+            };
+        }
+        HexEditorMessage::DiffExtendTo { addr, is_baseline } => {
+            let max_addr = state.max_addr();
+            state.selection.extend(addr.min(max_addr), max_addr);
+            state.refresh_active_patterns();
+            // The inspector follows the side the drag ended on.
+            state.inspector_source = if is_baseline {
+                InspectorSource::Baseline
+            } else {
+                InspectorSource::Comparison
+            };
+        }
+        HexEditorMessage::DiffNavNext => {
+            // Jump to next diff chunk — find the first address in `comparison_file.diff`
+            // that is strictly greater than the cursor address.
+            if let Some(ref cf) = state.comparison_file {
+                let cursor = state.selection.cursor;
+                if let Some(&addr) = cf.diff.range(cursor + 1..).next() {
+                    state.selection.select(addr, state.max_addr());
+                    state.pending_center_on.set(Some(addr));
+                } else if let Some(&first) = cf.diff.first() {
+                    // Wrap around.
+                    state.selection.select(first, state.max_addr());
+                    state.pending_center_on.set(Some(first));
+                }
+            }
+        }
+        HexEditorMessage::DiffNavPrev => {
+            // Jump to previous diff chunk — find the last address in `comparison_file.diff`
+            // that is strictly less than the cursor address.
+            if let Some(ref cf) = state.comparison_file {
+                let cursor = state.selection.cursor;
+                if let Some(&addr) = cf.diff.range(..cursor).next_back() {
+                    state.selection.select(addr, state.max_addr());
+                    state.pending_center_on.set(Some(addr));
+                } else if let Some(&last) = cf.diff.last() {
+                    // Wrap around.
+                    state.selection.select(last, state.max_addr());
+                    state.pending_center_on.set(Some(last));
+                }
+            }
+        }
+        HexEditorMessage::ToggleDiffReview => {
+            state.diff_review = !state.diff_review;
+            state.status_msg = if state.diff_review {
+                "Showing only diff rows".to_string()
+            } else {
+                "Showing all rows".to_string()
+            };
         }
 
         // ── Export as text ──────────────────────────────────────────────
@@ -1473,9 +1745,12 @@ mod tests {
     // JSON-based pattern export / import
     // ====================================================================
 
+    /// Pattern spec: (start, end, color, group_id, annotation).
+    type PatternSpec<'a> = (u64, u64, u8, Option<usize>, Option<&'a str>);
+
     /// Build a minimal HexEditorState with the given patterns and groups.
     fn make_export_state(
-        patterns: Vec<(u64, u64, u8, Option<usize>, Option<&str>)>,
+        patterns: Vec<PatternSpec<'_>>,
         groups: Vec<(usize, &str, u8)>,
     ) -> crate::HexEditorState {
         let mut next_pid = 1usize;

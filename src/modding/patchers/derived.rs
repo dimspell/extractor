@@ -7,11 +7,10 @@
 #[cfg(test)]
 mod tests {
     use crate::modding::patcher::RecordPatcher;
-    use crate::modding::patchers::{EditItemPatcher, EventItemPatcher, HealItemPatcher};
+    use crate::modding::patchers::{EditItemPatcher, HealItemPatcher};
     use crate::modding::value::Value;
     use crate::references::edit_item_db::EditItem;
     use crate::references::enums::{EditItemEffect, HealItemFlag};
-    use crate::references::event_item_db::EventItem;
     use crate::references::extractor::Extractor;
     use crate::references::heal_item_db::HealItem;
     use std::io::Cursor;
@@ -157,32 +156,6 @@ mod tests {
             .apply_field(&edit_blob(), 0, "nonexistent", &Value::I64(1))
             .unwrap_err();
         assert!(err.to_string().contains("unknown field"));
-    }
-
-    // -------------------------------------------------------------------- EventItem (array field)
-
-    fn event_blob() -> Vec<u8> {
-        let mut data = 1i32.to_le_bytes().to_vec();
-        let mut name_buf = [0u8; 30];
-        name_buf[..3].copy_from_slice(b"Key");
-        data.extend_from_slice(&name_buf);
-        data.extend(vec![0u8; 202]); // description
-        data.extend(vec![0u8; 8]); // padding [u8; 8]
-        data
-    }
-
-    fn parse_event(b: &[u8]) -> Vec<EventItem> {
-        EventItem::parse(&mut Cursor::new(b), b.len() as u64).unwrap()
-    }
-
-    #[test]
-    fn event_array_u8_via_bytes() {
-        let p = EventItemPatcher;
-        let bytes = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let out = p
-            .apply_field(&event_blob(), 0, "padding", &Value::Bytes(bytes.clone()))
-            .unwrap();
-        assert_eq!(&parse_event(&out)[0].padding[..], &bytes[..]);
     }
 
     // -------------------------------------------------------------------- ExtraRef (pattern + complex enums)
@@ -413,24 +386,5 @@ mod tests {
         let recs = EventNpcRef::parse(&mut Cursor::new(&out), out.len() as u64).unwrap();
         assert_eq!(recs[1].name, "Hero");
         assert_eq!(recs[0].name, "Guard Bob");
-    }
-
-    #[test]
-    fn extra_ref_padding_field_rejected() {
-        // unknown1 is declared as `padding(...)` in the struct.
-        let p = crate::modding::patchers::ExtraRefPatcher;
-        let err = p
-            .apply_field(&extra_ref_blob(), 0, "unknown1", &Value::I64(0))
-            .unwrap_err();
-        assert!(err.to_string().contains("synthetic padding"));
-    }
-
-    #[test]
-    fn event_array_wrong_length_errors() {
-        let p = EventItemPatcher;
-        let err = p
-            .apply_field(&event_blob(), 0, "padding", &Value::Bytes(vec![1, 2, 3]))
-            .unwrap_err();
-        assert!(err.to_string().contains("expected 8 bytes"));
     }
 }

@@ -1,8 +1,8 @@
 //! Fixture-based tests for wave.ini
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::wave_ini::WaveIni;
 use dispel_core::Extractor;
+use dispel_core::references::wave_ini::WaveIni;
 use std::path::Path;
 
 #[test]

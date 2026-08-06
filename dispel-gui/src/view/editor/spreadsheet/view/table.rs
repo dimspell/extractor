@@ -2,12 +2,13 @@
 //! placeholder and the resize-drag `mouse_area`.
 
 use crate::components::editable::{EditableRecord, FieldDescriptor};
+use crate::components::filter::GlobalFilterMode;
 use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::constants::{ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
-use crate::view::editor::spreadsheet::state::{GlobalFilterMode, SpreadsheetState};
-use crate::view::editor::table_widget::{RowFlags, TableColumn, TableWidget};
+use crate::view::editor::spreadsheet::state::SpreadsheetState;
+use gui_widgets::{RowFlags, TableColumn, TableWidget};
 use iced::widget::{container, text};
 use iced::{Element, Fill};
 
@@ -74,10 +75,7 @@ fn build_table_content_widget<'a>(
         ROW_HEIGHT,
         spreadsheet.paragraph_cache.clone(),
     )
-    .external_offset(
-        spreadsheet.horizontal_scroll_offset,
-        spreadsheet.vertical_scroll_offset,
-    )
+    .table_state(&spreadsheet.table_state)
     .on_select(move |visible_idx| spreadsheet_msg(SpreadsheetMessage::SelectRow(visible_idx)))
     .on_scroll(move |x, y, vh| {
         spreadsheet_msg(SpreadsheetMessage::BodyScrolled(

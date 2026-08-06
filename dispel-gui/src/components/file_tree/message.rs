@@ -1,9 +1,14 @@
 use std::path::PathBuf;
 
+use gui_widgets::components::TreeNode;
+
+use super::tree_node::GameFileNode;
+
 /// Messages from the file tree.
 #[derive(Debug, Clone)]
 pub enum FileTreeMessage {
     ToggleDir(PathBuf),
+    ToggleDirComplete(PathBuf, Vec<TreeNode<GameFileNode>>),
     OpenFile(PathBuf),
     Search(String),
     /// Debounced search: the UI input has been idle long enough to apply the filter.

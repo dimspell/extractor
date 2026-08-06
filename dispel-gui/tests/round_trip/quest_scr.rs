@@ -1,8 +1,8 @@
 //! Fixture-based tests for Quest.scr
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::quest_scr::Quest;
 use dispel_core::Extractor;
+use dispel_core::references::quest_scr::Quest;
 use std::path::Path;
 
 #[test]

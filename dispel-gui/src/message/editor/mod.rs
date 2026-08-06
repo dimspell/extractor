@@ -5,7 +5,6 @@
 
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
-use crate::editors::chest::ChestEditorMessage;
 use crate::editors::dialogue_paragraph::DialogueParagraphEditorMessage;
 use crate::editors::dialogue_script::DialogueScriptEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
@@ -33,8 +32,9 @@ use crate::editors::party_ini::PartyIniEditorMessage;
 use crate::editors::party_level_db::PartyLevelDbEditorMessage;
 use crate::editors::party_ref::PartyRefEditorMessage;
 use crate::editors::quest_scr::QuestScrEditorMessage;
+use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::editors::snf_editor::SnfEditorMessage;
-use crate::editors::sprite_browser::SpriteViewerMessage;
+use crate::editors::sprite_editor::SpriteViewerMessage;
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::tileset::TilesetEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
@@ -42,10 +42,10 @@ use crate::editors::weapon::WeaponEditorMessage;
 use hexedit::HexEditorMessage;
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum EditorMessage {
     Weapon(WeaponEditorMessage),
     Monster(MonsterEditorMessage),
-    Chest(ChestEditorMessage),
     HealItem(HealItemEditorMessage),
     MiscItem(MiscItemEditorMessage),
     EditItem(EditItemEditorMessage),
@@ -79,5 +79,6 @@ pub enum EditorMessage {
     Snf(SnfEditorMessage),
     ModPackager(ModPackagerMessage),
     Localization(LocalizationMessage),
+    SaveFileViewer(SaveFileViewerMessage),
     HexEditor(HexEditorMessage),
 }

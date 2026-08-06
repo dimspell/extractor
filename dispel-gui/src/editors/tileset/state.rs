@@ -1,5 +1,5 @@
 use crate::editors::tileset::TileExportFormat;
-use dispel_core::map::tileset::{extract, TILE_HEIGHT, TILE_WIDTH};
+use dispel_core::map::tileset::{TILE_HEIGHT, TILE_WIDTH, extract};
 use dispel_core::sprite::Color;
 use std::path::{Path, PathBuf};
 

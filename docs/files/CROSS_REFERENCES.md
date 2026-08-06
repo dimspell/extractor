@@ -236,12 +236,10 @@ Store.db (shops/inns)
 
 Item Type Enum (used in Extra.ref and Store.db):
     ├── 0: Weapon → WeaponItem.db
-    ├── 1: Armor → WeaponItem.db
-    ├── 2: Heal → HealItem.db
-    ├── 3: Misc → MiscItem.db
-    ├── 4: Edit → EditItem.db
-    ├── 5: Event → EventItem.db
-    └── 6: Extra → Extra item type
+    ├── 1: Heal → HealItem.db
+    ├── 2: Misc → MiscItem.db
+    ├── 3: Edit → EditItem.db
+    └── 4: Event → EventItem.db
 ```
 
 ### 8. Audio System Relationships
@@ -348,7 +346,7 @@ Message.scr (UI messages)
 ### Item Database Cross-References
 ```
 WeaponItem.db (weapons/armor)
-    ├── Referenced by Store.db products (type=0,1)
+    ├── Referenced by Store.db products (type=1)
     ├── Referenced by Extra.ref contents (item_type_id=1)
     └── Referenced by MondunMonmap.ref loot (loot*_item_type=1)
 

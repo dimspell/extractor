@@ -93,10 +93,11 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
     let extra_path = state.data.extra_ref_path.clone();
 
     // Capture recording session info for recording integration.
-    let recording_info: Option<(std::path::PathBuf, String)> =
-        app.state.recording.as_ref().map(|s| {
-            (s.workspace_root.clone(), s.mod_slug.clone())
-        });
+    let recording_info: Option<(std::path::PathBuf, String)> = app
+        .state
+        .recording
+        .as_ref()
+        .map(|s| (s.workspace_root.clone(), s.mod_slug.clone()));
 
     Task::perform(
         async move {
@@ -158,20 +159,20 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
             save_type!(dispel_core::ExtraRef, &extra_refs, extra_path);
 
             // ── Save DrawItems ──────────────────────────────────────────────
-            if let Some(map_id) = all_map_id {
-                if let Some(ref gp) = game_path {
-                    let draw_item_path = gp.join("Ref").join("DRAWITEM.ref");
-                    match dispel_core::DrawItem::read_file(&draw_item_path) {
-                        Ok(mut all) => {
-                            all.retain(|d| d.map_id != map_id);
-                            all.extend(draw_items.iter().cloned());
-                            match dispel_core::DrawItem::save_file(&all, &draw_item_path) {
-                                Ok(()) => saved.push("DRAWITEM.ref".into()),
-                                Err(e) => errors.push(format!("DRAWITEM.ref: {e}")),
-                            }
+            if let Some(map_id) = all_map_id
+                && let Some(ref gp) = game_path
+            {
+                let draw_item_path = gp.join("Ref").join("DRAWITEM.ref");
+                match dispel_core::DrawItem::read_file(&draw_item_path) {
+                    Ok(mut all) => {
+                        all.retain(|d| d.map_id != map_id);
+                        all.extend(draw_items.iter().cloned());
+                        match dispel_core::DrawItem::save_file(&all, &draw_item_path) {
+                            Ok(()) => saved.push("DRAWITEM.ref".into()),
+                            Err(e) => errors.push(format!("DRAWITEM.ref: {e}")),
                         }
-                        Err(e) => errors.push(format!("DRAWITEM.ref read: {e}")),
                     }
+                    Err(e) => errors.push(format!("DRAWITEM.ref read: {e}")),
                 }
             }
 
@@ -190,40 +191,27 @@ pub fn save_map(app: &mut App, tab_id: usize) -> Task<Message> {
 
                         // Recording integration — append ChangeAction
                         // to the active mod workspace when recording is active.
-                        if let Some((ref ws_root, ref mod_slug)) = recording_info {
-                            if let Some(ref game_dir) = game_path {
-                                if let Some(old) = old_map_bytes {
-                                    if let Ok(new_bytes) = std::fs::read(&map_path) {
-                                        if old != new_bytes {
-                                            let relative = map_path
-                                                .strip_prefix(game_dir)
-                                                .map(|p| {
-                                                    p.to_string_lossy().replace('\\', "/")
-                                                })
-                                                .unwrap_or_else(|_| {
-                                                    map_path
-                                                        .file_name()
-                                                        .map(|n| {
-                                                            n.to_string_lossy().to_string()
-                                                        })
-                                                        .unwrap_or_default()
-                                                });
-                                            if let Err(e) = record_file_replace(
-                                                ws_root,
-                                                game_dir,
-                                                mod_slug,
-                                                &relative,
-                                                &new_bytes,
-                                            ) {
-                                                errors.push(format!("Recording: {e}"));
-                                            } else {
-                                                saved.push(format!(
-                                                    "→ recorded in `{mod_slug}`"
-                                                ));
-                                            }
-                                        }
-                                    }
-                                }
+                        if let Some((ref ws_root, ref mod_slug)) = recording_info
+                            && let Some(ref game_dir) = game_path
+                            && let Some(old) = old_map_bytes
+                            && let Ok(new_bytes) = std::fs::read(&map_path)
+                            && old != new_bytes
+                        {
+                            let relative = map_path
+                                .strip_prefix(game_dir)
+                                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                                .unwrap_or_else(|_| {
+                                    map_path
+                                        .file_name()
+                                        .map(|n| n.to_string_lossy().to_string())
+                                        .unwrap_or_default()
+                                });
+                            if let Err(e) = record_file_replace(
+                                ws_root, game_dir, mod_slug, &relative, &new_bytes,
+                            ) {
+                                errors.push(format!("Recording: {e}"));
+                            } else {
+                                saved.push(format!("→ recorded in `{mod_slug}`"));
                             }
                         }
                     }
@@ -407,8 +395,8 @@ pub fn export_complete(
 
 #[cfg(test)]
 mod tests {
-    use dispel_core::references::extractor::Extractor;
     use dispel_core::DrawItem;
+    use dispel_core::references::extractor::Extractor;
 
     /// Helper: create a temp DRAWITEM.ref with known items for two maps.
     fn create_fixture(dir: &std::path::Path) -> std::path::PathBuf {
@@ -418,22 +406,28 @@ mod tests {
                 map_id: 0,
                 x_coord: 10,
                 y_coord: 20,
-                item_type: dispel_core::references::enums::ItemTypeId::Event,
-                item_id: 1,
+                item: dispel_core::InventoryItem::new(
+                    dispel_core::references::enums::ItemTypeId::Event,
+                    1,
+                ),
             },
             DrawItem {
                 map_id: 0,
                 x_coord: 30,
                 y_coord: 40,
-                item_type: dispel_core::references::enums::ItemTypeId::Event,
-                item_id: 2,
+                item: dispel_core::InventoryItem::new(
+                    dispel_core::references::enums::ItemTypeId::Event,
+                    2,
+                ),
             },
             DrawItem {
                 map_id: 10,
                 x_coord: 50,
                 y_coord: 60,
-                item_type: dispel_core::references::enums::ItemTypeId::Weapon,
-                item_id: 3,
+                item: dispel_core::InventoryItem::new(
+                    dispel_core::references::enums::ItemTypeId::Weapon,
+                    3,
+                ),
             },
         ];
         DrawItem::save_file(&items, &path).expect("save fixture");
@@ -456,15 +450,19 @@ mod tests {
             map_id: 0,
             x_coord: 99,
             y_coord: 20,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 1,
+            item: dispel_core::InventoryItem::new(
+                dispel_core::references::enums::ItemTypeId::Event,
+                1,
+            ),
         });
         all.push(DrawItem {
             map_id: 0,
             x_coord: 30,
             y_coord: 88,
-            item_type: dispel_core::references::enums::ItemTypeId::Event,
-            item_id: 2,
+            item: dispel_core::InventoryItem::new(
+                dispel_core::references::enums::ItemTypeId::Event,
+                2,
+            ),
         });
         DrawItem::save_file(&all, &path).expect("save merged");
 
@@ -506,8 +504,10 @@ mod tests {
             map_id: 5,
             x_coord: 1,
             y_coord: 2,
-            item_type: dispel_core::references::enums::ItemTypeId::Healing,
-            item_id: 99,
+            item: dispel_core::InventoryItem::new(
+                dispel_core::references::enums::ItemTypeId::Healing,
+                99,
+            ),
         });
         DrawItem::save_file(&all, &path).expect("save merged");
 
@@ -530,8 +530,7 @@ mod tests {
             assert_eq!(a.map_id, b.map_id);
             assert_eq!(a.x_coord, b.x_coord);
             assert_eq!(a.y_coord, b.y_coord);
-            assert_eq!(a.item_id, b.item_id);
-            assert_eq!(a.item_type, b.item_type);
+            assert_eq!(a.item.raw(), b.item.raw());
         }
     }
 }

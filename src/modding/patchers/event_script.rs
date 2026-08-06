@@ -63,7 +63,7 @@
 use std::io::Cursor;
 
 use crate::modding::error::{ModdingError, Result};
-use crate::modding::patcher::{unknown_field, wrong_type, RecordPatcher};
+use crate::modding::patcher::{RecordPatcher, unknown_field, wrong_type};
 use crate::modding::value::Value;
 use crate::references::event_scr::{ActionFunction, EventScript, SpriteDefinition, Variable};
 use crate::references::extractor::Extractor;

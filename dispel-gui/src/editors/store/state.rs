@@ -232,32 +232,32 @@ impl StoreEditorState {
             }
         }
         // Sync to catalog so saves are consistent
-        if let Some(catalog) = &mut self.catalog {
-            if let Some(cat_record) = catalog.get_mut(orig_idx) {
-                match field {
-                    "store_name" => cat_record.store_name = value.clone(),
-                    "inn_night_cost" => {
-                        if let Ok(v) = value.parse() {
-                            cat_record.inn_night_cost = v
-                        }
+        if let Some(catalog) = &mut self.catalog
+            && let Some(cat_record) = catalog.get_mut(orig_idx)
+        {
+            match field {
+                "store_name" => cat_record.store_name = value.clone(),
+                "inn_night_cost" => {
+                    if let Ok(v) = value.parse() {
+                        cat_record.inn_night_cost = v
                     }
-                    "some_unknown_number" => {
-                        if let Ok(v) = value.parse() {
-                            cat_record.some_unknown_number = v
-                        }
-                    }
-                    "invitation" => cat_record.invitation = value.clone(),
-                    "haggle_success" => cat_record.haggle_success = value.clone(),
-                    "haggle_fail" => cat_record.haggle_fail = value.clone(),
-                    _ => {}
                 }
+                "some_unknown_number" => {
+                    if let Ok(v) = value.parse() {
+                        cat_record.some_unknown_number = v
+                    }
+                }
+                "invitation" => cat_record.invitation = value.clone(),
+                "haggle_success" => cat_record.haggle_success = value.clone(),
+                "haggle_fail" => cat_record.haggle_fail = value.clone(),
+                _ => {}
             }
         }
         // Re-populate edit buffers if this store is currently selected
-        if let Some(sel) = self.selected_idx {
-            if self.filtered_stores.get(sel).map(|(i, _)| *i) == Some(orig_idx) {
-                self.select_store(sel);
-            }
+        if let Some(sel) = self.selected_idx
+            && self.filtered_stores.get(sel).map(|(i, _)| *i) == Some(orig_idx)
+        {
+            self.select_store(sel);
         }
     }
 
@@ -306,18 +306,18 @@ impl StoreEditorState {
     }
 
     fn sync_products_to_record(&mut self) {
-        if let Some(selected_idx) = self.selected_idx {
-            if let Some((_, record)) = self.filtered_stores.get_mut(selected_idx) {
-                record.products = self
-                    .edit_products
-                    .iter()
-                    .map(|p| {
-                        let ptype = ProductType::from_i32(p.product_type as i32)
-                            .unwrap_or(ProductType::MiscItem);
-                        (p.order, ptype, p.item_id)
-                    })
-                    .collect();
-            }
+        if let Some(selected_idx) = self.selected_idx
+            && let Some((_, record)) = self.filtered_stores.get_mut(selected_idx)
+        {
+            record.products = self
+                .edit_products
+                .iter()
+                .map(|p| {
+                    let ptype = ProductType::from_i32(p.product_type as i32)
+                        .unwrap_or(ProductType::MiscItem);
+                    (p.order, ptype, p.item_id)
+                })
+                .collect();
         }
     }
 

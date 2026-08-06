@@ -1,4 +1,4 @@
-INSERT OR REPLACE INTO npc_refs(file_path,
+INSERT OR REPLACE INTO npc_refs(file_id,
                      row_id,
                      id,
                      npc_id,
@@ -36,9 +36,11 @@ INSERT OR REPLACE INTO npc_refs(file_path,
                      unknown_15,
                      unknown_16,
                      unknown_17,
-                     unknown_item_id,
-                     unknown_item_type,
-                     unknown_19,
+                      unknown_item_id,
+                      unknown_item_type,
+                      unknown_item_raw,
+                      unknown_19,
+                     dialog_file_id,
                      dialog_id,
                      dialogue_face_sprite_id)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43);
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?27, ?28, ?29, ?30, ?31, ?32, ?33, ?34, ?35, ?36, ?37, ?38, ?39, ?40, ?41, ?42, ?43, ?44, ?45);

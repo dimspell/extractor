@@ -4,7 +4,8 @@ use dispel_core::EventItem;
 crate::editable_record_fields!(EventItem, {
     { name = String / "Name:" },
     { description = TextArea / "Description:" },
-    { padding = HexArray(8) / "Padding:" },
+    { base_price = Integer / "Base Price:" },
+    { padding = Integer / "Padding:" },
 });
 
 impl EditableRecord for EventItem {

@@ -1,7 +1,7 @@
 use iced::widget::{container, pick_list, row, text};
 use iced::{Element, Fill, Font};
 
-use crate::domain::write_mode::{all_write_modes, custom_mode_label, WriteMode};
+use crate::domain::write_mode::{WriteMode, all_write_modes, custom_mode_label};
 use crate::selection::Selection;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
@@ -43,12 +43,11 @@ pub fn view(editor: &HexEditorState) -> Element<'_, HexEditorMessage> {
         .iter()
         .find(|o| o.mode == editor.write_mode)
         .cloned();
-    let mode_pick = pick_list(mode_options, selected, |opt| {
-        HexEditorMessage::SetWriteMode(opt.mode)
-    })
-    .font(Font::MONOSPACE)
-    .text_size(11)
-    .padding([2, 6]);
+    let mode_pick = pick_list(selected, mode_options, |opt| opt.to_string())
+        .on_select(|opt| HexEditorMessage::SetWriteMode(opt.mode))
+        .font(Font::MONOSPACE)
+        .text_size(11)
+        .padding([2, 6]);
 
     container(
         row![

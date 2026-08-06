@@ -1,9 +1,9 @@
 CREATE TABLE monster_refs
 (
-    file_path       TEXT,
+    file_id         INTEGER NOT NULL REFERENCES monster_ref_files(id),
     id              INTEGER,
-    file_id         INTEGER,
-    mon_id          INTEGER,
+    record_id       INTEGER,
+    mon_id          INTEGER REFERENCES monster_inis(id) ON DELETE SET NULL,
     pos_x           INTEGER,
     pos_y           INTEGER,
     padding1        INTEGER,
@@ -13,16 +13,13 @@ CREATE TABLE monster_refs
     event_id        INTEGER,
     loot1_item_id   INTEGER,
     loot1_item_type INTEGER,
-    padding6        INTEGER,
-    padding7        INTEGER,
+    loot1_item_raw  INTEGER,
     loot2_item_id   INTEGER,
     loot2_item_type INTEGER,
-    padding8        INTEGER,
-    padding9        INTEGER,
+    loot2_item_raw  INTEGER,
     loot3_item_id   INTEGER,
     loot3_item_type INTEGER,
-    padding10       INTEGER,
-    padding11       INTEGER,
+    loot3_item_raw  INTEGER,
     padding12       INTEGER,
     padding13       INTEGER
 );

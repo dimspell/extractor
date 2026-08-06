@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
+use super::apply::{ApplyReport, ModEntry, RevertReport, apply_all, revert_to_vanilla};
 use super::error::{ModdingError, Result};
 use super::manifest::ModManifest;
 use super::package::{self, ModPackage};
@@ -175,11 +175,11 @@ impl Workspace {
     /// Move a mod one position earlier in load order.
     pub fn move_up(&self, slug: &str) -> Result<()> {
         let mut order = self.enabled_order()?;
-        if let Some(idx) = order.iter().position(|s| s == slug) {
-            if idx > 0 {
-                order.swap(idx - 1, idx);
-                self.set_enabled_order(order)?;
-            }
+        if let Some(idx) = order.iter().position(|s| s == slug)
+            && idx > 0
+        {
+            order.swap(idx - 1, idx);
+            self.set_enabled_order(order)?;
         }
         Ok(())
     }
@@ -187,11 +187,11 @@ impl Workspace {
     /// Move a mod one position later in load order.
     pub fn move_down(&self, slug: &str) -> Result<()> {
         let mut order = self.enabled_order()?;
-        if let Some(idx) = order.iter().position(|s| s == slug) {
-            if idx + 1 < order.len() {
-                order.swap(idx, idx + 1);
-                self.set_enabled_order(order)?;
-            }
+        if let Some(idx) = order.iter().position(|s| s == slug)
+            && idx + 1 < order.len()
+        {
+            order.swap(idx, idx + 1);
+            self.set_enabled_order(order)?;
         }
         Ok(())
     }
@@ -281,6 +281,20 @@ impl Workspace {
         let pkg = ModPackage::new(manifest, super::ChangeLog::new());
         self.write_mod(&slug, &pkg)?;
         Ok(slug)
+    }
+
+    /// Remove a [`ChangeAction`](super::change::ChangeAction) from the named
+    /// mod by its [`Uuid`](uuid::Uuid). Returns an error if the action is not
+    /// found. After removal, [`ChangeLog::flatten_field_deltas`] is called to
+    /// coalesce any remaining field deltas that may now be adjacent.
+    pub fn remove_action(&self, slug: &str, action_id: uuid::Uuid) -> Result<()> {
+        let mut pkg = self.read_mod(slug)?;
+        if !pkg.changes.remove_by_id(action_id) {
+            return Err(ModdingError::Malformed(format!(
+                "action {action_id} not found in mod {slug}"
+            )));
+        }
+        self.write_mod(slug, &pkg)
     }
 
     /// Append one [`ChangeAction`](super::change::ChangeAction) to the named

@@ -1,11 +1,11 @@
 use std::path::Path;
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::MapLighting;
 use crate::references::extractor::Extractor;
-use dispel_macros::{TextExtractor, TextRecordPatcher};
+use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 
 /// Stores the general list of all maps in the game.
 ///
@@ -37,7 +37,9 @@ use dispel_macros::{TextExtractor, TextRecordPatcher};
 ///
 /// Master index of all game maps, linking map IDs to filenames and metadata.
 /// Used by the game engine to load the correct map files and associated assets.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, TextRecordPatcher)]
+#[derive(
+    Debug, Clone, Serialize, Deserialize, Default, TextExtractor, Localizable, TextRecordPatcher,
+)]
 #[extractor(encoding = "WINDOWS_1250")]
 #[patcher(filename = "AllMap.ini")]
 pub struct Map {
@@ -49,6 +51,7 @@ pub struct Map {
     pub map_filename: String,
     /// Display name of the map.
     #[extractor(field = 2)]
+    #[translatable(encoding = "WINDOWS_1250", max_bytes = 202)]
     pub map_name: String,
     /// Filename of the associated converstation script file.
     #[extractor(field = 3, parse_null)]

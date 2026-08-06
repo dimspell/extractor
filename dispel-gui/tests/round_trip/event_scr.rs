@@ -8,8 +8,8 @@
 //! - Edge cases: empty sections, return() with no value
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::event_scr::EventScript;
 use dispel_core::Extractor;
+use dispel_core::references::event_scr::EventScript;
 use std::path::Path;
 
 /// A representative set of fixture files covering the full spectrum of

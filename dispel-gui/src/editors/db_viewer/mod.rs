@@ -1,4 +1,5 @@
 pub mod db;
+pub mod fetch;
 pub mod state;
 pub mod update;
 pub mod view;

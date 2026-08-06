@@ -1,13 +1,13 @@
 use crate::editor_registry::EditorRegistry;
 use crate::indexation::file_index_cache::{FileIndexCache, FileIndexCacheManager};
-use crate::message::{system::SystemMessage, Message};
+use crate::message::{Message, system::SystemMessage};
 use crate::workspace::EditorType;
 use crate::workspace::Workspace;
 use dirs;
 use dispel_core::Extractor;
 use iced::{
-    widget::pane_grid::{self, Pane},
     Task,
+    widget::pane_grid::{self, Pane},
 };
 use serde::Serialize;
 use std::collections::HashMap;
@@ -97,14 +97,14 @@ impl AppState {
 
     /// Initialize file index cache manager
     pub fn initialize_cache_manager(&mut self) {
-        if self.file_index_cache_manager.is_none() {
-            if let Ok(cache_manager) = FileIndexCacheManager::new() {
-                // Perform initial cache cleanup
-                if let Err(e) = cache_manager.perform_periodic_cleanup() {
-                    eprintln!("Cache cleanup failed: {}", e);
-                }
-                self.file_index_cache_manager = Some(cache_manager);
+        if self.file_index_cache_manager.is_none()
+            && let Ok(cache_manager) = FileIndexCacheManager::new()
+        {
+            // Perform initial cache cleanup
+            if let Err(e) = cache_manager.perform_periodic_cleanup() {
+                eprintln!("Cache cleanup failed: {}", e);
             }
+            self.file_index_cache_manager = Some(cache_manager);
         }
     }
 
@@ -159,14 +159,14 @@ impl AppState {
         );
 
         // Check if cache exists and is valid
-        if let Ok(Some(cache)) = cache_manager.load_cache() {
-            if crate::indexation::indexation_service::IndexationService::validate_sprite_cache(
+        if let Ok(Some(cache)) = cache_manager.load_cache()
+            && crate::indexation::indexation_service::IndexationService::validate_sprite_cache(
                 &cache, &game_path,
-            ) {
-                // Cache is valid, no need to reindex
-                eprintln!("DEBUG: Cache is valid, skipping reindex");
-                return None;
-            }
+            )
+        {
+            // Cache is valid, no need to reindex
+            eprintln!("DEBUG: Cache is valid, skipping reindex");
+            return None;
         }
 
         // Cache is missing or invalid, start background indexation with fallback

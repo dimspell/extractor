@@ -10,10 +10,12 @@ pub fn view(app: &App) -> Element<'_, Message> {
     let editor = &app.state.editors.party_level_db_editor;
 
     let npc_buttons: Vec<Element<Message>> = match &editor.catalog {
-        None => vec![text("No catalog loaded")
-            .size(12)
-            .style(style::subtle_text)
-            .into()],
+        None => vec![
+            text("No catalog loaded")
+                .size(12)
+                .style(style::subtle_text)
+                .into(),
+        ],
         Some(npcs) => npcs
             .iter()
             .enumerate()
@@ -59,6 +61,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             |pane| Message::party_level_db(PartyLevelDbEditorMessage::PaneClicked(pane)),
             None,
             None,
+            "Party level editor",
         )
     } else {
         container(

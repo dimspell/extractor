@@ -85,7 +85,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                     if let Some(fidx) = $ss.filtered_indices.iter().position(|&i| i == orig_idx) {
                         $ss.set_selection(fidx);
                         let y = $ss.scroll_y_for_row(fidx);
-                        let x = $ss.horizontal_scroll_offset;
+                        let x = $ss.table_state.scroll_offset.x;
                         $ss.record_target_offset(x, y);
                     }
                 }
@@ -96,7 +96,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                     if let Some(fidx) = $ss.filtered_indices.iter().position(|&i| i == orig_idx) {
                         $ss.set_selection(fidx);
                         let y = $ss.scroll_y_for_row(fidx);
-                        let x = $ss.horizontal_scroll_offset;
+                        let x = $ss.table_state.scroll_offset.x;
                         $ss.record_target_offset(x, y);
                     }
                 }
@@ -107,7 +107,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                         $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
                     let y = $ss.ensure_row_visible_y(fidx);
-                    let x = $ss.horizontal_scroll_offset;
+                    let x = $ss.table_state.scroll_offset.x;
                     $ss.record_target_offset(x, y);
                 }
             }
@@ -117,7 +117,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                         $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
                     let y = $ss.ensure_row_visible_y(fidx);
-                    let x = $ss.horizontal_scroll_offset;
+                    let x = $ss.table_state.scroll_offset.x;
                     $ss.record_target_offset(x, y);
                 }
             }
@@ -126,7 +126,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                     if let Some(&orig_idx) = $ss.filtered_indices.get(fidx) {
                         $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
-                    let x = $ss.horizontal_scroll_offset;
+                    let x = $ss.table_state.scroll_offset.x;
                     $ss.record_target_offset(x, 0.0);
                 }
             }
@@ -136,7 +136,7 @@ macro_rules! handle_spreadsheet_messages_inner {
                         $ss.inspector_textarea_contents = $make_inspector(orig_idx);
                     }
                     let y = $ss.scroll_y_for_row(fidx);
-                    let x = $ss.horizontal_scroll_offset;
+                    let x = $ss.table_state.scroll_offset.x;
                     $ss.record_target_offset(x, y);
                 }
             }

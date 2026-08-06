@@ -1,17 +1,17 @@
 // ── MapCanvasOverlaysLayer — overlay elements (collisions, events, entities) ──
 
-use super::draw_helpers::{diamond_path, draw_item_color};
-use super::geometry::{is_visible, screen_to_tile, tile_center, tile_to_screen};
 use super::hit_test::{entity_tile, find_hovered_element};
 use super::input::MapCanvas;
-use super::state::MapCanvasState;
-use super::{TILE_H, TILE_W};
+use crate::components::map_render::{
+    MapCanvasState, TILE_H, TILE_W, diamond_path, draw_item_color, is_visible, screen_to_tile,
+    tile_center, tile_to_screen,
+};
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::state::MapEditorState;
 use crate::message::Message;
 use iced::widget::canvas::{self, Action, Frame, Geometry, Text as CanvasText};
 use iced::widget::text::Alignment as TextAlignment;
-use iced::{alignment, mouse, Color, Event, Font, Point, Rectangle};
+use iced::{Color, Event, Font, Point, Rectangle, alignment, mouse};
 
 /// Canvas Program for overlay elements (collisions, events, entities).
 /// Drawn on top of tiles canvas using a separate canvas in a Stack.
@@ -125,6 +125,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                 shaping: iced::widget::text::Shaping::Basic,
                                 line_height: iced::widget::text::LineHeight::default(),
                                 max_width: f32::INFINITY,
+                                ellipsis: iced::widget::text::Ellipsis::None,
+                                wrapping: iced::widget::text::Wrapping::None,
                             });
                         }
                     }
@@ -137,10 +139,14 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                             );
                             if is_visible(px, py, TILE_W * zoom, TILE_H * zoom, bounds) {
                                 let (tile_cx, tile_cy) = tile_center(px, py, zoom);
-                                let color = draw_item_color(di.item_type);
+                                let color = draw_item_color(
+                                    di.item
+                                        .item_type()
+                                        .unwrap_or(dispel_core::ItemTypeId::Other),
+                                );
                                 let r = 6.0 * zoom;
                                 frame.fill(&diamond_path(tile_cx, tile_cy, r), color);
-                                let label = di.item_id.to_string();
+                                let label = di.item.item_id().to_string();
                                 let label_size = (9.0 * zoom).max(6.0);
                                 frame.fill_text(CanvasText {
                                     content: label,
@@ -153,6 +159,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                     shaping: iced::widget::text::Shaping::Basic,
                                     line_height: iced::widget::text::LineHeight::default(),
                                     max_width: f32::INFINITY,
+                                    ellipsis: iced::widget::text::Ellipsis::None,
+                                    wrapping: iced::widget::text::Wrapping::None,
                                 });
                             }
                         }
@@ -260,25 +268,27 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                                     shaping: iced::widget::text::Shaping::Basic,
                                     line_height: iced::widget::text::LineHeight::default(),
                                     max_width: f32::INFINITY,
+                                    ellipsis: iced::widget::text::Ellipsis::None,
+                                    wrapping: iced::widget::text::Wrapping::None,
                                 });
                             }
                         }
                     }
 
                     // Selection ring
-                    if let Some(sel) = self.state.view.selected_entity {
-                        if let Some((stx, sty)) = entity_tile(sel, self.state) {
-                            let (px, py) = tile_to_screen(stx, sty, diagonal, pan_x, pan_y, zoom);
-                            let r = 14.0 * zoom;
-                            let scx = px + TILE_W * zoom * 0.5;
-                            let scy = py + TILE_H * zoom * 0.5;
-                            frame.stroke(
-                                &canvas::Path::circle(Point::new(scx, scy), r),
-                                canvas::Stroke::default()
-                                    .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.9))
-                                    .with_width(2.0 * zoom),
-                            );
-                        }
+                    if let Some(sel) = self.state.view.selected_entity
+                        && let Some((stx, sty)) = entity_tile(sel, self.state)
+                    {
+                        let (px, py) = tile_to_screen(stx, sty, diagonal, pan_x, pan_y, zoom);
+                        let r = 14.0 * zoom;
+                        let scx = px + TILE_W * zoom * 0.5;
+                        let scy = py + TILE_H * zoom * 0.5;
+                        frame.stroke(
+                            &canvas::Path::circle(Point::new(scx, scy), r),
+                            canvas::Stroke::default()
+                                .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.9))
+                                .with_width(2.0 * zoom),
+                        );
                     }
                 });
 
@@ -301,8 +311,9 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
 
         // Cursor tile highlight (uses screen_to_tile so the diamond is always
         // drawn at the tile whose diamond actually contains the cursor).
-        if cursor_cx.is_finite() && cursor_cy.is_finite() {
-            if let Some((tile_x, tile_y)) = screen_to_tile(
+        if cursor_cx.is_finite()
+            && cursor_cy.is_finite()
+            && let Some((tile_x, tile_y)) = screen_to_tile(
                 cursor_cx,
                 cursor_cy,
                 diagonal,
@@ -311,32 +322,32 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 zoom,
                 model.tiled_map_width,
                 model.tiled_map_height,
-            ) {
-                let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
-                let w = TILE_W * zoom;
-                let h = TILE_H * zoom;
-                // Brighter green when hovering over a clickable element.
-                let alpha = if hovered_element.is_some() {
-                    0.40
-                } else {
-                    0.15
-                };
-                // Draw diamond instead of rectangle
-                let cx = px + w * 0.5; // Center x
-                let cy = py + h * 0.5; // Center y
-                let dx = w * 0.5; // Half width
-                let dy = h * 0.5; // Half height
-                cursor_frame.fill(
-                    &canvas::Path::new(|b| {
-                        b.move_to(Point::new(cx, cy - dy)); // Top
-                        b.line_to(Point::new(cx + dx, cy)); // Right
-                        b.line_to(Point::new(cx, cy + dy)); // Bottom
-                        b.line_to(Point::new(cx - dx, cy)); // Left
-                        b.close();
-                    }),
-                    Color::from_rgba(0.2, 0.9, 0.3, alpha),
-                );
-            }
+            )
+        {
+            let (px, py) = tile_to_screen(tile_x, tile_y, diagonal, pan_x, pan_y, zoom);
+            let w = TILE_W * zoom;
+            let h = TILE_H * zoom;
+            // Brighter green when hovering over a clickable element.
+            let alpha = if hovered_element.is_some() {
+                0.40
+            } else {
+                0.15
+            };
+            // Draw diamond instead of rectangle
+            let cx = px + w * 0.5; // Center x
+            let cy = py + h * 0.5; // Center y
+            let dx = w * 0.5; // Half width
+            let dy = h * 0.5; // Half height
+            cursor_frame.fill(
+                &canvas::Path::new(|b| {
+                    b.move_to(Point::new(cx, cy - dy)); // Top
+                    b.line_to(Point::new(cx + dx, cy)); // Right
+                    b.line_to(Point::new(cx, cy + dy)); // Bottom
+                    b.line_to(Point::new(cx - dx, cy)); // Left
+                    b.close();
+                }),
+                Color::from_rgba(0.2, 0.9, 0.3, alpha),
+            );
         }
 
         // Extract selected entity tile coords for comparison below
@@ -348,53 +359,52 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
             .unwrap_or((i32::MAX, i32::MAX));
 
         // Hover ring for entities (monsters/NPCs/extras only — shown with a yellow ring)
-        if let Some(hov) = &hovered_element {
-            if *hov != self.state.view.selected_entity.unwrap_or(*hov) {
-                if let Some((htx, hty)) = entity_tile(*hov, self.state) {
-                    let (px, py) = tile_to_screen(htx, hty, diagonal, pan_x, pan_y, zoom);
-                    let r = 14.0 * zoom;
-                    let hcx = px + TILE_W * zoom * 0.5;
-                    let hcy = py + TILE_H * zoom * 0.5;
-                    cursor_frame.stroke(
-                        &canvas::Path::circle(Point::new(hcx, hcy), r),
-                        canvas::Stroke::default()
-                            .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.45))
-                            .with_width(2.0 * zoom),
-                    );
-                }
-            }
+        if let Some(hov) = &hovered_element
+            && *hov != self.state.view.selected_entity.unwrap_or(*hov)
+            && let Some((htx, hty)) = entity_tile(*hov, self.state)
+        {
+            let (px, py) = tile_to_screen(htx, hty, diagonal, pan_x, pan_y, zoom);
+            let r = 14.0 * zoom;
+            let hcx = px + TILE_W * zoom * 0.5;
+            let hcy = py + TILE_H * zoom * 0.5;
+            cursor_frame.stroke(
+                &canvas::Path::circle(Point::new(hcx, hcy), r),
+                canvas::Stroke::default()
+                    .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.45))
+                    .with_width(2.0 * zoom),
+            );
         }
 
         // Hover highlight for collision tiles (red circle)
-        if let Some(SelectedEntity::CollisionTile(ctx, cty)) = hovered_element {
-            if ctx != selected_tile_x || cty != selected_tile_y {
-                let (cpx, cpy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
-                let ccx = cpx + TILE_W * zoom * 0.5;
-                let ccy = cpy + TILE_H * zoom * 0.5;
-                let r = 14.0 * zoom;
-                cursor_frame.stroke(
-                    &canvas::Path::circle(Point::new(ccx, ccy), r),
-                    canvas::Stroke::default()
-                        .with_color(Color::from_rgba(0.8, 0.1, 0.1, 0.6))
-                        .with_width(2.0 * zoom),
-                );
-            }
+        if let Some(SelectedEntity::CollisionTile(ctx, cty)) = hovered_element
+            && (ctx != selected_tile_x || cty != selected_tile_y)
+        {
+            let (cpx, cpy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
+            let ccx = cpx + TILE_W * zoom * 0.5;
+            let ccy = cpy + TILE_H * zoom * 0.5;
+            let r = 14.0 * zoom;
+            cursor_frame.stroke(
+                &canvas::Path::circle(Point::new(ccx, ccy), r),
+                canvas::Stroke::default()
+                    .with_color(Color::from_rgba(0.8, 0.1, 0.1, 0.6))
+                    .with_width(2.0 * zoom),
+            );
         }
 
         // Hover highlight for event tiles (magenta circle)
-        if let Some(SelectedEntity::EventTile(ctx, cty)) = hovered_element {
-            if ctx != selected_tile_x || cty != selected_tile_y {
-                let (epx, epy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
-                let ecx = epx + TILE_W * zoom * 0.5;
-                let ecy = epy + TILE_H * zoom * 0.5;
-                let r = 14.0 * zoom;
-                cursor_frame.stroke(
-                    &canvas::Path::circle(Point::new(ecx, ecy), r),
-                    canvas::Stroke::default()
-                        .with_color(Color::from_rgba(0.8, 0.1, 0.8, 0.6))
-                        .with_width(2.0 * zoom),
-                );
-            }
+        if let Some(SelectedEntity::EventTile(ctx, cty)) = hovered_element
+            && (ctx != selected_tile_x || cty != selected_tile_y)
+        {
+            let (epx, epy) = tile_to_screen(ctx, cty, diagonal, pan_x, pan_y, zoom);
+            let ecx = epx + TILE_W * zoom * 0.5;
+            let ecy = epy + TILE_H * zoom * 0.5;
+            let r = 14.0 * zoom;
+            cursor_frame.stroke(
+                &canvas::Path::circle(Point::new(ecx, ecy), r),
+                canvas::Stroke::default()
+                    .with_color(Color::from_rgba(0.8, 0.1, 0.8, 0.6))
+                    .with_width(2.0 * zoom),
+            );
         }
 
         // Tile-coordinate label (top-left corner).
@@ -434,6 +444,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 shaping: iced::widget::text::Shaping::Basic,
                 line_height: iced::widget::text::LineHeight::default(),
                 max_width: f32::INFINITY,
+                ellipsis: iced::widget::text::Ellipsis::None,
+                wrapping: iced::widget::text::Wrapping::None,
             });
             cursor_frame.fill_text(CanvasText {
                 content: label,
@@ -446,6 +458,8 @@ impl<'a> canvas::Program<Message> for MapCanvasOverlaysLayer<'a> {
                 shaping: iced::widget::text::Shaping::Basic,
                 line_height: iced::widget::text::LineHeight::default(),
                 max_width: f32::INFINITY,
+                ellipsis: iced::widget::text::Ellipsis::None,
+                wrapping: iced::widget::text::Wrapping::None,
             });
         }
 

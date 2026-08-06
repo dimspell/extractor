@@ -5,7 +5,6 @@ define_message_ext! {
     weapon:         Weapon(crate::editors::weapon::WeaponEditorMessage),
     monster:        Monster(crate::editors::monster::MonsterEditorMessage),
     monster_ini:    MonsterIni(crate::editors::monster_ini::MonsterIniEditorMessage),
-    chest:          Chest(crate::editors::chest::ChestEditorMessage),
     heal_item:      HealItem(crate::editors::heal_item::HealItemEditorMessage),
     misc_item:      MiscItem(crate::editors::misc_item::MiscItemEditorMessage),
     edit_item:      EditItem(crate::editors::edit_item::EditItemEditorMessage),
@@ -15,7 +14,7 @@ define_message_ext! {
     store:          Store(crate::editors::store::StoreEditorMessage),
     party_ref:      PartyRef(crate::editors::party_ref::PartyRefEditorMessage),
     party_ini:      PartyIni(crate::editors::party_ini::PartyIniEditorMessage),
-    sprite_viewer:  SpriteViewer(crate::editors::sprite_browser::SpriteViewerMessage),
+    sprite_viewer:  SpriteViewer(crate::editors::sprite_editor::SpriteViewerMessage),
     monster_ref:    MonsterRef(crate::editors::monster_ref::MonsterRefEditorMessage),
     all_map_ini:    AllMapIni(crate::editors::all_map_ini::AllMapIniEditorMessage),
     dialogue_script: DialogueScript(crate::editors::dialogue_script::DialogueScriptEditorMessage),
@@ -39,6 +38,7 @@ define_message_ext! {
     mod_packager:    ModPackager(crate::editors::mod_packager::ModPackagerMessage),
     localization:    Localization(crate::editors::localization_manager::LocalizationMessage),
     hex_editor:      HexEditor(hexedit::HexEditorMessage),
+    save_file_viewer: SaveFileViewer(crate::editors::save_file_viewer::SaveFileViewerMessage),
 }
 
 /// Extension trait for building nested editor messages.

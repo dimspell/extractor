@@ -32,20 +32,6 @@ mod clear_all_tests {
     }
 
     #[test]
-    fn clear_all_resets_chest_editor() {
-        let mut app = App::test_new(Workspace::new());
-        app.state.editors.chest_editor.all_records = vec![dispel_core::ExtraRef::default()];
-        assert!(!app.state.editors.chest_editor.all_records.is_empty());
-
-        app.state.editors.clear_all();
-
-        assert!(
-            app.state.editors.chest_editor.all_records.is_empty(),
-            "chest_editor should be reset after clear_all()"
-        );
-    }
-
-    #[test]
     fn clear_all_resets_party_level_db_editor() {
         let mut app = App::test_new(Workspace::new());
         app.state.editors.party_level_db_editor.catalog = Some(vec![]);
@@ -63,13 +49,14 @@ mod clear_all_tests {
     fn clear_all_resets_party_level_db_level_editor() {
         let mut app = App::test_new(Workspace::new());
         app.state.editors.party_level_db_level_editor.state.catalog = Some(vec![]);
-        assert!(app
-            .state
-            .editors
-            .party_level_db_level_editor
-            .state
-            .catalog
-            .is_some());
+        assert!(
+            app.state
+                .editors
+                .party_level_db_level_editor
+                .state
+                .catalog
+                .is_some()
+        );
 
         app.state.editors.clear_all();
 

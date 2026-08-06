@@ -21,8 +21,8 @@ fn test_weapon_fixture_exists() {
 
 #[test]
 fn test_weapon_item_fixture_loadable() {
-    use dispel_core::references::weapons_db::WeaponItem;
     use dispel_core::Extractor;
+    use dispel_core::references::weapons_db::WeaponItem;
 
     let fixture_path = weapon_fixture_path();
     if !fixture_path.exists() {
@@ -55,8 +55,8 @@ fn test_weapon_item_fixture_loadable() {
 
 #[test]
 fn test_weapon_item_save_roundtrip() {
-    use dispel_core::references::weapons_db::WeaponItem;
     use dispel_core::Extractor;
+    use dispel_core::references::weapons_db::WeaponItem;
 
     let fixture_path = weapon_fixture_path();
     if !fixture_path.exists() {
@@ -91,8 +91,8 @@ fn test_weapon_item_save_roundtrip() {
 
 #[test]
 fn test_weapon_item_edit_workflow() {
-    use dispel_core::references::weapons_db::WeaponItem;
     use dispel_core::Extractor;
+    use dispel_core::references::weapons_db::WeaponItem;
 
     let fixture_path = weapon_fixture_path();
     if !fixture_path.exists() {

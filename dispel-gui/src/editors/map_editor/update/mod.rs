@@ -9,6 +9,7 @@ use std::sync::Arc;
 mod dialog;
 mod entity;
 mod map;
+pub use map::resolve_map_filename;
 mod persistence;
 mod sprite_export;
 
@@ -39,6 +40,80 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
         MapEditorMessage::ExportComplete(tab_id, result) => {
             persistence::export_complete(app, tab_id, result)
         }
+
+        MapEditorMessage::ExportTmx(tab_id) => {
+            let state = app.state.editors.map_editors.get(&tab_id);
+            let Some(editor) = state else {
+                return Task::none();
+            };
+
+            // Get map data and paths from the editor state
+            let map_data_opt = editor.map_data().map(|h| h.0.clone());
+            let map_path = match &editor.data.map_path {
+                Some(p) => p.clone(),
+                None => {
+                    if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
+                        editor.data.status_msg = Some("Map file path unknown".into());
+                    }
+                    return Task::none();
+                }
+            };
+
+            let Some(map_data) = map_data_opt else {
+                if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
+                    editor.data.status_msg = Some("Map not loaded".into());
+                }
+                return Task::none();
+            };
+
+            Task::perform(
+                async move {
+                    let handle = rfd::AsyncFileDialog::new()
+                        .set_title("Choose TMX export directory")
+                        .pick_folder()
+                        .await;
+
+                    let Some(folder) = handle else {
+                        return Err("Export cancelled".into());
+                    };
+                    let out_dir = folder.path().to_path_buf();
+
+                    // Determine tileset paths: same dir as map, same stem
+                    let gtl_path = map_path.with_extension("gtl");
+                    let btl_path = map_path.with_extension("btl");
+
+                    // Create output dir
+                    std::fs::create_dir_all(&out_dir)
+                        .map_err(|e| format!("Failed to create output directory: {e}"))?;
+
+                    // Export TMX
+                    dispel_core::map::tmx::export_tmx(&map_data, &gtl_path, &btl_path, &out_dir)
+                        .map_err(|e| format!("TMX export failed: {e}"))?;
+
+                    Ok(out_dir.to_string_lossy().to_string())
+                },
+                move |r| {
+                    crate::message::Message::map_editor(
+                        crate::editors::map_editor::MapEditorMessage::TmxExportComplete(tab_id, r),
+                    )
+                },
+            )
+        }
+
+        MapEditorMessage::TmxExportComplete(tab_id, result) => {
+            if let Some(editor) = app.state.editors.map_editors.get_mut(&tab_id) {
+                match result {
+                    Ok(path) => {
+                        editor.data.status_msg = Some(format!("TMX exported to: {}", path));
+                    }
+                    Err(e) => {
+                        editor.data.status_msg = Some(format!("TMX export error: {}", e));
+                    }
+                }
+            }
+            Task::none()
+        }
+
         MapEditorMessage::ShowDialogPreview(tab_id, npc_idx) => {
             dialog::show_preview(app, tab_id, npc_idx)
         }

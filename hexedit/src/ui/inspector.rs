@@ -221,10 +221,10 @@ fn dec_ascii(b: &[u8]) -> String {
 
 fn dec_utf8(b: &[u8]) -> String {
     for n in 1..=b.len().min(4) {
-        if let Ok(s) = std::str::from_utf8(&b[..n]) {
-            if let Some(c) = s.chars().next() {
-                return format!("'{}'  U+{:04X}", c, c as u32);
-            }
+        if let Ok(s) = std::str::from_utf8(&b[..n])
+            && let Some(c) = s.chars().next()
+        {
+            return format!("'{}'  U+{:04X}", c, c as u32);
         }
     }
     format!("\\x{:02X}", b[0])
@@ -538,7 +538,9 @@ mod tests {
             .collect();
         assert_eq!(
             editable,
-            vec!["u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"]
+            vec![
+                "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"
+            ]
         );
     }
 }

@@ -13,8 +13,8 @@ pub mod sprite;
 
 // Re-export key types for easy access
 pub use localization::{
-    export_csv, export_po, import_csv, import_po, truncate_to_fit, Localizable, TextEncoding,
-    TextEntry, TruncationStatus,
+    Localizable, TextEncoding, TextEntry, TruncationStatus, export_csv, export_po, import_csv,
+    import_po, truncate_to_fit,
 };
 pub use references::{
     all_map_ini::Map,
@@ -27,8 +27,8 @@ pub use references::{
     event_ini::Event,
     event_item_db::EventItem,
     event_npc_ref::EventNpcRef,
-    event_scr::save_event_scripts,
     event_scr::EventScript,
+    event_scr::save_event_scripts,
     extra_ini::Extra,
     extra_ref::ExtraRef,
     extractor::Extractor,
@@ -46,6 +46,10 @@ pub use references::{
     party_level_db::{PartyLevelNpc, PartyLevelRecord},
     party_ref::PartyRef,
     quest_scr::Quest,
+    save_file::{
+        CharacterIdentity, CharacterStats, InventoryData, JournalData, JournalEntry,
+        MapSectionData, PostEventsData, PostMapsData, SaveFile,
+    },
     store_db::Store,
     wave_ini::WaveIni,
     weapons_db::WeaponItem,

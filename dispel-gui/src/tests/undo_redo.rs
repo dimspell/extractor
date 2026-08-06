@@ -37,7 +37,6 @@ mod undo_redo_dispatch_tests {
     fn editors_without_undo() -> Vec<EditorType> {
         vec![
             StoreEditor,
-            ChestEditor,
             SpriteViewer,
             SnfEditor,
             DbViewer,
@@ -189,19 +188,27 @@ mod edit_history_tests {
     fn test_tab_editors_return_history_only_with_valid_tab_id() {
         let mut registry = EditorRegistry::default();
 
-        assert!(registry
-            .get_active_edit_history(MonsterRefEditor, 0)
-            .is_none());
+        assert!(
+            registry
+                .get_active_edit_history(MonsterRefEditor, 0)
+                .is_none()
+        );
         assert!(registry.get_active_edit_history(NpcRefEditor, 0).is_none());
-        assert!(registry
-            .get_active_edit_history(ExtraRefEditor, 0)
-            .is_none());
-        assert!(registry
-            .get_active_edit_history(DialogueScriptEditor, 0)
-            .is_none());
-        assert!(registry
-            .get_active_edit_history(DialogueTextEditor, 0)
-            .is_none());
+        assert!(
+            registry
+                .get_active_edit_history(ExtraRefEditor, 0)
+                .is_none()
+        );
+        assert!(
+            registry
+                .get_active_edit_history(DialogueScriptEditor, 0)
+                .is_none()
+        );
+        assert!(
+            registry
+                .get_active_edit_history(DialogueTextEditor, 0)
+                .is_none()
+        );
 
         registry
             .npc_ref_editor
@@ -222,7 +229,6 @@ mod edit_history_tests {
             MonsterEditor,
             MonsterIniEditor,
             NpcIniEditor,
-            ChestEditor,
             SpriteViewer,
             SnfEditor,
             DbViewer,

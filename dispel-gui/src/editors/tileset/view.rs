@@ -8,7 +8,7 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
 use iced::widget::{
-    button, column, container, image, responsive, row, scrollable, slider, text, Space,
+    Space, button, column, container, image, responsive, row, scrollable, slider, text,
 };
 use iced::{Alignment, Element, Fill, Length, Size};
 
@@ -29,6 +29,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .padding(16)
+            .accessible_label("Tileset editor")
             .into();
     };
 
@@ -43,6 +44,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("Tileset editor")
         .into();
     }
 
@@ -70,6 +72,7 @@ fn view_main(editor: &TilesetEditorState) -> Element<'_, Message> {
     ]
     .spacing(0)
     .height(Fill)
+    .accessible_label("Tileset editor")
     .into()
 }
 
@@ -161,7 +164,8 @@ fn view_tile_grid(editor: &TilesetEditorState) -> Element<'_, Message> {
             })
             .collect();
 
-        column(rows).spacing(2).padding([8, 8]).into()
+        let result: Element<'_, Message> = column(rows).spacing(2).padding([8, 8]).into();
+        result
     })
     .into();
 

@@ -22,6 +22,7 @@
 pub mod domain;
 pub mod ui;
 
+mod app;
 mod config;
 pub mod lua_engine;
 mod message;
@@ -31,17 +32,19 @@ mod state;
 //
 // Keep the same public API surface that existed before the domain/ui split.
 
+pub use app::{AppMessage, HexEditorApp, HexEditorDocument, app_update, app_view};
 pub use config::{HexEditorConfig, OnSaveFn};
 pub use message::HexEditorMessage;
-pub use state::{HexEditorState, DEFAULT_BYTES_PER_ROW};
+pub use state::{ComparisonFile, DEFAULT_BYTES_PER_ROW, HexEditorState, InspectorSource};
 pub use ui::update::update;
 pub use ui::view::view;
 
 // Type-level re-exports from domain.
 pub use domain::byte_stats::{
-    entropy_to_color, ByteStatistics, RowEntropyCache, StructureHeuristic,
+    ByteStatistics, RowEntropyCache, StructureHeuristic, entropy_to_color,
 };
 pub use domain::editing::{EditState, InspectorEditState};
+pub use domain::extend_dialog::ExtendDialog;
 pub use domain::fill_dialog::FillDialog;
 pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
 pub use domain::panel::{HexPanel, HexPanelContent};

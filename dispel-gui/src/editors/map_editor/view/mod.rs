@@ -5,8 +5,10 @@ use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, toggler};
 use iced::{Element, Fill};
+use lucide_icons::Icon;
 
 mod dialog_preview;
 mod fields;
@@ -28,7 +30,8 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     .style(style::subtle_text),
             )
             .padding(24)
-            .into()
+            .accessible_label("Map editor")
+            .into();
         }
     };
 
@@ -39,6 +42,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .style(style::subtle_text),
         )
         .padding(24)
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Loading => container(
@@ -50,6 +54,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .padding(24),
         )
         .width(Fill)
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Failed(err) => container(
@@ -62,6 +67,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .spacing(8)
             .padding(24),
         )
+        .accessible_label("Map editor")
         .into(),
 
         LoadingState::Loaded(map_handle) => {
@@ -224,12 +230,26 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     save_btn.on_press(Message::map_editor(MapEditorMessage::SaveMap(tab_id)));
             }
 
-            let mut undo_btn = button(text("↩ Undo").size(11)).padding([3, 8]);
+            let mut undo_btn = button(
+                row![
+                    text(icon_char(Icon::Undo2)).font(LUCIDE_FONT).size(11),
+                    text(" Undo").size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([3, 8]);
             if can_undo {
                 undo_btn = undo_btn.on_press(Message::map_editor(MapEditorMessage::Undo(tab_id)));
             }
 
-            let mut redo_btn = button(text("↪ Redo").size(11)).padding([3, 8]);
+            let mut redo_btn = button(
+                row![
+                    text("Redo ").size(11),
+                    text(icon_char(Icon::Redo2)).font(LUCIDE_FONT).size(11),
+                ]
+                .spacing(2),
+            )
+            .padding([3, 8]);
             if can_redo {
                 redo_btn = redo_btn.on_press(Message::map_editor(MapEditorMessage::Redo(tab_id)));
             }
@@ -245,16 +265,29 @@ pub fn view(app: &App) -> Element<'_, Message> {
                     export_btn.on_press(Message::map_editor(MapEditorMessage::ExportImage(tab_id)));
             }
 
+            let mut tmx_btn = button(text("Export TMX…").size(11)).padding([3, 8]);
+            if !state.data.is_exporting {
+                tmx_btn =
+                    tmx_btn.on_press(Message::map_editor(MapEditorMessage::ExportTmx(tab_id)));
+            }
+
             let status_text = if let Some(msg) = &state.data.status_msg {
                 text(msg.as_str()).size(10).style(style::subtle_text)
             } else {
                 text("").size(10).style(style::subtle_text)
             };
 
-            let action_row = row![save_btn, undo_btn, redo_btn, export_btn, status_text,]
-                .spacing(6)
-                .padding([4, 16])
-                .align_y(iced::Alignment::Center);
+            let action_row = row![
+                save_btn,
+                undo_btn,
+                redo_btn,
+                export_btn,
+                tmx_btn,
+                status_text,
+            ]
+            .spacing(6)
+            .padding([4, 16])
+            .align_y(iced::Alignment::Center);
 
             let mode_tab_row = row![
                 button(text("Map").size(11))
@@ -294,10 +327,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(0),
             )
             .width(Fill)
-            .style(style::toolbar_container);
+            .style(style::toolbar_container)
+            .accessible_label("Map editor toolbar");
 
             // ── Canvas for tile layers, sprites (images) ───────────────────────
-            let tiles_canvas = canvas(MapCanvasTilesLayer { state, tab_id })
+            let tiles_canvas = canvas(MapCanvasTilesLayer { state })
                 .width(Fill)
                 .height(Fill);
 
@@ -369,6 +403,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
                 .spacing(0)
                 .width(Fill)
                 .height(Fill)
+                .accessible_label("Map editor")
                 .into();
 
             // Wrap in dialog preview modal if open

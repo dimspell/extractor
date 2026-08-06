@@ -11,7 +11,7 @@ pub(crate) struct MenuItem {
 
 /// Result of showing a native context menu.
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum NativeResult {
+pub enum NativeResult {
     /// User selected the item at this index.
     Selected(usize),
     /// Native menu was shown but the user cancelled (clicked outside).
@@ -26,9 +26,7 @@ pub(crate) enum NativeResult {
 ///   without a selection. Caller should **not** fall through to the custom overlay.
 /// - `None` — native menus are not available on this platform. Caller should
 ///   fall back to the custom-rendered overlay.
-pub(crate) fn try_show_native_menu<Message: Clone>(
-    entries: &[Entry<Message>],
-) -> Option<NativeResult> {
+pub fn try_show_native_menu<Message: Clone>(entries: &[Entry<Message>]) -> Option<NativeResult> {
     // Set FORCE_CUSTOM_CONTEXT_MENU=1 to skip native menus and use
     // the Iced-rendered overlay instead (useful for debugging layout/style).
     if std::env::var("FORCE_CUSTOM_CONTEXT_MENU").is_ok() {
@@ -80,7 +78,7 @@ pub(crate) fn try_show_native_menu<Message: Clone>(
 #[cfg(target_os = "macos")]
 fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     use objc2::rc::Retained;
-    use objc2::{sel, MainThreadMarker, MainThreadOnly};
+    use objc2::{MainThreadMarker, MainThreadOnly, sel};
     use objc2_app_kit::{NSEvent, NSMenu, NSMenuItem};
     use objc2_foundation::NSString;
 
@@ -118,14 +116,12 @@ fn macos_show_menu(items: &[MenuItem]) -> NativeResult {
     let location = NSEvent::mouseLocation();
     let did_select = menu.popUpMenuPositioningItem_atLocation_inView(None, location, None);
 
-    if did_select {
-        if let Some(highlighted) = menu.highlightedItem() {
-            let tag = highlighted.tag();
-            if tag >= 0 {
-                let idx = tag as usize;
-                if idx < items.len() && items[idx].is_enabled {
-                    return NativeResult::Selected(idx);
-                }
+    if did_select && let Some(highlighted) = menu.highlightedItem() {
+        let tag = highlighted.tag();
+        if tag >= 0 {
+            let idx = tag as usize;
+            if idx < items.len() && items[idx].is_enabled {
+                return NativeResult::Selected(idx);
             }
         }
     }

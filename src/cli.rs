@@ -101,14 +101,12 @@ pub enum Commands {
 
     /// Audio conversion
     #[command(
-        about = "Convert SNF audio to WAV",
-        long_about = "Extracts the raw PCM data from an .SNF file and wraps it in a standard RIFF WAVE header.\n\nUsage Examples:\n  dispel-extractor sound track01.snf track01.wav"
+        about = "Convert SNF/WAV audio files",
+        long_about = "Convert SNF to WAV or WAV to SNF.\n\nExamples:\n  dispel-extractor sound to-wav track.snf track.wav\n  dispel-extractor sound from-wav track.wav track.snf"
     )]
     Sound {
-        /// Source .SNF file
-        input: String,
-        /// Destination .WAV file
-        output: String,
+        #[command(subcommand)]
+        command: SoundCommands,
     },
 
     /// Dialog flow visualization
@@ -143,6 +141,24 @@ pub enum Commands {
 pub enum SpriteMode {
     Sprite,
     Animation,
+}
+
+#[derive(Debug, Clone, Subcommand)]
+pub enum SoundCommands {
+    /// Convert SNF to WAV
+    ToWav {
+        /// Source .SNF file
+        input: String,
+        /// Destination .WAV file
+        output: String,
+    },
+    /// Convert WAV to SNF
+    FromWav {
+        /// Source .WAV file
+        input: String,
+        /// Destination .SNF file
+        output: String,
+    },
 }
 
 // --------------------------------------------------------------------------
@@ -320,6 +336,25 @@ pub enum MapCommands {
         /// Pretty-print JSON
         #[arg(short, long)]
         pretty: bool,
+    },
+    /// Export map to Tiled TMX format
+    #[command(
+        about = "Export map to Tiled TMX format",
+        long_about = "Exports a .MAP file to Tiled's orthogonal TMX format with tileset PNGs.\n\nUsage Examples:\n  dispel-extractor map tmx --map cat1.map --gtl cat1.gtl --btl cat1.btl --output out/"
+    )]
+    Tmx {
+        /// Path to the .MAP file
+        #[arg(short, long)]
+        map: String,
+        /// Path to the .GTL ground tileset file
+        #[arg(short, long)]
+        gtl: String,
+        /// Path to the .BTL building tileset file
+        #[arg(short, long)]
+        btl: String,
+        /// Output directory for TMX file and tileset PNGs
+        #[arg(short, long, default_value = "tmx_out")]
+        output: String,
     },
 }
 

@@ -13,7 +13,7 @@ The workspace consists of five crates:
 | Crate | Type | Role |
 |---|---|---|
 | `dispel-extractor` (root) | lib + bin | Core library (`dispel_core`) + CLI binary |
-| `dispel-gui` | bin | Iced 0.14 desktop GUI |
+| `dispel-gui` | bin | Iced 0.15 desktop GUI |
 | `dispel-macros` | proc-macro | 5 derive macros (Extractor, Localizable, RecordPatcher, etc.) |
 | `gui-widgets` | lib | Reusable Iced widgets (ContextMenu, modal, ParagraphCache) |
 | `hexedit` | lib + bin | Hex editor with Lua scripting |

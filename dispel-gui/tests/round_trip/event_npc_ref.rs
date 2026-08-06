@@ -1,8 +1,8 @@
 //! Fixture-based tests for EventNpcRef
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::event_npc_ref::EventNpcRef;
 use dispel_core::Extractor;
+use dispel_core::references::event_npc_ref::EventNpcRef;
 use std::path::Path;
 
 #[test]

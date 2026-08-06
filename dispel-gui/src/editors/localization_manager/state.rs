@@ -1,7 +1,7 @@
 use crate::components::loading_state::LoadingState;
-use crate::components::textarea::TextAreaContent;
 use crate::editors::mod_packager::state::ModMetadata;
 use dispel_core::TextEntry;
+use gui_widgets::TextAreaContent;
 
 #[derive(Debug)]
 pub struct LocalizationManagerState {

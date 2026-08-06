@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::references::enums::{MagicSchool, MagicSpellConstant, MagicSpellFlag, SpellTargetType};
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// MagicSpell.db - Magic Spells

@@ -1,6 +1,6 @@
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
-use rusqlite::{params, Connection, Result as DbResult};
+use rusqlite::{Connection, Result as DbResult, params};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 

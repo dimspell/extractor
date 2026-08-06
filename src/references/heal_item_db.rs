@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::HealItemFlag;
@@ -86,23 +86,21 @@ pub struct HealItem {
     pub id: i32,
     /// Fixed array byte name for inventory viewing.
     #[extractor(string(encoding = "WINDOWS-1250", size = 30))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 30)]
     pub name: String,
     /// Descriptive utility tooltip.
     #[extractor(string(encoding = "EUC-KR", size = 202))]
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Standardized merchant valuation.
-    #[extractor(primitive(type = "i16"))]
-    pub base_price: i16,
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
     /// Padding field.
     #[extractor(primitive(type = "i16"))]
     pub padding1: i16,
     /// Padding field.
     #[extractor(primitive(type = "i16"))]
     pub padding2: i16,
-    /// Padding field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding3: i16,
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
     #[extractor(primitive(type = "i16"))]
@@ -141,7 +139,6 @@ pub fn save_heal_items(conn: &mut Connection, heal_items: &[HealItem]) -> Result
                 item.base_price,
                 item.padding1,
                 item.padding2,
-                item.padding3,
                 item.health_points,
                 item.mana_points,
                 u8::from(item.restore_full_health),

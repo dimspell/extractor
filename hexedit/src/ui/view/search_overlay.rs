@@ -1,9 +1,9 @@
 use iced::widget::{button, container, row, text, text_input};
 use iced::{Element, Fill, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::search::{SearchMode, SearchState};
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Search overlay bar rendered above the hex matrix.
 pub fn view<'a>(

@@ -2,8 +2,8 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::commands::registry;
 use crate::commands::Command;
+use crate::commands::registry;
 
 #[derive(clap::Args, Clone)]
 pub struct ValidateArgs {

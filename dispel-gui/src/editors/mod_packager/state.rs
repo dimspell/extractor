@@ -11,6 +11,7 @@ pub enum ModManagerTab {
     Library,
     Detail,
     Conflicts,
+    Review,
 }
 
 /// Legacy struct kept for `localization_manager`. New code should use
@@ -49,6 +50,10 @@ pub struct ModPackagerState {
     pub edit_author: String,
     pub edit_description: String,
     pub edit_dirty: bool,
+
+    /// Index of the change row currently expanded in the Detail tab changelog.
+    /// `None` means nothing is expanded.
+    pub selected_change_idx: Option<usize>,
 
     /// Cached conflict list across enabled mods. Recomputed on Refresh and
     /// after any load-order change.

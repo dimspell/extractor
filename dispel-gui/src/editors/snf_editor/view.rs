@@ -1,10 +1,13 @@
 use crate::app::App;
-use crate::editors::snf_editor::waveform::waveform_canvas;
 use crate::editors::snf_editor::ExportStatus;
 use crate::editors::snf_editor::SnfEditorMessage;
+use crate::editors::snf_editor::waveform::waveform_canvas;
 use crate::message::{Message, MessageExt};
-use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
+use gui_widgets::components::toast;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{Space, button, column, container, progress_bar, row, slider, text};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let tab_id = app
@@ -19,6 +22,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             .width(Fill)
             .height(Fill)
             .padding(16)
+            .accessible_label("SNF audio editor")
             .into();
     };
 
@@ -29,19 +33,51 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("SNF audio editor")
         .into();
     }
 
     let Some(ref snf) = editor.snf else {
-        return container(text("Loading…").size(12)).padding(16).into();
+        return container(text("Loading…").size(12))
+            .padding(16)
+            .accessible_label("SNF audio editor")
+            .into();
     };
 
-    // Header row with filename and export button
+    // Header row with filename, import/save/export buttons
     let header = row![
         text(&editor.name).size(13),
         Space::new().width(Fill),
+        button(
+            row![
+                text(icon_char(Icon::FolderOpen)).font(LUCIDE_FONT).size(12),
+                text(" Import WAV…").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::ImportWav)),
         button(text("Export WAV…").size(12))
-            .on_press(Message::snf_editor(SnfEditorMessage::ExportWav))
+            .on_press(Message::snf_editor(SnfEditorMessage::ExportWav)),
+        if editor.modified {
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(12),
+                    text(" Save").size(12),
+                ]
+                .spacing(4),
+            )
+            .style(crate::style::active_chip)
+            .on_press(Message::snf_editor(SnfEditorMessage::Save))
+        } else {
+            button(
+                row![
+                    text(icon_char(Icon::Save)).font(LUCIDE_FONT).size(12),
+                    text(" Save").size(12),
+                ]
+                .spacing(4),
+            )
+            .style(crate::style::chip)
+        }
     ]
     .spacing(8)
     .padding([6, 12])
@@ -101,21 +137,47 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
     // Playback controls
     let play_pause_btn = if is_playing {
-        button(text("⏸ Pause").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Pause))
+        button(
+            row![
+                text(icon_char(Icon::Pause)).font(LUCIDE_FONT).size(12),
+                text(" Pause").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::Pause))
     } else {
-        button(text("▶ Play").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Play))
+        button(
+            row![
+                text(icon_char(Icon::Play)).font(LUCIDE_FONT).size(12),
+                text(" Play").size(12),
+            ]
+            .spacing(4),
+        )
+        .on_press(Message::snf_editor(SnfEditorMessage::Play))
     };
 
-    let stop_btn =
-        button(text("■ Stop").size(12)).on_press(Message::snf_editor(SnfEditorMessage::Stop));
+    let stop_btn = button(
+        row![
+            text(icon_char(Icon::Square)).font(LUCIDE_FONT).size(12),
+            text(" Stop").size(12),
+        ]
+        .spacing(4),
+    )
+    .on_press(Message::snf_editor(SnfEditorMessage::Stop));
 
-    let loop_btn = button(text("↺ Loop").size(11))
-        .style(if editor.is_looping {
-            crate::style::active_chip
-        } else {
-            crate::style::chip
-        })
-        .on_press(Message::snf_editor(SnfEditorMessage::ToggleLoop));
+    let loop_btn = button(
+        row![
+            text(icon_char(Icon::Repeat)).font(LUCIDE_FONT).size(11),
+            text(" Loop").size(11),
+        ]
+        .spacing(4),
+    )
+    .style(if editor.is_looping {
+        crate::style::active_chip
+    } else {
+        crate::style::chip
+    })
+    .on_press(Message::snf_editor(SnfEditorMessage::ToggleLoop));
 
     let volume_slider = slider(0.0f32..=1.0, editor.volume, |v| {
         Message::snf_editor(SnfEditorMessage::SetVolume(v))
@@ -136,20 +198,23 @@ pub fn view(app: &App) -> Element<'_, Message> {
     )
     .width(Fill);
 
-    // Export status
-    let status_row = match &editor.export_status {
-        ExportStatus::Idle => row![],
-        ExportStatus::Done(p) => {
-            row![text(format!("Exported: {}", p)).size(11)]
-        }
-        ExportStatus::Error(e) => {
-            row![text(format!("Error: {}", e)).size(11)]
-        }
-    }
-    .padding([2, 12]);
+    let status_line: Element<'_, Message> = match &editor.export_status {
+        ExportStatus::Idle => Space::new().height(Length::Fixed(0.0)).into(),
+        ExportStatus::Done(p) => row![text(p.as_str()).size(11)].padding([2, 12]).into(),
+        ExportStatus::Error(e) => row![text(e.as_str()).size(11)].padding([2, 12]).into(),
+    };
 
-    column![header, meta, waveform, timeline, controls, status_row,]
-        .spacing(0)
-        .height(Fill)
-        .into()
+    let content: Element<'_, Message> =
+        column![header, meta, waveform, timeline, controls, status_line,]
+            .spacing(0)
+            .height(Fill)
+            .accessible_label("SNF audio editor")
+            .into();
+
+    // Wrap in toast Manager — toasts auto-dismiss after 4 seconds
+    toast::Manager::new(content, &editor.toasts, |i| {
+        Message::snf_editor(SnfEditorMessage::DismissToast(i))
+    })
+    .timeout(toast::DEFAULT_TIMEOUT)
+    .into()
 }

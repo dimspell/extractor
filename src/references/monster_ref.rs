@@ -1,9 +1,9 @@
 use std::path::Path;
 
-use crate::references::enums::{BooleanFlag, ByteFlag, ItemTypeId, TriStateFlag};
+use crate::references::enums::{BooleanFlag, InventoryItem, ItemTypeId, TriStateFlag};
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// MonsterRef.ref - Monster Placements on Maps
@@ -111,45 +111,19 @@ pub struct MonsterRef {
     /// Unknown flag (observed values: -1, 0, or 1).
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
     pub padding4: TriStateFlag,
-    /// Event trigger ID, links to Event.ini.
+    /// Event trigger ID on kill, links to Event.ini.
+    /// Todo: rename field to event_id_on_kill
     #[extractor(primitive(type = "i32"))]
     pub event_id: i32,
-    /// First loot drop item ID.
-    #[extractor(primitive(type = "u8"))]
-    pub loot1_item_id: u8,
-    /// First loot drop item type.
-    #[extractor(enum_from_u8(type = "ItemTypeId"))]
-    pub loot1_item_type: ItemTypeId,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding6: ByteFlag,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding7: ByteFlag,
-    /// Second loot drop item ID.
-    #[extractor(primitive(type = "u8"))]
-    pub loot2_item_id: u8,
-    /// Second loot drop item type.
-    #[extractor(enum_from_u8(type = "ItemTypeId"))]
-    pub loot2_item_type: ItemTypeId,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding8: ByteFlag,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding9: ByteFlag,
-    /// Third loot drop item ID.
-    #[extractor(primitive(type = "u8"))]
-    pub loot3_item_id: u8,
-    /// Third loot drop item type.
-    #[extractor(enum_from_u8(type = "ItemTypeId"))]
-    pub loot3_item_type: ItemTypeId,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding10: ByteFlag,
-    /// Unknown byte (observed values: 0 or 255).
-    #[extractor(enum_from_i32_from_u8(type = "ByteFlag"))]
-    pub padding11: ByteFlag,
+    /// First loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
+    #[extractor(inventory_item(wire_type = "i32"))]
+    pub loot_item1: InventoryItem,
+    /// Second loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
+    #[extractor(inventory_item(wire_type = "i32"))]
+    pub loot_item2: InventoryItem,
+    /// Third loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
+    #[extractor(inventory_item(wire_type = "i32"))]
+    pub loot_item3: InventoryItem,
     /// Unknown flag (observed values: -1, 0, or 1).
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
     pub padding12: TriStateFlag,
@@ -164,7 +138,7 @@ pub fn read_monster_ref(source_path: &Path) -> std::io::Result<Vec<MonsterRef>> 
 
 pub fn save_monster_refs(
     conn: &mut Connection,
-    file_path: &str,
+    file_id: i32,
     monster_refs: &[MonsterRef],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -172,10 +146,14 @@ pub fn save_monster_refs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_monster_ref.sql"))?;
         for monster_ref in monster_refs {
             stmt.execute(params![
-                file_path,
+                file_id,
                 monster_ref.index,
                 monster_ref.file_id,
-                monster_ref.mon_id,
+                if monster_ref.mon_id == 0 {
+                    None
+                } else {
+                    Some(monster_ref.mon_id)
+                },
                 monster_ref.pos_x,
                 monster_ref.pos_y,
                 i32::from(monster_ref.padding1),
@@ -183,18 +161,30 @@ pub fn save_monster_refs(
                 monster_ref.padding3,
                 i32::from(monster_ref.padding4),
                 monster_ref.event_id,
-                monster_ref.loot1_item_id,
-                u8::from(monster_ref.loot1_item_type),
-                u8::from(monster_ref.padding6),
-                u8::from(monster_ref.padding7),
-                monster_ref.loot2_item_id,
-                u8::from(monster_ref.loot2_item_type),
-                u8::from(monster_ref.padding8),
-                u8::from(monster_ref.padding9),
-                monster_ref.loot3_item_id,
-                u8::from(monster_ref.loot3_item_type),
-                u8::from(monster_ref.padding10),
-                u8::from(monster_ref.padding11),
+                monster_ref.loot_item1.item_id() as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item1
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
+                monster_ref.loot_item1.raw(),
+                monster_ref.loot_item2.item_id() as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item2
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
+                monster_ref.loot_item2.raw(),
+                monster_ref.loot_item3.item_id() as i32,
+                u8::from(
+                    monster_ref
+                        .loot_item3
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other)
+                ) as i32,
+                monster_ref.loot_item3.raw(),
                 i32::from(monster_ref.padding12),
                 i32::from(monster_ref.padding13),
             ])?;

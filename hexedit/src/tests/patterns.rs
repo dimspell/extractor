@@ -274,7 +274,7 @@ use gui_widgets::components::context_menu::Entry as CtxEntry;
 #[test]
 fn test_build_entries_no_patterns() {
     // No patterns → "Remove Pattern" not present, "Clear All Patterns" disabled
-    let entries = build_pattern_menu_entries(false, false, false, None);
+    let entries = build_pattern_menu_entries(false, false, false, None, false);
     assert!(
         !entries.iter().any(|e| matches!(e, CtxEntry::Item { label, .. } | CtxEntry::Disabled { label, .. } if label == "Remove Pattern")),
         "Remove Pattern should not appear when there are no patterns"
@@ -290,7 +290,7 @@ fn test_build_entries_no_patterns() {
 #[test]
 fn test_build_entries_remove_pattern_enabled() {
     // Patterns exist + pattern at right-click address → "Remove Pattern" enabled
-    let entries = build_pattern_menu_entries(false, true, true, None);
+    let entries = build_pattern_menu_entries(false, true, true, None, false);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::RemovePatternAtContextMenu, .. } if label == "Remove Pattern")),
         "Remove Pattern should be enabled (Item with RemovePatternAtContextMenu) when patterns exist and addr has a pattern"
@@ -306,7 +306,7 @@ fn test_build_entries_remove_pattern_enabled() {
 #[test]
 fn test_build_entries_remove_pattern_disabled() {
     // Patterns exist + no pattern at right-click address → "Remove Pattern" disabled
-    let entries = build_pattern_menu_entries(false, true, false, None);
+    let entries = build_pattern_menu_entries(false, true, false, None, false);
     assert!(
         entries
             .iter()
@@ -324,7 +324,7 @@ fn test_build_entries_remove_pattern_disabled() {
 #[test]
 fn test_build_entries_create_pattern_enabled() {
     // Range selected → "Create Pattern" enabled
-    let entries = build_pattern_menu_entries(true, false, false, None);
+    let entries = build_pattern_menu_entries(true, false, false, None, false);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::CreatePattern, .. } if label == "Create Pattern")),
         "Create Pattern should be enabled when range is selected"
@@ -334,7 +334,7 @@ fn test_build_entries_create_pattern_enabled() {
 #[test]
 fn test_build_entries_create_pattern_disabled() {
     // Single selection → "Create Pattern" disabled
-    let entries = build_pattern_menu_entries(false, false, false, None);
+    let entries = build_pattern_menu_entries(false, false, false, None, false);
     assert!(
         entries
             .iter()
@@ -346,7 +346,7 @@ fn test_build_entries_create_pattern_disabled() {
 #[test]
 fn test_build_entries_clear_all_patterns_enabled() {
     // Patterns exist → "Clear All Patterns" enabled
-    let entries = build_pattern_menu_entries(false, true, false, None);
+    let entries = build_pattern_menu_entries(false, true, false, None, false);
     assert!(
         entries.iter().any(|e| matches!(e, CtxEntry::Item { label, action: HexEditorMessage::ClearAllPatterns, .. } if label == "Clear All Patterns")),
         "Clear All Patterns should be enabled when patterns exist"
@@ -375,7 +375,7 @@ fn test_build_entries_all_three_combinations() {
         expect_remove_enabled,
     ) in cases
     {
-        let entries = build_pattern_menu_entries(has_sel, has_pat, has_addr, None);
+        let entries = build_pattern_menu_entries(has_sel, has_pat, has_addr, None, false);
 
         let create_enabled = entries
             .iter()
@@ -393,7 +393,10 @@ fn test_build_entries_all_three_combinations() {
         );
 
         let remove_present = entries.iter().any(|e| matches!(e, CtxEntry::Item { label, .. } | CtxEntry::Disabled { label, .. } if label == "Remove Pattern"));
-        assert_eq!(remove_present, has_pat, "Remove Pattern should only appear when has_patterns for ({has_sel}, {has_pat}, {has_addr})");
+        assert_eq!(
+            remove_present, has_pat,
+            "Remove Pattern should only appear when has_patterns for ({has_sel}, {has_pat}, {has_addr})"
+        );
         if has_pat {
             let remove_enabled = entries
                 .iter()

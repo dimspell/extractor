@@ -33,6 +33,8 @@ mod snf_editor_tests {
                 is_looping: false,
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
+                modified: false,
+                toasts: Vec::new(),
             },
         );
 

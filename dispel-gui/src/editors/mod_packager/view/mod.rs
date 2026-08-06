@@ -1,16 +1,20 @@
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, text};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 use crate::components::utils::horizontal_space;
 
 use crate::app::App;
-use crate::editors::mod_packager::state::ModManagerTab;
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::state::ModManagerTab;
 use crate::message::{Message, MessageExt};
 
 mod conflicts;
 mod detail;
+mod diff_panel;
 mod library;
+mod review;
 
 pub fn view(app: &App) -> Element<'_, Message> {
     let state = &app.state.editors.mod_packager_editor;
@@ -26,6 +30,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         ModManagerTab::Library => library::view(app),
         ModManagerTab::Detail => detail::view(app),
         ModManagerTab::Conflicts => conflicts::view(app),
+        ModManagerTab::Review => review::view(app),
     };
 
     let status = text(state.status_msg.as_str()).size(12);
@@ -40,7 +45,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
     }
     col = col.push(body).push(status);
 
-    container(col).width(Fill).height(Fill).into()
+    container(col)
+        .width(Fill)
+        .height(Fill)
+        .accessible_label("Mod manager")
+        .into()
 }
 
 fn recording_banner(app: &App) -> Option<Element<'_, Message>> {
@@ -50,11 +59,15 @@ fn recording_banner(app: &App) -> Option<Element<'_, Message>> {
     } else {
         format!(", {} pending", session.pending.len())
     };
-    let label = text(format!(
-        "● Recording into `{}` — {} change(s) captured{}",
-        session.mod_name, session.recorded_count, pending_suffix
-    ))
-    .size(12);
+    let label = row![
+        text(icon_char(Icon::Dot)).font(LUCIDE_FONT).size(12),
+        text(format!(
+            " Recording into `{}` — {} change(s) captured{}",
+            session.mod_name, session.recorded_count, pending_suffix
+        ))
+        .size(12),
+    ]
+    .spacing(2);
     let stop = button(text("Stop").size(12))
         .padding([4, 12])
         .style(button::danger)
@@ -108,6 +121,7 @@ fn build_header(
         tab_btn("Library".to_owned(), ModManagerTab::Library),
         tab_btn("Detail".to_owned(), ModManagerTab::Detail),
         tab_btn(conflicts_label, ModManagerTab::Conflicts),
+        tab_btn("Review".to_owned(), ModManagerTab::Review),
         horizontal_space().width(Length::Fill),
         open_workspace_btn,
     ]

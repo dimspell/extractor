@@ -1,7 +1,7 @@
 mod crosscheck {
     use crate::editor_registry::EditorRegistry;
-    use crate::message::system::SystemMessage;
     use crate::message::Message;
+    use crate::message::system::SystemMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::EditorType;
     use std::collections::HashMap;
@@ -38,7 +38,6 @@ mod crosscheck {
             EditorType::EventScrEditor,
             EditorType::WaveIniEditor,
             EditorType::AllMapIniEditor,
-            EditorType::ChestEditor,
             EditorType::SpriteViewer,
             EditorType::SnfEditor,
             EditorType::DbViewer,
@@ -57,18 +56,17 @@ mod crosscheck {
     fn save_contract_holds_for_all_types() {
         for et in all_editor_types() {
             let mut app = app_with_tab(et);
-            let task = app.update(Message::System(SystemMessage::Save));
+            let _task = app.update(Message::System(SystemMessage::Save));
             if et.supports_save() {
-                assert!(
-                    task.units() > 0,
-                    "EditorType::{:?} supports_save() but Save returned no task",
+                assert_ne!(
+                    app.state.status_msg, "This editor does not support saving",
+                    "EditorType::{:?} supports_save() but Save rejected it",
                     et
                 );
             } else {
                 assert_eq!(
-                    task.units(),
-                    0,
-                    "EditorType::{:?} !supports_save() but Save produced a task",
+                    app.state.status_msg, "This editor does not support saving",
+                    "EditorType::{:?} !supports_save() but Save was accepted",
                     et
                 );
             }

@@ -1,11 +1,18 @@
 [package]
 name = "gui-widgets"
-version = "0.8.0"
-edition = "2021"
+version = "0.9.0"
+edition = "2024"
+
+[features]
+default = ["accessibility"]
+# Enables screen-reader (VoiceOver) support for the table widget: pulls in
+# iced's `accessibility` trait methods.
+accessibility = ["iced/accessibility"]
 
 [dependencies]
-iced = { version = "0.14", default-features = false, features = ["advanced", "thread-pool"] }
+iced = { workspace = true, default-features = false, features = ["advanced", "thread-pool", "wgpu"] }
 lru = "0.12"
+lucide-icons = "1.23"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

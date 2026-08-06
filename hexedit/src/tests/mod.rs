@@ -13,9 +13,10 @@ use std::path::PathBuf;
 
 use iced_test::simulator;
 
-use crate::ui::theme::{ThemeVariant, DARK_THEME};
+use crate::ui::theme::{DARK_THEME, ThemeVariant};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
+use crate::LuaScriptEngine;
 use crate::config::HexEditorConfig;
 use crate::domain::write_mode::WriteMode;
 use crate::message::HexEditorMessage;
@@ -23,11 +24,10 @@ use crate::provider::BufferProvider;
 use crate::provider::HexProvider;
 use crate::search::SearchState;
 use crate::selection::{NavDir, Selection};
-use crate::state::HexEditorState;
+use crate::state::{HexEditorState, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::update::update;
 use crate::view::view;
-use crate::LuaScriptEngine;
 
 // ============================================================================
 // Helpers
@@ -46,8 +46,11 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         selection: Selection::single(0),
         edit_mode: None,
         inspector_edit: None,
+        inspector_source: InspectorSource::Baseline,
         vanilla: None,
         vanilla_diff: BTreeSet::new(),
+        comparison_file: None,
+        diff_review: false,
         patterns: Vec::new(),
         pattern_by_addr: BTreeMap::new(),
         show_pattern_list: false,
@@ -65,6 +68,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         lua_engine: LuaScriptEngine::default(),
         export_config: None,
         fill_dialog: None,
+        extend_dialog: None,
         repeat_pattern: None,
         row_annotations: BTreeMap::new(),
         active_patterns: BTreeSet::new(),
@@ -163,7 +167,9 @@ fn test_hex_matrix_uses_paragraph_cache() {
 
 pub mod pane_grid;
 
+pub mod diff;
 pub mod editing;
+pub mod extend;
 pub mod footer;
 pub mod goto;
 pub mod header;

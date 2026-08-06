@@ -1,4 +1,4 @@
-use crate::components::editable::{set_int, EditableRecord, FieldDescriptor, FieldKind};
+use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind, set_int};
 use dispel_core::{PartyLevelNpc, PartyLevelRecord};
 
 use crate::editable_record_fields;

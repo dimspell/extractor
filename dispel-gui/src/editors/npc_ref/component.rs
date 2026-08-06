@@ -1,8 +1,6 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::references::enums::{
-    BooleanFlag, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
-};
 use dispel_core::NPC;
+use dispel_core::references::enums::{BooleanFlag, NpcLookingDirection, Unknown012, Unknown0110};
 
 use crate::editable_record_fields;
 
@@ -31,9 +29,9 @@ editable_record_fields!(NPC, {
     { unknown_4 = Integer / "Unknown 4:" },
     { unknown_5 = Integer / "Unknown 5:" },
     { looking_direction = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Direction:" },
-    { unknown_6 = DispEnum(Unknown0to7, ["0", "1", "2", "3", "4", "5", "6", "7"]) / "Unknown 6:" },
-    { unknown_7 = DispEnum(Unknown0to7, ["0", "1", "2", "3", "4", "5", "6", "7"]) / "Unknown 7:" },
-    { unknown_8 = DispEnum(Unknown0to7, ["0", "1", "2", "3", "4", "5", "6", "7"]) / "Unknown 8:" },
+    { rotation_1 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 1:" },
+    { rotation_2 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 2:" },
+    { rotation_3 = Enum(NpcLookingDirection, ["Up", "UpRight", "Right", "DownRight", "Down", "DownLeft", "UpLeft"]) / "Rotation 3:" },
     { unknown_9 = Integer / "Unknown 9:" },
     { unknown_10 = Integer / "Unknown 10:" },
     { unknown_11 = Integer / "Unknown 11:" },
@@ -44,7 +42,7 @@ editable_record_fields!(NPC, {
     { unknown_16 = Integer / "Unknown 16:" },
     { unknown_17 = DispEnum(Unknown012, ["0", "1", "2"]) / "Unknown 17:" },
     { unknown_18 = Integer / "Unknown 18:" },
-    { unknown_item_type = CompositeItem("items", unknown_item_id) / "Unknown Item:" },
+    { unknown_item = CompositeItem("items") / "Unknown Item:" },
     { unknown_19 = DispEnum(Unknown0110, ["0", "1", "10"]) / "Unknown 19:" },
     { dialog_id = Integer / "Dialog ID:" },
     { dialogue_face_sprite_id = Integer / "Face Sprite ID:" },
@@ -57,7 +55,7 @@ impl EditableRecord for NPC {
         format!(
             "[{}] {} (NPC {})",
             self.id,
-            &self.name.chars().take(20).collect::<String>(),
+            self.name.chars().take(20).collect::<String>(),
             self.npc_id
         )
     }

@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::references::enums::{MonsterAiType, PropertyFlag};
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Monster.db - Monster Statistics
@@ -201,7 +201,7 @@ pub struct Monster {
     /// Length special effect lingers.
     #[extractor(primitive(type = "i32"))]
     pub special_attack_duration: i32,
-    /// Courage metric defining retreat threshold.
+    /// Courage metric defining a retreat threshold.
     #[extractor(primitive(type = "i32"))]
     pub boldness: i32,
     /// Delay ticks between swings.
@@ -245,9 +245,21 @@ pub fn save_monsters(conn: &mut Connection, monsters: &[Monster]) -> Result<()> 
                 monster.gold_drop_min,
                 monster.detection_sight_size,
                 monster.distance_range_size,
-                monster.known_spell_slot1,
-                monster.known_spell_slot2,
-                monster.known_spell_slot3,
+                if monster.known_spell_slot1 == -1 {
+                    None
+                } else {
+                    Some(monster.known_spell_slot1)
+                },
+                if monster.known_spell_slot2 == -1 {
+                    None
+                } else {
+                    Some(monster.known_spell_slot2)
+                },
+                if monster.known_spell_slot3 == -1 {
+                    None
+                } else {
+                    Some(monster.known_spell_slot3)
+                },
                 monster.is_oversize,
                 monster.magic_level,
                 monster.special_attack,
@@ -326,7 +338,7 @@ mod tests {
         assert_eq!(m.health_points_min, 80);
         assert_eq!(m.is_undead, PropertyFlag::Absent);
         assert_eq!(m.has_blood, PropertyFlag::Present);
-        assert_eq!(m.ai_type, MonsterAiType::Aggressive);
+        assert_eq!(m.ai_type, MonsterAiType::HitAndFlee);
         assert_eq!(m.attack_speed, 4);
     }
 

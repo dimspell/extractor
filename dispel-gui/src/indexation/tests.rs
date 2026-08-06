@@ -2,6 +2,7 @@ use crate::indexation::file_index_cache::{
     CachedFileInfo, FileIndexCache, FileIndexCacheManager, SpriteMetadata,
 };
 use crate::indexation::indexation_service::IndexationService;
+use lucide_icons::Icon;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tempfile::tempdir;
@@ -24,7 +25,7 @@ fn test_cache_serialization_deserialization() {
         name: "monster.db".to_string(),
         is_directory: false,
         file_type: "db".to_string(),
-        icon: "🗃️".to_string(),
+        icon: "Database".to_string(),
         modified_time: 1234567890,
         sprite_metadata: None,
     });
@@ -34,7 +35,7 @@ fn test_cache_serialization_deserialization() {
         name: "sprite.spr".to_string(),
         is_directory: false,
         file_type: "spr".to_string(),
-        icon: "🎨".to_string(),
+        icon: "Palette".to_string(),
         modified_time: 1234567891,
         sprite_metadata: Some(SpriteMetadata {
             sequence_count: 3,
@@ -66,7 +67,7 @@ fn test_cache_serialization_deserialization() {
     assert_eq!(file1.name, "monster.db");
     assert!(!file1.is_directory);
     assert_eq!(file1.file_type, "db");
-    assert_eq!(file1.icon, "🗃️");
+    assert_eq!(file1.icon, "Database");
     assert!(file1.sprite_metadata.is_none());
 
     // Verify second file (sprite)
@@ -74,7 +75,7 @@ fn test_cache_serialization_deserialization() {
     assert_eq!(file2.name, "sprite.spr");
     assert!(!file2.is_directory);
     assert_eq!(file2.file_type, "spr");
-    assert_eq!(file2.icon, "🎨");
+    assert_eq!(file2.icon, "Palette");
 
     let sprite_meta = file2.sprite_metadata.as_ref().unwrap();
     assert_eq!(sprite_meta.sequence_count, 3);
@@ -172,28 +173,46 @@ fn test_sprite_metadata_structure() {
 
 #[test]
 fn test_file_icon_mapping() {
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.db")),
-        "🗃️"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.db")),
+            Icon::Database
+        ),
+        "expected Database icon for .db files"
     );
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.ini")),
-        "📄"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.ini")),
+            Icon::FileText
+        ),
+        "expected FileText icon for .ini files"
     );
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.ref")),
-        "📋"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.ref")),
+            Icon::ClipboardList
+        ),
+        "expected ClipboardList icon for .ref files"
     );
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.spr")),
-        "🎨"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.spr")),
+            Icon::Palette
+        ),
+        "expected Palette icon for .spr files"
     );
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.snf")),
-        "🔊"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.snf")),
+            Icon::Music
+        ),
+        "expected Music icon for .snf files"
     );
-    assert_eq!(
-        IndexationService::get_file_icon(&PathBuf::from("test.unknown")),
-        "📎"
+    assert!(
+        matches!(
+            IndexationService::get_file_icon(&PathBuf::from("test.unknown")),
+            Icon::Paperclip
+        ),
+        "expected Paperclip icon for unknown extensions"
     );
 }

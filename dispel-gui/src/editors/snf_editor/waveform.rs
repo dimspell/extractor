@@ -1,4 +1,4 @@
-use iced::widget::{canvas, Canvas};
+use iced::widget::{Canvas, canvas};
 use iced::{Color, Element, Point, Rectangle, Renderer, Size};
 
 pub fn waveform_canvas(points: &[(f32, f32)]) -> Element<'static, crate::message::Message> {

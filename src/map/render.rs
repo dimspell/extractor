@@ -4,12 +4,12 @@ use std::fs::File;
 use std::io::{BufReader, Result, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use crate::map::tileset::{plot_tile, Tile, TILE_HEIGHT};
-use crate::sprite::{rgb16_565_produce_color, ImageInfo, SequenceInfo};
+use crate::map::tileset::{TILE_HEIGHT, Tile, plot_tile};
+use crate::sprite::{ImageInfo, SequenceInfo, rgb16_565_produce_color};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use super::types::{
-    convert_map_coords_to_image_coords, Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
+    Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo, convert_map_coords_to_image_coords,
 };
 
 use super::model::MapModel;
@@ -335,28 +335,28 @@ pub fn render_map(config: MapRenderConfig) -> Result<()> {
         plot_events_overlay(&mut imgbuf, &data.model, &data.events, occlusion, diagonal);
     }
 
-    if toggles.show_draw_items {
-        if let Some(ref ext) = external {
-            plot_draw_items_overlay(
-                &mut imgbuf,
-                &ext.draw_items,
-                &data.model,
-                occlusion,
-                diagonal,
-            );
-        }
+    if toggles.show_draw_items
+        && let Some(ref ext) = external
+    {
+        plot_draw_items_overlay(
+            &mut imgbuf,
+            &ext.draw_items,
+            &data.model,
+            occlusion,
+            diagonal,
+        );
     }
 
-    if toggles.show_npc_waypoints {
-        if let Some(ref ext) = external {
-            plot_npc_waypoints_overlay(
-                &mut imgbuf,
-                &ext.npc_records,
-                &data.model,
-                occlusion,
-                diagonal,
-            );
-        }
+    if toggles.show_npc_waypoints
+        && let Some(ref ext) = external
+    {
+        plot_npc_waypoints_overlay(
+            &mut imgbuf,
+            &ext.npc_records,
+            &data.model,
+            occlusion,
+            diagonal,
+        );
     }
 
     // ── Save: RGBA PNG (transparent) or RGB PNG (solid black) ───────────
@@ -821,26 +821,26 @@ fn render_entity_sprite(
     let cy = py - offset_px_y + TILE_HEIGHT as i32 / 2;
 
     let mut rendered = false;
-    if let Some(ref sp) = entity.sprite_path {
-        if sp.exists() {
-            let frames = sprite_cache
-                .entry(sp.clone())
-                .or_insert_with(|| super::sprite_loader::load_sprite_frames(sp));
+    if let Some(ref sp) = entity.sprite_path
+        && sp.exists()
+    {
+        let frames = sprite_cache
+            .entry(sp.clone())
+            .or_insert_with(|| super::sprite_loader::load_sprite_frames(sp));
 
-            if let Some(Some(frames)) = Some(frames) {
-                if !frames.is_empty() {
-                    let idx = entity.sequence.min(frames.len() - 1);
-                    let frame = &frames[idx];
-                    let dest_x = if entity.flip {
-                        cx - (frame.image.width() as i32 - frame.origin_x)
-                    } else {
-                        cx - frame.origin_x
-                    };
-                    let dest_y = cy - frame.origin_y;
-                    plot_rgba_sprite_on_rgb(imgbuf, &frame.image, dest_x, dest_y, entity.flip);
-                    rendered = true;
-                }
-            }
+        if let Some(Some(frames)) = Some(frames)
+            && !frames.is_empty()
+        {
+            let idx = entity.sequence.min(frames.len() - 1);
+            let frame = &frames[idx];
+            let dest_x = if entity.flip {
+                cx - (frame.image.width() as i32 - frame.origin_x)
+            } else {
+                cx - frame.origin_x
+            };
+            let dest_y = cy - frame.origin_y;
+            plot_rgba_sprite_on_rgb(imgbuf, &frame.image, dest_x, dest_y, entity.flip);
+            rendered = true;
         }
     }
 
@@ -1171,8 +1171,12 @@ fn plot_events_overlay(
 // Draw items overlay — coloured diamonds by item type + ID labels
 // --------------------------------------------------------------------------
 
-fn draw_item_color(item_type: crate::references::enums::ItemTypeId) -> [u8; 3] {
+fn draw_item_color(item_type: Option<crate::references::enums::ItemTypeId>) -> [u8; 3] {
     use crate::references::enums::ItemTypeId;
+    let item_type = match item_type {
+        Some(t) => t,
+        None => return [155, 155, 155],
+    };
     match item_type {
         ItemTypeId::Weapon => [230, 40, 40],
         ItemTypeId::Healing => [40, 230, 40],
@@ -1198,7 +1202,7 @@ fn plot_draw_items_overlay(
         }
         let cx = px + super::tileset::TILE_WIDTH as i32 / 2;
         let cy = py + TILE_HEIGHT as i32 / 2;
-        let color = draw_item_color(di.item_type);
+        let color = draw_item_color(di.item.item_type());
         let r = 6;
         // Coloured diamond
         fill_diamond_blended(imgbuf, cx, cy, r, color, 200);
@@ -1207,7 +1211,7 @@ fn plot_draw_items_overlay(
             imgbuf,
             cx,
             cy - r - 3,
-            di.item_id as i32,
+            di.item.item_id() as i32,
             [255, 255, 255],
             3,
         );

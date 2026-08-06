@@ -3,7 +3,7 @@
 //! `crate::update::editor::common`.
 
 use super::caches::ComputedCaches;
-use super::state::GlobalFilterMode;
+use crate::components::filter::{ColumnFilterAction, GlobalFilterMode};
 use iced::widget::text_editor;
 
 #[derive(Debug, Clone)]
@@ -86,4 +86,29 @@ pub enum SpreadsheetMessage {
     ClearAllColumnFilter(usize),
     /// Close the column filter modal.
     CloseColumnFilterModal,
+}
+
+impl From<ColumnFilterAction> for SpreadsheetMessage {
+    fn from(a: ColumnFilterAction) -> Self {
+        match a {
+            ColumnFilterAction::ToggleColumnFilterValue(c, v) => {
+                SpreadsheetMessage::ToggleColumnFilterValue(c, v)
+            }
+            ColumnFilterAction::SelectAllColumnFilter(c) => {
+                SpreadsheetMessage::SelectAllColumnFilter(c)
+            }
+            ColumnFilterAction::ClearAllColumnFilter(c) => {
+                SpreadsheetMessage::ClearAllColumnFilter(c)
+            }
+            ColumnFilterAction::CloseColumnFilterModal => {
+                SpreadsheetMessage::CloseColumnFilterModal
+            }
+            ColumnFilterAction::ColumnFilterSearch(q) => SpreadsheetMessage::ColumnFilterSearch(q),
+            ColumnFilterAction::SetMode(m) => SpreadsheetMessage::SetFilterMode(m),
+            ColumnFilterAction::QueryChanged(q) => SpreadsheetMessage::FilterChanged(q),
+            ColumnFilterAction::ClearAllFilters => SpreadsheetMessage::ClearFilter,
+            ColumnFilterAction::NextHighlight => SpreadsheetMessage::NavigateNextHighlight,
+            ColumnFilterAction::PrevHighlight => SpreadsheetMessage::NavigatePrevHighlight,
+        }
+    }
 }

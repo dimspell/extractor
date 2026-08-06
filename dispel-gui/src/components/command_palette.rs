@@ -1,4 +1,4 @@
-use crate::message::{workspace::WorkspaceMessage, Message, MessageExt};
+use crate::message::{Message, MessageExt, workspace::WorkspaceMessage};
 use crate::style;
 use crate::workspace::EditorType;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
@@ -10,6 +10,8 @@ pub struct Command {
     pub label: &'static str,
     pub shortcut: Option<&'static str>,
     pub action: fn() -> Message,
+    /// Editor types this command applies to. Empty means universal (always shown).
+    pub applicable_editors: Vec<EditorType>,
 }
 
 impl Command {
@@ -20,56 +22,49 @@ impl Command {
                 label: "Undo",
                 shortcut: Some("Ctrl+Z"),
                 action: || Message::System(crate::message::system::SystemMessage::Undo),
+                applicable_editors: vec![],
             },
             Command {
                 id: "redo",
                 label: "Redo",
                 shortcut: Some("Ctrl+Y"),
                 action: || Message::System(crate::message::system::SystemMessage::Redo),
+                applicable_editors: vec![],
             },
             Command {
                 id: "toggle-history",
                 label: "Toggle Edit History",
                 shortcut: Some("Ctrl+H"),
-                action: || {
-                    Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleHistoryPanel,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleHistoryPanel),
+                applicable_editors: vec![],
             },
             Command {
                 id: "toggle-sidebar",
                 label: "Toggle Sidebar",
                 shortcut: None,
-                action: || {
-                    Message::Workspace(crate::message::workspace::WorkspaceMessage::ToggleSidebar)
-                },
+                action: || Message::Workspace(WorkspaceMessage::ToggleSidebar),
+                applicable_editors: vec![],
             },
             Command {
                 id: "toggle-command-palette",
                 label: "Toggle Command Palette",
-                shortcut: Some("Ctrl+P"),
-                action: || {
-                    Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleCommandPalette,
-                    )
-                },
+                shortcut: Some("Ctrl+Shift+P"),
+                action: || Message::Workspace(WorkspaceMessage::ToggleCommandPalette),
+                applicable_editors: vec![],
             },
             Command {
                 id: "toggle-global-search",
                 label: "Toggle Global Search",
-                shortcut: Some("Ctrl+F"),
-                action: || {
-                    Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ToggleGlobalSearch,
-                    )
-                },
+                shortcut: Some("Ctrl+P"),
+                action: || Message::Workspace(WorkspaceMessage::ToggleGlobalSearch),
+                applicable_editors: vec![],
             },
             Command {
                 id: "rebuild-index",
                 label: "Rebuild Search Index",
                 shortcut: None,
                 action: || Message::System(crate::message::system::SystemMessage::RebuildIndex),
+                applicable_editors: vec![],
             },
             // ── Workspace Management ─────────────────────────────────────
             Command {
@@ -77,6 +72,7 @@ impl Command {
                 label: "Clear: Workspace Tabs & Editors",
                 shortcut: None,
                 action: || Message::System(crate::message::system::SystemMessage::ClearWorkspace),
+                applicable_editors: vec![],
             },
             // ── Tool views ──────────────────────────────────────────────────
             Command {
@@ -84,14 +80,7 @@ impl Command {
                 label: "Open: DB Viewer",
                 shortcut: None,
                 action: || Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::DbViewer)),
-            },
-            Command {
-                id: "open-chest-editor",
-                label: "Open: Chest Editor",
-                shortcut: None,
-                action: || {
-                    Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::ChestEditor))
-                },
+                applicable_editors: vec![],
             },
             Command {
                 id: "open-store-editor",
@@ -100,29 +89,29 @@ impl Command {
                 action: || {
                     Message::Workspace(WorkspaceMessage::OpenToolTab(EditorType::StoreEditor))
                 },
+                applicable_editors: vec![],
             },
             // ── File operations ──────────────────────────────────────────────
             Command {
                 id: "open-as-hex",
                 label: "Open current file in the hex editor",
                 shortcut: Some("Ctrl+Shift+X"),
-                action: || {
-                    Message::Workspace(
-                        crate::message::workspace::WorkspaceMessage::ReopenActiveTabAsHex,
-                    )
-                },
+                action: || Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex),
+                applicable_editors: vec![],
             },
             Command {
                 id: "hex-search",
                 label: "Hex editor: Search (Find)",
                 shortcut: Some("Ctrl+F"),
                 action: || Message::hex_editor(hexedit::HexEditorMessage::OpenSearch),
+                applicable_editors: vec![EditorType::HexEditor],
             },
             Command {
                 id: "hex-goto",
                 label: "Hex editor: Go to address",
                 shortcut: Some("Ctrl+G"),
                 action: || Message::hex_editor(hexedit::HexEditorMessage::OpenGotoDialog),
+                applicable_editors: vec![EditorType::HexEditor],
             },
             Command {
                 id: "browse-game-path",
@@ -131,6 +120,7 @@ impl Command {
                 action: || {
                     Message::System(crate::message::system::SystemMessage::BrowseSharedGamePath)
                 },
+                applicable_editors: vec![],
             },
             // ── Weapon Editor ────────────────────────────────────────────────
             Command {
@@ -140,12 +130,14 @@ impl Command {
                 action: || {
                     Message::weapon(crate::editors::weapon::WeaponEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::WeaponEditor],
             },
             Command {
                 id: "save-weapons",
                 label: "Save: Weapon Editor",
                 shortcut: None,
                 action: || Message::weapon(crate::editors::weapon::WeaponEditorMessage::Save),
+                applicable_editors: vec![EditorType::WeaponEditor],
             },
             // ── Heal Item Editor ─────────────────────────────────────────────
             Command {
@@ -157,6 +149,7 @@ impl Command {
                         crate::editors::heal_item::HealItemEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::HealItemEditor],
             },
             Command {
                 id: "save-heal-items",
@@ -165,6 +158,7 @@ impl Command {
                 action: || {
                     Message::heal_item(crate::editors::heal_item::HealItemEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::HealItemEditor],
             },
             // ── Misc Item Editor ─────────────────────────────────────────────
             Command {
@@ -176,6 +170,7 @@ impl Command {
                         crate::editors::misc_item::MiscItemEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::MiscItemEditor],
             },
             Command {
                 id: "save-misc-items",
@@ -184,6 +179,7 @@ impl Command {
                 action: || {
                     Message::misc_item(crate::editors::misc_item::MiscItemEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::MiscItemEditor],
             },
             // ── Magic Editor ─────────────────────────────────────────────────
             Command {
@@ -191,12 +187,14 @@ impl Command {
                 label: "Scan: Load Magic catalog",
                 shortcut: None,
                 action: || Message::magic(crate::editors::magic::MagicEditorMessage::LoadCatalog),
+                applicable_editors: vec![EditorType::MagicEditor],
             },
             Command {
                 id: "save-magic",
                 label: "Save: Magic Editor",
                 shortcut: None,
                 action: || Message::magic(crate::editors::magic::MagicEditorMessage::Save),
+                applicable_editors: vec![EditorType::MagicEditor],
             },
             // ── Monster Editor ───────────────────────────────────────────────
             Command {
@@ -206,12 +204,14 @@ impl Command {
                 action: || {
                     Message::monster(crate::editors::monster::MonsterEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::MonsterEditor],
             },
             Command {
                 id: "save-monsters",
                 label: "Save: Monster Editor",
                 shortcut: None,
                 action: || Message::monster(crate::editors::monster::MonsterEditorMessage::Save),
+                applicable_editors: vec![EditorType::MonsterEditor],
             },
             // ── Party Ref Editor ─────────────────────────────────────────────
             Command {
@@ -223,6 +223,7 @@ impl Command {
                         crate::editors::party_ref::PartyRefEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::PartyRefEditor],
             },
             Command {
                 id: "save-party-ref",
@@ -231,6 +232,7 @@ impl Command {
                 action: || {
                     Message::party_ref(crate::editors::party_ref::PartyRefEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::PartyRefEditor],
             },
             // ── Party Ini Editor ─────────────────────────────────────────────
             Command {
@@ -242,6 +244,7 @@ impl Command {
                         crate::editors::party_ini::PartyIniEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::PartyIniEditor],
             },
             Command {
                 id: "save-party-ini",
@@ -250,6 +253,7 @@ impl Command {
                 action: || {
                     Message::party_ini(crate::editors::party_ini::PartyIniEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::PartyIniEditor],
             },
             // ── ChData Editor ────────────────────────────────────────────────
             Command {
@@ -259,12 +263,14 @@ impl Command {
                 action: || {
                     Message::chdata(crate::editors::chdata::ChDataEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::ChDataEditor],
             },
             Command {
                 id: "save-chdata",
                 label: "Save: ChData Editor",
                 shortcut: None,
                 action: || Message::chdata(crate::editors::chdata::ChDataEditorMessage::Save),
+                applicable_editors: vec![EditorType::ChDataEditor],
             },
             // ── Map Ini Editor ───────────────────────────────────────────────
             Command {
@@ -274,12 +280,14 @@ impl Command {
                 action: || {
                     Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::MapIniEditor],
             },
             Command {
                 id: "save-map-ini",
                 label: "Save: Map Ini Editor",
                 shortcut: None,
                 action: || Message::map_ini(crate::editors::map_ini::MapIniEditorMessage::Save),
+                applicable_editors: vec![EditorType::MapIniEditor],
             },
             // ── Wave Ini Editor ──────────────────────────────────────────────
             Command {
@@ -289,12 +297,14 @@ impl Command {
                 action: || {
                     Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::WaveIniEditor],
             },
             Command {
                 id: "save-wave-ini",
                 label: "Save: Wave Ini Editor",
                 shortcut: None,
                 action: || Message::wave_ini(crate::editors::wave_ini::WaveIniEditorMessage::Save),
+                applicable_editors: vec![EditorType::WaveIniEditor],
             },
             // ── Event Ini Editor ─────────────────────────────────────────────
             Command {
@@ -306,6 +316,7 @@ impl Command {
                         crate::editors::event_ini::EventIniEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::EventIniEditor],
             },
             Command {
                 id: "save-event-ini",
@@ -314,6 +325,7 @@ impl Command {
                 action: || {
                     Message::event_ini(crate::editors::event_ini::EventIniEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::EventIniEditor],
             },
             // ── NPC Ini Editor ───────────────────────────────────────────────
             Command {
@@ -323,12 +335,14 @@ impl Command {
                 action: || {
                     Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::LoadCatalog)
                 },
+                applicable_editors: vec![EditorType::NpcIniEditor],
             },
             Command {
                 id: "save-npc-ini",
                 label: "Save: NPC Ini Editor",
                 shortcut: None,
                 action: || Message::npc_ini(crate::editors::npc_ini::NpcIniEditorMessage::Save),
+                applicable_editors: vec![EditorType::NpcIniEditor],
             },
             // ── Quest Scr Editor ─────────────────────────────────────────────
             Command {
@@ -340,6 +354,7 @@ impl Command {
                         crate::editors::quest_scr::QuestScrEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::QuestScrEditor],
             },
             Command {
                 id: "save-quest-scr",
@@ -348,6 +363,7 @@ impl Command {
                 action: || {
                     Message::quest_scr(crate::editors::quest_scr::QuestScrEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::QuestScrEditor],
             },
             // ── Message Scr Editor ───────────────────────────────────────────
             Command {
@@ -359,6 +375,7 @@ impl Command {
                         crate::editors::message_scr::MessageScrEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::QuestScrEditor],
             },
             Command {
                 id: "save-message-scr",
@@ -367,6 +384,7 @@ impl Command {
                 action: || {
                     Message::message_scr(crate::editors::message_scr::MessageScrEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::MessageScrEditor],
             },
             // ── Extra Ini Editor ─────────────────────────────────────────────
             Command {
@@ -378,6 +396,7 @@ impl Command {
                         crate::editors::extra_ini::ExtraIniEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::ExtraIniEditor],
             },
             Command {
                 id: "save-extra-ini",
@@ -386,6 +405,7 @@ impl Command {
                 action: || {
                     Message::extra_ini(crate::editors::extra_ini::ExtraIniEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::ExtraIniEditor],
             },
             // ── Event NpcRef Editor ──────────────────────────────────────────
             Command {
@@ -397,6 +417,7 @@ impl Command {
                         crate::editors::event_npc_ref::EventNpcRefEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::EventNpcRefEditor],
             },
             Command {
                 id: "save-event-npc-ref",
@@ -407,6 +428,7 @@ impl Command {
                         crate::editors::event_npc_ref::EventNpcRefEditorMessage::Save,
                     )
                 },
+                applicable_editors: vec![EditorType::EventNpcRefEditor],
             },
             // ── All Map Ini Editor ───────────────────────────────────────────
             Command {
@@ -418,6 +440,7 @@ impl Command {
                         crate::editors::all_map_ini::AllMapIniEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::MapIniEditor],
             },
             Command {
                 id: "save-all-map-ini",
@@ -426,6 +449,7 @@ impl Command {
                 action: || {
                     Message::all_map_ini(crate::editors::all_map_ini::AllMapIniEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::MapIniEditor],
             },
             // ── Party Level Db Editor ────────────────────────────────────────
             Command {
@@ -437,6 +461,7 @@ impl Command {
                         crate::editors::party_level_db::PartyLevelDbEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::PartyLevelDbEditor],
             },
             Command {
                 id: "save-party-level-db",
@@ -447,6 +472,7 @@ impl Command {
                         crate::editors::party_level_db::PartyLevelDbEditorMessage::Save,
                     )
                 },
+                applicable_editors: vec![EditorType::PartyLevelDbEditor],
             },
             // ── Draw Item Editor ─────────────────────────────────────────────
             Command {
@@ -458,6 +484,7 @@ impl Command {
                         crate::editors::draw_item::DrawItemEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::DrawItemEditor],
             },
             Command {
                 id: "save-draw-item",
@@ -466,6 +493,7 @@ impl Command {
                 action: || {
                     Message::draw_item(crate::editors::draw_item::DrawItemEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::DrawItemEditor],
             },
             // ── Edit Item Editor ─────────────────────────────────────────────
             Command {
@@ -477,6 +505,7 @@ impl Command {
                         crate::editors::edit_item::EditItemEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::EditItemEditor],
             },
             Command {
                 id: "save-edit-items",
@@ -485,6 +514,7 @@ impl Command {
                 action: || {
                     Message::edit_item(crate::editors::edit_item::EditItemEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::EditItemEditor],
             },
             // ── Event Item Editor ────────────────────────────────────────────
             Command {
@@ -496,6 +526,7 @@ impl Command {
                         crate::editors::event_item::EventItemEditorMessage::LoadCatalog,
                     )
                 },
+                applicable_editors: vec![EditorType::EventItemEditor],
             },
             Command {
                 id: "save-event-items",
@@ -504,6 +535,7 @@ impl Command {
                 action: || {
                     Message::event_item(crate::editors::event_item::EventItemEditorMessage::Save)
                 },
+                applicable_editors: vec![EditorType::EventItemEditor],
             },
         ]
     }
@@ -515,6 +547,7 @@ pub struct CommandPalette {
     pub filtered_commands: Vec<Command>,
     pub selected_index: usize,
     pub all_commands: Vec<Command>,
+    pub active_editor_type: Option<EditorType>,
 }
 
 impl CommandPalette {
@@ -525,7 +558,13 @@ impl CommandPalette {
             filtered_commands: all_commands.clone(),
             selected_index: 0,
             all_commands,
+            active_editor_type: None,
         }
+    }
+
+    pub fn set_active_editor_type(&mut self, editor_type: Option<EditorType>) {
+        self.active_editor_type = editor_type;
+        self.update_input(self.input_value.clone());
     }
 
     pub fn update_input(&mut self, input: String) {
@@ -535,30 +574,33 @@ impl CommandPalette {
     }
 
     fn filter_commands(&mut self, query: &str) {
-        if query.is_empty() {
-            self.filtered_commands = self.all_commands.clone();
-            return;
-        }
-
-        let mut scored: Vec<(u32, usize)> = self
+        self.filtered_commands = self
             .all_commands
             .iter()
-            .enumerate()
-            .filter_map(|(idx, cmd)| {
-                let score = fuzzy_score(cmd.label, query);
-                if score > 0 {
-                    Some((score, idx))
+            .filter(|cmd| {
+                // If query is empty, show all commands that match the editor scope
+                if query.is_empty() {
+                    match &self.active_editor_type {
+                        Some(editor_type) => {
+                            cmd.applicable_editors.is_empty()
+                                || cmd.applicable_editors.contains(editor_type)
+                        }
+                        None => true,
+                    }
                 } else {
-                    None
+                    // Both query and editor scope must match
+                    let query_matches = fuzzy_score(cmd.label, query) > 0;
+                    let editor_matches = match &self.active_editor_type {
+                        Some(editor_type) => {
+                            cmd.applicable_editors.is_empty()
+                                || cmd.applicable_editors.contains(editor_type)
+                        }
+                        None => true,
+                    };
+                    query_matches && editor_matches
                 }
             })
-            .collect();
-
-        scored.sort_by_key(|b| std::cmp::Reverse(b.0));
-
-        self.filtered_commands = scored
-            .into_iter()
-            .map(|(_, idx)| self.all_commands[idx].clone())
+            .cloned()
             .collect();
 
         if self.selected_index >= self.filtered_commands.len() {
@@ -610,7 +652,8 @@ impl CommandPalette {
         let input = text_input("Search commands...", &self.input_value)
             .id(Self::input_id())
             .on_input(|s| Message::Workspace(WorkspaceMessage::CommandPaletteInput(s)))
-            .padding(12);
+            .padding(12)
+            .accessible_label("Command palette");
 
         let commands: Vec<Element<_>> = self
             .filtered_commands
@@ -651,7 +694,7 @@ impl CommandPalette {
         let content = column![input, list].spacing(8).padding(16);
 
         container(content)
-            .max_width(500)
+            .width(500)
             .style(style::modal_container)
             .into()
     }

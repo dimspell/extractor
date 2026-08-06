@@ -1,7 +1,6 @@
 // ── Hit-testing: find what's under the cursor ────────────────────────────────
 
-use super::geometry::{screen_to_tile, tile_world_center};
-use super::HOVER_RADIUS_PX;
+use crate::components::map_render::{HOVER_RADIUS_PX, screen_to_tile, tile_world_center};
 use crate::editors::map_editor::message::SelectedEntity;
 use crate::editors::map_editor::state::MapEditorState;
 
@@ -115,16 +114,16 @@ pub fn find_hovered_element(state: &MapEditorState, cx: f32, cy: f32) -> Option<
         return Some(entity);
     }
     // 2. Try collision tiles (only when collision layer is visible)
-    if state.view.show_collisions {
-        if let Some((tx, ty)) = find_hovered_collision_tile(state, cx, cy) {
-            return Some(SelectedEntity::CollisionTile(tx, ty));
-        }
+    if state.view.show_collisions
+        && let Some((tx, ty)) = find_hovered_collision_tile(state, cx, cy)
+    {
+        return Some(SelectedEntity::CollisionTile(tx, ty));
     }
     // 3. Try event tiles (only when event layer is visible)
-    if state.view.show_events {
-        if let Some((tx, ty)) = find_hovered_event_tile(state, cx, cy) {
-            return Some(SelectedEntity::EventTile(tx, ty));
-        }
+    if state.view.show_events
+        && let Some((tx, ty)) = find_hovered_event_tile(state, cx, cy)
+    {
+        return Some(SelectedEntity::EventTile(tx, ty));
     }
     None
 }

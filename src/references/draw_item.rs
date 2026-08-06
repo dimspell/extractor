@@ -3,16 +3,15 @@ use std::path::Path;
 
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
-use crate::references::enums::ItemTypeId;
+use crate::references::enums::{InventoryItem, ItemTypeId};
 use crate::references::extractor::Extractor;
 
 /// Stores map placement data for drawn items/objects.
 ///
-/// The struct uses decoded form with separate item_type and item_id fields,
-/// while file I/O maintains compatibility with the encoded i32 format.
+/// The struct uses an `InventoryItem` field that stores the raw encoded i32 value.
 ///
 /// Reads file: `Ref/DRAWITEM.ref`
 ///
@@ -42,8 +41,8 @@ use crate::references::extractor::Extractor;
 /// # Storage Formats
 ///
 /// - File format: Encoded i32 (for compatibility with game files)
-/// - Memory (`DrawItem` struct): Separate fields (`item_id: u8`, `item_type: ItemTypeId`)
-/// - Database: Separate columns (`item_id: INTEGER`, `item_type: INTEGER`)
+/// - Memory (`DrawItem` struct): `item: InventoryItem` (raw i32 encoding)
+/// - Database: Separate columns (`item_id: INTEGER`, `item_type: INTEGER`, `item_raw: INTEGER`)
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DrawItem {
     /// Target map for placement (a reference to the AllMap.ini).
@@ -52,10 +51,8 @@ pub struct DrawItem {
     pub x_coord: i32,
     /// Tile Y coordinate.
     pub y_coord: i32,
-    /// Object type/category.
-    pub item_type: ItemTypeId,
-    /// Specific object/item ID (0-255).
-    pub item_id: u8,
+    /// Encoded item (i32: low byte = item_id, second byte = item_type).
+    pub item: InventoryItem,
 }
 
 impl Extractor for DrawItem {
@@ -83,17 +80,12 @@ impl Extractor for DrawItem {
             let x_coord = parts[1].parse::<i32>().unwrap();
             let y_coord = parts[2].parse::<i32>().unwrap();
             let encoded_item_id = parts[3].parse::<i32>().unwrap();
-            let encoded_item_id: [u8; 4] = encoded_item_id.to_le_bytes();
-
-            let item_type = ItemTypeId::from_u8(encoded_item_id[1]).unwrap_or(ItemTypeId::Other);
-            let item_id = encoded_item_id[0];
 
             draw_items.push(DrawItem {
                 map_id,
                 x_coord,
                 y_coord,
-                item_type,
-                item_id,
+                item: encoded_item_id.into(),
             });
         }
         Ok(draw_items)
@@ -101,9 +93,7 @@ impl Extractor for DrawItem {
 
     fn to_writer<W: Write>(records: &[Self], writer: &mut W) -> std::io::Result<()> {
         for record in records {
-            // Reconstruct the encoded item_id from item_type and item_id
-            let item_type_byte: u8 = record.item_type.into();
-            let encoded_item_id = i32::from_le_bytes([record.item_id, item_type_byte, 0, 0]);
+            let encoded_item_id = record.item.raw();
 
             let line = format!(
                 "({},{},{},{})\r\n",
@@ -125,15 +115,13 @@ pub fn save_draw_items(conn: &mut Connection, draw_items: &[DrawItem]) -> Result
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_draw_item.sql"))?;
         for draw_item in draw_items {
-            // Store decoded form: item_id and item_type separately
-            let item_type_value: u8 = draw_item.item_type.into();
-
             stmt.execute(params![
                 draw_item.map_id,
                 draw_item.x_coord,
                 draw_item.y_coord,
-                draw_item.item_id as i32,
-                item_type_value as i32,
+                draw_item.item.item_id() as i32,
+                u8::from(draw_item.item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
+                draw_item.item.raw(),
             ])?;
         }
     }
@@ -158,8 +146,8 @@ mod tests {
         assert_eq!(items[0].map_id, 1);
         assert_eq!(items[0].x_coord, 10);
         assert_eq!(items[0].y_coord, 20);
-        assert_eq!(items[0].item_id, 5);
-        assert_eq!(items[0].item_type, ItemTypeId::Healing);
+        assert_eq!(items[0].item.item_id(), 5);
+        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::Healing));
     }
 
     #[test]
@@ -169,8 +157,8 @@ mod tests {
         let items = DrawItem::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].map_id, 2);
-        assert_eq!(items[0].item_id, 1);
-        assert_eq!(items[0].item_type, ItemTypeId::Other); // byte[1]=0 → no match → Other
+        assert_eq!(items[0].item.item_id(), 1);
+        assert_eq!(items[0].item.item_type(), Some(ItemTypeId::Other)); // byte[1]=0 → no match → Other
     }
 
     #[test]
@@ -185,6 +173,6 @@ mod tests {
         assert_eq!(records.len(), records2.len());
         assert_eq!(records[0].map_id, records2[0].map_id);
         assert_eq!(records[0].x_coord, records2[0].x_coord);
-        assert_eq!(records[0].item_id, records2[0].item_id);
+        assert_eq!(records[0].item.raw(), records2[0].item.raw());
     }
 }

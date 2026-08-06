@@ -1,7 +1,7 @@
 -- Dispel game file decoder example for the hexedit Lua inspector.
 --
 -- Place this file in <game_path>/hexedit_scripts/ (or pass --script-dir
--- pointing to it in the standalone hexedit-bin). Each script must return
+-- pointing to it in the standalone hexedit). Each script must return
 -- a table with at minimum:
 --   name     – display name in the inspector panel
 --   min_size – minimum number of bytes required

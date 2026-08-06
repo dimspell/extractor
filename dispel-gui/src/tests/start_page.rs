@@ -1,6 +1,6 @@
 use crate::app::{App, AppMode};
-use crate::message::startpage::StartPageMessage;
 use crate::message::Message;
+use crate::message::startpage::StartPageMessage;
 use crate::workspace::Workspace;
 use std::path::PathBuf;
 

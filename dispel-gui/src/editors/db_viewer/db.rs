@@ -181,14 +181,14 @@ pub fn build_table_query(
         sql.push_str(&conditions.join(" OR "));
     }
 
-    if let Some(idx) = sort_col {
-        if idx < columns.len() {
-            sql.push_str(&format!(
-                " ORDER BY \"{}\" {}",
-                escape_ident(&columns[idx].name),
-                sort_dir.sql()
-            ));
-        }
+    if let Some(idx) = sort_col
+        && idx < columns.len()
+    {
+        sql.push_str(&format!(
+            " ORDER BY \"{}\" {}",
+            escape_ident(&columns[idx].name),
+            sort_dir.sql()
+        ));
     }
 
     sql

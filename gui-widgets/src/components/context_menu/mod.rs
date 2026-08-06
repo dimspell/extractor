@@ -6,12 +6,10 @@ pub mod state;
 #[cfg(test)]
 mod tests;
 
-use std::slice;
-
 use iced::advanced::overlay as iced_overlay;
 use iced::advanced::widget::tree;
-use iced::advanced::{layout, renderer, widget, Clipboard, Layout, Shell, Widget};
-use iced::{mouse, Element, Event, Point, Rectangle, Vector};
+use iced::advanced::{Layout, Shell, Widget, layout, renderer, widget};
+use iced::{Element, Event, Point, Rectangle, Vector, mouse};
 
 pub use entry::Entry;
 pub use state::{State, Status};
@@ -81,10 +79,6 @@ where
         self.base.as_widget().size()
     }
 
-    fn size_hint(&self) -> iced::Size<iced::Length> {
-        self.base.as_widget().size_hint()
-    }
-
     fn tag(&self) -> tree::Tag {
         tree::Tag::of::<State>()
     }
@@ -93,12 +87,8 @@ where
         tree::State::new(State::default())
     }
 
-    fn children(&self) -> Vec<widget::Tree> {
-        vec![widget::Tree::new(&self.base)]
-    }
-
-    fn diff(&self, tree: &mut widget::Tree) {
-        tree.diff_children(slice::from_ref(&self.base));
+    fn diff(&mut self, tree: &mut widget::Tree) {
+        tree.diff_children(std::slice::from_mut(&mut self.base));
     }
 
     fn layout(
@@ -140,7 +130,6 @@ where
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         renderer: &iced::Renderer,
-        clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
@@ -150,7 +139,6 @@ where
             layout,
             cursor,
             renderer,
-            clipboard,
             shell,
             viewport,
         );
@@ -159,31 +147,31 @@ where
             return;
         }
 
-        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
-            if let Some(position) = cursor.position_over(layout.bounds()) {
-                let state = tree.state.downcast_mut::<State>();
+        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event
+            && let Some(position) = cursor.position_over(layout.bounds())
+        {
+            let state = tree.state.downcast_mut::<State>();
 
-                match platform::try_show_native_menu(&self.entries) {
-                    Some(platform::NativeResult::Selected(idx)) => {
-                        if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
-                            shell.publish(action.clone());
-                        }
-                        shell.capture_event();
-                        return;
+            match platform::try_show_native_menu(&self.entries) {
+                Some(platform::NativeResult::Selected(idx)) => {
+                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
+                        shell.publish(action.clone());
                     }
-                    Some(platform::NativeResult::Cancelled) => {
-                        shell.capture_event();
-                        return;
-                    }
-                    None => {}
+                    shell.capture_event();
+                    return;
                 }
-
-                state.status = Status::Open {
-                    position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
-                };
-                shell.capture_event();
-                shell.request_redraw();
+                Some(platform::NativeResult::Cancelled) => {
+                    shell.capture_event();
+                    return;
+                }
+                None => {}
             }
+
+            state.status = Status::Open {
+                position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
+            };
+            shell.capture_event();
+            shell.request_redraw();
         }
     }
 
@@ -232,12 +220,16 @@ where
             translation,
         );
 
-        let state = tree.state.downcast_mut::<State>();
+        // Gracefully handle uninitialized state (e.g. in pane_grid overlays)
+        let tree::State::Some(state) = &mut tree.state else {
+            return base_overlay;
+        };
+        let state = state.downcast_mut::<State>().expect("ContextMenu state");
 
         let context_overlay = match state.status {
             Status::Open { position } => {
-                let menu = popup::build_menu(&self.entries, state.hovered_idx);
-                state.menu_tree.diff(&menu);
+                let mut menu = popup::build_menu(&self.entries, state.hovered_idx);
+                state.menu_tree.diff(&mut menu);
                 Some(iced_overlay::Element::new(Box::new(MenuOverlay {
                     menu,
                     menu_tree: &mut state.menu_tree,

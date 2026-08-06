@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// WeaponItem.db - Weapons & Armor
@@ -102,11 +102,10 @@ pub struct WeaponItem {
     #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String,
     /// Shop value in gold.
-    #[extractor(primitive(type = "i16"))]
-    pub base_price: i16,
-    /// Padding field.
-    #[extractor(padding(count = 3, type = "i16"))]
-    pub padding1: i16,
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
+    #[extractor(primitive(type = "i32"))]
+    pub padding1: i32,
     /// HP modifier the equipment grants.
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
@@ -145,7 +144,7 @@ pub struct WeaponItem {
     pub durability: i16,
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
-    pub padding2: i16,
+    pub padding2: i16, // likely an extra effect here (a drain / fire attack)
     /// Padding field.
     #[extractor(padding(count = 1, type = "i16"))]
     pub padding3: i16,

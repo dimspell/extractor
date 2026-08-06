@@ -1,8 +1,8 @@
 //! Fixture-based tests for DialogueParagraph
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::dialogue_paragraph::DialogueParagraph;
 use dispel_core::Extractor;
+use dispel_core::references::dialogue_paragraph::DialogueParagraph;
 use std::path::Path;
 
 #[test]

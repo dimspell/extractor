@@ -26,17 +26,16 @@ use crate::components::editable::EditableRecord;
 fn parse_struct_fields(source: &str, struct_name: &str) -> Vec<String> {
     let ast = syn::parse_file(source).unwrap_or_else(|e| panic!("syn parse error: {e}"));
     for item in ast.items {
-        if let syn::Item::Struct(s) = item {
-            if s.ident == struct_name {
-                if let syn::Fields::Named(fields) = s.fields {
-                    return fields
-                        .named
-                        .iter()
-                        .filter_map(|f| f.ident.as_ref())
-                        .map(|i| i.to_string())
-                        .collect();
-                }
-            }
+        if let syn::Item::Struct(s) = item
+            && s.ident == struct_name
+            && let syn::Fields::Named(fields) = s.fields
+        {
+            return fields
+                .named
+                .iter()
+                .filter_map(|f| f.ident.as_ref())
+                .map(|i| i.to_string())
+                .collect();
         }
     }
     panic!("struct `{struct_name}` not found in source");
@@ -117,8 +116,8 @@ macro_rules! check_record {
 use dispel_core::{
     ChData, DialogueParagraph, DialogueScript, DrawItem, EditItem, Event, EventItem, EventNpcRef,
     Extra, ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterIni, MonsterRef,
-    NpcIni, PartyIniNpc, PartyLevelNpc, PartyLevelRecord, PartyRef, Quest, Store, WaveIni,
-    WeaponItem, NPC,
+    NPC, NpcIni, PartyIniNpc, PartyLevelNpc, PartyLevelRecord, PartyRef, Quest, Store, WaveIni,
+    WeaponItem,
 };
 // `Message` is the ScrMessage type in dispel_core.
 use dispel_core::Message as ScrMessage;
@@ -165,9 +164,7 @@ check_record!(
     src "src/references/draw_item.rs",
     struct "DrawItem",
     virtual_desc [],
-    skip_fields [
-        "item_id"    // paired with CompositeItem("items", item_id)
-    ]
+    skip_fields []
 );
 
 check_record!(
@@ -226,10 +223,7 @@ check_record!(
     struct "ExtraRef",
     virtual_desc [],
     skip_fields [
-        "number_in_file",
-        "required_item_id",
-        "required_item_id2",
-        "item_id"
+        "number_in_file"
     ]
 );
 
@@ -401,10 +395,7 @@ check_record!(
     struct "MonsterRef",
     virtual_desc [],
     skip_fields [
-        "index",
-        "loot1_item_id",
-        "loot2_item_id",
-        "loot3_item_id"
+        "index"
     ]
 );
 
@@ -414,7 +405,8 @@ check_record!(
     src "src/references/npc_ini.rs",
     struct "NpcIni",
     virtual_desc [],
-    skip_fields []
+    skip_fields [
+    ]
 );
 
 check_record!(
@@ -424,8 +416,7 @@ check_record!(
     struct "NPC",
     virtual_desc [],
     skip_fields [
-        "index",
-        "unknown_item_id"
+        "index"
     ]
 );
 

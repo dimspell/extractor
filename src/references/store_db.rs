@@ -3,11 +3,11 @@ use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use encoding_rs::WINDOWS_1250;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::ProductType;
-use crate::references::extractor::{read_mapper, read_null_terminated_windows_1250, Extractor};
+use crate::references::extractor::{Extractor, read_mapper, read_null_terminated_windows_1250};
 use dispel_macros::Localizable;
 
 /// Store.db - Shop & Inn Database

@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -36,7 +38,6 @@ pub enum EditorType {
     EventScrEditor,
     WaveIniEditor,
     AllMapIniEditor,
-    ChestEditor,
     SpriteViewer,
     SnfEditor,
     DbViewer,
@@ -46,6 +47,8 @@ pub enum EditorType {
     MapEditor,
     ModPackager,
     LocalizationManager,
+    /// Read-only viewer for Dispel .sav save files.
+    SaveFileViewer,
     /// Universal fallback editor for any binary file no dedicated editor
     /// claims. Also reachable via "Open as Hex" from the file tree.
     HexEditor,
@@ -56,73 +59,78 @@ pub enum EditorType {
 impl EditorType {
     /// Infer editor type from file extension and stem
     pub fn from_path(path: &std::path::Path) -> Self {
-        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
         let stem = path
             .file_stem()
             .map(|s| s.to_string_lossy().to_lowercase())
             .unwrap_or_default();
 
-        match ext.to_lowercase().as_str() {
-            "db" => match stem.as_str() {
-                "weaponitem" => EditorType::WeaponEditor,
-                "monster" => EditorType::MonsterEditor,
-                "healitem" => EditorType::HealItemEditor,
-                "miscitem" => EditorType::MiscItemEditor,
-                "edititem" => EditorType::EditItemEditor,
-                "eventitem" => EditorType::EventItemEditor,
-                "store" => EditorType::StoreEditor,
-                "magic" => EditorType::MagicEditor,
-                "chdata" => EditorType::ChDataEditor,
-                "prtlevel" => EditorType::PartyLevelDbEditor,
-                "prtini" => EditorType::PartyIniEditor,
-                _ => EditorType::HexEditor,
-            },
-            "ini" => match stem.as_str() {
-                "allmap" => EditorType::AllMapIniEditor,
-                "map" => EditorType::MapIniEditor,
-                "extra" => EditorType::ExtraIniEditor,
-                "event" => EditorType::EventIniEditor,
-                "monster" => EditorType::MonsterIniEditor,
-                "npc" => EditorType::NpcIniEditor,
-                "npcini" => EditorType::NpcIniEditor,
-                "wave" => EditorType::WaveIniEditor,
-                _ => EditorType::HexEditor,
-            },
-            "ref" => match stem.as_str() {
-                "partyref" => EditorType::PartyRefEditor,
-                "drawitem" => EditorType::DrawItemEditor,
-                "eventnpc" => EditorType::EventNpcRefEditor,
-                _ => {
-                    if stem.starts_with("npc") {
-                        EditorType::NpcRefEditor
-                    } else if stem.starts_with("mon") {
-                        EditorType::MonsterRefEditor
-                    } else if stem.starts_with("ext") {
-                        EditorType::ExtraRefEditor
-                    } else {
-                        EditorType::HexEditor
-                    }
-                }
-            },
-            "scr" => {
-                if stem.starts_with("event") {
-                    EditorType::EventScrEditor
-                } else {
-                    match stem.as_str() {
-                        "quest" => EditorType::QuestScrEditor,
-                        "message" => EditorType::MessageScrEditor,
-                        _ => EditorType::HexEditor,
-                    }
-                }
-            }
+        // Try direct (ext, stem) lookup first
+        if let Some(&et) = Self::editor_map().get(&(ext.as_str(), stem.as_str())) {
+            return et;
+        }
+
+        // Fallback: prefix-based patterns (cannot be exact-matched)
+        match ext.as_str() {
+            "ref" if stem.starts_with("npc") => return EditorType::NpcRefEditor,
+            "ref" if stem.starts_with("mon") => return EditorType::MonsterRefEditor,
+            "ref" if stem.starts_with("ext") => return EditorType::ExtraRefEditor,
+            "scr" if stem.starts_with("event") => return EditorType::EventScrEditor,
+            _ => {}
+        }
+
+        // Extension-only fallthroughs
+        match ext.as_str() {
             "btl" | "gtl" => EditorType::TilesetEditor,
             "dlg" => EditorType::DialogueScriptEditor,
             "pgp" => EditorType::DialogueTextEditor,
             "spr" => EditorType::SpriteViewer,
             "snf" => EditorType::SnfEditor,
             "map" => EditorType::MapEditor,
+            "sav" => EditorType::SaveFileViewer,
             _ => EditorType::HexEditor,
         }
+    }
+
+    /// Static map of (extension, stem) -> EditorType for exact-match lookups.
+    fn editor_map() -> &'static HashMap<(&'static str, &'static str), EditorType> {
+        static MAP: OnceLock<HashMap<(&'static str, &'static str), EditorType>> = OnceLock::new();
+        MAP.get_or_init(|| {
+            let mut m = HashMap::new();
+            // .db files
+            m.insert(("db", "weaponitem"), EditorType::WeaponEditor);
+            m.insert(("db", "monster"), EditorType::MonsterEditor);
+            m.insert(("db", "healitem"), EditorType::HealItemEditor);
+            m.insert(("db", "miscitem"), EditorType::MiscItemEditor);
+            m.insert(("db", "edititem"), EditorType::EditItemEditor);
+            m.insert(("db", "eventitem"), EditorType::EventItemEditor);
+            m.insert(("db", "store"), EditorType::StoreEditor);
+            m.insert(("db", "magic"), EditorType::MagicEditor);
+            m.insert(("db", "chdata"), EditorType::ChDataEditor);
+            m.insert(("db", "prtlevel"), EditorType::PartyLevelDbEditor);
+            m.insert(("db", "prtini"), EditorType::PartyIniEditor);
+            // .ini files
+            m.insert(("ini", "allmap"), EditorType::AllMapIniEditor);
+            m.insert(("ini", "map"), EditorType::MapIniEditor);
+            m.insert(("ini", "extra"), EditorType::ExtraIniEditor);
+            m.insert(("ini", "event"), EditorType::EventIniEditor);
+            m.insert(("ini", "monster"), EditorType::MonsterIniEditor);
+            m.insert(("ini", "npc"), EditorType::NpcIniEditor);
+            m.insert(("ini", "npcini"), EditorType::NpcIniEditor);
+            m.insert(("ini", "wave"), EditorType::WaveIniEditor);
+            // .ref files (exact stems only; prefix-based handled separately)
+            m.insert(("ref", "partyref"), EditorType::PartyRefEditor);
+            m.insert(("ref", "drawitem"), EditorType::DrawItemEditor);
+            m.insert(("ref", "eventnpc"), EditorType::EventNpcRefEditor);
+            // .scr files (exact stems only; "event*" prefix handled separately)
+            m.insert(("scr", "quest"), EditorType::QuestScrEditor);
+            m.insert(("scr", "message"), EditorType::MessageScrEditor);
+            m
+        })
     }
 
     /// Returns `true` if this editor type supports Ctrl+S saving.
@@ -134,12 +142,12 @@ impl EditorType {
     pub fn supports_save(&self) -> bool {
         !matches!(
             self,
-            EditorType::SpriteViewer
-                | EditorType::SnfEditor
+            EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
                 | EditorType::Unknown
         )
@@ -153,15 +161,14 @@ impl EditorType {
         !matches!(
             self,
             EditorType::EventScrEditor
-                | EditorType::SpriteViewer
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
                 | EditorType::TilesetEditor
                 | EditorType::MapEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
-                | EditorType::ChestEditor
                 | EditorType::Unknown
         )
     }
@@ -176,7 +183,6 @@ impl EditorType {
                 | EditorType::MonsterEditor
                 | EditorType::MonsterIniEditor
                 | EditorType::NpcIniEditor
-                | EditorType::ChestEditor
                 | EditorType::SpriteViewer
                 | EditorType::SnfEditor
                 | EditorType::DbViewer
@@ -184,6 +190,7 @@ impl EditorType {
                 | EditorType::MapEditor
                 | EditorType::ModPackager
                 | EditorType::LocalizationManager
+                | EditorType::SaveFileViewer
                 | EditorType::HexEditor
                 | EditorType::Unknown
         )
@@ -425,10 +432,10 @@ impl Workspace {
             } else {
                 Some(idx.min(self.tabs.len() - 1))
             };
-        } else if let Some(active) = self.active_tab {
-            if active > idx {
-                self.active_tab = Some(active - 1);
-            }
+        } else if let Some(active) = self.active_tab
+            && active > idx
+        {
+            self.active_tab = Some(active - 1);
         }
     }
 
@@ -441,18 +448,18 @@ impl Workspace {
     }
 
     pub fn mark_modified(&mut self) {
-        if let Some(idx) = self.active_tab {
-            if let Some(tab) = self.tabs.get_mut(idx) {
-                tab.modified = true;
-            }
+        if let Some(idx) = self.active_tab
+            && let Some(tab) = self.tabs.get_mut(idx)
+        {
+            tab.modified = true;
         }
     }
 
     pub fn clear_modified(&mut self) {
-        if let Some(idx) = self.active_tab {
-            if let Some(tab) = self.tabs.get_mut(idx) {
-                tab.modified = false;
-            }
+        if let Some(idx) = self.active_tab
+            && let Some(tab) = self.tabs.get_mut(idx)
+        {
+            tab.modified = false;
         }
     }
 

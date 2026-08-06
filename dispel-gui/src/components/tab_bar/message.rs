@@ -8,6 +8,16 @@ pub enum TabBarMessage {
     TogglePin(usize),
     CloseActiveTab,
     OpenAsHex(usize),
+    /// Start dragging a tab for reordering.
+    StartDrag(usize),
+    /// Finish a drag operation — move source to target position.
+    MoveTab(usize, usize),
+    /// Cursor entered a tab area (used during drag to highlight target).
+    TabEnter(usize),
+    /// Cursor left a tab area (clear drop target highlight).
+    TabLeave(usize),
+    /// Cancel an active drag operation.
+    CancelDrag,
 }
 
 #[cfg(test)]
@@ -201,6 +211,11 @@ mod tests {
             TabBarMessage::TogglePin(0),
             TabBarMessage::CloseActiveTab,
             TabBarMessage::OpenAsHex(0),
+            TabBarMessage::StartDrag(0),
+            TabBarMessage::MoveTab(0, 1),
+            TabBarMessage::TabEnter(0),
+            TabBarMessage::TabLeave(0),
+            TabBarMessage::CancelDrag,
         ];
         for msg in messages {
             match &msg {
@@ -211,7 +226,30 @@ mod tests {
                 TabBarMessage::TogglePin(_) => {}
                 TabBarMessage::CloseActiveTab => {}
                 TabBarMessage::OpenAsHex(_) => {}
+                TabBarMessage::StartDrag(_) => {}
+                TabBarMessage::MoveTab(_, _) => {}
+                TabBarMessage::TabEnter(_) => {}
+                TabBarMessage::TabLeave(_) => {}
+                TabBarMessage::CancelDrag => {}
             }
         }
+    }
+
+    #[test]
+    fn test_start_drag_message() {
+        let msg = TabBarMessage::StartDrag(2);
+        assert!(matches!(msg, TabBarMessage::StartDrag(2)));
+    }
+
+    #[test]
+    fn test_move_tab_message() {
+        let msg = TabBarMessage::MoveTab(0, 3);
+        assert!(matches!(msg, TabBarMessage::MoveTab(0, 3)));
+    }
+
+    #[test]
+    fn test_cancel_drag_message() {
+        let msg = TabBarMessage::CancelDrag;
+        assert!(matches!(msg, TabBarMessage::CancelDrag));
     }
 }

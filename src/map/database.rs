@@ -4,11 +4,11 @@ use std::path::Path;
 
 use crate::map::tileset;
 
-use super::render::{plot_atlas_tile, AtlasTileParams};
-use super::sprite_loader::{load_sprite_frames, plot_entity_sprite, LoadedSpriteFrame};
+use super::render::{AtlasTileParams, plot_atlas_tile};
+use super::sprite_loader::{LoadedSpriteFrame, load_sprite_frames, plot_entity_sprite};
 use super::types::{
-    convert_map_coords_to_image_coords, TiledObjectInfo, TILE_HEIGHT_HALF,
-    TILE_HORIZONTAL_OFFSET_HALF, TILE_WIDTH_HALF,
+    TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_WIDTH_HALF, TiledObjectInfo,
+    convert_map_coords_to_image_coords,
 };
 
 /// Configuration for rendering a map from database
@@ -385,19 +385,19 @@ fn render_external_entities(
                 sprite_cache.insert(key.clone(), loaded);
             }
 
-            if let Some(Some(frames)) = sprite_cache.get(&key) {
-                if !frames.is_empty() {
-                    let idx = entity.sprite_sequence.min(frames.len() - 1);
-                    let frame = &frames[idx];
-                    let sx = if entity.flip {
-                        cx - (frame.image.width() as i32 - frame.origin_x)
-                    } else {
-                        cx - frame.origin_x
-                    };
-                    let sy = cy - frame.origin_y;
-                    plot_entity_sprite(imgbuf, &frame.image, sx, sy, entity.flip);
-                    rendered = true;
-                }
+            if let Some(Some(frames)) = sprite_cache.get(&key)
+                && !frames.is_empty()
+            {
+                let idx = entity.sprite_sequence.min(frames.len() - 1);
+                let frame = &frames[idx];
+                let sx = if entity.flip {
+                    cx - (frame.image.width() as i32 - frame.origin_x)
+                } else {
+                    cx - frame.origin_x
+                };
+                let sy = cy - frame.origin_y;
+                plot_entity_sprite(imgbuf, &frame.image, sx, sy, entity.flip);
+                rendered = true;
             }
         }
 
@@ -426,10 +426,10 @@ fn load_entity_sprite(
         ];
 
         for p in &try_paths {
-            if p.exists() {
-                if let Some(frames) = load_sprite_frames(p) {
-                    return Some(frames);
-                }
+            if p.exists()
+                && let Some(frames) = load_sprite_frames(p)
+            {
+                return Some(frames);
             }
         }
     }
@@ -501,25 +501,25 @@ fn collect_monsters(
                  WHERE mr.file_path LIKE '%{}'",
                 name
             );
-            if let Ok(mut stmt) = conn.prepare(&q) {
-                if let Ok(iter) = stmt.query_map([], |row| {
+            if let Ok(mut stmt) = conn.prepare(&q)
+                && let Ok(iter) = stmt.query_map([], |row| {
                     Ok((
                         row.get::<_, i32>(0)?,
                         row.get::<_, i32>(1)?,
                         row.get::<_, Option<String>>(2)?,
                     ))
-                }) {
-                    for row in iter.filter_map(|r| r.ok()) {
-                        entities.push(ExternalEntity {
-                            x: row.0,
-                            y: row.1,
-                            color: image::Rgba([255, 60, 60, 255]),
-                            sprite_filename: row.2,
-                            sprite_dir: "MonsterInGame",
-                            sprite_sequence: 3,
-                            flip: false,
-                        });
-                    }
+                })
+            {
+                for row in iter.filter_map(|r| r.ok()) {
+                    entities.push(ExternalEntity {
+                        x: row.0,
+                        y: row.1,
+                        color: image::Rgba([255, 60, 60, 255]),
+                        sprite_filename: row.2,
+                        sprite_dir: "MonsterInGame",
+                        sprite_sequence: 3,
+                        flip: false,
+                    });
                 }
             }
         }
@@ -545,8 +545,8 @@ fn collect_npcs(
                  WHERE nr.file_path LIKE '%{}'",
                 name
             );
-            if let Ok(mut stmt) = conn.prepare(&q) {
-                if let Ok(iter) = stmt.query_map([], |row| {
+            if let Ok(mut stmt) = conn.prepare(&q)
+                && let Ok(iter) = stmt.query_map([], |row| {
                     Ok((
                         row.get::<_, i32>(0)?,             // show_on_event
                         row.get::<_, i32>(1)?,             // goto1_filled
@@ -564,38 +564,38 @@ fn collect_npcs(
                         row.get::<_, Option<String>>(13)?, // sprite_filename
                         row.get::<_, i32>(14)?,            // looking_direction
                     ))
-                }) {
-                    for row in iter.filter_map(|r| r.ok()) {
-                        // Find first active waypoint
-                        let waypoints = [
-                            (row.1, row.2, row.3),    // goto1
-                            (row.4, row.5, row.6),    // goto2
-                            (row.7, row.8, row.9),    // goto3
-                            (row.10, row.11, row.12), // goto4
-                        ];
+                })
+            {
+                for row in iter.filter_map(|r| r.ok()) {
+                    // Find first active waypoint
+                    let waypoints = [
+                        (row.1, row.2, row.3),    // goto1
+                        (row.4, row.5, row.6),    // goto2
+                        (row.7, row.8, row.9),    // goto3
+                        (row.10, row.11, row.12), // goto4
+                    ];
 
-                        let (x, y) = waypoints
-                            .iter()
-                            .find(|(filled, _, _)| *filled != 0)
-                            .map(|(_, x, y)| (*x, *y))
-                            .unwrap_or((row.2, row.3)); // Fallback to goto1
+                    let (x, y) = waypoints
+                        .iter()
+                        .find(|(filled, _, _)| *filled != 0)
+                        .map(|(_, x, y)| (*x, *y))
+                        .unwrap_or((row.2, row.3)); // Fallback to goto1
 
-                        let direction = row.14;
-                        let seq = if direction > 4 {
-                            (8 - direction) as usize
-                        } else {
-                            direction as usize
-                        };
-                        entities.push(ExternalEntity {
-                            x,
-                            y,
-                            color: image::Rgba([60, 255, 60, 255]),
-                            sprite_filename: row.13,
-                            sprite_dir: "NpcInGame",
-                            sprite_sequence: seq,
-                            flip: direction > 4,
-                        });
-                    }
+                    let direction = row.14;
+                    let seq = if direction > 4 {
+                        (8 - direction) as usize
+                    } else {
+                        direction as usize
+                    };
+                    entities.push(ExternalEntity {
+                        x,
+                        y,
+                        color: image::Rgba([60, 255, 60, 255]),
+                        sprite_filename: row.13,
+                        sprite_dir: "NpcInGame",
+                        sprite_sequence: seq,
+                        flip: direction > 4,
+                    });
                 }
             }
         }
@@ -617,8 +617,8 @@ fn collect_extras(
                  WHERE er.file_path LIKE '%{}'",
                 name
             );
-            if let Ok(mut stmt) = conn.prepare(&q) {
-                if let Ok(iter) = stmt.query_map([], |row| {
+            if let Ok(mut stmt) = conn.prepare(&q)
+                && let Ok(iter) = stmt.query_map([], |row| {
                     Ok((
                         row.get::<_, i32>(0)?,
                         row.get::<_, i32>(1)?,
@@ -627,24 +627,24 @@ fn collect_extras(
                         row.get::<_, i32>(4)?,
                         row.get::<_, i32>(5)?,
                     ))
-                }) {
-                    for row in iter.filter_map(|r| r.ok()) {
-                        let (rotation, obj_type, closed) = (row.3, row.4, row.5);
-                        let seq = if obj_type == 0 {
-                            (2 * closed + rotation) as usize
-                        } else {
-                            rotation as usize
-                        };
-                        entities.push(ExternalEntity {
-                            x: row.0,
-                            y: row.1,
-                            color: image::Rgba([80, 120, 255, 255]),
-                            sprite_filename: row.2,
-                            sprite_dir: "ExtraInGame",
-                            sprite_sequence: seq,
-                            flip: false,
-                        });
-                    }
+                })
+            {
+                for row in iter.filter_map(|r| r.ok()) {
+                    let (rotation, obj_type, closed) = (row.3, row.4, row.5);
+                    let seq = if obj_type == 0 {
+                        (2 * closed + rotation) as usize
+                    } else {
+                        rotation as usize
+                    };
+                    entities.push(ExternalEntity {
+                        x: row.0,
+                        y: row.1,
+                        color: image::Rgba([80, 120, 255, 255]),
+                        sprite_filename: row.2,
+                        sprite_dir: "ExtraInGame",
+                        sprite_sequence: seq,
+                        flip: false,
+                    });
                 }
             }
         }

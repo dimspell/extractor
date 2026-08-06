@@ -80,7 +80,7 @@ run-custom-context-menu:
 	sh -ac "FORCE_CUSTOM_CONTEXT_MENU=1 cargo run -p dispel-gui"
 
 hexedit:
-	cargo run -p hexedit --bin hexedit-bin -- file.bin --script-dir ./scripts
+	cargo run -p hexedit -- file.bin --script-dir ./scripts
 
 # ============================================================================
 # extract — Read game files and output as JSON

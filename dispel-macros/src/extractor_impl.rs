@@ -165,13 +165,31 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 });
                 struct_field_inits.push(quote! { #ident: #ident, });
             }
+            FieldInfo::InventoryItem { ident, wire_type } => {
+                let read_stmt = match wire_type.as_str() {
+                    "u16" => {
+                        quote! { InventoryItem::from(byteorder::ReadBytesExt::read_u16::<byteorder::LittleEndian>(reader)?) }
+                    }
+                    "i16" => {
+                        quote! { InventoryItem::from(byteorder::ReadBytesExt::read_i16::<byteorder::LittleEndian>(reader)?) }
+                    }
+                    "i32" => {
+                        quote! { InventoryItem::from(byteorder::ReadBytesExt::read_i32::<byteorder::LittleEndian>(reader)?) }
+                    }
+                    _ => panic!("Unsupported wire_type for inventory_item: {}", wire_type),
+                };
+                parse_stmts.push(quote! {
+                    let #ident = #read_stmt;
+                });
+                struct_field_inits.push(quote! { #ident: #ident, });
+            }
             FieldInfo::Padding {
                 ident,
                 count,
                 ty,
                 default_value,
             } => {
-                let default_expr = if let Some(ref dv) = default_value {
+                let default_expr = if let Some(dv) = default_value {
                     match ty.as_str() {
                         "i16" => {
                             let val = dv.parse::<i16>().expect("default_value must be i16");
@@ -299,6 +317,23 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                     writer.write_all(&record.#ident)?;
                 });
             }
+            FieldInfo::InventoryItem { ident, wire_type } => {
+                let write_stmt = match wire_type.as_str() {
+                    "u16" => {
+                        quote! { byteorder::WriteBytesExt::write_u16::<byteorder::LittleEndian>(writer, record.#ident.raw() as u16)?; }
+                    }
+                    "i16" => {
+                        quote! { byteorder::WriteBytesExt::write_i16::<byteorder::LittleEndian>(writer, record.#ident.raw() as i16)?; }
+                    }
+                    "i32" => {
+                        quote! { byteorder::WriteBytesExt::write_i32::<byteorder::LittleEndian>(writer, record.#ident.raw())?; }
+                    }
+                    _ => panic!("Unsupported wire_type for inventory_item: {}", wire_type),
+                };
+                write_stmts.push(quote! {
+                    #write_stmt
+                });
+            }
             FieldInfo::Padding {
                 ident: _,
                 count,
@@ -392,6 +427,10 @@ pub(crate) enum FieldInfo<'a> {
     Primitive {
         ident: &'a Ident,
         ty: String,
+    },
+    InventoryItem {
+        ident: &'a Ident,
+        wire_type: String,
     },
     EnumFromU8 {
         ident: &'a Ident,
@@ -610,6 +649,18 @@ pub(crate) fn parse_extractor_attr<'a>(
             field_info = Some(FieldInfo::VecU8 { ident, size });
         } else if meta.path.is_ident("skip") {
             field_info = Some(FieldInfo::Skip);
+        } else if meta.path.is_ident("inventory_item") {
+            let mut wire_type = None;
+            meta.parse_nested_meta(|inv_meta| {
+                if inv_meta.path.is_ident("wire_type") {
+                    let value = inv_meta.value()?;
+                    let lit: LitStr = value.parse()?;
+                    wire_type = Some(lit.value());
+                }
+                Ok(())
+            })?;
+            let wire_type = wire_type.expect("inventory_item requires wire_type");
+            field_info = Some(FieldInfo::InventoryItem { ident, wire_type });
         } else if meta.path.is_ident("counter_size") {
             let value = meta.value()?;
             let lit: LitInt = value.parse()?;

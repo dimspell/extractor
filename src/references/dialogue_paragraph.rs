@@ -1,6 +1,6 @@
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader, Read, Seek, Write},
@@ -178,7 +178,7 @@ pub fn read_dialogue_paragraphs(source_path: &Path) -> std::io::Result<Vec<Dialo
 
 pub fn save_dialogue_paragraphs(
     conn: &mut Connection,
-    file_name: &str,
+    file_id: i32,
     texts: &[DialogueParagraph],
 ) -> Result<()> {
     let tx = conn.transaction()?;
@@ -186,12 +186,16 @@ pub fn save_dialogue_paragraphs(
         let mut stmt = tx.prepare(include_str!("../queries/insert_dialogue_paragraphs.sql"))?;
         for text in texts {
             stmt.execute(params![
-                file_name,
+                file_id,
                 text.id,
                 text.text,
                 text.comment,
                 text.param1,
-                text.wave_ini_entry_id,
+                if text.wave_ini_entry_id > 0 {
+                    Some(text.wave_ini_entry_id)
+                } else {
+                    None
+                },
             ])?;
         }
     }

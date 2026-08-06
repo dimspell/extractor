@@ -1,8 +1,8 @@
 //! Fixture-based tests for PartyRef
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::party_ref::PartyRef;
 use dispel_core::Extractor;
+use dispel_core::references::party_ref::PartyRef;
 use std::path::Path;
 
 #[test]

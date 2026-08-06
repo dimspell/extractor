@@ -1,10 +1,11 @@
 use crate::app::App;
 use crate::editors::snf_editor::{ExportStatus, PlaybackHandle, SnfEditorMessage};
 use crate::message::MessageExt;
+use gui_widgets::components::toast;
 use iced::Task;
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = app
@@ -156,11 +157,93 @@ pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::
             );
         }
 
-        SnfEditorMessage::ExportWavDone(result) => {
-            editor.export_status = match result {
-                Ok(p) => ExportStatus::Done(p),
-                Err(e) => ExportStatus::Error(e),
-            };
+        SnfEditorMessage::ExportWavDone(result) => match result {
+            Ok(p) => {
+                editor.export_status = ExportStatus::Done(p.clone());
+                editor.toasts.push(toast::Toast::success("Exported", p));
+            }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Export failed", e));
+            }
+        },
+
+        SnfEditorMessage::ImportWav => {
+            return Task::perform(
+                async move {
+                    let handle = rfd::AsyncFileDialog::new()
+                        .add_filter("WAV Audio", &["wav"])
+                        .set_file_name("sound.wav")
+                        .pick_file()
+                        .await;
+                    match handle {
+                        Some(h) => {
+                            let wav_path = h.path().to_path_buf();
+                            match dispel_core::snf::read_wav(&wav_path) {
+                                Ok(snf) => Ok((snf, wav_path.to_string_lossy().to_string())),
+                                Err(e) => Err(e.to_string()),
+                            }
+                        }
+                        None => Err("Import cancelled".into()),
+                    }
+                },
+                |r: Result<(dispel_core::snf::SnfFile, String), String>| match r {
+                    Ok((snf, path)) => crate::message::Message::snf_editor(
+                        SnfEditorMessage::ImportWavDone(Ok((snf, path))),
+                    ),
+                    Err(e) => {
+                        crate::message::Message::snf_editor(SnfEditorMessage::ImportWavDone(Err(e)))
+                    }
+                },
+            );
+        }
+
+        SnfEditorMessage::ImportWavDone(result) => match result {
+            Ok((snf, path)) => {
+                editor.snf = Some(snf.clone());
+                editor.waveform = snf.waveform_points(1000);
+                editor.modified = true;
+                editor.export_status = ExportStatus::Done(format!("Imported: {}", path));
+                editor.toasts.push(toast::Toast::success("Imported", path));
+            }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Import failed", e));
+            }
+        },
+
+        SnfEditorMessage::Save => {
+            let path = editor.path.clone();
+            let snf = editor.snf.clone();
+            return Task::perform(
+                async move {
+                    match snf {
+                        Some(snf) => dispel_core::snf::save(&path, &snf)
+                            .map(|_| path.to_string_lossy().to_string())
+                            .map_err(|e| e.to_string()),
+                        None => Err("No audio data loaded".into()),
+                    }
+                },
+                |r| crate::message::Message::snf_editor(SnfEditorMessage::SaveDone(r)),
+            );
+        }
+
+        SnfEditorMessage::SaveDone(result) => match result {
+            Ok(p) => {
+                editor.modified = false;
+                editor.export_status = ExportStatus::Done(format!("Saved: {}", p));
+                editor.toasts.push(toast::Toast::success("Saved", p));
+            }
+            Err(e) => {
+                editor.export_status = ExportStatus::Error(e.clone());
+                editor.toasts.push(toast::Toast::error("Save failed", e));
+            }
+        },
+
+        SnfEditorMessage::DismissToast(index) => {
+            if index < editor.toasts.len() {
+                editor.toasts.remove(index);
+            }
         }
     }
 

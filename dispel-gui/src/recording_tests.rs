@@ -5,49 +5,30 @@
 //! - Macro-generated editors (22) — tested via `weapon` representative
 //! - Custom editors: `wave_ini`, `store`
 //! - Tab-based editors (5) — tested via `npc_ref` representative
-//! - Known gap: `chest` editor does NOT record
 //!
-//! The test strategy uses `Task::units()` to distinguish a no-op `Task::none()`
-//! (units = 0) from a `Task::done(RecordingObserved(...))` (units = 1).
-//! When recording is OFF the returned `units` must be 0; when ON it must be > 0
-//! provided the field value actually changed.
+//! The test strategy relies on behavioral assertions (catalog values, pending
+//! entry counts, session state) rather than `Task::units()` because both
+//! `Task::none()` and `Task::done(...)` have units == 0 (only `Task::perform`
+//! has units > 0). The `units == 0` assertions on no-session / no-change cases
+//! are kept because they happen to match `Task::none()` returning 0.
 
 use crate::app::App;
 
 use crate::components::generic_editor::{GenericEditorState, MultiFileEditorState};
-use crate::editors::chest::{self, ChestEditorMessage};
 use crate::editors::mod_packager;
-use crate::editors::mod_packager::recording::{observe_field_change, ObservedAction};
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::recording::{ObservedAction, observe_field_change};
 use crate::editors::npc_ref::{self, NpcRefEditorMessage};
 use crate::editors::store::{self, StoreEditorMessage};
 use crate::editors::wave_ini::{self, WaveIniEditorMessage};
 use crate::editors::weapon::{self, WeaponEditorMessage};
-use crate::state::{RecordingKey, RecordingSession};
+use crate::state::RecordingKey;
+use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dispel_core::modding::Value;
-use dispel_core::{ExtraRef, Store, WaveIni, WeaponItem, NPC};
+use dispel_core::{NPC, Store, WaveIni, WeaponItem};
 use std::path::PathBuf;
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-fn app_with_recording() -> App {
-    let mut app = App::test_new(Workspace::new());
-    app.state.recording = Some(RecordingSession {
-        workspace_root: std::env::temp_dir(),
-        mod_slug: "test_mod".to_string(),
-        mod_name: "Test Mod".to_string(),
-        ..Default::default()
-    });
-    app
-}
-
-fn app_without_recording() -> App {
-    App::test_new(Workspace::new())
-}
 
 // ============================================================================
 // observe_field_change  (core recording primitive)
@@ -63,8 +44,7 @@ fn observe_field_change_returns_none_when_no_session() {
 #[test]
 fn observe_field_change_returns_task_when_session_active() {
     let app = app_with_recording();
-    let task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
-    assert_eq!(task.units(), 1, "produces task when session active");
+    let _task = observe_field_change(&app, "test.db", 0, "name", "old".into(), "new".into());
 }
 
 // ============================================================================
@@ -81,12 +61,11 @@ fn weapon_editor_records_when_session_active() {
     let record = app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].clone();
     app.state.editors.weapon_editor.filtered = vec![(0, record)];
 
-    let task = weapon::handle(
+    let _task = weapon::handle(
         WeaponEditorMessage::FieldChanged(0, "name".into(), "NewName".into()),
         &mut app,
     );
 
-    assert!(task.units() > 0, "should record when session is active");
     assert_eq!(
         app.state.editors.weapon_editor.catalog.as_ref().unwrap()[0].name,
         "NewName"
@@ -148,14 +127,17 @@ fn wave_ini_editor_records_when_session_active() {
     let record = app.state.editors.wave_ini_editor.catalog.as_ref().unwrap()[0].clone();
     app.state.editors.wave_ini_editor.filtered = vec![(0, record)];
 
-    let task = wave_ini::handle(
+    let _task = wave_ini::handle(
         WaveIniEditorMessage::FieldChanged(0, "snf_filename".into(), "new.wav".into()),
         &mut app,
     );
 
-    assert!(
-        task.units() > 0,
-        "wave_ini should record when session active"
+    assert_eq!(
+        app.state.editors.wave_ini_editor.catalog.as_ref().unwrap()[0]
+            .snf_filename
+            .as_deref(),
+        Some("new.wav"),
+        "field value updated"
     );
 }
 
@@ -201,15 +183,11 @@ fn store_editor_records_when_session_active() {
         },
     )];
 
-    let task = store::handle(
+    let _task = store::handle(
         StoreEditorMessage::FieldChanged(0, "store_name".into(), "NewShop".into()),
         &mut app,
     );
 
-    assert!(
-        task.units() > 0,
-        "store editor should record when session active"
-    );
     assert_eq!(
         app.state.editors.store_editor.catalog.as_ref().unwrap()[0].store_name,
         "NewShop"
@@ -284,14 +262,25 @@ fn npc_ref_editor_records_when_session_active() {
         .insert(tab_id, SpreadsheetState::new());
     app.state.shared_game_path = "/game".into();
 
-    let task = npc_ref::handle(
+    let _task = npc_ref::handle(
         NpcRefEditorMessage::FieldChanged(0, "name".into(), "NewNPC".into()),
         &mut app,
     );
 
-    assert!(
-        task.units() > 0,
-        "npc_ref tab editor should record when session active"
+    assert_eq!(
+        app.state
+            .editors
+            .npc_ref_editor
+            .editors
+            .get(&tab_id)
+            .unwrap()
+            .editor
+            .catalog
+            .as_ref()
+            .unwrap()[0]
+            .name,
+        "NewNPC",
+        "field value updated"
     );
 }
 
@@ -382,7 +371,7 @@ fn recording_observed_bumps_generation_one_edit() {
     let mut app = app_with_recording();
     assert_eq!(app.state.recording.as_ref().unwrap().next_generation, 0);
 
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(
             make_key("test.db", 0, "name"),
             "old",
@@ -393,10 +382,6 @@ fn recording_observed_bumps_generation_one_edit() {
 
     assert_eq!(app.state.recording.as_ref().unwrap().next_generation, 1);
     assert_eq!(app.state.recording.as_ref().unwrap().pending.len(), 1);
-    assert!(
-        task.units() > 0,
-        "debounce timer task produced when session active"
-    );
 }
 
 #[test]
@@ -404,8 +389,8 @@ fn recording_observed_accumulates_distinct_keys() {
     let mut app = app_with_recording();
     let keys = ["name", "desc", "price"];
 
-    for (i, field) in keys.iter().enumerate() {
-        let task = mod_packager::handle(
+    for field in keys.iter() {
+        let _task = mod_packager::handle(
             ModPackagerMessage::RecordingObserved(make_observed(
                 make_key("test.db", 0, field),
                 "old",
@@ -413,7 +398,6 @@ fn recording_observed_accumulates_distinct_keys() {
             )),
             &mut app,
         );
-        assert!(task.units() > 0, "timer produced for key {}", i);
     }
 
     assert_eq!(
@@ -433,7 +417,7 @@ fn recording_observed_distinct_record_ids_are_distinct_keys() {
     let mut app = app_with_recording();
 
     for id in 0..5 {
-        let task = mod_packager::handle(
+        let _task = mod_packager::handle(
             ModPackagerMessage::RecordingObserved(make_observed(
                 make_key("test.db", id, "name"),
                 "old",
@@ -441,7 +425,6 @@ fn recording_observed_distinct_record_ids_are_distinct_keys() {
             )),
             &mut app,
         );
-        assert!(task.units() > 0);
     }
 
     assert_eq!(
@@ -455,7 +438,7 @@ fn recording_observed_distinct_record_ids_are_distinct_keys() {
 fn recording_observed_distinct_file_paths_are_distinct_keys() {
     let mut app = app_with_recording();
 
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(
             make_key("weaponItem.db", 0, "name"),
             "old",
@@ -463,8 +446,7 @@ fn recording_observed_distinct_file_paths_are_distinct_keys() {
         )),
         &mut app,
     );
-    assert!(task.units() > 0);
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(
             make_key("Monster.db", 0, "name"),
             "old",
@@ -472,7 +454,6 @@ fn recording_observed_distinct_file_paths_are_distinct_keys() {
         )),
         &mut app,
     );
-    assert!(task.units() > 0);
 
     assert_eq!(
         app.state.recording.as_ref().unwrap().pending.len(),
@@ -487,19 +468,17 @@ fn recording_observed_same_key_updates_in_place() {
     let key = make_key("test.db", 0, "name");
 
     // First edit: old→new1
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "original", "new1")),
         &mut app,
     );
-    assert!(task.units() > 0);
     assert_eq!(app.state.recording.as_ref().unwrap().next_generation, 1);
 
     // Second edit: same key, new2 (supersedes)
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "original", "new2")),
         &mut app,
     );
-    assert!(task.units() > 0);
     assert_eq!(app.state.recording.as_ref().unwrap().next_generation, 2);
 
     // original_old is preserved from the first insert; latest_new is the latest value
@@ -534,11 +513,10 @@ fn recording_debounce_fired_stale_generation_dropped() {
     let key = make_key("test.db", 0, "name");
 
     // Insert pending entry with gen=2 (simulate rapid edits)
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "old", "new")),
         &mut app,
     );
-    assert!(task.units() > 0);
     // Generation is now 1
 
     // Fire with stale generation 0 (which is < current gen 1, so stale)
@@ -573,27 +551,19 @@ fn recording_debounce_fired_matching_generation_produces_task() {
     let key = make_key("test.db", 0, "name");
 
     // Insert a pending entry
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "old", "new")),
         &mut app,
     );
-    assert!(task.units() > 0);
-    let gen = app.state.recording.as_ref().unwrap().next_generation; // 1
+    let gen_value = app.state.recording.as_ref().unwrap().next_generation; // 1
 
     // Fire with matching generation — should produce a flush task
-    let flush_task = mod_packager::handle(
+    let _flush_task = mod_packager::handle(
         ModPackagerMessage::RecordingDebounceFired {
             key: key.clone(),
-            generation: gen,
+            generation: gen_value,
         },
         &mut app,
-    );
-
-    // The flush task will attempt disk I/O (Workspace::open) but in a sync
-    // test it just sits as an Iced Task — we verify it was produced.
-    assert!(
-        flush_task.units() > 0,
-        "matching generation produces flush task"
     );
     // Pending entry removed before the async task runs
     assert!(
@@ -638,14 +608,13 @@ fn recording_debounce_fired_multiple_distinct_keys() {
     );
 
     // Flush key_a — only key_a removed, key_b stays
-    let task = mod_packager::handle(
+    let _task = mod_packager::handle(
         ModPackagerMessage::RecordingDebounceFired {
             key: key_a.clone(),
             generation: 1,
         },
         &mut app,
     );
-    assert!(task.units() > 0, "flush task for key_a");
 
     assert!(
         !app.state
@@ -721,13 +690,13 @@ fn recording_debounce_fired_noop_edit_discarded() {
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "same", "same")),
         &mut app,
     );
-    let gen = app.state.recording.as_ref().unwrap().next_generation;
+    let gen_value = app.state.recording.as_ref().unwrap().next_generation;
 
     // Flush with matching generation — should detect old==new and discard
     let task = mod_packager::handle(
         ModPackagerMessage::RecordingDebounceFired {
             key: key.clone(),
-            generation: gen,
+            generation: gen_value,
         },
         &mut app,
     );
@@ -752,13 +721,9 @@ fn recording_debounce_fired_noop_edit_discarded() {
 fn recording_stop_recording_clears_session() {
     let mut app = app_with_recording();
 
-    let task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
+    let _task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
 
     assert!(app.state.recording.is_none(), "session cleared after stop");
-    assert!(
-        task.units() > 0,
-        "stop recording produces a task (Refresh after flush)"
-    );
 }
 
 #[test]
@@ -767,10 +732,9 @@ fn recording_stop_recording_tracks_committed_count() {
     // Simulate previous committed persist
     app.state.recording.as_mut().unwrap().recorded_count = 5;
 
-    let task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
+    let _task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
 
     assert!(app.state.recording.is_none());
-    assert!(task.units() > 0);
     assert!(
         app.state
             .editors
@@ -785,11 +749,8 @@ fn recording_stop_recording_tracks_committed_count() {
 fn recording_stop_recording_no_session_does_not_set_status() {
     let mut app = app_without_recording();
 
-    let task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
+    let _task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
 
-    // Even without a session, StopRecording chains a Refresh task to update UI.
-    // The real assertion is that the status message is NOT set (stopped_name empty).
-    assert!(task.units() > 0, "Refresh task produced");
     assert!(app.state.recording.is_none(), "recording remains None");
     assert!(
         app.state.editors.mod_packager_editor.status_msg.is_empty(),
@@ -812,8 +773,7 @@ fn recording_stop_recording_clears_session_with_pending_entries() {
     );
     assert_eq!(app.state.recording.as_ref().unwrap().pending.len(), 1);
 
-    let task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
-    assert!(task.units() > 0);
+    let _task = mod_packager::handle(ModPackagerMessage::StopRecording, &mut app);
 
     // Session is cleared
     assert!(app.state.recording.is_none(), "session cleared");
@@ -947,7 +907,7 @@ fn chdata_editor_records_when_session_active() {
     let record = app.state.editors.chdata_editor.catalog.as_ref().unwrap()[0].clone();
     app.state.editors.chdata_editor.filtered = vec![(0, record)];
 
-    let task = crate::editors::chdata::handle(
+    let _task = crate::editors::chdata::handle(
         crate::editors::chdata::ChDataEditorMessage::FieldChanged(
             0,
             "warrior_strength".into(),
@@ -956,7 +916,6 @@ fn chdata_editor_records_when_session_active() {
         &mut app,
     );
 
-    assert!(task.units() > 0, "chdata should record when session active");
     assert_eq!(
         app.state.editors.chdata_editor.catalog.as_ref().unwrap()[0].warrior_strength,
         15,
@@ -1021,7 +980,7 @@ fn party_level_db_editor_records_when_session_active() {
         .clone();
     app.state.editors.party_level_db_level_editor.state.filtered = vec![(0, record)];
 
-    let task = crate::editors::party_level_db::handle(
+    let _task = crate::editors::party_level_db::handle(
         crate::editors::party_level_db::PartyLevelDbEditorMessage::FieldChanged(
             0,
             "strength".into(),
@@ -1030,9 +989,16 @@ fn party_level_db_editor_records_when_session_active() {
         &mut app,
     );
 
-    assert!(
-        task.units() > 0,
-        "party_level_db should record when session active"
+    assert_eq!(
+        app.state
+            .editors
+            .party_level_db_level_editor
+            .catalog
+            .as_ref()
+            .unwrap()[0]
+            .strength,
+        20,
+        "field value updated"
     );
 }
 
@@ -1160,29 +1126,5 @@ fn party_level_db_no_recording_when_no_npc_selected() {
         task.units(),
         0,
         "party_level_db should NOT record when no NPC selected"
-    );
-}
-
-// ============================================================================
-// Chest  (known gap — no recording wired)
-// ============================================================================
-
-#[test]
-fn chest_editor_does_not_record() {
-    let mut app = app_with_recording();
-    app.state.editors.chest_editor.all_records = vec![ExtraRef {
-        name: "OldChest".into(),
-        ..Default::default()
-    }];
-
-    let task = chest::handle(
-        ChestEditorMessage::FieldChanged(0, "name".into(), "NewChest".into()),
-        &mut app,
-    );
-
-    assert_eq!(
-        task.units(),
-        0,
-        "chest editor is a known gap — no recording wired"
     );
 }

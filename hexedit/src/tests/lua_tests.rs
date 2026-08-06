@@ -2,9 +2,9 @@ use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ui::coloring::ColorScheme;
-use crate::ui::theme::{ThemeVariant, DARK_THEME};
 use crate::LuaScriptEngine;
+use crate::ui::coloring::ColorScheme;
+use crate::ui::theme::{DARK_THEME, ThemeVariant};
 
 /// Write a Lua script to the temp dir and return its path.
 /// Uses a global counter to keep paths unique across tests.
@@ -542,8 +542,11 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         selection: crate::selection::Selection::single(0),
         edit_mode: None,
         inspector_edit: None,
+        inspector_source: crate::state::InspectorSource::Baseline,
         vanilla: None,
         vanilla_diff: std::collections::BTreeSet::new(),
+        comparison_file: None,
+        diff_review: false,
         patterns: Vec::new(),
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
@@ -561,6 +564,7 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
         lua_engine: LuaScriptEngine::new(false).unwrap(),
         export_config: None,
         fill_dialog: None,
+        extend_dialog: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
         active_patterns: std::collections::BTreeSet::new(),
@@ -607,8 +611,11 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         selection: crate::selection::Selection::single(0),
         edit_mode: None,
         inspector_edit: None,
+        inspector_source: crate::state::InspectorSource::Baseline,
         vanilla: None,
         vanilla_diff: std::collections::BTreeSet::new(),
+        comparison_file: None,
+        diff_review: false,
         patterns: Vec::new(),
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
@@ -626,6 +633,7 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
         lua_engine: engine,
         export_config: None,
         fill_dialog: None,
+        extend_dialog: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
         active_patterns: std::collections::BTreeSet::new(),
@@ -703,8 +711,11 @@ return {
         selection: crate::selection::Selection::single(0),
         edit_mode: None,
         inspector_edit: None,
+        inspector_source: crate::state::InspectorSource::Baseline,
         vanilla: None,
         vanilla_diff: std::collections::BTreeSet::new(),
+        comparison_file: None,
+        diff_review: false,
         patterns: Vec::new(),
         pattern_by_addr: std::collections::BTreeMap::new(),
         show_pattern_list: false,
@@ -722,6 +733,7 @@ return {
         lua_engine: engine,
         export_config: None,
         fill_dialog: None,
+        extend_dialog: None,
         repeat_pattern: None,
         row_annotations: std::collections::BTreeMap::new(),
         active_patterns: std::collections::BTreeSet::new(),

@@ -1,7 +1,7 @@
 use dispel_core::snf::SnfFile;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct PlaybackHandle {
     pub player: Arc<rodio::Player>,
@@ -58,6 +58,9 @@ pub struct SnfEditorState {
     pub is_looping: bool,
     pub volume: f32,
     pub export_status: ExportStatus,
+    pub modified: bool,
+    /// Active toast notifications displayed as overlay.
+    pub toasts: Vec<gui_widgets::components::toast::Toast>,
 }
 
 impl SnfEditorState {
@@ -81,6 +84,8 @@ impl SnfEditorState {
                     is_looping: false,
                     volume: 0.5,
                     export_status: ExportStatus::Idle,
+                    modified: false,
+                    toasts: Vec::new(),
                 }
             }
             Err(e) => SnfEditorState {
@@ -93,6 +98,8 @@ impl SnfEditorState {
                 is_looping: false,
                 volume: 0.5,
                 export_status: ExportStatus::Idle,
+                modified: false,
+                toasts: Vec::new(),
             },
         }
     }

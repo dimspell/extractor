@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    BooleanFlag, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012, Unknown0to7,
+    BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown012, Unknown0110,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// NPC Reference (NpcInGame/Npccat1.ref) - NPC Placements on Maps
@@ -46,7 +46,7 @@ use serde::{Deserialize, Serialize};
 /// | - goto1-4_x/y: i32 (waypoints)      |
 /// | - unknown_2-5: i32 (coordinates?)    |
 /// | - looking_direction: i32 (enum)      |
-/// | - unknown_6-8: i32 (Unknown0to7)   |
+/// | - rotation_1-3: i32 (NpcLookingDirection)   |
 /// | - unknown_9-12: i32 (always 0)      |
 /// | - unknown_13-16: i32 (coordinates?)  |
 /// | - unknown_17: i32 (Unknown012)       |
@@ -78,7 +78,7 @@ use serde::{Deserialize, Serialize};
 /// - `unknown_1/unknown_17`: Enum = 0, 1, or 2
 /// - `goto1-4_filled`: 0 = waypoint not defined, 1 = waypoint defined
 /// - `looking_direction`: 0 = up, proceeds clockwise (1=right, 2=down, 3=left)
-/// - `unknown_6-8`: Enum = 0-7
+/// - `rotation_1-3`: Enum = 0-7 (compass rotation)
 /// - `unknown_9-12`: Always observed as 0
 /// - `unknown_19`: Enum = 0, 1, or 10
 /// - `unknown_item_id/type`: Unknown item reference
@@ -169,15 +169,15 @@ pub struct NPC {
     /// Compass rotation (0=up, proceeds clockwise).
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
     pub looking_direction: NpcLookingDirection,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_6: Unknown0to7,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_7: Unknown0to7,
-    /// Unknown. Enum = 0, 1, 2, 3, 4, 5, 6 or 7.
-    #[extractor(enum_from_i32(type = "Unknown0to7"))]
-    pub unknown_8: Unknown0to7,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_1: NpcLookingDirection,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_2: NpcLookingDirection,
+    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
+    pub rotation_3: NpcLookingDirection,
     /// Unknown. Always zero (0).
     #[extractor(primitive(type = "i32"))]
     pub unknown_9: i32,
@@ -206,11 +206,8 @@ pub struct NPC {
     #[extractor(enum_from_i32(type = "Unknown012"))]
     pub unknown_17: Unknown012,
     /// Unknown item reference.
-    #[extractor(primitive(type = "u8"))]
-    pub unknown_item_id: u8,
-    /// Unknown item reference.
-    #[extractor(enum_from_u8(type = "ItemTypeId"))]
-    pub unknown_item_type: ItemTypeId,
+    #[extractor(inventory_item(wire_type = "i16"))]
+    pub unknown_item: InventoryItem,
     // Padding
     #[extractor(primitive(type = "i16"))]
     pub unknown_18: i16,
@@ -231,20 +228,33 @@ pub fn read_npc_ref(source_path: &Path) -> std::io::Result<Vec<NPC>> {
     NPC::read_file(source_path)
 }
 
-pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -> Result<()> {
+pub fn save_npc_refs(
+    conn: &mut Connection,
+    file_id: i32,
+    dialog_file_id: i32,
+    npc_refs: &[NPC],
+) -> Result<()> {
     let tx = conn.transaction()?;
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_npc_ref.sql"))?;
         for npc in npc_refs {
             stmt.execute(params![
-                file_path,
+                file_id,
                 npc.index,
                 npc.id,
-                npc.npc_id,
+                if npc.npc_id == 0 {
+                    None
+                } else {
+                    Some(npc.npc_id)
+                },
                 npc.name,
                 npc.description,
                 npc.party_script_id,
-                npc.show_on_event,
+                if npc.show_on_event == 0 {
+                    None
+                } else {
+                    Some(npc.show_on_event)
+                },
                 i32::from(npc.unknown_1),
                 i32::from(npc.goto1_filled),
                 i32::from(npc.goto2_filled),
@@ -263,9 +273,9 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -
                 npc.unknown_4,
                 npc.unknown_5,
                 i32::from(npc.looking_direction),
-                i32::from(npc.unknown_6),
-                i32::from(npc.unknown_7),
-                i32::from(npc.unknown_8),
+                i32::from(npc.rotation_1),
+                i32::from(npc.rotation_2),
+                i32::from(npc.rotation_3),
                 npc.unknown_9,
                 npc.unknown_10,
                 npc.unknown_11,
@@ -275,10 +285,16 @@ pub fn save_npc_refs(conn: &mut Connection, file_path: &str, npc_refs: &[NPC]) -
                 npc.unknown_15,
                 npc.unknown_16,
                 i32::from(npc.unknown_17),
-                npc.unknown_item_id,
-                u8::from(npc.unknown_item_type),
+                npc.unknown_item.item_id() as i32,
+                u8::from(npc.unknown_item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
+                npc.unknown_item.raw(),
                 i32::from(npc.unknown_19),
-                npc.dialog_id,
+                dialog_file_id,
+                if npc.dialog_id == 0 {
+                    None
+                } else {
+                    Some(npc.dialog_id)
+                },
                 npc.dialogue_face_sprite_id,
             ])?;
         }

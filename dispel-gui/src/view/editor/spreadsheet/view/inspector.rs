@@ -1,22 +1,24 @@
 //! Right-hand inspector pane — one input widget per field of the
 //! currently-selected record.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Column,
+    Column, button, column, container, pick_list, row, scrollable, text, text_input,
 };
 use iced::{Element, Fill, Length};
 
 use crate::components::composite_item::composite_item_picker;
 use crate::components::editable::{EditableRecord, FieldDescriptor, FieldKind};
 use crate::components::generic_editor::GenericEditorState;
-use crate::components::textarea::{self, TextAreaContent};
 use crate::components::utils::horizontal_space;
 use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use gui_widgets::{TextAreaContent, textarea};
+use lucide_icons::Icon;
 
 pub fn build_inspector_panel<'a, R: EditableRecord>(
     editor: &'a GenericEditorState<R>,
@@ -31,7 +33,7 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
         row![
             text("Inspector").size(13),
             horizontal_space(),
-            button(text("✕").size(11))
+            button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(11))
                 .on_press(spreadsheet_msg(SpreadsheetMessage::CloseInspector))
                 .style(style::browse_button)
                 .padding([2, 6]),
@@ -44,22 +46,9 @@ pub fn build_inspector_panel<'a, R: EditableRecord>(
 
     let mut fields: Column<Message> = column![].spacing(6).padding([8, 12]);
 
-    // Collect CompositeItem id_field names so we can skip them.
-    let composite_id_fields: HashSet<&'static str> = descriptors
-        .iter()
-        .filter_map(|d| match &d.kind {
-            FieldKind::CompositeItem { id_field, .. } => Some(*id_field),
-            _ => None,
-        })
-        .collect();
-
     if let Some(orig_idx) = spreadsheet.selected_orig {
         if let Some(record) = editor.catalog.as_ref().and_then(|c| c.get(orig_idx)) {
             for desc in descriptors.iter() {
-                // Skip fields that are id_field companions of a CompositeItem
-                if composite_id_fields.contains(&desc.name) {
-                    continue;
-                }
                 let value = record.get_field(desc.name);
                 let validation_error = record.validate_field(desc.name, &value);
                 fields = fields.push(build_inspector_field(
@@ -108,7 +97,7 @@ fn build_inspector_field<'a>(
         FieldKind::TextArea => {
             let field_name = descriptor.name.to_string();
             if let Some(tc) = textarea_contents.get(descriptor.name) {
-                textarea::textarea(&tc.0, move |action| {
+                textarea(&tc.0, move |action| {
                     spreadsheet_msg(SpreadsheetMessage::TextAreaChanged(
                         orig_idx,
                         field_name.clone(),
@@ -140,19 +129,20 @@ fn build_inspector_field<'a>(
                     .iter()
                     .map(|(id, name)| (name.clone(), id.clone()))
                     .collect();
-                pick_list(options_vec, selected, move |selected_name| {
-                    let selected_id = name_to_id
-                        .get(selected_name.as_str())
-                        .cloned()
-                        .unwrap_or_default();
-                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                        orig_idx,
-                        field_name.clone(),
-                        selected_id,
-                    ))
-                })
-                .width(Length::Fill)
-                .into()
+                pick_list(selected, options_vec, String::clone)
+                    .on_select(move |selected_name| {
+                        let selected_id = name_to_id
+                            .get(selected_name.as_str())
+                            .cloned()
+                            .unwrap_or_default();
+                        spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                            orig_idx,
+                            field_name.clone(),
+                            selected_id,
+                        ))
+                    })
+                    .width(Length::Fill)
+                    .into()
             } else {
                 text_input("", &value)
                     .padding(4)
@@ -164,23 +154,21 @@ fn build_inspector_field<'a>(
         FieldKind::Enum { variants } => {
             let field_name = descriptor.name.to_string();
             let selected = variants.iter().find(|&&v| v == value).copied();
-            pick_list(*variants, selected, move |selected_variant| {
-                spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
-                    orig_idx,
-                    field_name.clone(),
-                    selected_variant.to_string(),
-                ))
-            })
-            .width(Length::Fill)
-            .into()
+            pick_list(selected, *variants, |v| v.to_string())
+                .on_select(move |selected_variant| {
+                    spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
+                        orig_idx,
+                        field_name.clone(),
+                        selected_variant.to_string(),
+                    ))
+                })
+                .width(Length::Fill)
+                .into()
         }
-        FieldKind::CompositeItem {
-            lookup_key,
-            id_field,
-        } => {
+        FieldKind::CompositeItem { lookup_key } => {
             let entries = lookups.get(*lookup_key).map(|v| v.as_slice());
             let field_name = descriptor.name.to_string();
-            composite_item_picker(descriptor.label, &value, id_field, entries, move |v| {
+            composite_item_picker(descriptor.label, &value, entries, move |v| {
                 spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                     orig_idx,
                     field_name.clone(),

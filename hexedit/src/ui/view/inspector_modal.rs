@@ -1,10 +1,10 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::editing::InspectorEditState;
 use crate::inspector::ENTRIES;
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Modal body shown when an inspector "Edit" button is pressed.
 pub fn view<'a>(

@@ -38,8 +38,6 @@ pub enum FieldKind {
     CompositeItem {
         /// Key into the lookups map (`HashMap<String, Vec<(String, String)>>`).
         lookup_key: &'static str,
-        /// Name of the companion field holding the numeric item ID (e.g. `"item_id"`).
-        id_field: &'static str,
     },
 }
 
@@ -168,19 +166,19 @@ pub fn set_i32_enum<T: std::fmt::Debug>(
     from_i32: impl Fn(i32) -> Option<T>,
 ) -> bool {
     // Fast path: direct integer parse (handles "0", "1", etc.)
-    if let Ok(n) = value.parse::<i32>() {
-        if let Some(v) = from_i32(n) {
-            *field = v;
-            return true;
-        }
+    if let Ok(n) = value.parse::<i32>()
+        && let Some(v) = from_i32(n)
+    {
+        *field = v;
+        return true;
     }
     // Fallback: match against Debug output of known enum variants
     for i in 0..=255i32 {
-        if let Some(v) = from_i32(i) {
-            if format!("{:?}", v) == value {
-                *field = v;
-                return true;
-            }
+        if let Some(v) = from_i32(i)
+            && format!("{:?}", v) == value
+        {
+            *field = v;
+            return true;
         }
     }
     false
@@ -226,19 +224,19 @@ pub fn set_opt_i32_enum<T: std::fmt::Debug>(
         true
     } else {
         // Fast path: direct integer parse
-        if let Ok(n) = value.parse::<i32>() {
-            if let Some(v) = from_i32(n) {
-                *field = Some(v);
-                return true;
-            }
+        if let Ok(n) = value.parse::<i32>()
+            && let Some(v) = from_i32(n)
+        {
+            *field = Some(v);
+            return true;
         }
         // Fallback: match against Debug output of known enum variants
         for i in 0..=255i32 {
-            if let Some(v) = from_i32(i) {
-                if format!("{:?}", v) == value {
-                    *field = Some(v);
-                    return true;
-                }
+            if let Some(v) = from_i32(i)
+                && format!("{:?}", v) == value
+            {
+                *field = Some(v);
+                return true;
             }
         }
         false
@@ -314,10 +312,9 @@ macro_rules! __er_kind {
     (OptInt, []) => { $crate::components::editable::FieldKind::Integer };
     (HexString, []) => { $crate::components::editable::FieldKind::String };
     (Lookup, [$key:expr]) => { $crate::components::editable::FieldKind::Lookup($key) };
-    (CompositeItem, [$lookup:expr, $id:ident]) => {
+    (CompositeItem, [$lookup:expr]) => {
         $crate::components::editable::FieldKind::CompositeItem {
             lookup_key: $lookup,
-            id_field: stringify!($id),
         }
     };
     (Enum, [$ty:ty, [$($v:literal),* $(,)?]]) => {
@@ -371,8 +368,17 @@ macro_rules! __er_get {
     (Lookup, [$key:expr], $this:ident, $field:ident) => {
         $this.$field.to_string()
     };
-    (CompositeItem, [$lookup:expr, $id:ident], $this:ident, $field:ident) => {
-        format!("{}:{}", u8::from($this.$field), $this.$id)
+    (CompositeItem, [$lookup:expr], $this:ident, $field:ident) => {
+        format!(
+            "{}:{}",
+            u8::from(
+                $this
+                    .$field
+                    .item_type()
+                    .unwrap_or(dispel_core::ItemTypeId::Other)
+            ),
+            $this.$field.item_id()
+        )
     };
     (Enum, [$ty:ty, $($rest:tt)*], $this:ident, $field:ident) => {
         $crate::components::editable::fmt_enum(&$this.$field)
@@ -438,28 +444,15 @@ macro_rules! __er_set {
     (Lookup, [$key:expr], $this:ident, $field:ident, $value:ident) => {
         $crate::components::editable::set_int(&mut $this.$field, $value)
     };
-    (CompositeItem, [$lookup:expr, $id:ident], $this:ident, $field:ident, $value:ident) => {{
+    (CompositeItem, [$lookup:expr], $this:ident, $field:ident, $value:ident) => {{
         let parts: Vec<&str> = $value.split(':').collect();
         if parts.len() == 2 {
-            // Composite key "type:id" — set both
-            if let Ok(type_val) = parts[0].parse::<u8>() {
-                if let Some(item_type) = dispel_core::ItemTypeId::from_u8(type_val) {
-                    $this.$field = item_type;
-                }
-            }
-            // Parse item id; reset to 0 if unparseable
-            if !$crate::components::editable::set_int(&mut $this.$id, parts[1].to_string()) {
-                $this.$id = Default::default();
-            }
-            true
-        } else if parts.len() == 1 {
-            // Bare type value — set type, reset id to 0
-            if let Ok(type_val) = parts[0].parse::<u8>() {
-                if let Some(item_type) = dispel_core::ItemTypeId::from_u8(type_val) {
-                    $this.$field = item_type;
-                }
-            }
-            $this.$id = Default::default();
+            // Composite key "type:id"
+            let type_byte = parts[0].parse::<u8>().unwrap_or(255);
+            let item_id = parts[1].parse::<u8>().unwrap_or(0);
+            let item_type = dispel_core::ItemTypeId::from_u8(type_byte)
+                .unwrap_or(dispel_core::ItemTypeId::Other);
+            $this.$field = dispel_core::InventoryItem::new(item_type, item_id);
             true
         } else {
             false

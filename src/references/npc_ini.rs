@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::extractor::Extractor;
 use dispel_macros::{TextExtractor, TextRecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Npc.ini - NPC Visual References

@@ -20,18 +20,17 @@ pub(crate) fn app_with_tab(editor_type: EditorType) -> App {
     App::test_new(workspace)
 }
 
-pub(crate) mod auto_save;
 pub(crate) mod capability_crosscheck;
-pub(crate) mod chest_editor;
 pub(crate) mod clear_all;
 pub(crate) mod command_palette;
-pub(crate) mod draft;
+pub(crate) mod common;
 pub(crate) mod editor_field_edit;
 pub(crate) mod editor_registry;
 pub(crate) mod error_dialog;
 pub(crate) mod file_tree;
 pub(crate) mod generic_editor_edge;
 pub(crate) mod global_search;
+pub(crate) mod hex_inspector_toggle;
 pub(crate) mod indexation;
 pub(crate) mod map_editor;
 pub(crate) mod message_routing;

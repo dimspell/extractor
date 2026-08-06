@@ -20,6 +20,7 @@ pub struct DbViewerState {
     pub sql_mode: bool,
     pub sql_query: String,
     pub status_msg: String,
+    pub status_icon: Option<lucide_icons::Icon>,
     pub loading_state: crate::components::loading_state::LoadingState<()>,
 }
 
@@ -42,6 +43,7 @@ impl Default for DbViewerState {
             sql_mode: false,
             sql_query: String::new(),
             status_msg: String::new(),
+            status_icon: None,
             loading_state: crate::components::loading_state::LoadingState::Idle,
         }
     }

@@ -15,6 +15,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             let path_str = path.to_string();
             app.state.editors.viewer.db_path = path_str.clone();
             app.state.editors.viewer.status_msg = format!("Database path set to: {}", path_str);
+            app.state.editors.viewer.status_icon = None;
             Task::none()
         }
         ViewerMessage::BrowseDb => {
@@ -25,11 +26,13 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Connect to database and load tables
             if app.state.editors.viewer.db_path.is_empty() {
                 app.state.editors.viewer.status_msg = "Please select a database file first".into();
+                app.state.editors.viewer.status_icon = None;
                 return Task::none();
             }
 
             app.state.editors.viewer.loading_state = loading_state::LoadingState::Loading;
             app.state.editors.viewer.status_msg = "Connecting to database...".into();
+            app.state.editors.viewer.status_icon = None;
 
             let db_path = app.state.editors.viewer.db_path.clone();
             Task::perform(async move { db::list_tables(&db_path) }, |result| {
@@ -48,9 +51,11 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                     app.state.editors.viewer.columns.clear();
                     app.state.editors.viewer.status_msg =
                         format!("Connected successfully. Found {} tables.", tables.len());
+                    app.state.editors.viewer.status_icon = None;
                 }
                 Err(e) => {
                     app.state.editors.viewer.status_msg = format!("Error loading tables: {}", e);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::X);
                 }
             }
             app.state.editors.viewer.loading_state = loading_state::LoadingState::Loaded(());
@@ -65,7 +70,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.editing_cell = None;
             app.state.editors.viewer.sql_mode = false;
             app.state.editors.viewer.sql_query = format!("SELECT * FROM \"{}\"", table);
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
             // ----
 
             // // Select table and load its data
@@ -128,9 +133,11 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                         "Showing {}-{} of {} rows",
                         page_start, page_end, app.state.editors.viewer.total_rows
                     );
+                    app.state.editors.viewer.status_icon = None;
                 }
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ Query error: {}", e);
+                    app.state.editors.viewer.status_msg = format!("Query error: {}", e);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::X);
                 }
             }
             Task::none()
@@ -139,12 +146,13 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Search in current table
             if app.state.editors.viewer.active_table.is_none() {
                 app.state.editors.viewer.status_msg = "No active table selected".into();
+                app.state.editors.viewer.status_icon = None;
                 return Task::none();
             }
 
             app.state.editors.viewer.search = query;
             app.state.editors.viewer.page = 0;
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
         }
         ViewerMessage::SortColumn(column_index) => {
             // Sort by specified column
@@ -155,14 +163,16 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 app.state.editors.viewer.sort_dir = db::SortDir::Asc;
             }
             app.state.editors.viewer.page = 0;
-            app.fetch_viewer_data()
+            crate::editors::db_viewer::fetch::fetch_table_data(&mut app.state.editors.viewer)
         }
         ViewerMessage::NextPage => {
             // Navigate to next page
             let max_page = app.state.editors.viewer.total_rows.saturating_sub(1) / PAGE_SIZE;
             if app.state.editors.viewer.page < max_page {
                 app.state.editors.viewer.page += 1;
-                return app.fetch_viewer_data();
+                return crate::editors::db_viewer::fetch::fetch_table_data(
+                    &mut app.state.editors.viewer,
+                );
             }
             Task::none()
         }
@@ -170,16 +180,19 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Navigate to previous page
             if app.state.editors.viewer.page > 0 {
                 app.state.editors.viewer.page -= 1;
-                return app.fetch_viewer_data();
+                return crate::editors::db_viewer::fetch::fetch_table_data(
+                    &mut app.state.editors.viewer,
+                );
             }
             Task::none()
         }
         ViewerMessage::CellClick(row, col) => {
             // Handle cell click for editing
             app.state.editors.viewer.status_msg = format!("Cell clicked: row {}, col {}", row, col);
+            app.state.editors.viewer.status_icon = None;
             // Confirm previous edit if any
-            if let Some((pr, pc)) = app.state.editors.viewer.editing_cell {
-                if !app.state.editors.viewer.edit_buffer.is_empty()
+            if let Some((pr, pc)) = app.state.editors.viewer.editing_cell
+                && (!app.state.editors.viewer.edit_buffer.is_empty()
                     || app
                         .state
                         .editors
@@ -187,24 +200,23 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                         .rows
                         .get(pr)
                         .and_then(|row| row.get(pc).map(|v| v.as_str()))
-                        != Some(&app.state.editors.viewer.edit_buffer)
-                {
-                    let original = app
-                        .state
+                        != Some(&app.state.editors.viewer.edit_buffer))
+            {
+                let original = app
+                    .state
+                    .editors
+                    .viewer
+                    .rows
+                    .get(pr)
+                    .and_then(|row| row.get(pc))
+                    .cloned()
+                    .unwrap_or_default();
+                if app.state.editors.viewer.edit_buffer != original {
+                    app.state
                         .editors
                         .viewer
-                        .rows
-                        .get(pr)
-                        .and_then(|row| row.get(pc))
-                        .cloned()
-                        .unwrap_or_default();
-                    if app.state.editors.viewer.edit_buffer != original {
-                        app.state
-                            .editors
-                            .viewer
-                            .pending_edits
-                            .insert((pr, pc), app.state.editors.viewer.edit_buffer.clone());
-                    }
+                        .pending_edits
+                        .insert((pr, pc), app.state.editors.viewer.edit_buffer.clone());
                 }
             }
             let val = app
@@ -223,6 +235,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         ViewerMessage::CellEdit(value) => {
             // Handle cell edit
             app.state.editors.viewer.status_msg = format!("Editing cell: {}", value);
+            app.state.editors.viewer.status_icon = None;
             app.state.editors.viewer.edit_buffer = value;
             Task::none()
         }
@@ -230,6 +243,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Confirm cell edit
             app.state.editors.viewer.status_msg =
                 "Cell edit confirmed (implementation needed)".into();
+            app.state.editors.viewer.status_icon = None;
             if let Some((r, c)) = app.state.editors.viewer.editing_cell {
                 let original = app
                     .state
@@ -254,6 +268,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         ViewerMessage::CellCancel => {
             // Cancel cell edit
             app.state.editors.viewer.status_msg = "Cell edit cancelled".into();
+            app.state.editors.viewer.status_icon = None;
             app.state.editors.viewer.editing_cell = None;
             Task::none()
         }
@@ -261,10 +276,12 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Commit all edits to database
             if app.state.editors.viewer.pending_edits.is_empty() {
                 app.state.editors.viewer.status_msg = "No edits to commit".into();
+                app.state.editors.viewer.status_icon = None;
                 return Task::none();
             }
 
             app.state.editors.viewer.status_msg = "Committing edits...".into();
+            app.state.editors.viewer.status_icon = None;
             app.state.editors.viewer.loading_state = loading_state::LoadingState::Loading;
 
             let db_path = app.state.editors.viewer.db_path.clone();
@@ -292,17 +309,19 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 Ok(n) => {
                     // Apply edits to local rows
                     for ((r, c), val) in &app.state.editors.viewer.pending_edits {
-                        if let Some(row) = app.state.editors.viewer.rows.get_mut(*r) {
-                            if let Some(cell) = row.get_mut(*c) {
-                                *cell = val.clone();
-                            }
+                        if let Some(row) = app.state.editors.viewer.rows.get_mut(*r)
+                            && let Some(cell) = row.get_mut(*c)
+                        {
+                            *cell = val.clone();
                         }
                     }
                     app.state.editors.viewer.pending_edits.clear();
-                    app.state.editors.viewer.status_msg = format!("✔ Committed {} row(s)", n);
+                    app.state.editors.viewer.status_msg = format!("Committed {} row(s)", n);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::Check);
                 }
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ Commit failed: {}", e);
+                    app.state.editors.viewer.status_msg = format!("Commit failed: {}", e);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::X);
                 }
             }
             Task::none()
@@ -316,13 +335,14 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Handle SQL query change
             app.state.editors.viewer.sql_query = sql;
             app.state.editors.viewer.status_msg = "SQL query updated".into();
+            app.state.editors.viewer.status_icon = None;
             Task::none()
         }
         ViewerMessage::RunSql => {
             app.state.editors.viewer.page = 0;
             app.state.editors.viewer.pending_edits.clear();
             app.state.editors.viewer.editing_cell = None;
-            app.fetch_viewer_data_sql()
+            crate::editors::db_viewer::fetch::fetch_sql_data(&mut app.state.editors.viewer)
 
             // AI:
             // Execute SQL query
@@ -376,12 +396,14 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             // Export data to CSV
             if app.state.editors.viewer.rows.is_empty() {
                 app.state.editors.viewer.status_msg = "No data to export".into();
+                app.state.editors.viewer.status_icon = None;
                 return Task::none();
             }
 
             let cols = app.state.editors.viewer.columns.clone();
             let rows = app.state.editors.viewer.rows.clone();
             app.state.editors.viewer.status_msg = "Exporting to CSV...".into();
+            app.state.editors.viewer.status_icon = None;
 
             Task::perform(
                 async move {
@@ -403,9 +425,13 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
         }
         ViewerMessage::CsvSaved(result) => {
             match result {
-                Ok(p) => app.state.editors.viewer.status_msg = format!("✔ CSV exported to {}", p),
+                Ok(p) => {
+                    app.state.editors.viewer.status_msg = format!("CSV exported to {}", p);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::Check);
+                }
                 Err(e) => {
-                    app.state.editors.viewer.status_msg = format!("✖ CSV export failed: {}", e);
+                    app.state.editors.viewer.status_msg = format!("CSV export failed: {}", e);
+                    app.state.editors.viewer.status_icon = Some(lucide_icons::Icon::X);
                 }
             }
             Task::none()
@@ -415,6 +441,7 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.pending_edits.clear();
             app.state.editors.viewer.editing_cell = None;
             app.state.editors.viewer.status_msg = "Reverted all pending edits.".into();
+            app.state.editors.viewer.status_icon = None;
             Task::none()
         }
     }

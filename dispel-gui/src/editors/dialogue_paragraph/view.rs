@@ -34,6 +34,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill)
         .padding(16)
+        .accessible_label("Dialogue paragraph editor")
         .into();
     };
 
@@ -56,5 +57,6 @@ pub fn view(app: &App) -> Element<'_, Message> {
         |pane| Message::dialogue_paragraph(DialogueParagraphEditorMessage::PaneClicked(pane)),
         None,
         None,
+        "Dialogue paragraph editor",
     )
 }

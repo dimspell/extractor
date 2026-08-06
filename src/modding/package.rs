@@ -23,7 +23,7 @@ use zip::{CompressionMethod, ZipArchive, ZipWriter};
 use super::change::{BlobKind, ChangeAction};
 use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
-use super::manifest::{ModManifest, MANIFEST_VERSION};
+use super::manifest::{MANIFEST_VERSION, ModManifest};
 
 pub const MANIFEST_ENTRY: &str = "manifest.json";
 pub const CHANGES_ENTRY: &str = "changes.json";

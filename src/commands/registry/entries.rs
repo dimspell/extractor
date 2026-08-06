@@ -1,6 +1,6 @@
 use super::types::{
-    extract_as, extract_map_file, extract_sprite_info, extract_tileset, patch_as,
-    patch_not_supported, validate_as, DetectKind, FileType,
+    DetectKind, FileType, extract_as, extract_map_file, extract_sprite_info, extract_tileset,
+    patch_as, patch_not_supported, validate_as,
 };
 
 pub(crate) fn make_all_map_ini() -> FileType {
@@ -430,6 +430,19 @@ pub(crate) fn make_sprite() -> FileType {
         detect_kind: DetectKind::Db(&[]),
         extract_fn: extract_sprite_info,
         patch_fn: patch_not_supported,
+        validate_fn: None,
+    }
+}
+
+pub(crate) fn make_save_file() -> FileType {
+    FileType {
+        key: "save_file",
+        name: "*.sav",
+        description: "Game save file with player state, inventory, and world data",
+        extensions: &[".sav"],
+        detect_kind: DetectKind::Db(&["0.sav", "1.sav", "2.sav", "3.sav", "4.sav", "5.sav"]),
+        extract_fn: extract_as::<dispel_core::references::save_file::SaveFile>,
+        patch_fn: patch_as::<dispel_core::references::save_file::SaveFile>,
         validate_fn: None,
     }
 }

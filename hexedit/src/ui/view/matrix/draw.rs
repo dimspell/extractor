@@ -3,13 +3,13 @@
 //! Everything here is a pure function of the widget state snapshot — no
 //! mutations, no side effects beyond writing to the renderer.
 
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::Layout;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
 use iced::mouse;
-use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size, alignment};
 
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
@@ -17,14 +17,15 @@ use crate::coloring::default_byte_colors;
 use crate::domain::byte_stats::entropy_to_color;
 use crate::ui::theme::HexEditorTheme;
 
-use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
+use crate::ui::view::minimap::{self};
 
+use super::HexMatrix;
 use super::layout::{
-    center_scroll_on, group_count, scroll_to_make_visible, visible_row_range, ASCII_CELL_WIDTH,
-    GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
+    ASCII_CELL_WIDTH, GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT,
+    SCROLLBAR_THICKNESS, TEXT_SIZE, center_scroll_on, group_count, scroll_to_make_visible,
+    visible_row_range,
 };
 use super::state::State;
-use super::HexMatrix;
 
 type Paragraph = GraphicsParagraph;
 
@@ -93,7 +94,12 @@ pub fn draw_matrix<'a, Message>(
     let total_h = widget.total_height();
     let bpr64 = bpr as u64;
 
-    let scroll = if let Some(center_addr) = widget.pending_center_on {
+    // Consume the one-shot center request via `Cell::take`. The widget
+    // instance persists across frames when no messages are produced, so a
+    // plain `Option` field would re-center every frame (see also the field
+    // docs on `HexMatrix::pending_center_on`).
+    let scroll = if let Some(center_addr) = widget.pending_center_on.take() {
+        state.last_cursor_row.set(Some(center_addr / bpr64));
         center_scroll_on(
             state.scroll_offset.get(),
             center_addr,
@@ -240,27 +246,27 @@ pub fn draw_matrix<'a, Message>(
         let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
         // ── Entropy colour band in the address gutter ────────────────
-        if let Some(bands) = widget.entropy_bands {
-            if let Some(&(_, entropy)) = bands.get(row_idx as usize) {
-                let (r, g, b) = entropy_to_color(entropy);
-                let band_color = Color::from_rgb(r, g, b);
-                let band_rect = Rectangle {
-                    x: bounds.x,
-                    y,
-                    width: 4.0,
-                    height: ROW_HEIGHT,
-                };
-                if let Some(clipped) = content_clip.intersection(&band_rect) {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: clipped,
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(band_color),
-                    );
-                }
+        if let Some(bands) = widget.entropy_bands
+            && let Some(&(_, entropy)) = bands.get(row_idx as usize)
+        {
+            let (r, g, b) = entropy_to_color(entropy);
+            let band_color = Color::from_rgb(r, g, b);
+            let band_rect = Rectangle {
+                x: bounds.x,
+                y,
+                width: 4.0,
+                height: ROW_HEIGHT,
+            };
+            if let Some(clipped) = content_clip.intersection(&band_rect) {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: clipped,
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    Background::Color(band_color),
+                );
             }
         }
 
@@ -525,19 +531,6 @@ pub fn draw_matrix<'a, Message>(
     let total_len = widget.bytes.len() as u64;
     let needs_vscroll = total_h > viewport_h;
     if needs_vscroll && widget.show_minimap {
-        let hovering = cursor
-            .position_over(content_bounds)
-            .map(|p| {
-                minimap::minimap_rect(
-                    content_bounds,
-                    viewport_h,
-                    MINIMAP_WIDTH,
-                    SCROLLBAR_THICKNESS,
-                )
-                .contains(p)
-            })
-            .unwrap_or(false);
-
         // Compute or reuse the minimap pixel cache.
         let h_px = viewport_h.max(1.0) as u32;
         let ctx = minimap::BlockContext {
@@ -565,8 +558,9 @@ pub fn draw_matrix<'a, Message>(
                 color_scheme: widget.color_scheme,
                 dim_nulls: widget.dim_nulls,
                 pattern_hash: minimap::pattern_hash(widget.patterns),
-                dirty_count: widget.dirty.len(),
-                diff_count: widget.vanilla_diff.len(),
+                dirty_fingerprint: minimap::set_fingerprint(widget.dirty),
+                diff_fingerprint: minimap::set_fingerprint(widget.vanilla_diff),
+                content_ptr: widget.bytes.as_ptr() as usize,
             });
         }
         let columns = &cache.as_ref().unwrap().columns;
@@ -583,7 +577,6 @@ pub fn draw_matrix<'a, Message>(
             widget.selection.end(),
             widget.selection.cursor,
             total_len,
-            state.dragging_minimap || hovering,
             theme,
         );
     }
@@ -680,6 +673,8 @@ fn shape_glyph(cache: &ParagraphCache, glyph: &str, font: Font) -> Paragraph {
             align_y: alignment::Vertical::Top,
             shaping: text::Shaping::Basic,
             wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: None,
         })
     })
 }
@@ -782,6 +777,8 @@ fn draw_glyph_string(
             align_y: alignment::Vertical::Top,
             shaping: text::Shaping::Basic,
             wrapping: text::Wrapping::None,
+            ellipsis: text::Ellipsis::None,
+            hint_factor: None,
         })
     });
     let pos = bounds.anchor(

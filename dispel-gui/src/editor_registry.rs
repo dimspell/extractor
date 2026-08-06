@@ -6,7 +6,6 @@ use crate::components::generic_editor::UndoRedo;
 use crate::components::standard::StandardEditor;
 use crate::editors::all_map_ini::AllMapIniEditorState;
 use crate::editors::chdata::ChDataEditorState;
-use crate::editors::chest::ChestEditorState;
 use crate::editors::db_viewer::DbViewerState;
 use crate::editors::draw_item::DrawItemEditorState;
 use crate::editors::event_ini::EventIniEditorState;
@@ -22,8 +21,9 @@ use crate::editors::npc_ini::NpcIniEditorState;
 use crate::editors::party_ini::PartyIniEditorState;
 use crate::editors::party_level_db::PartyLevelDbEditorState;
 use crate::editors::quest_scr::QuestScrEditorState;
+use crate::editors::save_file_viewer::SaveFileViewerState;
 use crate::editors::snf_editor::SnfEditorState;
-use crate::editors::sprite_browser::SpriteViewerState;
+use crate::editors::sprite_editor::SpriteViewerState;
 use crate::editors::store::StoreEditorState;
 use crate::editors::tileset::TilesetEditorState;
 use crate::editors::wave_ini::WaveIniEditorState;
@@ -31,7 +31,7 @@ use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
     DialogueParagraph, DialogueScript, EditItem, EventItem, ExtraRef, HealItem, MiscItem, Monster,
-    MonsterRef, PartyLevelRecord, PartyRef, WeaponItem, NPC,
+    MonsterRef, NPC, PartyLevelRecord, PartyRef, WeaponItem,
 };
 use hexedit::HexEditorState;
 
@@ -43,7 +43,6 @@ use hexedit::HexEditorState;
 #[derive(Default)]
 pub struct EditorRegistry {
     pub viewer: Box<DbViewerState>,
-    pub chest_editor: Box<ChestEditorState>,
     pub weapon_editor: Box<StandardEditor<WeaponItem>>,
     pub heal_item_editor: Box<StandardEditor<HealItem>>,
     pub misc_item_editor: Box<StandardEditor<MiscItem>>,
@@ -81,6 +80,7 @@ pub struct EditorRegistry {
     pub hex_editors: HashMap<usize, HexEditorState>,
     pub mod_packager_editor: mod_packager::ModPackagerState,
     pub localization_manager: localization_manager::LocalizationManagerState,
+    pub save_file_viewers: HashMap<usize, SaveFileViewerState>,
 }
 
 /// Macro: dispatch `undo` or `redo` to the correct editor field.
@@ -115,6 +115,12 @@ macro_rules! undo_redo_dispatch {
 
             // Custom-layout editor (undo/redo without lookups)
             EditorType::StoreEditor => $self.store_editor.$action(),
+
+            // Sprite editor — uses its own snapshot-based undo/redo
+            EditorType::SpriteViewer => $self.sprite_viewers.get_mut(&$tab_id).map(|viewer| {
+                viewer.$action();
+                String::new() // no status message needed
+            }),
 
             // Tab-based editors (MultiFileEditorState via TabbedEditor)
             EditorType::MonsterRefEditor => $self
@@ -167,6 +173,7 @@ impl EditorRegistry {
         self.tileset_editors.remove(&tab_id);
         self.map_editors.remove(&tab_id);
         self.hex_editors.remove(&tab_id);
+        self.save_file_viewers.remove(&tab_id);
     }
 
     /// Clear editors for every tab.  Use when the workspace is about to lose
@@ -187,6 +194,7 @@ impl EditorRegistry {
         self.tileset_editors.clear();
         self.map_editors.clear();
         self.hex_editors.clear();
+        self.save_file_viewers.clear();
     }
 
     /// Stop SNF audio playback on every open SNF editor.
@@ -371,6 +379,7 @@ impl EditorRegistry {
         self.map_editors.clear();
         self.snf_editors.clear();
         self.hex_editors.clear();
+        self.save_file_viewers.clear();
 
         // Boxed editors — reset to default
         *self.weapon_editor = Default::default();
@@ -399,7 +408,6 @@ impl EditorRegistry {
         // Boxed editors that were missing from reset — bugs found by tests
         *self.monster_ini_editor = Default::default();
         *self.viewer = Default::default();
-        *self.chest_editor = Default::default();
         *self.party_level_db_editor = Default::default();
         *self.party_level_db_level_editor = Default::default();
 

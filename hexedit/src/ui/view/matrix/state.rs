@@ -47,7 +47,7 @@ pub struct State {
     /// Cached minimap pixel colors — avoids re-scanning the file every frame.
     /// Invalidated automatically when any input to the pixel computation
     /// changes (file size, colour scheme, patterns, dirty/diff sets).
-    pub minimap_cache: RefCell<Option<MinimapCache>>,
+    pub(crate) minimap_cache: RefCell<Option<MinimapCache>>,
     /// Shift modifier state — held while scrolling redirects vertical wheel
     /// delta to horizontal scroll.
     pub shift_pressed: Cell<bool>,

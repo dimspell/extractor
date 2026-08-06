@@ -7,8 +7,8 @@
 
 use std::time::Instant;
 
-use iced::advanced::layout::Layout;
 use iced::advanced::Shell;
+use iced::advanced::layout::Layout;
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{Event, Point, Rectangle};
@@ -17,15 +17,15 @@ use crate::domain::write_mode::WriteMode;
 use crate::selection::NavDir;
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
+use super::HexMatrix;
 use super::draw::{
     first_hex_char, first_printable_char, hscrollbar_thumb, hscrollbar_track, hthumb_len,
     scrollbar_thumb, scrollbar_track, thumb_height,
 };
 use super::layout::{
-    addr_at, clamp_scroll, clamp_scroll_x, HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS,
+    HEADER_HEIGHT, ROW_HEIGHT, SCROLLBAR_THICKNESS, addr_at, clamp_scroll, clamp_scroll_x,
 };
-use super::state::{State, DOUBLE_CLICK_WINDOW};
-use super::HexMatrix;
+use super::state::{DOUBLE_CLICK_WINDOW, State};
 
 /// Dispatch a single `Event` to the hex matrix widget.
 ///
@@ -237,13 +237,11 @@ pub fn handle_event<'a, Message>(
                 state.last_click_addr = Some(addr);
                 state.last_click_at = Some(now);
 
-                if is_double {
-                    if let Some(cb) = &widget.on_begin_edit {
-                        shell.publish(cb(addr));
-                        shell.request_redraw();
-                        shell.capture_event();
-                        return;
-                    }
+                if is_double && let Some(cb) = &widget.on_begin_edit {
+                    shell.publish(cb(addr));
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
                 }
 
                 state.selecting = true;
@@ -269,10 +267,9 @@ pub fn handle_event<'a, Message>(
                 widget.bytes_per_row,
                 total_len,
                 widget.addr_col_width(),
-            ) {
-                if let Some(cb) = &widget.on_right_click {
-                    shell.publish(cb(addr));
-                }
+            ) && let Some(cb) = &widget.on_right_click
+            {
+                shell.publish(cb(addr));
             }
         }
         Event::Mouse(mouse::Event::CursorMoved { .. }) => {
@@ -283,27 +280,27 @@ pub fn handle_event<'a, Message>(
                 height: viewport_h,
             };
 
-            if cursor.is_over(bounds) {
-                if let Some(p) = cursor.position() {
-                    let vtrack = scrollbar_track(content_bounds, viewport_h);
-                    let htrack = hscrollbar_track(bounds);
-                    let now_hovering = vtrack.contains(p) || htrack.contains(p);
-                    if now_hovering != state.hovering_scrollbar.get() {
-                        state.hovering_scrollbar.set(now_hovering);
+            if cursor.is_over(bounds)
+                && let Some(p) = cursor.position()
+            {
+                let vtrack = scrollbar_track(content_bounds, viewport_h);
+                let htrack = hscrollbar_track(bounds);
+                let now_hovering = vtrack.contains(p) || htrack.contains(p);
+                if now_hovering != state.hovering_scrollbar.get() {
+                    state.hovering_scrollbar.set(now_hovering);
+                    shell.request_redraw();
+                }
+                if widget.show_minimap && total_h > viewport_h {
+                    let mm_rect = minimap::minimap_rect(
+                        content_bounds,
+                        viewport_h,
+                        MINIMAP_WIDTH,
+                        SCROLLBAR_THICKNESS,
+                    );
+                    let now_mm_hover = mm_rect.contains(p);
+                    if now_mm_hover != state.hovering_minimap.get() {
+                        state.hovering_minimap.set(now_mm_hover);
                         shell.request_redraw();
-                    }
-                    if widget.show_minimap && total_h > viewport_h {
-                        let mm_rect = minimap::minimap_rect(
-                            content_bounds,
-                            viewport_h,
-                            MINIMAP_WIDTH,
-                            SCROLLBAR_THICKNESS,
-                        );
-                        let now_mm_hover = mm_rect.contains(p);
-                        if now_mm_hover != state.hovering_minimap.get() {
-                            state.hovering_minimap.set(now_mm_hover);
-                            shell.request_redraw();
-                        }
                     }
                 }
             }
@@ -449,67 +446,61 @@ pub fn handle_event<'a, Message>(
             if widget.write_mode == WriteMode::Hex
                 && matches!(key, keyboard::Key::Named(key::Named::F2))
                 && widget.edit.is_none()
+                && let Some(cb) = &widget.on_begin_edit
             {
-                if let Some(cb) = &widget.on_begin_edit {
-                    shell.publish(cb(widget.selection.cursor));
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb(widget.selection.cursor));
+                shell.capture_event();
+                return;
             }
 
             // CTRL+E creates a pattern from the current selection.
             if (modifiers.control() || modifiers.command())
                 && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "e")
+                && let Some(cb) = &widget.on_create_pattern
             {
-                if let Some(cb) = &widget.on_create_pattern {
-                    shell.publish(cb());
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb());
+                shell.capture_event();
+                return;
             }
 
             // Ctrl+G opens the goto dialog.
             if (modifiers.control() || modifiers.command())
                 && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "g")
+                && let Some(cb) = &widget.on_open_goto
             {
-                if let Some(cb) = &widget.on_open_goto {
-                    shell.publish(cb());
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb());
+                shell.capture_event();
+                return;
             }
 
             // Ctrl+F opens the search overlay.
             if (modifiers.control() || modifiers.command())
                 && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "f")
+                && let Some(cb) = &widget.on_open_search
             {
-                if let Some(cb) = &widget.on_open_search {
-                    shell.publish(cb());
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb());
+                shell.capture_event();
+                return;
             }
 
             // Ctrl+C copies the selected byte range as hex text.
             if (modifiers.control() || modifiers.command())
                 && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "c")
+                && let Some(cb) = &widget.on_copy_selection
             {
-                if let Some(cb) = &widget.on_copy_selection {
-                    shell.publish(cb());
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb());
+                shell.capture_event();
+                return;
             }
 
             // Ctrl+V pastes hex bytes from the clipboard.
             if (modifiers.control() || modifiers.command())
                 && matches!(key, keyboard::Key::Character(c) if c.to_lowercase() == "v")
+                && let Some(cb) = &widget.on_paste
             {
-                if let Some(cb) = &widget.on_paste {
-                    shell.publish(cb());
-                    shell.capture_event();
-                    return;
-                }
+                shell.publish(cb());
+                shell.capture_event();
+                return;
             }
 
             // Character typing.
@@ -518,39 +509,37 @@ pub fn handle_event<'a, Message>(
             } else {
                 modifiers.control() || modifiers.command()
             };
-            if !mods_blocked {
-                if let Some(t) = text {
-                    let c = if widget.write_mode == WriteMode::Hex {
-                        first_hex_char(t)
-                    } else {
-                        first_printable_char(t)
-                    };
-                    if let Some(c) = c {
-                        if widget.write_mode == WriteMode::Hex {
-                            if widget.edit.is_some() {
-                                if let Some(cb) = &widget.on_edit_type {
-                                    shell.publish(cb(c));
-                                    shell.capture_event();
-                                    return;
-                                }
-                            } else if !widget.bytes.is_empty() {
-                                if let Some(begin) = &widget.on_begin_edit {
-                                    shell.publish(begin(widget.selection.cursor));
-                                }
-                                if let Some(typ) = &widget.on_edit_type {
-                                    shell.publish(typ(c));
-                                }
+            if !mods_blocked && let Some(t) = text {
+                let c = if widget.write_mode == WriteMode::Hex {
+                    first_hex_char(t)
+                } else {
+                    first_printable_char(t)
+                };
+                if let Some(c) = c {
+                    if widget.write_mode == WriteMode::Hex {
+                        if widget.edit.is_some() {
+                            if let Some(cb) = &widget.on_edit_type {
+                                shell.publish(cb(c));
                                 shell.capture_event();
                                 return;
                             }
-                        } else {
-                            if !widget.bytes.is_empty() {
-                                if let Some(cb) = &widget.on_edit_type {
-                                    shell.publish(cb(c));
-                                    shell.capture_event();
-                                    return;
-                                }
+                        } else if !widget.bytes.is_empty() {
+                            if let Some(begin) = &widget.on_begin_edit {
+                                shell.publish(begin(widget.selection.cursor));
                             }
+                            if let Some(typ) = &widget.on_edit_type {
+                                shell.publish(typ(c));
+                            }
+                            shell.capture_event();
+                            return;
+                        }
+                    } else {
+                        if !widget.bytes.is_empty()
+                            && let Some(cb) = &widget.on_edit_type
+                        {
+                            shell.publish(cb(c));
+                            shell.capture_event();
+                            return;
                         }
                     }
                 }
@@ -564,12 +553,12 @@ pub fn handle_event<'a, Message>(
                         shell.capture_event();
                         return;
                     }
-                } else if matches!(key, keyboard::Key::Named(key::Named::Delete)) {
-                    if let Some(cb) = &widget.on_delete_byte {
-                        shell.publish(cb());
-                        shell.capture_event();
-                        return;
-                    }
+                } else if matches!(key, keyboard::Key::Named(key::Named::Delete))
+                    && let Some(cb) = &widget.on_delete_byte
+                {
+                    shell.publish(cb());
+                    shell.capture_event();
+                    return;
                 }
             }
 

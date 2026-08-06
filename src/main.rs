@@ -3,6 +3,7 @@ mod commands;
 
 use clap::Parser;
 use cli::{Cli, Commands};
+use commands::Command;
 use commands::database::DatabaseCommand;
 use commands::dialog::DialogCommand;
 use commands::list::ListCommand;
@@ -14,7 +15,6 @@ use commands::sprite::SpriteCommand;
 use commands::template::TemplateCommand;
 use commands::unified::{ExtractCommand, PatchCommand};
 use commands::validate::ValidateCommand;
-use commands::Command;
 
 fn main() {
     let cli = Cli::parse();
@@ -32,9 +32,8 @@ fn main() {
             info: *info,
         }
         .execute(),
-        Some(Commands::Sound { input, output }) => SoundCommand {
-            input: input.clone(),
-            output: output.clone(),
+        Some(Commands::Sound { command }) => SoundCommand {
+            command: command.clone(),
         }
         .execute(),
         Some(Commands::Dialog {

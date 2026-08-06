@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid;
 
-use super::domain::byte_stats::{compute_row_entropies, ByteStatistics, RowEntropyCache};
+use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_entropies};
 use super::domain::export_config::ExportConfig;
+use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
-use super::domain::panel::{default_pane_grid, HexPanel};
+use super::domain::panel::{HexPanel, default_pane_grid};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
@@ -18,8 +19,29 @@ use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
 use super::ui::coloring::ColorScheme;
-use super::ui::theme::{HexEditorTheme, ThemeVariant, DARK_THEME};
+use super::ui::theme::{DARK_THEME, HexEditorTheme, ThemeVariant};
 use super::vanilla_diff::compute_diff;
+
+/// Metadata for a comparison file loaded for the side-by-side binary diff view.
+#[derive(Debug, Clone)]
+pub struct ComparisonFile {
+    /// Display name (typically the filename).
+    pub name: String,
+    /// Full file contents.
+    pub data: Vec<u8>,
+    /// Set of addresses where `provider[i] != data[i]`.
+    pub diff: BTreeSet<u64>,
+}
+
+/// Which buffer the data inspector decodes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InspectorSource {
+    /// The main (editable) file buffer.
+    #[default]
+    Baseline,
+    /// The read-only comparison file loaded for the diff view.
+    Comparison,
+}
 
 /// Default cell width — 16 bytes per row matches every other hex editor on
 /// the planet and keeps the address column the same width across files.
@@ -37,6 +59,8 @@ pub struct HexEditorState {
     pub selection: Selection,
     pub edit_mode: Option<EditState>,
     pub inspector_edit: Option<InspectorEditState>,
+    /// Which buffer the inspector panel decodes (main file vs comparison).
+    pub inspector_source: InspectorSource,
     /// Original bytes used as the diff baseline. Populated either from a
     /// workspace vanilla snapshot or, lacking that, from the on-disk file at
     /// load time. `None` when neither source is available.
@@ -44,6 +68,12 @@ pub struct HexEditorState {
     /// Cached set of addresses where `provider != vanilla`. Recomputed on
     /// every write through [`recompute_vanilla_diff`].
     pub vanilla_diff: BTreeSet<u64>,
+    /// Optional comparison file for side-by-side diff view.
+    /// When `Some`, the Diff pane renders both files with diff-coloured cells.
+    pub comparison_file: Option<ComparisonFile>,
+    /// When `true`, the matrix (or diff view) only shows rows that contain at
+    /// least one differing address. Toggled via [`ToggleDiffReview`].
+    pub diff_review: bool,
     /// Highlighted byte ranges for pattern matching/debugging. In-memory only,
     /// not persisted to disk.
     pub patterns: Vec<Pattern>,
@@ -78,6 +108,8 @@ pub struct HexEditorState {
     pub export_config: Option<ExportConfig>,
     /// Fill-selection dialog state (None when closed).
     pub fill_dialog: Option<FillDialog>,
+    /// Extend-file dialog state (None when closed).
+    pub extend_dialog: Option<ExtendDialog>,
     /// Search & replace overlay state.
     pub search: SearchState,
     /// Last user-facing message produced by an editor action ("Saved …",
@@ -143,6 +175,91 @@ pub struct HexEditorState {
 }
 
 impl HexEditorState {
+    /// Create a [`HexEditorState`] from raw byte buffers instead of loading
+    /// from disk. Useful for diff views where the "file" is a reconstructed
+    /// or patched buffer.
+    ///
+    /// `data` becomes the editor buffer (what the user sees and edits).
+    /// `vanilla` is the original baseline (used for the diff overlay).
+    /// `path` is an optional filesystem path (used for save-back logic; pass
+    /// `None` when the buffer has no real file counterpart).
+    pub fn from_bytes(
+        name: impl Into<String>,
+        data: Vec<u8>,
+        vanilla: Option<Vec<u8>>,
+        path: Option<PathBuf>,
+    ) -> Self {
+        let name = name.into();
+        let path = path.unwrap_or_else(|| PathBuf::from(&name));
+        let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
+        let unsafe_mode = std::env::var("HEXEDIT_LUA_UNSAFE").as_deref() == Ok("1");
+        let lua_engine = LuaScriptEngine::new(unsafe_mode).unwrap_or_default();
+        let panes = default_pane_grid();
+        let pane_focus = *panes
+            .iter()
+            .next()
+            .map(|(id, _)| id)
+            .expect("default_pane_grid always has at least one pane");
+
+        let mut state = Self {
+            path,
+            name,
+            panes,
+            pane_focus,
+            provider: BufferProvider::from_bytes(data),
+            bytes_per_row: DEFAULT_BYTES_PER_ROW,
+            selection: Selection::default(),
+            edit_mode: None,
+            inspector_edit: None,
+            inspector_source: InspectorSource::Baseline,
+            vanilla,
+            vanilla_diff: BTreeSet::new(),
+            comparison_file: None,
+            diff_review: false,
+            patterns: Vec::new(),
+            pattern_by_addr: BTreeMap::new(),
+            show_pattern_list: false,
+            next_pattern_id: 0,
+            groups: Vec::new(),
+            next_group_id: 0,
+            collapsed_groups: BTreeSet::new(),
+            row_annotations: BTreeMap::new(),
+            active_patterns: BTreeSet::new(),
+            renaming_group: None,
+            renaming_group_draft: String::new(),
+            context_menu_addr: None,
+            goto: None,
+            export_config: None,
+            fill_dialog: None,
+            extend_dialog: None,
+            search: SearchState::new(),
+            show_decimal: false,
+            status_msg: String::new(),
+            error: None,
+            repeat_pattern: None,
+            color_scheme: ColorScheme::Monochrome,
+            dim_nulls: true,
+            settings_open: false,
+            cache: ParagraphCache::default(),
+            lua_engine,
+            write_mode: WriteMode::Hex,
+            custom_encodings: Vec::new(),
+            encoding_settings_open: false,
+            encoding_settings_selection: None,
+            show_stats: false,
+            file_stats: None,
+            selection_stats: None,
+            row_entropies: Some(row_entropies),
+            show_entropy_band: true,
+            show_minimap: true,
+            pending_center_on: Cell::new(None),
+            theme: &DARK_THEME,
+            theme_variant: ThemeVariant::Dark,
+        };
+        state.recompute_vanilla_diff();
+        state
+    }
+
     pub fn load_from_path(path: &Path) -> Self {
         let name = path
             .file_name()
@@ -183,8 +300,11 @@ impl HexEditorState {
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,
+            inspector_source: InspectorSource::Baseline,
             vanilla,
             vanilla_diff: BTreeSet::new(),
+            comparison_file: None,
+            diff_review: false,
             patterns: Vec::new(),
             pattern_by_addr: BTreeMap::new(),
             show_pattern_list: false,
@@ -200,6 +320,7 @@ impl HexEditorState {
             goto: None,
             export_config: None,
             fill_dialog: None,
+            extend_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
             status_msg: String::new(),

@@ -31,11 +31,11 @@ pub fn choose_dir(tab_id: usize) -> Task<Message> {
 }
 
 pub fn dir_chosen(app: &mut App, tab_id: usize, path: Option<PathBuf>) -> Task<Message> {
-    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-        if let Some(ref mut dlg) = state.data.sprite_export_dialog {
-            dlg.export_dir = path;
-            dlg.status = SpriteExportStatus::Idle;
-        }
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id)
+        && let Some(ref mut dlg) = state.data.sprite_export_dialog
+    {
+        dlg.export_dir = path;
+        dlg.status = SpriteExportStatus::Idle;
     }
     Task::none()
 }
@@ -71,13 +71,13 @@ pub fn confirm_export(app: &mut App, tab_id: usize) -> Task<Message> {
 }
 
 pub fn export_done(app: &mut App, tab_id: usize, result: Result<String, String>) -> Task<Message> {
-    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id) {
-        if let Some(ref mut dlg) = state.data.sprite_export_dialog {
-            dlg.status = match result {
-                Ok(msg) => SpriteExportStatus::Done(msg),
-                Err(e) => SpriteExportStatus::Error(e),
-            };
-        }
+    if let Some(state) = app.state.editors.map_editors.get_mut(&tab_id)
+        && let Some(ref mut dlg) = state.data.sprite_export_dialog
+    {
+        dlg.status = match result {
+            Ok(msg) => SpriteExportStatus::Done(msg),
+            Err(e) => SpriteExportStatus::Error(e),
+        };
     }
     Task::none()
 }

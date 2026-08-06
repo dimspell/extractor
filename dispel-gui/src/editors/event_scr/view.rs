@@ -3,16 +3,18 @@ use std::sync::atomic::Ordering;
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_rule as hr;
-use crate::editors::event_scr::act_tree::{build_act_tree, ScriptNode};
+use crate::editors::event_scr::act_tree::{ScriptNode, build_act_tree};
 use crate::editors::event_scr::functions::{EventScriptFunctionIndex, IndexedFunction};
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::style;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{
-    button, column, container, pick_list, progress_bar, row, rule, scrollable, text, text_input,
-    Space,
+    Space, button, column, container, pick_list, progress_bar, row, rule, scrollable, text,
+    text_input,
 };
 use iced::{Alignment, Color, Element, Font, Length};
+use lucide_icons::Icon;
 
 pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let state = &app.state.editors.event_scr_editor;
@@ -20,7 +22,11 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
     let base = match &state.script_loading {
         LoadingState::Loaded(script) => {
             let script_id = script.id;
-            let modified_indicator = if state.modified { " ●" } else { "" };
+            let modified_indicator = if state.modified {
+                icon_char(Icon::Dot)
+            } else {
+                ' '
+            };
 
             let save_button = button("Save")
                 .on_press(EventScrEditorMessage::SaveScript)
@@ -223,6 +229,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 row![
                     text(format!("EventScript [{}]", script_id)).size(20),
                     text(modified_indicator)
+                        .font(LUCIDE_FONT)
                         .size(20)
                         .style(style::section_header),
                     Space::new().width(Length::Fill),
@@ -235,6 +242,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
                 view_status_bar(state),
             ]
             .spacing(10)
+            .accessible_label("Event script editor")
             .into()
         }
         LoadingState::Failed(err) => container(column![
@@ -247,6 +255,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
+        .accessible_label("Event script editor")
         .into(),
         LoadingState::Idle | LoadingState::Loading => empty_editor(),
     };
@@ -255,7 +264,7 @@ pub fn view(app: &App) -> Element<'_, EventScrEditorMessage> {
         let picker_content: Element<'_, EventScrEditorMessage> =
             container(view_function_picker(state))
                 .style(style::modal_container)
-                .max_width(520)
+                .width(520)
                 .into();
         gui_widgets::components::modal::modal(
             base,
@@ -289,11 +298,15 @@ fn collapsible_panel<'a>(
     body: Option<Vec<Element<'a, EventScrEditorMessage>>>,
 ) -> Element<'a, EventScrEditorMessage> {
     let expanded = state.panels_expanded.contains(&tab);
-    let arrow = if expanded { "▼" } else { "▶" };
+    let arrow_char = if expanded {
+        icon_char(Icon::ChevronDown)
+    } else {
+        icon_char(Icon::ChevronRight)
+    };
     let count_str = format!(" ({})", count);
 
     let mut header_children: Vec<Element<EventScrEditorMessage>> = vec![
-        text(arrow).size(13).into(),
+        text(arrow_char).font(LUCIDE_FONT).size(13).into(),
         text(label).size(14).style(style::section_header).into(),
         text(count_str).size(12).style(style::subtle_text).into(),
         Space::new().width(Length::Fill).into(),
@@ -569,7 +582,7 @@ fn render_inline_suggestions<'a>(
     container(column(items).spacing(1))
         .style(style::modal_container)
         .padding([4, 8])
-        .max_width(400)
+        .width(400)
         .into()
 }
 
@@ -729,12 +742,13 @@ fn render_action_row<'a>(
             row![
                 indent_guides(depth),
                 badge("FUNC", "func"),
-                pick_list(prefix_options, Some(current_prefix.clone()), move |v| {
-                    let opt = if v == "(none)" { None } else { Some(v) };
-                    EventScrEditorMessage::ActionPrefixPicked(index, opt)
-                },)
-                .text_size(12)
-                .padding([2, 6]),
+                pick_list(Some(current_prefix.clone()), prefix_options, String::clone)
+                    .on_select(move |v| {
+                        let opt = if v == "(none)" { None } else { Some(v) };
+                        EventScrEditorMessage::ActionPrefixPicked(index, opt)
+                    })
+                    .text_size(12)
+                    .padding([2, 6]),
                 text("~").size(13).style(style::subtle_text),
                 text_input("function", &act.function_name)
                     .on_input(move |s| { EventScrEditorMessage::ActionFunctionChanged(index, s) })
@@ -775,11 +789,15 @@ fn render_open_row<'a>(
     depth: usize,
     folded: bool,
 ) -> Element<'a, EventScrEditorMessage> {
-    let arrow = if folded { "▶" } else { "▼" };
+    let arrow_char = if folded {
+        icon_char(Icon::ChevronRight)
+    } else {
+        icon_char(Icon::ChevronDown)
+    };
     container(
         row![
             indent_guides(depth),
-            button(text(arrow).size(11))
+            button(text(arrow_char).font(LUCIDE_FONT).size(11))
                 .on_press(EventScrEditorMessage::ToggleFold(index))
                 .style(style::fold_button)
                 .padding([1, 3]),
@@ -922,6 +940,7 @@ fn view_status_bar(state: &EventScriptEditorState) -> Element<'static, EventScrE
     .style(style::status_bar)
     .padding([4, 12])
     .width(Length::Fill)
+    .accessible_label("Event script editor status")
     .into()
 }
 
@@ -1015,5 +1034,6 @@ fn empty_editor<'a>() -> Element<'a, EventScrEditorMessage> {
         .height(Length::Fill)
         .center_x(Length::Fill)
         .center_y(Length::Fill)
+        .accessible_label("Event script editor")
         .into()
 }

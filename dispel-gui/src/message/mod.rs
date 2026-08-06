@@ -18,6 +18,7 @@ pub use crate::components::file_tree::FileTreeMessage;
 use workspace::WorkspaceMessage as InternalWorkspaceMessage;
 
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum Message {
     Workspace(InternalWorkspaceMessage),
     Editor(EditorMessage),

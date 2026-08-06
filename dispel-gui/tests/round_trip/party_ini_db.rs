@@ -1,8 +1,8 @@
 //! Fixture-based tests for PrtIni.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::party_ini_db::PartyIniNpc;
 use dispel_core::Extractor;
+use dispel_core::references::party_ini_db::PartyIniNpc;
 use std::path::Path;
 
 #[test]

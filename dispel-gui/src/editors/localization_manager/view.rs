@@ -1,13 +1,15 @@
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
-use crate::components::textarea::textarea;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use gui_widgets::textarea;
 use iced::widget::{
     button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,
 };
 use iced::{Alignment, Background, Border, Color, Element, Fill, Length};
+use lucide_icons::Icon;
 
 // ─── File filter display wrapper ─────────────────────────────────────────────
 
@@ -80,14 +82,15 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .map(|f| FileFilter::File(f.clone()))
         .unwrap_or(FileFilter::All);
 
-    let file_filter = pick_list(filter_options, Some(current_filter), |sel| {
-        let opt = match sel {
-            FileFilter::All => None,
-            FileFilter::File(f) => Some(f),
-        };
-        Message::localization(LocalizationMessage::FilterFile(opt))
-    })
-    .width(Length::Fixed(160.0));
+    let file_filter = pick_list(Some(current_filter), filter_options, |f| f.to_string())
+        .on_select(|sel| {
+            let opt = match sel {
+                FileFilter::All => None,
+                FileFilter::File(f) => Some(f),
+            };
+            Message::localization(LocalizationMessage::FilterFile(opt))
+        })
+        .width(Length::Fixed(160.0));
 
     let search_input = text_input("Search…", &state.search_query)
         .on_input(|v| Message::localization(LocalizationMessage::SearchChanged(v)))
@@ -155,15 +158,24 @@ pub fn view(app: &App) -> Element<'_, Message> {
 
             // Status indicator
             let indicator = if is_overlong {
-                text("✗").size(11).style(|_t| iced::widget::text::Style {
-                    color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
-                })
+                text(icon_char(Icon::X))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.85, 0.2, 0.2)),
+                    })
             } else if is_translated {
-                text("✓").size(11).style(|_t| iced::widget::text::Style {
-                    color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
-                })
+                text(icon_char(Icon::Check))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(|_t| iced::widget::text::Style {
+                        color: Some(Color::from_rgb(0.3, 0.75, 0.3)),
+                    })
             } else {
-                text("●").size(11).style(style::subtle_text)
+                text(icon_char(Icon::Dot))
+                    .font(LUCIDE_FONT)
+                    .size(11)
+                    .style(style::subtle_text)
             };
 
             let short_file = entry
@@ -409,7 +421,11 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .width(Fill)
         .height(Fill);
 
-    container(content).width(Fill).height(Fill).into()
+    container(content)
+        .width(Fill)
+        .height(Fill)
+        .accessible_label("Localization manager")
+        .into()
 }
 
 fn placeholder_panel<'a>() -> Element<'a, Message> {

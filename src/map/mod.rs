@@ -90,16 +90,17 @@ pub mod reader;
 pub mod render;
 pub mod sprite_loader;
 pub mod tileset;
+pub mod tmx;
 pub mod types;
 pub mod writer;
 
 // ── Re-export the entire public surface so external code needs no changes ──
 pub use database::render_from_database;
-pub use model::{read_map_model, MapModel};
+pub use model::{MapModel, read_map_model};
 pub use render::{EntityRenderInfo, ExternalEntities, LayerToggles};
 pub use types::{
-    convert_map_coords_to_image_coords, Coords, EventBlock, SpriteInfoBlock, TiledObjectInfo,
-    TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF, TILE_PIXEL_NUMBER, TILE_WIDTH_HALF,
+    Coords, EventBlock, SpriteInfoBlock, TILE_HEIGHT_HALF, TILE_HORIZONTAL_OFFSET_HALF,
+    TILE_PIXEL_NUMBER, TILE_WIDTH_HALF, TiledObjectInfo, convert_map_coords_to_image_coords,
 };
 
 use std::collections::HashMap;
@@ -108,12 +109,12 @@ use std::io::{BufReader, Cursor, Seek, SeekFrom};
 use std::path::Path;
 
 use byteorder::{LittleEndian, ReadBytesExt};
-use image::codecs::png::PngEncoder;
 use image::RgbaImage;
+use image::codecs::png::PngEncoder;
 use image::{ColorType, ImageEncoder, Rgba};
 
-use crate::sprite::{rgb16_565_produce_color, SequenceInfo};
-use rusqlite::{params, Connection, Result as DbResult};
+use crate::sprite::{SequenceInfo, rgb16_565_produce_color};
+use rusqlite::{Connection, Result as DbResult, params};
 use serde::{Deserialize, Serialize};
 
 /// IO Result type for file operations
@@ -123,7 +124,7 @@ use reader::{
     first_block, read_events_block, read_roof_tiles, read_tiles_and_access_block, second_block,
     sprite_block, sprite_info_block, tiled_objects_block,
 };
-use render::{render_map, MapRenderConfig};
+use render::{MapRenderConfig, render_map};
 
 // --------------------------------------------------------------------------
 // MapData – the in-memory representation of a parsed .map file

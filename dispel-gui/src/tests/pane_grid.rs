@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod pane_grid_tests {
     use crate::app::App;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
+    use crate::message::workspace::WorkspaceMessage;
     use crate::workspace::Workspace;
 
     #[test]
@@ -173,5 +173,78 @@ mod pane_grid_tests {
             },
         )));
         // If we get here without panicking, the drop was handled
+    }
+
+    /// Regression test: Toggle Sidebar via command palette does not
+    /// cause "Downcast on stateless state" panic in pane_grid.
+    ///
+    /// The trigger: command palette active (root = stack), then ToggleSidebar
+    /// dismisses the palette AND replaces the pane_grid state. On the next
+    /// frame the root changes from `stack` to `container`, and the cached
+    /// tree diff must not panic.
+    #[cfg(all(test, feature = "iced_test"))]
+    #[test]
+    fn toggle_sidebar_with_overlay_does_not_crash() {
+        use crate::components::command_palette::CommandPalette;
+
+        let mut app = App::test_new(Workspace::new());
+
+        // Frame 1: command palette active, sidebar visible
+        app.command_palette = Some(CommandPalette::new());
+        assert!(app.sidebar_visible);
+
+        // Build the simulator (borrows app immutably), then drop it
+        {
+            let _sim = iced_test::Simulator::new(app.view());
+        }
+
+        // Frame 2: dismiss command palette + hide sidebar
+        app.command_palette = None;
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert!(!app.sidebar_visible);
+
+        // Verify remaining pane is functional
+        let panes: Vec<_> = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            panes.len(),
+            1,
+            "should have exactly one pane after hiding sidebar"
+        );
+    }
+
+    /// Regression test: Toggle Sidebar without overlay.
+    #[cfg(all(test, feature = "iced_test"))]
+    #[test]
+    fn toggle_sidebar_without_overlay_does_not_crash() {
+        let mut app = App::test_new(Workspace::new());
+        assert!(app.sidebar_visible);
+
+        // Build simulator for frame 1 (borrows app immutably), then drop it
+        {
+            let _sim = iced_test::Simulator::new(app.view());
+        }
+
+        // Frame 2: hide sidebar
+        let _ = app.update(Message::Workspace(WorkspaceMessage::ToggleSidebar));
+        assert!(!app.sidebar_visible);
+
+        let panes: Vec<_> = app
+            .state
+            .pane_state
+            .state
+            .iter()
+            .map(|(id, _)| *id)
+            .collect();
+        assert_eq!(
+            panes.len(),
+            1,
+            "should have exactly one pane after hiding sidebar"
+        );
     }
 }

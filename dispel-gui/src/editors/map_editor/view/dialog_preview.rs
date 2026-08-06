@@ -6,11 +6,13 @@ use crate::style;
 use dispel_core::references::dialogue_paragraph::DialogueParagraph;
 use dispel_core::references::dialogue_script::DialogueScript;
 use dispel_core::references::enums::{DialogOwner, DialogType};
-use iced::widget::{button, column, container, row, scrollable, text};
 use iced::Element;
+use iced::widget::{button, column, container, row, scrollable, text};
 
 use super::super::message::MapEditorMessage;
 use super::super::state::{DialogPreviewState, MapEditorState};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use lucide_icons::Icon;
 
 // ── Dialog Preview ─────────────────────────────────────────────────────────────
 
@@ -182,7 +184,7 @@ pub fn view_dialog_preview<'a>(
     let header_row: Element<'_, Message> = row![
         text(npc_label).size(14).style(style::primary_text),
         horizontal_space(),
-        button(text("✕").size(14))
+        button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
             .on_press(Message::map_editor(MapEditorMessage::HideDialogPreview(
                 tab_id,
             )))
@@ -217,29 +219,46 @@ pub fn view_dialog_preview<'a>(
             line.text.clone()
         };
 
-        // Build suffix (events, end marker, next links)
-        let mut suffix = String::new();
-        if line.has_prereq {
-            suffix.push_str(&format!(" ⚑ req#{}", line.prereq_id));
-        }
-        if line.has_trigger {
-            suffix.push_str(&format!(" ⚡ ev#{}", line.trigger_id));
-        }
-        if !line.next_labels.is_empty() {
-            suffix.push_str(&format!(" ─ {}", line.next_labels.join(" ")));
-        } else if line.is_end {
-            suffix.push_str(" ─ [END]");
-        }
-
-        let full_text = format!(
-            "{prefix}[{id}] {speaker}: \"{text}\"{suffix}",
+        let base_text = format!(
+            "{prefix}[{id}] {speaker}: \"{text}\"",
             id = line.script_id,
             speaker = speaker_colored,
             text = display_text,
-            suffix = suffix,
         );
 
-        container(text(full_text).size(11))
+        let mut line_parts: Vec<Element<'_, Message>> = vec![text(base_text).size(11).into()];
+
+        if line.has_prereq {
+            line_parts.push(
+                row![
+                    text(icon_char(Icon::Flag)).font(LUCIDE_FONT).size(10),
+                    text(format!(" req#{}", line.prereq_id)).size(11),
+                ]
+                .spacing(1)
+                .into(),
+            );
+        }
+        if line.has_trigger {
+            line_parts.push(
+                row![
+                    text(icon_char(Icon::Zap)).font(LUCIDE_FONT).size(10),
+                    text(format!(" ev#{}", line.trigger_id)).size(11),
+                ]
+                .spacing(1)
+                .into(),
+            );
+        }
+        if !line.next_labels.is_empty() {
+            line_parts.push(
+                text(format!(" ─ {}", line.next_labels.join(" ")))
+                    .size(11)
+                    .into(),
+            );
+        } else if line.is_end {
+            line_parts.push(text(" ─ [END]").size(11).into());
+        }
+
+        container(row(line_parts).spacing(2))
             .padding([2.0f32, left_pad + 8.0])
             .into()
     }))
@@ -258,6 +277,6 @@ pub fn view_dialog_preview<'a>(
         .height(iced::Length::Shrink),
     )
     .style(style::toolbar_container)
-    .max_height(550.0)
+    .height(550.0)
     .into()
 }

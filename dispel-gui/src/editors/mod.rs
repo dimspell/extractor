@@ -9,7 +9,6 @@
 
 pub mod all_map_ini;
 pub mod chdata;
-pub mod chest;
 pub mod db_viewer;
 pub mod dialogue_paragraph;
 pub mod dialogue_script;
@@ -22,6 +21,7 @@ pub mod event_scr;
 pub mod extra_ini;
 pub mod extra_ref;
 pub mod heal_item;
+pub mod hex_wrapper;
 pub mod localization_manager;
 pub mod magic;
 pub mod map_editor;
@@ -38,8 +38,9 @@ pub mod party_ini;
 pub mod party_level_db;
 pub mod party_ref;
 pub mod quest_scr;
+pub mod save_file_viewer;
 pub mod snf_editor;
-pub mod sprite_browser;
+pub mod sprite_editor;
 pub mod store;
 pub mod tileset;
 pub mod wave_ini;

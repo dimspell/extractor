@@ -3,10 +3,14 @@ members = [".", "dispel-gui", "dispel-macros", "gui-widgets", "hexedit"]
 resolver = "2"
 
 [workspace.dependencies]
-iced_test = "0.14.0"
+iced = { git = "https://github.com/dimspell/iced", default-features = false, rev = "8c028a7fb5b376c5a0539834a4bcde9eca6ee874" }
+iced_test = { git = "https://github.com/dimspell/iced", rev = "8c028a7fb5b376c5a0539834a4bcde9eca6ee874" }
 
 [workspace.metadata]
 features = ["iced_test"]
+
+[patch.crates-io]
+winit = { git = "https://github.com/iced-rs/winit.git", rev = "05b8ff17a06562f0a10bb46e6eaacbe2a95cb5ed" }
 
 [lib]
 name = "dispel_core"
@@ -14,8 +18,8 @@ path = "src/lib.rs"
 
 [package]
 name = "dispel-extractor"
-version = "0.8.0"
-edition = "2021"
+version = "0.9.0"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

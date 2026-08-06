@@ -7,8 +7,8 @@ use crate::editors::map_editor::{
 };
 use crate::message::{Message, MessageExt};
 use dispel_core::references::extractor::Extractor;
-use iced::widget::image::Handle;
 use iced::Task;
+use iced::widget::image::Handle;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -24,16 +24,17 @@ pub fn open(app: &mut App, tab_id: usize, path: PathBuf) -> Task<Message> {
     );
     // Ensure monster-name lookups are loaded for the `mon_id` field's
     // pick_list in the Monster inspector.
-    if !app.state.shared_game_path.is_empty() && !app.state.lookups.contains_key("monster_names") {
-        if let Ok(monsters) = dispel_core::references::monster_ini::MonsterIni::read_file(
+    if !app.state.shared_game_path.is_empty()
+        && !app.state.lookups.contains_key("monster_names")
+        && let Ok(monsters) = dispel_core::references::monster_ini::MonsterIni::read_file(
             &std::path::PathBuf::from(&app.state.shared_game_path).join("Monster.ini"),
-        ) {
-            let names: Vec<(String, String)> = monsters
-                .iter()
-                .map(|m| (m.id.to_string(), m.name.clone().unwrap_or_default()))
-                .collect();
-            app.state.lookups.insert("monster_names".to_string(), names);
-        }
+        )
+    {
+        let names: Vec<(String, String)> = monsters
+            .iter()
+            .map(|m| (m.id.to_string(), m.name.clone().unwrap_or_default()))
+            .collect();
+        app.state.lookups.insert("monster_names".to_string(), names);
     }
 
     let state = app.state.editors.map_editors.entry(tab_id).or_default();
@@ -598,6 +599,19 @@ pub fn resolve_map_id(stem: &str, game_path: &std::path::Path) -> Option<i32> {
         .map(|m| m.id)
 }
 
+/// Resolve an `AllMap.ini` numeric ID to its map filename stem (e.g. `3` → `"cat1"`).
+///
+/// Used by the save-file map preview to locate `.map`/`.gtl`/`.btl` files
+/// from a save file's `MapSectionData.map_id`.
+pub fn resolve_map_filename(map_id: i32, game_path: &std::path::Path) -> Option<String> {
+    use dispel_core::references::all_map_ini::Map as AllMapI;
+    let all_maps = AllMapI::read_file(&game_path.join("AllMap.ini")).ok()?;
+    all_maps
+        .into_iter()
+        .find(|m| m.id == map_id)
+        .map(|m| m.map_filename)
+}
+
 /// Convert a `LoadedSpriteFrame` to `DecodedEntitySprite`.
 fn decoded_from_frame(
     frame: &dispel_core::map::sprite_loader::LoadedSpriteFrame,
@@ -703,8 +717,8 @@ mod tests {
         for d in &map1.draw_items {
             assert_eq!(d.map_id, 0, "all draw items belong to map1");
             assert_eq!(
-                d.item_type,
-                dispel_core::references::enums::ItemTypeId::Event
+                d.item.item_type(),
+                Some(dispel_core::references::enums::ItemTypeId::Event)
             );
         }
 

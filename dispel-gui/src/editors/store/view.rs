@@ -1,11 +1,11 @@
 use crate::app::App;
-use crate::components::textarea;
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::editors::store::StoreEditorMessage;
 use crate::editors::store::{EditableProduct, StoreEditorState, StorePaneContent};
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
+use gui_widgets::textarea;
 use iced::widget::pane_grid::{self};
 use iced::widget::{button, column, container, pick_list, row, scrollable, text, text_input};
 use iced::{Element, Fill, Length};
@@ -397,8 +397,11 @@ fn product_modal<'a>(
         row![
             text("Type").size(12).width(70),
             pick_list(
-                ProductTypeOption::all(),
                 Some(ProductTypeOption::from_id(editor.modal_edit_type)),
+                ProductTypeOption::all(),
+                |v| v.to_string(),
+            )
+            .on_select(
                 |selected| Message::store(StoreEditorMessage::ModalTypeChanged(selected.to_id()))
             )
             .padding(6)
@@ -498,6 +501,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
         .spacing(10)
         .padding(16)
         .height(Length::Fill)
+        .accessible_label("Store editor")
         .into();
 
     if editor.show_product_modal {

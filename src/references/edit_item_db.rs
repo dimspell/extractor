@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::enums::{EditItemEffect, EditItemModification};
@@ -98,8 +98,8 @@ pub struct EditItem {
     #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
     /// Economic valuation offset.
-    #[extractor(primitive(type = "i16"))]
-    pub base_price: i16,
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
     /// Unknown field.
     #[extractor(primitive(type = "i16"))]
     pub padding1: i16,
@@ -107,8 +107,6 @@ pub struct EditItem {
     #[extractor(primitive(type = "i16"))]
     pub padding2: i16,
     /// Unknown field.
-    #[extractor(primitive(type = "i16"))]
-    pub padding3: i16,
     /// Base additive metric for derived vitality.
     #[extractor(primitive(type = "i16"))]
     pub health_points: i16,
@@ -172,7 +170,6 @@ pub fn save_edit_items(conn: &mut Connection, edit_items: &[EditItem]) -> Result
                 item.base_price,
                 item.padding1,
                 item.padding2,
-                item.padding3,
                 item.health_points,
                 item.mana_points,
                 item.strength,
@@ -200,14 +197,14 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn item_bytes(name: &str, base_price: i16, defense: i16) -> Vec<u8> {
+    fn item_bytes(name: &str, base_price: i32, defense: i16) -> Vec<u8> {
         let mut rec = Vec::with_capacity(268);
         let mut name_buf = [0u8; 30];
         name_buf[..name.len().min(29)].copy_from_slice(&name.as_bytes()[..name.len().min(29)]);
         rec.extend_from_slice(&name_buf);
         rec.extend(vec![0u8; 202]); // description
         rec.extend_from_slice(&base_price.to_le_bytes());
-        rec.extend(vec![0u8; 6]); // 3 padding i16s
+        rec.extend(vec![0u8; 4]); // 2 padding i16s
         rec.extend(vec![0u8; 14]); // hp, mp, str, agi, wis, con, dodge i16s
         rec.extend_from_slice(&(0i16).to_le_bytes()); // to_hit
         rec.extend_from_slice(&(0i16).to_le_bytes()); // offense

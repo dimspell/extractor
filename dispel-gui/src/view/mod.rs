@@ -1,18 +1,20 @@
 use crate::app::{App, AppMode};
 use crate::components::tab_bar::view as tab_bar;
-use crate::components::utils::{truncate_path, vertical_space};
+use crate::components::utils::vertical_space;
 use crate::message::{
-    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
-    WorkspaceMessage,
+    FileTreeMessage, Message, MessageExt, SystemMessage, WorkspaceMessage,
+    startpage::StartPageMessage,
 };
 use crate::state::PaneContent;
 use crate::style;
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use gui_widgets::components::modal::modal;
-use iced::widget::pane_grid;
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{Space, pane_grid};
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
-use iced::{Element, Fill, Font, Length};
+use iced::{Element, Fill, Font, Length, alignment};
+use lucide_icons::Icon;
 
 pub mod editor;
 pub mod history_panel;
@@ -42,158 +44,65 @@ impl App {
                     PaneContent::MainContent => {
                         let content = match self.state.workspace.active().map(|t| t.editor_type) {
                             Some(EditorType::DbViewer) => self.view_db_viewer(),
-                            Some(EditorType::ChestEditor) => crate::editors::chest::view(self),
-                            Some(EditorType::WeaponEditor) => crate::editors::weapon::view(self),
-                            Some(EditorType::SpriteViewer) => {
-                                crate::editors::sprite_browser::view(self)
-                            }
-                            Some(EditorType::HealItemEditor) => {
-                                crate::editors::heal_item::view(self)
-                            }
-                            Some(EditorType::MiscItemEditor) => {
-                                crate::editors::misc_item::view(self)
-                            }
-                            Some(EditorType::EditItemEditor) => {
-                                crate::editors::edit_item::view(self)
-                            }
-                            Some(EditorType::EventItemEditor) => {
-                                crate::editors::event_item::view(self)
-                            }
-                            Some(EditorType::MonsterEditor) => crate::editors::monster::view(self),
-                            Some(EditorType::MonsterIniEditor) => {
-                                crate::editors::monster_ini::view(self)
-                            }
-                            Some(EditorType::NpcIniEditor) => crate::editors::npc_ini::view(self),
-                            Some(EditorType::MagicEditor) => crate::editors::magic::view(self),
-                            Some(EditorType::StoreEditor) => crate::editors::store::view(self),
-                            Some(EditorType::PartyRefEditor) => {
-                                crate::editors::party_ref::view(self)
-                            }
-                            Some(EditorType::PartyIniEditor) => {
-                                crate::editors::party_ini::view(self)
-                            }
-                            Some(EditorType::MonsterRefEditor) => {
-                                crate::editors::monster_ref::view(self)
-                            }
-                            Some(EditorType::AllMapIniEditor) => {
-                                crate::editors::all_map_ini::view(self)
-                            }
-                            Some(EditorType::DialogueScriptEditor) => {
-                                crate::editors::dialogue_script::view(self)
-                            }
-                            Some(EditorType::DialogueTextEditor) => {
-                                crate::editors::dialogue_paragraph::view(self)
-                            }
-                            Some(EditorType::DrawItemEditor) => {
-                                crate::editors::draw_item::view(self)
-                            }
-                            Some(EditorType::EventIniEditor) => {
-                                crate::editors::event_ini::view(self)
-                            }
-                            Some(EditorType::EventNpcRefEditor) => {
-                                crate::editors::event_npc_ref::view(self)
-                            }
-                            Some(EditorType::ExtraIniEditor) => {
-                                crate::editors::extra_ini::view(self)
-                            }
-                            Some(EditorType::ExtraRefEditor) => {
-                                crate::editors::extra_ref::view(self)
-                            }
-                            Some(EditorType::MapIniEditor) => crate::editors::map_ini::view(self),
-                            Some(EditorType::MessageScrEditor) => {
-                                crate::editors::message_scr::view(self)
-                            }
-                            Some(EditorType::NpcRefEditor) => crate::editors::npc_ref::view(self),
-                            Some(EditorType::PartyLevelDbEditor) => {
-                                crate::editors::party_level_db::view(self)
-                            }
-                            Some(EditorType::QuestScrEditor) => {
-                                crate::editors::quest_scr::view(self)
-                            }
                             Some(EditorType::EventScrEditor) => {
                                 crate::editors::event_scr::view(self).map(|msg| {
-                                    crate::message::Message::Editor(
+                                    Message::Editor(
                                         crate::message::editor::EditorMessage::EventScr(msg),
                                     )
                                 })
                             }
-                            Some(EditorType::WaveIniEditor) => crate::editors::wave_ini::view(self),
-                            Some(EditorType::ChDataEditor) => crate::editors::chdata::view(self),
-                            Some(EditorType::TilesetEditor) => crate::editors::tileset::view(self),
-                            Some(EditorType::MapEditor) => crate::editors::map_editor::view(self),
-                            Some(EditorType::SnfEditor) => crate::editors::snf_editor::view(self),
-                            Some(EditorType::ModPackager) => {
-                                crate::editors::mod_packager::view(self)
-                            }
-                            Some(EditorType::LocalizationManager) => {
-                                crate::editors::localization_manager::view(self)
-                            }
-                            Some(EditorType::HexEditor) => {
-                                let tab_id = self
-                                    .state
-                                    .workspace
-                                    .active()
-                                    .map(|t| t.id)
-                                    .unwrap_or(usize::MAX);
-                                match self.state.editors.hex_editors.get(&tab_id) {
-                                    Some(state) => {
-                                        let config = crate::app::build_hex_config(
-                                            &self.state.recording,
-                                            &self.state.workspace.game_path,
-                                            state,
-                                        );
-                                        hexedit::view(state, &config).map(Message::hex_editor)
+                            et => {
+                                match crate::dispatch_table::dispatch_view(et, self) {
+                                    Some(view) => view,
+                                    None => {
+                                        // Fallback for Unknown/None
+                                        let content: Element<'_, Message> =
+                                            if self.state.recent_files.is_empty() {
+                                                column![
+                                                    text("Select a file to edit")
+                                                        .size(16)
+                                                        .style(style::subtle_text),
+                                                ]
+                                                .align_x(iced::Alignment::Center)
+                                                .into()
+                                            } else {
+                                                column![
+                                                    text("Select a file to edit")
+                                                        .size(16)
+                                                        .style(style::subtle_text),
+                                                    vertical_space().height(20),
+                                                    container(
+                                                        column![
+                                                            text("Recent Files")
+                                                                .size(14)
+                                                                .style(style::subtle_text),
+                                                            vertical_space().height(10),
+                                                            self.view_recent_files(),
+                                                        ]
+                                                        .spacing(4)
+                                                    )
+                                                    .width(400),
+                                                ]
+                                                .align_x(iced::Alignment::Center)
+                                                .into()
+                                            };
+
+                                        container(content)
+                                            .center_x(Fill)
+                                            .center_y(Fill)
+                                            .height(Fill)
+                                            .width(Fill)
+                                            .accessible_label("Select a file")
+                                            .into()
                                     }
-                                    None => container(text("Hex editor not loaded").size(14))
-                                        .width(Fill)
-                                        .height(Fill)
-                                        .padding(16)
-                                        .into(),
                                 }
                             }
-                            Some(EditorType::Unknown) | None => {
-                                let content: Element<'_, Message> =
-                                    if self.state.recent_files.is_empty() {
-                                        column![text("Select a file to edit")
-                                            .size(16)
-                                            .style(style::subtle_text),]
-                                        .align_x(iced::Alignment::Center)
-                                        .into()
-                                    } else {
-                                        column![
-                                            text("Select a file to edit")
-                                                .size(16)
-                                                .style(style::subtle_text),
-                                            vertical_space().height(20),
-                                            container(
-                                                column![
-                                                    text("Recent Files")
-                                                        .size(14)
-                                                        .style(style::subtle_text),
-                                                    vertical_space().height(10),
-                                                    self.view_recent_files(),
-                                                ]
-                                                .spacing(4)
-                                            )
-                                            .max_width(400),
-                                        ]
-                                        .align_x(iced::Alignment::Center)
-                                        .into()
-                                    };
-
-                                container(content)
-                                    .center_x(Fill)
-                                    .center_y(Fill)
-                                    .height(Length::Fill)
-                                    .width(Length::Fill)
-                                    .into()
-                            }
                         };
-                        let tab_bar =
-                            tab_bar::view_tab_bar(&self.state.workspace).map(Message::tab_bar);
-                        column![self.view_shared_game_path_toolbar(), tab_bar, content]
+                        let tab_bar = tab_bar::view_tab_bar(self);
+                        column![tab_bar, content]
                             .spacing(0)
                             .height(Fill)
+                            .accessible_label("Editor content")
                             .into()
                     }
                     PaneContent::HistoryPanel => {
@@ -219,10 +128,11 @@ impl App {
                 Message::Workspace(WorkspaceMessage::PaneResized(event))
             });
 
-        let main_container = container(pane_grid)
+        let main_container = container(column![self.view_shared_game_path_toolbar(), pane_grid])
             .width(Fill)
             .height(Fill)
-            .style(style::root_container);
+            .style(style::root_container)
+            .accessible_label("Editor workspace");
 
         if let Some(ref palette) = self.command_palette {
             let palette_view = palette.view();
@@ -234,7 +144,7 @@ impl App {
                 .height(Fill)
                 .center_x(Fill)
                 .center_y(Fill)
-                .style(|_theme| iced::widget::container::Style {
+                .style(|_theme| container::Style {
                     background: Some(iced::Background::Color(iced::Color {
                         r: 0.0,
                         g: 0.0,
@@ -253,7 +163,7 @@ impl App {
             let backdrop = container(column![].width(Fill).height(Fill))
                 .width(Fill)
                 .height(Fill)
-                .style(|_theme| iced::widget::container::Style {
+                .style(|_theme| container::Style {
                     background: Some(iced::Background::Color(iced::Color {
                         r: 0.0,
                         g: 0.0,
@@ -291,7 +201,7 @@ impl App {
                 .padding(20),
             )
             .style(style::modal_container)
-            .max_width(480);
+            .width(480);
 
             return modal(
                 main_container,
@@ -305,32 +215,38 @@ impl App {
     }
 
     fn view_shared_game_path_toolbar(&self) -> Element<'_, Message> {
-        let path_display = if self.state.shared_game_path.is_empty() {
-            "No game path set"
-        } else {
-            &self.state.shared_game_path
-        };
+        let toggle_sidebar_button = button(row![
+            text(icon_char(Icon::PanelLeftClose))
+                .font(LUCIDE_FONT)
+                .size(12),
+            text(" Toggle Sidebar").size(12),
+        ])
+        .on_press(Message::Workspace(WorkspaceMessage::ToggleSidebar))
+        .padding([4, 12])
+        .style(style::browse_button);
 
-        let path_text = container(
-            text(truncate_path(path_display, 80))
-                .size(12)
+        let change_path_button = button(text("Change Path").size(12))
+            .on_press(Message::StartPage(StartPageMessage::BackToStart))
+            .padding([4, 12])
+            .style(style::browse_button);
+
+        let command_palette_button = button(
+            text("Press Ctrl+P to find the file or Ctrl+Shift+P to open command palette")
+                .align_x(alignment::Horizontal::Center)
+                .size(11)
                 .font(Font::MONOSPACE),
         )
-        .padding([4, 12])
+        .on_press(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch))
         .width(Fill)
-        .style(style::sql_editor_container);
+        .style(style::command_palette_button);
 
         container(
             row![
-                text("Game Path:")
-                    .size(12)
-                    .width(80)
-                    .style(style::subtle_text),
-                path_text,
-                button(text("Change Path").size(12))
-                    .on_press(Message::StartPage(StartPageMessage::BackToStart))
-                    .padding([4, 12])
-                    .style(style::browse_button),
+                toggle_sidebar_button,
+                Space::default().width(50.0),
+                command_palette_button,
+                Space::default().width(50.0),
+                change_path_button,
             ]
             .spacing(8)
             .align_y(iced::Alignment::Center)
@@ -338,6 +254,7 @@ impl App {
         )
         .width(Fill)
         .style(style::toolbar_container)
+        .accessible_label("Game path toolbar")
         .into()
     }
 
@@ -359,8 +276,6 @@ impl App {
                 .into();
         }
 
-        let title = text("Dispel Extractor").size(18).font(Font::MONOSPACE);
-
         // File tree component - core of the Sublime-inspired navigation
         // Maps FileTreeMessage to WorkspaceMessage for proper routing
         let file_tree_view = self.file_tree.view().map(Message::file_tree);
@@ -378,7 +293,6 @@ impl App {
         let tools_section = column![
             container(text("Tools").size(11).style(style::subtle_text)).padding([4, 16]),
             tool_btn("DB Viewer", EditorType::DbViewer),
-            tool_btn("Chest Editor", EditorType::ChestEditor),
             tool_btn("Store Editor", EditorType::StoreEditor),
             tool_btn("Mod Manager", EditorType::ModPackager),
             tool_btn("Localization Packager", EditorType::LocalizationManager),
@@ -406,9 +320,6 @@ impl App {
         };
 
         let sidebar_content = column![
-            vertical_space().height(12),
-            container(title).padding([0, 16]),
-            vertical_space().height(16),
             file_tree_area,
             vertical_space().height(8),
             tools_section,
@@ -419,6 +330,7 @@ impl App {
         container(sidebar_content)
             .height(Fill)
             .style(style::sidebar_container)
+            .accessible_label("Sidebar")
             .into()
     }
 

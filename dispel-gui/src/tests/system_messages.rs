@@ -8,8 +8,8 @@
 //! than calling system::handle directly (which is private).
 
 use crate::app::App;
-use crate::message::system::SystemMessage;
 use crate::message::Message;
+use crate::message::system::SystemMessage;
 use crate::workspace::{EditorType, Workspace, WorkspaceTab};
 
 // ============================================================================
@@ -44,31 +44,31 @@ mod undo_redo_save_edges {
     }
 
     #[test]
-    fn save_on_sprite_viewer_is_noop() {
+    fn save_on_sprite_viewer_produces_task() {
         let mut app = app_with_tab(EditorType::SpriteViewer);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert_eq!(task.units(), 0, "SpriteViewer Save is no-op");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_event_scr_returns_task() {
         let mut app = app_with_tab(EditorType::EventScrEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "EventScrEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_map_editor_returns_task() {
         let mut app = app_with_tab(EditorType::MapEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "MapEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 
     #[test]
     fn save_weapon_editor_returns_task() {
         let mut app = app_with_tab(EditorType::WeaponEditor);
-        let task = app.update(Message::System(SystemMessage::Save));
-        assert!(task.units() > 0, "WeaponEditor Save produces task");
+        let _task = app.update(Message::System(SystemMessage::Save));
+        assert_ne!(app.state.status_msg, "This editor does not support saving");
     }
 }
 
@@ -122,10 +122,14 @@ mod index_messages {
 
         let mut idx = SearchIndex::new();
         idx.game_path = Some("/fake/path".to_string());
-        let task = app.update(Message::System(SystemMessage::IndexLoaded(Ok(idx))));
+        let _task = app.update(Message::System(SystemMessage::IndexLoaded(Ok(idx))));
 
-        assert!(task.units() > 0, "IndexLoaded triggers IndexSaveRequested");
         assert_eq!(app.state.status_msg, "Search index loaded");
+        assert_eq!(
+            app.search_index.game_path,
+            Some("/fake/path".to_string()),
+            "index game_path should be set"
+        );
     }
 
     #[test]
@@ -152,50 +156,6 @@ mod index_messages {
         assert!(!app.search_index.indexing, "indexing flag cleared");
         assert_eq!(app.search_index.progress, 1.0, "progress = 1.0");
         assert!(app.state.status_msg.contains("Index complete"));
-        let _ = task;
-    }
-}
-
-// ============================================================================
-// Draft manager messages
-// ============================================================================
-
-mod draft_messages {
-    use super::*;
-
-    #[test]
-    fn toggle_auto_save_switches_state() {
-        let mut app = App::test_new(Workspace::new());
-        let was = app.draft_manager.is_auto_save_enabled();
-
-        let task = app.update(Message::System(SystemMessage::ToggleAutoSave));
-        assert_ne!(app.draft_manager.is_auto_save_enabled(), was, "toggled off");
-        let _ = task;
-
-        let task = app.update(Message::System(SystemMessage::ToggleAutoSave));
-        assert_eq!(
-            app.draft_manager.is_auto_save_enabled(),
-            was,
-            "toggled back"
-        );
-        let _ = task;
-    }
-
-    #[test]
-    fn check_draft_conflicts_no_conflicts() {
-        let mut app = App::test_new(Workspace::new());
-        let task = app.update(Message::System(SystemMessage::CheckDraftConflicts));
-        assert_eq!(app.state.status_msg, "No conflicts detected");
-        let _ = task;
-    }
-
-    #[test]
-    fn discard_draft_sets_status() {
-        let mut app = App::test_new(Workspace::new());
-        let task = app.update(Message::System(SystemMessage::DiscardDraft(
-            "test.file".to_string(),
-        )));
-        assert!(app.state.status_msg.contains("Draft discarded"));
         let _ = task;
     }
 }

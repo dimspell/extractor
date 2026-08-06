@@ -1,5 +1,7 @@
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Fill, Length};
+use lucide_icons::Icon;
 
 use dispel_core::modding::InstalledMod;
 
@@ -111,12 +113,19 @@ fn mod_row<'a>(m: &'a InstalledMod, busy: bool, is_recording: bool) -> Element<'
     )
     .style(button::danger);
 
-    let badge = text(if m.enabled {
-        "● enabled"
-    } else {
-        "○ disabled"
-    })
-    .size(11)
+    let badge = container(
+        row![
+            text(icon_char(if m.enabled {
+                Icon::CircleDot
+            } else {
+                Icon::Circle
+            }))
+            .font(LUCIDE_FONT)
+            .size(8),
+            text(if m.enabled { " enabled" } else { " disabled" }).size(11),
+        ]
+        .spacing(2),
+    )
     .width(Length::Fixed(80.0));
 
     let title = text(m.manifest.name.as_str()).size(13);

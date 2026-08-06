@@ -212,14 +212,13 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         if let Some(stripped) = line.strip_prefix("msgid ") {
             if in_msgstr {
                 // flush previous pair
-                if let Some(ref id) = current_msgid {
-                    if !msgstr_buf.is_empty() {
-                        if let Some(idxs) = by_original.get(id) {
-                            for &i in idxs {
-                                entries[i].translation = msgstr_buf.clone();
-                                updated += 1;
-                            }
-                        }
+                if let Some(ref id) = current_msgid
+                    && !msgstr_buf.is_empty()
+                    && let Some(idxs) = by_original.get(id)
+                {
+                    for &i in idxs {
+                        entries[i].translation = msgstr_buf.clone();
+                        updated += 1;
                     }
                 }
             }
@@ -234,14 +233,13 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
             msgstr_buf.push_str(&po_unquote(line));
         } else if line.is_empty() && in_msgstr {
             // end of entry
-            if let Some(ref id) = current_msgid {
-                if !msgstr_buf.is_empty() {
-                    if let Some(idxs) = by_original.get(id) {
-                        for &i in idxs {
-                            entries[i].translation = msgstr_buf.clone();
-                            updated += 1;
-                        }
-                    }
+            if let Some(ref id) = current_msgid
+                && !msgstr_buf.is_empty()
+                && let Some(idxs) = by_original.get(id)
+            {
+                for &i in idxs {
+                    entries[i].translation = msgstr_buf.clone();
+                    updated += 1;
                 }
             }
             in_msgstr = false;
@@ -250,16 +248,14 @@ pub fn import_po(po: &str, entries: &mut [TextEntry]) -> usize {
         }
     }
     // flush last entry
-    if in_msgstr {
-        if let Some(ref id) = current_msgid {
-            if !msgstr_buf.is_empty() {
-                if let Some(idxs) = by_original.get(id) {
-                    for &i in idxs {
-                        entries[i].translation = msgstr_buf.clone();
-                        updated += 1;
-                    }
-                }
-            }
+    if in_msgstr
+        && let Some(ref id) = current_msgid
+        && !msgstr_buf.is_empty()
+        && let Some(idxs) = by_original.get(id)
+    {
+        for &i in idxs {
+            entries[i].translation = msgstr_buf.clone();
+            updated += 1;
         }
     }
     updated

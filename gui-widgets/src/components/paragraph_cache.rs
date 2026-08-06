@@ -1,5 +1,5 @@
-use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::Font;
+use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use lru::LruCache;
 use std::hash::{Hash, Hasher};
 use std::num::NonZeroUsize;
@@ -98,8 +98,8 @@ impl std::fmt::Debug for ParagraphCache {
 mod tests {
     use super::*;
     use iced::Font;
-    use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicI32, Ordering};
 
     #[test]
     fn test_paragraph_cache_insert_and_retrieve() {

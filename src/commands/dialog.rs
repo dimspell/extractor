@@ -1,8 +1,8 @@
 use super::Command;
-use dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs;
-use dispel_core::references::dialogue_script::{read_dialogs, DialogueScript};
-use dispel_core::references::npc_ref::read_npc_ref;
 use dispel_core::DialogType;
+use dispel_core::references::dialogue_paragraph::read_dialogue_paragraphs;
+use dispel_core::references::dialogue_script::{DialogueScript, read_dialogs};
+use dispel_core::references::npc_ref::read_npc_ref;
 use rusqlite::{Connection, Result as SqlResult};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -17,7 +17,7 @@ struct NpcInfo {
 /// Information about an event from the database
 #[derive(Debug, Clone)]
 struct EventInfo {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     event_id: i32,
     event_filename: Option<String>,
     actions: Vec<EventAction>,
@@ -150,9 +150,9 @@ fn load_event_information(db_path: &Path) -> SqlResult<HashMap<i32, EventInfo>> 
 
         // Get actions for this event
         let mut action_stmt = conn.prepare(
-            "SELECT action_order, function_name, parameters 
-             FROM event_actions 
-             WHERE event_id = ?1 
+            "SELECT action_order, function_name, parameters
+             FROM event_actions
+             WHERE event_id = ?1
              ORDER BY action_order",
         )?;
 
@@ -232,10 +232,9 @@ fn parse_dialog_ids_from_parameters(function_name: &str, params: &Option<String>
                     if dialog_id_param
                         .chars()
                         .all(|c| c.is_ascii_digit() || c == '-')
+                        && let Ok(id) = dialog_id_param.parse::<i32>()
                     {
-                        if let Ok(id) = dialog_id_param.parse::<i32>() {
-                            ids.push(id);
-                        }
+                        ids.push(id);
                     }
                 }
             }
@@ -246,10 +245,9 @@ fn parse_dialog_ids_from_parameters(function_name: &str, params: &Option<String>
                     if dialog_id_param
                         .chars()
                         .all(|c| c.is_ascii_digit() || c == '-')
+                        && let Ok(id) = dialog_id_param.parse::<i32>()
                     {
-                        if let Ok(id) = dialog_id_param.parse::<i32>() {
-                            ids.push(id);
-                        }
+                        ids.push(id);
                     }
                 }
             }
@@ -260,10 +258,9 @@ fn parse_dialog_ids_from_parameters(function_name: &str, params: &Option<String>
                     if dialog_id_param
                         .chars()
                         .all(|c| c.is_ascii_digit() || c == '-')
+                        && let Ok(id) = dialog_id_param.parse::<i32>()
                     {
-                        if let Ok(id) = dialog_id_param.parse::<i32>() {
-                            ids.push(id);
-                        }
+                        ids.push(id);
                     }
                 }
             }
@@ -272,10 +269,10 @@ fn parse_dialog_ids_from_parameters(function_name: &str, params: &Option<String>
                 // Try to get the first numeric parameter
                 for part in parts {
                     let trimmed = part.trim();
-                    if trimmed.chars().all(|c| c.is_ascii_digit() || c == '-') {
-                        if let Ok(id) = trimmed.parse::<i32>() {
-                            ids.push(id);
-                        }
+                    if trimmed.chars().all(|c| c.is_ascii_digit() || c == '-')
+                        && let Ok(id) = trimmed.parse::<i32>()
+                    {
+                        ids.push(id);
                     }
                 }
             }
@@ -309,22 +306,22 @@ fn print_dialog_event_graph(
             continue;
         }
 
-        if let Some(req_event) = dialog.required_event_id {
-            if req_event != 0 {
-                event_required_by
-                    .entry(req_event)
-                    .or_default()
-                    .push(dialog.id);
-            }
+        if let Some(req_event) = dialog.required_event_id
+            && req_event != 0
+        {
+            event_required_by
+                .entry(req_event)
+                .or_default()
+                .push(dialog.id);
         }
 
-        if let Some(trig_event) = dialog.triggered_event_id {
-            if trig_event != 0 {
-                event_triggered_by
-                    .entry(trig_event)
-                    .or_default()
-                    .push(dialog.id);
-            }
+        if let Some(trig_event) = dialog.triggered_event_id
+            && trig_event != 0
+        {
+            event_triggered_by
+                .entry(trig_event)
+                .or_default()
+                .push(dialog.id);
         }
     }
 
@@ -727,15 +724,15 @@ fn print_node_recursive(
     );
 
     // Show NPC info if this dialog is an NPC entry point
-    if depth == 0 {
-        if let Some(npc) = npcs.get(&id) {
-            println!(
-                "{}│   NPC: {} - {}",
-                "   ".repeat(depth),
-                npc.name,
-                npc.description
-            );
-        }
+    if depth == 0
+        && let Some(npc) = npcs.get(&id)
+    {
+        println!(
+            "{}│   NPC: {} - {}",
+            "   ".repeat(depth),
+            npc.name,
+            npc.description
+        );
     }
 
     if !text.is_empty() {
@@ -763,10 +760,10 @@ fn print_node_recursive(
             req_event
         );
         // Show event filename from database if available
-        if let Some(event) = event_info.get(&req_event) {
-            if let Some(ref filename) = event.event_filename {
-                println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
-            }
+        if let Some(event) = event_info.get(&req_event)
+            && let Some(ref filename) = event.event_filename
+        {
+            println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
         }
     }
     if trig_event != 0 {
@@ -776,20 +773,20 @@ fn print_node_recursive(
             trig_event
         );
         // Show event filename from database if available
-        if let Some(event) = event_info.get(&trig_event) {
-            if let Some(ref filename) = event.event_filename {
-                println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
-            }
+        if let Some(event) = event_info.get(&trig_event)
+            && let Some(ref filename) = event.event_filename
+        {
+            println!("{}│      📁 File: {}", "   ".repeat(depth), filename);
         }
     }
 
     match dialog_type {
         DialogType::Normal => {
-            if let Some(next) = dialog.next_dialog_id1 {
-                if next != 0 {
-                    println!("{}│", "   ".repeat(depth));
-                    print_node_recursive(dialog_map, texts, npcs, event_info, next, depth, printed);
-                }
+            if let Some(next) = dialog.next_dialog_id1
+                && next != 0
+            {
+                println!("{}│", "   ".repeat(depth));
+                print_node_recursive(dialog_map, texts, npcs, event_info, next, depth, printed);
             }
         }
         DialogType::Choice => {
@@ -800,19 +797,19 @@ fn print_node_recursive(
             ];
 
             for (next_id, label) in choices.iter() {
-                if let Some(next) = next_id {
-                    if *next != 0 {
-                        println!("{}└─ {}─ ", "   ".repeat(depth), label);
-                        print_node_recursive(
-                            dialog_map,
-                            texts,
-                            npcs,
-                            event_info,
-                            *next,
-                            depth + 1,
-                            printed,
-                        );
-                    }
+                if let Some(next) = next_id
+                    && *next != 0
+                {
+                    println!("{}└─ {}─ ", "   ".repeat(depth), label);
+                    print_node_recursive(
+                        dialog_map,
+                        texts,
+                        npcs,
+                        event_info,
+                        *next,
+                        depth + 1,
+                        printed,
+                    );
                 }
             }
         }

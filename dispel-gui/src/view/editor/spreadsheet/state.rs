@@ -5,32 +5,16 @@
 //! (sort/filter consistency, selection survival across filter changes,
 //! pane-grid bookkeeping) stay in one place.
 
-use super::caches::{compute_caches, ComputedCaches};
+use super::caches::{ComputedCaches, compute_caches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::components::editable::EditableRecord;
-use crate::components::textarea::TextAreaContent;
+use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
+use gui_widgets::TextAreaContent;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
 use std::collections::{HashMap, HashSet};
 
 /// How a global (filter-bar) query affects the row listing.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum GlobalFilterMode {
-    /// Hide rows that do not match — classic Excel AutoFilter behaviour.
-    #[default]
-    FilterOut,
-    /// Show every row, but tint the matching ones and let the user step
-    /// through them with prev/next (Ctrl+G style).
-    Highlight,
-}
-
-/// A single option in the column filter dropdown with value and row count.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ColumnFilterOption {
-    pub value: String,
-    pub count: usize,
-}
-
 /// Transient state for an in-progress column-resize drag.
 ///
 /// We track the cursor x in *table-relative* coordinates (i.e. the x reported
@@ -107,14 +91,11 @@ pub struct SpreadsheetState {
     pub last_resize_press: Option<(usize, std::time::Instant)>,
 
     // ── Scroll / viewport ─────────────────────────────────────────────────
-    /// Absolute horizontal scroll offset. The widget rehydrates from this on
-    /// each layout, so programmatic navigation just writes here.
-    pub horizontal_scroll_offset: f32,
-    /// Absolute vertical scroll offset.
-    pub vertical_scroll_offset: f32,
-    /// Height of the visible body. Updated from `BodyScrolled` so
-    /// `scroll_y_for_row` and `ensure_row_visible_y` use the real viewport.
-    pub viewport_height: f32,
+    /// Shared scroll state consumed by the table widget every frame.
+    /// The widget reads this directly (no more `external_offset` /
+    /// `sync_external` dance) and publishes changes back through
+    /// `on_scroll` → `BodyScrolled` → `record_scroll`.
+    pub table_state: gui_widgets::TableState,
 
     // ── Catalog-derived caches ─────────────────────────────────────────────
     /// Bumped whenever any column width changes. Threaded into the table
@@ -171,9 +152,10 @@ impl Default for SpreadsheetState {
             column_widths: HashMap::new(),
             resizing_column: None,
             last_resize_press: None,
-            horizontal_scroll_offset: 0.0,
-            vertical_scroll_offset: 0.0,
-            viewport_height: 400.0,
+            table_state: gui_widgets::TableState {
+                scroll_offset: iced::Vector::new(0.0, 0.0),
+                viewport_height: 400.0,
+            },
             col_widths_gen: 0,
             row_hashes: Vec::new(),
             display_cache: Vec::new(),
@@ -350,11 +332,7 @@ impl SpreadsheetState {
                 (Ok(na), Ok(nb)) => na.partial_cmp(&nb).unwrap_or(std::cmp::Ordering::Equal),
                 _ => va.cmp(&vb),
             };
-            if ascending {
-                cmp
-            } else {
-                cmp.reverse()
-            }
+            if ascending { cmp } else { cmp.reverse() }
         });
     }
 
@@ -409,11 +387,12 @@ impl SpreadsheetState {
     /// `on_double_click`.
     pub fn try_begin_column_resize(&mut self, col: usize) -> bool {
         let double_press_threshold = std::time::Duration::from_millis(400);
-        if let Some((last_col, last_time)) = self.last_resize_press {
-            if last_col == col && last_time.elapsed() < double_press_threshold {
-                self.last_resize_press = None;
-                return true; // caller should auto-size
-            }
+        if let Some((last_col, last_time)) = self.last_resize_press
+            && last_col == col
+            && last_time.elapsed() < double_press_threshold
+        {
+            self.last_resize_press = None;
+            return true; // caller should auto-size
         }
         self.last_resize_press = Some((col, std::time::Instant::now()));
         let anchor_width = self.column_width(col);
@@ -527,7 +506,7 @@ impl SpreadsheetState {
     /// Body-scrollable Y offset that centers `filtered_idx` in the viewport.
     /// Used by jump-style navigation (highlight cursor, bottom).
     pub fn scroll_y_for_row(&self, filtered_idx: usize) -> f32 {
-        ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.viewport_height / 2.0).max(0.0)
+        ((filtered_idx as f32 + 0.5) * ROW_HEIGHT - self.table_state.viewport_height / 2.0).max(0.0)
     }
 
     /// Minimal scroll offset to keep `filtered_idx` visible. If the row is
@@ -538,12 +517,12 @@ impl SpreadsheetState {
     pub fn ensure_row_visible_y(&self, filtered_idx: usize) -> f32 {
         let row_top = filtered_idx as f32 * ROW_HEIGHT;
         let row_bottom = row_top + ROW_HEIGHT;
-        let cur = self.vertical_scroll_offset;
-        let cur_bottom = cur + self.viewport_height;
+        let cur = self.table_state.scroll_offset.y;
+        let cur_bottom = cur + self.table_state.viewport_height;
         if row_top < cur {
             row_top
         } else if row_bottom > cur_bottom {
-            (row_bottom - self.viewport_height).max(0.0)
+            (row_bottom - self.table_state.viewport_height).max(0.0)
         } else {
             cur
         }
@@ -553,17 +532,17 @@ impl SpreadsheetState {
     /// these fields on its next layout to snap its internal offset, so this
     /// mutation is the only way programmatic navigation moves the viewport.
     pub fn record_target_offset(&mut self, x: f32, y: f32) {
-        self.horizontal_scroll_offset = x;
-        self.vertical_scroll_offset = y;
+        self.table_state.scroll_offset.x = x;
+        self.table_state.scroll_offset.y = y;
     }
 
     /// Record a scroll event published by the table widget. Mirrors the
     /// widget's offset and viewport into state so programmatic navigation
     /// (`record_target_offset`) computes against an up-to-date viewport.
     pub fn record_scroll(&mut self, offset_x: f32, offset_y: f32, viewport_height: f32) {
-        self.horizontal_scroll_offset = offset_x;
-        self.vertical_scroll_offset = offset_y;
-        self.viewport_height = viewport_height;
+        self.table_state.scroll_offset.x = offset_x;
+        self.table_state.scroll_offset.y = offset_y;
+        self.table_state.viewport_height = viewport_height;
     }
 
     pub fn toggle_inspector(&mut self) {
@@ -672,14 +651,14 @@ impl SpreadsheetState {
                 let table_pane = ps
                     .iter()
                     .find_map(|(p, c)| matches!(c, SpreadsheetPaneContent::Table).then_some(*p));
-                if let Some(pane) = table_pane {
-                    if let Some((_, split)) = ps.split(
+                if let Some(pane) = table_pane
+                    && let Some((_, split)) = ps.split(
                         pane_grid::Axis::Vertical,
                         pane,
                         SpreadsheetPaneContent::Inspector,
-                    ) {
-                        ps.resize(split, 0.70);
-                    }
+                    )
+                {
+                    ps.resize(split, 0.70);
                 }
             }
         } else {

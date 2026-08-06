@@ -7,7 +7,7 @@ editable_record_fields!(DrawItem, {
     { map_id = Integer / "Map ID:" },
     { x_coord = Integer / "X:" },
     { y_coord = Integer / "Y:" },
-    { item_type = CompositeItem("items", item_id) / "Item:" },
+    { item = CompositeItem("items") / "Item:" },
 });
 
 impl EditableRecord for DrawItem {
@@ -16,7 +16,10 @@ impl EditableRecord for DrawItem {
     fn list_label(&self) -> String {
         format!(
             "[Map {}] ({}, {}) Item: {}",
-            self.map_id, self.x_coord, self.y_coord, self.item_id
+            self.map_id,
+            self.x_coord,
+            self.y_coord,
+            self.item.item_id()
         )
     }
 

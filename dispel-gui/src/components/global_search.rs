@@ -1,5 +1,5 @@
 use crate::components::utils::{horizontal_rule, horizontal_space};
-use crate::message::{workspace::WorkspaceMessage, Message};
+use crate::message::{Message, workspace::WorkspaceMessage};
 use crate::style;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length};
@@ -85,7 +85,8 @@ impl GlobalSearch {
         let input = text_input("Search files...", &self.query)
             .id(Self::input_id())
             .on_input(|s| Message::Workspace(WorkspaceMessage::GlobalSearchInput(s)))
-            .padding(12);
+            .padding(12)
+            .accessible_label("Search files");
 
         let results_list: Vec<Element<_>> = self
             .results
@@ -140,8 +141,8 @@ impl GlobalSearch {
         .height(Fill);
 
         container(content)
-            .max_width(400)
-            .max_height(500)
+            .width(400)
+            .height(500)
             .style(style::modal_container)
             .into()
     }

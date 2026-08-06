@@ -3,7 +3,7 @@ pub(crate) mod entries;
 pub mod types;
 
 // Re-export public API
-pub use detect::{detect, format_type_list, get_by_key, suggest_similar_keys, FILE_TYPES};
+pub use detect::{FILE_TYPES, detect, format_type_list, get_by_key, suggest_similar_keys};
 pub use types::{DetectResult, FileType};
 
 /// Canonical field definitions per file type key.

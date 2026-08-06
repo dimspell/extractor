@@ -1,13 +1,13 @@
 [package]
 name = "dispel-gui"
-version = "0.8.0"
-edition = "2021"
+version = "0.9.0"
+edition = "2024"
 
 [dependencies]
-iced = { version = "0.14", default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland"] }
+iced = { workspace = true, default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland", "accessibility"] }
 image = { version = "0.25", features = ["png", "jpeg"] }
 tokio = { version = "1", features = ["process", "io-util", "rt-multi-thread", "macros", "fs", "sync", "time"] }
-rfd = "0.17.2"
+rfd = "0.16"
 csv = "1.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -17,15 +17,16 @@ dispel_core = { package = "dispel-extractor", path = ".." }
 nucleo-matcher = "0.3"
 bincode = "1.3.3"
 thiserror = "2.0.18"
-tempfile = "3.10.0"
-iced_test = { version = "0.14.0", optional = true }
+iced_test = { workspace = true, optional = true }
 env_logger = "0.10.0"
 rodio = { version = "0.22", default-features = false, features = ["wav", "playback"] }
 log = "0.4"
 zip = "8"
 lru = "0.12"
-gui-widgets = { path = "../gui-widgets" }
+gui-widgets = { path = "../gui-widgets", features = ["accessibility"] }
 hexedit = { path = "../hexedit" }
+lucide-icons = "1.23"
+uuid = { version = "1", features = ["v4", "serde"] }
 paste = "1.0.15"
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -45,7 +46,7 @@ objc2-foundation = { version = "0.3", features = ["std", "NSString", "NSGeometry
 [features]
 default = []
 iced_test = ["dep:iced_test"]
-tokio = []
+debug = ["iced/hot"]
 
 [dependencies.rusqlite]
 version = "0.39.0"
@@ -54,3 +55,4 @@ features = ["bundled"]
 [dev-dependencies]
 proptest = "1.4"
 syn = { version = "2", features = ["full"] }
+tempfile = "3.10.0"

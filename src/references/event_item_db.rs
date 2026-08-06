@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 use crate::references::extractor::Extractor;
@@ -75,10 +75,14 @@ pub struct EventItem {
     pub name: String,
     /// Item tooltip giving clues on application.
     #[extractor(string(encoding = "WINDOWS-1250", size = 202))]
+    #[translatable(encoding = "WINDOWS-1250", max_bytes = 202)]
     pub description: String,
+    /// Economic valuation offset.
+    #[extractor(primitive(type = "i32"))]
+    pub base_price: i32,
     /// Padding field to preserve binary compatibility.
-    #[extractor(array(size = 8, type = "u8"))]
-    pub padding: [u8; 8],
+    #[extractor(primitive(type = "i32"))]
+    pub padding: i32,
 }
 
 pub fn read_event_item_db(source_path: &Path) -> std::io::Result<Vec<EventItem>> {

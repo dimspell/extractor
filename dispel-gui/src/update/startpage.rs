@@ -1,7 +1,7 @@
 use crate::app::{App, AppMode};
 use crate::components::utils::browse_folder;
 use crate::message::startpage::StartPageMessage;
-use crate::message::{system::SystemMessage, Message};
+use crate::message::{Message, system::SystemMessage};
 use iced::Task;
 use std::path::PathBuf;
 
@@ -46,6 +46,12 @@ pub fn enter_editor_mode(app: &mut App, path: PathBuf) -> Task<Message> {
     // Set game path
     app.state.workspace.game_path = Some(path.clone());
     app.state.shared_game_path = path.to_string_lossy().to_string();
+
+    // let path_display = if self.state.shared_game_path.is_empty() {
+    //     "No game path set"
+    // } else {
+    //     &self.state.shared_game_path
+    // };
 
     // Scan file tree with existing cache
     let cache_mgr = app.state.file_index_cache_manager.clone();

@@ -1,9 +1,9 @@
 use crate::components::edit_history::EditHistory;
 use crate::components::editable::EditableRecord;
-use crate::components::textarea::TextAreaContent;
-use crate::view::editor::spreadsheet::ColumnFilterOption;
+use crate::components::filter::ColumnFilterOption;
 use crate::view::editor::SpreadsheetState;
 use dispel_core::Extractor;
+use gui_widgets::TextAreaContent;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::Pane;
 use std::collections::HashMap;
@@ -108,16 +108,16 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                         new_value: value.clone(),
                     });
                 // Update the matching buffer
-                if let Some(pos) = R::field_descriptors().iter().position(|d| d.name == field) {
-                    if let Some(buf) = self.edit_buffers.get_mut(pos) {
-                        *buf = value;
-                    }
+                if let Some(pos) = R::field_descriptors().iter().position(|d| d.name == field)
+                    && let Some(buf) = self.edit_buffers.get_mut(pos)
+                {
+                    *buf = value;
                 }
                 // Sync back to the original catalog entry
-                if let Some(catalog) = &mut self.catalog {
-                    if let Some(catalog_record) = catalog.get_mut(idx) {
-                        *catalog_record = record.clone();
-                    }
+                if let Some(catalog) = &mut self.catalog
+                    && let Some(catalog_record) = catalog.get_mut(idx)
+                {
+                    *catalog_record = record.clone();
                 }
                 return true;
             }
@@ -143,33 +143,31 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                         // Update buffer
                         if let Some(pos) =
                             R::field_descriptors().iter().position(|d| d.name == field)
+                            && let Some(buf) = self.edit_buffers.get_mut(pos)
                         {
-                            if let Some(buf) = self.edit_buffers.get_mut(pos) {
-                                *buf = old_value.clone();
-                            }
+                            *buf = old_value.clone();
                         }
                         // Update catalog
-                        if let Some(catalog) = &mut self.catalog {
-                            if let Some(cat_record) = catalog.get_mut(record_idx) {
-                                let _ = cat_record.set_field(&field, old_value);
-                            }
+                        if let Some(catalog) = &mut self.catalog
+                            && let Some(cat_record) = catalog.get_mut(record_idx)
+                        {
+                            let _ = cat_record.set_field(&field, old_value);
                         }
                         return Some(format!("Undo: {} changed back", field));
                     }
                     None
                 }
                 crate::components::edit_history::EditAction::RecordRemove { record_idx, data } => {
-                    if let Ok(record) = serde_json::from_str::<R>(&data) {
-                        if let Some(catalog) = &mut self.catalog {
-                            if record_idx <= catalog.len() {
-                                catalog.insert(record_idx, record);
-                                self.refresh();
-                                self.edit_history.adjust_for_addition(record_idx);
-                                self.edit_buffers.clear();
-                                self.selected_idx = None;
-                                return Some(format!("Undo: restored record #{}", record_idx));
-                            }
-                        }
+                    if let Ok(record) = serde_json::from_str::<R>(&data)
+                        && let Some(catalog) = &mut self.catalog
+                        && record_idx <= catalog.len()
+                    {
+                        catalog.insert(record_idx, record);
+                        self.refresh();
+                        self.edit_history.adjust_for_addition(record_idx);
+                        self.edit_buffers.clear();
+                        self.selected_idx = None;
+                        return Some(format!("Undo: restored record #{}", record_idx));
                     }
                     None
                 }
@@ -199,16 +197,15 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                         // Update buffer
                         if let Some(pos) =
                             R::field_descriptors().iter().position(|d| d.name == field)
+                            && let Some(buf) = self.edit_buffers.get_mut(pos)
                         {
-                            if let Some(buf) = self.edit_buffers.get_mut(pos) {
-                                *buf = old_value.clone();
-                            }
+                            *buf = old_value.clone();
                         }
                         // Update catalog
-                        if let Some(catalog) = &mut self.catalog {
-                            if let Some(cat_record) = catalog.get_mut(record_idx) {
-                                let _ = cat_record.set_field(&field, old_value);
-                            }
+                        if let Some(catalog) = &mut self.catalog
+                            && let Some(cat_record) = catalog.get_mut(record_idx)
+                        {
+                            let _ = cat_record.set_field(&field, old_value);
                         }
                         return Some(format!("Redo: {} changed", field));
                     }
@@ -218,15 +215,15 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
                     record_idx,
                     data: _,
                 } => {
-                    if let Some(catalog) = &mut self.catalog {
-                        if record_idx < catalog.len() {
-                            catalog.remove(record_idx);
-                            self.refresh();
-                            self.edit_history.adjust_for_removal(record_idx);
-                            self.edit_buffers.clear();
-                            self.selected_idx = None;
-                            return Some(format!("Redo: removed record #{}", record_idx));
-                        }
+                    if let Some(catalog) = &mut self.catalog
+                        && record_idx < catalog.len()
+                    {
+                        catalog.remove(record_idx);
+                        self.refresh();
+                        self.edit_history.adjust_for_removal(record_idx);
+                        self.edit_buffers.clear();
+                        self.selected_idx = None;
+                        return Some(format!("Redo: removed record #{}", record_idx));
                     }
                     None
                 }
@@ -344,14 +341,14 @@ impl<R: EditableRecord + Extractor> GenericEditorState<R> {
         orig_idx: usize,
     ) -> HashMap<String, TextAreaContent> {
         let mut map = HashMap::new();
-        if let Some(catalog) = &self.catalog {
-            if let Some(record) = catalog.get(orig_idx) {
-                for d in R::field_descriptors() {
-                    map.insert(
-                        d.name.to_string(),
-                        TextAreaContent::with_text(&record.get_field(d.name)),
-                    );
-                }
+        if let Some(catalog) = &self.catalog
+            && let Some(record) = catalog.get(orig_idx)
+        {
+            for d in R::field_descriptors() {
+                map.insert(
+                    d.name.to_string(),
+                    TextAreaContent::with_text(&record.get_field(d.name)),
+                );
             }
         }
         map
@@ -423,10 +420,10 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
         if let Ok(entries) = std::fs::read_dir(game_path) {
             for entry in entries.filter_map(Result::ok) {
                 let path = entry.path();
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if glob_match(name, pattern) {
-                        self.file_list.push(path);
-                    }
+                if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && glob_match(name, pattern)
+                {
+                    self.file_list.push(path);
                 }
             }
         }
@@ -491,13 +488,13 @@ impl<R: EditableRecord + Extractor> MultiFileEditorState<R> {
                 },
             );
 
-            if let Some(catalog) = &mut self.editor.catalog {
-                if orig_idx < catalog.len() {
-                    catalog.remove(orig_idx);
-                    self.editor.refresh();
-                    self.editor.selected_idx = None;
-                    self.editor.edit_buffers.clear();
-                }
+            if let Some(catalog) = &mut self.editor.catalog
+                && orig_idx < catalog.len()
+            {
+                catalog.remove(orig_idx);
+                self.editor.refresh();
+                self.editor.selected_idx = None;
+                self.editor.edit_buffers.clear();
             }
         }
         Ok(())

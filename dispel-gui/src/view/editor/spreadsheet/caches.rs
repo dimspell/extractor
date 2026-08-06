@@ -71,12 +71,11 @@ pub fn resolve_lookup_displays<R: EditableRecord>(
     let descriptors = R::field_descriptors();
     for row in data.display_cache.iter_mut() {
         for (col, val) in row.iter_mut().enumerate() {
-            if let Some(FieldKind::Lookup(lookup_key)) = descriptors.get(col).map(|d| &d.kind) {
-                if let Some(entries) = lookups.get(*lookup_key) {
-                    if let Some((_, name)) = entries.iter().find(|(k, _)| k == val) {
-                        *val = format!("{} ({})", name, val);
-                    }
-                }
+            if let Some(FieldKind::Lookup(lookup_key)) = descriptors.get(col).map(|d| &d.kind)
+                && let Some(entries) = lookups.get(*lookup_key)
+                && let Some((_, name)) = entries.iter().find(|(k, _)| k == val)
+            {
+                *val = format!("{} ({})", name, val);
             }
         }
     }
@@ -95,13 +94,12 @@ pub fn resolve_composite_displays<R: EditableRecord>(
         for (col, val) in row.iter_mut().enumerate() {
             if let Some(FieldKind::CompositeItem { lookup_key, .. }) =
                 descriptors.get(col).map(|d| &d.kind)
+                && let Some(entries) = lookups.get(*lookup_key)
             {
-                if let Some(entries) = lookups.get(*lookup_key) {
-                    if let Some((_, display_name)) = entries.iter().find(|(k, _)| k == val) {
-                        *val = display_name.clone();
-                    } else if val.starts_with("255:") {
-                        *val = "[-]".to_string();
-                    }
+                if let Some((_, display_name)) = entries.iter().find(|(k, _)| k == val) {
+                    *val = display_name.clone();
+                } else if val.starts_with("255:") {
+                    *val = "[-]".to_string();
                 }
             }
         }

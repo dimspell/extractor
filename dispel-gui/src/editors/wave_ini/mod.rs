@@ -1,8 +1,8 @@
 mod component;
 
 use crate::app::App;
-use crate::components::standard::message::StandardEditorMessage;
 use crate::components::standard::StandardEditor;
+use crate::components::standard::message::StandardEditorMessage;
 use crate::handle_spreadsheet_messages;
 use crate::message::MessageExt;
 use dispel_core::WaveIni;
@@ -138,7 +138,8 @@ pub fn handle(message: WaveIniEditorMessage, app: &mut App) -> Task<crate::messa
                                 if let Some(parent) = output_path.parent() {
                                     let _ = std::fs::create_dir_all(parent);
                                 }
-                                let snf_path = App::find_snf_file(&game_path, &snf_filename);
+                                let snf_path =
+                                    crate::platform::find_snf_file(&game_path, &snf_filename);
                                 dispel_core::snf::extract(&snf_path, &output_path)
                                     .map(|_| output_path.to_string_lossy().to_string())
                                     .map_err(|e| e.to_string())
@@ -198,5 +199,6 @@ pub fn view(app: &App) -> iced::Element<'_, crate::message::Message> {
         |pane| crate::message::Message::wave_ini(WaveIniEditorMessage::PaneClicked(pane)),
         None,
         None,
+        "Wave INI editor",
     )
 }

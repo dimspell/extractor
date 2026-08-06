@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::extractor::Extractor;
 use dispel_macros::{TextExtractor, TextRecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Map.ini - Map Initialization Data
@@ -103,9 +103,14 @@ pub fn save_map_inis(conn: &mut Connection, map_inis: &[MapIni]) -> Result<()> {
     {
         let mut stmt = tx.prepare(include_str!("../queries/insert_map_ini.sql"))?;
         for map_ini in map_inis {
+            let camera_event = if map_ini.event_id_on_camera_move == 0 {
+                None
+            } else {
+                Some(map_ini.event_id_on_camera_move)
+            };
             stmt.execute(params![
                 map_ini.id,
-                map_ini.event_id_on_camera_move,
+                camera_event,
                 map_ini.start_pos_x,
                 map_ini.start_pos_y,
                 map_ini.map_id,

@@ -132,15 +132,15 @@ impl SpriteDefinition {
     pub fn parse(line: &str) -> Self {
         let trimmed = line.trim();
         // Check if the line has the format: alias(filename)
-        if let Some(start) = trimmed.find('(') {
-            if let Some(end) = trimmed.rfind(')') {
-                let alias = trimmed[..start].trim();
-                let file = trimmed[start + 1..end].trim();
-                return SpriteDefinition {
-                    sprite_alias: alias.to_string(),
-                    sprite_file: file.to_string(),
-                };
-            }
+        if let Some(start) = trimmed.find('(')
+            && let Some(end) = trimmed.rfind(')')
+        {
+            let alias = trimmed[..start].trim();
+            let file = trimmed[start + 1..end].trim();
+            return SpriteDefinition {
+                sprite_alias: alias.to_string(),
+                sprite_file: file.to_string(),
+            };
         }
         // Handle the simple format without parentheses: alias
         SpriteDefinition {

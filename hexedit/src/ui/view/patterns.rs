@@ -19,9 +19,9 @@ use iced::widget::space::Space;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length};
 
-use crate::domain::pattern_layout::{compute_pattern_rows, GutterGlyph, PatternRow};
-use crate::state::HexEditorState;
 use crate::HexEditorMessage;
+use crate::domain::pattern_layout::{GutterGlyph, PatternRow, compute_pattern_rows};
+use crate::state::HexEditorState;
 
 // ── Public entry point ──────────────────────────────────────────────────────
 

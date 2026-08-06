@@ -4,26 +4,51 @@ use iced::{Element, Fill, Font, Length};
 
 use crate::config::HexEditorConfig;
 use crate::inspector::ENTRIES;
+use crate::state::InspectorSource;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 pub fn view<'a>(
     editor: &'a HexEditorState,
     config: &HexEditorConfig,
 ) -> Element<'a, HexEditorMessage> {
-    let header = container(text("Data inspector").size(11).font(Font::MONOSPACE))
-        .padding([6, 12])
-        .width(Fill);
+    let has_comparison = editor.comparison_file.is_some();
+    let header = container(
+        row![
+            text("Data inspector").size(11).font(Font::MONOSPACE),
+            if has_comparison {
+                source_toggle(editor)
+            } else {
+                Space::default().into()
+            },
+            source_label(editor),
+        ]
+        .spacing(8)
+        .align_y(iced::Alignment::Center),
+    )
+    .padding([6, 12])
+    .width(Fill);
 
-    let rows: Element<'_, HexEditorMessage> = if editor.provider.is_empty() {
+    let (src_len, src_bytes, editable) = match editor.inspector_source {
+        InspectorSource::Baseline => (editor.provider.len(), editor.provider.as_slice(), true),
+        InspectorSource::Comparison => {
+            let data = editor
+                .comparison_file
+                .as_ref()
+                .map(|cf| cf.data.as_slice())
+                .unwrap_or(&[]);
+            (data.len() as u64, data, false)
+        }
+    };
+
+    let rows: Element<'_, HexEditorMessage> = if src_len == 0 {
         container(text("(empty file)").size(11).font(Font::MONOSPACE))
             .padding([4, 12])
             .into()
     } else {
         let cursor = editor.selection.cursor;
-        let len = editor.provider.len();
-        let avail = (len - cursor) as usize;
-        let read_end = (cursor + 64).min(len);
-        let bytes = editor.provider.read(cursor..read_end);
+        let avail = src_len.saturating_sub(cursor) as usize;
+        let read_end = (cursor + 64).min(src_len);
+        let bytes = &src_bytes[cursor as usize..read_end as usize];
 
         let mut col = column![].spacing(1).padding([4, 12]);
         let mut last_category: Option<&str> = None;
@@ -38,7 +63,7 @@ pub fn view<'a>(
             } else {
                 "—".to_string()
             };
-            let editable = entry.encode.is_some() && avail >= entry.min_size;
+            let editable = editable && entry.encode.is_some() && avail >= entry.min_size;
             col = col.push(inspector_row(
                 &entry.name,
                 &value,
@@ -60,7 +85,7 @@ pub fn view<'a>(
                 } else {
                     "—".to_string()
                 };
-                let editable = entry.encode.is_some() && avail >= entry.min_size;
+                let editable = editable && entry.encode.is_some() && avail >= entry.min_size;
                 col = col.push(inspector_row(
                     &entry.name,
                     &value,
@@ -77,6 +102,64 @@ pub fn view<'a>(
     container(column![header, scrollable(rows).height(Length::Fill)])
         .width(Fill)
         .height(Fill)
+        .into()
+}
+
+/// A/B toggle letting the inspector decode from the main file or the
+/// comparison file loaded for the diff view.
+fn source_toggle<'a>(editor: &'a HexEditorState) -> Element<'a, HexEditorMessage> {
+    let (a_active, b_active) = match editor.inspector_source {
+        InspectorSource::Baseline => (true, false),
+        InspectorSource::Comparison => (false, true),
+    };
+    row![
+        toggle_button("A", a_active, InspectorSource::Baseline),
+        toggle_button("B", b_active, InspectorSource::Comparison),
+    ]
+    .spacing(4)
+    .into()
+}
+
+/// Shows which file the decoded values come from. Always visible feedback
+/// when the A/B source changes — even on bytes that are identical in both
+/// files, the label switches so the toggle is never silently a no-op.
+fn source_label<'a>(editor: &'a HexEditorState) -> Element<'a, HexEditorMessage> {
+    let name = match editor.inspector_source {
+        InspectorSource::Baseline => editor.name.as_str(),
+        InspectorSource::Comparison => editor
+            .comparison_file
+            .as_ref()
+            .map(|cf| cf.name.as_str())
+            .unwrap_or("comparison"),
+    };
+    container(
+        text(format!("· {name}"))
+            .size(9)
+            .font(Font::MONOSPACE)
+            .color(iced::Color {
+                r: 0.55,
+                g: 0.55,
+                b: 0.55,
+                a: 1.0,
+            }),
+    )
+    .into()
+}
+
+fn toggle_button<'a>(
+    label: &'a str,
+    active: bool,
+    source: InspectorSource,
+) -> Element<'a, HexEditorMessage> {
+    let style = if active {
+        button::primary
+    } else {
+        button::secondary
+    };
+    button(text(label).size(10).font(Font::MONOSPACE))
+        .padding([1, 6])
+        .style(style)
+        .on_press(HexEditorMessage::SetInspectorSource(source))
         .into()
 }
 

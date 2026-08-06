@@ -4,9 +4,9 @@ use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::MessageExt;
 use dispel_core::localization::Localizable;
 use dispel_core::{
-    export_csv, export_po, import_csv, import_po, DialogueParagraph, EditItem, EventItem,
-    EventNpcRef, ExtraRef, Extractor, HealItem, Message, MiscItem, PartyIniNpc, Store, TextEntry,
-    WeaponItem, NPC,
+    DialogueParagraph, EditItem, EventItem, EventNpcRef, ExtraRef, Extractor, HealItem, Map,
+    Message, MiscItem, MonsterIni, NPC, PartyIniNpc, PartyRef, Quest, Store, TextEntry, WeaponItem,
+    export_csv, export_po, import_csv, import_po,
 };
 use iced::Task;
 use std::io::Write;
@@ -76,7 +76,7 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                 .unwrap_or("");
             app.state.editors.localization_manager.selected_idx = Some(idx);
             app.state.editors.localization_manager.translation_content =
-                crate::components::textarea::TextAreaContent::with_text(text);
+                gui_widgets::TextAreaContent::with_text(text);
             Task::none()
         }
         LocalizationMessage::TranslationAction(action) => {
@@ -98,11 +98,10 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     .text();
                 // trim trailing newline that text_editor appends
                 let text = text.trim_end_matches('\n').to_owned();
-                if let Some(idx) = app.state.editors.localization_manager.selected_idx {
-                    if let Some(entry) = app.state.editors.localization_manager.entries.get_mut(idx)
-                    {
-                        entry.translation = text;
-                    }
+                if let Some(idx) = app.state.editors.localization_manager.selected_idx
+                    && let Some(entry) = app.state.editors.localization_manager.entries.get_mut(idx)
+                {
+                    entry.translation = text;
                 }
                 // Debounced session save
                 let game_path = app.state.shared_game_path.clone();
@@ -283,13 +282,12 @@ pub fn handle(message: LocalizationMessage, app: &mut App) -> Task<crate::messag
                     };
                     app.state.editors.localization_manager.status_msg = msg;
                     // Refresh editor panel if selected entry changed
-                    if let Some(idx) = app.state.editors.localization_manager.selected_idx {
-                        if let Some(entry) = app.state.editors.localization_manager.entries.get(idx)
-                        {
-                            let text = entry.translation.clone();
-                            app.state.editors.localization_manager.translation_content =
-                                crate::components::textarea::TextAreaContent::with_text(&text);
-                        }
+                    if let Some(idx) = app.state.editors.localization_manager.selected_idx
+                        && let Some(entry) = app.state.editors.localization_manager.entries.get(idx)
+                    {
+                        let text = entry.translation.clone();
+                        app.state.editors.localization_manager.translation_content =
+                            gui_widgets::TextAreaContent::with_text(&text);
                     }
                     // Persist session
                     let game_path = app.state.shared_game_path.clone();
@@ -450,10 +448,9 @@ fn merge_session(entries: &mut [TextEntry], saved: &[SavedTranslation]) {
     for entry in entries.iter_mut() {
         if let Some(&t) =
             saved_map.get(&(entry.file_path.as_str(), entry.record_id, entry.field_name))
+            && !t.is_empty()
         {
-            if !t.is_empty() {
-                entry.translation = t.to_owned();
-            }
+            entry.translation = t.to_owned();
         }
     }
 }
@@ -544,6 +541,10 @@ fn scan_all_entries(
     scan_one::<Message>(game_path, "ExtraInGame/Message.scr", &mut entries)?;
     scan_one::<PartyIniNpc>(game_path, "NpcInGame/PrtIni.db", &mut entries)?;
     scan_one::<EventNpcRef>(game_path, "NpcInGame/Eventnpc.ref", &mut entries)?;
+    scan_one::<Quest>(game_path, "ExtraInGame/Quest.scr", &mut entries)?;
+    scan_one::<Map>(game_path, "AllMap.ini", &mut entries)?;
+    scan_one::<MonsterIni>(game_path, "Monster.ini", &mut entries)?;
+    scan_one::<PartyRef>(game_path, "Ref/PartyRef.ref", &mut entries)?;
 
     for rel in NPC_REF_FILES {
         scan_one::<NPC>(game_path, rel, &mut entries)?;
@@ -556,10 +557,10 @@ fn scan_all_entries(
     scan_pgp_files(game_path, &mut entries)?;
 
     // Merge saved session translations on top of fresh scan
-    if let Some(path) = session_path {
-        if let Some(saved) = load_session(path) {
-            merge_session(&mut entries, &saved);
-        }
+    if let Some(path) = session_path
+        && let Some(saved) = load_session(path)
+    {
+        merge_session(&mut entries, &saved);
     }
 
     Ok(entries)
@@ -744,6 +745,14 @@ fn apply_entries_to_file(
         apply_one::<ExtraRef>(abs_path, &by_record)
     } else if lower.ends_with(".pgp") {
         apply_one::<DialogueParagraph>(abs_path, &by_record)
+    } else if lower.ends_with("quest.scr") {
+        apply_one::<Quest>(abs_path, &by_record)
+    } else if lower.ends_with("allmap.ini") {
+        apply_one::<Map>(abs_path, &by_record)
+    } else if lower.ends_with("monster.ini") {
+        apply_one::<MonsterIni>(abs_path, &by_record)
+    } else if lower.ends_with("partyref.ref") {
+        apply_one::<PartyRef>(abs_path, &by_record)
     } else {
         Ok(())
     }
