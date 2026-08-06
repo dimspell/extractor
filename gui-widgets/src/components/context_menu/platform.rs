@@ -147,7 +147,7 @@ fn windows_show_menu(items: &[MenuItem]) -> NativeResult {
     const TPM_RETURNCMD: UINT = 0x0100;
     const TPM_RIGHTBUTTON: UINT = 0x0002;
 
-    extern "system" {
+    unsafe extern "system" {
         fn CreatePopupMenu() -> HMENU;
         fn AppendMenuW(hmenu: HMENU, flags: UINT, id_new_item: usize, new_item: *const u16) -> i32;
         fn TrackPopupMenu(
