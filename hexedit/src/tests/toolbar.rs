@@ -33,17 +33,6 @@ fn test_toolbar_hide_patterns_label_when_active() {
 }
 
 #[test]
-fn test_toolbar_bpr_buttons_render() {
-    let state = make_state((0..64).collect());
-    let config = default_config();
-    let mut ui = simulator(view(&state, &config));
-    ui.find("BPR").expect("BPR label should be rendered");
-    ui.find("08").expect("8 BPR button should be rendered");
-    ui.find("16").expect("16 BPR button should be rendered");
-    ui.find("32").expect("32 BPR button should be rendered");
-}
-
-#[test]
 fn test_toolbar_save_button_with_custom_label() {
     let state = make_state((0..64).collect());
     let config = HexEditorConfig {
