@@ -189,7 +189,7 @@ pub fn expand(input: DeriveInput) -> TokenStream2 {
                 ty,
                 default_value,
             } => {
-                let default_expr = if let Some(ref dv) = default_value {
+                let default_expr = if let Some(dv) = default_value {
                     match ty.as_str() {
                         "i16" => {
                             let val = dv.parse::<i16>().expect("default_value must be i16");

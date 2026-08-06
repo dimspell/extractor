@@ -1,8 +1,8 @@
 //! Fixture-based tests for Monster.ini
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::monster_ini::MonsterIni;
 use dispel_core::Extractor;
+use dispel_core::references::monster_ini::MonsterIni;
 use std::path::Path;
 
 #[test]

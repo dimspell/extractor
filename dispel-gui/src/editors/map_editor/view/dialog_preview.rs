@@ -6,12 +6,12 @@ use crate::style;
 use dispel_core::references::dialogue_paragraph::DialogueParagraph;
 use dispel_core::references::dialogue_script::DialogueScript;
 use dispel_core::references::enums::{DialogOwner, DialogType};
-use iced::widget::{button, column, container, row, scrollable, text};
 use iced::Element;
+use iced::widget::{button, column, container, row, scrollable, text};
 
 use super::super::message::MapEditorMessage;
 use super::super::state::{DialogPreviewState, MapEditorState};
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use lucide_icons::Icon;
 
 // ── Dialog Preview ─────────────────────────────────────────────────────────────

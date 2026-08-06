@@ -6,7 +6,7 @@ use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, Globa
 use crate::editors::save_file_viewer::message::{
     SaveFileViewerMessage, TableFilterAction, TableKey,
 };
-use crate::editors::save_file_viewer::state::{events_default_columns, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::{SaveFileViewerState, events_default_columns};
 use crate::message::Message;
 use crate::message::MessageExt;
 use gui_widgets::components::modal;
@@ -51,10 +51,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     {
         c.has_filter = has;
     }
-    if let Some(sc) = ts.sort_column {
-        if let Some(c) = columns.get_mut(sc) {
-            c.sort = Some(ts.sort_ascending);
-        }
+    if let Some(sc) = ts.sort_column
+        && let Some(c) = columns.get_mut(sc)
+    {
+        c.sort = Some(ts.sort_ascending);
     }
 
     let selected = ts.selected_orig;

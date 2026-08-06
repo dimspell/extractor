@@ -4,13 +4,13 @@
 //! rectangles (used by event handling) and a free `draw_scrollbars` function
 //! for painting them.
 
-use iced::advanced::renderer;
 use iced::advanced::Renderer as _;
-use iced::{color, Background, Border, Point, Rectangle, Shadow, Vector};
+use iced::advanced::renderer;
+use iced::{Background, Border, Point, Rectangle, Shadow, Vector, color};
 
+use super::SCROLLBAR_THICKNESS;
 use super::types::Axis;
 use super::widget::TableWidget;
-use super::SCROLLBAR_THICKNESS;
 
 // ── Scrollbar geometry (impl methods, used by event system) ──────────
 
@@ -79,15 +79,15 @@ impl<'a, Message> TableWidget<'a, Message> {
     /// covers the whole track so the thumb still feels grabbable when the
     /// cursor hits anywhere along the bar.
     pub(crate) fn scrollbar_under(&self, bounds: Rectangle, off: Vector, p: Point) -> Option<Axis> {
-        if let Some((track, _)) = self.vertical_scrollbar(bounds, off.y) {
-            if track.contains(p) {
-                return Some(Axis::Vertical);
-            }
+        if let Some((track, _)) = self.vertical_scrollbar(bounds, off.y)
+            && track.contains(p)
+        {
+            return Some(Axis::Vertical);
         }
-        if let Some((track, _)) = self.horizontal_scrollbar(bounds, off.x) {
-            if track.contains(p) {
-                return Some(Axis::Horizontal);
-            }
+        if let Some((track, _)) = self.horizontal_scrollbar(bounds, off.x)
+            && track.contains(p)
+        {
+            return Some(Axis::Horizontal);
         }
         None
     }

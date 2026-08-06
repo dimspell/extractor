@@ -1,7 +1,7 @@
 [package]
 name = "hexedit"
 version = "0.8.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "hexedit"

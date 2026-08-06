@@ -2,9 +2,9 @@ use std::error::Error;
 
 use serde::Serialize;
 
+use crate::commands::Command;
 use crate::commands::registry;
 use crate::commands::registry::FileType;
-use crate::commands::Command;
 
 #[derive(clap::Args, Clone)]
 pub struct ListArgs {

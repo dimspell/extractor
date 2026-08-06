@@ -1,8 +1,8 @@
 //! Viewer data-fetching functions extracted from `app.rs`.
 
-use crate::editors::db_viewer::db;
 use crate::editors::db_viewer::DbViewerState;
 use crate::editors::db_viewer::PAGE_SIZE;
+use crate::editors::db_viewer::db;
 use crate::message::{Message, ViewerMessage};
 use iced::Task;
 

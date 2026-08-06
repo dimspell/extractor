@@ -1,7 +1,7 @@
 mod crosscheck {
     use crate::editor_registry::EditorRegistry;
-    use crate::message::system::SystemMessage;
     use crate::message::Message;
+    use crate::message::system::SystemMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::EditorType;
     use std::collections::HashMap;

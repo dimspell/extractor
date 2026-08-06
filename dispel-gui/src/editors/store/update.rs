@@ -92,11 +92,11 @@ pub fn handle(message: StoreEditorMessage, app: &mut App) -> Task<crate::message
         }
         StoreEditorMessage::SelectStore(index) => {
             app.state.editors.store_editor.select_store(index);
-            if let Some(catalog) = &app.state.editors.store_editor.catalog {
-                if index < catalog.len() {
-                    app.state.editors.store_editor.status_msg =
-                        format!("Selected store: {}", catalog[index]);
-                }
+            if let Some(catalog) = &app.state.editors.store_editor.catalog
+                && index < catalog.len()
+            {
+                app.state.editors.store_editor.status_msg =
+                    format!("Selected store: {}", catalog[index]);
             }
             Task::none()
         }

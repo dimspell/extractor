@@ -16,8 +16,8 @@ use crate::app::App;
 
 use crate::components::generic_editor::{GenericEditorState, MultiFileEditorState};
 use crate::editors::mod_packager;
-use crate::editors::mod_packager::recording::{observe_field_change, ObservedAction};
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::recording::{ObservedAction, observe_field_change};
 use crate::editors::npc_ref::{self, NpcRefEditorMessage};
 use crate::editors::store::{self, StoreEditorMessage};
 use crate::editors::wave_ini::{self, WaveIniEditorMessage};
@@ -27,7 +27,7 @@ use crate::tests::common::{app_with_recording, app_without_recording};
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dispel_core::modding::Value;
-use dispel_core::{Store, WaveIni, WeaponItem, NPC};
+use dispel_core::{NPC, Store, WaveIni, WeaponItem};
 use std::path::PathBuf;
 
 // ============================================================================
@@ -555,13 +555,13 @@ fn recording_debounce_fired_matching_generation_produces_task() {
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "old", "new")),
         &mut app,
     );
-    let gen = app.state.recording.as_ref().unwrap().next_generation; // 1
+    let gen_value = app.state.recording.as_ref().unwrap().next_generation; // 1
 
     // Fire with matching generation — should produce a flush task
     let _flush_task = mod_packager::handle(
         ModPackagerMessage::RecordingDebounceFired {
             key: key.clone(),
-            generation: gen,
+            generation: gen_value,
         },
         &mut app,
     );
@@ -690,13 +690,13 @@ fn recording_debounce_fired_noop_edit_discarded() {
         ModPackagerMessage::RecordingObserved(make_observed(key.clone(), "same", "same")),
         &mut app,
     );
-    let gen = app.state.recording.as_ref().unwrap().next_generation;
+    let gen_value = app.state.recording.as_ref().unwrap().next_generation;
 
     // Flush with matching generation — should detect old==new and discard
     let task = mod_packager::handle(
         ModPackagerMessage::RecordingDebounceFired {
             key: key.clone(),
-            generation: gen,
+            generation: gen_value,
         },
         &mut app,
     );

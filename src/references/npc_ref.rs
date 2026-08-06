@@ -1,11 +1,11 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown0110, Unknown012,
+    BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown012, Unknown0110,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// NPC Reference (NpcInGame/Npccat1.ref) - NPC Placements on Maps

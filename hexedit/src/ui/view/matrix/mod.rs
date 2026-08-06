@@ -25,10 +25,10 @@ pub use state::{EditView, State};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 
+use iced::advanced::Shell;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
-use iced::advanced::widget::{tree, Tree, Widget};
-use iced::advanced::Shell;
+use iced::advanced::widget::{Tree, Widget, tree};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
 
@@ -697,16 +697,18 @@ mod tests {
     #[test]
     fn addr_at_outside_columns_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(
-            Point::new(20.0, 4.0),
-            bounds,
-            0.0,
-            0.0,
-            16,
-            1024,
-            TEST_ADDR_COL_WIDTH
-        )
-        .is_none());
+        assert!(
+            addr_at(
+                Point::new(20.0, 4.0),
+                bounds,
+                0.0,
+                0.0,
+                16,
+                1024,
+                TEST_ADDR_COL_WIDTH
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -720,16 +722,18 @@ mod tests {
     #[test]
     fn addr_at_empty_file_returns_none() {
         let bounds = make_bounds();
-        assert!(addr_at(
-            Point::new(100.0, 4.0),
-            bounds,
-            0.0,
-            0.0,
-            16,
-            0,
-            TEST_ADDR_COL_WIDTH
-        )
-        .is_none());
+        assert!(
+            addr_at(
+                Point::new(100.0, 4.0),
+                bounds,
+                0.0,
+                0.0,
+                16,
+                0,
+                TEST_ADDR_COL_WIDTH
+            )
+            .is_none()
+        );
     }
 
     #[test]

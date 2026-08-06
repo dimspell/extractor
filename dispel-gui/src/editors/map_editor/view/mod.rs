@@ -5,7 +5,7 @@ use crate::components::loading_state::LoadingState;
 use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, canvas, column, container, progress_bar, row, stack, text, toggler};
 use iced::{Element, Fill};
 use lucide_icons::Icon;
@@ -31,7 +31,7 @@ pub fn view(app: &App) -> Element<'_, Message> {
             )
             .padding(24)
             .accessible_label("Map editor")
-            .into()
+            .into();
         }
     };
 

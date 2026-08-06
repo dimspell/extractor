@@ -1,8 +1,8 @@
 //! Fixture-based tests for ExtraRef
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::extra_ref::ExtraRef;
 use dispel_core::Extractor;
+use dispel_core::references::extra_ref::ExtraRef;
 use std::path::Path;
 
 #[test]

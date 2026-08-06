@@ -7,9 +7,9 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::domain::fill_dialog::FillDialog;
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Modal body shown when "Fill…" is selected from the context menu.
 pub fn view<'a>(dlg: &'a FillDialog, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {

@@ -1,6 +1,6 @@
 use iced::advanced::text::Wrapping;
 use iced::widget::text_editor;
-use iced::{color, Background, Border, Color, Element};
+use iced::{Background, Border, Color, Element, color};
 
 /// Owned `text_editor::Content` that can be stored in app state.
 ///

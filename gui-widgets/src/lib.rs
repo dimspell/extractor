@@ -3,6 +3,6 @@ pub mod lucide;
 pub mod style;
 
 pub use components::{
-    textarea, textarea_style, CollapsibleTree, RenderContext, RowFlags, TableColumn, TableState,
-    TableWidget, TextAreaContent, TreeNode,
+    CollapsibleTree, RenderContext, RowFlags, TableColumn, TableState, TableWidget,
+    TextAreaContent, TreeNode, textarea, textarea_style,
 };

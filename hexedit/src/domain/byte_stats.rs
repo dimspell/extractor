@@ -216,10 +216,10 @@ fn detect_structure(
             if period as usize > max_period {
                 continue;
             }
-            if let Some(confidence) = check_repeating_period(bytes, period as usize) {
-                if confidence > 0.85 {
-                    return StructureHeuristic::Mixed; // Not exporting period yet
-                }
+            if let Some(confidence) = check_repeating_period(bytes, period as usize)
+                && confidence > 0.85
+            {
+                return StructureHeuristic::Mixed; // Not exporting period yet
             }
         }
     }
@@ -432,13 +432,13 @@ mod tests {
     #[test]
     fn entropy_to_color_clamps() {
         let (r, g, b) = entropy_to_color(0.0);
-        assert!(r >= 0.0 && r <= 1.0);
-        assert!(g >= 0.0 && g <= 1.0);
-        assert!(b >= 0.0 && b <= 1.0);
+        assert!((0.0..=1.0).contains(&r));
+        assert!((0.0..=1.0).contains(&g));
+        assert!((0.0..=1.0).contains(&b));
         let (r2, g2, b2) = entropy_to_color(8.0);
-        assert!(r2 >= 0.0 && r2 <= 1.0);
-        assert!(g2 >= 0.0 && g2 <= 1.0);
-        assert!(b2 >= 0.0 && b2 <= 1.0);
+        assert!((0.0..=1.0).contains(&r2));
+        assert!((0.0..=1.0).contains(&g2));
+        assert!((0.0..=1.0).contains(&b2));
         // 8.0 should be red-dominant; 0.0 should be blue-dominant.
         assert!(r2 > b2, "high entropy → red-dominant");
         let (r0, _g0, b0) = entropy_to_color(0.0);

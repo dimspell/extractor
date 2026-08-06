@@ -1,5 +1,5 @@
 use super::types::RowFlags;
-use iced::{color, Color};
+use iced::{Color, color};
 
 pub(crate) fn cell_text_color(flags: RowFlags) -> Color {
     if flags.current_highlight {

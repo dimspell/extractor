@@ -5,7 +5,7 @@ use gui_widgets::components::toast;
 use iced::Task;
 use std::io::Cursor;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc};
+use std::sync::{Arc, mpsc};
 
 pub fn handle(message: SnfEditorMessage, app: &mut App) -> Task<crate::message::Message> {
     let tab_id = app

@@ -8,8 +8,8 @@
 //! than calling system::handle directly (which is private).
 
 use crate::app::App;
-use crate::message::system::SystemMessage;
 use crate::message::Message;
+use crate::message::system::SystemMessage;
 use crate::workspace::{EditorType, Workspace, WorkspaceTab};
 
 // ============================================================================

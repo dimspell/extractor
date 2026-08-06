@@ -6,7 +6,7 @@ use crate::references::enums::{
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Stores specific placements and configurations for interactive objects (chests, signs, doors) on a map.
@@ -253,7 +253,7 @@ mod tests {
         let mut rec = vec![0u8; 184];
         rec[0] = 1; // number_in_file
         rec[2] = 3; // extra_ini_entry_id
-                    // name at offset 3, 32 bytes
+        // name at offset 3, 32 bytes
         let nb = name.as_bytes();
         let n = nb.len().min(31);
         rec[3..3 + n].copy_from_slice(&nb[..n]);

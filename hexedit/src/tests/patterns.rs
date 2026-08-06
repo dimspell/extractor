@@ -393,7 +393,10 @@ fn test_build_entries_all_three_combinations() {
         );
 
         let remove_present = entries.iter().any(|e| matches!(e, CtxEntry::Item { label, .. } | CtxEntry::Disabled { label, .. } if label == "Remove Pattern"));
-        assert_eq!(remove_present, has_pat, "Remove Pattern should only appear when has_patterns for ({has_sel}, {has_pat}, {has_addr})");
+        assert_eq!(
+            remove_present, has_pat,
+            "Remove Pattern should only appear when has_patterns for ({has_sel}, {has_pat}, {has_addr})"
+        );
         if has_pat {
             let remove_enabled = entries
                 .iter()

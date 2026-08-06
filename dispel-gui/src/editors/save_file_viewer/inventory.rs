@@ -1,5 +1,5 @@
 use iced::mouse::Interaction;
-use iced::widget::{button, container, mouse_area, text, Column, Row};
+use iced::widget::{Column, Row, button, container, mouse_area, text};
 use iced::{Element, Fill};
 
 use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
@@ -81,10 +81,10 @@ fn inventory_table<'a>(
         for (c, w) in columns.iter_mut().zip(&ts.column_widths) {
             c.width_px = *w;
         }
-        if let Some(sc) = ts.sort_column {
-            if let Some(c) = columns.get_mut(sc) {
-                c.sort = Some(ts.sort_ascending);
-            }
+        if let Some(sc) = ts.sort_column
+            && let Some(c) = columns.get_mut(sc)
+        {
+            c.sort = Some(ts.sort_ascending);
         }
         for (i, c) in columns.iter_mut().enumerate() {
             c.has_filter = ts.filter.column_filters.contains_key(&i);

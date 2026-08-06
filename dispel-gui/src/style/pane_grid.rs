@@ -1,5 +1,5 @@
 use iced::widget::container;
-use iced::{color, Background, Border, Color, Theme};
+use iced::{Background, Border, Color, Theme, color};
 
 pub fn pane_focused(_theme: &Theme) -> container::Style {
     container::Style {

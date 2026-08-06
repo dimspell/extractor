@@ -8,9 +8,9 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::domain::extend_dialog::ExtendDialog;
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Modal body shown when "Extend…" is selected from the context menu.
 pub fn view<'a>(dlg: &'a ExtendDialog, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {

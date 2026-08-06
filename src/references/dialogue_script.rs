@@ -2,10 +2,10 @@ use std::io::{BufRead, BufReader, Read, Seek, Write};
 use std::path::Path;
 
 use crate::references::enums::{DialogOwner, DialogType};
-use crate::references::extractor::{parse_int, Extractor};
+use crate::references::extractor::{Extractor, parse_int};
 use encoding_rs::EUC_KR;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
 /// Dialogue Script (*.dlg) - Conversation Scripts

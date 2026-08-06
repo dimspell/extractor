@@ -1,8 +1,8 @@
 mod component;
 
 use crate::app::App;
-use crate::components::standard::message::StandardEditorMessage;
 use crate::components::standard::StandardEditor;
+use crate::components::standard::message::StandardEditorMessage;
 use crate::handle_spreadsheet_messages;
 use crate::message::MessageExt;
 use dispel_core::WaveIni;

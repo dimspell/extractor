@@ -1,6 +1,6 @@
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{BufRead, BufReader, Read, Seek, Write},

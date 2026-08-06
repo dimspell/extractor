@@ -1,6 +1,6 @@
 use super::types::{
-    extract_as, extract_map_file, extract_sprite_info, extract_tileset, patch_as,
-    patch_not_supported, validate_as, DetectKind, FileType,
+    DetectKind, FileType, extract_as, extract_map_file, extract_sprite_info, extract_tileset,
+    patch_as, patch_not_supported, validate_as,
 };
 
 pub(crate) fn make_all_map_ini() -> FileType {

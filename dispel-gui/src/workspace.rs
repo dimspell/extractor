@@ -432,10 +432,10 @@ impl Workspace {
             } else {
                 Some(idx.min(self.tabs.len() - 1))
             };
-        } else if let Some(active) = self.active_tab {
-            if active > idx {
-                self.active_tab = Some(active - 1);
-            }
+        } else if let Some(active) = self.active_tab
+            && active > idx
+        {
+            self.active_tab = Some(active - 1);
         }
     }
 
@@ -448,18 +448,18 @@ impl Workspace {
     }
 
     pub fn mark_modified(&mut self) {
-        if let Some(idx) = self.active_tab {
-            if let Some(tab) = self.tabs.get_mut(idx) {
-                tab.modified = true;
-            }
+        if let Some(idx) = self.active_tab
+            && let Some(tab) = self.tabs.get_mut(idx)
+        {
+            tab.modified = true;
         }
     }
 
     pub fn clear_modified(&mut self) {
-        if let Some(idx) = self.active_tab {
-            if let Some(tab) = self.tabs.get_mut(idx) {
-                tab.modified = false;
-            }
+        if let Some(idx) = self.active_tab
+            && let Some(tab) = self.tabs.get_mut(idx)
+        {
+            tab.modified = false;
         }
     }
 

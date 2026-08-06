@@ -1,9 +1,9 @@
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Element, Font, Length};
 
+use crate::HexEditorMessage;
 use crate::goto::GotoState;
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Modal body shown when Ctrl+G is pressed.
 pub fn view<'a>(state: &'a GotoState, theme: &'a HexEditorTheme) -> Element<'a, HexEditorMessage> {

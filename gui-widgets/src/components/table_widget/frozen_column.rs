@@ -3,11 +3,11 @@
 //! The id column (index 0, rendered as `orig_idx + 1`) stays pinned to the
 //! left edge while the user scrolls the rest of the table horizontally.
 
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
-use iced::{alignment, color, Background, Border, Color, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Pixels, Rectangle, Shadow, Size, alignment, color};
 
 use super::widget::TableWidget;
 use crate::components::paragraph_cache::ParagraphKey;

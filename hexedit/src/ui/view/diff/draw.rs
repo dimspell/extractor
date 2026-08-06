@@ -5,26 +5,26 @@
 
 use std::collections::BTreeSet;
 
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::Layout;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
 use iced::mouse;
-use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size, alignment};
 
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
-use crate::coloring::{default_byte_colors, ColorScheme};
+use crate::coloring::{ColorScheme, default_byte_colors};
 use crate::ui::theme::HexEditorTheme;
 use crate::ui::view::minimap;
 
+use super::DiffView;
 use super::layout::{
-    self, visible_row_range, ADDR_COL_WIDTH, ANN_COL_GAP, ASCII_CELL_WIDTH, GROUP_GAP,
-    HEADER_HEIGHT, HEX_CELL_WIDTH, MAX_ANN_COL_WIDTH, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
+    self, ADDR_COL_WIDTH, ANN_COL_GAP, ASCII_CELL_WIDTH, GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH,
+    MAX_ANN_COL_WIDTH, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE, visible_row_range,
 };
 use super::state::State;
-use super::DiffView;
 
 type Paragraph = GraphicsParagraph;
 
@@ -279,38 +279,38 @@ pub fn draw_diff_view<'a, Message>(
         }
 
         // ── Annotation column (right side, same as matrix) ─────────────
-        if !widget.row_annotations.is_empty() {
-            if let Some(segments) = widget.row_annotations.get(&base_addr) {
-                let ann_start_x = layout::comparison_ascii_start(adj_addr_col_w, bpr)
-                    + bpr as f32 * ASCII_CELL_WIDTH
-                    + ANN_COL_GAP
-                    - scroll_x;
-                let mut ann_x = ann_start_x;
-                for (pid, text) in segments {
-                    let is_active = widget.active_patterns.contains(pid);
-                    let ann_color = if is_active {
-                        widget.theme.annotation_fg
-                    } else {
-                        widget.theme.annotation_inactive
-                    };
-                    let prefix = if is_active { "▸" } else { " " };
-                    let label = format!("{prefix}{text}");
-                    draw_glyph_string(
-                        renderer,
-                        &widget.cache,
-                        &label,
-                        font,
-                        Rectangle {
-                            x: ann_x,
-                            y,
-                            width: MAX_ANN_COL_WIDTH,
-                            height: ROW_HEIGHT,
-                        },
-                        ann_color,
-                        content_clip,
-                    );
-                    ann_x += label.len() as f32 * ASCII_CELL_WIDTH + 4.0;
-                }
+        if !widget.row_annotations.is_empty()
+            && let Some(segments) = widget.row_annotations.get(&base_addr)
+        {
+            let ann_start_x = layout::comparison_ascii_start(adj_addr_col_w, bpr)
+                + bpr as f32 * ASCII_CELL_WIDTH
+                + ANN_COL_GAP
+                - scroll_x;
+            let mut ann_x = ann_start_x;
+            for (pid, text) in segments {
+                let is_active = widget.active_patterns.contains(pid);
+                let ann_color = if is_active {
+                    widget.theme.annotation_fg
+                } else {
+                    widget.theme.annotation_inactive
+                };
+                let prefix = if is_active { "▸" } else { " " };
+                let label = format!("{prefix}{text}");
+                draw_glyph_string(
+                    renderer,
+                    &widget.cache,
+                    &label,
+                    font,
+                    Rectangle {
+                        x: ann_x,
+                        y,
+                        width: MAX_ANN_COL_WIDTH,
+                        height: ROW_HEIGHT,
+                    },
+                    ann_color,
+                    content_clip,
+                );
+                ann_x += label.len() as f32 * ASCII_CELL_WIDTH + 4.0;
             }
         }
     }

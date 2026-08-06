@@ -10,7 +10,7 @@
 //! When no session is active, `observe_field_change` is a no-op returning
 //! `Task::none()` — callers pay only an `Option::is_some()` check.
 
-use dispel_core::modding::{make_delta, ChangeAction, ChangeOp, Value, Workspace};
+use dispel_core::modding::{ChangeAction, ChangeOp, Value, Workspace, make_delta};
 use iced::Task;
 
 use crate::app::App;

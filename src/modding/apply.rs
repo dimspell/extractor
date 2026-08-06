@@ -28,7 +28,7 @@ use super::changelog::ChangeLog;
 use super::error::{ModdingError, Result};
 use super::registry::PatcherRegistry;
 use super::resolution::{FieldKey, ResolutionMap};
-use super::vanilla::{validate_relative, VanillaStore};
+use super::vanilla::{VanillaStore, validate_relative};
 
 /// One enabled mod, presented to the apply engine in load order.
 pub struct ModEntry<'a> {
@@ -99,11 +99,11 @@ pub fn apply_all(
                         record_id: *record_id,
                         field: field.clone(),
                     };
-                    if let Some(winner) = resolutions.winner(&key) {
-                        if winner != entry.mod_id {
-                            // A pin exists for this field, and it's not us.
-                            continue;
-                        }
+                    if let Some(winner) = resolutions.winner(&key)
+                        && winner != entry.mod_id
+                    {
+                        // A pin exists for this field, and it's not us.
+                        continue;
                     }
                 }
                 apply_one(action, &mut working, vanilla_bytes.as_deref(), registry)?;

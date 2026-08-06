@@ -27,17 +27,16 @@ pub fn apply_resize_cursor(state: &mut SaveFileViewerState, x: f32) {
                 .maps_table_states
                 .get_mut(map)
                 .and_then(|m| m.get_mut(&kind))
+                && let Some(w) = ts.column_widths.get_mut(drag.col)
             {
-                if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                    *w = new_width;
-                }
+                *w = new_width;
             }
         }
         TableKey::Inventory(cat) => {
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                    *w = new_width;
-                }
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat)
+                && let Some(w) = ts.column_widths.get_mut(drag.col)
+            {
+                *w = new_width;
             }
         }
         TableKey::Events => {
@@ -46,10 +45,10 @@ pub fn apply_resize_cursor(state: &mut SaveFileViewerState, x: f32) {
             }
         }
         TableKey::Journal(section) => {
-            if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                if let Some(w) = ts.column_widths.get_mut(drag.col) {
-                    *w = new_width;
-                }
+            if let Some(ts) = state.journal_table_states.get_mut(&section)
+                && let Some(w) = ts.column_widths.get_mut(drag.col)
+            {
+                *w = new_width;
             }
         }
     }

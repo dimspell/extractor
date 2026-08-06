@@ -11,8 +11,8 @@ use iced::{Background, Border, Color, Pixels, Point, Rectangle, Size};
 
 use lucide_icons::Icon;
 
-use super::style::{Status, Style};
 use super::TAB_HEIGHT;
+use super::style::{Status, Style};
 
 use crate::lucide::LUCIDE_FONT;
 

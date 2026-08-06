@@ -11,7 +11,7 @@
 use gui_widgets::components::modal::modal;
 use iced::keyboard::{self, key};
 use iced::widget::{button, checkbox, column, container, row, rule, text, text_input};
-use iced::{color, Background, Element, Fill, Subscription, Theme};
+use iced::{Background, Element, Fill, Subscription, Theme, color};
 
 // ── Entry point ────────────────────────────────────────────────────────────────
 
@@ -316,9 +316,11 @@ impl App {
                 .spacing(8)
                 .align_y(iced::Alignment::Center),
                 rule::horizontal(1),
-                row![button(text("Close").size(14))
-                    .on_press(Message::CloseModal)
-                    .width(100),]
+                row![
+                    button(text("Close").size(14))
+                        .on_press(Message::CloseModal)
+                        .width(100),
+                ]
                 .spacing(12),
             ]
             .spacing(12)

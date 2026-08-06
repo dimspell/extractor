@@ -1,8 +1,8 @@
 //! Fixture-based tests for MagicSpell.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::magic_db::MagicSpell;
 use dispel_core::Extractor;
+use dispel_core::references::magic_db::MagicSpell;
 use std::path::Path;
 
 #[test]

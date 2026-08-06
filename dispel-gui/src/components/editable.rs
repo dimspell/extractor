@@ -166,19 +166,19 @@ pub fn set_i32_enum<T: std::fmt::Debug>(
     from_i32: impl Fn(i32) -> Option<T>,
 ) -> bool {
     // Fast path: direct integer parse (handles "0", "1", etc.)
-    if let Ok(n) = value.parse::<i32>() {
-        if let Some(v) = from_i32(n) {
-            *field = v;
-            return true;
-        }
+    if let Ok(n) = value.parse::<i32>()
+        && let Some(v) = from_i32(n)
+    {
+        *field = v;
+        return true;
     }
     // Fallback: match against Debug output of known enum variants
     for i in 0..=255i32 {
-        if let Some(v) = from_i32(i) {
-            if format!("{:?}", v) == value {
-                *field = v;
-                return true;
-            }
+        if let Some(v) = from_i32(i)
+            && format!("{:?}", v) == value
+        {
+            *field = v;
+            return true;
         }
     }
     false
@@ -224,19 +224,19 @@ pub fn set_opt_i32_enum<T: std::fmt::Debug>(
         true
     } else {
         // Fast path: direct integer parse
-        if let Ok(n) = value.parse::<i32>() {
-            if let Some(v) = from_i32(n) {
-                *field = Some(v);
-                return true;
-            }
+        if let Ok(n) = value.parse::<i32>()
+            && let Some(v) = from_i32(n)
+        {
+            *field = Some(v);
+            return true;
         }
         // Fallback: match against Debug output of known enum variants
         for i in 0..=255i32 {
-            if let Some(v) = from_i32(i) {
-                if format!("{:?}", v) == value {
-                    *field = Some(v);
-                    return true;
-                }
+            if let Some(v) = from_i32(i)
+                && format!("{:?}", v) == value
+            {
+                *field = Some(v);
+                return true;
             }
         }
         false

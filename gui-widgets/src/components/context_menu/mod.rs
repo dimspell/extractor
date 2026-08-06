@@ -8,8 +8,8 @@ mod tests;
 
 use iced::advanced::overlay as iced_overlay;
 use iced::advanced::widget::tree;
-use iced::advanced::{layout, renderer, widget, Layout, Shell, Widget};
-use iced::{mouse, Element, Event, Point, Rectangle, Vector};
+use iced::advanced::{Layout, Shell, Widget, layout, renderer, widget};
+use iced::{Element, Event, Point, Rectangle, Vector, mouse};
 
 pub use entry::Entry;
 pub use state::{State, Status};
@@ -147,31 +147,31 @@ where
             return;
         }
 
-        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event {
-            if let Some(position) = cursor.position_over(layout.bounds()) {
-                let state = tree.state.downcast_mut::<State>();
+        if let Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)) = event
+            && let Some(position) = cursor.position_over(layout.bounds())
+        {
+            let state = tree.state.downcast_mut::<State>();
 
-                match platform::try_show_native_menu(&self.entries) {
-                    Some(platform::NativeResult::Selected(idx)) => {
-                        if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
-                            shell.publish(action.clone());
-                        }
-                        shell.capture_event();
-                        return;
+            match platform::try_show_native_menu(&self.entries) {
+                Some(platform::NativeResult::Selected(idx)) => {
+                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
+                        shell.publish(action.clone());
                     }
-                    Some(platform::NativeResult::Cancelled) => {
-                        shell.capture_event();
-                        return;
-                    }
-                    None => {}
+                    shell.capture_event();
+                    return;
                 }
-
-                state.status = Status::Open {
-                    position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
-                };
-                shell.capture_event();
-                shell.request_redraw();
+                Some(platform::NativeResult::Cancelled) => {
+                    shell.capture_event();
+                    return;
+                }
+                None => {}
             }
+
+            state.status = Status::Open {
+                position: Point::new(position.x + self.offset.x, position.y + self.offset.y),
+            };
+            shell.capture_event();
+            shell.request_redraw();
         }
     }
 

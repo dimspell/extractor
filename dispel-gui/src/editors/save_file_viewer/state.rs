@@ -1,9 +1,9 @@
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
-use crate::editors::save_file_viewer::message::TableKey;
 use crate::editors::save_file_viewer::RawHexEditorData;
+use crate::editors::save_file_viewer::message::TableKey;
 use dispel_core::SaveFile;
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::TableColumn;
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 use hexedit::HexEditorState;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
@@ -885,7 +885,7 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         },
     ];
 
-    if let Some(member) = save_file.character_identity.party_members.get(0) {
+    if let Some(member) = save_file.character_identity.party_members.first() {
         hex_editors.push(RawHexEditorData {
             label: "Party Member (1)",
             data: member.unknown_1.clone(),
@@ -899,5 +899,5 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         })
     }
 
-    return hex_editors;
+    hex_editors
 }

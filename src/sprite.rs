@@ -962,10 +962,10 @@ mod tests {
         // First pixel should be R=248 (after 5-bit rounding), G=64, B=64
         assert_eq!(decoded[0], 248); // R (255→31→248)
         assert_eq!(decoded[1], 128); // G (128→32→128) wait...
-                                     // Actually: 128 >> 2 = 32, 32 << 2 = 128
-                                     // Let me verify:
-                                     // 64 >> 2 = 16, 16 << 2 = 64
-                                     // Let me just check the first pixel is non-zero and alpha is 255
+        // Actually: 128 >> 2 = 32, 32 << 2 = 128
+        // Let me verify:
+        // 64 >> 2 = 16, 16 << 2 = 64
+        // Let me just check the first pixel is non-zero and alpha is 255
         assert_eq!(decoded[3], 255);
     }
 

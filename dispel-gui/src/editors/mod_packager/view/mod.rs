@@ -1,4 +1,4 @@
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, text};
 use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;
@@ -6,8 +6,8 @@ use lucide_icons::Icon;
 use crate::components::utils::horizontal_space;
 
 use crate::app::App;
-use crate::editors::mod_packager::state::ModManagerTab;
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::state::ModManagerTab;
 use crate::message::{Message, MessageExt};
 
 mod conflicts;

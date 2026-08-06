@@ -1,5 +1,5 @@
 use iced::widget::pane_grid;
-use iced::{clipboard, Task};
+use iced::{Task, clipboard};
 
 use crate::config::HexEditorConfig;
 use crate::domain::byte_stats::{compute_row_entropies, compute_statistics};
@@ -10,6 +10,7 @@ use crate::state::{ComparisonFile, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::ui::theme::ThemeVariant;
 
+use crate::HexProvider;
 use crate::domain::pattern::{RepeatPatternDialog, RepeatedPatternGroup};
 use crate::editing::{EditState, InspectorEditState};
 use crate::goto::GotoState;
@@ -18,7 +19,6 @@ use crate::message::HexEditorMessage;
 use crate::pattern::Pattern;
 use crate::search::parse_hex_query;
 use crate::selection::nav_target;
-use crate::HexProvider;
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height
 /// up here, so PageUp/PageDown approximate a screenful.
@@ -243,13 +243,12 @@ pub fn update(
             } else {
                 config.extra_entries.get(idx - ENTRIES.len())
             };
-            if let Some(entry) = entry {
-                if len - cursor >= entry.min_size as u64 {
-                    let decoded = (entry.decode)(bytes);
-                    state.status_msg = format!("Copied: {decoded}");
-                    return clipboard::write(decoded)
-                        .map(|_| HexEditorMessage::ClipboardWriteResult);
-                }
+            if let Some(entry) = entry
+                && len - cursor >= entry.min_size as u64
+            {
+                let decoded = (entry.decode)(bytes);
+                state.status_msg = format!("Copied: {decoded}");
+                return clipboard::write(decoded).map(|_| HexEditorMessage::ClipboardWriteResult);
             }
         }
 
@@ -340,10 +339,10 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
                 state.show_stats = false;
             } else {
@@ -527,10 +526,10 @@ pub fn update(
             state.context_menu_addr = None;
         }
         HexEditorMessage::RemovePatternAtContextMenu => {
-            if let Some(addr) = state.context_menu_addr {
-                if let Some(id) = state.pattern_id_at(addr) {
-                    state.remove_pattern(id);
-                }
+            if let Some(addr) = state.context_menu_addr
+                && let Some(id) = state.pattern_id_at(addr)
+            {
+                state.remove_pattern(id);
             }
             state.context_menu_addr = None;
         }
@@ -645,22 +644,22 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
             } else {
                 let focus = state.pane_focus;
                 let can_split = state.panes.len() < 8;
-                if can_split {
-                    if let Some((_, split)) = state.panes.split(
+                if can_split
+                    && let Some((_, split)) = state.panes.split(
                         iced::widget::pane_grid::Axis::Vertical,
                         focus,
                         HexPanel::new(crate::domain::panel::HexPanelContent::Inspector),
-                    ) {
-                        state.panes.resize(split, 0.75);
-                    }
+                    )
+                {
+                    state.panes.resize(split, 0.75);
                 }
             }
         }
@@ -681,10 +680,10 @@ pub fn update(
                 .copied();
 
             if let Some(pane_id) = existing {
-                if state.panes.len() > 1 {
-                    if let Some((_, sibling)) = state.panes.close(pane_id) {
-                        state.pane_focus = sibling;
-                    }
+                if state.panes.len() > 1
+                    && let Some((_, sibling)) = state.panes.close(pane_id)
+                {
+                    state.pane_focus = sibling;
                 }
                 state.show_pattern_list = false;
             } else {
@@ -759,18 +758,17 @@ pub fn update(
                         let old_prefix = format!("{}[", old_label);
                         let new_prefix = format!("{}[", grp.label);
                         for pat in &mut state.patterns {
-                            if pat.group_id == Some(gid) {
-                                if let Some(ann) = &mut pat.annotation {
-                                    if ann.starts_with(&old_prefix) {
-                                        let after_bracket = &ann[old_prefix.len()..];
-                                        if let Some(bracket_end) = after_bracket.find(']') {
-                                            let digits = &after_bracket[..bracket_end];
-                                            if !digits.is_empty()
-                                                && digits.chars().all(|c| c.is_ascii_digit())
-                                            {
-                                                *ann = ann.replacen(&old_prefix, &new_prefix, 1);
-                                            }
-                                        }
+                            if pat.group_id == Some(gid)
+                                && let Some(ann) = &mut pat.annotation
+                                && ann.starts_with(&old_prefix)
+                            {
+                                let after_bracket = &ann[old_prefix.len()..];
+                                if let Some(bracket_end) = after_bracket.find(']') {
+                                    let digits = &after_bracket[..bracket_end];
+                                    if !digits.is_empty()
+                                        && digits.chars().all(|c| c.is_ascii_digit())
+                                    {
+                                        *ann = ann.replacen(&old_prefix, &new_prefix, 1);
                                     }
                                 }
                             }
@@ -1747,9 +1745,12 @@ mod tests {
     // JSON-based pattern export / import
     // ====================================================================
 
+    /// Pattern spec: (start, end, color, group_id, annotation).
+    type PatternSpec<'a> = (u64, u64, u8, Option<usize>, Option<&'a str>);
+
     /// Build a minimal HexEditorState with the given patterns and groups.
     fn make_export_state(
-        patterns: Vec<(u64, u64, u8, Option<usize>, Option<&str>)>,
+        patterns: Vec<PatternSpec<'_>>,
         groups: Vec<(usize, &str, u8)>,
     ) -> crate::HexEditorState {
         let mut next_pid = 1usize;

@@ -1,7 +1,7 @@
 use dispel_core::snf::SnfFile;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct PlaybackHandle {
     pub player: Arc<rodio::Player>,

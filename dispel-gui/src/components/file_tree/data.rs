@@ -5,15 +5,15 @@ use iced::widget::{button, column, container, row, scrollable, text, text_input}
 use iced::{Element, Fill, Font, Length, Padding};
 
 use gui_widgets::components::{CollapsibleTree, TreeNode};
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use lucide_icons::Icon;
 
-use crate::components::file_tree::tree_node::{file_icon, GameFileNode};
+use crate::components::file_tree::tree_node::{GameFileNode, file_icon};
 use crate::indexation::file_index_cache;
 use crate::style;
 
 use super::filter::FileTreeResult;
-use super::filter::{fuzzy_match, FileTreeFilter};
+use super::filter::{FileTreeFilter, fuzzy_match};
 use super::message::FileTreeMessage;
 use gui_widgets::components::context_menu::{ContextMenu, Entry};
 
@@ -70,18 +70,17 @@ impl FileTree {
         path: &Path,
         cache_manager: &Option<file_index_cache::FileIndexCacheManager>,
     ) -> Self {
-        if let Some(ref manager) = cache_manager {
-            if let Ok(Some(cache)) = manager.load_cache() {
-                if file_index_cache::CacheValidator::validate_cache(&cache, path) {
-                    return Self {
-                        data: FileTreeData {
-                            root: Some(Self::cache_to_tree_node(&cache)),
-                            cache_manager: cache_manager.clone(),
-                        },
-                        state: FileTreeState::default(),
-                    };
-                }
-            }
+        if let Some(manager) = cache_manager
+            && let Ok(Some(cache)) = manager.load_cache()
+            && file_index_cache::CacheValidator::validate_cache(&cache, path)
+        {
+            return Self {
+                data: FileTreeData {
+                    root: Some(Self::cache_to_tree_node(&cache)),
+                    cache_manager: cache_manager.clone(),
+                },
+                state: FileTreeState::default(),
+            };
         }
         Self::scan(path)
     }
@@ -107,10 +106,11 @@ impl FileTree {
                 {
                     root_dir.children.push(child);
                 }
-            } else if !file.is_directory && file.path.parent() == Some(&cache.game_path) {
-                if let Some(child) = super::tree_node::add_cache_file_child(file) {
-                    root_dir.children.push(child);
-                }
+            } else if !file.is_directory
+                && file.path.parent() == Some(&cache.game_path)
+                && let Some(child) = super::tree_node::add_cache_file_child(file)
+            {
+                root_dir.children.push(child);
             }
         }
 
@@ -134,18 +134,17 @@ impl FileTree {
         path: &Path,
         cache_manager: &Option<file_index_cache::FileIndexCacheManager>,
     ) -> super::filter::FileTreeResult<Self> {
-        if let Some(ref manager) = cache_manager {
-            if let Ok(Some(cache)) = manager.load_cache() {
-                if file_index_cache::CacheValidator::validate_cache(&cache, path) {
-                    return Ok(Self {
-                        data: FileTreeData {
-                            root: Some(Self::cache_to_tree_node(&cache)),
-                            cache_manager: cache_manager.clone(),
-                        },
-                        state: FileTreeState::default(),
-                    });
-                }
-            }
+        if let Some(manager) = cache_manager
+            && let Ok(Some(cache)) = manager.load_cache()
+            && file_index_cache::CacheValidator::validate_cache(&cache, path)
+        {
+            return Ok(Self {
+                data: FileTreeData {
+                    root: Some(Self::cache_to_tree_node(&cache)),
+                    cache_manager: cache_manager.clone(),
+                },
+                state: FileTreeState::default(),
+            });
         }
         Ok(Self::scan(path))
     }
@@ -271,10 +270,11 @@ impl FileTree {
                 {
                     root_dir.children.push(child);
                 }
-            } else if !file.is_directory && file.path.parent() == Some(&game_path) {
-                if let Some(child) = super::tree_node::add_cache_file_child(file) {
-                    root_dir.children.push(child);
-                }
+            } else if !file.is_directory
+                && file.path.parent() == Some(&game_path)
+                && let Some(child) = super::tree_node::add_cache_file_child(file)
+            {
+                root_dir.children.push(child);
             }
         }
 
@@ -299,10 +299,10 @@ impl FileTree {
 
 fn scan_dir(path: &Path, depth: usize) -> Option<TreeNode<GameFileNode>> {
     // Skip system files like .DS_STORE
-    if let Some(name) = path.file_name() {
-        if name.to_string_lossy().starts_with('.') {
-            return None;
-        }
+    if let Some(name) = path.file_name()
+        && name.to_string_lossy().starts_with('.')
+    {
+        return None;
     }
 
     let name = path.file_name()?.to_string_lossy().to_string();
@@ -525,10 +525,10 @@ async fn scan_dir_async(
     depth: usize,
 ) -> FileTreeResult<Option<TreeNode<GameFileNode>>> {
     // Skip system files like .DS_STORE
-    if let Some(name) = path.file_name() {
-        if name.to_string_lossy().starts_with('.') {
-            return Ok(None);
-        }
+    if let Some(name) = path.file_name()
+        && name.to_string_lossy().starts_with('.')
+    {
+        return Ok(None);
     }
 
     let name = match path.file_name() {

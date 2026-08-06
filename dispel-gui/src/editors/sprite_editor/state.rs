@@ -1,5 +1,5 @@
 use crate::editors::sprite_editor::ExportFormat;
-use dispel_core::sprite::{read_sprite_file, SpriteFile};
+use dispel_core::sprite::{SpriteFile, read_sprite_file};
 use std::path::{Path, PathBuf};
 
 /// A decoded sprite frame ready for display, editing, and export.

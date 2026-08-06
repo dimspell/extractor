@@ -2,7 +2,7 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Fill, Length};
 
 use dispel_core::modding::{Conflict, ConflictKind, FieldKey};
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use lucide_icons::Icon;
 
 use crate::app::App;

@@ -2,19 +2,19 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dispel_core::modding::{
-    apply_delta, ApplyReport, ChangeAction, ChangeOp, ModManifest, PatcherRegistry, RevertReport,
-    Workspace,
+    ApplyReport, ChangeAction, ChangeOp, ModManifest, PatcherRegistry, RevertReport, Workspace,
+    apply_delta,
 };
 use hexedit::HexEditorState;
 use iced::Task;
 
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
+use crate::editors::mod_packager::ModPackagerMessage;
 use crate::editors::mod_packager::message::{
     ApplyOutcome, LibrarySnapshot, RevertOutcome, SelectedMod,
 };
-use crate::editors::mod_packager::recording::{ObservedAction, DEBOUNCE};
-use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::recording::{DEBOUNCE, ObservedAction};
 use crate::message::{Message, MessageExt};
 use crate::state::{PendingEdit, RecordingKey, RecordingSession};
 
@@ -439,12 +439,12 @@ pub fn handle(message: ModPackagerMessage, app: &mut App) -> Task<Message> {
                 return Task::none();
             };
             // Guard: if recording is active for THIS mod, refuse.
-            if let Some(rec) = app.state.recording.as_ref() {
-                if rec.mod_slug == slug {
-                    app.state.editors.mod_packager_editor.status_msg =
-                        "Stop recording before reverting changes.".into();
-                    return Task::none();
-                }
+            if let Some(rec) = app.state.recording.as_ref()
+                && rec.mod_slug == slug
+            {
+                app.state.editors.mod_packager_editor.status_msg =
+                    "Stop recording before reverting changes.".into();
+                return Task::none();
             }
             Task::perform(
                 async move {
@@ -871,11 +871,11 @@ fn flush_one_pending(
         Some(p) => p,
         None => return Task::none(),
     };
-    if let Some(g) = expected_generation {
-        if pending.generation != g {
-            // A later keystroke superseded this timer; drop silently.
-            return Task::none();
-        }
+    if let Some(g) = expected_generation
+        && pending.generation != g
+    {
+        // A later keystroke superseded this timer; drop silently.
+        return Task::none();
     }
 
     // Skip no-op edits (user typed something then changed back to the original).

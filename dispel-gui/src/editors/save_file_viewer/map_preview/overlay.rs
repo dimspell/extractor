@@ -2,15 +2,15 @@
 //! Input handling delegates to shared map_render::handle_input.
 
 use crate::components::map_render::{
-    diamond_path, handle_input, is_visible, tile_to_screen, MapCanvasState, TILE_H, TILE_W,
+    MapCanvasState, TILE_H, TILE_W, diamond_path, handle_input, is_visible, tile_to_screen,
 };
+use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
 use crate::editors::save_file_viewer::map_preview::state::{EntityKind, MapPreviewState};
-use crate::editors::save_file_viewer::SaveFileViewerMessage;
 use crate::message::{Message, MessageExt};
 use iced::widget::canvas::{self, Frame, Geometry, Text as CanvasText};
 use iced::widget::text::Alignment as TextAlignment;
-use iced::{alignment, mouse, Color, Event, Font, Point, Rectangle, Size};
+use iced::{Color, Event, Font, Point, Rectangle, Size, alignment, mouse};
 
 /// Top canvas: renders entity markers, selection ring, and info labels.
 /// Transparent background so the tile layer shows through.
@@ -138,58 +138,86 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
         }
 
         // ── Selection ring + info label ─────────────────────────────────────
-        if let Some(sel_idx) = self.state.selected_marker {
-            if let Some(entity) = self.state.entity_markers.get(sel_idx) {
-                let visible = match entity.kind {
-                    EntityKind::Monster => self.state.view.show_monsters,
-                    EntityKind::Npc => self.state.view.show_npcs,
-                    EntityKind::Extra => self.state.view.show_objects,
-                    EntityKind::DrawItem => self.state.view.show_draw_items,
+        if let Some(sel_idx) = self.state.selected_marker
+            && let Some(entity) = self.state.entity_markers.get(sel_idx)
+        {
+            let visible = match entity.kind {
+                EntityKind::Monster => self.state.view.show_monsters,
+                EntityKind::Npc => self.state.view.show_npcs,
+                EntityKind::Extra => self.state.view.show_objects,
+                EntityKind::DrawItem => self.state.view.show_draw_items,
+            };
+            if visible {
+                let (px, py) =
+                    tile_to_screen(entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom);
+                let tile_cx = px + TILE_W * zoom * 0.5;
+                let tile_cy = py + TILE_H * zoom * 0.5;
+                let r = 14.0 * zoom;
+
+                // Bright gold selection ring
+                frame.stroke(
+                    &canvas::Path::circle(Point::new(tile_cx, tile_cy), r),
+                    canvas::Stroke::default()
+                        .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.9))
+                        .with_width(2.0 * zoom),
+                );
+
+                // Floating info label below the ring
+                let kind_label = match entity.kind {
+                    EntityKind::Monster => "Monster",
+                    EntityKind::Npc => "NPC",
+                    EntityKind::Extra => "Extra",
+                    EntityKind::DrawItem => "DrawItem",
                 };
-                if visible {
-                    let (px, py) =
-                        tile_to_screen(entity.tile_x, entity.tile_y, diagonal, pan_x, pan_y, zoom);
-                    let tile_cx = px + TILE_W * zoom * 0.5;
-                    let tile_cy = py + TILE_H * zoom * 0.5;
-                    let r = 14.0 * zoom;
+                let coords = format!("({}, {})", entity.tile_x, entity.tile_y);
+                let label = if let Some(db_id) = entity.db_id {
+                    format!("{} #{}  {}", kind_label, db_id, coords)
+                } else {
+                    format!("{}  {}", kind_label, coords)
+                };
+                let label_size = (11.0 * zoom).max(7.0f32);
+                // Monospace advance ≈ 0.6em; count glyphs (not bytes) for width.
+                let text_w = label.chars().count() as f32 * label_size * 0.6;
+                let text_h = label_size * 1.6;
+                let text_x = tile_cx - text_w * 0.5;
+                let text_y = tile_cy + r + 4.0 * zoom;
+                frame.fill_rectangle(
+                    Point::new(text_x, text_y),
+                    Size::new(text_w, text_h),
+                    Color::from_rgba(0.0, 0.0, 0.0, 0.55),
+                );
+                frame.fill_text(CanvasText {
+                    content: label,
+                    position: Point::new(tile_cx, text_y),
+                    color: Color::WHITE,
+                    size: iced::Pixels(label_size),
+                    font: Font::MONOSPACE,
+                    align_x: TextAlignment::Center,
+                    align_y: alignment::Vertical::Center,
+                    shaping: iced::widget::text::Shaping::Basic,
+                    line_height: iced::widget::text::LineHeight::default(),
+                    max_width: bounds.width,
+                    ellipsis: iced::widget::text::Ellipsis::End,
+                    wrapping: iced::widget::text::Wrapping::None,
+                });
 
-                    // Bright gold selection ring
-                    frame.stroke(
-                        &canvas::Path::circle(Point::new(tile_cx, tile_cy), r),
-                        canvas::Stroke::default()
-                            .with_color(Color::from_rgba(1.0, 0.9, 0.2, 0.9))
-                            .with_width(2.0 * zoom),
-                    );
-
-                    // Floating info label below the ring
-                    let kind_label = match entity.kind {
-                        EntityKind::Monster => "Monster",
-                        EntityKind::Npc => "NPC",
-                        EntityKind::Extra => "Extra",
-                        EntityKind::DrawItem => "DrawItem",
-                    };
-                    let coords = format!("({}, {})", entity.tile_x, entity.tile_y);
-                    let label = if let Some(db_id) = entity.db_id {
-                        format!("{} #{}  {}", kind_label, db_id, coords)
-                    } else {
-                        format!("{}  {}", kind_label, coords)
-                    };
-                    let label_size = (11.0 * zoom).max(7.0f32);
-                    // Monospace advance ≈ 0.6em; count glyphs (not bytes) for width.
-                    let text_w = label.chars().count() as f32 * label_size * 0.6;
-                    let text_h = label_size * 1.6;
-                    let text_x = tile_cx - text_w * 0.5;
-                    let text_y = tile_cy + r + 4.0 * zoom;
+                // Name label above the ring (entity.label)
+                let label_size2 = (10.0 * zoom).max(7.0f32);
+                let text_w2 = entity.label.chars().count() as f32 * label_size2 * 0.6;
+                let text_h2 = label_size2 * 1.6;
+                let text_x2 = tile_cx - text_w2 * 0.5;
+                let text_y2 = tile_cy - r - text_h2 - 4.0 * zoom;
+                if !entity.label.is_empty() {
                     frame.fill_rectangle(
-                        Point::new(text_x, text_y),
-                        Size::new(text_w, text_h),
+                        Point::new(text_x2, text_y2),
+                        Size::new(text_w2, text_h2),
                         Color::from_rgba(0.0, 0.0, 0.0, 0.55),
                     );
                     frame.fill_text(CanvasText {
-                        content: label,
-                        position: Point::new(tile_cx, text_y),
+                        content: entity.label.clone(),
+                        position: Point::new(tile_cx, text_y2 + text_h2 * 0.5),
                         color: Color::WHITE,
-                        size: iced::Pixels(label_size),
+                        size: iced::Pixels(label_size2),
                         font: Font::MONOSPACE,
                         align_x: TextAlignment::Center,
                         align_y: alignment::Vertical::Center,
@@ -199,34 +227,6 @@ impl<'a> canvas::Program<Message> for MapPreviewOverlaysLayer<'a> {
                         ellipsis: iced::widget::text::Ellipsis::End,
                         wrapping: iced::widget::text::Wrapping::None,
                     });
-
-                    // Name label above the ring (entity.label)
-                    let label_size2 = (10.0 * zoom).max(7.0f32);
-                    let text_w2 = entity.label.chars().count() as f32 * label_size2 * 0.6;
-                    let text_h2 = label_size2 * 1.6;
-                    let text_x2 = tile_cx - text_w2 * 0.5;
-                    let text_y2 = tile_cy - r - text_h2 - 4.0 * zoom;
-                    if !entity.label.is_empty() {
-                        frame.fill_rectangle(
-                            Point::new(text_x2, text_y2),
-                            Size::new(text_w2, text_h2),
-                            Color::from_rgba(0.0, 0.0, 0.0, 0.55),
-                        );
-                        frame.fill_text(CanvasText {
-                            content: entity.label.clone(),
-                            position: Point::new(tile_cx, text_y2 + text_h2 * 0.5),
-                            color: Color::WHITE,
-                            size: iced::Pixels(label_size2),
-                            font: Font::MONOSPACE,
-                            align_x: TextAlignment::Center,
-                            align_y: alignment::Vertical::Center,
-                            shaping: iced::widget::text::Shaping::Basic,
-                            line_height: iced::widget::text::LineHeight::default(),
-                            max_width: bounds.width,
-                            ellipsis: iced::widget::text::Ellipsis::End,
-                            wrapping: iced::widget::text::Wrapping::None,
-                        });
-                    }
                 }
             }
         }

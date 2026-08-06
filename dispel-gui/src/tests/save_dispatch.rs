@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod save_dispatch_tests {
     use crate::app::App;
-    use crate::message::system::SystemMessage;
     use crate::message::Message;
+    use crate::message::system::SystemMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::{EditorType, Workspace};
 

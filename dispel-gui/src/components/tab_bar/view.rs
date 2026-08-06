@@ -1,11 +1,11 @@
-use gui_widgets::components::context_menu::{platform, Entry};
+use gui_widgets::components::context_menu::{Entry, platform};
 use gui_widgets::components::tab_bar::{Tab, TabBar, TabBarEvent};
 use iced::Element;
 
 use super::message::TabBarMessage;
 use crate::app::App;
-use crate::message::ext::MessageExt;
 use crate::message::Message;
+use crate::message::ext::MessageExt;
 use crate::workspace::EditorType::HexEditor;
 use crate::workspace::WorkspaceTab;
 

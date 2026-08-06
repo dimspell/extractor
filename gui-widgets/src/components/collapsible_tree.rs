@@ -11,8 +11,8 @@
 //! * Optional search filtering with ancestor-visibility preservation
 //!   (parents of matching descendants stay visible).
 
-use iced::widget::{column, Column};
 use iced::Element;
+use iced::widget::{Column, column};
 
 // ── TreeNode ─────────────────────────────────────────────────────────
 
@@ -126,12 +126,12 @@ pub struct CollapsibleTree<
 }
 
 impl<
-        'a,
-        T,
-        Message: 'a,
-        Theme: 'a + iced::widget::container::Catalog,
-        Renderer: 'a + iced::advanced::Renderer,
-    > CollapsibleTree<'a, T, Message, Theme, Renderer>
+    'a,
+    T,
+    Message: 'a,
+    Theme: 'a + iced::widget::container::Catalog,
+    Renderer: 'a + iced::advanced::Renderer,
+> CollapsibleTree<'a, T, Message, Theme, Renderer>
 {
     /// Create a new tree over `nodes` with the given rendering closure.
     pub fn new(
@@ -233,16 +233,13 @@ fn render_nodes<
         col = col.push(padded);
 
         // Render children if expanded.
-        if node.expanded && !node.children.is_empty() {
-            if let Some(children) = child_content {
-                col = col.push(children);
-            }
+        if node.expanded
+            && !node.children.is_empty()
+            && let Some(children) = child_content
+        {
+            col = col.push(children);
         }
     }
 
-    if count == 0 {
-        None
-    } else {
-        Some(col.into())
-    }
+    if count == 0 { None } else { Some(col.into()) }
 }

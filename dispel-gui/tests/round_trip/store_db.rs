@@ -1,8 +1,8 @@
 //! Fixture-based tests for Store.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::store_db::Store;
 use dispel_core::Extractor;
+use dispel_core::references::store_db::Store;
 use std::path::Path;
 
 #[test]

@@ -1,6 +1,6 @@
 use crate::config::HexEditorConfig;
 use crate::{HexEditorMessage, HexEditorState};
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, container, row, text};
 use iced::{Element, Fill, Font};
 use lucide_icons::Icon;

@@ -27,11 +27,7 @@ pub fn compare_cells(
         (None, Some(_)) => std::cmp::Ordering::Less,
         (None, None) => std::cmp::Ordering::Equal,
     };
-    if ascending {
-        ord
-    } else {
-        ord.reverse()
-    }
+    if ascending { ord } else { ord.reverse() }
 }
 
 /// Row height used by every save-file-viewer table (kept in sync with the
@@ -198,10 +194,11 @@ fn apply_table_filter(
 
     let col_matches = |row: &[String]| -> bool {
         for (&col, selected) in &filter.column_filters {
-            if let Some(value) = row.get(col) {
-                if !selected.is_empty() && !selected.contains(value) {
-                    return false;
-                }
+            if let Some(value) = row.get(col)
+                && !selected.is_empty()
+                && !selected.contains(value)
+            {
+                return false;
             }
         }
         true

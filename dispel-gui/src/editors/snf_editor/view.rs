@@ -1,11 +1,11 @@
 use crate::app::App;
-use crate::editors::snf_editor::waveform::waveform_canvas;
 use crate::editors::snf_editor::ExportStatus;
 use crate::editors::snf_editor::SnfEditorMessage;
+use crate::editors::snf_editor::waveform::waveform_canvas;
 use crate::message::{Message, MessageExt};
 use gui_widgets::components::toast;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
-use iced::widget::{button, column, container, progress_bar, row, slider, text, Space};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{Space, button, column, container, progress_bar, row, slider, text};
 use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;
 

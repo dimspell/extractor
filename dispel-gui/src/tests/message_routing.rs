@@ -11,8 +11,8 @@ mod message_routing_tests {
         let mut app = app_with_tab(EditorType::HexEditor);
 
         use crate::message::editor::EditorMessage;
-        use hexedit::selection::NavDir;
         use hexedit::HexEditorMessage;
+        use hexedit::selection::NavDir;
         // Route through the public update API — should not panic
         let task = app.update(Message::Editor(EditorMessage::HexEditor(
             HexEditorMessage::Nav {

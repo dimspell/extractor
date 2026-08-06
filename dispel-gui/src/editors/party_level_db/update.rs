@@ -147,19 +147,18 @@ pub fn handle(message: PartyLevelDbEditorMessage, app: &mut App) -> Task<Message
                 .update_field(level_idx, &field, value);
 
             // Sync updated level records back to the NPC catalog
-            if let Some(npc_idx) = app.state.editors.party_level_db_editor.selected_npc_idx {
-                if let (Some(level_catalog), Some(npc_catalog)) = (
+            if let Some(npc_idx) = app.state.editors.party_level_db_editor.selected_npc_idx
+                && let (Some(level_catalog), Some(npc_catalog)) = (
                     app.state
                         .editors
                         .party_level_db_level_editor
                         .catalog
                         .clone(),
                     app.state.editors.party_level_db_editor.catalog.as_mut(),
-                ) {
-                    if let Some(npc) = npc_catalog.get_mut(npc_idx) {
-                        npc.records = level_catalog;
-                    }
-                }
+                )
+                && let Some(npc) = npc_catalog.get_mut(npc_idx)
+            {
+                npc.records = level_catalog;
             }
 
             // Refresh spreadsheet display caches

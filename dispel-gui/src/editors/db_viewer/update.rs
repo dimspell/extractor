@@ -191,8 +191,8 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
             app.state.editors.viewer.status_msg = format!("Cell clicked: row {}, col {}", row, col);
             app.state.editors.viewer.status_icon = None;
             // Confirm previous edit if any
-            if let Some((pr, pc)) = app.state.editors.viewer.editing_cell {
-                if !app.state.editors.viewer.edit_buffer.is_empty()
+            if let Some((pr, pc)) = app.state.editors.viewer.editing_cell
+                && (!app.state.editors.viewer.edit_buffer.is_empty()
                     || app
                         .state
                         .editors
@@ -200,24 +200,23 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                         .rows
                         .get(pr)
                         .and_then(|row| row.get(pc).map(|v| v.as_str()))
-                        != Some(&app.state.editors.viewer.edit_buffer)
-                {
-                    let original = app
-                        .state
+                        != Some(&app.state.editors.viewer.edit_buffer))
+            {
+                let original = app
+                    .state
+                    .editors
+                    .viewer
+                    .rows
+                    .get(pr)
+                    .and_then(|row| row.get(pc))
+                    .cloned()
+                    .unwrap_or_default();
+                if app.state.editors.viewer.edit_buffer != original {
+                    app.state
                         .editors
                         .viewer
-                        .rows
-                        .get(pr)
-                        .and_then(|row| row.get(pc))
-                        .cloned()
-                        .unwrap_or_default();
-                    if app.state.editors.viewer.edit_buffer != original {
-                        app.state
-                            .editors
-                            .viewer
-                            .pending_edits
-                            .insert((pr, pc), app.state.editors.viewer.edit_buffer.clone());
-                    }
+                        .pending_edits
+                        .insert((pr, pc), app.state.editors.viewer.edit_buffer.clone());
                 }
             }
             let val = app
@@ -310,10 +309,10 @@ pub fn handle(message: ViewerMessage, app: &mut App) -> Task<crate::message::Mes
                 Ok(n) => {
                     // Apply edits to local rows
                     for ((r, c), val) in &app.state.editors.viewer.pending_edits {
-                        if let Some(row) = app.state.editors.viewer.rows.get_mut(*r) {
-                            if let Some(cell) = row.get_mut(*c) {
-                                *cell = val.clone();
-                            }
+                        if let Some(row) = app.state.editors.viewer.rows.get_mut(*r)
+                            && let Some(cell) = row.get_mut(*c)
+                        {
+                            *cell = val.clone();
                         }
                     }
                     app.state.editors.viewer.pending_edits.clear();

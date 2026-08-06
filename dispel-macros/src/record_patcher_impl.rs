@@ -3,7 +3,7 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Ident, LitStr};
 
-use crate::extractor_impl::{parse_extractor_attr, FieldInfo};
+use crate::extractor_impl::{FieldInfo, parse_extractor_attr};
 
 pub fn expand(input: DeriveInput) -> TokenStream2 {
     let name = &input.ident;

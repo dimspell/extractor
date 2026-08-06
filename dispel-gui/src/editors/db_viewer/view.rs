@@ -1,9 +1,9 @@
 use crate::app::App;
 use crate::components::utils::{horizontal_space, vertical_space};
 use crate::editors::db_viewer::state::PAGE_SIZE;
-use crate::message::{viewer::ViewerMessage, Message};
+use crate::message::{Message, viewer::ViewerMessage};
 use crate::style;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font};
 use lucide_icons::Icon;

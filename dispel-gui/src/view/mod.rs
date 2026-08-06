@@ -2,18 +2,18 @@ use crate::app::{App, AppMode};
 use crate::components::tab_bar::view as tab_bar;
 use crate::components::utils::vertical_space;
 use crate::message::{
-    startpage::StartPageMessage, FileTreeMessage, Message, MessageExt, SystemMessage,
-    WorkspaceMessage,
+    FileTreeMessage, Message, MessageExt, SystemMessage, WorkspaceMessage,
+    startpage::StartPageMessage,
 };
 use crate::state::PaneContent;
 use crate::style;
 use crate::view::history_panel::view_history_panel;
 use crate::workspace::EditorType;
 use gui_widgets::components::modal::modal;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{Space, pane_grid};
 use iced::widget::{button, column, container, progress_bar, row, stack, text};
-use iced::widget::{pane_grid, Space};
-use iced::{alignment, Element, Fill, Font, Length};
+use iced::{Element, Fill, Font, Length, alignment};
 use lucide_icons::Icon;
 
 pub mod editor;
@@ -58,9 +58,11 @@ impl App {
                                         // Fallback for Unknown/None
                                         let content: Element<'_, Message> =
                                             if self.state.recent_files.is_empty() {
-                                                column![text("Select a file to edit")
-                                                    .size(16)
-                                                    .style(style::subtle_text),]
+                                                column![
+                                                    text("Select a file to edit")
+                                                        .size(16)
+                                                        .style(style::subtle_text),
+                                                ]
                                                 .align_x(iced::Alignment::Center)
                                                 .into()
                                             } else {

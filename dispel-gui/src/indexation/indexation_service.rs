@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Instant, UNIX_EPOCH};
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 use tokio::task::JoinHandle;
 
 /// Background indexation service
@@ -286,8 +286,8 @@ impl IndexationService {
             files.push(file_info);
 
             // Recursively scan directories
-            if is_directory {
-                if let Err(e) = Self::scan_directory_recursive(
+            if is_directory
+                && let Err(e) = Self::scan_directory_recursive(
                     progress_history,
                     &path,
                     files,
@@ -297,13 +297,13 @@ impl IndexationService {
                     start_time,
                     last_update_time,
                     update_count,
-                ) {
-                    // Log the error but continue with other directories
-                    if !e.is_cancelled() {
-                        log::warn!("Error scanning directory '{}': {}", path.display(), e);
-                    } else {
-                        return Err(e);
-                    }
+                )
+            {
+                // Log the error but continue with other directories
+                if !e.is_cancelled() {
+                    log::warn!("Error scanning directory '{}': {}", path.display(), e);
+                } else {
+                    return Err(e);
                 }
             }
 

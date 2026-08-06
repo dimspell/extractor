@@ -8,7 +8,7 @@ use crate::components::map_render::traits::{EntityKind, MapRenderSource};
 use crate::components::map_render::{MapCanvasState, TILE_H, TILE_W};
 use iced::advanced::image::Image as CoreImage;
 use iced::widget::canvas::{self, Action, Geometry};
-use iced::{mouse, Color, Event, Point, Rectangle, Size};
+use iced::{Color, Event, Point, Rectangle, Size, mouse};
 
 /// Canvas Program for tile layers only (GTL, BTL, internal sprites).
 /// Images always draw on top of primitives within a single canvas,

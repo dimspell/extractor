@@ -3,13 +3,13 @@
 //! Everything here is a pure function of the widget state snapshot — no
 //! mutations, no side effects beyond writing to the renderer.
 
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::layout::Layout;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
 use iced::mouse;
-use iced::{alignment, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size, alignment};
 
 use gui_widgets::components::paragraph_cache::{ParagraphCache, ParagraphKey};
 
@@ -19,12 +19,13 @@ use crate::ui::theme::HexEditorTheme;
 
 use crate::ui::view::minimap::{self};
 
+use super::HexMatrix;
 use super::layout::{
-    center_scroll_on, group_count, scroll_to_make_visible, visible_row_range, ASCII_CELL_WIDTH,
-    GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE,
+    ASCII_CELL_WIDTH, GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH, OVERSCAN, ROW_HEIGHT,
+    SCROLLBAR_THICKNESS, TEXT_SIZE, center_scroll_on, group_count, scroll_to_make_visible,
+    visible_row_range,
 };
 use super::state::State;
-use super::HexMatrix;
 
 type Paragraph = GraphicsParagraph;
 
@@ -245,27 +246,27 @@ pub fn draw_matrix<'a, Message>(
         let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
 
         // ── Entropy colour band in the address gutter ────────────────
-        if let Some(bands) = widget.entropy_bands {
-            if let Some(&(_, entropy)) = bands.get(row_idx as usize) {
-                let (r, g, b) = entropy_to_color(entropy);
-                let band_color = Color::from_rgb(r, g, b);
-                let band_rect = Rectangle {
-                    x: bounds.x,
-                    y,
-                    width: 4.0,
-                    height: ROW_HEIGHT,
-                };
-                if let Some(clipped) = content_clip.intersection(&band_rect) {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: clipped,
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(band_color),
-                    );
-                }
+        if let Some(bands) = widget.entropy_bands
+            && let Some(&(_, entropy)) = bands.get(row_idx as usize)
+        {
+            let (r, g, b) = entropy_to_color(entropy);
+            let band_color = Color::from_rgb(r, g, b);
+            let band_rect = Rectangle {
+                x: bounds.x,
+                y,
+                width: 4.0,
+                height: ROW_HEIGHT,
+            };
+            if let Some(clipped) = content_clip.intersection(&band_rect) {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: clipped,
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    Background::Color(band_color),
+                );
             }
         }
 

@@ -7,8 +7,8 @@ use crate::message::Message;
 use crate::view::editor::SpreadsheetState;
 use crate::workspace::Workspace;
 use dispel_core::Extractor;
-use iced::widget::pane_grid;
 use iced::Task;
+use iced::widget::pane_grid;
 
 pub fn get_tab_id(workspace: &Workspace) -> usize {
     workspace.active().map(|t| t.id).unwrap_or(usize::MAX)
@@ -71,10 +71,10 @@ pub fn remove_entry<T: EditableRecord + Extractor>(
     tab_id: usize,
     index: usize,
 ) -> Task<Message> {
-    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
-        if let Err(msg) = editor.remove_record(index) {
-            eprintln!("{}", msg);
-        }
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id)
+        && let Err(msg) = editor.remove_record(index)
+    {
+        eprintln!("{}", msg);
     }
     Task::none()
 }
@@ -84,15 +84,15 @@ pub fn pane_resized<T: EditableRecord>(
     tab_id: usize,
     event: pane_grid::ResizeEvent,
 ) -> Task<Message> {
-    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id) {
-        if let Some(ref mut ps) = editor.editor.pane_state {
-            ps.resize(event.split, event.ratio);
-        }
+    if let Some(editor) = tabbed_editor.editors.get_mut(&tab_id)
+        && let Some(ref mut ps) = editor.editor.pane_state
+    {
+        ps.resize(event.split, event.ratio);
     }
-    if let Some(ss) = tabbed_editor.spreadsheets.get_mut(&tab_id) {
-        if let Some(ref mut ps) = ss.pane_state {
-            ps.resize(event.split, event.ratio);
-        }
+    if let Some(ss) = tabbed_editor.spreadsheets.get_mut(&tab_id)
+        && let Some(ref mut ps) = ss.pane_state
+    {
+        ps.resize(event.split, event.ratio);
     }
     Task::none()
 }

@@ -1,4 +1,4 @@
-use crate::message::{system::SystemMessage, Message};
+use crate::message::{Message, system::SystemMessage};
 use crate::style;
 use iced::widget::{button, row, rule::Rule, space::Space, text, text_input};
 use iced::{Element, Length, Task};

@@ -113,25 +113,25 @@ fn index_all_files_recursive(game_path: &Path, dir: &Path, file_mappings: &mut V
             let path = entry.path();
             if path.is_dir() {
                 index_all_files_recursive(game_path, &path, file_mappings);
-            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if let Ok(relative_path) = path.strip_prefix(game_path) {
-                    let editor_type = match ext.to_lowercase().as_str() {
-                        "db" => "DatabaseEditor",
-                        "ini" => "IniEditor",
-                        "ref" => "RefEditor",
-                        "scr" => "ScriptEditor",
-                        "map" => "MapEditor",
-                        "dlg" | "pgp" => "DialogueScriptEditor",
-                        "gtl" | "btl" => "TilesetEditor",
-                        "spr" => "SpriteViewer",
-                        _ => "UnknownEditor",
-                    };
+            } else if let Some(ext) = path.extension().and_then(|e| e.to_str())
+                && let Ok(relative_path) = path.strip_prefix(game_path)
+            {
+                let editor_type = match ext.to_lowercase().as_str() {
+                    "db" => "DatabaseEditor",
+                    "ini" => "IniEditor",
+                    "ref" => "RefEditor",
+                    "scr" => "ScriptEditor",
+                    "map" => "MapEditor",
+                    "dlg" | "pgp" => "DialogueScriptEditor",
+                    "gtl" | "btl" => "TilesetEditor",
+                    "spr" => "SpriteViewer",
+                    _ => "UnknownEditor",
+                };
 
-                    file_mappings.push(FileMapping {
-                        file_path: relative_path.to_string_lossy().to_string(),
-                        editor_type: editor_type.to_string(),
-                    });
-                }
+                file_mappings.push(FileMapping {
+                    file_path: relative_path.to_string_lossy().to_string(),
+                    editor_type: editor_type.to_string(),
+                });
             }
         }
     }
@@ -158,16 +158,16 @@ fn find_sprites_recursive(dir: &Path, entries: &mut Vec<IndexedEntry>, count: &m
             let path = entry.path();
             if path.is_dir() {
                 find_sprites_recursive(&path, entries, count);
-            } else if path.extension().is_some_and(|e| e == "spr") {
-                if let Some(name) = path.file_stem().and_then(|n| n.to_str()) {
-                    entries.push(IndexedEntry {
-                        label: format!("[Sprite] {}", name),
-                        editor_type: "SpriteViewer".to_string(),
-                        record_idx: *count,
-                        source_file: Some(path.to_string_lossy().to_string()),
-                    });
-                    *count += 1;
-                }
+            } else if path.extension().is_some_and(|e| e == "spr")
+                && let Some(name) = path.file_stem().and_then(|n| n.to_str())
+            {
+                entries.push(IndexedEntry {
+                    label: format!("[Sprite] {}", name),
+                    editor_type: "SpriteViewer".to_string(),
+                    record_idx: *count,
+                    source_file: Some(path.to_string_lossy().to_string()),
+                });
+                *count += 1;
             }
         }
     }

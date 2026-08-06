@@ -108,7 +108,7 @@ pub fn resolve_csv_export_data(
 
 #[cfg(test)]
 mod tests {
-    use super::{csv_default_filename, JournalSection, MapsTableKind, TableKey};
+    use super::{JournalSection, MapsTableKind, TableKey, csv_default_filename};
 
     #[test]
     fn csv_filename_inventory() {

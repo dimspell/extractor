@@ -119,11 +119,11 @@ impl ChangeLog {
         }
 
         // Mark surviving entries that are now no-ops for removal too.
-        for (_, &idx) in last_seen.iter() {
-            if let ChangeOp::FieldDelta { old, new, .. } = &self.actions[idx].op {
-                if old == new {
-                    to_drop.push(idx);
-                }
+        for &idx in last_seen.values() {
+            if let ChangeOp::FieldDelta { old, new, .. } = &self.actions[idx].op
+                && old == new
+            {
+                to_drop.push(idx);
             }
         }
 

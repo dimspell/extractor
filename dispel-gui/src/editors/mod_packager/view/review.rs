@@ -8,7 +8,7 @@ use dispel_core::modding::{ChangeAction, ChangeOp, Value};
 use crate::app::App;
 use crate::editors::mod_packager::ModPackagerMessage;
 use crate::message::{Message, MessageExt};
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use lucide_icons::Icon;
 
 /// Render the Review tab — changes grouped by file path with per-field diffs

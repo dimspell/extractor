@@ -2,11 +2,11 @@
 
 use crate::app::App;
 use crate::components::tab_bar;
-use crate::message::workspace::WorkspaceMessage;
 use crate::message::Message;
+use crate::message::workspace::WorkspaceMessage;
 use crate::update::file_tree;
-use iced::widget::pane_grid;
 use iced::Task;
+use iced::widget::pane_grid;
 use std::path::PathBuf;
 
 pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::Message> {
@@ -103,10 +103,10 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                     })
                     .collect();
                 for pane_id in panes {
-                    if app.state.pane_state.state.len() > 1 {
-                        if let Some((_, sibling)) = app.state.pane_state.state.close(pane_id) {
-                            app.state.pane_state.focus = sibling;
-                        }
+                    if app.state.pane_state.state.len() > 1
+                        && let Some((_, sibling)) = app.state.pane_state.state.close(pane_id)
+                    {
+                        app.state.pane_state.focus = sibling;
                     }
                 }
             }
@@ -164,12 +164,12 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             Task::none()
         }
         WorkspaceMessage::CommandPaletteSelect(index) => {
-            if let Some(palette) = &app.command_palette {
-                if let Some(cmd) = palette.filtered_commands.get(index) {
-                    let action_msg = (cmd.action)();
-                    app.command_palette = None;
-                    return app.update(action_msg);
-                }
+            if let Some(palette) = &app.command_palette
+                && let Some(cmd) = palette.filtered_commands.get(index)
+            {
+                let action_msg = (cmd.action)();
+                app.command_palette = None;
+                return app.update(action_msg);
             }
             Task::none()
         }
@@ -178,12 +178,12 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             Task::none()
         }
         WorkspaceMessage::CommandPaletteConfirm => {
-            if let Some(palette) = &app.command_palette {
-                if let Some(cmd) = palette.selected_command() {
-                    let action_msg = (cmd.action)();
-                    app.command_palette = None;
-                    return app.update(action_msg);
-                }
+            if let Some(palette) = &app.command_palette
+                && let Some(cmd) = palette.selected_command()
+            {
+                let action_msg = (cmd.action)();
+                app.command_palette = None;
+                return app.update(action_msg);
             }
             Task::none()
         }
@@ -233,17 +233,16 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
             Task::none()
         }
         WorkspaceMessage::GlobalSearchSelect(index) => {
-            if let Some(result) = app.global_search.results.get(index) {
-                if let Some(relative_path) = &result.source_file {
-                    // Construct full path by combining game path with relative path
-                    if !app.state.shared_game_path.is_empty() {
-                        let full_path =
-                            PathBuf::from(&app.state.shared_game_path).join(relative_path);
-                        // Close search dialog and clear query before opening file
-                        app.global_search.is_visible = false;
-                        app.global_search.query.clear();
-                        return app.open_file_in_workspace(&full_path);
-                    }
+            if let Some(result) = app.global_search.results.get(index)
+                && let Some(relative_path) = &result.source_file
+            {
+                // Construct full path by combining game path with relative path
+                if !app.state.shared_game_path.is_empty() {
+                    let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                    // Close search dialog and clear query before opening file
+                    app.global_search.is_visible = false;
+                    app.global_search.query.clear();
+                    return app.open_file_in_workspace(&full_path);
                 }
             }
             app.global_search.is_visible = false;
@@ -278,17 +277,15 @@ pub fn handle(message: WorkspaceMessage, app: &mut App) -> Task<crate::message::
                 .global_search
                 .results
                 .get(app.global_search.selected_index)
+                && let Some(relative_path) = &result.source_file
             {
-                if let Some(relative_path) = &result.source_file {
-                    // Construct full path by combining game path with relative path
-                    if !app.state.shared_game_path.is_empty() {
-                        let full_path =
-                            PathBuf::from(&app.state.shared_game_path).join(relative_path);
-                        // Close search dialog and clear query before opening file
-                        app.global_search.is_visible = false;
-                        app.global_search.query.clear();
-                        return app.open_file_in_workspace(&full_path);
-                    }
+                // Construct full path by combining game path with relative path
+                if !app.state.shared_game_path.is_empty() {
+                    let full_path = PathBuf::from(&app.state.shared_game_path).join(relative_path);
+                    // Close search dialog and clear query before opening file
+                    app.global_search.is_visible = false;
+                    app.global_search.query.clear();
+                    return app.open_file_in_workspace(&full_path);
                 }
             }
             app.global_search.is_visible = false;

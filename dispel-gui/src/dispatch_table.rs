@@ -7,8 +7,8 @@
 //! - `EventScrEditor` — view wraps result in `.map(EditorMessage::EventScr)`
 
 use crate::app::App;
-use crate::message::editor::EditorMessage;
 use crate::message::Message;
+use crate::message::editor::EditorMessage;
 use crate::workspace::EditorType;
 use iced::Task;
 

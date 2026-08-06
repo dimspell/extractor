@@ -1,5 +1,5 @@
 use crate::components::utils::{horizontal_rule, horizontal_space};
-use crate::message::{workspace::WorkspaceMessage, Message};
+use crate::message::{Message, workspace::WorkspaceMessage};
 use crate::style;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Fill, Font, Length};

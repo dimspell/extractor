@@ -1,8 +1,8 @@
-use iced::widget::{container, scrollable, text, Column};
+use iced::widget::{Column, container, scrollable, text};
 use iced::{Element, Fill, Length};
 
-use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::editors::save_file_viewer::SaveFileViewerMessage;
+use crate::editors::save_file_viewer::state::SaveFileViewerState;
 use crate::message::Message;
 use crate::message::MessageExt;
 

@@ -8,7 +8,7 @@ use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 // use proptest::char::range;
-use super::extractor::{read_null_terminated_windows_1250, Extractor};
+use super::extractor::{Extractor, read_null_terminated_windows_1250};
 
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]

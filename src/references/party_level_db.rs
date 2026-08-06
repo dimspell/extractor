@@ -1,6 +1,6 @@
 use crate::references::extractor::Extractor;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use rusqlite::{params, Connection, Result as DbResult};
+use rusqlite::{Connection, Result as DbResult, params};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Result, Seek, Write};
 use std::path::Path;
@@ -227,9 +227,9 @@ mod tests {
         let mut buf = [0u8; 36];
         // sentinel (u32 at 0): 0
         buf[4..8].copy_from_slice(&strength.to_le_bytes()); // strength at offset 4
-                                                            // constitution, wisdom = 0
+        // constitution, wisdom = 0
         buf[16..18].copy_from_slice(&hp.to_le_bytes()); // health_points at offset 16
-                                                        // rest stays zero
+        // rest stays zero
         buf
     }
 

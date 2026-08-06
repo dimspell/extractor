@@ -12,4 +12,4 @@ pub use context_menu::ContextMenu;
 pub use modal::modal;
 pub use paragraph_cache::ParagraphCache;
 pub use table_widget::{RowFlags, TableColumn, TableState, TableWidget};
-pub use text_area::{textarea, textarea_style, TextAreaContent};
+pub use text_area::{TextAreaContent, textarea, textarea_style};

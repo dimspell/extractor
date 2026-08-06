@@ -1,7 +1,7 @@
 use iced::widget::{container, pick_list, row, text};
 use iced::{Element, Fill, Font};
 
-use crate::domain::write_mode::{all_write_modes, custom_mode_label, WriteMode};
+use crate::domain::write_mode::{WriteMode, all_write_modes, custom_mode_label};
 use crate::selection::Selection;
 use crate::{HexEditorMessage, HexEditorState, HexProvider};
 

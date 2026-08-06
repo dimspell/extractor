@@ -1,4 +1,4 @@
-use crate::message::{workspace::WorkspaceMessage, Message, MessageExt};
+use crate::message::{Message, MessageExt, workspace::WorkspaceMessage};
 use crate::style;
 use crate::workspace::EditorType;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
@@ -580,21 +580,20 @@ impl CommandPalette {
             .filter(|cmd| {
                 // If query is empty, show all commands that match the editor scope
                 if query.is_empty() {
-                    let editor_matches = match &self.active_editor_type {
+                    match &self.active_editor_type {
                         Some(editor_type) => {
                             cmd.applicable_editors.is_empty()
-                                || cmd.applicable_editors.contains(&editor_type)
+                                || cmd.applicable_editors.contains(editor_type)
                         }
                         None => true,
-                    };
-                    editor_matches
+                    }
                 } else {
                     // Both query and editor scope must match
-                    let query_matches = fuzzy_score(&cmd.label, query) > 0;
+                    let query_matches = fuzzy_score(cmd.label, query) > 0;
                     let editor_matches = match &self.active_editor_type {
                         Some(editor_type) => {
                             cmd.applicable_editors.is_empty()
-                                || cmd.applicable_editors.contains(&editor_type)
+                                || cmd.applicable_editors.contains(editor_type)
                         }
                         None => true,
                     };

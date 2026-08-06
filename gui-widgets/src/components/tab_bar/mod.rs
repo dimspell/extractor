@@ -17,8 +17,8 @@ use std::marker::PhantomData;
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::renderer::{self, Quad};
 use iced::advanced::text;
-use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::widget::Widget;
+use iced::advanced::widget::tree::{self, Tree};
 use iced::advanced::{mouse, overlay as iced_overlay};
 use iced::alignment;
 use iced::{
@@ -548,11 +548,7 @@ where
                             if h == 0.0 {
                                 return;
                             }
-                            if h > 0.0 {
-                                -SCROLL_STEP
-                            } else {
-                                SCROLL_STEP
-                            }
+                            if h > 0.0 { -SCROLL_STEP } else { SCROLL_STEP }
                         }
                         iced::mouse::ScrollDelta::Pixels { x, y } => {
                             let h = x + y;

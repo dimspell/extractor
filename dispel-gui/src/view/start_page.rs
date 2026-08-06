@@ -1,5 +1,5 @@
 use crate::app::App;
-use crate::message::{startpage::StartPageMessage, Message};
+use crate::message::{Message, startpage::StartPageMessage};
 use crate::style;
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Background, Border, Color, Element, Fill, Font, Length};

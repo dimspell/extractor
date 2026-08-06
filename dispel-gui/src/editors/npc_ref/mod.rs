@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use dispel_core::{Extractor, NpcIni, NPC};
+use dispel_core::{Extractor, NPC, NpcIni};
 use iced::Task;
 
 use crate::app::App;
@@ -59,10 +59,10 @@ pub fn handle(msg: NpcRefEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         NpcRefEditorMessage::NpcNamesLoaded(result) => {
-            if let Ok(names) = result {
-                if app.state.editors.npc_ref_editor.contains_key(&tab_id) {
-                    app.state.lookups.insert("NPC".to_string(), names);
-                }
+            if let Ok(names) = result
+                && app.state.editors.npc_ref_editor.contains_key(&tab_id)
+            {
+                app.state.lookups.insert("NPC".to_string(), names);
             }
             Task::none()
         }

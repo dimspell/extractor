@@ -10,8 +10,8 @@
 #[cfg(test)]
 mod workspace_handler_tests {
     use crate::app::App;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
+    use crate::message::workspace::WorkspaceMessage;
     use crate::workspace::{EditorType, Workspace};
 
     /// GlobalSearchSelect when a result has source_file but no game path is set.

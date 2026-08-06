@@ -13,8 +13,8 @@ use super::super::state::{SpriteExportDialogState, SpriteExportStatus};
 // ── Sprite browser ────────────────────────────────────────────────────────────
 
 pub fn view_sprite_browser<'a>(state: &'a MapEditorState, tab_id: usize) -> Element<'a, Message> {
-    use iced::widget::image;
     use iced::Length::Fixed;
+    use iced::widget::image;
 
     let handles = &state.data.sprite_sequence_handles;
 
@@ -160,7 +160,8 @@ pub fn view_sprite_browser<'a>(state: &'a MapEditorState, tab_id: usize) -> Elem
         .into();
 
     // Wrap in sprite export dialog modal if open
-    let base = if let Some(ref dlg) = state.data.sprite_export_dialog {
+
+    if let Some(ref dlg) = state.data.sprite_export_dialog {
         modal(
             base,
             view_sprite_export_dialog(dlg, tab_id),
@@ -169,9 +170,7 @@ pub fn view_sprite_browser<'a>(state: &'a MapEditorState, tab_id: usize) -> Elem
         )
     } else {
         base
-    };
-
-    base
+    }
 }
 
 fn view_sprite_export_dialog<'a>(

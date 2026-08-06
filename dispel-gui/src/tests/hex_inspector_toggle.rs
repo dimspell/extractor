@@ -16,13 +16,13 @@ mod hex_inspector_toggle_tests {
     use hexedit::domain::selection::Selection;
     use hexedit::domain::write_mode::WriteMode;
     use hexedit::ui::coloring::ColorScheme;
-    use hexedit::ui::theme::{ThemeVariant, DARK_THEME};
+    use hexedit::ui::theme::{DARK_THEME, ThemeVariant};
     use hexedit::{ComparisonFile, HexEditorState, InspectorSource};
     use hexedit::{HexEditorMessage, LuaScriptEngine};
     use iced_test::simulator;
 
-    use crate::message::editor::EditorMessage;
     use crate::message::Message;
+    use crate::message::editor::EditorMessage;
     use crate::tests::app_with_tab;
     use crate::workspace::EditorType::HexEditor;
 
@@ -169,7 +169,7 @@ mod hex_inspector_toggle_tests {
         }
 
         // Toggle to comparison: label must switch to the other file.
-        app.update(Message::Editor(EditorMessage::HexEditor(
+        let _ = app.update(Message::Editor(EditorMessage::HexEditor(
             HexEditorMessage::SetInspectorSource(InspectorSource::Comparison),
         )));
         let mut ui = simulator(app.view());
@@ -197,25 +197,27 @@ mod hex_inspector_toggle_tests {
         let mut ui = simulator(app.view());
         {
             use iced_test::selector::Candidate;
-            ui.find(|c: Candidate| -> Option<()> {
-                if let Some(vb) = c.visible_bounds() {
-                    if vb.y <= 235.0 && vb.y + vb.height >= 205.0 {
-                        match &c {
-                            Candidate::Text { content, .. } => {
-                                eprintln!("MATRIX DEBUG text {content:?} bounds={vb:?}");
-                            }
-                            Candidate::Container { .. } => {
-                                eprintln!("MATRIX DEBUG container bounds={vb:?}");
-                            }
-                            Candidate::Focusable { .. } => {
-                                eprintln!("MATRIX DEBUG focusable bounds={vb:?}");
-                            }
-                            _ => {
-                                eprintln!("MATRIX DEBUG other bounds={vb:?}");
-                            }
+            let _ = ui.find(|c: Candidate| -> Option<()> {
+                if let Some(vb) = c.visible_bounds()
+                    && vb.y <= 235.0
+                    && vb.y + vb.height >= 205.0
+                {
+                    match &c {
+                        Candidate::Text { content, .. } => {
+                            eprintln!("MATRIX DEBUG text {content:?} bounds={vb:?}");
+                        }
+                        Candidate::Container { .. } => {
+                            eprintln!("MATRIX DEBUG container bounds={vb:?}");
+                        }
+                        Candidate::Focusable { .. } => {
+                            eprintln!("MATRIX DEBUG focusable bounds={vb:?}");
+                        }
+                        _ => {
+                            eprintln!("MATRIX DEBUG other bounds={vb:?}");
                         }
                     }
                 }
+
                 None
             });
         }

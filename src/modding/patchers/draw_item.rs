@@ -10,7 +10,7 @@
 use std::io::Cursor;
 
 use crate::modding::error::Result;
-use crate::modding::patcher::{out_of_range, unknown_field, wrong_type, RecordPatcher};
+use crate::modding::patcher::{RecordPatcher, out_of_range, unknown_field, wrong_type};
 use crate::modding::value::Value;
 use crate::references::draw_item::DrawItem;
 use crate::references::enums::{InventoryItem, ItemTypeId};

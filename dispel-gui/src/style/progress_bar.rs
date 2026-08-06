@@ -1,5 +1,5 @@
 use iced::widget::progress_bar;
-use iced::{color, Background, Border, Theme};
+use iced::{Background, Border, Theme, color};
 
 pub fn loading_progress_bar(_theme: &Theme) -> progress_bar::Style {
     progress_bar::Style {

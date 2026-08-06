@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid;
 
-use super::domain::byte_stats::{compute_row_entropies, ByteStatistics, RowEntropyCache};
+use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_entropies};
 use super::domain::export_config::ExportConfig;
 use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
-use super::domain::panel::{default_pane_grid, HexPanel};
+use super::domain::panel::{HexPanel, default_pane_grid};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
 use super::goto::GotoState;
@@ -19,7 +19,7 @@ use super::provider::{BufferProvider, HexProvider};
 use super::search::SearchState;
 use super::selection::Selection;
 use super::ui::coloring::ColorScheme;
-use super::ui::theme::{HexEditorTheme, ThemeVariant, DARK_THEME};
+use super::ui::theme::{DARK_THEME, HexEditorTheme, ThemeVariant};
 use super::vanilla_diff::compute_diff;
 
 /// Metadata for a comparison file loaded for the side-by-side binary diff view.

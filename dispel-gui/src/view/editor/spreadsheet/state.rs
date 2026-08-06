@@ -5,12 +5,12 @@
 //! (sort/filter consistency, selection survival across filter changes,
 //! pane-grid bookkeeping) stay in one place.
 
-use super::caches::{compute_caches, ComputedCaches};
+use super::caches::{ComputedCaches, compute_caches};
 use super::constants::{COL_WIDTH, COL_WIDTH_MAX, COL_WIDTH_MIN, ID_COL_WIDTH_PX, ROW_HEIGHT};
 use crate::components::editable::EditableRecord;
 use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
-use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::TextAreaContent;
+use gui_widgets::components::paragraph_cache::ParagraphCache;
 use iced::widget::pane_grid::{self, Pane};
 use std::collections::{HashMap, HashSet};
 
@@ -332,11 +332,7 @@ impl SpreadsheetState {
                 (Ok(na), Ok(nb)) => na.partial_cmp(&nb).unwrap_or(std::cmp::Ordering::Equal),
                 _ => va.cmp(&vb),
             };
-            if ascending {
-                cmp
-            } else {
-                cmp.reverse()
-            }
+            if ascending { cmp } else { cmp.reverse() }
         });
     }
 
@@ -391,11 +387,12 @@ impl SpreadsheetState {
     /// `on_double_click`.
     pub fn try_begin_column_resize(&mut self, col: usize) -> bool {
         let double_press_threshold = std::time::Duration::from_millis(400);
-        if let Some((last_col, last_time)) = self.last_resize_press {
-            if last_col == col && last_time.elapsed() < double_press_threshold {
-                self.last_resize_press = None;
-                return true; // caller should auto-size
-            }
+        if let Some((last_col, last_time)) = self.last_resize_press
+            && last_col == col
+            && last_time.elapsed() < double_press_threshold
+        {
+            self.last_resize_press = None;
+            return true; // caller should auto-size
         }
         self.last_resize_press = Some((col, std::time::Instant::now()));
         let anchor_width = self.column_width(col);
@@ -654,14 +651,14 @@ impl SpreadsheetState {
                 let table_pane = ps
                     .iter()
                     .find_map(|(p, c)| matches!(c, SpreadsheetPaneContent::Table).then_some(*p));
-                if let Some(pane) = table_pane {
-                    if let Some((_, split)) = ps.split(
+                if let Some(pane) = table_pane
+                    && let Some((_, split)) = ps.split(
                         pane_grid::Axis::Vertical,
                         pane,
                         SpreadsheetPaneContent::Inspector,
-                    ) {
-                        ps.resize(split, 0.70);
-                    }
+                    )
+                {
+                    ps.resize(split, 0.70);
                 }
             }
         } else {

@@ -1,8 +1,8 @@
 //! Fixture-based tests for NPCRef
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::npc_ref::NPC;
 use dispel_core::Extractor;
+use dispel_core::references::npc_ref::NPC;
 use std::path::Path;
 
 #[test]

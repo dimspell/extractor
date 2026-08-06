@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use crate::components::utils::{horizontal_rule, horizontal_space};
 use crate::message::Message;
 use crate::style;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, scrollable, text, text_input};
 use iced::{Element, Length};
 use lucide_icons::Icon;

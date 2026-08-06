@@ -1,7 +1,7 @@
 // Editor message router — delegates to dispatch_table
 use crate::app::App;
-use crate::message::editor::EditorMessage;
 use crate::message::Message;
+use crate::message::editor::EditorMessage;
 use iced::Task;
 
 pub fn handle(message: EditorMessage, app: &mut App) -> Task<Message> {

@@ -1,7 +1,7 @@
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::fs::File;
-use std::io::prelude::*;
 use std::io::Result;
+use std::io::prelude::*;
 use std::path::Path;
 
 // SNF (Sound File) Format
@@ -444,7 +444,7 @@ mod tests {
         let wav_path = std::env::temp_dir().join("test_import_export.wav");
         let snf_path = std::env::temp_dir().join("test_import_export.snf");
 
-        std::fs::write(&wav_path, &original.to_wav_bytes()).unwrap();
+        std::fs::write(&wav_path, original.to_wav_bytes()).unwrap();
         import_wav(&wav_path, &snf_path).unwrap();
         let reloaded = read(&snf_path).unwrap();
 

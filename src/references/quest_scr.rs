@@ -5,7 +5,7 @@ use crate::references::extractor::Extractor;
 use dispel_macros::Localizable;
 use encoding_rs::WINDOWS_1250;
 use encoding_rs_io::DecodeReaderBytesBuilder;
-use rusqlite::{params, Connection, Result};
+use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 // ===========================================================================
 // QUEST.SCR FILE FORMAT

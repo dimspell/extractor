@@ -1,7 +1,7 @@
 use crate::components::map_render::MapCanvasState;
 use iced::mouse::{Button, Event as MouseEvent, ScrollDelta};
 use iced::widget::canvas::Action;
-use iced::{mouse, Event, Rectangle};
+use iced::{Event, Rectangle, mouse};
 
 pub fn handle_input<M, Click, Pan, Zoom>(
     interaction: &mut MapCanvasState,
@@ -29,24 +29,24 @@ where
         Event::Mouse(MouseEvent::ButtonReleased(Button::Left)) => {
             interaction.is_dragging = false;
             interaction.drag_last = None;
-            if let Some(start) = interaction.drag_start.take() {
-                if let Some(pos) = cursor.position_in(bounds) {
-                    let dx = pos.x - start.x;
-                    let dy = pos.y - start.y;
-                    if dx * dx + dy * dy < 25.0 {
-                        return Some(Action::publish(on_click(pos.x, pos.y)).and_capture());
-                    }
+            if let Some(start) = interaction.drag_start.take()
+                && let Some(pos) = cursor.position_in(bounds)
+            {
+                let dx = pos.x - start.x;
+                let dy = pos.y - start.y;
+                if dx * dx + dy * dy < 25.0 {
+                    return Some(Action::publish(on_click(pos.x, pos.y)).and_capture());
                 }
             }
         }
         Event::Mouse(MouseEvent::CursorMoved { .. }) if interaction.is_dragging => {
-            if let Some(last) = interaction.drag_last {
-                if let Some(pos) = cursor.position_from(bounds.position()) {
-                    let dx = pos.x - last.x;
-                    let dy = pos.y - last.y;
-                    interaction.drag_last = Some(pos);
-                    return Some(Action::publish(on_pan(dx, dy)).and_capture());
-                }
+            if let Some(last) = interaction.drag_last
+                && let Some(pos) = cursor.position_from(bounds.position())
+            {
+                let dx = pos.x - last.x;
+                let dy = pos.y - last.y;
+                interaction.drag_last = Some(pos);
+                return Some(Action::publish(on_pan(dx, dy)).and_capture());
             }
         }
         Event::Mouse(MouseEvent::WheelScrolled { delta }) if cursor.is_over(bounds) => {

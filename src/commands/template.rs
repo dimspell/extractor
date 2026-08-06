@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use crate::commands::registry::{self, FileType};
 use crate::commands::Command;
+use crate::commands::registry::{self, FileType};
 
 #[derive(clap::Args, Clone)]
 pub struct TemplateArgs {

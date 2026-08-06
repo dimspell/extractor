@@ -3,15 +3,15 @@ use std::sync::atomic::Ordering;
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_rule as hr;
-use crate::editors::event_scr::act_tree::{build_act_tree, ScriptNode};
+use crate::editors::event_scr::act_tree::{ScriptNode, build_act_tree};
 use crate::editors::event_scr::functions::{EventScriptFunctionIndex, IndexedFunction};
 use crate::editors::event_scr::message::EventScrEditorMessage;
 use crate::editors::event_scr::state::{EventScriptEditorState, FunctionIndexState, SectionTab};
 use crate::style;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{
-    button, column, container, pick_list, progress_bar, row, rule, scrollable, text, text_input,
-    Space,
+    Space, button, column, container, pick_list, progress_bar, row, rule, scrollable, text,
+    text_input,
 };
 use iced::{Alignment, Color, Element, Font, Length};
 use lucide_icons::Icon;

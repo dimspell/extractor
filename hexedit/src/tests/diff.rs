@@ -3,11 +3,11 @@
 
 use super::*;
 
-use iced::{mouse, Event};
+use iced::{Event, mouse};
 use iced_test::simulator::click;
 
-use crate::ui::view::diff::layout::{ADDR_COL_WIDTH, HEADER_HEIGHT, HEX_CELL_WIDTH, ROW_HEIGHT};
 use crate::ui::view::diff::DiffView;
+use crate::ui::view::diff::layout::{ADDR_COL_WIDTH, HEADER_HEIGHT, HEX_CELL_WIDTH, ROW_HEIGHT};
 
 fn sel() -> Selection {
     Selection::single(0)
@@ -122,7 +122,10 @@ fn test_diff_drag_on_comparison_side_publishes_side() {
     assert!(
         messages.iter().any(|m| matches!(
             m,
-            HexEditorMessage::DiffExtendTo { addr: 1, is_baseline: false }
+            HexEditorMessage::DiffExtendTo {
+                addr: 1,
+                is_baseline: false
+            }
         )),
         "drag on the comparison side must publish DiffExtendTo with is_baseline=false, got {messages:?}"
     );

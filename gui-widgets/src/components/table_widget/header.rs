@@ -3,12 +3,12 @@
 //! Contains the `impl TableWidget` methods for drawing the frozen column
 //! headers and the interactive resize / sort / filter regions.
 
+use iced::Point;
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
-use iced::Point;
-use iced::{alignment, color, Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Font, Pixels, Rectangle, Shadow, Size, alignment, color};
 
 use super::geometry;
 use super::types::{HeaderRegion, State};
@@ -156,23 +156,23 @@ impl<'a, Message> TableWidget<'a, Message> {
             let label_hovered = state
                 .hovered_header
                 .is_some_and(|(c, r)| c == data_col && r == HeaderRegion::Label);
-            if label_hovered {
-                if let Some(r) = header_data_clip.intersection(&Rectangle {
+            if label_hovered
+                && let Some(r) = header_data_clip.intersection(&Rectangle {
                     x: col_l_screen,
                     y: header.y,
                     width: (label_r - col_l_screen).max(0.0),
                     height: header.height,
-                }) {
-                    renderer.fill_quad(
-                        renderer::Quad {
-                            bounds: r,
-                            border: Border::default(),
-                            shadow: Shadow::default(),
-                            snap: true,
-                        },
-                        Background::Color(color!(0x2d2218)),
-                    );
-                }
+                })
+            {
+                renderer.fill_quad(
+                    renderer::Quad {
+                        bounds: r,
+                        border: Border::default(),
+                        shadow: Shadow::default(),
+                        snap: true,
+                    },
+                    Background::Color(color!(0x2d2218)),
+                );
             }
 
             // ── Column label ──────────────────────────────────────────

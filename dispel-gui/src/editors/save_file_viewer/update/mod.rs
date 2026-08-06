@@ -38,16 +38,15 @@ pub fn try_begin_column_resize(
     let now = std::time::Instant::now();
 
     // Check for double-press
-    if let Some((last_key, last_col, last_time)) = state.last_resize_press {
-        if last_key == key
-            && last_col == col
-            && now.duration_since(last_time).as_millis() < DOUBLE_PRESS_MS
-        {
-            state.last_resize_press = None;
-            // Auto-size the column
-            auto_size_column_by_key(state, key, col);
-            return None; // Don't start a drag
-        }
+    if let Some((last_key, last_col, last_time)) = state.last_resize_press
+        && last_key == key
+        && last_col == col
+        && now.duration_since(last_time).as_millis() < DOUBLE_PRESS_MS
+    {
+        state.last_resize_press = None;
+        // Auto-size the column
+        auto_size_column_by_key(state, key, col);
+        return None; // Don't start a drag
     }
 
     state.last_resize_press = Some((key, col, now));
@@ -173,24 +172,23 @@ fn apply_column_width(state: &mut SaveFileViewerState, key: TableKey, col: usize
                 .maps_table_states
                 .get_mut(map)
                 .and_then(|m| m.get_mut(&kind))
+                && let Some(w) = ts.column_widths.get_mut(col)
             {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+                *w = width;
             }
         }
         TableKey::Inventory(cat) => {
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
             }
         }
         TableKey::Journal(section) => {
-            if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+            if let Some(ts) = state.journal_table_states.get_mut(&section)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
             }
         }
     }
@@ -276,7 +274,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
                 // Kick off async map file loading
                 let gp = gp.clone();
-                let task = iced::Task::perform(
+
+                iced::Task::perform(
                     async move {
                         let stem =
                             crate::editors::map_editor::resolve_map_filename(map_id as i32, &gp);
@@ -306,8 +305,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             crate::editors::save_file_viewer::message::SaveFileViewerMessage::MapPreviewLoaded(map_idx, result),
                         )
                     },
-                );
-                task
+                )
             }
         }
         SaveFileViewerMessage::MapPreviewLoaded(map_idx, result) => {
@@ -372,188 +370,185 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             state.map_preview = Some(preview_state);
 
             // Build entity markers from save file data (synchronous)
-            if let Some(sf) = state.save_file.as_ref() {
-                if let Some(map_data) = &sf.maps.get(map_idx) {
-                    let mut entities = Vec::new();
-                    /// Safe cast: u32 → i32, clamps to i32 range and warns on overflow.
-                    fn to_tile(v: u32) -> i32 {
-                        if v > i32::MAX as u32 {
-                            eprintln!("WARN: tile coordinate {} exceeds i32 range", v);
-                            0
-                        } else {
-                            v as i32
-                        }
+            if let Some(sf) = state.save_file.as_ref()
+                && let Some(map_data) = &sf.maps.get(map_idx)
+            {
+                let mut entities = Vec::new();
+                /// Safe cast: u32 → i32, clamps to i32 range and warns on overflow.
+                fn to_tile(v: u32) -> i32 {
+                    if v > i32::MAX as u32 {
+                        eprintln!("WARN: tile coordinate {} exceeds i32 range", v);
+                        0
+                    } else {
+                        v as i32
                     }
+                }
 
-                    // Monsters
-                    for m in &map_data.monsters {
-                        let x = to_tile(m.current_position_x as u32);
-                        let y = to_tile(m.current_position_y as u32);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::Monster,
-                                label: m.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: false,
-                                db_id: Some(m.monster_db_id as i32),
-                                is_dead: m.hp_current == 0,
-                                look_direction: 0,
-                            });
-                        }
+                // Monsters
+                for m in &map_data.monsters {
+                    let x = to_tile(m.current_position_x as u32);
+                    let y = to_tile(m.current_position_y as u32);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::Monster,
+                            label: m.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: false,
+                            db_id: Some(m.monster_db_id as i32),
+                            is_dead: m.hp_current == 0,
+                            look_direction: 0,
+                        });
                     }
-                    // NPCs — first active waypoint (HIGH confidence)
-                    // Mirrors npc_pos() in map_editor/canvas/hit_test.rs.
-                    // The save file has no "current position" field, so if an NPC
-                    // is mid-patrol the best we can do is its first filled waypoint.
-                    for n in &map_data.npcs {
-                        let waypoints = [
-                            (
-                                n.npc_ref_waypoint1filled,
-                                n.npc_ref_waypoint1x,
-                                n.npc_ref_waypoint1y,
-                            ),
-                            (
-                                n.npc_ref_waypoint2filled,
-                                n.npc_ref_waypoint2x,
-                                n.npc_ref_waypoint2y,
-                            ),
-                            (
-                                n.npc_ref_waypoint3filled,
-                                n.npc_ref_waypoint3x,
-                                n.npc_ref_waypoint3y,
-                            ),
-                            (
-                                n.npc_ref_waypoint4filled,
-                                n.npc_ref_waypoint4x,
-                                n.npc_ref_waypoint4y,
-                            ),
-                        ];
-                        let (nx, ny) = waypoints
-                            .iter()
-                            .find(|(filled, _, _)| *filled != 0)
-                            .map(|&(_, x, y)| (to_tile(x), to_tile(y)))
-                            .unwrap_or((
-                                to_tile(n.npc_ref_waypoint1x),
-                                to_tile(n.npc_ref_waypoint1y),
-                            ));
-                        if nx != 0 || ny != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::Npc,
-                                label: n.name.clone(),
-                                tile_x: nx,
-                                tile_y: ny,
-                                confirmed: true,
-                                db_id: Some(n.npc_ini_id as i32),
-                                is_dead: false,
-                                look_direction: n.npc_ref_look_direction as u8,
-                            });
-                        }
+                }
+                // NPCs — first active waypoint (HIGH confidence)
+                // Mirrors npc_pos() in map_editor/canvas/hit_test.rs.
+                // The save file has no "current position" field, so if an NPC
+                // is mid-patrol the best we can do is its first filled waypoint.
+                for n in &map_data.npcs {
+                    let waypoints = [
+                        (
+                            n.npc_ref_waypoint1filled,
+                            n.npc_ref_waypoint1x,
+                            n.npc_ref_waypoint1y,
+                        ),
+                        (
+                            n.npc_ref_waypoint2filled,
+                            n.npc_ref_waypoint2x,
+                            n.npc_ref_waypoint2y,
+                        ),
+                        (
+                            n.npc_ref_waypoint3filled,
+                            n.npc_ref_waypoint3x,
+                            n.npc_ref_waypoint3y,
+                        ),
+                        (
+                            n.npc_ref_waypoint4filled,
+                            n.npc_ref_waypoint4x,
+                            n.npc_ref_waypoint4y,
+                        ),
+                    ];
+                    let (nx, ny) = waypoints
+                        .iter()
+                        .find(|(filled, _, _)| *filled != 0)
+                        .map(|&(_, x, y)| (to_tile(x), to_tile(y)))
+                        .unwrap_or((to_tile(n.npc_ref_waypoint1x), to_tile(n.npc_ref_waypoint1y)));
+                    if nx != 0 || ny != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::Npc,
+                            label: n.name.clone(),
+                            tile_x: nx,
+                            tile_y: ny,
+                            confirmed: true,
+                            db_id: Some(n.npc_ini_id as i32),
+                            is_dead: false,
+                            look_direction: n.npc_ref_look_direction as u8,
+                        });
                     }
-                    // Extra objects — use unknown_7/8 which map structurally to
-                    // ExtraRef.x_pos/y_pos (both appear right after name + type byte
-                    // in their respective struct layouts).  Keep confirmed:false
-                    // pending empirical verification against real save files.
-                    for e in &map_data.extra_objects {
-                        let x = to_tile(e.x_pos);
-                        let y = to_tile(e.y_pos);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::Extra,
-                                label: e.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: false,
-                                db_id: Some(e.extra_ini_id as i32),
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                // Extra objects — use unknown_7/8 which map structurally to
+                // ExtraRef.x_pos/y_pos (both appear right after name + type byte
+                // in their respective struct layouts).  Keep confirmed:false
+                // pending empirical verification against real save files.
+                for e in &map_data.extra_objects {
+                    let x = to_tile(e.x_pos);
+                    let y = to_tile(e.y_pos);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::Extra,
+                            label: e.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: false,
+                            db_id: Some(e.extra_ini_id as i32),
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    // Draw items — map_coordinate_x/y per type (HIGH confidence)
-                    for d in &map_data.draw_items_weapon {
-                        let x = to_tile(d.map_coordinate_x);
-                        let y = to_tile(d.map_coordinate_y);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::DrawItem,
-                                label: d.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: true,
-                                db_id: None,
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                // Draw items — map_coordinate_x/y per type (HIGH confidence)
+                for d in &map_data.draw_items_weapon {
+                    let x = to_tile(d.map_coordinate_x);
+                    let y = to_tile(d.map_coordinate_y);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::DrawItem,
+                            label: d.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: true,
+                            db_id: None,
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    for d in &map_data.draw_items_heal {
-                        let x = to_tile(d.map_coordinate_x);
-                        let y = to_tile(d.map_coordinate_y);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::DrawItem,
-                                label: d.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: true,
-                                db_id: None,
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                for d in &map_data.draw_items_heal {
+                    let x = to_tile(d.map_coordinate_x);
+                    let y = to_tile(d.map_coordinate_y);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::DrawItem,
+                            label: d.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: true,
+                            db_id: None,
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    for d in &map_data.draw_items_edit {
-                        let x = to_tile(d.map_coordinate_x);
-                        let y = to_tile(d.map_coordinate_y);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::DrawItem,
-                                label: d.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: true,
-                                db_id: None,
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                for d in &map_data.draw_items_edit {
+                    let x = to_tile(d.map_coordinate_x);
+                    let y = to_tile(d.map_coordinate_y);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::DrawItem,
+                            label: d.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: true,
+                            db_id: None,
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    for d in &map_data.draw_items_misc {
-                        let x = to_tile(d.map_coordinate_x);
-                        let y = to_tile(d.map_coordinate_y);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::DrawItem,
-                                label: d.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: true,
-                                db_id: None,
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                for d in &map_data.draw_items_misc {
+                    let x = to_tile(d.map_coordinate_x);
+                    let y = to_tile(d.map_coordinate_y);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::DrawItem,
+                            label: d.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: true,
+                            db_id: None,
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    for d in &map_data.draw_items_event {
-                        let x = to_tile(d.map_coordinate_x);
-                        let y = to_tile(d.map_coordinate_y);
-                        if x != 0 || y != 0 {
-                            entities.push(PreviewEntity {
-                                kind: EntityKind::DrawItem,
-                                label: d.name.clone(),
-                                tile_x: x,
-                                tile_y: y,
-                                confirmed: true,
-                                db_id: None,
-                                is_dead: false,
-                                look_direction: 0,
-                            });
-                        }
+                }
+                for d in &map_data.draw_items_event {
+                    let x = to_tile(d.map_coordinate_x);
+                    let y = to_tile(d.map_coordinate_y);
+                    if x != 0 || y != 0 {
+                        entities.push(PreviewEntity {
+                            kind: EntityKind::DrawItem,
+                            label: d.name.clone(),
+                            tile_x: x,
+                            tile_y: y,
+                            confirmed: true,
+                            db_id: None,
+                            is_dead: false,
+                            look_direction: 0,
+                        });
                     }
-                    if let Some(preview) = state.map_preview.as_mut() {
-                        preview.entity_markers = entities;
-                    }
+                }
+                if let Some(preview) = state.map_preview.as_mut() {
+                    preview.entity_markers = entities;
                 }
             }
 
@@ -751,10 +746,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 .maps_table_states
                 .get_mut(map)
                 .and_then(|m| m.get_mut(&kind))
+                && let Some(w) = ts.column_widths.get_mut(col)
             {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+                *w = width;
             }
             Task::none()
         }
@@ -830,10 +824,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     .map(|c| c.width_px)
                     .unwrap_or(80.0)
             };
-            if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+            if let Some(ts) = state.inventory_table_states.get_mut(&cat)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
             }
             Task::none()
         }
@@ -963,10 +957,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     .map(|c| c.width_px)
                     .unwrap_or(80.0)
             };
-            if let Some(ts) = state.journal_table_states.get_mut(&section) {
-                if let Some(w) = ts.column_widths.get_mut(col) {
-                    *w = width;
-                }
+            if let Some(ts) = state.journal_table_states.get_mut(&section)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
             }
             Task::none()
         }

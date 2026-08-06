@@ -9,11 +9,11 @@
 
 use std::path::PathBuf;
 
-use gui_widgets::components::context_menu::{platform, Entry};
+use gui_widgets::components::context_menu::{Entry, platform};
 use gui_widgets::components::tab_bar::{Tab, TabBar, TabBarEvent};
 use iced::{Element, Task};
 
-use crate::{update, view, HexEditorConfig, HexEditorMessage, HexEditorState};
+use crate::{HexEditorConfig, HexEditorMessage, HexEditorState, update, view};
 
 /// One open document: an editor state plus its tab-level metadata.
 pub struct HexEditorDocument {

@@ -24,7 +24,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use iced::advanced::layout::{Limits, Node};
 use iced::advanced::renderer;
-use iced::advanced::widget::{tree, Tree, Widget};
+use iced::advanced::widget::{Tree, Widget, tree};
 use iced::mouse;
 use iced::{Element, Length, Rectangle, Size};
 
@@ -474,19 +474,6 @@ mod tests {
         crate::domain::selection::Selection::default()
     }
 
-    fn empty_set() -> BTreeSet<u64> {
-        BTreeSet::new()
-    }
-    fn empty_map() -> BTreeMap<u64, (usize, u8)> {
-        BTreeMap::new()
-    }
-    fn empty_ann() -> BTreeMap<u64, Vec<(usize, String)>> {
-        BTreeMap::new()
-    }
-    fn empty_active() -> BTreeSet<usize> {
-        BTreeSet::new()
-    }
-
     /// Construct a minimal DiffView for tests. All non-essential buffers
     /// reference static empty collections.
     fn minimal_dv<'a>(a: &'a [u8], b: &'a [u8], bpr: u8) -> super::DiffView<'a, ()> {
@@ -542,7 +529,6 @@ mod tests {
         let called = std::cell::Cell::new(None);
         let dv = minimal_dv(&[0], &[0], 16).on_right_click(|addr, _is_baseline| {
             called.set(Some(addr));
-            ()
         });
         let cb = dv.on_right_click.as_ref().unwrap();
         cb(42, true);
@@ -554,7 +540,6 @@ mod tests {
         let called = std::cell::Cell::new(None);
         let dv = minimal_dv(&[0], &[0], 16).on_extend_to(|addr, _is_baseline| {
             called.set(Some(addr));
-            ()
         });
         let cb = dv.on_extend_to.as_ref().unwrap();
         cb(99, false);
@@ -567,7 +552,6 @@ mod tests {
         let called = std::cell::Cell::new(false);
         let dv = minimal_dv(&[0], &[0], 16).on_nav(|_, _| {
             called.set(true);
-            ()
         });
         let cb = dv.on_nav.as_ref().unwrap();
         cb(crate::domain::selection::NavDir::Right, true);

@@ -23,8 +23,8 @@
 //! crate::map::tmx::export_tmx(&map_data, gtl_path, btl_path, out_dir).unwrap();
 //! ```
 
-use super::tileset::Tile;
 use super::MapData;
+use super::tileset::Tile;
 use crate::sprite::Color;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -305,22 +305,22 @@ pub fn export_tmx(
         let mut obj_id = 1u32;
         for y in 0..map_h {
             for x in 0..map_w {
-                if let Some(event) = map_data.events.get(&(x, y)) {
-                    if event.event_id != 0 {
-                        let px = x * 32;
-                        let py = y * 32;
-                        write!(
-                            w,
-                            r#"    <object id="{}" x="{}" y="{}" width="32" height="32">
+                if let Some(event) = map_data.events.get(&(x, y))
+                    && event.event_id != 0
+                {
+                    let px = x * 32;
+                    let py = y * 32;
+                    write!(
+                        w,
+                        r#"    <object id="{}" x="{}" y="{}" width="32" height="32">
       <properties>
         <property name="event_id" value="{}"/>
       </properties>
     </object>
 "#,
-                            obj_id, px, py, event.event_id
-                        )?;
-                        obj_id += 1;
-                    }
+                        obj_id, px, py, event.event_id
+                    )?;
+                    obj_id += 1;
                 }
             }
         }

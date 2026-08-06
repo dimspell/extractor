@@ -31,7 +31,7 @@ use crate::editors::{localization_manager, mod_packager};
 use crate::workspace::EditorType;
 use dispel_core::{
     DialogueParagraph, DialogueScript, EditItem, EventItem, ExtraRef, HealItem, MiscItem, Monster,
-    MonsterRef, PartyLevelRecord, PartyRef, WeaponItem, NPC,
+    MonsterRef, NPC, PartyLevelRecord, PartyRef, WeaponItem,
 };
 use hexedit::HexEditorState;
 

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod workspace_tab_tests {
     use crate::app::App;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
+    use crate::message::workspace::WorkspaceMessage;
     use crate::workspace::{EditorType, Workspace, WorkspaceTab};
 
     #[test]

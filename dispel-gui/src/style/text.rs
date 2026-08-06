@@ -1,5 +1,5 @@
 use iced::widget::text;
-use iced::{color, Theme};
+use iced::{Theme, color};
 
 pub fn subtle_text(_theme: &Theme) -> text::Style {
     text::Style {

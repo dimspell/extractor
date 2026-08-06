@@ -8,33 +8,33 @@ use crate::workspace::EditorType;
 use iced::Subscription;
 
 pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
-    use iced::keyboard::{self, key::Named, Key};
+    use iced::keyboard::{self, Key, key::Named};
     use iced::window;
 
     let close = window::close_requests().map(|_| Message::System(SystemMessage::CloseRequested));
 
     let keyboard_sub = keyboard::listen().filter_map(|event| {
         if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
-            if modifiers.control() || modifiers.command() {
-                if let Key::Character(c) = key.as_ref() {
-                    let ch = c.chars().next()?;
-                    if modifiers.shift() {
-                        return match ch {
-                            'x' => Some(Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex)),
-                            'p' => Some(Message::Workspace(WorkspaceMessage::ToggleCommandPalette)),
-                            _ => None,
-                        };
-                    }
+            if (modifiers.control() || modifiers.command())
+                && let Key::Character(c) = key.as_ref()
+            {
+                let ch = c.chars().next()?;
+                if modifiers.shift() {
                     return match ch {
-                        'z' => Some(Message::System(SystemMessage::Undo)),
-                        'y' => Some(Message::System(SystemMessage::Redo)),
-                        's' => Some(Message::System(SystemMessage::Save)),
-                        'h' => Some(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel)),
-                        'p' => Some(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch)),
-                        'w' => Some(Message::tab_bar(TabBarMessage::CloseActiveTab)),
+                        'x' => Some(Message::Workspace(WorkspaceMessage::ReopenActiveTabAsHex)),
+                        'p' => Some(Message::Workspace(WorkspaceMessage::ToggleCommandPalette)),
                         _ => None,
                     };
                 }
+                return match ch {
+                    'z' => Some(Message::System(SystemMessage::Undo)),
+                    'y' => Some(Message::System(SystemMessage::Redo)),
+                    's' => Some(Message::System(SystemMessage::Save)),
+                    'h' => Some(Message::Workspace(WorkspaceMessage::ToggleHistoryPanel)),
+                    'p' => Some(Message::Workspace(WorkspaceMessage::ToggleGlobalSearch)),
+                    'w' => Some(Message::tab_bar(TabBarMessage::CloseActiveTab)),
+                    _ => None,
+                };
             }
             if let Key::Named(named) = key.as_ref() {
                 match named {
@@ -133,33 +133,34 @@ pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
     let palette_open = app.command_palette.is_some();
     let search_open = app.global_search.is_visible;
 
-    if !palette_open && !search_open {
-        if let Some(et) = active_et {
-            use crate::view::editor::SpreadsheetMessage as SM;
-            // Probe whether this editor type has a spreadsheet.
-            if spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
-                let ss_sub = keyboard::listen().with(et).filter_map(|(et, event)| {
-                    if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
-                        if modifiers.control() || modifiers.command() || modifiers.shift() {
-                            return None;
-                        }
-                        if let Key::Named(named) = key.as_ref() {
-                            use crate::view::editor::SpreadsheetMessage as SM;
-                            let sm = match named {
-                                Named::ArrowUp => SM::NavigateUp,
-                                Named::ArrowDown => SM::NavigateDown,
-                                Named::Home => SM::NavigateTop,
-                                Named::End => SM::NavigateBottom,
-                                Named::Escape => SM::CancelEdit,
-                                _ => return None,
-                            };
-                            return spreadsheet_nav_msg(et, sm);
-                        }
+    if !palette_open
+        && !search_open
+        && let Some(et) = active_et
+    {
+        use crate::view::editor::SpreadsheetMessage as SM;
+        // Probe whether this editor type has a spreadsheet.
+        if spreadsheet_nav_msg(et, SM::NavigateUp).is_some() {
+            let ss_sub = keyboard::listen().with(et).filter_map(|(et, event)| {
+                if let keyboard::Event::KeyPressed { key, modifiers, .. } = event {
+                    if modifiers.control() || modifiers.command() || modifiers.shift() {
+                        return None;
                     }
-                    None
-                });
-                subscriptions.push(ss_sub);
-            }
+                    if let Key::Named(named) = key.as_ref() {
+                        use crate::view::editor::SpreadsheetMessage as SM;
+                        let sm = match named {
+                            Named::ArrowUp => SM::NavigateUp,
+                            Named::ArrowDown => SM::NavigateDown,
+                            Named::Home => SM::NavigateTop,
+                            Named::End => SM::NavigateBottom,
+                            Named::Escape => SM::CancelEdit,
+                            _ => return None,
+                        };
+                        return spreadsheet_nav_msg(et, sm);
+                    }
+                }
+                None
+            });
+            subscriptions.push(ss_sub);
         }
     }
 
@@ -188,14 +189,14 @@ pub fn subscription(app: &crate::app::App) -> Subscription<Message> {
                                 EventScrEditorMessage::KeyboardShortcut(
                                     KeyboardShortcut::MoveActionUp,
                                 ),
-                            ))
+                            ));
                         }
                         Named::ArrowDown => {
                             return Some(Message::event_scr(
                                 EventScrEditorMessage::KeyboardShortcut(
                                     KeyboardShortcut::MoveActionDown,
                                 ),
-                            ))
+                            ));
                         }
                         _ => {}
                     }

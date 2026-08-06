@@ -6,8 +6,8 @@ use dispel_core::modding::{ChangeAction, ChangeOp};
 use crate::app::App;
 use crate::components::loading_state::LoadingState;
 use crate::components::utils::horizontal_space;
-use crate::editors::mod_packager::view::diff_panel;
 use crate::editors::mod_packager::ModPackagerMessage;
+use crate::editors::mod_packager::view::diff_panel;
 use crate::message::{Message, MessageExt};
 
 pub fn view(app: &App) -> Element<'_, Message> {

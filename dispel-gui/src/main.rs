@@ -1,5 +1,5 @@
-use iced::color;
 use iced::Theme;
+use iced::color;
 
 pub mod app;
 pub mod components;

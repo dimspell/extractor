@@ -34,16 +34,16 @@ pub fn handle(message: TabBarMessage, app: &mut App) -> Task<crate::message::Mes
             Task::none()
         }
         TabBarMessage::CloseActiveTab => {
-            if let Some(active_tab) = app.state.workspace.active_tab {
-                if !app.state.workspace.tabs.is_empty() {
-                    let tab_id = app.state.workspace.tabs[active_tab].id;
-                    app.state.editors.remove_tab(tab_id);
-                    app.state.workspace.tabs.remove(active_tab);
-                    if app.state.workspace.tabs.is_empty() {
-                        app.state.workspace.active_tab = None;
-                    } else if active_tab >= app.state.workspace.tabs.len() {
-                        app.state.workspace.active_tab = Some(app.state.workspace.tabs.len() - 1);
-                    }
+            if let Some(active_tab) = app.state.workspace.active_tab
+                && !app.state.workspace.tabs.is_empty()
+            {
+                let tab_id = app.state.workspace.tabs[active_tab].id;
+                app.state.editors.remove_tab(tab_id);
+                app.state.workspace.tabs.remove(active_tab);
+                if app.state.workspace.tabs.is_empty() {
+                    app.state.workspace.active_tab = None;
+                } else if active_tab >= app.state.workspace.tabs.len() {
+                    app.state.workspace.active_tab = Some(app.state.workspace.tabs.len() - 1);
                 }
             }
             Task::none()

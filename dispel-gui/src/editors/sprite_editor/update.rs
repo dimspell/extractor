@@ -4,7 +4,7 @@ use crate::app::App;
 use crate::editors::sprite_editor::{
     ExportDialogState, ExportFormat, ExportStatus, SpriteViewerMessage,
 };
-use dispel_core::sprite::{write_sprite_to_path, SpriteFrameData};
+use dispel_core::sprite::{SpriteFrameData, write_sprite_to_path};
 use iced::Task;
 
 /// Real-time milliseconds per animation tick (~60 fps clock).
@@ -147,18 +147,18 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let seq_idx = viewer.selected_sequence;
             let frame_idx = viewer.selected_frame;
             let new_selected = frame_idx + 1;
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    let blank = SpriteFrameData {
-                        unknown: [0u8; 24],
-                        origin_x: 0,
-                        origin_y: 0,
-                        width: 1,
-                        height: 1,
-                        raw_pixels: vec![0, 0], // transparent 565 pixel
-                    };
-                    seq.frames.insert(frame_idx + 1, blank);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                let blank = SpriteFrameData {
+                    unknown: [0u8; 24],
+                    origin_x: 0,
+                    origin_y: 0,
+                    width: 1,
+                    height: 1,
+                    raw_pixels: vec![0, 0], // transparent 565 pixel
+                };
+                seq.frames.insert(frame_idx + 1, blank);
             }
             viewer.selected_frame = new_selected;
             viewer.rebuild_preview_frames();
@@ -172,13 +172,12 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let seq_idx = viewer.selected_sequence;
             let frame_idx = viewer.selected_frame;
             let new_selected = frame_idx + 1;
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    if frame_idx < seq.frames.len() {
-                        let dup = seq.frames[frame_idx].clone();
-                        seq.frames.insert(frame_idx + 1, dup);
-                    }
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+                && frame_idx < seq.frames.len()
+            {
+                let dup = seq.frames[frame_idx].clone();
+                seq.frames.insert(frame_idx + 1, dup);
             }
             viewer.selected_frame = new_selected;
             viewer.rebuild_preview_frames();
@@ -226,10 +225,10 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                 return Task::none();
             }
             viewer.push_undo();
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    seq.frames.swap(frame_idx, frame_idx - 1);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                seq.frames.swap(frame_idx, frame_idx - 1);
             }
             viewer.selected_frame = frame_idx - 1;
             viewer.rebuild_preview_frames();
@@ -251,10 +250,10 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                 return Task::none();
             }
             viewer.push_undo();
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    seq.frames.swap(frame_idx, frame_idx + 1);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                seq.frames.swap(frame_idx, frame_idx + 1);
             }
             viewer.selected_frame = frame_idx + 1;
             viewer.rebuild_preview_frames();
@@ -270,11 +269,11 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                 return Task::none();
             }
             viewer.push_undo();
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    let f = seq.frames.remove(frame_idx);
-                    seq.frames.insert(0, f);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                let f = seq.frames.remove(frame_idx);
+                seq.frames.insert(0, f);
             }
             viewer.selected_frame = 0;
             viewer.rebuild_preview_frames();
@@ -296,11 +295,11 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
                 return Task::none();
             }
             viewer.push_undo();
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    let f = seq.frames.remove(frame_idx);
-                    seq.frames.push(f);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                let f = seq.frames.remove(frame_idx);
+                seq.frames.push(f);
             }
             // After moving the frame to the end, select the last position.
             // Use current frame_counts which was accurate before the edit.
@@ -381,10 +380,10 @@ pub fn handle(message: SpriteViewerMessage, app: &mut App) -> Task<crate::messag
             let seq_idx = viewer.selected_sequence;
             let frame_idx = viewer.selected_frame;
             let new_selected = frame_idx + 1;
-            if let Some(ref mut sf) = viewer.sprite_file {
-                if let Some(seq) = sf.sequences.get_mut(seq_idx) {
-                    seq.frames.insert(frame_idx + 1, new_frame);
-                }
+            if let Some(ref mut sf) = viewer.sprite_file
+                && let Some(seq) = sf.sequences.get_mut(seq_idx)
+            {
+                seq.frames.insert(frame_idx + 1, new_frame);
             }
             viewer.selected_frame = new_selected;
             viewer.rebuild_preview_frames();
@@ -520,8 +519,8 @@ fn export_png_frames(
     sprite_name: &str,
     export_dir: &Path,
 ) -> Result<String, String> {
-    use image::codecs::png::PngEncoder;
     use image::ImageEncoder;
+    use image::codecs::png::PngEncoder;
 
     let dir = export_dir.join(sprite_name);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;

@@ -1,6 +1,6 @@
 use super::*;
-use crate::domain::pattern::{Pattern, RepeatedPatternGroup};
 use crate::RepeatPatternDialog;
+use crate::domain::pattern::{Pattern, RepeatedPatternGroup};
 
 // ============================================================================
 // Optimized helpers — direct state construction (no message pipeline)

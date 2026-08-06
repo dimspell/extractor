@@ -1,10 +1,10 @@
 use iced::widget::{button, column, container, pick_list, row, text, toggler};
 use iced::{Color, Element, Font, Length};
 
-use crate::ui::coloring::{default_byte_colors, ColorScheme};
-use crate::ui::theme::{ThemeVariant, DARK_THEME};
 use crate::HexEditorMessage;
 use crate::HexEditorState;
+use crate::ui::coloring::{ColorScheme, default_byte_colors};
+use crate::ui::theme::{DARK_THEME, ThemeVariant};
 
 /// Colour for section heading text.
 const HEADING_COLOR: Color = DARK_THEME.modal_heading_fg;

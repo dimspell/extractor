@@ -1,8 +1,8 @@
 //! Fixture-based tests for Dialog
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::dialogue_script::DialogueScript;
 use dispel_core::Extractor;
+use dispel_core::references::dialogue_script::DialogueScript;
 use std::path::Path;
 
 #[test]

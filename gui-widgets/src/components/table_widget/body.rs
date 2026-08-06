@@ -5,11 +5,11 @@
 //! borders.  The frozen id column *is not* drawn here — that belongs to
 //! [`frozen_column`].
 
+use iced::advanced::Renderer as _;
 use iced::advanced::graphics::text::Paragraph as GraphicsParagraph;
 use iced::advanced::renderer;
 use iced::advanced::text::{self, Paragraph as _};
-use iced::advanced::Renderer as _;
-use iced::{alignment, color, Background, Border, Color, Pixels, Rectangle, Shadow, Size};
+use iced::{Background, Border, Color, Pixels, Rectangle, Shadow, Size, alignment, color};
 
 use super::geometry;
 use super::types::State;

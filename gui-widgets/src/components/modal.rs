@@ -1,9 +1,9 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::widget::{self, Widget};
-use iced::advanced::{self, overlay, renderer, Shell};
+use iced::advanced::{self, Shell, overlay, renderer};
 use iced::alignment::Alignment;
 use iced::keyboard::key;
-use iced::{keyboard, mouse, Color, Element, Event, Length, Rectangle, Shadow, Size, Vector};
+use iced::{Color, Element, Event, Length, Rectangle, Shadow, Size, Vector, keyboard, mouse};
 
 /// Display a `modal` overlay on top of `base`, dimming it with `backdrop_alpha`.
 ///

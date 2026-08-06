@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use iced::widget::{
-    button, column, container, pick_list, row, scrollable, text, text_input, Column,
+    Column, button, column, container, pick_list, row, scrollable, text, text_input,
 };
 use iced::{Element, Fill, Length};
 
@@ -16,8 +16,8 @@ use crate::message::Message;
 use crate::style;
 use crate::view::editor::spreadsheet::message::SpreadsheetMessage;
 use crate::view::editor::spreadsheet::state::SpreadsheetState;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
-use gui_widgets::{textarea, TextAreaContent};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use gui_widgets::{TextAreaContent, textarea};
 use lucide_icons::Icon;
 
 pub fn build_inspector_panel<'a, R: EditableRecord>(

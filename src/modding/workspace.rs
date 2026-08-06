@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use super::apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
+use super::apply::{ApplyReport, ModEntry, RevertReport, apply_all, revert_to_vanilla};
 use super::error::{ModdingError, Result};
 use super::manifest::ModManifest;
 use super::package::{self, ModPackage};
@@ -175,11 +175,11 @@ impl Workspace {
     /// Move a mod one position earlier in load order.
     pub fn move_up(&self, slug: &str) -> Result<()> {
         let mut order = self.enabled_order()?;
-        if let Some(idx) = order.iter().position(|s| s == slug) {
-            if idx > 0 {
-                order.swap(idx - 1, idx);
-                self.set_enabled_order(order)?;
-            }
+        if let Some(idx) = order.iter().position(|s| s == slug)
+            && idx > 0
+        {
+            order.swap(idx - 1, idx);
+            self.set_enabled_order(order)?;
         }
         Ok(())
     }
@@ -187,11 +187,11 @@ impl Workspace {
     /// Move a mod one position later in load order.
     pub fn move_down(&self, slug: &str) -> Result<()> {
         let mut order = self.enabled_order()?;
-        if let Some(idx) = order.iter().position(|s| s == slug) {
-            if idx + 1 < order.len() {
-                order.swap(idx, idx + 1);
-                self.set_enabled_order(order)?;
-            }
+        if let Some(idx) = order.iter().position(|s| s == slug)
+            && idx + 1 < order.len()
+        {
+            order.swap(idx, idx + 1);
+            self.set_enabled_order(order)?;
         }
         Ok(())
     }

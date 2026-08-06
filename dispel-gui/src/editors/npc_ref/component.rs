@@ -1,6 +1,6 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::references::enums::{BooleanFlag, NpcLookingDirection, Unknown0110, Unknown012};
 use dispel_core::NPC;
+use dispel_core::references::enums::{BooleanFlag, NpcLookingDirection, Unknown012, Unknown0110};
 
 use crate::editable_record_fields;
 
@@ -55,7 +55,7 @@ impl EditableRecord for NPC {
         format!(
             "[{}] {} (NPC {})",
             self.id,
-            &self.name.chars().take(20).collect::<String>(),
+            self.name.chars().take(20).collect::<String>(),
             self.npc_id
         )
     }

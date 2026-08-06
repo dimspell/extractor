@@ -1,7 +1,7 @@
 [package]
 name = "dispel-gui"
 version = "0.8.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 iced = { workspace = true, default-features = false, features = ["tokio", "wgpu", "image", "canvas", "advanced", "lazy", "x11", "wayland", "accessibility"] }

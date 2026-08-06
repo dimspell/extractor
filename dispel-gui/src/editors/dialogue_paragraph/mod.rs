@@ -36,18 +36,17 @@ pub fn handle(msg: DialogueParagraphEditorMessage, app: &mut App) -> Task<Messag
                 .dialogue_paragraph_editor
                 .editors
                 .get_mut(&tab_id)
+                && let Some(path) = editor.current_file.clone()
             {
-                if let Some(path) = editor.current_file.clone() {
-                    editor.editor.loading_state = LoadingState::Loading;
-                    return Task::perform(
-                        async move { DialogueParagraph::read_file(&path).map_err(|e| e.to_string()) },
-                        move |result| {
-                            Message::dialogue_paragraph(
-                                DialogueParagraphEditorMessage::CatalogLoaded(tab_id, result),
-                            )
-                        },
-                    );
-                }
+                editor.editor.loading_state = LoadingState::Loading;
+                return Task::perform(
+                    async move { DialogueParagraph::read_file(&path).map_err(|e| e.to_string()) },
+                    move |result| {
+                        Message::dialogue_paragraph(DialogueParagraphEditorMessage::CatalogLoaded(
+                            tab_id, result,
+                        ))
+                    },
+                );
             }
             Task::none()
         }

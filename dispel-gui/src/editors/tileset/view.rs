@@ -8,7 +8,7 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::modal::modal;
 use iced::widget::{
-    button, column, container, image, responsive, row, scrollable, slider, text, Space,
+    Space, button, column, container, image, responsive, row, scrollable, slider, text,
 };
 use iced::{Alignment, Element, Fill, Length, Size};
 

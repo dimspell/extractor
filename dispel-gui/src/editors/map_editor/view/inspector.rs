@@ -76,9 +76,11 @@ pub fn build_inspector<'a>(
             let body = column![
                 text(format!("Collision at ({}, {})", tx, ty)).size(12),
                 horizontal_rule(1),
-                row![text("Click the tile again to toggle collision.")
-                    .size(11)
-                    .style(style::subtle_text),]
+                row![
+                    text("Click the tile again to toggle collision.")
+                        .size(11)
+                        .style(style::subtle_text),
+                ]
                 .padding(4),
             ]
             .spacing(8)

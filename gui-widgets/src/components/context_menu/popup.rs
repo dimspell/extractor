@@ -1,6 +1,6 @@
-use iced::advanced::{layout, overlay, renderer, widget, Layout, Shell};
+use iced::advanced::{Layout, Shell, layout, overlay, renderer, widget};
 use iced::widget::{button, column, container, row, text};
-use iced::{mouse, Element, Event, Fill, Point, Rectangle, Size};
+use iced::{Element, Event, Fill, Point, Rectangle, Size, mouse};
 
 use crate::style;
 
@@ -184,11 +184,11 @@ where
                 }
             }
             Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) => {
-                if let Some(idx) = *self.hovered_idx {
-                    if let Some(Entry::Item { action, .. }) = self.entries.get(idx) {
-                        shell.publish(action.clone());
-                        shell.capture_event();
-                    }
+                if let Some(idx) = *self.hovered_idx
+                    && let Some(Entry::Item { action, .. }) = self.entries.get(idx)
+                {
+                    shell.publish(action.clone());
+                    shell.capture_event();
                 }
                 *self.status = Status::Closed;
                 shell.request_redraw();
@@ -214,12 +214,11 @@ where
         cursor: mouse::Cursor,
         _renderer: &iced::Renderer,
     ) -> mouse::Interaction {
-        if let Some(pos) = cursor.position() {
-            if let Some(idx) = find_hovered_entry(layout, pos, self.entries.len()) {
-                if matches!(self.entries.get(idx), Some(Entry::Item { .. })) {
-                    return mouse::Interaction::Pointer;
-                }
-            }
+        if let Some(pos) = cursor.position()
+            && let Some(idx) = find_hovered_entry(layout, pos, self.entries.len())
+            && matches!(self.entries.get(idx), Some(Entry::Item { .. }))
+        {
+            return mouse::Interaction::Pointer;
         }
         mouse::Interaction::Idle
     }

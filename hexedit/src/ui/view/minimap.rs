@@ -13,7 +13,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use iced::advanced::Renderer as _;
 use iced::{Background, Border, Color, Rectangle, Shadow};
 
-use crate::ui::coloring::{default_byte_colors, ColorScheme};
+use crate::ui::coloring::{ColorScheme, default_byte_colors};
 use crate::ui::theme::HexEditorTheme;
 
 /// Width of the minimap strip in pixels.
@@ -825,8 +825,8 @@ mod tests {
             0xCA as f32 / 255.0 * 0.55 * brightness,
             0xBD as f32 / 255.0 * 0.55 * brightness,
         );
-        for col in 0..4 {
-            for (i, &p) in cols[col].iter().enumerate() {
+        for (col, col_px) in cols.iter().enumerate() {
+            for (i, &p) in col_px.iter().enumerate() {
                 assert!((p.r - expected.r).abs() < 0.0001, "col {col} pixel {i}: r");
                 assert!((p.g - expected.g).abs() < 0.0001, "col {col} pixel {i}: g");
                 assert!((p.b - expected.b).abs() < 0.0001, "col {col} pixel {i}: b");

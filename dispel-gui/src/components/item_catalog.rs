@@ -34,15 +34,15 @@ pub fn populate_item_lookups(
             return Some(exact);
         }
         // macOS case-insensitive fallback (skipped on case-sensitive systems)
-        if cfg!(target_os = "macos") {
-            if let Ok(entries) = std::fs::read_dir(&char_path) {
-                let target = file_name.to_lowercase();
-                for entry in entries.filter_map(Result::ok) {
-                    if let Some(name) = entry.file_name().to_str() {
-                        if name.to_lowercase() == target {
-                            return Some(entry.path());
-                        }
-                    }
+        if cfg!(target_os = "macos")
+            && let Ok(entries) = std::fs::read_dir(&char_path)
+        {
+            let target = file_name.to_lowercase();
+            for entry in entries.filter_map(Result::ok) {
+                if let Some(name) = entry.file_name().to_str()
+                    && name.to_lowercase() == target
+                {
+                    return Some(entry.path());
                 }
             }
         }
@@ -55,62 +55,62 @@ pub fn populate_item_lookups(
     // that item type instead of failing the entire catalog.
 
     // Weapon (type 1)
-    if let Some(path) = find_db("weaponItem.db") {
-        if let Ok(items) = WeaponItem::read_file(&path) {
-            for item in items.iter() {
-                entries.push((
-                    format!("{}:{}", ItemTypeId::Weapon.value(), item.id),
-                    format!("[Weapon] {}", item.name),
-                ));
-            }
+    if let Some(path) = find_db("weaponItem.db")
+        && let Ok(items) = WeaponItem::read_file(&path)
+    {
+        for item in items.iter() {
+            entries.push((
+                format!("{}:{}", ItemTypeId::Weapon.value(), item.id),
+                format!("[Weapon] {}", item.name),
+            ));
         }
     }
 
     // Healing (type 2)
-    if let Some(path) = find_db("HealItem.db") {
-        if let Ok(items) = HealItem::read_file(&path) {
-            for item in items.iter() {
-                entries.push((
-                    format!("{}:{}", ItemTypeId::Healing.value(), item.id),
-                    format!("[Healing] {}", item.name),
-                ));
-            }
+    if let Some(path) = find_db("HealItem.db")
+        && let Ok(items) = HealItem::read_file(&path)
+    {
+        for item in items.iter() {
+            entries.push((
+                format!("{}:{}", ItemTypeId::Healing.value(), item.id),
+                format!("[Healing] {}", item.name),
+            ));
         }
     }
 
     // Edit (type 3)
-    if let Some(path) = find_db("EditItem.db") {
-        if let Ok(items) = EditItem::read_file(&path) {
-            for item in items.iter() {
-                entries.push((
-                    format!("{}:{}", ItemTypeId::Edit.value(), item.index),
-                    format!("[Edit] {}", item.name),
-                ));
-            }
+    if let Some(path) = find_db("EditItem.db")
+        && let Ok(items) = EditItem::read_file(&path)
+    {
+        for item in items.iter() {
+            entries.push((
+                format!("{}:{}", ItemTypeId::Edit.value(), item.index),
+                format!("[Edit] {}", item.name),
+            ));
         }
     }
 
     // Event (type 4)
-    if let Some(path) = find_db("EventItem.db") {
-        if let Ok(items) = EventItem::read_file(&path) {
-            for item in items.iter() {
-                entries.push((
-                    format!("{}:{}", ItemTypeId::Event.value(), item.id),
-                    format!("[Event] {}", item.name),
-                ));
-            }
+    if let Some(path) = find_db("EventItem.db")
+        && let Ok(items) = EventItem::read_file(&path)
+    {
+        for item in items.iter() {
+            entries.push((
+                format!("{}:{}", ItemTypeId::Event.value(), item.id),
+                format!("[Event] {}", item.name),
+            ));
         }
     }
 
     // Misc (type 5)
-    if let Some(path) = find_db("MiscItem.db") {
-        if let Ok(items) = MiscItem::read_file(&path) {
-            for item in items.iter() {
-                entries.push((
-                    format!("{}:{}", ItemTypeId::Misc.value(), item.id),
-                    format!("[Misc] {}", item.name),
-                ));
-            }
+    if let Some(path) = find_db("MiscItem.db")
+        && let Ok(items) = MiscItem::read_file(&path)
+    {
+        for item in items.iter() {
+            entries.push((
+                format!("{}:{}", ItemTypeId::Misc.value(), item.id),
+                format!("[Misc] {}", item.name),
+            ));
         }
     }
 

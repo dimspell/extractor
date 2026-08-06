@@ -1,17 +1,17 @@
 //! Mouse and keyboard event handling for the dual-buffer diff view.
 
-use iced::advanced::layout::Layout;
 use iced::advanced::Shell;
+use iced::advanced::layout::Layout;
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{Event, Rectangle};
 
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
-use super::draw;
-use super::layout::{self, clamp_scroll, ROW_HEIGHT, SCROLLBAR_THICKNESS};
-use super::state::State;
 use super::DiffView;
+use super::draw;
+use super::layout::{self, ROW_HEIGHT, SCROLLBAR_THICKNESS, clamp_scroll};
+use super::state::State;
 
 pub type Cursor = mouse::Cursor;
 
@@ -312,30 +312,26 @@ pub fn handle_event<Message>(
                 }
 
                 // ── Minimap drag continuation ──
-                if state.dragging_minimap {
-                    if let Some(p) = cursor.position() {
-                        let cb = Rectangle {
-                            x: bounds.x,
-                            y: content_top,
-                            width: bounds.width,
-                            height: viewport_h,
-                        };
-                        let mm_rect = minimap::minimap_rect(
-                            cb,
-                            viewport_h,
-                            MINIMAP_WIDTH,
-                            SCROLLBAR_THICKNESS,
-                        );
-                        let dy = p.y - state.drag_start_minimap_y;
-                        let new = state.drag_start_minimap_scroll
-                            + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
-                        state
-                            .scroll_offset
-                            .set(clamp_scroll(new, total_h, viewport_h));
-                        shell.request_redraw();
-                        shell.capture_event();
-                        return;
-                    }
+                if state.dragging_minimap
+                    && let Some(p) = cursor.position()
+                {
+                    let cb = Rectangle {
+                        x: bounds.x,
+                        y: content_top,
+                        width: bounds.width,
+                        height: viewport_h,
+                    };
+                    let mm_rect =
+                        minimap::minimap_rect(cb, viewport_h, MINIMAP_WIDTH, SCROLLBAR_THICKNESS);
+                    let dy = p.y - state.drag_start_minimap_y;
+                    let new = state.drag_start_minimap_scroll
+                        + minimap::minimap_pixel_to_scroll(dy, mm_rect, total_h, viewport_h);
+                    state
+                        .scroll_offset
+                        .set(clamp_scroll(new, total_h, viewport_h));
+                    shell.request_redraw();
+                    shell.capture_event();
+                    return;
                 }
 
                 // ── Hover over minimap ──
@@ -451,22 +447,22 @@ fn handle_keyboard_event<Message>(
         }
 
         // Ctrl+Down → next diff chunk.
-        if matches!(key, keyboard::Key::Named(key::Named::ArrowDown)) {
-            if let Some(cb) = &widget.on_diff_nav_next {
-                shell.publish(cb());
-                shell.request_redraw();
-                shell.capture_event();
-                return;
-            }
+        if matches!(key, keyboard::Key::Named(key::Named::ArrowDown))
+            && let Some(cb) = &widget.on_diff_nav_next
+        {
+            shell.publish(cb());
+            shell.request_redraw();
+            shell.capture_event();
+            return;
         }
         // Ctrl+Up → previous diff chunk.
-        if matches!(key, keyboard::Key::Named(key::Named::ArrowUp)) {
-            if let Some(cb) = &widget.on_diff_nav_prev {
-                shell.publish(cb());
-                shell.request_redraw();
-                shell.capture_event();
-                return;
-            }
+        if matches!(key, keyboard::Key::Named(key::Named::ArrowUp))
+            && let Some(cb) = &widget.on_diff_nav_prev
+        {
+            shell.publish(cb());
+            shell.request_redraw();
+            shell.capture_event();
+            return;
         }
     }
 

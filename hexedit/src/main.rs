@@ -6,8 +6,8 @@ use iced::{Element, Fill, Font, Task, Theme};
 
 use hexedit::ui::theme::DARK_THEME;
 use hexedit::{
-    app_update, app_view, AppMessage, EncodingEntry, HexEditorApp, HexEditorConfig,
-    HexEditorDocument, HexEditorMessage, HexEditorState, WriteMode,
+    AppMessage, EncodingEntry, HexEditorApp, HexEditorConfig, HexEditorDocument, HexEditorMessage,
+    HexEditorState, WriteMode, app_update, app_view,
 };
 
 /// Settings persisted to `~/.config/hexedit/settings.json`.

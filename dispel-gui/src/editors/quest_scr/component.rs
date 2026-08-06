@@ -23,7 +23,7 @@ impl EditableRecord for Quest {
         format!(
             "[{}] {}",
             self.id,
-            &label.chars().take(40).collect::<String>()
+            label.chars().take(40).collect::<String>()
         )
     }
 

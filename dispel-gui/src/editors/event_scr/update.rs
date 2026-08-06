@@ -29,29 +29,29 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::VariableNameChanged(index, name) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(var) = script.variables.get_mut(index) {
-                    var.name = name;
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(var) = script.variables.get_mut(index)
+            {
+                var.name = name;
+                state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::VariableValueChanged(index, value) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(var) = script.variables.get_mut(index) {
-                    var.value = value;
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(var) = script.variables.get_mut(index)
+            {
+                var.value = value;
+                state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::VariableDeleted(index) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if index < script.variables.len() {
-                    script.variables.remove(index);
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && index < script.variables.len()
+            {
+                script.variables.remove(index);
+                state.modified = true;
             }
             Task::none()
         }
@@ -127,29 +127,29 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SpriteAliasChanged(index, alias) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(spr) = script.spr_content.get_mut(index) {
-                    spr.sprite_alias = alias;
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(spr) = script.spr_content.get_mut(index)
+            {
+                spr.sprite_alias = alias;
+                state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::SpriteFileChanged(index, file) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(spr) = script.spr_content.get_mut(index) {
-                    spr.sprite_file = file;
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(spr) = script.spr_content.get_mut(index)
+            {
+                spr.sprite_file = file;
+                state.modified = true;
             }
             Task::none()
         }
         EventScrEditorMessage::SpriteDeleted(index) => {
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if index < script.spr_content.len() {
-                    script.spr_content.remove(index);
-                    state.modified = true;
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && index < script.spr_content.len()
+            {
+                script.spr_content.remove(index);
+                state.modified = true;
             }
             Task::none()
         }
@@ -184,40 +184,40 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
 
         EventScrEditorMessage::ActionRawContentChanged(index, content) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.raw_content = Some(content);
-                    act.prefix = None;
-                    act.function_name = String::new();
-                    act.parameters = Vec::new();
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.raw_content = Some(content);
+                act.prefix = None;
+                act.function_name = String::new();
+                act.parameters = Vec::new();
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }
         EventScrEditorMessage::ActionPrefixPicked(index, opt_prefix) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.prefix = opt_prefix;
-                    act.raw_content = None;
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.prefix = opt_prefix;
+                act.raw_content = None;
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }
         EventScrEditorMessage::ActionFunctionChanged(index, func_name) => {
             state.focused_action_index = Some(index);
             let show_suggestions = func_name.len() >= 2;
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.function_name = func_name;
-                    act.raw_content = None;
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.function_name = func_name;
+                act.raw_content = None;
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             if show_suggestions {
                 state.suggestion_visible = true;
@@ -230,38 +230,35 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::ActionParamsChanged(index, params_str) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.parameters = params_str
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .collect();
-                    act.raw_content = None;
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.parameters = params_str
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                act.raw_content = None;
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }
         EventScrEditorMessage::ActionDeleted(index) => {
             state.focused_action_index = None;
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if index < script.actions.len() {
-                    if let Some((start, end)) =
-                        delete_range_with_cascade(&mut script.actions, index)
-                    {
-                        let count = end - start + 1;
-                        state.act_folded.retain(|&f| f < start || f > end);
-                        state.act_folded = state
-                            .act_folded
-                            .iter()
-                            .map(|&i| if i > end { i - count } else { i })
-                            .collect();
-                        state.modified = true;
-                        state.act_parse_errors = validate_script(script);
-                    }
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && index < script.actions.len()
+                && let Some((start, end)) = delete_range_with_cascade(&mut script.actions, index)
+            {
+                let count = end - start + 1;
+                state.act_folded.retain(|&f| f < start || f > end);
+                state.act_folded = state
+                    .act_folded
+                    .iter()
+                    .map(|&i| if i > end { i - count } else { i })
+                    .collect();
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }
@@ -285,47 +282,47 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
             Task::none()
         }
         EventScrEditorMessage::SaveScript => {
-            if let LoadingState::Loaded(ref script) = state.script_loading {
-                if let Some(ref path) = state.file_path {
-                    let new_bytes = serialize_script(script);
+            if let LoadingState::Loaded(ref script) = state.script_loading
+                && let Some(ref path) = state.file_path
+            {
+                let new_bytes = serialize_script(script);
 
-                    if let Some(session) = app.state.recording.as_ref() {
-                        let game_dir = PathBuf::from(&app.state.shared_game_path);
-                        let relative = path
-                            .strip_prefix(&game_dir)
-                            .map(|p| p.to_string_lossy().replace('\\', "/"))
-                            .unwrap_or_default();
-                        let workspace_root = session.workspace_root.clone();
-                        let mod_slug = session.mod_slug.clone();
-                        let path = path.clone();
-                        return Task::perform(
-                            async move {
-                                tokio::task::spawn_blocking(move || -> Result<(), String> {
-                                    record_file_replace(
-                                        &workspace_root,
-                                        &game_dir,
-                                        &mod_slug,
-                                        &relative,
-                                        &new_bytes,
-                                    )?;
-                                    std::fs::write(&path, &new_bytes).map_err(|e| e.to_string())
-                                })
-                                .await
-                                .unwrap_or_else(|e| Err(e.to_string()))
-                            },
-                            |result| {
-                                Message::Editor(crate::message::editor::EditorMessage::EventScr(
-                                    match result {
-                                        Ok(()) => EventScrEditorMessage::SaveSuccess,
-                                        Err(e) => EventScrEditorMessage::SaveError(e),
-                                    },
-                                ))
-                            },
-                        );
-                    }
-
-                    return save_to_path(path.clone(), script.clone());
+                if let Some(session) = app.state.recording.as_ref() {
+                    let game_dir = PathBuf::from(&app.state.shared_game_path);
+                    let relative = path
+                        .strip_prefix(&game_dir)
+                        .map(|p| p.to_string_lossy().replace('\\', "/"))
+                        .unwrap_or_default();
+                    let workspace_root = session.workspace_root.clone();
+                    let mod_slug = session.mod_slug.clone();
+                    let path = path.clone();
+                    return Task::perform(
+                        async move {
+                            tokio::task::spawn_blocking(move || -> Result<(), String> {
+                                record_file_replace(
+                                    &workspace_root,
+                                    &game_dir,
+                                    &mod_slug,
+                                    &relative,
+                                    &new_bytes,
+                                )?;
+                                std::fs::write(&path, &new_bytes).map_err(|e| e.to_string())
+                            })
+                            .await
+                            .unwrap_or_else(|e| Err(e.to_string()))
+                        },
+                        |result| {
+                            Message::Editor(crate::message::editor::EditorMessage::EventScr(
+                                match result {
+                                    Ok(()) => EventScrEditorMessage::SaveSuccess,
+                                    Err(e) => EventScrEditorMessage::SaveError(e),
+                                },
+                            ))
+                        },
+                    );
                 }
+
+                return save_to_path(path.clone(), script.clone());
             }
             Task::none()
         }
@@ -357,10 +354,10 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
                             std::path::Path::new(&game_path),
                             progress_clone,
                         );
-                        if let Ok(ref index) = result {
-                            if let Ok(json) = serde_json::to_string_pretty(index) {
-                                std::fs::write(&index_path, &json).ok();
-                            }
+                        if let Ok(ref index) = result
+                            && let Ok(json) = serde_json::to_string_pretty(index)
+                        {
+                            std::fs::write(&index_path, &json).ok();
                         }
                         result
                     })
@@ -448,13 +445,13 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         // ── Inline suggestions ────────────────────────────────────────────
         EventScrEditorMessage::SuggestionSelect(index, func_name) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.function_name = func_name;
-                    act.raw_content = None;
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.function_name = func_name;
+                act.raw_content = None;
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             state.suggestion_visible = false;
             state.suggestion_active_index = None;
@@ -615,29 +612,29 @@ pub fn handle(message: EventScrEditorMessage, app: &mut App) -> Task<Message> {
         }
         EventScrEditorMessage::IfConditionChanged(index, cond) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.raw_content = Some(format!("if({})", cond));
-                    act.prefix = None;
-                    act.function_name = String::new();
-                    act.parameters = Vec::new();
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.raw_content = Some(format!("if({})", cond));
+                act.prefix = None;
+                act.function_name = String::new();
+                act.parameters = Vec::new();
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }
         EventScrEditorMessage::ReturnValueChanged(index, val) => {
             state.focused_action_index = Some(index);
-            if let LoadingState::Loaded(ref mut script) = state.script_loading {
-                if let Some(act) = script.actions.get_mut(index) {
-                    act.raw_content = Some(format!("return({})", val));
-                    act.prefix = None;
-                    act.function_name = String::new();
-                    act.parameters = Vec::new();
-                    state.modified = true;
-                    state.act_parse_errors = validate_script(script);
-                }
+            if let LoadingState::Loaded(ref mut script) = state.script_loading
+                && let Some(act) = script.actions.get_mut(index)
+            {
+                act.raw_content = Some(format!("return({})", val));
+                act.prefix = None;
+                act.function_name = String::new();
+                act.parameters = Vec::new();
+                state.modified = true;
+                state.act_parse_errors = validate_script(script);
             }
             Task::none()
         }

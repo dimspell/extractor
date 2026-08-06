@@ -26,17 +26,16 @@ use crate::components::editable::EditableRecord;
 fn parse_struct_fields(source: &str, struct_name: &str) -> Vec<String> {
     let ast = syn::parse_file(source).unwrap_or_else(|e| panic!("syn parse error: {e}"));
     for item in ast.items {
-        if let syn::Item::Struct(s) = item {
-            if s.ident == struct_name {
-                if let syn::Fields::Named(fields) = s.fields {
-                    return fields
-                        .named
-                        .iter()
-                        .filter_map(|f| f.ident.as_ref())
-                        .map(|i| i.to_string())
-                        .collect();
-                }
-            }
+        if let syn::Item::Struct(s) = item
+            && s.ident == struct_name
+            && let syn::Fields::Named(fields) = s.fields
+        {
+            return fields
+                .named
+                .iter()
+                .filter_map(|f| f.ident.as_ref())
+                .map(|i| i.to_string())
+                .collect();
         }
     }
     panic!("struct `{struct_name}` not found in source");
@@ -117,8 +116,8 @@ macro_rules! check_record {
 use dispel_core::{
     ChData, DialogueParagraph, DialogueScript, DrawItem, EditItem, Event, EventItem, EventNpcRef,
     Extra, ExtraRef, HealItem, MagicSpell, Map, MapIni, MiscItem, Monster, MonsterIni, MonsterRef,
-    NpcIni, PartyIniNpc, PartyLevelNpc, PartyLevelRecord, PartyRef, Quest, Store, WaveIni,
-    WeaponItem, NPC,
+    NPC, NpcIni, PartyIniNpc, PartyLevelNpc, PartyLevelRecord, PartyRef, Quest, Store, WaveIni,
+    WeaponItem,
 };
 // `Message` is the ScrMessage type in dispel_core.
 use dispel_core::Message as ScrMessage;

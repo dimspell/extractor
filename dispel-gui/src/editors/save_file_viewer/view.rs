@@ -1,4 +1,4 @@
-use iced::widget::{button, container, row, text, Column};
+use iced::widget::{Column, button, container, row, text};
 use iced::{Element, Fill};
 
 use crate::app::App;

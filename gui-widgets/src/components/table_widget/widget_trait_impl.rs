@@ -1,15 +1,15 @@
+use super::DOUBLE_CLICK_MS;
 use super::geometry;
 use super::scrollbar;
 use super::types::{Axis, HeaderRegion, ScrollbarDrag, State};
 use super::widget::TableWidget;
-use super::DOUBLE_CLICK_MS;
 
+use iced::advanced::Shell;
 #[cfg(feature = "accessibility")]
 use iced::advanced::graphics::core::accessibility::accesskit;
 use iced::advanced::layout::{Layout, Limits, Node};
 use iced::advanced::renderer;
-use iced::advanced::widget::{tree, Tree, Widget};
-use iced::advanced::Shell;
+use iced::advanced::widget::{Tree, Widget, tree};
 use iced::keyboard::{self, key};
 use iced::mouse;
 use iced::{Element, Event, Length, Rectangle, Size};
@@ -187,51 +187,51 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 }
 
                 // Vertical scrollbar
-                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, cur_off.y) {
-                    if track.contains(p) {
-                        if thumb.contains(p) {
-                            state.dragging = Some(ScrollbarDrag {
-                                axis: Axis::Vertical,
-                                start_cursor: p,
-                                start_offset: cur_off,
-                            });
-                        } else {
-                            let total_h = self.total_height();
-                            let max_off = (total_h - body.height).max(1.0);
-                            let travel = (body.height - thumb.height).max(1.0);
-                            let target_thumb_y =
-                                (p.y - thumb.height / 2.0).clamp(body.y, body.y + travel);
-                            let frac = (target_thumb_y - body.y) / travel;
-                            let new_y = frac * max_off;
-                            self.apply_scroll(state, bounds, cur_off.x, new_y, shell);
-                        }
-                        shell.capture_event();
-                        return;
+                if let Some((track, thumb)) = self.vertical_scrollbar(bounds, cur_off.y)
+                    && track.contains(p)
+                {
+                    if thumb.contains(p) {
+                        state.dragging = Some(ScrollbarDrag {
+                            axis: Axis::Vertical,
+                            start_cursor: p,
+                            start_offset: cur_off,
+                        });
+                    } else {
+                        let total_h = self.total_height();
+                        let max_off = (total_h - body.height).max(1.0);
+                        let travel = (body.height - thumb.height).max(1.0);
+                        let target_thumb_y =
+                            (p.y - thumb.height / 2.0).clamp(body.y, body.y + travel);
+                        let frac = (target_thumb_y - body.y) / travel;
+                        let new_y = frac * max_off;
+                        self.apply_scroll(state, bounds, cur_off.x, new_y, shell);
                     }
+                    shell.capture_event();
+                    return;
                 }
 
                 // Horizontal scrollbar
-                if let Some((track, thumb)) = self.horizontal_scrollbar(bounds, cur_off.x) {
-                    if track.contains(p) {
-                        if thumb.contains(p) {
-                            state.dragging = Some(ScrollbarDrag {
-                                axis: Axis::Horizontal,
-                                start_cursor: p,
-                                start_offset: cur_off,
-                            });
-                        } else {
-                            let total_w = self.total_width();
-                            let max_off = (total_w - body.width).max(1.0);
-                            let travel = (body.width - thumb.width).max(1.0);
-                            let target_thumb_x =
-                                (p.x - thumb.width / 2.0).clamp(body.x, body.x + travel);
-                            let frac = (target_thumb_x - body.x) / travel;
-                            let new_x = frac * max_off;
-                            self.apply_scroll(state, bounds, new_x, cur_off.y, shell);
-                        }
-                        shell.capture_event();
-                        return;
+                if let Some((track, thumb)) = self.horizontal_scrollbar(bounds, cur_off.x)
+                    && track.contains(p)
+                {
+                    if thumb.contains(p) {
+                        state.dragging = Some(ScrollbarDrag {
+                            axis: Axis::Horizontal,
+                            start_cursor: p,
+                            start_offset: cur_off,
+                        });
+                    } else {
+                        let total_w = self.total_width();
+                        let max_off = (total_w - body.width).max(1.0);
+                        let travel = (body.width - thumb.width).max(1.0);
+                        let target_thumb_x =
+                            (p.x - thumb.width / 2.0).clamp(body.x, body.x + travel);
+                        let frac = (target_thumb_x - body.x) / travel;
+                        let new_x = frac * max_off;
+                        self.apply_scroll(state, bounds, new_x, cur_off.y, shell);
                     }
+                    shell.capture_event();
+                    return;
                 }
 
                 // Body click → select row
@@ -294,11 +294,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 {
                     if local_x < acc + col_w {
                         let col = col_idx - 1;
-                        if let Some(value) = self.cell_value(row, col_idx) {
-                            if let Some(cb) = &self.on_quick_filter {
-                                shell.publish(cb(col, value.into_owned()));
-                                shell.capture_event();
-                            }
+                        if let Some(value) = self.cell_value(row, col_idx)
+                            && let Some(cb) = &self.on_quick_filter
+                        {
+                            shell.publish(cb(col, value.into_owned()));
+                            shell.capture_event();
                         }
                         return;
                     }
@@ -311,23 +311,22 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
                 if !cursor.is_over(bounds) {
                     return;
                 }
-                if modifiers.control() {
-                    if let keyboard::Key::Character(c) = key {
-                        if c == "g" {
-                            if modifiers.shift() {
-                                if let Some(cb) = &self.on_prev_highlight {
-                                    shell.publish(cb());
-                                    shell.capture_event();
-                                }
-                            } else {
-                                if let Some(cb) = &self.on_next_highlight {
-                                    shell.publish(cb());
-                                    shell.capture_event();
-                                }
-                            }
-                            return;
+                if modifiers.control()
+                    && let keyboard::Key::Character(c) = key
+                    && c == "g"
+                {
+                    if modifiers.shift() {
+                        if let Some(cb) = &self.on_prev_highlight {
+                            shell.publish(cb());
+                            shell.capture_event();
+                        }
+                    } else {
+                        if let Some(cb) = &self.on_next_highlight {
+                            shell.publish(cb());
+                            shell.capture_event();
                         }
                     }
+                    return;
                 }
                 let body = self.body_bounds(bounds);
                 let page_rows = (body.height / self.row_height).floor() as i32;
@@ -386,12 +385,11 @@ impl<Message, Theme> Widget<Message, Theme, iced::Renderer> for TableWidget<'_, 
     ) -> mouse::Interaction {
         let bounds = layout.bounds();
 
-        if let Some(p) = cursor.position_over(bounds) {
-            if let Some((_col, region)) = self.header_hit(bounds, self.scroll_offset().x, p) {
-                if region == HeaderRegion::Resize {
-                    return mouse::Interaction::ResizingHorizontally;
-                }
-            }
+        if let Some(p) = cursor.position_over(bounds)
+            && let Some((_col, region)) = self.header_hit(bounds, self.scroll_offset().x, p)
+            && region == HeaderRegion::Resize
+        {
+            return mouse::Interaction::ResizingHorizontally;
         }
 
         if cursor.is_over(bounds) {

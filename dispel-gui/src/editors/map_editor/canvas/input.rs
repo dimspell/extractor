@@ -1,12 +1,12 @@
 // ── Canvas input handling (MapCanvas Program) ────────────────────────────────
 
 use super::hit_test::find_hovered_element;
-use crate::components::map_render::{handle_input, MapCanvasState};
+use crate::components::map_render::{MapCanvasState, handle_input};
 use crate::editors::map_editor::message::MapEditorMessage;
 use crate::editors::map_editor::state::MapEditorState;
 use crate::message::{Message, MessageExt};
 use iced::widget::canvas::{self, Action, Frame, Geometry};
-use iced::{mouse, Event, Rectangle};
+use iced::{Event, Rectangle, mouse};
 
 /// Borrowed view of the map editor state, used as the canvas Program.
 pub struct MapCanvas<'a> {

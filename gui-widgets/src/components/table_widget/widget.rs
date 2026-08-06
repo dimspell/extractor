@@ -1,5 +1,5 @@
-use super::types::{RowFlags, ScrollbarDrag, State, TableColumn};
 use super::SCROLLBAR_THICKNESS;
+use super::types::{RowFlags, ScrollbarDrag, State, TableColumn};
 use crate::components::paragraph_cache::ParagraphCache;
 use crate::components::table_widget::state::TableState;
 use iced::advanced::Shell;

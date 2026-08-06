@@ -62,10 +62,11 @@ pub fn add_cache_directory_child(
             if let Some(child) = add_cache_directory_child(child_file, all_files) {
                 dir_node.children.push(child);
             }
-        } else if !child_file.is_directory && child_file.path.parent() == Some(&file.path) {
-            if let Some(child) = add_cache_file_child(child_file) {
-                dir_node.children.push(child);
-            }
+        } else if !child_file.is_directory
+            && child_file.path.parent() == Some(&file.path)
+            && let Some(child) = add_cache_file_child(child_file)
+        {
+            dir_node.children.push(child);
         }
     }
 

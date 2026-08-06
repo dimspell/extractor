@@ -240,10 +240,11 @@ pub struct SearchMatchProvider<'a> {
 impl CellColorProvider for SearchMatchProvider<'_> {
     fn color(&self, addr: u64, _byte: u8) -> (Option<Color>, Option<Color>) {
         // Check if addr is within the current-match highlight.
-        if let Some(cur) = self.current_addr {
-            if addr >= cur && addr < cur + self.query_len {
-                return (Some(self.current_fg), Some(self.current_bg));
-            }
+        if let Some(cur) = self.current_addr
+            && addr >= cur
+            && addr < cur + self.query_len
+        {
+            return (Some(self.current_fg), Some(self.current_bg));
         }
         // Check if addr is within any match range.
         if self.results.contains(&addr) {

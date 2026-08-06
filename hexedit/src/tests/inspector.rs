@@ -1,7 +1,5 @@
 use super::*;
 
-use std::collections::BTreeSet;
-
 use crate::state::{ComparisonFile, InspectorSource};
 
 // ============================================================================

@@ -480,67 +480,61 @@ fn parse_binary_record_attr(
 fn auto_detect_field(ident: &Ident, ty: &Type) -> Option<BinaryFieldInfo> {
     // Try to detect Vec<u8> — requires size annotation, so we can't auto-detect without it
     // Try to detect [u8; N]
-    if let Type::Array(arr) = ty {
-        if let Type::Path(elem_path) = arr.elem.as_ref() {
-            if elem_path.path.is_ident("u8") {
-                if let syn::Expr::Lit(lit) = &arr.len {
-                    if let syn::Lit::Int(n) = &lit.lit {
-                        let size = n.base10_parse::<usize>().expect("array size must be usize");
-                        return Some(BinaryFieldInfo::FixedArray {
-                            ident: ident.clone(),
-                            size,
-                        });
-                    }
-                }
-            }
-        }
+    // Try to detect [u8; N]
+    if let Type::Array(arr) = ty
+        && let Type::Path(elem_path) = arr.elem.as_ref()
+        && elem_path.path.is_ident("u8")
+        && let syn::Expr::Lit(lit) = &arr.len
+        && let syn::Lit::Int(n) = &lit.lit
+    {
+        let size = n.base10_parse::<usize>().expect("array size must be usize");
+        return Some(BinaryFieldInfo::FixedArray {
+            ident: ident.clone(),
+            size,
+        });
     }
 
     // Try to detect Vec<u8>
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            if segment.ident == "Vec" {
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    if let Some(syn::GenericArgument::Type(Type::Path(elem))) = args.args.first() {
-                        if elem.path.is_ident("u8") {
-                            panic!(
-                                "Field `{}` is Vec<u8> but has no #[binary_record(size = N)] annotation",
-                                ident
-                            );
-                        }
-                    }
-                }
-            }
-        }
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+        && segment.ident == "Vec"
+        && let syn::PathArguments::AngleBracketed(args) = &segment.arguments
+        && let Some(syn::GenericArgument::Type(Type::Path(elem))) = args.args.first()
+        && elem.path.is_ident("u8")
+    {
+        panic!(
+            "Field `{}` is Vec<u8> but has no #[binary_record(size = N)] annotation",
+            ident
+        );
     }
 
     // Try to detect primitive types (i16, i32, u8, u16, u32)
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            let type_name = segment.ident.to_string();
-            match type_name.as_str() {
-                "i16" | "i32" | "i8" | "u8" | "u16" | "u32" => {
-                    return Some(BinaryFieldInfo::Primitive {
-                        ident: ident.clone(),
-                        ty: type_name,
-                    });
-                }
-                "InventoryItem" => {
-                    return Some(BinaryFieldInfo::InventoryItem {
-                        ident: ident.clone(),
-                        wire_type: "i32".to_string(),
-                    });
-                }
-                "String" => {
-                    panic!(
-                        "Field `{}` is `String` but has no #[binary_record(string(...))] annotation",
-                        ident
-                    );
-                }
-                _ => {
-                    // Unknown type — skip it (could be a computed field or unit struct)
-                    return None;
-                }
+    if let Type::Path(type_path) = ty
+        && let Some(segment) = type_path.path.segments.last()
+    {
+        let type_name = segment.ident.to_string();
+        match type_name.as_str() {
+            "i16" | "i32" | "i8" | "u8" | "u16" | "u32" => {
+                return Some(BinaryFieldInfo::Primitive {
+                    ident: ident.clone(),
+                    ty: type_name,
+                });
+            }
+            "InventoryItem" => {
+                return Some(BinaryFieldInfo::InventoryItem {
+                    ident: ident.clone(),
+                    wire_type: "i32".to_string(),
+                });
+            }
+            "String" => {
+                panic!(
+                    "Field `{}` is `String` but has no #[binary_record(string(...))] annotation",
+                    ident
+                );
+            }
+            _ => {
+                // Unknown type — skip it (could be a computed field or unit struct)
+                return None;
             }
         }
     }

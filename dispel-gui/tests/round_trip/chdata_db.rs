@@ -1,8 +1,8 @@
 //! Fixture-based tests for ChData.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::chdata_db::ChData;
 use dispel_core::Extractor;
+use dispel_core::references::chdata_db::ChData;
 use std::path::Path;
 
 #[test]

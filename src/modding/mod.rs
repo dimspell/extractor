@@ -22,14 +22,14 @@ pub mod value;
 pub mod vanilla;
 pub mod workspace;
 
-pub use apply::{apply_all, revert_to_vanilla, ApplyReport, ModEntry, RevertReport};
+pub use apply::{ApplyReport, ModEntry, RevertReport, apply_all, revert_to_vanilla};
 pub use bsdiff::{apply_delta, make_delta};
 pub use change::{BlobKind, ChangeAction, ChangeOp};
 pub use changelog::{ChangeLog, HISTORY_CAP};
-pub use conflicts::{detect_conflicts, Conflict, ConflictKind, ConflictParticipant};
+pub use conflicts::{Conflict, ConflictKind, ConflictParticipant, detect_conflicts};
 pub use error::{ModdingError, Result};
-pub use manifest::{ModManifest, MANIFEST_VERSION};
-pub use package::{read_zip, write_zip, ModPackage};
+pub use manifest::{MANIFEST_VERSION, ModManifest};
+pub use package::{ModPackage, read_zip, write_zip};
 pub use patcher::RecordPatcher;
 pub use registry::PatcherRegistry;
 pub use resolution::{FieldKey, ResolutionMap};

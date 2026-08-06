@@ -1,7 +1,7 @@
 use crate::app::{App, AppMode};
 use crate::components::utils::browse_folder;
 use crate::message::startpage::StartPageMessage;
-use crate::message::{system::SystemMessage, Message};
+use crate::message::{Message, system::SystemMessage};
 use iced::Task;
 use std::path::PathBuf;
 

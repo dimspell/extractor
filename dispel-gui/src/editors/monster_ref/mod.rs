@@ -90,10 +90,10 @@ pub fn handle(msg: MonsterRefEditorMessage, app: &mut App) -> Task<Message> {
                             .spreadsheets
                             .get_mut(&tab_id);
                         let ed = app.state.editors.monster_ref_editor.editors.get(&tab_id);
-                        if let (Some(ss), Some(ed)) = (ss, ed) {
-                            if let Some(catalog) = ed.editor.catalog.as_ref() {
-                                ss.compute_all_caches(catalog, &app.state.lookups);
-                            }
+                        if let (Some(ss), Some(ed)) = (ss, ed)
+                            && let Some(catalog) = ed.editor.catalog.as_ref()
+                        {
+                            ss.compute_all_caches(catalog, &app.state.lookups);
                         }
                     }
                 }

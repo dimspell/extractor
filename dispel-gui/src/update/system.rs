@@ -1,8 +1,8 @@
 // System message handlers
 
 use crate::app::App;
-use crate::components::utils::browse_folder;
 use crate::components::FileTree;
+use crate::components::utils::browse_folder;
 use crate::editors::all_map_ini::AllMapIniEditorMessage;
 use crate::editors::chdata::ChDataEditorMessage;
 use crate::editors::draw_item::DrawItemEditorMessage;
@@ -29,7 +29,7 @@ use crate::editors::store::StoreEditorMessage;
 use crate::editors::wave_ini::WaveIniEditorMessage;
 use crate::editors::weapon::WeaponEditorMessage;
 use crate::indexation::file_index_cache::FileIndexCacheManager;
-use crate::message::{system::SystemMessage, Message, MessageExt};
+use crate::message::{Message, MessageExt, system::SystemMessage};
 use crate::workspace::EditorType;
 use iced::Task;
 use std::path::PathBuf;

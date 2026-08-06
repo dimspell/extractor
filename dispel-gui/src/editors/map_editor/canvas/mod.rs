@@ -16,8 +16,8 @@ mod render_overlays;
 // ── Re-exports from shared map_render module ─────────────────────────────────
 
 pub use crate::components::map_render::{
-    decode_tileset_file, draw_helpers, geometry, EntitySpriteHandle, GenericTilesLayer,
-    InternalSpriteHandle, MapCanvasState, MapViewState, TILE_H, TILE_W,
+    EntitySpriteHandle, GenericTilesLayer, InternalSpriteHandle, MapCanvasState, MapViewState,
+    TILE_H, TILE_W, decode_tileset_file, draw_helpers, geometry,
 };
 
 // ── Re-exports for external consumers ─────────────────────────────────────────

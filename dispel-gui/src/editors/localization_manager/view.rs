@@ -3,7 +3,7 @@ use crate::components::loading_state::LoadingState;
 use crate::editors::localization_manager::LocalizationMessage;
 use crate::message::{Message, MessageExt};
 use crate::style;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use gui_widgets::textarea;
 use iced::widget::{
     button, checkbox, column, container, pick_list, progress_bar, row, scrollable, text, text_input,

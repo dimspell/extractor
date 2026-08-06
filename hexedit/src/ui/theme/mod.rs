@@ -641,7 +641,7 @@ mod tests {
                 assert!(
                     (0.0..=1.0).contains(&c.r),
                     "{:?} nybble_palette[{i}].r = {}",
-                    if theme as *const _ == &DARK_THEME as *const _ {
+                    if std::ptr::eq(theme, &DARK_THEME) {
                         "dark"
                     } else {
                         "light"

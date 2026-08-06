@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod global_search_tests {
     use crate::app::App;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
+    use crate::message::workspace::WorkspaceMessage;
     use crate::workspace::Workspace;
 
     #[test]
@@ -170,8 +170,8 @@ mod global_search_tests {
 #[cfg(test)]
 mod global_search_confirm_tests {
     use crate::app::App;
-    use crate::message::workspace::WorkspaceMessage;
     use crate::message::Message;
+    use crate::message::workspace::WorkspaceMessage;
     use crate::workspace::Workspace;
 
     #[test]
@@ -195,7 +195,7 @@ mod global_search_confirm_tests {
         // With a game path + valid result, it should return an open-file task
         // (Open dispatches via Task::done which has units=0, so check side effects)
         assert!(!app.global_search.is_visible, "search closed");
-        assert!(app.state.workspace.tabs.len() > 0, "tab should be opened");
+        assert!(!app.state.workspace.tabs.is_empty(), "tab should be opened");
     }
 
     #[test]

@@ -2,8 +2,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::commands::registry::{self, DetectResult, FileType};
 use crate::commands::Command;
+use crate::commands::registry::{self, DetectResult, FileType};
 
 #[derive(clap::Args, Clone)]
 pub struct ExtractArgs {
@@ -233,10 +233,10 @@ fn resolve_type(
             DetectResult::Single(ft) => Ok(ft),
             DetectResult::Ambiguous(candidates) => {
                 // Use the file_type embedded in the extracted JSON's _meta block if available
-                if let Some(hint) = meta_hint {
-                    if let Some(ft) = registry::get_by_key(hint) {
-                        return Ok(ft);
-                    }
+                if let Some(hint) = meta_hint
+                    && let Some(ft) = registry::get_by_key(hint)
+                {
+                    return Ok(ft);
                 }
                 let keys: Vec<&str> = candidates.iter().map(|ft| ft.key).collect();
                 Err(format!(

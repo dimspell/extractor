@@ -18,7 +18,7 @@ impl EditableRecord for ScrMessage {
         format!(
             "[{}] {}",
             self.id,
-            &text.chars().take(40).collect::<String>()
+            text.chars().take(40).collect::<String>()
         )
     }
 

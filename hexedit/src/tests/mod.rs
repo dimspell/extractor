@@ -13,9 +13,10 @@ use std::path::PathBuf;
 
 use iced_test::simulator;
 
-use crate::ui::theme::{ThemeVariant, DARK_THEME};
+use crate::ui::theme::{DARK_THEME, ThemeVariant};
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 
+use crate::LuaScriptEngine;
 use crate::config::HexEditorConfig;
 use crate::domain::write_mode::WriteMode;
 use crate::message::HexEditorMessage;
@@ -27,7 +28,6 @@ use crate::state::{HexEditorState, InspectorSource};
 use crate::ui::coloring::ColorScheme;
 use crate::update::update;
 use crate::view::view;
-use crate::LuaScriptEngine;
 
 // ============================================================================
 // Helpers

@@ -1,5 +1,5 @@
 use iced::widget::{container, text_input};
-use iced::{color, Background, Border, Color, Theme};
+use iced::{Background, Border, Color, Theme, color};
 
 pub fn grid_header_cell(_theme: &Theme) -> container::Style {
     container::Style {

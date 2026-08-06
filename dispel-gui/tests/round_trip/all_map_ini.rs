@@ -1,8 +1,8 @@
 //! Fixture-based tests for AllMap.ini
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::all_map_ini::Map;
 use dispel_core::Extractor;
+use dispel_core::references::all_map_ini::Map;
 use std::path::Path;
 
 #[test]

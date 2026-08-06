@@ -28,7 +28,7 @@ use dispel_core::references::quest_scr::save_quests;
 use dispel_core::references::store_db::save_stores;
 use dispel_core::references::wave_ini::save_wave_inis;
 use dispel_core::references::weapons_db::save_weapons;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
@@ -705,12 +705,11 @@ fn import_event_scripts(main_path: &Path, conn: &mut Connection) -> Result<(), B
         let mut event_files = Vec::new();
         if let Ok(entries) = std::fs::read_dir(&ref_dir) {
             for entry in entries.flatten() {
-                if let Some(path) = entry.path().to_str() {
-                    if (path.contains("Event") || path.contains("event"))
-                        && (path.ends_with(".scr") || path.ends_with(".SCR"))
-                    {
-                        event_files.push(entry.path());
-                    }
+                if let Some(path) = entry.path().to_str()
+                    && (path.contains("Event") || path.contains("event"))
+                    && (path.ends_with(".scr") || path.ends_with(".SCR"))
+                {
+                    event_files.push(entry.path());
                 }
             }
         }

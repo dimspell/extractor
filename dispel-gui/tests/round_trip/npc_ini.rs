@@ -1,8 +1,8 @@
 //! Fixture-based tests for Npc.ini
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::npc_ini::NpcIni;
 use dispel_core::Extractor;
+use dispel_core::references::npc_ini::NpcIni;
 use std::path::Path;
 
 #[test]

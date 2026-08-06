@@ -1,6 +1,6 @@
 //! Update handlers for map preview interaction messages.
 
-use crate::components::map_render::{tile_to_screen, TILE_H, TILE_W};
+use crate::components::map_render::{TILE_H, TILE_W, tile_to_screen};
 use crate::editors::save_file_viewer::map_preview::message::PreviewMessage;
 use crate::editors::save_file_viewer::map_preview::state::{MapPreviewState, PreviewLayer};
 use crate::message::Message;

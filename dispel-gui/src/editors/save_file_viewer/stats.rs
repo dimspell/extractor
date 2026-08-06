@@ -1,4 +1,4 @@
-use iced::widget::{container, scrollable, text, Column, Row};
+use iced::widget::{Column, Row, container, scrollable, text};
 use iced::{Element, Fill};
 
 use crate::editors::save_file_viewer::helpers::section_header;

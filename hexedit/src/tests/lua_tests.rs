@@ -2,9 +2,9 @@ use std::cell::Cell;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::ui::coloring::ColorScheme;
-use crate::ui::theme::{ThemeVariant, DARK_THEME};
 use crate::LuaScriptEngine;
+use crate::ui::coloring::ColorScheme;
+use crate::ui::theme::{DARK_THEME, ThemeVariant};
 
 /// Write a Lua script to the temp dir and return its path.
 /// Uses a global counter to keep paths unique across tests.

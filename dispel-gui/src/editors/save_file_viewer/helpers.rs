@@ -1,6 +1,6 @@
 //! Shared UI helpers for the save file viewer sections.
 
-use iced::widget::{container, text, Row};
+use iced::widget::{Row, container, text};
 use iced::{Element, Fill};
 
 use crate::message::Message;

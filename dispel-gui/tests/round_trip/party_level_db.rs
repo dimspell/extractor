@@ -1,8 +1,8 @@
 //! Fixture-based tests for PrtLevel.db
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::party_level_db::PartyLevelNpc;
 use dispel_core::Extractor;
+use dispel_core::references::party_level_db::PartyLevelNpc;
 use std::path::Path;
 
 #[test]

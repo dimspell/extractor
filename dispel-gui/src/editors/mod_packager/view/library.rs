@@ -1,4 +1,4 @@
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;

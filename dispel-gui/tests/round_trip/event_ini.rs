@@ -1,8 +1,8 @@
 //! Fixture-based tests for Event.ini
 
 use super::round_trip_utils::round_trip_from_fixture;
-use dispel_core::references::event_ini::Event;
 use dispel_core::Extractor;
+use dispel_core::references::event_ini::Event;
 use std::path::Path;
 
 #[test]

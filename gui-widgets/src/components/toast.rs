@@ -20,7 +20,7 @@
 //!     .into()
 //! ```
 
-use crate::lucide::{icon_char, LUCIDE_FONT};
+use crate::lucide::{LUCIDE_FONT, icon_char};
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::overlay;
 use iced::advanced::renderer;
@@ -28,7 +28,7 @@ use iced::advanced::widget::{self, Operation, Tree};
 use iced::advanced::{Shell, Widget};
 use iced::mouse;
 use iced::time::{self, Duration, Instant};
-use iced::widget::{button, column, container, row, space, text, Container};
+use iced::widget::{Container, button, column, container, row, space, text};
 use iced::{
     Alignment, Element, Event, Fill, Fit, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
 };

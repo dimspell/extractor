@@ -1,5 +1,5 @@
 use crate::components::edit_history::EditHistory;
-use crate::message::{system::SystemMessage, workspace::WorkspaceMessage, Message};
+use crate::message::{Message, system::SystemMessage, workspace::WorkspaceMessage};
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Element, Fill};
 

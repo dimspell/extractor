@@ -8,8 +8,8 @@ use crate::message::{Message, MessageExt};
 use crate::style;
 use gui_widgets::components::context_menu::{ContextMenu, Entry};
 use gui_widgets::components::modal::modal;
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
-use iced::widget::{button, column, container, image, row, scrollable, slider, text, Space};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
+use iced::widget::{Space, button, column, container, image, row, scrollable, slider, text};
 use iced::{Alignment, Element, Fill, Length};
 use lucide_icons::Icon;
 
@@ -168,8 +168,8 @@ fn view_header(viewer: &SpriteViewerState) -> Element<'_, Message> {
 // ── Sequence chips ────────────────────────────────────────────────────────────
 
 fn view_sequence_chips(viewer: &SpriteViewerState) -> Element<'_, Message> {
-    use iced::widget::responsive;
     use iced::Size;
+    use iced::widget::responsive;
 
     let count = viewer.sequence_count;
     if count == 0 {

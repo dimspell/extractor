@@ -1,5 +1,5 @@
-use iced::widget::{container, scrollable, text, Column};
 use iced::Element;
+use iced::widget::{Column, container, scrollable, text};
 
 use crate::editors::save_file_viewer::helpers::{label_row, section_header};
 use crate::editors::save_file_viewer::state::SaveFileViewerState;

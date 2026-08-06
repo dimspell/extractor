@@ -3,7 +3,7 @@ use super::state::TableState;
 use super::style::cell_text_color;
 use super::*;
 use crate::components::paragraph_cache::ParagraphCache;
-use iced::{color, Rectangle, Vector};
+use iced::{Rectangle, Vector, color};
 
 fn no_flags(_: usize) -> RowFlags {
     RowFlags::default()
