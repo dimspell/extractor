@@ -853,7 +853,13 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .character_identity
                 .equipped_equipment
                 .iter()
-                .flat_map(|s| s.data)
+                .flat_map(|s| {
+                    let mut b = Vec::with_capacity(9);
+                    b.push(s.unknown_a);
+                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
+                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
+                    b
+                })
                 .collect::<Vec<_>>(),
         },
         RawHexEditorData {
@@ -862,7 +868,14 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .character_identity
                 .belt_potions
                 .iter()
-                .flat_map(|s| s.data)
+                .flat_map(|s| {
+                    let mut b = Vec::with_capacity(16);
+                    b.extend_from_slice(&s.unknown_a.to_le_bytes());
+                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
+                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
+                    b.extend_from_slice(&s.unknown_d.to_le_bytes());
+                    b
+                })
                 .collect(),
         },
         RawHexEditorData {
@@ -871,7 +884,15 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .character_identity
                 .inventory_placement
                 .iter()
-                .flat_map(|e| e.data)
+                .flat_map(|e| {
+                    let mut b = Vec::with_capacity(20);
+                    b.extend_from_slice(&e.unknown_a.to_le_bytes());
+                    b.extend_from_slice(&e.unknown_b.to_le_bytes());
+                    b.extend_from_slice(&e.unknown_c.to_le_bytes());
+                    b.extend_from_slice(&e.unknown_d.to_le_bytes());
+                    b.extend_from_slice(&e.unknown_e.to_le_bytes());
+                    b
+                })
                 .collect(),
         },
         RawHexEditorData {

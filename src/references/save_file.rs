@@ -607,28 +607,37 @@ pub struct CharacterDataHeader {
 /// Single equipped equipment slot (9 bytes).
 ///
 /// Part of the 12-slot equipment array (12 × 9 = 108 bytes total).
-/// Internal field layout is not yet decoded.
+/// Layout: `u8, i32, i32`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EquipmentSlot {
-    pub data: [u8; 9],
+    pub unknown_a: u8,
+    pub unknown_b: i32,
+    pub unknown_c: i32,
 }
 
 /// Single belt potion slot (16 bytes).
 ///
 /// Part of the 6-slot belt potion array (6 × 16 = 96 bytes total).
-/// Internal field layout is not yet decoded.
+/// Layout: `i32, i32, i32, i32`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct BeltPotionSlot {
-    pub data: [u8; 16],
+    pub unknown_a: i32,
+    pub unknown_b: i32,
+    pub unknown_c: i32,
+    pub unknown_d: i32,
 }
 
 /// Single inventory placement entry (20 bytes).
 ///
 /// Part of the 189-entry inventory placement grid (189 × 20 = 3780 bytes total).
-/// Internal field layout is not yet decoded.
+/// Layout: `i32, i32, i32, i32, i32`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryPlacementEntry {
-    pub data: [u8; 20],
+    pub unknown_a: i32,
+    pub unknown_b: i32,
+    pub unknown_c: i32,
+    pub unknown_d: i32,
+    pub unknown_e: i32,
 }
 
 /// Learned spells block (41 bytes).
@@ -639,6 +648,9 @@ pub struct InventoryPlacementEntry {
 pub struct LearnedSpells {
     pub spells: Vec<u8>,
 }
+
+// 7 p, 45
+
 
 /// Character identity data (name, class, equipment, spells, party).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1155,39 +1167,51 @@ impl SaveFile {
         reader.read_exact(&mut header_buf)?;
         let character_data_header = CharacterDataHeader::parse(&header_buf)?;
 
-        // Equipped equipment: 12 slots × 9 bytes = 108 bytes
+        // Equipped equipment: 12 slots × 9 bytes = 108 bytes (u8, i32, i32 each)
         let mut equipment_raw = vec![0u8; 12 * 9];
         reader.read_exact(&mut equipment_raw)?;
         let equipped_equipment: Vec<EquipmentSlot> = equipment_raw
             .chunks_exact(9)
             .map(|chunk| {
-                let mut data = [0u8; 9];
-                data.copy_from_slice(chunk);
-                EquipmentSlot { data }
+                let mut c = std::io::Cursor::new(chunk);
+                EquipmentSlot {
+                    unknown_a: c.read_u8().unwrap(),
+                    unknown_b: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_c: c.read_i32::<LittleEndian>().unwrap(),
+                }
             })
             .collect();
 
-        // Belt potions: 6 slots × 16 bytes = 96 bytes
+        // Belt potions: 6 slots × 16 bytes = 96 bytes (4 × i32 each)
         let mut belt_raw = vec![0u8; 6 * 16];
         reader.read_exact(&mut belt_raw)?;
         let belt_potions: Vec<BeltPotionSlot> = belt_raw
             .chunks_exact(16)
             .map(|chunk| {
-                let mut data = [0u8; 16];
-                data.copy_from_slice(chunk);
-                BeltPotionSlot { data }
+                let mut c = std::io::Cursor::new(chunk);
+                BeltPotionSlot {
+                    unknown_a: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_b: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_c: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_d: c.read_i32::<LittleEndian>().unwrap(),
+                }
             })
             .collect();
 
-        // Inventory placement: 189 entries × 20 bytes = 3780 bytes
+        // Inventory placement: 189 entries × 20 bytes = 3780 bytes (5 × i32 each)
         let mut inventory_raw = vec![0u8; 189 * 20];
         reader.read_exact(&mut inventory_raw)?;
         let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
             .chunks_exact(20)
             .map(|chunk| {
-                let mut data = [0u8; 20];
-                data.copy_from_slice(chunk);
-                InventoryPlacementEntry { data }
+                let mut c = std::io::Cursor::new(chunk);
+                InventoryPlacementEntry {
+                    unknown_a: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_b: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_c: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_d: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_e: c.read_i32::<LittleEndian>().unwrap(),
+                }
             })
             .collect();
 
@@ -1462,19 +1486,28 @@ impl SaveFile {
         // Header: u32 + u16 + u16 + u8 + u8 + u8 = 11 bytes
         identity.character_data_header.write(writer)?;
 
-        // Equipped equipment: 12 slots × 9 bytes = 108 bytes
+        // Equipped equipment: 12 slots × 9 bytes = 108 bytes (u8, i32, i32 each)
         for slot in &identity.equipped_equipment {
-            writer.write_all(&slot.data)?;
+            writer.write_u8(slot.unknown_a)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_b)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_c)?;
         }
 
-        // Belt potions: 6 slots × 16 bytes = 96 bytes
+        // Belt potions: 6 slots × 16 bytes = 96 bytes (4 × i32 each)
         for slot in &identity.belt_potions {
-            writer.write_all(&slot.data)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_a)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_b)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_c)?;
+            writer.write_i32::<LittleEndian>(slot.unknown_d)?;
         }
 
-        // Inventory placement: 189 entries × 20 bytes = 3780 bytes
+        // Inventory placement: 189 entries × 20 bytes = 3780 bytes (5 × i32 each)
         for entry in &identity.inventory_placement {
-            writer.write_all(&entry.data)?;
+            writer.write_i32::<LittleEndian>(entry.unknown_a)?;
+            writer.write_i32::<LittleEndian>(entry.unknown_b)?;
+            writer.write_i32::<LittleEndian>(entry.unknown_c)?;
+            writer.write_i32::<LittleEndian>(entry.unknown_d)?;
+            writer.write_i32::<LittleEndian>(entry.unknown_e)?;
         }
 
         // Learned spells: 41 bytes
