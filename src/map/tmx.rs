@@ -24,7 +24,7 @@
 //! ```
 
 use super::MapData;
-use super::tileset::{plot_tile_rgba, Tile, TILE_HEIGHT, TILE_WIDTH};
+use super::tileset::{TILE_HEIGHT, TILE_WIDTH, Tile, plot_tile_rgba};
 #[allow(unused_imports)]
 use crate::sprite::Color;
 use std::io::{BufWriter, Write};

@@ -1194,9 +1194,7 @@ impl SaveFile {
         // Learned spells: 41 bytes (one flag per spell)
         let mut spells_buf = vec![0u8; 41];
         reader.read_exact(&mut spells_buf)?;
-        let learned_spells = LearnedSpells {
-            spells: spells_buf,
-        };
+        let learned_spells = LearnedSpells { spells: spells_buf };
 
         // ── 7.5. Party members ──
         let party_members_count = reader.read_u32::<LittleEndian>()?;
