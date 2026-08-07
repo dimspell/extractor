@@ -879,10 +879,6 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             label: "Identity Unknown Block",
             data: save_file.character_identity.unknown_block.clone(),
         },
-        RawHexEditorData {
-            label: "Identity Large Data",
-            data: save_file.character_identity.unknown_data.clone(),
-        },
     ];
 
     if let Some(member) = save_file.character_identity.party_members.first() {
