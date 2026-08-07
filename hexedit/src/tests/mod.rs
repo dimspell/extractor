@@ -43,6 +43,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         pane_focus,
         provider: BufferProvider::from_bytes(data),
         bytes_per_row: 16,
+        bpr_input: "16".to_string(),
         selection: Selection::single(0),
         edit_mode: None,
         inspector_edit: None,

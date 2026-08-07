@@ -101,6 +101,7 @@ fn test_reset_settings_restores_defaults() {
     state.dim_nulls = false;
     state.show_decimal = true;
     state.bytes_per_row = 8;
+    state.bpr_input = "8".to_string();
 
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::ResetSettings);
@@ -116,6 +117,11 @@ fn test_reset_settings_restores_defaults() {
         state.bytes_per_row,
         crate::state::DEFAULT_BYTES_PER_ROW,
         "bytes_per_row should reset to default"
+    );
+    assert_eq!(
+        state.bpr_input,
+        crate::state::DEFAULT_BYTES_PER_ROW.to_string(),
+        "bpr_input should reset alongside bytes_per_row"
     );
     assert_eq!(
         state.status_msg, "Settings reset to defaults",
@@ -134,6 +140,10 @@ fn test_reset_settings_from_defaults_is_idempotent() {
     assert!(state.dim_nulls);
     assert!(!state.show_decimal);
     assert_eq!(state.bytes_per_row, crate::state::DEFAULT_BYTES_PER_ROW);
+    assert_eq!(
+        state.bpr_input,
+        crate::state::DEFAULT_BYTES_PER_ROW.to_string()
+    );
 }
 
 #[test]

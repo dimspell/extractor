@@ -46,6 +46,10 @@ pub enum InspectorSource {
 /// Default cell width — 16 bytes per row matches every other hex editor on
 /// the planet and keeps the address column the same width across files.
 pub const DEFAULT_BYTES_PER_ROW: u8 = 16;
+/// Smallest number of bytes the user may set per row.
+pub const MIN_BYTES_PER_ROW: u8 = 1;
+/// Largest number of bytes the user may set per row.
+pub const MAX_BYTES_PER_ROW: u8 = 64;
 
 pub struct HexEditorState {
     pub path: PathBuf,
@@ -56,6 +60,9 @@ pub struct HexEditorState {
     pub pane_focus: pane_grid::Pane,
     pub provider: BufferProvider,
     pub bytes_per_row: u8,
+    /// Draft text for the custom bytes-per-row input in the settings modal.
+    /// Parsed on submit; invalid or out-of-range input is simply ignored.
+    pub bpr_input: String,
     pub selection: Selection,
     pub edit_mode: Option<EditState>,
     pub inspector_edit: Option<InspectorEditState>,
@@ -208,6 +215,7 @@ impl HexEditorState {
             pane_focus,
             provider: BufferProvider::from_bytes(data),
             bytes_per_row: DEFAULT_BYTES_PER_ROW,
+            bpr_input: DEFAULT_BYTES_PER_ROW.to_string(),
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,
@@ -297,6 +305,7 @@ impl HexEditorState {
             pane_focus,
             provider,
             bytes_per_row: DEFAULT_BYTES_PER_ROW,
+            bpr_input: DEFAULT_BYTES_PER_ROW.to_string(),
             selection: Selection::default(),
             edit_mode: None,
             inspector_edit: None,

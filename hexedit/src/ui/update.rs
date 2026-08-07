@@ -44,6 +44,18 @@ fn inspector_source_bytes(state: &crate::HexEditorState) -> (u64, &[u8]) {
     }
 }
 
+/// Parse a bytes-per-row draft from the settings modal's custom text input.
+///
+/// Returns the value only if it trims to a `u8` within
+/// `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW` (1–64); `None` for non-numeric,
+/// empty, or out-of-range drafts.
+pub fn parse_bpr(draft: &str) -> Option<u8> {
+    let n = draft.trim().parse::<u8>().ok()?;
+    (crate::state::MIN_BYTES_PER_ROW..=crate::state::MAX_BYTES_PER_ROW)
+        .contains(&n)
+        .then_some(n)
+}
+
 pub fn update(
     state: &mut crate::HexEditorState,
     config: &HexEditorConfig,
@@ -84,15 +96,31 @@ pub fn update(
         }
 
         HexEditorMessage::SetBytesPerRow(n) => {
-            if matches!(n, 8 | 16 | 32) {
+            if (crate::state::MIN_BYTES_PER_ROW..=crate::state::MAX_BYTES_PER_ROW).contains(&n) {
                 state.bytes_per_row = n;
+                // Keep the settings-modal draft in sync with the active value
+                // so the text input mirrors preset-button clicks too.
+                state.bpr_input = n.to_string();
                 state.invalidate_stats();
+                // Row boundaries shift with the row width, so pattern
+                // annotations keyed by `row * bpr` must be re-laid-out.
+                state.recompute_row_annotations();
                 // Recompute row entropies immediately so the gutter band stays
                 // visible after a row-width change.
                 if !state.provider.is_empty() {
                     state.row_entropies = Some(compute_row_entropies(state.provider.as_slice(), n));
                 }
             }
+        }
+        HexEditorMessage::BytesPerRowInputChanged(s) => {
+            state.bpr_input = s;
+        }
+        HexEditorMessage::BytesPerRowInputInvalid => {
+            state.status_msg = format!(
+                "Bytes per row must be {}–{}",
+                crate::state::MIN_BYTES_PER_ROW,
+                crate::state::MAX_BYTES_PER_ROW
+            );
         }
         HexEditorMessage::SelectAt(addr) => {
             state.selection.select(addr, max_addr);
@@ -926,6 +954,7 @@ pub fn update(
             state.dim_nulls = true;
             state.show_decimal = false;
             state.bytes_per_row = crate::state::DEFAULT_BYTES_PER_ROW;
+            state.bpr_input = crate::state::DEFAULT_BYTES_PER_ROW.to_string();
             state.show_entropy_band = true;
             state.theme_variant = ThemeVariant::Dark;
             state.theme = ThemeVariant::Dark.theme();
@@ -1594,6 +1623,49 @@ mod tests {
             address_decimal: true,
             show_ascii: true,
         }
+    }
+
+    // ── parse_bpr ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn parse_bpr_accepts_valid_values() {
+        assert_eq!(parse_bpr("9"), Some(9));
+        assert_eq!(parse_bpr("20"), Some(20));
+    }
+
+    #[test]
+    fn parse_bpr_accepts_min_boundary() {
+        assert_eq!(parse_bpr("1"), Some(1));
+    }
+
+    #[test]
+    fn parse_bpr_accepts_max_boundary() {
+        assert_eq!(parse_bpr("64"), Some(64));
+    }
+
+    #[test]
+    fn parse_bpr_rejects_below_min() {
+        assert_eq!(parse_bpr("0"), None);
+    }
+
+    #[test]
+    fn parse_bpr_rejects_above_max() {
+        assert_eq!(parse_bpr("65"), None);
+    }
+
+    #[test]
+    fn parse_bpr_rejects_non_numeric() {
+        assert_eq!(parse_bpr("abc"), None);
+    }
+
+    #[test]
+    fn parse_bpr_rejects_empty() {
+        assert_eq!(parse_bpr(""), None);
+    }
+
+    #[test]
+    fn parse_bpr_trims_whitespace() {
+        assert_eq!(parse_bpr(" 20 "), Some(20));
     }
 
     #[test]

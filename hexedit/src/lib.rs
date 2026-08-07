@@ -35,7 +35,10 @@ mod state;
 pub use app::{AppMessage, HexEditorApp, HexEditorDocument, app_update, app_view};
 pub use config::{HexEditorConfig, OnSaveFn};
 pub use message::HexEditorMessage;
-pub use state::{ComparisonFile, DEFAULT_BYTES_PER_ROW, HexEditorState, InspectorSource};
+pub use state::{
+    ComparisonFile, DEFAULT_BYTES_PER_ROW, HexEditorState, InspectorSource, MAX_BYTES_PER_ROW,
+    MIN_BYTES_PER_ROW,
+};
 pub use ui::update::update;
 pub use ui::view::view;
 
