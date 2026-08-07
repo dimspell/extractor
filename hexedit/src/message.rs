@@ -134,6 +134,10 @@ pub enum HexEditorMessage {
     SearchPrev,
     /// Close the search overlay.
     CloseSearch,
+    /// Set the decimal search byte width (1/2/4/8).
+    SetSearchWidth(u8),
+    /// Toggle decimal search endianness (little/big).
+    ToggleSearchEndian,
 
     // ── Pattern list panel ───────────────────────────────────────────────
     /// Show/hide the pattern list panel.

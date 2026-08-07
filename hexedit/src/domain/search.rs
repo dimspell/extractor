@@ -9,19 +9,21 @@ use std::collections::BTreeSet;
 
 use crate::coloring::CellColorProvider;
 
-/// Search mode toggled between hex bytes and ASCII text.
+/// Search mode toggled between hex bytes, ASCII text, and decimal integers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SearchMode {
     #[default]
     Hex,
     Ascii,
+    Decimal,
 }
 
 impl SearchMode {
     pub fn toggle(self) -> Self {
         match self {
             SearchMode::Hex => SearchMode::Ascii,
-            SearchMode::Ascii => SearchMode::Hex,
+            SearchMode::Ascii => SearchMode::Decimal,
+            SearchMode::Decimal => SearchMode::Hex,
         }
     }
 }
@@ -35,6 +37,10 @@ pub struct SearchState {
     pub results: Vec<u64>,
     pub query_len: u64,
     pub current_match: Option<usize>,
+    /// Decimal byte width (1/2/4/8).
+    pub width: u8,
+    /// Decimal search endianness: `true` = little-endian.
+    pub little_endian: bool,
     /// Pre-computed set of all addresses covered by matches (for rendering).
     pub match_set: BTreeSet<u64>,
 }
@@ -48,6 +54,8 @@ impl SearchState {
             results: Vec::new(),
             query_len: 0,
             current_match: None,
+            width: 4,
+            little_endian: true,
             match_set: BTreeSet::new(),
         }
     }
@@ -77,6 +85,7 @@ impl SearchState {
         match self.mode {
             SearchMode::Hex => self.search_hex(data, &q),
             SearchMode::Ascii => self.search_ascii(data, &q),
+            SearchMode::Decimal => self.search_decimal(data, &q),
         }
 
         // Build match_set for the renderer.
@@ -107,17 +116,37 @@ impl SearchState {
     }
 
     fn search_ascii(&mut self, data: &[u8], query: &str) {
-        let needle = query.as_bytes();
+        let (norm_data, omap) = normalize_whitespace(data);
+        let (needle, _) = normalize_whitespace(query.as_bytes());
         if needle.is_empty() {
             return;
         }
         self.query_len = needle.len() as u64;
-        if needle.len() > data.len() {
+        if needle.len() > norm_data.len() {
             return;
         }
-        // Simple sliding window.
-        for i in 0..=data.len() - needle.len() {
-            if data[i..i + needle.len()] == needle[..] {
+        // Sliding window over the normalized data; map each match back to the
+        // original byte offset.
+        for i in 0..=norm_data.len() - needle.len() {
+            if norm_data[i..i + needle.len()] == needle[..] {
+                self.results.push(omap[i]);
+            }
+        }
+    }
+
+    fn search_decimal(&mut self, data: &[u8], query: &str) {
+        let value: i128 = match query.trim().parse() {
+            Ok(v) => v,
+            Err(_) => return,
+        };
+        let width = self.width.clamp(1, 8) as usize;
+        let bytes = int_to_bytes(value, width, self.little_endian);
+        self.query_len = bytes.len() as u64;
+        if bytes.len() > data.len() {
+            return;
+        }
+        for i in 0..=data.len() - bytes.len() {
+            if data[i..i + bytes.len()] == bytes[..] {
                 self.results.push(i as u64);
             }
         }
@@ -222,6 +251,55 @@ fn hex_nibble(c: u8) -> Option<u8> {
 /// Returns true if `s` contains at least one valid hex digit character.
 pub fn looks_like_hex(s: &str) -> bool {
     s.chars().any(|c| c.is_ascii_hexdigit())
+}
+
+/// Normalize a byte slice by collapsing every run of ASCII whitespace bytes
+/// into a single `b' '` placeholder. Returns the normalized bytes and a parallel
+/// map that translates each normalized index back to the ORIGINAL byte offset.
+///
+/// - A placeholder space maps to the index of the first byte of its whitespace run.
+/// - Each non-whitespace byte maps to its own original index.
+fn normalize_whitespace(bytes: &[u8]) -> (Vec<u8>, Vec<u64>) {
+    let mut norm = Vec::with_capacity(bytes.len());
+    let mut omap: Vec<u64> = Vec::with_capacity(bytes.len());
+    let mut in_ws = false;
+    for (i, &b) in bytes.iter().enumerate() {
+        if b.is_ascii_whitespace() {
+            if !in_ws {
+                norm.push(b' ');
+                omap.push(i as u64);
+                in_ws = true;
+            }
+        } else {
+            norm.push(b);
+            omap.push(i as u64);
+            in_ws = false;
+        }
+    }
+    (norm, omap)
+}
+
+/// Encode `value` as `width` two's-complement bytes in the requested endianness.
+/// The value is masked to `width * 8` bits so negative values wrap correctly.
+fn int_to_bytes(value: i128, width: usize, little_endian: bool) -> Vec<u8> {
+    let nbytes = width.max(1);
+    let bits = nbytes * 8;
+    let mask = if bits >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << bits) - 1
+    };
+    let masked = (value as u128) & mask;
+    let mut bytes = vec![0u8; nbytes];
+    for (i, byte) in bytes.iter_mut().enumerate() {
+        let shift = if little_endian {
+            i * 8
+        } else {
+            (nbytes - 1 - i) * 8
+        };
+        *byte = (masked >> shift) as u8;
+    }
+    bytes
 }
 
 // ── Coloring provider for search matches ────────────────────────────────
@@ -418,5 +496,151 @@ mod tests {
         assert!(set.contains(&5));
         assert!(set.contains(&6));
         assert_eq!(set.len(), 6);
+    }
+
+    #[test]
+    fn toggle_cycles_through_all_modes() {
+        assert_eq!(SearchMode::Hex.toggle(), SearchMode::Ascii);
+        assert_eq!(SearchMode::Ascii.toggle(), SearchMode::Decimal);
+        assert_eq!(SearchMode::Decimal.toggle(), SearchMode::Hex);
+    }
+
+    #[test]
+    fn new_defaults_decimal_width_and_endian() {
+        let s = SearchState::new();
+        assert_eq!(s.width, 4);
+        assert!(s.little_endian);
+    }
+
+    #[test]
+    fn decimal_search_le_width_2() {
+        // 1000 = 0x03E8 → LE bytes E8 03 at offset 3.
+        let data = b"\x00\x01\x02\xE8\x03\x00";
+        let mut s = SearchState::new();
+        s.query = "1000".into();
+        s.mode = SearchMode::Decimal;
+        s.width = 2;
+        s.little_endian = true;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 3);
+    }
+
+    #[test]
+    fn decimal_search_be_width_4() {
+        // 0x00010203 → BE bytes 00 01 02 03 at offset 0.
+        let data = b"\x00\x01\x02\x03\xFF";
+        let mut s = SearchState::new();
+        s.query = "66051".into();
+        s.mode = SearchMode::Decimal;
+        s.width = 4;
+        s.little_endian = false;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 0);
+    }
+
+    #[test]
+    fn decimal_search_negative_two_complement() {
+        // -1 as width-1 byte → 0xFF.
+        let data = b"\xAA\xFF\xBB";
+        let mut s = SearchState::new();
+        s.query = "-1".into();
+        s.mode = SearchMode::Decimal;
+        s.width = 1;
+        s.little_endian = true;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 1);
+    }
+
+    #[test]
+    fn decimal_search_negative_wraps_via_masking() {
+        // -256 as width-2 LE → 00 FF.
+        let data = b"\x00\xFF\x00";
+        let mut s = SearchState::new();
+        s.query = "-256".into();
+        s.mode = SearchMode::Decimal;
+        s.width = 2;
+        s.little_endian = true;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 0);
+    }
+
+    #[test]
+    fn decimal_search_parse_failure_returns_zero() {
+        let data = b"\x00\x01\x02\x03";
+        let mut s = SearchState::new();
+        s.query = "not-a-number".into();
+        s.mode = SearchMode::Decimal;
+        s.execute(data);
+        assert_eq!(s.count(), 0);
+        assert!(s.results.is_empty());
+    }
+
+    #[test]
+    fn decimal_search_width_zero_clamps() {
+        // Width 0 should clamp to 1 and match the low byte.
+        let data = b"\xFF\x00";
+        let mut s = SearchState::new();
+        s.query = "255".into();
+        s.mode = SearchMode::Decimal;
+        s.width = 0;
+        s.little_endian = true;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 0);
+    }
+
+    #[test]
+    fn ascii_search_whitespace_collapse_mapping() {
+        // "hello\nworld" contains a newline; query "hello world" should match.
+        let data = b"hello\nworld";
+        let mut s = SearchState::new();
+        s.query = "hello world".into();
+        s.mode = SearchMode::Ascii;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        // The normalized needle "hello world" matches normalized data
+        // "hello world"; the space maps to the newline offset 5, and the
+        // match start is the "h" at offset 0.
+        assert_eq!(s.results[0], 0);
+    }
+
+    #[test]
+    fn ascii_search_multi_whitespace_run_collapses() {
+        // Two spaces collapse with the newline into a single normalized space.
+        let data = b"hello\n world";
+        let mut s = SearchState::new();
+        s.query = "hello world".into();
+        s.mode = SearchMode::Ascii;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 0);
+    }
+
+    #[test]
+    fn normalize_whitespace_maps_offsets() {
+        let (norm, omap) = normalize_whitespace(b"a b");
+        assert_eq!(norm, b"a b");
+        assert_eq!(omap, vec![0, 1, 2]);
+
+        let (norm, omap) = normalize_whitespace(b"a  \t\n  b");
+        assert_eq!(norm, b"a b");
+        // Non-whitespace map to themselves; the run starts at index 1.
+        assert_eq!(omap, vec![0, 1, 7]);
+    }
+
+    #[test]
+    fn ascii_search_query_whitespace_normalized() {
+        // Query itself has runs of whitespace that collapse to single spaces.
+        let data = b"hello  world"; // two spaces in data
+        let mut s = SearchState::new();
+        s.query = "hello   world".into(); // three spaces in query
+        s.mode = SearchMode::Ascii;
+        s.execute(data);
+        assert_eq!(s.count(), 1);
+        assert_eq!(s.results[0], 0);
     }
 }

@@ -17,7 +17,7 @@ use crate::goto::GotoState;
 use crate::inspector::ENTRIES;
 use crate::message::HexEditorMessage;
 use crate::pattern::Pattern;
-use crate::search::parse_hex_query;
+use crate::search::{SearchMode, parse_hex_query};
 use crate::selection::nav_target;
 
 /// Page nav heuristic — the matrix doesn't propagate live viewport height
@@ -501,6 +501,26 @@ pub fn update(
         }
         HexEditorMessage::CloseSearch => {
             state.search.clear();
+        }
+        HexEditorMessage::SetSearchWidth(width) => {
+            state.search.width = width;
+            if state.search.mode == SearchMode::Decimal && !state.search.query.is_empty() {
+                state.search.execute(state.provider.as_slice());
+                if let Some(addr) = state.search.current_addr() {
+                    state.selection.select(addr.min(max_addr), max_addr);
+                    state.pending_center_on.set(Some(addr.min(max_addr)));
+                }
+            }
+        }
+        HexEditorMessage::ToggleSearchEndian => {
+            state.search.little_endian = !state.search.little_endian;
+            if state.search.mode == SearchMode::Decimal && !state.search.query.is_empty() {
+                state.search.execute(state.provider.as_slice());
+                if let Some(addr) = state.search.current_addr() {
+                    state.selection.select(addr.min(max_addr), max_addr);
+                    state.pending_center_on.set(Some(addr.min(max_addr)));
+                }
+            }
         }
 
         // ── Goto address ───────────────────────────────────────────────

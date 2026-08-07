@@ -13,6 +13,7 @@ pub fn view<'a>(
     let mode_label = match state.mode {
         SearchMode::Hex => "HEX",
         SearchMode::Ascii => "TXT",
+        SearchMode::Decimal => "DEC",
     };
 
     let mode_btn = button(text(mode_label).size(10).font(Font::MONOSPACE))
@@ -52,16 +53,52 @@ pub fn view<'a>(
         .padding([2, 6])
         .on_press(HexEditorMessage::CloseSearch);
 
-    let content = row![
-        mode_btn,
-        search_input,
-        count_text,
-        prev_btn,
-        next_btn,
-        close_btn,
-    ]
-    .spacing(6)
-    .align_y(iced::Alignment::Center);
+    // Decimal-specific controls: byte-width selector and endianness toggle.
+    let decimal_controls = if state.mode == SearchMode::Decimal {
+        let mut widths: Vec<Element<'_, HexEditorMessage>> = vec![];
+        for w in [1u8, 2, 4, 8] {
+            let active = state.width == w;
+            let mut b = button(text(w.to_string()).size(10).font(Font::MONOSPACE))
+                .padding([2, 5])
+                .on_press(HexEditorMessage::SetSearchWidth(w));
+            if active {
+                let bg = theme.search_overlay_border;
+                let fg = theme.search_current_fg;
+                b = b.style(move |_: &iced::Theme, _: iced::widget::button::Status| {
+                    iced::widget::button::Style {
+                        background: Some(iced::Background::Color(bg)),
+                        text_color: fg,
+                        border: iced::Border {
+                            color: bg,
+                            width: 1.0,
+                            radius: 2.0.into(),
+                        },
+                        ..iced::widget::button::Style::default()
+                    }
+                });
+            }
+            widths.push(b.into());
+        }
+        let endian_label = if state.little_endian { "LE" } else { "BE" };
+        let endian_btn = button(text(endian_label).size(10).font(Font::MONOSPACE))
+            .padding([2, 6])
+            .on_press(HexEditorMessage::ToggleSearchEndian);
+        Some(row![row(widths).spacing(2), endian_btn].spacing(6))
+    } else {
+        None
+    };
+
+    let content = row![mode_btn, search_input, count_text, prev_btn, next_btn,];
+    // Insert decimal controls before the close button when active.
+    let content = if let Some(decimal_controls) = decimal_controls {
+        content.push(decimal_controls)
+    } else {
+        content
+    };
+    let content = content
+        .push(close_btn)
+        .spacing(6)
+        .align_y(iced::Alignment::Center);
 
     container(content)
         .padding([4, 12])
