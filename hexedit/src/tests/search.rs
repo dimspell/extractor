@@ -334,7 +334,8 @@ fn test_search_set_width_reexecutes_decimal_query() {
     // Switch to width 1: bytes 0x64 at offsets 0 and 2 → 2 matches.
     send(&mut state, &config, HexEditorMessage::SetSearchWidth(1));
     assert_eq!(
-        state.search.count(), 2,
+        state.search.count(),
+        2,
         "changing width to 1 should re-execute and find both matches"
     );
     assert_eq!(state.search.results, vec![0, 2]);
@@ -348,11 +349,7 @@ fn test_search_ascii_multiline_extent() {
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::OpenSearch);
     send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
-    send(
-        &mut state,
-        &config,
-        HexEditorMessage::Search("b cd".into()),
-    );
+    send(&mut state, &config, HexEditorMessage::Search("b cd".into()));
     assert_eq!(state.search.count(), 1);
     assert_eq!(state.search.results[0], 1);
     assert_eq!(state.search.extents[0], 6);

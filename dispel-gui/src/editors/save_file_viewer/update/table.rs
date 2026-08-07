@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use crate::editors::save_file_viewer::message::TableKey;
 use crate::editors::save_file_viewer::state::{
-    InventoryCategory, JournalSection, MapsDisplayCaches, MapsTableKind, SaveFileViewerState,
+    CharacterTableKind, InventoryCategory, JournalSection, MapsDisplayCaches, MapsTableKind,
+    SaveFileViewerState,
 };
 
 /// Apply a single cursor-move event to whichever table resize is active.
@@ -34,6 +35,13 @@ pub fn apply_resize_cursor(state: &mut SaveFileViewerState, x: f32) {
         }
         TableKey::Inventory(cat) => {
             if let Some(ts) = state.inventory_table_states.get_mut(&cat)
+                && let Some(w) = ts.column_widths.get_mut(drag.col)
+            {
+                *w = new_width;
+            }
+        }
+        TableKey::Character(kind) => {
+            if let Some(ts) = state.character_table_states.get_mut(&kind)
                 && let Some(w) = ts.column_widths.get_mut(drag.col)
             {
                 *w = new_width;
@@ -99,6 +107,18 @@ pub fn maps_table_data(
         MapsTableKind::Misc => (&cache.draw_items_misc, &mut cache.draw_items_misc_indices),
         MapsTableKind::Event => (&cache.draw_items_event, &mut cache.draw_items_event_indices),
     }
+}
+
+/// Return the (immutable rows, mutable indices) pair for a given character
+/// table kind. The two borrows are disjoint fields of the two HashMaps.
+pub fn character_table_data<'a>(
+    cache: &'a mut HashMap<CharacterTableKind, Vec<Vec<String>>>,
+    indices: &'a mut HashMap<CharacterTableKind, Vec<usize>>,
+    kind: CharacterTableKind,
+) -> (&'a [Vec<String>], &'a mut Vec<usize>) {
+    let rows = cache.get(&kind).map(|v| &v[..]).unwrap_or(&[]);
+    let idx = indices.get_mut(&kind).expect("character indices missing");
+    (rows, idx)
 }
 
 /// Return the (immutable rows, mutable indices) pair for a given inventory

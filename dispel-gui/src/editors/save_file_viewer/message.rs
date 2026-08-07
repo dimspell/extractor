@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::components::filter::{ColumnFilterAction, GlobalFilterMode};
 use crate::editors::save_file_viewer::map_preview::PreviewMessage;
 use crate::editors::save_file_viewer::state::{
-    InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
+    CharacterTableKind, InventoryCategory, JournalSection, MapsTableKind, SaveFileSection,
 };
 
 /// Messages for the save file viewer.
@@ -19,6 +19,8 @@ pub enum SaveFileViewerMessage {
     SelectSection(SaveFileSection),
     /// Select an inventory category to view.
     SelectCategory(InventoryCategory),
+    /// Select a character table (equipment/belt/inventory placement) to view.
+    SelectCharacterKind(CharacterTableKind),
     /// Route a hex editor message to an embedded raw-section viewer.
     HexViewer(usize, hexedit::HexEditorMessage),
     /// Select a journal sub-section (Main/Side/Trade).
@@ -93,6 +95,33 @@ pub enum SaveFileViewerMessage {
         y: f32,
         viewport_height: f32,
     },
+    /// Select a row in a character table.
+    CharacterTableSelect {
+        kind: CharacterTableKind,
+        visible_idx: usize,
+    },
+    /// Toggle sort by a column in a character table.
+    CharacterTableSort {
+        kind: CharacterTableKind,
+        col: usize,
+    },
+    /// Begin dragging a column resize handle in a character table.
+    CharacterTableStartResize {
+        kind: CharacterTableKind,
+        col: usize,
+    },
+    /// Reset a column to its default width (double-click on resize handle).
+    CharacterTableResetColumnWidth {
+        kind: CharacterTableKind,
+        col: usize,
+    },
+    /// Character table scrolled; persist the offset for stable re-renders.
+    CharacterTableScroll {
+        kind: CharacterTableKind,
+        x: f32,
+        y: f32,
+        viewport_height: f32,
+    },
     /// Select a row in the events table.
     EventsTableSelect { visible_idx: usize },
     /// Toggle sort by a column in the events table.
@@ -155,6 +184,8 @@ pub enum TableKey {
     Map(usize, MapsTableKind),
     /// An inventory table for a single category.
     Inventory(InventoryCategory),
+    /// A character table (equipment/belt/inventory placement) for a single kind.
+    Character(CharacterTableKind),
     /// The single events table.
     Events,
     /// A journal table for one sub-section.

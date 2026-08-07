@@ -16,6 +16,7 @@ pub enum SaveFileSection {
     Stats,
     Inventory,
     PartyMembers,
+    Character,
     Events,
     Journal,
     Raw,
@@ -30,6 +31,7 @@ impl SaveFileSection {
             SaveFileSection::Stats => "Stats",
             SaveFileSection::Inventory => "Inventory",
             SaveFileSection::PartyMembers => "Party Members",
+            SaveFileSection::Character => "Character",
             SaveFileSection::Events => "Events",
             SaveFileSection::Journal => "Journal",
             SaveFileSection::Raw => "Raw",
@@ -45,6 +47,7 @@ impl SaveFileSection {
             Stats,
             Inventory,
             PartyMembers,
+            Character,
             Events,
             Journal,
             Raw,
@@ -501,6 +504,8 @@ pub struct SaveFileViewerState {
     pub journal_section: JournalSection,
     pub selected_journal_entry: Option<usize>,
     pub inventory_category: Option<InventoryCategory>,
+    /// Which character table (equipment/belt/inventory placement) is selected.
+    pub character_kind: Option<CharacterTableKind>,
 
     // Events table display data (built on load, amortized across views)
     pub events_display_cache: Vec<Vec<String>>,
@@ -518,6 +523,12 @@ pub struct SaveFileViewerState {
 
     // Inventory table interaction state, keyed by category.
     pub inventory_table_states: HashMap<InventoryCategory, TableInteractionState>,
+    // Character display caches (built on load, rendered as TableWidget per kind)
+    pub character_display_caches: HashMap<CharacterTableKind, Vec<Vec<String>>>,
+    // Character filtered indices (always `(0..n).collect()` — no filtering yet)
+    pub character_filtered_indices: HashMap<CharacterTableKind, Vec<usize>>,
+    // Character table interaction state, keyed by kind.
+    pub character_table_states: HashMap<CharacterTableKind, TableInteractionState>,
     // Events table interaction state (single table).
     pub events_table_state: TableInteractionState,
     // Journal table interaction state, keyed by section.
@@ -556,6 +567,7 @@ impl Default for SaveFileViewerState {
             journal_section: JournalSection::Main,
             selected_journal_entry: None,
             inventory_category: None,
+            character_kind: None,
             events_display_cache: Vec::new(),
             events_filtered_indices: Vec::new(),
             journal_display_caches: HashMap::new(),
@@ -563,6 +575,9 @@ impl Default for SaveFileViewerState {
             inventory_display_caches: HashMap::new(),
             inventory_filtered_indices: HashMap::new(),
             inventory_table_states: HashMap::new(),
+            character_display_caches: HashMap::new(),
+            character_filtered_indices: HashMap::new(),
+            character_table_states: HashMap::new(),
             events_table_state: TableInteractionState::default(),
             journal_table_states: HashMap::new(),
             maps_display_caches: Vec::new(),
@@ -692,6 +707,60 @@ impl InventoryCategory {
         defs.iter()
             .map(|(label, width_px)| TableColumn {
                 width_px: *width_px,
+                label: (*label).to_string(),
+                sort: None,
+                has_filter: false,
+            })
+            .collect()
+    }
+}
+
+/// Identifies one of the character tables (equipment, belt potions,
+/// inventory placement) rendered in the Character section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CharacterTableKind {
+    Equipment,
+    BeltPotions,
+    InventoryPlacement,
+}
+
+impl CharacterTableKind {
+    /// All character tables in the order they are rendered.
+    pub fn all() -> &'static [CharacterTableKind] {
+        use CharacterTableKind::*;
+        &[Equipment, BeltPotions, InventoryPlacement]
+    }
+
+    /// Human-readable label for each character table.
+    pub fn label(&self) -> &'static str {
+        match self {
+            CharacterTableKind::Equipment => "Equipped Equipment",
+            CharacterTableKind::BeltPotions => "Belt Potions",
+            CharacterTableKind::InventoryPlacement => "Inventory Placement",
+        }
+    }
+
+    /// Default column layout (widths + labels) for this character table.
+    /// `sort`/`has_filter` are left at their defaults; the view overrides
+    /// `width_px` from the per-table state and `sort` from the active sort.
+    pub fn default_columns(&self) -> Vec<TableColumn> {
+        let labels: &[&str] = match self {
+            CharacterTableKind::Equipment => &["unknown_a", "unknown_b", "unknown_c"],
+            CharacterTableKind::BeltPotions => {
+                &["unknown_a", "unknown_b", "unknown_c", "unknown_d"]
+            }
+            CharacterTableKind::InventoryPlacement => &[
+                "unknown_a",
+                "unknown_b",
+                "unknown_c",
+                "unknown_d",
+                "unknown_e",
+            ],
+        };
+        labels
+            .iter()
+            .map(|label| TableColumn {
+                width_px: 60.0,
                 label: (*label).to_string(),
                 sort: None,
                 has_filter: false,

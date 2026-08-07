@@ -5,7 +5,10 @@ use crate::editors::save_file_viewer::message::{TableFilterAction, TableKey};
 use crate::editors::save_file_viewer::state::{SaveFileViewerState, TableFilterState};
 use crate::message::Message;
 
-use super::table::{events_table_data, inventory_table_data, journal_table_data, maps_table_data};
+use super::table::{
+    character_table_data, events_table_data, inventory_table_data, journal_table_data,
+    maps_table_data,
+};
 
 /// Numeric-aware cell comparison for sorting. Falls back to lexicographic
 /// string comparison when either value is not a parseable float.
@@ -156,6 +159,16 @@ fn table_filter_access(
             );
             Some((filter, rows, indices))
         }
+        TableKey::Character(kind) => {
+            let ts = state.character_table_states.get_mut(&kind)?;
+            let filter = &mut ts.filter;
+            let (rows, indices) = character_table_data(
+                &mut state.character_display_caches,
+                &mut state.character_filtered_indices,
+                kind,
+            );
+            Some((filter, rows, indices))
+        }
         TableKey::Events => {
             let filter = &mut state.events_table_state.filter;
             let (rows, indices) = events_table_data(
@@ -273,6 +286,7 @@ fn filtered_indices_for(state: &SaveFileViewerState, key: TableKey) -> Option<&[
             .get(map)
             .map(|c| maps_table_indices(c, kind)),
         TableKey::Inventory(cat) => state.inventory_filtered_indices.get(&cat).map(|v| &v[..]),
+        TableKey::Character(kind) => state.character_filtered_indices.get(&kind).map(|v| &v[..]),
         TableKey::Events => Some(&state.events_filtered_indices),
         TableKey::Journal(section) => state.journal_filtered_indices.get(&section).map(|v| &v[..]),
     }
@@ -299,6 +313,16 @@ fn navigate_highlight(state: &mut SaveFileViewerState, key: TableKey, next: bool
         }
         TableKey::Inventory(cat) => {
             let Some(ts) = state.inventory_table_states.get_mut(&cat) else {
+                return Task::none();
+            };
+            if next {
+                ts.filter.navigate_next_highlight();
+            } else {
+                ts.filter.navigate_prev_highlight();
+            }
+        }
+        TableKey::Character(kind) => {
+            let Some(ts) = state.character_table_states.get_mut(&kind) else {
                 return Task::none();
             };
             if next {
@@ -339,6 +363,10 @@ fn navigate_highlight(state: &mut SaveFileViewerState, key: TableKey, next: bool
             .inventory_table_states
             .get(&cat)
             .and_then(|ts| ts.filter.current_highlight_orig_idx()),
+        TableKey::Character(kind) => state
+            .character_table_states
+            .get(&kind)
+            .and_then(|ts| ts.filter.current_highlight_orig_idx()),
         TableKey::Events => state.events_table_state.filter.current_highlight_orig_idx(),
         TableKey::Journal(section) => state
             .journal_table_states
@@ -366,6 +394,12 @@ fn navigate_highlight(state: &mut SaveFileViewerState, key: TableKey, next: bool
         }
         (TableKey::Inventory(cat), Some(fidx)) => {
             if let Some(ts) = state.inventory_table_states.get_mut(&cat) {
+                ts.selected_orig = Some(orig);
+                ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
+            }
+        }
+        (TableKey::Character(kind), Some(fidx)) => {
+            if let Some(ts) = state.character_table_states.get_mut(&kind) {
                 ts.selected_orig = Some(orig);
                 ts.table_state.scroll_offset.y = fidx as f32 * FILTER_ROW_HEIGHT;
             }

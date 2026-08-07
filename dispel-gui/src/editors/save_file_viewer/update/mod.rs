@@ -3,7 +3,9 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableKey};
-use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::{
+    CharacterTableKind, ResizeDrag, SaveFileViewerState,
+};
 use crate::message::{Message, MessageExt};
 
 pub(crate) mod csv_export;
@@ -15,8 +17,8 @@ use self::csv_export::{csv_default_filename, resolve_csv_export_data};
 use self::filter::{compare_cells, handle_table_filter};
 use self::preview::load_preview_sprites;
 use self::table::{
-    apply_resize_cursor, auto_size_column, events_table_data, hex_bytes, inventory_table_data,
-    journal_table_data, maps_table_data, maps_table_indices, maps_table_rows,
+    apply_resize_cursor, auto_size_column, character_table_data, events_table_data, hex_bytes,
+    inventory_table_data, journal_table_data, maps_table_data, maps_table_indices, maps_table_rows,
 };
 
 /// Handle a `*StartResize` press for any table. Returns `None` when the press
@@ -80,6 +82,11 @@ fn column_width_by_key(state: &SaveFileViewerState, key: TableKey, col: usize) -
             .get(&cat)
             .and_then(|ts| ts.column_widths.get(col).copied())
             .unwrap_or(80.0),
+        TableKey::Character(kind) => state
+            .character_table_states
+            .get(&kind)
+            .and_then(|ts| ts.column_widths.get(col).copied())
+            .unwrap_or(80.0),
         TableKey::Journal(section) => state
             .journal_table_states
             .get(&section)
@@ -104,6 +111,15 @@ fn auto_size_column_by_key(state: &mut SaveFileViewerState, key: TableKey, col: 
                 return;
             };
             let Some(indices) = state.inventory_filtered_indices.get(&cat) else {
+                return;
+            };
+            auto_size_column(rows, indices, col, &header)
+        }
+        TableKey::Character(kind) => {
+            let Some(rows) = state.character_display_caches.get(&kind) else {
+                return;
+            };
+            let Some(indices) = state.character_filtered_indices.get(&kind) else {
                 return;
             };
             auto_size_column(rows, indices, col, &header)
@@ -150,6 +166,12 @@ fn column_label_by_key(key: TableKey, col: usize) -> String {
             .nth(col)
             .map(|c| c.label)
             .unwrap_or_default(),
+        TableKey::Character(kind) => kind
+            .default_columns()
+            .into_iter()
+            .nth(col)
+            .map(|c| c.label)
+            .unwrap_or_default(),
         TableKey::Journal(section) => section
             .default_columns()
             .into_iter()
@@ -184,6 +206,13 @@ fn apply_column_width(state: &mut SaveFileViewerState, key: TableKey, col: usize
                 *w = width;
             }
         }
+        TableKey::Character(kind) => {
+            if let Some(ts) = state.character_table_states.get_mut(&kind)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
+            }
+        }
         TableKey::Journal(section) => {
             if let Some(ts) = state.journal_table_states.get_mut(&section)
                 && let Some(w) = ts.column_widths.get_mut(col)
@@ -212,6 +241,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
         }
         SaveFileViewerMessage::SelectCategory(cat) => {
             state.inventory_category = Some(cat);
+            Task::none()
+        }
+        SaveFileViewerMessage::SelectCharacterKind(kind) => {
+            state.character_kind = Some(kind);
             Task::none()
         }
         SaveFileViewerMessage::HexViewer(index, msg) => {
@@ -845,6 +878,71 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
             }
             Task::none()
         }
+        SaveFileViewerMessage::CharacterTableSelect { kind, visible_idx } => {
+            if let Some(indices) = state.character_filtered_indices.get(&kind) {
+                let orig = indices.get(visible_idx).copied();
+                if let Some(ts) = state.character_table_states.get_mut(&kind) {
+                    ts.selected_orig = orig;
+                }
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::CharacterTableSort { kind, col } => {
+            let Some(ts) = state.character_table_states.get_mut(&kind) else {
+                return Task::none();
+            };
+            if ts.sort_column == Some(col) {
+                ts.sort_ascending = !ts.sort_ascending;
+            } else {
+                ts.sort_column = Some(col);
+                ts.sort_ascending = true;
+            }
+            let ascending = ts.sort_ascending;
+            let (rows, indices) = character_table_data(
+                &mut state.character_display_caches,
+                &mut state.character_filtered_indices,
+                kind,
+            );
+            indices.sort_by(|&a, &b| compare_cells(rows, a, b, col, ascending));
+            Task::none()
+        }
+        SaveFileViewerMessage::CharacterTableStartResize { kind, col } => {
+            let drag = try_begin_column_resize(state, TableKey::Character(kind), col);
+            state.resizing = drag;
+            Task::none()
+        }
+        SaveFileViewerMessage::CharacterTableResetColumnWidth { kind, col } => {
+            let header = kind
+                .default_columns()
+                .into_iter()
+                .nth(col)
+                .map(|c| c.label)
+                .unwrap_or_default();
+            let width = if let (Some(cache), Some(indices)) = (
+                state.character_display_caches.get(&kind),
+                state.character_filtered_indices.get(&kind),
+            ) {
+                auto_size_column(cache, indices, col, &header)
+            } else {
+                kind.default_columns()
+                    .into_iter()
+                    .nth(col)
+                    .map(|c| c.width_px)
+                    .unwrap_or(80.0)
+            };
+            if let Some(ts) = state.character_table_states.get_mut(&kind)
+                && let Some(w) = ts.column_widths.get_mut(col)
+            {
+                *w = width;
+            }
+            Task::none()
+        }
+        SaveFileViewerMessage::CharacterTableScroll { kind, x, y, .. } => {
+            if let Some(ts) = state.character_table_states.get_mut(&kind) {
+                ts.table_state.scroll_offset = iced::Vector::new(x, y);
+            }
+            Task::none()
+        }
         SaveFileViewerMessage::EventsTableSelect { visible_idx } => {
             let orig = state.events_filtered_indices.get(visible_idx).copied();
             state.events_table_state.selected_orig = orig;
@@ -1224,6 +1322,87 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         );
                     }
                     state.inventory_table_states = inv_states;
+
+                    // Build character display caches (equipment / belt potions /
+                    // inventory placement) from the character identity.
+                    use crate::editors::save_file_viewer::state::CharacterTableKind;
+                    let identity = &loaded.save_file.character_identity;
+                    let mut char_caches: std::collections::HashMap<
+                        CharacterTableKind,
+                        Vec<Vec<String>>,
+                    > = std::collections::HashMap::new();
+                    char_caches.insert(
+                        CharacterTableKind::Equipment,
+                        identity
+                            .equipped_equipment
+                            .iter()
+                            .map(|s| {
+                                vec![
+                                    s.unknown_a.to_string(),
+                                    s.unknown_b.to_string(),
+                                    s.unknown_c.to_string(),
+                                ]
+                            })
+                            .collect(),
+                    );
+                    char_caches.insert(
+                        CharacterTableKind::BeltPotions,
+                        identity
+                            .belt_potions
+                            .iter()
+                            .map(|s| {
+                                vec![
+                                    s.unknown_a.to_string(),
+                                    s.unknown_b.to_string(),
+                                    s.unknown_c.to_string(),
+                                    s.unknown_d.to_string(),
+                                ]
+                            })
+                            .collect(),
+                    );
+                    char_caches.insert(
+                        CharacterTableKind::InventoryPlacement,
+                        identity
+                            .inventory_placement
+                            .iter()
+                            .map(|e| {
+                                vec![
+                                    e.unknown_a.to_string(),
+                                    e.unknown_b.to_string(),
+                                    e.unknown_c.to_string(),
+                                    e.unknown_d.to_string(),
+                                    e.unknown_e.to_string(),
+                                ]
+                            })
+                            .collect(),
+                    );
+                    state.character_display_caches = char_caches;
+                    state.character_filtered_indices = state
+                        .character_display_caches
+                        .iter()
+                        .map(|(kind, rows)| {
+                            let indices: Vec<usize> = (0..rows.len()).collect();
+                            (*kind, indices)
+                        })
+                        .collect();
+                    // Build per-kind character table interaction state.
+                    // Column widths are initialised from each kind's default layout.
+                    let mut char_states: std::collections::HashMap<
+                        CharacterTableKind,
+                        TableInteractionState,
+                    > = std::collections::HashMap::new();
+                    for kind in CharacterTableKind::all() {
+                        let widths: Vec<f32> =
+                            kind.default_columns().iter().map(|c| c.width_px).collect();
+                        char_states.insert(
+                            *kind,
+                            TableInteractionState {
+                                column_widths: widths,
+                                ..Default::default()
+                            },
+                        );
+                    }
+                    state.character_table_states = char_states;
 
                     // Build events table interaction state (single table).
                     {

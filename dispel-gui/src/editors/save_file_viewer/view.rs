@@ -59,6 +59,7 @@ pub fn view<'a>(app: &'a App) -> Element<'a, Message> {
             crate::editors::save_file_viewer::party_members::view(state)
         }
         SaveFileSection::Inventory => crate::editors::save_file_viewer::inventory::view(state),
+        SaveFileSection::Character => crate::editors::save_file_viewer::character::view(state),
         SaveFileSection::Raw => crate::editors::save_file_viewer::raw::view(state),
         SaveFileSection::Events => crate::editors::save_file_viewer::events::view(state),
         SaveFileSection::Journal => crate::editors::save_file_viewer::journal::view(state),

@@ -1,10 +1,20 @@
 use crate::editors::save_file_viewer::message::TableKey;
-use crate::editors::save_file_viewer::state::{JournalSection, MapsTableKind, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::{
+    CharacterTableKind, JournalSection, MapsTableKind, SaveFileViewerState,
+};
 
 /// Build a default filename for a CSV export based on the table key.
 pub fn csv_default_filename(key: TableKey) -> String {
     match key {
         TableKey::Inventory(cat) => format!("inventory-{}.csv", cat.label()),
+        TableKey::Character(kind) => {
+            let label = match kind {
+                CharacterTableKind::Equipment => "equipment",
+                CharacterTableKind::BeltPotions => "belt",
+                CharacterTableKind::InventoryPlacement => "inventory",
+            };
+            format!("character-{label}.csv")
+        }
         TableKey::Events => "events.csv".to_string(),
         TableKey::Journal(section) => {
             let label = match section {
@@ -45,6 +55,20 @@ pub fn resolve_csv_export_data(
                 .collect();
             let cache = state.inventory_display_caches.get(&cat)?;
             let indices = state.inventory_filtered_indices.get(&cat)?;
+            let rows: Vec<Vec<String>> = indices
+                .iter()
+                .filter_map(|&i| cache.get(i).cloned())
+                .collect();
+            Some((headers, rows))
+        }
+        TableKey::Character(kind) => {
+            let headers: Vec<String> = kind
+                .default_columns()
+                .iter()
+                .map(|c| c.label.clone())
+                .collect();
+            let cache = state.character_display_caches.get(&kind)?;
+            let indices = state.character_filtered_indices.get(&kind)?;
             let rows: Vec<Vec<String>> = indices
                 .iter()
                 .filter_map(|&i| cache.get(i).cloned())
@@ -108,7 +132,9 @@ pub fn resolve_csv_export_data(
 
 #[cfg(test)]
 mod tests {
-    use super::{JournalSection, MapsTableKind, TableKey, csv_default_filename};
+    use super::{
+        CharacterTableKind, JournalSection, MapsTableKind, TableKey, csv_default_filename,
+    };
 
     #[test]
     fn csv_filename_inventory() {
@@ -134,5 +160,24 @@ mod tests {
     fn csv_filename_map_monsters() {
         let name = csv_default_filename(TableKey::Map(0, MapsTableKind::Monsters));
         assert_eq!(name, "map-monsters.csv");
+    }
+
+    #[test]
+    fn csv_filename_character_equipment() {
+        let name = csv_default_filename(TableKey::Character(CharacterTableKind::Equipment));
+        assert_eq!(name, "character-equipment.csv");
+    }
+
+    #[test]
+    fn csv_filename_character_belt() {
+        let name = csv_default_filename(TableKey::Character(CharacterTableKind::BeltPotions));
+        assert_eq!(name, "character-belt.csv");
+    }
+
+    #[test]
+    fn csv_filename_character_inventory() {
+        let name =
+            csv_default_filename(TableKey::Character(CharacterTableKind::InventoryPlacement));
+        assert_eq!(name, "character-inventory.csv");
     }
 }
