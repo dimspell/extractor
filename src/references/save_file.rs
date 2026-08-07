@@ -649,8 +649,6 @@ pub struct LearnedSpells {
     pub spells: Vec<u8>,
 }
 
-// 7 p, 45
-
 /// Character identity data (name, class, equipment, spells, party).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CharacterIdentity {
