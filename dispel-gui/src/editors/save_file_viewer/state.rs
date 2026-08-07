@@ -848,6 +848,37 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
     let mut hex_editors: Vec<RawHexEditorData> = vec![
         RawHexEditorData {
+            label: "Equipped Equipment",
+            data: save_file
+                .character_identity
+                .equipped_equipment
+                .iter()
+                .flat_map(|s| s.data)
+                .collect::<Vec<_>>(),
+        },
+        RawHexEditorData {
+            label: "Belt Potions",
+            data: save_file
+                .character_identity
+                .belt_potions
+                .iter()
+                .flat_map(|s| s.data)
+                .collect(),
+        },
+        RawHexEditorData {
+            label: "Inventory Placement",
+            data: save_file
+                .character_identity
+                .inventory_placement
+                .iter()
+                .flat_map(|e| e.data)
+                .collect(),
+        },
+        RawHexEditorData {
+            label: "Learned Spells",
+            data: save_file.character_identity.learned_spells.spells.clone(),
+        },
+        RawHexEditorData {
             label: "Belt Data (before stats) - A",
             data: save_file.unknown_before_stats_a.clone(),
         },
