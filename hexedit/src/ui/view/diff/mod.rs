@@ -428,7 +428,7 @@ pub fn view<'a>(
         &cf.diff,
         &state.pattern_by_addr,
         &state.search.match_set,
-        state.search.query_len,
+        state.search.current_len(),
         state.search.current_addr(),
         &state.search.results,
         &state.row_annotations,

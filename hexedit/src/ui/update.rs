@@ -503,6 +503,9 @@ pub fn update(
             state.search.clear();
         }
         HexEditorMessage::SetSearchWidth(width) => {
+            if !matches!(width, 1 | 2 | 4 | 8) {
+                return Task::none();
+            }
             state.search.width = width;
             if state.search.mode == SearchMode::Decimal && !state.search.query.is_empty() {
                 state.search.execute(state.provider.as_slice());

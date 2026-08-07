@@ -88,7 +88,7 @@ pub fn view<'a>(
         None
     };
 
-    let content = row![mode_btn, search_input, count_text, prev_btn, next_btn,];
+    let content = row![mode_btn, search_input, count_text, prev_btn, next_btn];
     // Insert decimal controls before the close button when active.
     let content = if let Some(decimal_controls) = decimal_controls {
         content.push(decimal_controls)

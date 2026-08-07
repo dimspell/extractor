@@ -300,3 +300,70 @@ fn test_search_decimal_width_control_updates_state() {
     send(&mut state, &config, HexEditorMessage::SetSearchWidth(8));
     assert_eq!(state.search.width, 8, "width should update to 8");
 }
+
+#[test]
+fn test_search_invalid_width_ignored() {
+    // Width 3 is not a valid decimal width (1/2/4/8); the message is ignored.
+    let mut state = make_state(b"".to_vec());
+    let config = default_config();
+    assert_eq!(state.search.width, 4, "default width should be 4");
+    send(&mut state, &config, HexEditorMessage::SetSearchWidth(3));
+    assert_eq!(
+        state.search.width, 4,
+        "invalid width should leave the width unchanged"
+    );
+}
+
+#[test]
+fn test_search_set_width_reexecutes_decimal_query() {
+    // With an active Decimal query, changing the width re-executes the search.
+    // 100 as width 1 = 0x64; as width 2 (LE) = 0x64 0x00.
+    let data = b"\x64\x00\x64\xFF";
+    let mut state = make_state(data.to_vec());
+    let config = default_config();
+    // Toggle Hex → Ascii → Decimal (two presses).
+    send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
+    send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
+    assert_eq!(state.search.mode, crate::search::SearchMode::Decimal);
+
+    // Start at width 2: bytes 0x64 0x00 at offset 0 → 1 match.
+    send(&mut state, &config, HexEditorMessage::SetSearchWidth(2));
+    send(&mut state, &config, HexEditorMessage::Search("100".into()));
+    assert_eq!(state.search.count(), 1, "width-2 should match offset 0");
+
+    // Switch to width 1: bytes 0x64 at offsets 0 and 2 → 2 matches.
+    send(&mut state, &config, HexEditorMessage::SetSearchWidth(1));
+    assert_eq!(
+        state.search.count(), 2,
+        "changing width to 1 should re-execute and find both matches"
+    );
+    assert_eq!(state.search.results, vec![0, 2]);
+}
+
+#[test]
+fn test_search_ascii_multiline_extent() {
+    // "ab  \ncd": the query "b cd" collapses the run "  \n" (indices 2..=4).
+    // The match starts at index 1 and covers indices 1..=6 (6 original bytes).
+    let mut state = make_state(b"ab  \ncd".to_vec());
+    let config = default_config();
+    send(&mut state, &config, HexEditorMessage::OpenSearch);
+    send(&mut state, &config, HexEditorMessage::ToggleSearchMode);
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::Search("b cd".into()),
+    );
+    assert_eq!(state.search.count(), 1);
+    assert_eq!(state.search.results[0], 1);
+    assert_eq!(state.search.extents[0], 6);
+    send(&mut state, &config, HexEditorMessage::SearchNext);
+    assert_eq!(state.search.current_len(), 6);
+    for a in 1..=6 {
+        assert!(
+            state.search.match_set.contains(&a),
+            "match_set should contain index {a}"
+        );
+    }
+    assert!(!state.search.match_set.contains(&0));
+    assert!(!state.search.match_set.contains(&7));
+}

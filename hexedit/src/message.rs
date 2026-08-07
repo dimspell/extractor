@@ -126,7 +126,7 @@ pub enum HexEditorMessage {
     OpenSearch,
     /// Trigger a search with the given query string.
     Search(String),
-    /// Toggle search mode (hex / ASCII).
+    /// Toggle search mode (hex / ASCII / decimal).
     ToggleSearchMode,
     /// Navigate to the next match.
     SearchNext,
