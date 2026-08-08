@@ -1,3 +1,6 @@
+// Prevent a cmd.exe console window from appearing alongside the GUI on Windows.
+#![windows_subsystem = "windows"]
+
 use iced::Theme;
 use iced::color;
 
