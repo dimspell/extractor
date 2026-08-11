@@ -43,6 +43,7 @@ mod hex_inspector_toggle_tests {
             pane_focus,
             provider: BufferProvider::from_bytes(baseline),
             bytes_per_row: 16,
+            bpr_input: "16".to_string(),
             selection: Selection::single(0),
             edit_mode: None,
             inspector_edit: None,

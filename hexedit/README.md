@@ -61,7 +61,8 @@ it is embeddable inside any Iced application and powers the hex-editing tab in `
   ASCII substring search. Next/prev match navigation with match highlighting in the matrix.
 - **Goto** (`Ctrl+G`) — Navigate to a specific address. Accepts hex (`0xFF`, `FF`),
   decimal (`255`), and relative offsets (`+10`, `-5`).
-- **Bytes-per-row toggle** — Switch between 8, 16, and 32 bytes per row.
+- **Bytes-per-row toggle** — Set any row width from 1 to 64 bytes: preset buttons
+  (8/16/32) plus a custom numeric input in the settings modal.
 
 ### Data inspector
 - **Built-in decoders** — `u8`, `i8`, `u16`, `i16`, `u32`, `i32`, `u64`, `i64`, `f32`, `f64`,
@@ -346,7 +347,7 @@ pub struct HexEditorState {
     pub panes: pane_grid::State<HexPanel>,
     pub pane_focus: pane_grid::Pane,
     pub provider: BufferProvider,
-    pub bytes_per_row: u8,                    // 8, 16, or 32
+    pub bytes_per_row: u8,                    // 1..=64 (custom via settings modal)
     pub selection: Selection,
     pub edit_mode: Option<EditState>,
     pub inspector_edit: Option<InspectorEditState>,
@@ -445,7 +446,9 @@ Helper methods: `save_label()`, `has_save()`, `can_save_now(state)` (checks `can
 ### Cursor & selection
 | Variant | Purpose |
 |---------|---------|
-| `SetBytesPerRow(u8)` | Toggle 8/16/32 |
+| `SetBytesPerRow(u8)` | Set row width (any value 1–64) |
+| `BytesPerRowInputChanged(String)` | Draft text of the custom bytes-per-row input |
+| `BytesPerRowInputInvalid` | Custom BPR submitted with an out-of-range/non-numeric value |
 | `SelectAt(u64)` | Single click — set anchor=cursor=addr |
 | `ExtendTo(u64)` | Shift-click/drag — move cursor only |
 | `Nav { dir, extend }` | Keyboard navigation |
@@ -996,7 +999,11 @@ cargo test -p hexedit --test '' -- --ignored     # All tests (including slow one
 
 9. **Pane count limit:** Maximum 8 panes (`state.panes.len() < 8` check before split). Enforced in the `SplitPane` handler.
 
-10. **Bytes-per-row validation:** Only 8, 16, and 32 are valid. The `SetBytesPerRow` handler enforces this.
+10. **Bytes-per-row validation:** Any value in `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW`
+    (1–64) is valid. The `SetBytesPerRow` handler enforces this range; the settings
+    modal's custom input goes through `parse_bpr()` and surfaces a status message
+    for invalid submissions. Note that a BPR change also re-lays-out pattern
+    annotations (`recompute_row_annotations()`) since they're keyed by `row * bpr`.
 
 11. **ParagraphCache:** The `state.cache` is shared across frames. It's cheaply cloned into the widget each frame. Always use it for shaped text that survives between frames.
 

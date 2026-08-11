@@ -340,7 +340,7 @@ pub enum MapCommands {
     /// Export map to Tiled TMX format
     #[command(
         about = "Export map to Tiled TMX format",
-        long_about = "Exports a .MAP file to Tiled's orthogonal TMX format with tileset PNGs.\n\nUsage Examples:\n  dispel-extractor map tmx --map cat1.map --gtl cat1.gtl --btl cat1.btl --output out/"
+        long_about = "Exports a .MAP file to Tiled's isometric TMX format with tileset PNGs.\n\nUsage Examples:\n  dispel-extractor map tmx --map cat1.map --gtl cat1.gtl --btl cat1.btl --output out/"
     )]
     Tmx {
         /// Path to the .MAP file

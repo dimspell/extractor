@@ -1,10 +1,11 @@
-use iced::widget::{button, column, container, pick_list, row, text, toggler};
+use iced::widget::{button, column, container, pick_list, row, text, text_input, toggler};
 use iced::{Color, Element, Font, Length};
 
 use crate::HexEditorMessage;
 use crate::HexEditorState;
 use crate::ui::coloring::{ColorScheme, default_byte_colors};
 use crate::ui::theme::{DARK_THEME, ThemeVariant};
+use crate::ui::update::parse_bpr;
 
 /// Colour for section heading text.
 const HEADING_COLOR: Color = DARK_THEME.modal_heading_fg;
@@ -121,9 +122,31 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         btn.on_press(HexEditorMessage::SetBytesPerRow(n))
     };
 
+    // Custom bytes-per-row input — parse the draft on submit; a valid value
+    // applies immediately, an invalid one surfaces a status message via
+    // `BytesPerRowInputInvalid`.
+    let custom_bpr_submit = match parse_bpr(&state.bpr_input) {
+        Some(n) => HexEditorMessage::SetBytesPerRow(n),
+        None => HexEditorMessage::BytesPerRowInputInvalid,
+    };
+    let custom_bpr = text_input(
+        &format!(
+            "{}–{}",
+            crate::state::MIN_BYTES_PER_ROW,
+            crate::state::MAX_BYTES_PER_ROW
+        ),
+        &state.bpr_input,
+    )
+    .on_input(HexEditorMessage::BytesPerRowInputChanged)
+    .on_submit(custom_bpr_submit)
+    .font(Font::MONOSPACE)
+    .size(12)
+    .padding([2, 6])
+    .width(Length::Fixed(48.0));
+
     let bpr_row = row![
         text("Bytes per row").size(12).width(Length::Fill),
-        row![bpr_btn(8), bpr_btn(16), bpr_btn(32)].spacing(4),
+        row![bpr_btn(8), bpr_btn(16), bpr_btn(32), custom_bpr].spacing(4),
     ]
     .spacing(8)
     .align_y(iced::Alignment::Center);

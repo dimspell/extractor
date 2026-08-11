@@ -213,8 +213,8 @@ pub fn draw_diff_view<'a, Message>(
             .and_then(|s| s.get(..bpr))
             .unwrap_or(&[]);
 
-        let hex_a_start = layout::baseline_hex_start(adj_addr_col_w) - scroll_x;
-        let ascii_a_start = layout::baseline_ascii_start(adj_addr_col_w, bpr) - scroll_x;
+        let hex_a_start = bounds.x + layout::baseline_hex_start(adj_addr_col_w) - scroll_x;
+        let ascii_a_start = bounds.x + layout::baseline_ascii_start(adj_addr_col_w, bpr) - scroll_x;
 
         for (col, &b) in row_bytes_a.iter().enumerate() {
             let addr = base_addr + col as u64;
@@ -249,8 +249,9 @@ pub fn draw_diff_view<'a, Message>(
             .and_then(|s| s.get(..bpr))
             .unwrap_or(&[]);
 
-        let hex_b_start = layout::comparison_hex_start(adj_addr_col_w, bpr) - scroll_x;
-        let ascii_b_start = layout::comparison_ascii_start(adj_addr_col_w, bpr) - scroll_x;
+        let hex_b_start = bounds.x + layout::comparison_hex_start(adj_addr_col_w, bpr) - scroll_x;
+        let ascii_b_start =
+            bounds.x + layout::comparison_ascii_start(adj_addr_col_w, bpr) - scroll_x;
 
         for (col, &b) in row_bytes_b.iter().enumerate() {
             let addr = base_addr + col as u64;
@@ -282,7 +283,8 @@ pub fn draw_diff_view<'a, Message>(
         if !widget.row_annotations.is_empty()
             && let Some(segments) = widget.row_annotations.get(&base_addr)
         {
-            let ann_start_x = layout::comparison_ascii_start(adj_addr_col_w, bpr)
+            let ann_start_x = bounds.x
+                + layout::comparison_ascii_start(adj_addr_col_w, bpr)
                 + bpr as f32 * ASCII_CELL_WIDTH
                 + ANN_COL_GAP
                 - scroll_x;
@@ -580,22 +582,22 @@ fn draw_column_headers(
         ("Address", bounds.x, ADDR_COL_WIDTH),
         (
             "Hex (A)",
-            layout::baseline_hex_start(ADDR_COL_WIDTH) - scroll_x,
+            bounds.x + layout::baseline_hex_start(ADDR_COL_WIDTH) - scroll_x,
             bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP,
         ),
         (
             "ASCII",
-            layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
+            bounds.x + layout::baseline_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * ASCII_CELL_WIDTH,
         ),
         (
             "Hex (B)",
-            layout::comparison_hex_start(ADDR_COL_WIDTH, bpr) - scroll_x,
+            bounds.x + layout::comparison_hex_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * HEX_CELL_WIDTH + layout::group_count(bpr) as f32 * GROUP_GAP,
         ),
         (
             "ASCII",
-            layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
+            bounds.x + layout::comparison_ascii_start(ADDR_COL_WIDTH, bpr) - scroll_x,
             bpr as f32 * ASCII_CELL_WIDTH,
         ),
     ];

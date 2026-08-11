@@ -1,8 +1,8 @@
 //! TMX (Tiled Map Editor) export module.
 //!
-//! Exports Dispel `.map` data to the Tiled TMX XML format using orthogonal
-//! tile layers and CSV-encoded tile data. Tiles are exported as raw 32×32
-//! square pixels (no isometric diamond mask).
+//! Exports Dispel `.map` data to the Tiled TMX XML format using isometric
+//! tile layers and CSV-encoded tile data. Tiles are exported as 62×32
+//! diamond-shaped pixels (isometric projection).
 //!
 //! # Usage
 //!
@@ -24,7 +24,8 @@
 //! ```
 
 use super::MapData;
-use super::tileset::Tile;
+use super::tileset::{TILE_HEIGHT, TILE_WIDTH, Tile, plot_tile_rgba};
+#[allow(unused_imports)]
 use crate::sprite::Color;
 use std::io::{BufWriter, Write};
 use std::path::Path;
@@ -35,55 +36,17 @@ use image::RgbaImage;
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/// Plots a single tile as raw 32×32 square pixels (no isometric diamond mask).
-///
-/// Pixels are in row-major order (`colors[y * 32 + x]`). Pure-black pixels
-/// (`r = g = b = 0`) are treated as transparent and skipped.  This matches
-/// the convention established by [`super::tileset::plot_tile_rgba`] but
-/// writes every pixel directly without the isometric diamond mask.
-fn plot_tile_square_rgba(imgbuf: &mut RgbaImage, colors: [Color; 1024], dest_x: i32, dest_y: i32) {
-    let img_w = imgbuf.width() as i32;
-    let img_h = imgbuf.height() as i32;
-
-    for row in 0..32 {
-        for col in 0..32 {
-            let idx = (row * 32 + col) as usize;
-            let pixel = colors[idx];
-
-            // Pure black is assumed to be transparent in the game's tile
-            // format — skip it just like plot_tile / plot_tile_rgba do.
-            if pixel.r == 0 && pixel.g == 0 && pixel.b == 0 {
-                continue;
-            }
-
-            let fx = dest_x + col;
-            let fy = dest_y + row;
-
-            if fx >= 0 && fx < img_w && fy >= 0 && fy < img_h {
-                imgbuf.put_pixel(
-                    fx as u32,
-                    fy as u32,
-                    image::Rgba([pixel.r, pixel.g, pixel.b, 255]),
-                );
-            }
-        }
-    }
-}
-
-/// Writes a tileset atlas PNG image with 32×32 square tiles arranged in a
-/// fixed-width grid.
+/// Writes a tileset atlas PNG image with 62×32 isometric diamond tiles
+/// arranged in a fixed-width grid.
 ///
 /// # Layout
 ///
-/// Uses 48 tiles per row (matching the convention of
-/// [`super::tileset::plot_tileset_map`]), producing an image whose width is
-/// `48 × 32 = 1536` pixels and whose height is a multiple of 32.
+/// Uses 48 tiles per row, producing an image whose width is
+/// `48 × 62 = 2976` pixels and whose height is a multiple of 32.
 fn write_tileset_atlas(tiles: &[Tile], path: &Path) -> std::io::Result<()> {
     let tiles_per_row: u32 = 48;
 
     if tiles.is_empty() {
-        // Write a minimal 1×1 pixel PNG so we never create a zero-size image
-        // (which would panic in `RgbaImage::new`).
         let bitmap = RgbaImage::new(1, 1);
         bitmap
             .save(path)
@@ -92,15 +55,15 @@ fn write_tileset_atlas(tiles: &[Tile], path: &Path) -> std::io::Result<()> {
     }
 
     let rows = (tiles.len() as f64 / tiles_per_row as f64).ceil() as u32;
-    let width = tiles_per_row * 32;
-    let height = rows * 32;
+    let width = tiles_per_row * TILE_WIDTH;
+    let height = rows * TILE_HEIGHT;
 
     let mut bitmap = RgbaImage::new(width, height);
 
     for (idx, tile) in tiles.iter().enumerate() {
-        let tx = (idx as u32 % tiles_per_row) * 32;
-        let ty = (idx as u32 / tiles_per_row) * 32;
-        plot_tile_square_rgba(&mut bitmap, tile.colors, tx as i32, ty as i32);
+        let tx = (idx as u32 % tiles_per_row) * TILE_WIDTH;
+        let ty = (idx as u32 / tiles_per_row) * TILE_HEIGHT;
+        plot_tile_rgba(&mut bitmap, tile.colors, tx as i32, ty as i32);
     }
 
     bitmap
@@ -126,9 +89,9 @@ fn write_tileset_atlas(tiles: &[Tile], path: &Path) -> std::io::Result<()> {
 ///
 /// | File | Description |
 /// |------|-------------|
-/// | `{stem}.tmx` | Main TMX map (orthogonal, CSV-encoded tile layers) |
-/// | `{stem}_ground.png` | GTL tileset atlas (32×32 square tiles, 48/row) |
-/// | `{stem}_roof.png` | BTL tileset atlas (32×32 square tiles, 48/row) |
+/// | `{stem}.tmx` | Main TMX map (isometric, CSV-encoded tile layers) |
+/// | `{stem}_ground.png` | GTL tileset atlas (62×32 diamond tiles, 48/row) |
+/// | `{stem}_roof.png` | BTL tileset atlas (62×32 diamond tiles, 48/row) |
 ///
 /// The `stem` is derived from the `gtl_path` file stem (e.g. `cat1`).
 ///
@@ -180,12 +143,12 @@ pub fn export_tmx(
 
     // Atlas image dimensions (defensive min size to avoid zero-dimension PNG).
     let gtl_rows = (gtl_count as f64 / tiles_per_row as f64).ceil() as u32;
-    let gtl_img_w = (tiles_per_row * 32).max(1);
-    let gtl_img_h = (gtl_rows * 32).max(1);
+    let gtl_img_w = (tiles_per_row * TILE_WIDTH).max(1);
+    let gtl_img_h = (gtl_rows * TILE_HEIGHT).max(1);
 
     let btl_rows = (btl_count as f64 / tiles_per_row as f64).ceil() as u32;
-    let btl_img_w = (tiles_per_row * 32).max(1);
-    let btl_img_h = (btl_rows * 32).max(1);
+    let btl_img_w = (tiles_per_row * TILE_WIDTH).max(1);
+    let btl_img_h = (btl_rows * TILE_HEIGHT).max(1);
 
     let map_w = map_data.model.tiled_map_width;
     let map_h = map_data.model.tiled_map_height;
@@ -200,27 +163,33 @@ pub fn export_tmx(
     write!(
         w,
         r#"<?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11" orientation="orthogonal" \
- renderorder="right-down" width="{}" height="{}" tilewidth="32" \
- tileheight="32" infinite="0">
-  <tileset firstgid="{}" name="ground" tilewidth="32" tileheight="32" \
+<map version="1.10" tiledversion="1.11" orientation="isometric" \
+ renderorder="right-down" width="{}" height="{}" tilewidth="{}" \
+ tileheight="{}" infinite="0">
+  <tileset firstgid="{}" name="ground" tilewidth="{}" tileheight="{}" \
  tilecount="{}" columns="{}">
     <image source="{}_ground.png" width="{}" height="{}"/>
   </tileset>
-  <tileset firstgid="{}" name="roof" tilewidth="32" tileheight="32" \
+  <tileset firstgid="{}" name="roof" tilewidth="{}" tileheight="{}" \
  tilecount="{}" columns="{}">
     <image source="{}_roof.png" width="{}" height="{}"/>
   </tileset>
 "#,
         map_w,
         map_h,
+        TILE_WIDTH,
+        TILE_HEIGHT,
         gtl_firstgid,
+        TILE_WIDTH,
+        TILE_HEIGHT,
         gtl_count,
         tiles_per_row,
         map_name,
         gtl_img_w,
         gtl_img_h,
         btl_firstgid,
+        TILE_WIDTH,
+        TILE_HEIGHT,
         btl_count,
         tiles_per_row,
         map_name,
@@ -285,12 +254,12 @@ pub fn export_tmx(
         for y in 0..map_h {
             for x in 0..map_w {
                 if map_data.collisions.get(&(x, y)).copied().unwrap_or(false) {
-                    let px = x * 32;
-                    let py = y * 32;
+                    let px = (x - y) * (TILE_WIDTH as i32 / 2);
+                    let py = (x + y) * (TILE_HEIGHT as i32 / 2);
                     writeln!(
                         w,
-                        r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>"#,
-                        obj_id, px, py
+                        r#"    <object id="{}" x="{}" y="{}" width="{}" height="{}"/>"#,
+                        obj_id, px, py, TILE_WIDTH, TILE_HEIGHT
                     )?;
                     obj_id += 1;
                 }
@@ -308,17 +277,17 @@ pub fn export_tmx(
                 if let Some(event) = map_data.events.get(&(x, y))
                     && event.event_id != 0
                 {
-                    let px = x * 32;
-                    let py = y * 32;
+                    let px = (x - y) * (TILE_WIDTH as i32 / 2);
+                    let py = (x + y) * (TILE_HEIGHT as i32 / 2);
                     write!(
                         w,
-                        r#"    <object id="{}" x="{}" y="{}" width="32" height="32">
+                        r#"    <object id="{}" x="{}" y="{}" width="{}" height="{}">
       <properties>
         <property name="event_id" value="{}"/>
       </properties>
     </object>
 "#,
-                        obj_id, px, py, event.event_id
+                        obj_id, px, py, TILE_WIDTH, TILE_HEIGHT, event.event_id
                     )?;
                     obj_id += 1;
                 }
@@ -331,12 +300,12 @@ pub fn export_tmx(
     writeln!(w, r#"  <objectgroup id="5" name="TiledObjects">"#)?;
     {
         for (obj_id, obj) in (1u32..).zip(&map_data.tiled_infos) {
-            let px = obj.x * 32;
-            let py = obj.y * 32;
+            let px = (obj.x - obj.y) * (TILE_WIDTH as i32 / 2);
+            let py = (obj.x + obj.y) * (TILE_HEIGHT as i32 / 2);
             writeln!(
                 w,
-                r#"    <object id="{}" x="{}" y="{}" width="32" height="32"/>"#,
-                obj_id, px, py
+                r#"    <object id="{}" x="{}" y="{}" width="{}" height="{}"/>"#,
+                obj_id, px, py, TILE_WIDTH, TILE_HEIGHT
             )?;
         }
     }
@@ -359,96 +328,8 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    /// Basic unit test for `plot_tile_square_rgba`: create a 32×32 image,
-    /// plot a tile with a single red pixel at (0,0), and verify the pixel.
-    #[test]
-    fn test_plot_tile_square_rgba_single_pixel() {
-        let mut colors = [Color { r: 0, g: 0, b: 0 }; 1024];
-        // Set pixel at row 0, col 0 to red.
-        colors[0] = Color { r: 255, g: 0, b: 0 };
-
-        let mut img = RgbaImage::new(32, 32);
-        plot_tile_square_rgba(&mut img, colors, 0, 0);
-
-        let pixel = img.get_pixel(0, 0);
-        assert_eq!(pixel[0], 255, "red channel");
-        assert_eq!(pixel[1], 0, "green channel");
-        assert_eq!(pixel[2], 0, "blue channel");
-        assert_eq!(pixel[3], 255, "alpha channel");
-
-        // Pixel (31, 31) should still be transparent (black was skipped).
-        let p2 = img.get_pixel(31, 31);
-        assert_eq!(p2[3], 0, "unwritten pixel should stay transparent");
-    }
-
-    /// `plot_tile_square_rgba` should skip pure-black pixels.
-    #[test]
-    fn test_plot_tile_square_rgba_skips_black() {
-        let colors = [Color { r: 0, g: 0, b: 0 }; 1024]; // all black
-        let mut img = RgbaImage::new(32, 32);
-        plot_tile_square_rgba(&mut img, colors, 0, 0);
-
-        // All pixels should remain at the default (0,0,0,0) since every
-        // input pixel was pure black → skipped.
-        for y in 0..32 {
-            for x in 0..32 {
-                let p = img.get_pixel(x, y);
-                assert_eq!(p[3], 0, "pixel ({},{}) should be transparent", x, y);
-            }
-        }
-    }
-
-    /// `plot_tile_square_rgba` writes all 1024 colour values to the correct
-    /// row/col positions.
-    #[test]
-    fn test_plot_tile_square_rgba_all_positions() {
-        // Create a tile where every pixel has a unique colour so we can
-        // verify that position (r, c) gets colour (r, c, 0).
-        let mut colors = [Color { r: 0, g: 0, b: 0 }; 1024];
-        for row in 0..32 {
-            for col in 0..32 {
-                let idx = row * 32 + col;
-                colors[idx] = Color {
-                    r: row as u8,
-                    g: col as u8,
-                    b: 128,
-                };
-            }
-        }
-
-        let mut img = RgbaImage::new(32, 32);
-        plot_tile_square_rgba(&mut img, colors, 0, 0);
-
-        for row in 0..32 {
-            for col in 0..32 {
-                let p = img.get_pixel(col, row);
-                assert_eq!(p[0], row as u8, "R at ({},{})", col, row);
-                assert_eq!(p[1], col as u8, "G at ({},{})", col, row);
-                assert_eq!(p[2], 128, "B at ({},{})", col, row);
-                assert_eq!(p[3], 255, "A at ({},{})", col, row);
-            }
-        }
-    }
-
-    /// `plot_tile_square_rgba` handles non-zero destination offsets.
-    #[test]
-    fn test_plot_tile_square_rgba_offset() {
-        let mut colors = [Color { r: 0, g: 0, b: 0 }; 1024];
-        colors[0] = Color { r: 255, g: 0, b: 0 };
-
-        let mut img = RgbaImage::new(64, 64);
-        plot_tile_square_rgba(&mut img, colors, 16, 16);
-
-        // The red pixel should appear at (16, 16), not at (0, 0).
-        let p_at_offset = img.get_pixel(16, 16);
-        assert_eq!(p_at_offset[0], 255);
-
-        let p_at_origin = img.get_pixel(0, 0);
-        assert_eq!(p_at_origin[3], 0, "origin should remain transparent");
-    }
-
     /// `write_tileset_atlas` produces a PNG with the correct dimensions for a
-    /// known number of tiles.
+    /// known number of tiles (62×32 isometric diamond tiles).
     #[test]
     fn test_write_tileset_atlas_dimensions() {
         let tiles: Vec<Tile> = (0..100)
@@ -463,9 +344,10 @@ mod tests {
 
         write_tileset_atlas(&tiles, &path).unwrap();
 
-        // 100 tiles at 48 per row → ceil(100/48) = 3 rows → 3 * 32 = 96 px
+        // 100 tiles at 48 per row → ceil(100/48) = 3 rows → 3 * 32 = 96 px height
+        // width = 48 * 62 = 2976 px
         let img = image::open(&path).unwrap();
-        assert_eq!(img.width(), 48 * 32, "atlas width");
+        assert_eq!(img.width(), 48 * 62, "atlas width");
         assert_eq!(img.height(), 3 * 32, "atlas height");
 
         fs::remove_dir_all(&out_dir).ok();
@@ -537,8 +419,8 @@ mod tests {
         assert!(tmx_content.contains("<?xml"), "Missing XML declaration");
         assert!(tmx_content.contains("<map"), "Missing map element");
         assert!(
-            tmx_content.contains("orientation=\"orthogonal\""),
-            "Missing orientation"
+            tmx_content.contains("orientation=\"isometric\""),
+            "Missing isometric orientation"
         );
         assert!(tmx_content.contains("<layer"), "Missing layer");
         assert!(
@@ -560,6 +442,16 @@ mod tests {
         assert!(
             tmx_content.contains("name=\"TiledObjects\""),
             "Missing TiledObjects object group"
+        );
+
+        // Verify tile dimensions are 62×32 for isometric
+        assert!(
+            tmx_content.contains("tilewidth=\"62\""),
+            "Missing tilewidth=62"
+        );
+        assert!(
+            tmx_content.contains("tileheight=\"32\""),
+            "Missing tileheight=32"
         );
 
         // Verify tile counts match

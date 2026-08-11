@@ -19,8 +19,18 @@ pub enum HexEditorMessage {
     /// Close the focused pane (removed from grid).
     ClosePane,
 
-    /// User asked to change the row width (8/16/32).
+    /// User asked to change the row width. Any value within
+    /// `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW` (1–64) is accepted; the 8/16/32
+    /// buttons are just presets, and the settings modal also allows typing a
+    /// custom value.
     SetBytesPerRow(u8),
+    /// Draft text changed in the custom bytes-per-row input of the settings
+    /// modal. Parsed on submit.
+    BytesPerRowInputChanged(String),
+    /// The custom bytes-per-row input was submitted with an invalid value
+    /// (non-numeric or outside `MIN_BYTES_PER_ROW..=MAX_BYTES_PER_ROW`).
+    /// Surfaces a transient status message.
+    BytesPerRowInputInvalid,
     /// Single click on a cell — sets `anchor = cursor = addr`.
     SelectAt(u64),
     /// Shift-click or drag — moves cursor only.
@@ -116,7 +126,7 @@ pub enum HexEditorMessage {
     OpenSearch,
     /// Trigger a search with the given query string.
     Search(String),
-    /// Toggle search mode (hex / ASCII).
+    /// Toggle search mode (hex / ASCII / decimal).
     ToggleSearchMode,
     /// Navigate to the next match.
     SearchNext,
@@ -124,6 +134,10 @@ pub enum HexEditorMessage {
     SearchPrev,
     /// Close the search overlay.
     CloseSearch,
+    /// Set the decimal search byte width (1/2/4/8).
+    SetSearchWidth(u8),
+    /// Toggle decimal search endianness (little/big).
+    ToggleSearchEndian,
 
     // ── Pattern list panel ───────────────────────────────────────────────
     /// Show/hide the pattern list panel.
