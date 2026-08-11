@@ -1176,7 +1176,7 @@ impl SaveFile {
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 EquipmentSlot {
-                    unknown_a: c.read_u8().unwrap(),
+                    unknown_a: c.read_u8().unwrap(), // item id from weaponItem.db (255/-1 when not equiped)
                     unknown_b: c.read_i32::<LittleEndian>().unwrap(),
                     unknown_c: c.read_i32::<LittleEndian>().unwrap(),
                 }
@@ -1191,8 +1191,8 @@ impl SaveFile {
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 BeltPotionSlot {
-                    unknown_a: c.read_i32::<LittleEndian>().unwrap(),
-                    unknown_b: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_a: c.read_i32::<LittleEndian>().unwrap(), // item type id (10 when not equiped, 1 when equiped)
+                    unknown_b: c.read_i32::<LittleEndian>().unwrap(), // item id from the from miscItem.db (100 when not equiped)
                     unknown_c: c.read_i32::<LittleEndian>().unwrap(),
                     unknown_d: c.read_i32::<LittleEndian>().unwrap(),
                 }
@@ -1207,8 +1207,8 @@ impl SaveFile {
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 InventoryPlacementEntry {
-                    unknown_a: c.read_i32::<LittleEndian>().unwrap(),
-                    unknown_b: c.read_i32::<LittleEndian>().unwrap(),
+                    unknown_a: c.read_i32::<LittleEndian>().unwrap(), // item_type_id (0, 1, 2, 3, 4 or 10 when not set)
+                    unknown_b: c.read_i32::<LittleEndian>().unwrap(), // item id from the corresponding file, 100 when not set)
                     unknown_c: c.read_i32::<LittleEndian>().unwrap(),
                     unknown_d: c.read_i32::<LittleEndian>().unwrap(),
                     unknown_e: c.read_i32::<LittleEndian>().unwrap(),
