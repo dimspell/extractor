@@ -942,8 +942,8 @@ impl SaveFile {
         let maybe_save_slot_id = reader.read_u32::<LittleEndian>()?;
         let game_version = reader.read_f32::<LittleEndian>()?;
         let header = [
-            reader.read_u32::<LittleEndian>()?, // 0: observed 4 or 6
-            reader.read_u32::<LittleEndian>()?, // 1: observed 8 or 12
+            reader.read_u32::<LittleEndian>()?, // 0: map_id in AllMap.ini (zero-indexed)
+            reader.read_u32::<LittleEndian>()?, // 1: map_id in Ref/Map.ini (zero-indexed)
             reader.read_u32::<LittleEndian>()?, // 2: observed 0
             reader.read_u32::<LittleEndian>()?, // 3: monster_block_size (observed 329)
             reader.read_u32::<LittleEndian>()?, // 4: npc_block_size (observed 349)
