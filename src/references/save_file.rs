@@ -1024,6 +1024,10 @@ impl SaveFile {
         let character_position_y = reader.read_i16::<LittleEndian>()?;
 
         // ── Leading data (28 bytes, purpose unknown) ──
+        // u8
+        // u32
+        // u32 - currently selected spell ID
+        // 19 bytes
         let mut unknown_before_stats_b = vec![0u8; 28];
         reader.read_exact(&mut unknown_before_stats_b)?;
 
