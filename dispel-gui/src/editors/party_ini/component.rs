@@ -7,7 +7,7 @@ editable_record_fields!(PartyIniNpc, {
     { name = String / "Name:" },
     { unknown1 = Integer / "Unknown 1:" },
     { unknown2 = Integer / "Unknown 2:" },
-    { unknown3 = Integer / "Unknown 3:" },
+    { starting_level = Integer / "Starting Level:" },
     { unknown4 = Integer / "Unknown 4:" },
     { unknown5 = Integer / "Unknown 5:" },
     { unknown6 = Integer / "Unknown 6:" },

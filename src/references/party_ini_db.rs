@@ -71,7 +71,7 @@ pub struct PartyIniNpc {
     #[extractor(primitive(type = "u8"))]
     pub unknown2: u8,
     #[extractor(primitive(type = "u8"))]
-    pub unknown3: u8,
+    pub starting_level: u8,
     #[extractor(primitive(type = "u8"))]
     pub unknown4: u8,
     #[extractor(primitive(type = "u16"))]
@@ -94,7 +94,7 @@ pub fn save_party_inis(conn: &mut Connection, npcs: &[PartyIniNpc]) -> DbResult<
                 npc.name,
                 npc.unknown1 as i32,
                 npc.unknown2 as i32,
-                npc.unknown3 as i32,
+                npc.starting_level as i32,
                 npc.unknown4 as i32,
                 npc.unknown5 as i32,
                 npc.unknown6 as i32,
