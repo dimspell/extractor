@@ -755,8 +755,6 @@ pub struct SaveFile {
     pub jump_addr_after_maps: u32,
     /// Per-map world state.
     pub maps: Vec<MapSectionData>,
-    /// Opaque bytes between the parsed map records and `jump_addr_after_maps`.
-    pub maps_padding: Vec<u8>,
     /// Unknown data between maps and sprite paths (header + variable-size remainder).
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
@@ -795,17 +793,15 @@ impl SaveFile {
         let number_of_visited_map = reader.read_u32::<LittleEndian>()?;
         let maps = Self::parse_maps_section(&mut reader, number_of_visited_map)?;
 
-        let maps_end = reader.position() as usize;
-        let maps_padding_len = jump_addr_after_maps.checked_sub(maps_end).ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!(
-                    "jump_addr_after_maps ({jump_addr_after_maps}) precedes parsed maps end ({maps_end})"
-                ),
-            )
-        })?;
-        let mut maps_padding = vec![0u8; maps_padding_len];
-        reader.read_exact(&mut maps_padding)?;
+        if jump_addr_after_maps != reader.position() as usize {
+            eprintln!(
+                "jump_addr_after_maps ({:?}) != reader.position() {:?}",
+                jump_addr_after_maps,
+                reader.position() as usize
+            );
+
+            reader.set_position(jump_addr_after_maps as u64);
+        }
 
         // ── 3. Unknown data between maps and sprite paths ──
         let post_maps = Self::parse_post_maps_data(&mut reader, number_of_visited_map)?;
@@ -841,7 +837,6 @@ impl SaveFile {
         Ok(SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
             maps,
-            maps_padding,
             post_maps,
             sprite_paths,
             unknown_before_stats_a: unknown_before_stats,
@@ -1630,7 +1625,7 @@ impl Extractor for SaveFile {
         // Pre-compute maps section to determine jump_addr_after_maps
         let mut maps_buf = Vec::new();
         Self::write_maps_section(&save.maps, &mut maps_buf)?;
-        let jump_addr = 8u32 + maps_buf.len() as u32 + save.maps_padding.len() as u32;
+        let jump_addr = 8u32 + maps_buf.len() as u32;
 
         // 1. Header: jump address after all maps data
         writer.write_u32::<LittleEndian>(jump_addr)?;
@@ -1638,7 +1633,6 @@ impl Extractor for SaveFile {
         // 2. Map count + maps data
         writer.write_u32::<LittleEndian>(save.maps.len() as u32)?;
         writer.write_all(&maps_buf)?;
-        writer.write_all(&save.maps_padding)?;
 
         // 3. Post-maps data
         Self::write_post_maps_data(&save.post_maps, writer)?;

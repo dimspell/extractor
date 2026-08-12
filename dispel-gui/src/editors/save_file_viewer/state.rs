@@ -1023,13 +1023,6 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         })
     }
 
-    if !save_file.maps_padding.is_empty() {
-        hex_editors.push(RawHexEditorData {
-            label: "Map Section Padding".into(),
-            data: save_file.maps_padding.clone(),
-        });
-    }
-
     for map in &save_file.maps {
         let mut data = Vec::with_capacity(11 + map.extra_objects_trailer.records.len());
         data.extend_from_slice(&map.extra_objects_trailer.prefix);
@@ -1041,38 +1034,4 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     }
 
     hex_editors
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use dispel_core::references::save_file::{MapExtraObjectsTrailer, MapSectionData};
-
-    #[test]
-    fn test_get_hex_editors_includes_map_trailer_and_padding() {
-        let save_file = SaveFile {
-            maps_padding: vec![0xAA, 0xBB],
-            maps: vec![MapSectionData {
-                map_id: 42,
-                extra_objects_trailer: MapExtraObjectsTrailer {
-                    prefix: [1; 11],
-                    records: vec![2; 24],
-                },
-                ..Default::default()
-            }],
-            ..Default::default()
-        };
-
-        let editors = get_hex_editors(&save_file);
-
-        assert!(
-            editors
-                .iter()
-                .any(|editor| editor.label == "Map Section Padding" && editor.data == [0xAA, 0xBB])
-        );
-        assert!(editors.iter().any(|editor| {
-            editor.label == "Map 42 Extra-Object Trailer"
-                && editor.data == [vec![1; 11], vec![2; 24]].concat()
-        }));
-    }
 }
