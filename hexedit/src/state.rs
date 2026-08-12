@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use gui_widgets::components::paragraph_cache::ParagraphCache;
+use gui_widgets::components::toast::Toast;
 use iced::widget::pane_grid;
 
 use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_entropies};
@@ -119,8 +120,10 @@ pub struct HexEditorState {
     pub extend_dialog: Option<ExtendDialog>,
     /// Search & replace overlay state.
     pub search: SearchState,
-    /// Last user-facing message produced by an editor action ("Saved …",
-    /// "Recording not active", parse errors). Cleared on next save.
+    /// Pending transient notifications displayed over the editor.
+    pub notifications: Vec<Toast>,
+    /// Latest notification body, retained for compatibility with embedders.
+    /// It is not rendered in the editor chrome; use [`notifications`] instead.
     /// Toggle: false → hex addresses (default), true → decimal.
     pub show_decimal: bool,
     pub status_msg: String,
@@ -182,6 +185,31 @@ pub struct HexEditorState {
 }
 
 impl HexEditorState {
+    /// Queue a short-lived in-editor notification.
+    pub fn notify(&mut self, message: impl Into<String>) {
+        let message = message.into();
+        self.status_msg = message.clone();
+        self.notifications.push(Toast::info("Hex editor", message));
+    }
+
+    /// Dismiss one notification by its current display index.
+    pub fn dismiss_notification(&mut self, index: usize) {
+        if index < self.notifications.len() {
+            self.notifications.remove(index);
+        }
+        self.status_msg = self
+            .notifications
+            .last()
+            .map(|toast| toast.body.clone())
+            .unwrap_or_default();
+    }
+
+    /// Clear all transient notifications.
+    pub fn clear_notifications(&mut self) {
+        self.notifications.clear();
+        self.status_msg.clear();
+    }
+
     /// Create a [`HexEditorState`] from raw byte buffers instead of loading
     /// from disk. Useful for diff views where the "file" is a reconstructed
     /// or patched buffer.
@@ -242,6 +270,7 @@ impl HexEditorState {
             extend_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
+            notifications: Vec::new(),
             status_msg: String::new(),
             error: None,
             repeat_pattern: None,
@@ -332,6 +361,7 @@ impl HexEditorState {
             extend_dialog: None,
             search: SearchState::new(),
             show_decimal: false,
+            notifications: Vec::new(),
             status_msg: String::new(),
             error,
             repeat_pattern: None,

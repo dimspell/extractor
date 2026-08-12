@@ -82,8 +82,10 @@ pub enum HexEditorMessage {
     SaveIntoRecording,
     /// Async result from the save flow.
     SavedIntoRecording(Result<String, String>),
-    /// Wipe the editor's transient status_msg.
+    /// Dismiss all transient notifications.
     ClearStatus,
+    /// Dismiss one toast notification by its display index.
+    DismissNotification(usize),
 
     // ── Pattern highlighting ─────────────────────────────────────────────
     /// Create a pattern from the current selection range (CTRL+E).

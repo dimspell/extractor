@@ -1,11 +1,11 @@
-use gui_widgets::lucide::{icon_char, LUCIDE_FONT};
+use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use iced::widget::{button, column, container, row, text, text_input};
 use iced::{Alignment, Element, Fill, Font, Length};
 use lucide_icons::Icon;
 
+use crate::HexEditorMessage;
 use crate::search::{SearchMode, SearchState};
 use crate::ui::theme::HexEditorTheme;
-use crate::HexEditorMessage;
 
 /// Search bar rendered above the hex matrix.
 ///

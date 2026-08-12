@@ -142,15 +142,6 @@ pub fn build_toolbar<'a>(
         .padding([3, 10])
         .on_press(HexEditorMessage::OpenSearch);
 
-    let status: Element<'a, HexEditorMessage> = if editor.status_msg.is_empty() {
-        text("").size(11).into()
-    } else {
-        text(editor.status_msg.clone())
-            .size(11)
-            .font(Font::MONOSPACE)
-            .into()
-    };
-
     container(
         row![
             save_btn,
@@ -166,7 +157,6 @@ pub fn build_toolbar<'a>(
             // export_btn,
             settings_btn,
             text(hint).size(11).font(Font::MONOSPACE),
-            container(status).width(Fill),
         ]
         .spacing(8)
         .align_y(iced::Alignment::Center),

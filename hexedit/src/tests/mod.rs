@@ -63,6 +63,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         goto: None,
         search: SearchState::new(),
         show_decimal: false,
+        notifications: Vec::new(),
         status_msg: String::new(),
         error: None,
         cache: ParagraphCache::default(),
@@ -129,13 +130,13 @@ fn test_error_state_hides_header_and_toolbar() {
 }
 
 // ============================================================================
-// Status message
+// Toast notifications
 // ============================================================================
 
 #[test]
-fn test_status_message_displays() {
+fn test_toast_notification_displays() {
     let mut state = make_state((0..64).collect());
-    state.status_msg = "Operation completed".into();
+    state.notify("Operation completed");
     let config = default_config();
     let mut ui = simulator(view(&state, &config));
     ui.find("Operation completed")
@@ -143,12 +144,32 @@ fn test_status_message_displays() {
 }
 
 #[test]
-fn test_clear_status_removes_message() {
+fn test_clear_status_removes_notifications() {
     let mut state = make_state((0..64).collect());
-    state.status_msg = "temporary".into();
+    state.notify("temporary");
     let config = default_config();
     send(&mut state, &config, HexEditorMessage::ClearStatus);
-    assert!(state.status_msg.is_empty(), "status should be cleared");
+    assert!(
+        state.notifications.is_empty(),
+        "notifications should be cleared"
+    );
+}
+
+#[test]
+fn test_dismiss_notification_removes_only_the_selected_toast() {
+    let mut state = make_state((0..64).collect());
+    state.notify("First");
+    state.notify("Second");
+    let config = default_config();
+
+    send(
+        &mut state,
+        &config,
+        HexEditorMessage::DismissNotification(0),
+    );
+
+    assert_eq!(state.notifications.len(), 1);
+    assert_eq!(state.notifications[0].body, "Second");
 }
 
 // ============================================================================

@@ -20,6 +20,7 @@ pub(crate) mod diff;
 
 use gui_widgets::components::context_menu::{ContextMenu, Entry as MenuEntry};
 use gui_widgets::components::modal::modal;
+use gui_widgets::components::toast;
 use iced::widget::pane_grid;
 use iced::widget::pane_grid::PaneGrid;
 use iced::widget::space::Space;
@@ -219,7 +220,12 @@ pub fn view<'a>(
         );
     }
 
-    base
+    toast::Manager::new(
+        base,
+        &state.notifications,
+        HexEditorMessage::DismissNotification,
+    )
+    .into()
 }
 
 /// Build the pattern menu entries for the context menu.
