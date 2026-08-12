@@ -51,12 +51,16 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             )
             .push(section_header("Save Metadata"))
             .push(label_row(
-                "Save Slot ID",
-                sf.post_maps.save_slot_id.to_string(),
-            ))
-            .push(label_row(
                 "Game Version",
                 sf.post_maps.game_version.to_string(),
+            ))
+            .push(label_row(
+                "AllMap.ini ID",
+                sf.post_maps.all_map_ini_id.to_string(),
+            ))
+            .push(label_row(
+                "Ref/Map.ini ID",
+                sf.post_maps.ref_map_ini_id.to_string(),
             ))
             .push(label_row(
                 "Unknowns A",
@@ -79,7 +83,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 "Extra Object Block Size",
                 sf.post_maps.extra_object_block_size.to_string(),
             ))
-            .push(label_row("Unknown B", sf.post_maps.unknown_b.to_string()))
             .push(label_row(
                 "Visited Maps",
                 sf.post_maps.number_of_visited_maps.to_string(),
@@ -110,16 +113,6 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     }
                     s
                 },
-            ))
-            .push(label_row(
-                "Unknown C",
-                format!(
-                    "{}, {}, {}, {}",
-                    sf.post_maps.unknown_c[0],
-                    sf.post_maps.unknown_c[1],
-                    sf.post_maps.unknown_c[2],
-                    sf.post_maps.unknown_c[3]
-                ),
             ))
             .spacing(4)
             .padding(16),

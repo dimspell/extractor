@@ -678,17 +678,19 @@ pub struct CharacterIdentity {
 
 /// Unknown data block between map data and sprite paths (section 3).
 ///
-/// Layout: `[9 × u32 header][variable-size remainder]`.
-/// The remainder size is calculated as `(10188 + 4 * num_visited_maps) - 36`.
+/// Layout: `[10 × 4-byte header values][visited map IDs][10,148-byte remainder]`.
+/// The fixed portion, including the visited map IDs, is `10,188 + 4 * num_visited_maps` bytes.
 /// The header values may encode sizes of sub-sections within the remainder
 /// (monster_block_size, npc_block_size, extra_object_block_size observed as 329, 349, 200).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PostMapsData {
-    /// Possibly the save slot index.
-    pub save_slot_id: u32,
     /// Possibly a Win32 timestamp of when this save was created.
     pub game_version: f32,
-    /// 3 unknown u32 values (observed: 4, 8, 0).
+    // ID reference in the AllMap.ini
+    pub all_map_ini_id: u32,
+    // ID reference in the Ref/Map.ini
+    pub ref_map_ini_id: u32,
+    /// 3 unknown u32 values
     pub unknowns_a: [u32; 3],
     /// Possibly the size of the monster data block within the remainder.
     pub monster_block_size: u32,
@@ -696,13 +698,10 @@ pub struct PostMapsData {
     pub npc_block_size: u32,
     /// Possibly the size of the extra object data block within the remainder.
     pub extra_object_block_size: u32,
-    /// One more unknown u32 (observed: 0, sandwiched between npc and extra sizes).
-    pub unknown_b: u32,
     /// The rest of the section after the header.
     pub unknown_block: Vec<u8>,
     pub number_of_visited_maps: u32,
     pub map_ids: Vec<u32>,
-    pub unknown_c: [u32; 4],
 }
 
 /// Unknown data block between events and journal sections.
@@ -934,50 +933,43 @@ impl SaveFile {
 
     /// Parse the unknown data block between maps and sprite paths.
     ///
-    /// Layout: `[9 × u32 header][variable-size remainder]`
+    /// Layout: `[10 × 4-byte header values][visited map IDs][10,148-byte remainder]`
     fn parse_post_maps_data<R: Read>(
         reader: &mut R,
         num_visited_maps: u32,
     ) -> std::io::Result<PostMapsData> {
-        let maybe_save_slot_id = reader.read_u32::<LittleEndian>()?;
+        let unknown_1 = reader.read_u32::<LittleEndian>()?;
         let game_version = reader.read_f32::<LittleEndian>()?;
-        let header = [
-            reader.read_u32::<LittleEndian>()?, // 0: map_id in AllMap.ini (zero-indexed)
-            reader.read_u32::<LittleEndian>()?, // 1: map_id in Ref/Map.ini (zero-indexed)
-            reader.read_u32::<LittleEndian>()?, // 2: observed 0
-            reader.read_u32::<LittleEndian>()?, // 3: monster_block_size (observed 329)
-            reader.read_u32::<LittleEndian>()?, // 4: npc_block_size (observed 349)
-            reader.read_u32::<LittleEndian>()?, // 5: observed 0
-            reader.read_u32::<LittleEndian>()?, // 6: extra_object_block_size (observed 200)
-            reader.read_u32::<LittleEndian>()?, // 7: number of visited maps
-        ];
+        let all_map_ini_id = reader.read_u32::<LittleEndian>()?;
+        let ref_map_ini_id = reader.read_u32::<LittleEndian>()?;
+        let unknown_2 = reader.read_u32::<LittleEndian>()?;
+        let monster_block_size = reader.read_u32::<LittleEndian>()?;
+        let npc_block_size = reader.read_u32::<LittleEndian>()?;
+        let unknown_3 = reader.read_u32::<LittleEndian>()?;
+        let extra_object_block_size = reader.read_u32::<LittleEndian>()?;
+
+        let number_of_visited_maps = reader.read_u32::<LittleEndian>()?;
 
         let mut map_ids = vec![0u32; num_visited_maps as usize];
         for map_id in &mut map_ids {
             *map_id = reader.read_u32::<LittleEndian>()?;
         }
 
-        let unknown_c = [
-            reader.read_u32::<LittleEndian>()?, // 0: observed 128
-            reader.read_u32::<LittleEndian>()?, // 0: observed 64
-            reader.read_u32::<LittleEndian>()?, // 0: observed 768
-            reader.read_u32::<LittleEndian>()?, // 0: observed 544
-        ];
+        let unknowns_a: [u32; 3] = [unknown_1, unknown_2, unknown_3];
 
-        let remainder = 10132;
+        let remainder = 10_148;
         let mut unknown_block = vec![0u8; remainder];
         reader.read_exact(&mut unknown_block)?;
 
         Ok(PostMapsData {
-            save_slot_id: maybe_save_slot_id,
             game_version,
-            unknowns_a: [header[0], header[1], header[2]],
-            monster_block_size: header[3],
-            npc_block_size: header[4],
-            extra_object_block_size: header[6],
-            unknown_b: header[5],
-            number_of_visited_maps: header[7],
-            unknown_c,
+            all_map_ini_id,
+            ref_map_ini_id,
+            monster_block_size,
+            npc_block_size,
+            extra_object_block_size,
+            number_of_visited_maps,
+            unknowns_a,
             map_ids,
             unknown_block,
         })
@@ -1352,21 +1344,18 @@ impl SaveFile {
 
     /// Write post-maps data block.
     fn write_post_maps_data<W: Write>(data: &PostMapsData, writer: &mut W) -> std::io::Result<()> {
-        writer.write_u32::<LittleEndian>(data.save_slot_id)?;
-        writer.write_f32::<LittleEndian>(data.game_version)?;
         writer.write_u32::<LittleEndian>(data.unknowns_a[0])?;
+        writer.write_f32::<LittleEndian>(data.game_version)?;
+        writer.write_u32::<LittleEndian>(data.all_map_ini_id)?;
+        writer.write_u32::<LittleEndian>(data.ref_map_ini_id)?;
         writer.write_u32::<LittleEndian>(data.unknowns_a[1])?;
-        writer.write_u32::<LittleEndian>(data.unknowns_a[2])?;
         writer.write_u32::<LittleEndian>(data.monster_block_size)?;
         writer.write_u32::<LittleEndian>(data.npc_block_size)?;
-        writer.write_u32::<LittleEndian>(data.unknown_b)?;
+        writer.write_u32::<LittleEndian>(data.unknowns_a[2])?;
         writer.write_u32::<LittleEndian>(data.extra_object_block_size)?;
         writer.write_u32::<LittleEndian>(data.number_of_visited_maps)?;
         for id in &data.map_ids {
             writer.write_u32::<LittleEndian>(*id)?;
-        }
-        for c in &data.unknown_c {
-            writer.write_u32::<LittleEndian>(*c)?;
         }
         writer.write_all(&data.unknown_block)?;
         Ok(())
@@ -1385,14 +1374,20 @@ impl SaveFile {
         Ok(())
     }
 
-    /// Write belt data + character stats + trailing unknown bytes.
+    /// Write position data, character stats, and trailing unknown bytes.
     fn write_character_stats<W: Write>(
-        unknown_before: &[u8],
+        unknown_before_a: &[u8],
+        character_position_x: i16,
+        character_position_y: i16,
+        unknown_before_b: &[u8],
         stats: &CharacterStats,
         unknown_after: &[u8],
         writer: &mut W,
     ) -> std::io::Result<()> {
-        writer.write_all(unknown_before)?;
+        writer.write_all(unknown_before_a)?;
+        writer.write_i16::<LittleEndian>(character_position_x)?;
+        writer.write_i16::<LittleEndian>(character_position_y)?;
+        writer.write_all(unknown_before_b)?;
         writer.write_u16::<LittleEndian>(stats.strength)?;
         writer.write_u16::<LittleEndian>(stats.agility)?;
         writer.write_u16::<LittleEndian>(stats.wisdom)?;
@@ -1594,6 +1589,9 @@ impl Extractor for SaveFile {
         // 5. Belt data + character stats + trailing bytes
         Self::write_character_stats(
             &save.unknown_before_stats_a,
+            save.character_position_x,
+            save.character_position_y,
+            &save.unknown_before_stats_b,
             &save.character_stats,
             &save.unknown_after_stats,
             writer,
@@ -1615,5 +1613,68 @@ impl Extractor for SaveFile {
         Self::write_journal(&save.journal, writer)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_write_post_maps_data_matches_recognized_header_layout() {
+        let post_maps = PostMapsData {
+            game_version: 1.5,
+            all_map_ini_id: 2,
+            ref_map_ini_id: 3,
+            unknowns_a: [1, 4, 7],
+            monster_block_size: 5,
+            npc_block_size: 6,
+            extra_object_block_size: 8,
+            number_of_visited_maps: 2,
+            map_ids: vec![9, 10],
+            unknown_block: vec![11, 12],
+        };
+        let mut bytes = Vec::new();
+
+        SaveFile::write_post_maps_data(&post_maps, &mut bytes).unwrap();
+
+        let mut reader = std::io::Cursor::new(bytes);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 1);
+        assert_eq!(reader.read_f32::<LittleEndian>().unwrap(), 1.5);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 3);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 4);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 5);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 6);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 7);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 8);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 9);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 10);
+        assert_eq!(reader.read_u8().unwrap(), 11);
+        assert_eq!(reader.read_u8().unwrap(), 12);
+    }
+
+    #[test]
+    fn test_write_character_stats_preserves_position_and_surrounding_blocks() {
+        let mut bytes = Vec::new();
+
+        SaveFile::write_character_stats(
+            &[1; 8],
+            -123,
+            456,
+            &[2; 28],
+            &CharacterStats::default(),
+            &[3; 9],
+            &mut bytes,
+        )
+        .unwrap();
+
+        assert_eq!(&bytes[..8], &[1; 8]);
+        let mut reader = std::io::Cursor::new(&bytes[8..12]);
+        assert_eq!(reader.read_i16::<LittleEndian>().unwrap(), -123);
+        assert_eq!(reader.read_i16::<LittleEndian>().unwrap(), 456);
+        assert_eq!(&bytes[12..40], &[2; 28]);
+        assert_eq!(&bytes[bytes.len() - 9..], &[3; 9]);
     }
 }
