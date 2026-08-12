@@ -54,7 +54,7 @@ pub fn draw_diff_view<'a, Message>(
     // ── Geometry ────────────────────────────────────────────────────────
     let bpr = widget.bytes_per_row as usize;
     let bpr64 = widget.bytes_per_row as u64;
-    let display_rows = widget.display_rows();
+    let display_rows = state.display_rows(widget);
 
     // Use the longer of the two buffers for row count.
     let total_bytes = widget
@@ -127,7 +127,7 @@ pub fn draw_diff_view<'a, Message>(
 
     // ── Center-on-scroll request (one-shot, set by ◀▶ nav buttons) ──
     if let Some(addr) = widget.pending_center_on.take()
-        && let Some(display_row) = widget.display_row_for_source(addr / bpr64)
+        && let Some(display_row) = display_rows.display_row_for_source(addr / bpr64)
     {
         let display_addr = display_row as u64 * bpr64;
         let scroll = layout::center_scroll_on(

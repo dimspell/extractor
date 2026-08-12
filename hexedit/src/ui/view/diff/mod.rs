@@ -75,6 +75,16 @@ impl DisplayRows {
         }
     }
 
+    pub(super) fn display_row_for_source(&self, source_row: u64) -> Option<usize> {
+        match self {
+            Self::Full { total_rows } if source_row < *total_rows => Some(source_row as usize),
+            Self::Full { .. } => None,
+            Self::Compact(rows) => rows.iter().position(|row| {
+                matches!(row, DisplayRow::Data { source_row: row_source } if *row_source == source_row)
+            }),
+        }
+    }
+
     #[cfg(test)]
     fn compact_rows(&self) -> &[DisplayRow] {
         match self {
@@ -311,7 +321,7 @@ impl<'a, Message> DiffView<'a, Message> {
 
     /// Build the rows shown by this view. In review mode, unchanged spans are
     /// collapsed to a single separator between groups of changed rows.
-    pub(super) fn display_rows(&self) -> DisplayRows {
+    pub(super) fn build_display_rows(&self) -> DisplayRows {
         let total_rows = self.total_rows();
         if !self.diff_review {
             return DisplayRows::Full { total_rows };
@@ -348,13 +358,6 @@ impl<'a, Message> DiffView<'a, Message> {
             });
         }
         DisplayRows::Compact(rows)
-    }
-
-    pub(super) fn display_row_for_source(&self, source_row: u64) -> Option<usize> {
-        let rows = self.display_rows();
-        (0..rows.len()).find(|&index| {
-            matches!(rows.get(index), Some(DisplayRow::Data { source_row: row_source }) if row_source == source_row)
-        })
     }
 }
 
@@ -620,7 +623,7 @@ mod tests {
         dv.diff_review = true;
 
         assert_eq!(
-            dv.display_rows().compact_rows(),
+            dv.build_display_rows().compact_rows(),
             &[
                 DisplayRow::Collapsed {
                     first_row: 0,
@@ -649,7 +652,7 @@ mod tests {
         dv.diff_review = true;
 
         assert_eq!(
-            dv.display_rows().compact_rows(),
+            dv.build_display_rows().compact_rows(),
             &[
                 DisplayRow::Collapsed {
                     first_row: 0,

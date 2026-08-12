@@ -33,8 +33,7 @@ pub fn handle_event<Message>(
         .baseline_bytes
         .len()
         .max(widget.comparison_bytes.len());
-    let display_rows = widget.display_rows();
-    let total_h = display_rows.len() as f32 * ROW_HEIGHT;
+    let total_h = state.display_rows(widget).len() as f32 * ROW_HEIGHT;
 
     match event {
         Event::Mouse(me) => match me {
@@ -179,9 +178,12 @@ pub fn handle_event<Message>(
                 if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
                     let scroll = state.scroll_offset.get();
                     let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
-                    let source_row = match display_rows.get(display_row) {
-                        Some(DisplayRow::Data { source_row }) => source_row,
-                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    let source_row = {
+                        let display_rows = state.display_rows(widget);
+                        match display_rows.get(display_row) {
+                            Some(DisplayRow::Data { source_row }) => source_row,
+                            Some(DisplayRow::Collapsed { .. }) | None => return,
+                        }
                     };
                     let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
@@ -212,9 +214,12 @@ pub fn handle_event<Message>(
                 if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
                     let scroll = state.scroll_offset.get();
                     let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
-                    let source_row = match display_rows.get(display_row) {
-                        Some(DisplayRow::Data { source_row }) => source_row,
-                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    let source_row = {
+                        let display_rows = state.display_rows(widget);
+                        match display_rows.get(display_row) {
+                            Some(DisplayRow::Data { source_row }) => source_row,
+                            Some(DisplayRow::Collapsed { .. }) | None => return,
+                        }
                     };
                     let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
@@ -304,9 +309,12 @@ pub fn handle_event<Message>(
                 {
                     let scroll = state.scroll_offset.get();
                     let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
-                    let source_row = match display_rows.get(display_row) {
-                        Some(DisplayRow::Data { source_row }) => source_row,
-                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    let source_row = {
+                        let display_rows = state.display_rows(widget);
+                        match display_rows.get(display_row) {
+                            Some(DisplayRow::Data { source_row }) => source_row,
+                            Some(DisplayRow::Collapsed { .. }) | None => return,
+                        }
                     };
                     let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
