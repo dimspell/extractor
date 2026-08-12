@@ -973,8 +973,15 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             data: save_file.unknown_before_stats_a.clone(),
         },
         RawHexEditorData {
-            label: "Belt Data (before stats) - B".into(),
-            data: save_file.unknown_before_stats_b.clone(),
+            label: "Character Stats Header".into(),
+            data: {
+                let header = &save_file.character_stats_header;
+                let mut bytes = Vec::with_capacity(24);
+                bytes.push(header.unknown_a);
+                bytes.extend_from_slice(&header.unknown_b.to_le_bytes());
+                bytes.extend_from_slice(&header.unknown_block);
+                bytes
+            },
         },
         RawHexEditorData {
             label: "Unknown After Stats".into(),

@@ -340,6 +340,19 @@ pub struct CharacterStats {
     pub dark_magic_kills: u16,
 }
 
+/// Data immediately before the character stats block (28 bytes).
+///
+/// Layout: `[unknown_a: u8][unknown_b: u32][selected_spell_id: u32][unknown_block: 19 bytes]`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CharacterStatsHeader {
+    pub unknown_a: u8,
+    pub unknown_b: u32,
+    /// ID of the spell currently selected by the player.
+    pub selected_spell_id: u32,
+    /// Remaining unknown bytes in the header.
+    pub unknown_block: [u8; 19],
+}
+
 /// Raw inventory data from a save file (5 item categories).
 ///
 /// Each category stores count-prefixed raw records of a fixed size.
@@ -752,8 +765,8 @@ pub struct SaveFile {
     pub unknown_before_stats_a: Vec<u8>,
     pub character_position_x: i16,
     pub character_position_y: i16,
-    // Unknown 28 bytes
-    pub unknown_before_stats_b: Vec<u8>,
+    /// Header before character stats, including the currently selected spell.
+    pub character_stats_header: CharacterStatsHeader,
     /// Parsed character stats (core, combat, skills, weapon skills).
     pub character_stats: CharacterStats,
     /// Unknown bytes after stats block (9 bytes).
@@ -805,7 +818,7 @@ impl SaveFile {
             unknown_before_stats,
             character_position_x,
             character_position_y,
-            unknown_before_stats_b,
+            character_stats_header,
             character_stats,
             unknown_after_stats,
         ) = Self::parse_character_stats(&mut reader)?;
@@ -834,7 +847,7 @@ impl SaveFile {
             unknown_before_stats_a: unknown_before_stats,
             character_position_x,
             character_position_y,
-            unknown_before_stats_b,
+            character_stats_header,
             character_stats,
             unknown_after_stats,
             inventory,
@@ -1009,7 +1022,8 @@ impl SaveFile {
     /// Parse belt data, character stats, and trailing unknown bytes.
     ///
     /// Layout:
-    ///   `[unknown_before_stats: 40B][strength u16][agility u16][wisdom u16][constitution u16]
+    ///   `[unknown_before_stats_a: 8B][position_x: i16][position_y: i16]
+    ///    [character_stats_header: 28B][strength u16][agility u16][wisdom u16][constitution u16]
     ///    [morale u16][hp_cur u16][hp_max u16][mp_cur u16][mp_max u16]
     ///    [xp u32][level u16][gold u32][offense u16][defense u16]
     ///    [dodge u8][hit u8][magic_power u16][attack_mod u8]
@@ -1021,7 +1035,14 @@ impl SaveFile {
     #[allow(clippy::type_complexity)]
     fn parse_character_stats<R: Read>(
         reader: &mut R,
-    ) -> std::io::Result<(Vec<u8>, i16, i16, Vec<u8>, CharacterStats, Vec<u8>)> {
+    ) -> std::io::Result<(
+        Vec<u8>,
+        i16,
+        i16,
+        CharacterStatsHeader,
+        CharacterStats,
+        Vec<u8>,
+    )> {
         // ── Leading data (8 bytes, purpose unknown) ──
         let mut unknown_before_stats = vec![0u8; 8];
         reader.read_exact(&mut unknown_before_stats)?;
@@ -1029,13 +1050,17 @@ impl SaveFile {
         let character_position_x = reader.read_i16::<LittleEndian>()?;
         let character_position_y = reader.read_i16::<LittleEndian>()?;
 
-        // ── Leading data (28 bytes, purpose unknown) ──
-        // u8
-        // u32
-        // u32 - currently selected spell ID
-        // 19 bytes
-        let mut unknown_before_stats_b = vec![0u8; 28];
-        reader.read_exact(&mut unknown_before_stats_b)?;
+        // ── Character stats header (28 bytes) ──
+        let character_stats_header = CharacterStatsHeader {
+            unknown_a: reader.read_u8()?,
+            unknown_b: reader.read_u32::<LittleEndian>()?,
+            selected_spell_id: reader.read_u32::<LittleEndian>()?,
+            unknown_block: {
+                let mut bytes = [0u8; 19];
+                reader.read_exact(&mut bytes)?;
+                bytes
+            },
+        };
 
         // ── Structured stats block ──
         let character_stats = CharacterStats {
@@ -1086,7 +1111,7 @@ impl SaveFile {
             unknown_before_stats,
             character_position_x,
             character_position_y,
-            unknown_before_stats_b,
+            character_stats_header,
             character_stats,
             unknown_after_stats,
         ))
@@ -1410,7 +1435,7 @@ impl SaveFile {
         unknown_before_a: &[u8],
         character_position_x: i16,
         character_position_y: i16,
-        unknown_before_b: &[u8],
+        character_stats_header: &CharacterStatsHeader,
         stats: &CharacterStats,
         unknown_after: &[u8],
         writer: &mut W,
@@ -1418,7 +1443,10 @@ impl SaveFile {
         writer.write_all(unknown_before_a)?;
         writer.write_i16::<LittleEndian>(character_position_x)?;
         writer.write_i16::<LittleEndian>(character_position_y)?;
-        writer.write_all(unknown_before_b)?;
+        writer.write_u8(character_stats_header.unknown_a)?;
+        writer.write_u32::<LittleEndian>(character_stats_header.unknown_b)?;
+        writer.write_u32::<LittleEndian>(character_stats_header.selected_spell_id)?;
+        writer.write_all(&character_stats_header.unknown_block)?;
         writer.write_u16::<LittleEndian>(stats.strength)?;
         writer.write_u16::<LittleEndian>(stats.agility)?;
         writer.write_u16::<LittleEndian>(stats.wisdom)?;
@@ -1623,7 +1651,7 @@ impl Extractor for SaveFile {
             &save.unknown_before_stats_a,
             save.character_position_x,
             save.character_position_y,
-            &save.unknown_before_stats_b,
+            &save.character_stats_header,
             &save.character_stats,
             &save.unknown_after_stats,
             writer,
@@ -1690,12 +1718,18 @@ mod tests {
     #[test]
     fn test_write_character_stats_preserves_position_and_surrounding_blocks() {
         let mut bytes = Vec::new();
+        let header = CharacterStatsHeader {
+            unknown_a: 2,
+            unknown_b: 3,
+            selected_spell_id: 4,
+            unknown_block: [5; 19],
+        };
 
         SaveFile::write_character_stats(
             &[1; 8],
             -123,
             456,
-            &[2; 28],
+            &header,
             &CharacterStats::default(),
             &[3; 9],
             &mut bytes,
@@ -1706,8 +1740,18 @@ mod tests {
         let mut reader = std::io::Cursor::new(&bytes[8..12]);
         assert_eq!(reader.read_i16::<LittleEndian>().unwrap(), -123);
         assert_eq!(reader.read_i16::<LittleEndian>().unwrap(), 456);
-        assert_eq!(&bytes[12..40], &[2; 28]);
+        assert_eq!(bytes[12], 2);
+        assert_eq!(u32::from_le_bytes(bytes[13..17].try_into().unwrap()), 3);
+        assert_eq!(u32::from_le_bytes(bytes[17..21].try_into().unwrap()), 4);
+        assert_eq!(&bytes[21..40], &[5; 19]);
         assert_eq!(&bytes[bytes.len() - 9..], &[3; 9]);
+
+        let (_, position_x, position_y, parsed_header, _, _) =
+            SaveFile::parse_character_stats(&mut std::io::Cursor::new(bytes)).unwrap();
+        assert_eq!(position_x, -123);
+        assert_eq!(position_y, 456);
+        assert_eq!(parsed_header.selected_spell_id, header.selected_spell_id);
+        assert_eq!(parsed_header.unknown_block, header.unknown_block);
     }
 
     #[test]

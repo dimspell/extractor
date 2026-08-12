@@ -96,6 +96,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 sf.character_position_y.to_string(),
             ))
             .push(label_row(
+                "Selected Spell ID",
+                sf.character_stats_header.selected_spell_id.to_string(),
+            ))
+            .push(label_row(
                 "Map IDs",
                 if sf.post_maps.map_ids.is_empty() {
                     "(none)".to_string()
