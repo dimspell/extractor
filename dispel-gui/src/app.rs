@@ -468,6 +468,10 @@ impl App {
 
 fn hex_editor_state_for_path(path: &Path) -> HexEditorState {
     let mut state = HexEditorState::load_from_path(path);
-    state.layout = crate::binary_layout::layout_for_path(path, state.provider.as_slice());
+    state.set_layout(crate::binary_layout::layout_for_path(
+        path,
+        state.provider.as_slice(),
+    ));
+    state.ensure_outline_pane();
     state
 }
