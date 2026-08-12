@@ -1140,8 +1140,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         .map(|d| {
                             use crate::editors::save_file_viewer::state::RawHexViewer;
                             let editor = hexedit::HexEditorState::from_bytes(
-                                d.label,
-                                d.data.clone(),
+                                d.label.clone(),
+                                d.data,
                                 None,
                                 None,
                             );

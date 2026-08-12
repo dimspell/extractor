@@ -57,7 +57,7 @@ impl SaveFileSection {
 
 /// One embedded hex editor for a raw/unknown block.
 pub struct RawHexViewer {
-    pub label: &'static str,
+    pub label: String,
     pub state: HexEditorState,
 }
 
@@ -917,7 +917,7 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
     let mut hex_editors: Vec<RawHexEditorData> = vec![
         RawHexEditorData {
-            label: "Equipped Equipment",
+            label: "Equipped Equipment".into(),
             data: save_file
                 .character_identity
                 .equipped_equipment
@@ -932,7 +932,7 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .collect::<Vec<_>>(),
         },
         RawHexEditorData {
-            label: "Belt Potions",
+            label: "Belt Potions".into(),
             data: save_file
                 .character_identity
                 .belt_potions
@@ -948,7 +948,7 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .collect(),
         },
         RawHexEditorData {
-            label: "Inventory Placement",
+            label: "Inventory Placement".into(),
             data: save_file
                 .character_identity
                 .inventory_placement
@@ -965,56 +965,107 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .collect(),
         },
         RawHexEditorData {
-            label: "Learned Spells",
+            label: "Learned Spells".into(),
             data: save_file.character_identity.learned_spells.spells.clone(),
         },
         RawHexEditorData {
-            label: "Belt Data (before stats) - A",
+            label: "Belt Data (before stats) - A".into(),
             data: save_file.unknown_before_stats_a.clone(),
         },
         RawHexEditorData {
-            label: "Belt Data (before stats) - B",
+            label: "Belt Data (before stats) - B".into(),
             data: save_file.unknown_before_stats_b.clone(),
         },
         RawHexEditorData {
-            label: "Unknown After Stats",
+            label: "Unknown After Stats".into(),
             data: save_file.unknown_after_stats.clone(),
         },
         RawHexEditorData {
-            label: "Post-Maps unknown remainder",
+            label: "Post-Maps unknown remainder".into(),
             data: save_file.post_maps.unknown_block.clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Block A",
+            label: "Post-Events Block A".into(),
             data: save_file.post_events.block_a.clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Records",
+            label: "Post-Events Records".into(),
             data: save_file.post_events.records.clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Block B",
+            label: "Post-Events Block B".into(),
             data: save_file.post_events.block_b.clone(),
         },
         RawHexEditorData {
-            label: "Identity Unknown Block",
+            label: "Identity Unknown Block".into(),
             data: save_file.character_identity.unknown_block.clone(),
         },
     ];
 
     if let Some(member) = save_file.character_identity.party_members.first() {
         hex_editors.push(RawHexEditorData {
-            label: "Party Member (1)",
+            label: "Party Member (1)".into(),
             data: member.unknown_1.clone(),
         })
     }
 
     if let Some(member) = save_file.character_identity.party_members.get(1) {
         hex_editors.push(RawHexEditorData {
-            label: "Party Member (2)",
+            label: "Party Member (2)".into(),
             data: member.unknown_1.clone(),
         })
     }
 
+    if !save_file.maps_padding.is_empty() {
+        hex_editors.push(RawHexEditorData {
+            label: "Map Section Padding".into(),
+            data: save_file.maps_padding.clone(),
+        });
+    }
+
+    for map in &save_file.maps {
+        let mut data = Vec::with_capacity(11 + map.extra_objects_trailer.records.len());
+        data.extend_from_slice(&map.extra_objects_trailer.prefix);
+        data.extend_from_slice(&map.extra_objects_trailer.records);
+        hex_editors.push(RawHexEditorData {
+            label: format!("Map {} Extra-Object Trailer", map.map_id),
+            data,
+        });
+    }
+
     hex_editors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use dispel_core::references::save_file::{MapExtraObjectsTrailer, MapSectionData};
+
+    #[test]
+    fn test_get_hex_editors_includes_map_trailer_and_padding() {
+        let save_file = SaveFile {
+            maps_padding: vec![0xAA, 0xBB],
+            maps: vec![MapSectionData {
+                map_id: 42,
+                extra_objects_trailer: MapExtraObjectsTrailer {
+                    prefix: [1; 11],
+                    records: vec![2; 24],
+                },
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let editors = get_hex_editors(&save_file);
+
+        assert!(
+            editors
+                .iter()
+                .any(|editor| editor.label == "Map Section Padding" && editor.data == [0xAA, 0xBB])
+        );
+        assert!(editors.iter().any(|editor| {
+            editor.label == "Map 42 Extra-Object Trailer"
+                && editor.data == [vec![1; 11], vec![2; 24]].concat()
+        }));
+    }
 }
