@@ -130,7 +130,7 @@ pub fn view(state: &HexEditorState) -> Element<'_, HexEditorMessage> {
         None => HexEditorMessage::BytesPerRowInputInvalid,
     };
     let custom_bpr = text_input(
-        &format!(
+        format!(
             "{}–{}",
             crate::state::MIN_BYTES_PER_ROW,
             crate::state::MAX_BYTES_PER_ROW

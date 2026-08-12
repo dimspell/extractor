@@ -80,7 +80,7 @@ pub struct FilterBarExtras {
 /// `Message` type (e.g. via `.into()`).
 pub fn build_column_filter_modal<'a, F>(
     col: usize,
-    search: &str,
+    search: &'a str,
     options: &[ColumnFilterOption],
     filters: &HashMap<usize, HashSet<String>>,
     msg_fn: F,
@@ -191,7 +191,7 @@ where
 #[allow(clippy::too_many_arguments)]
 pub fn build_filter_bar<'a, F>(
     filter_mode: GlobalFilterMode,
-    filter_query: &str,
+    filter_query: &'a str,
     is_active: bool,
     highlighted_indices: &[usize],
     current_highlight_pos: Option<usize>,

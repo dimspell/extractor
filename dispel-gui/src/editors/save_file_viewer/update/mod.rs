@@ -3,9 +3,7 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableKey};
-use crate::editors::save_file_viewer::state::{
-    CharacterTableKind, ResizeDrag, SaveFileViewerState,
-};
+use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileViewerState};
 use crate::message::{Message, MessageExt};
 
 pub(crate) mod csv_export;

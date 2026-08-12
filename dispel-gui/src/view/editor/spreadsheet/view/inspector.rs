@@ -105,7 +105,7 @@ fn build_inspector_field<'a>(
                     ))
                 })
             } else {
-                text_input("", &value)
+                text_input("", value.clone())
                     .on_input(move |v| field_changed_msg(orig_idx, field_name.clone(), v))
                     .padding(4)
                     .size(11)
@@ -144,7 +144,7 @@ fn build_inspector_field<'a>(
                     .width(Length::Fill)
                     .into()
             } else {
-                text_input("", &value)
+                text_input("", value.clone())
                     .padding(4)
                     .size(11)
                     .width(Length::Fill)
@@ -178,7 +178,7 @@ fn build_inspector_field<'a>(
         }
         _ => {
             let field_name = descriptor.name.to_string();
-            text_input("", &value)
+            text_input("", value.clone())
                 .on_input(move |v| {
                     spreadsheet_msg(SpreadsheetMessage::InspectorFieldChanged(
                         orig_idx,

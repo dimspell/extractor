@@ -380,10 +380,10 @@ fn body_var(
     for (i, var) in script.variables.iter().enumerate() {
         rows.push(
             row![
-                text_input("", &var.name)
+                text_input("", var.name.clone())
                     .on_input(move |s| EventScrEditorMessage::VariableNameChanged(i, s))
                     .width(Length::FillPortion(2)),
-                text_input("", &var.value)
+                text_input("", var.value.clone())
                     .on_input(move |s| EventScrEditorMessage::VariableValueChanged(i, s))
                     .width(Length::FillPortion(2)),
                 button("Delete")
@@ -416,7 +416,7 @@ fn body_line(
         .enumerate()
         .map(|(i, line)| {
             row![
-                text_input("", line)
+                text_input("", line.clone())
                     .on_input(move |s| EventScrEditorMessage::LineContentChanged(section, i, s))
                     .width(Length::FillPortion(5)),
                 button("Delete")
@@ -451,10 +451,10 @@ fn body_spr(
     for (i, spr) in script.spr_content.iter().enumerate() {
         rows.push(
             row![
-                text_input("", &spr.sprite_alias)
+                text_input("", spr.sprite_alias.clone())
                     .on_input(move |s| EventScrEditorMessage::SpriteAliasChanged(i, s))
                     .width(Length::FillPortion(2)),
-                text_input("", &spr.sprite_file)
+                text_input("", spr.sprite_file.clone())
                     .on_input(move |s| EventScrEditorMessage::SpriteFileChanged(i, s))
                     .width(Length::FillPortion(2)),
                 button("Delete")
@@ -687,7 +687,7 @@ fn render_action_row<'a>(
                     indent_guides(depth),
                     badge("RET", "ret"),
                     text("Val:").size(12).style(style::subtle_text),
-                    text_input("value", val)
+                    text_input("value", val.to_owned())
                         .on_input(move |s| EventScrEditorMessage::ReturnValueChanged(index, s))
                         .width(Length::Fill)
                         .font(Font::MONOSPACE),
@@ -750,12 +750,12 @@ fn render_action_row<'a>(
                     .text_size(12)
                     .padding([2, 6]),
                 text("~").size(13).style(style::subtle_text),
-                text_input("function", &act.function_name)
+                text_input("function", act.function_name.clone())
                     .on_input(move |s| { EventScrEditorMessage::ActionFunctionChanged(index, s) })
                     .width(Length::FillPortion(3))
                     .font(Font::MONOSPACE),
                 text("(").size(13).style(style::subtle_text),
-                text_input("params", &params_str)
+                text_input("params", params_str)
                     .on_input(move |s| { EventScrEditorMessage::ActionParamsChanged(index, s) })
                     .width(Length::FillPortion(2))
                     .font(Font::MONOSPACE),
@@ -983,7 +983,7 @@ fn index_progress_modal(state: &EventScriptEditorState) -> Element<'static, Even
 }
 
 fn view_function_picker(state: &EventScriptEditorState) -> Element<'static, EventScrEditorMessage> {
-    let filter = &state.picker_filter;
+    let filter = state.picker_filter.clone();
     let functions: Vec<&crate::editors::event_scr::functions::IndexedFunction> = match &state
         .index_state
     {
