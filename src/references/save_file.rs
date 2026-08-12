@@ -742,6 +742,8 @@ pub struct SaveFile {
     pub jump_addr_after_maps: u32,
     /// Per-map world state.
     pub maps: Vec<MapSectionData>,
+    /// Opaque bytes between the parsed map records and `jump_addr_after_maps`.
+    pub maps_padding: Vec<u8>,
     /// Unknown data between maps and sprite paths (header + variable-size remainder).
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
@@ -780,15 +782,17 @@ impl SaveFile {
         let number_of_visited_map = reader.read_u32::<LittleEndian>()?;
         let maps = Self::parse_maps_section(&mut reader, number_of_visited_map)?;
 
-        if jump_addr_after_maps != reader.position() as usize {
-            eprintln!(
-                "jump_addr_after_maps ({:?}) != reader.position() {:?}",
-                jump_addr_after_maps,
-                reader.position() as usize
-            );
-
-            reader.set_position(jump_addr_after_maps as u64);
-        }
+        let maps_end = reader.position() as usize;
+        let maps_padding_len = jump_addr_after_maps.checked_sub(maps_end).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "jump_addr_after_maps ({jump_addr_after_maps}) precedes parsed maps end ({maps_end})"
+                ),
+            )
+        })?;
+        let mut maps_padding = vec![0u8; maps_padding_len];
+        reader.read_exact(&mut maps_padding)?;
 
         // ── 3. Unknown data between maps and sprite paths ──
         let post_maps = Self::parse_post_maps_data(&mut reader, number_of_visited_map)?;
