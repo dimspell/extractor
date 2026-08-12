@@ -49,7 +49,7 @@ pub use domain::byte_stats::{
 pub use domain::editing::{EditState, InspectorEditState};
 pub use domain::extend_dialog::ExtendDialog;
 pub use domain::fill_dialog::FillDialog;
-pub use domain::layout::{BinaryLayout, FieldSpan, LayoutRegistry};
+pub use domain::layout::{BinaryLayout, FieldSpan, FixedRecordBinaryLayout, FixedRecordField};
 pub use domain::panel::{HexPanel, HexPanelContent};
 pub use domain::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};
 pub use domain::provider::{BufferProvider, HexProvider};

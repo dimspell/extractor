@@ -1,92 +1,181 @@
-//! Structure-overlay registry.
-//!
-//! A [`BinaryLayout`] decomposes a byte buffer into named, typed [`FieldSpan`]s
-//! that the matrix can color and the inspector can label. v1 ships an empty
-//! registry — the trait + types let the rest of the editor reach for layouts
-//! without knowing if any are wired.
-//!
-//! Phase 6b will derive `BinaryLayout` impls automatically from the
-//! `#[extractor(...)]` byte-offset/size/type attributes already present on
-//! `dispel_core::references::*` records.
+//! Query-oriented structure overlays for binary files.
 
-use std::collections::HashMap;
 use std::ops::Range;
-use std::sync::OnceLock;
 
-/// One named span inside a binary file.
+/// One resolved on-disk field.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldSpan {
     pub range: Range<u64>,
     pub name: &'static str,
     pub ty: &'static str,
+    pub record_type: &'static str,
+    pub record_index: u64,
+    pub color_index: u8,
 }
 
-/// Decompose a buffer's bytes into [`FieldSpan`]s. Implementations should
-/// be cheap to call (the matrix may invoke them per file open).
+/// A binary layout answers only the addresses Hexedit needs to draw.
 pub trait BinaryLayout: Send + Sync {
-    fn layout(&self, bytes: &[u8]) -> Vec<FieldSpan>;
+    fn field_at(&self, address: u64, file_len: u64) -> Option<FieldSpan>;
+    fn fields_in(&self, range: Range<u64>, file_len: u64) -> Vec<FieldSpan>;
+
+    fn is_header_at(&self, _address: u64, _file_len: u64) -> bool {
+        false
+    }
+
+    fn is_truncated_at(&self, _address: u64, _file_len: u64) -> bool {
+        false
+    }
 }
 
-/// Lookup table keyed by lower-cased extension (without leading dot).
-pub struct LayoutRegistry {
-    by_ext: HashMap<&'static str, &'static dyn BinaryLayout>,
+/// A field definition supplied by an embedding application.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FixedRecordField {
+    pub name: &'static str,
+    pub offset: u32,
+    pub size: u32,
+    pub ty: &'static str,
 }
 
-impl LayoutRegistry {
-    pub fn empty() -> Self {
+/// Generic arithmetic for a fixed-record binary format.
+#[derive(Debug, Clone)]
+pub struct FixedRecordBinaryLayout {
+    type_name: &'static str,
+    header_size: u64,
+    record_size: u64,
+    fields: Vec<FixedRecordField>,
+}
+
+impl FixedRecordBinaryLayout {
+    pub fn new(
+        type_name: &'static str,
+        header_size: u32,
+        record_size: u32,
+        fields: impl Into<Vec<FixedRecordField>>,
+    ) -> Self {
+        assert!(
+            record_size > 0,
+            "fixed record layout must have a record size"
+        );
         Self {
-            by_ext: HashMap::new(),
+            type_name,
+            header_size: u64::from(header_size),
+            record_size: u64::from(record_size),
+            fields: fields.into(),
         }
     }
 
-    pub fn get(&self, ext: &str) -> Option<&'static dyn BinaryLayout> {
-        self.by_ext.get(ext.to_ascii_lowercase().as_str()).copied()
+    fn record_index_at(&self, address: u64, file_len: u64) -> Option<u64> {
+        if address < self.header_size || address >= file_len {
+            return None;
+        }
+        let payload = file_len - self.header_size;
+        let complete_end = self.header_size + (payload / self.record_size) * self.record_size;
+        (address < complete_end).then_some((address - self.header_size) / self.record_size)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.by_ext.is_empty()
+    fn field_for_record(&self, record_index: u64, field: FixedRecordField) -> FieldSpan {
+        let start = self.header_size + record_index * self.record_size + u64::from(field.offset);
+        FieldSpan {
+            range: start..start + u64::from(field.size),
+            name: field.name,
+            ty: field.ty,
+            record_type: self.type_name,
+            record_index,
+            color_index: (self
+                .fields
+                .iter()
+                .position(|candidate| *candidate == field)
+                .unwrap_or(0)
+                % 16) as u8,
+        }
     }
 }
 
-/// Process-wide registry. Empty in v1.
-pub fn registry() -> &'static LayoutRegistry {
-    static R: OnceLock<LayoutRegistry> = OnceLock::new();
-    R.get_or_init(LayoutRegistry::empty)
+impl BinaryLayout for FixedRecordBinaryLayout {
+    fn field_at(&self, address: u64, file_len: u64) -> Option<FieldSpan> {
+        let record_index = self.record_index_at(address, file_len)?;
+        self.fields
+            .iter()
+            .copied()
+            .map(|field| self.field_for_record(record_index, field))
+            .find(|span| span.range.contains(&address))
+    }
+
+    fn fields_in(&self, range: Range<u64>, file_len: u64) -> Vec<FieldSpan> {
+        if range.start >= range.end || range.start >= file_len {
+            return Vec::new();
+        }
+        let range = range.start..range.end.min(file_len);
+        let first = self.record_index_at(range.start.max(self.header_size), file_len);
+        let last = self.record_index_at(range.end.saturating_sub(1), file_len);
+        match (first, last) {
+            (Some(first), Some(last)) => (first..=last)
+                .flat_map(|record| {
+                    self.fields
+                        .iter()
+                        .copied()
+                        .map(move |field| self.field_for_record(record, field))
+                })
+                .filter(|span| span.range.start < range.end && range.start < span.range.end)
+                .collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    fn is_header_at(&self, address: u64, file_len: u64) -> bool {
+        address < self.header_size.min(file_len)
+    }
+
+    fn is_truncated_at(&self, address: u64, file_len: u64) -> bool {
+        if address < self.header_size || address >= file_len {
+            return false;
+        }
+        let payload = file_len - self.header_size;
+        let complete_end = self.header_size + (payload / self.record_size) * self.record_size;
+        address >= complete_end
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    struct StubLayout;
-    impl BinaryLayout for StubLayout {
-        fn layout(&self, _bytes: &[u8]) -> Vec<FieldSpan> {
-            vec![FieldSpan {
-                range: 0..4,
-                name: "header",
-                ty: "u32",
-            }]
-        }
+    fn layout() -> FixedRecordBinaryLayout {
+        FixedRecordBinaryLayout::new(
+            "Record",
+            4,
+            8,
+            vec![
+                FixedRecordField {
+                    name: "tag",
+                    offset: 0,
+                    size: 2,
+                    ty: "u16",
+                },
+                FixedRecordField {
+                    name: "value",
+                    offset: 2,
+                    size: 4,
+                    ty: "i32",
+                },
+            ],
+        )
     }
 
     #[test]
-    fn empty_registry_returns_none() {
-        let r = LayoutRegistry::empty();
-        assert!(r.get("db").is_none());
-        assert!(r.is_empty());
+    fn test_fixed_layout_resolves_headered_record_fields() {
+        let layout = layout();
+        let field = layout.field_at(14, 20).unwrap();
+        assert_eq!(field.name, "value");
+        assert_eq!(field.record_index, 1);
+        assert_eq!(field.range, 14..18);
     }
 
     #[test]
-    fn stub_layout_returns_named_spans() {
-        let l = StubLayout;
-        let spans = l.layout(&[0; 8]);
-        assert_eq!(spans.len(), 1);
-        assert_eq!(spans[0].name, "header");
-        assert_eq!(spans[0].range, 0..4);
-    }
-
-    #[test]
-    fn process_registry_is_empty_by_default() {
-        assert!(registry().is_empty());
+    fn test_fixed_layout_clips_visible_range_and_hides_partial_record() {
+        let layout = layout();
+        assert_eq!(layout.fields_in(10..16, 21).len(), 2);
+        assert!(layout.field_at(20, 21).is_none());
+        assert!(layout.is_truncated_at(20, 21));
     }
 }

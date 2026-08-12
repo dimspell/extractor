@@ -10,6 +10,7 @@ use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_ent
 use super::domain::export_config::ExportConfig;
 use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
+use super::domain::layout::BinaryLayout;
 use super::domain::panel::{HexPanel, default_pane_grid};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
@@ -55,6 +56,8 @@ pub const MAX_BYTES_PER_ROW: u8 = 64;
 pub struct HexEditorState {
     pub path: PathBuf,
     pub name: String,
+    /// Immutable, per-tab metadata that describes this file's binary structure.
+    pub layout: Option<Box<dyn BinaryLayout>>,
     /// Halloy-style pane grid: movable, splittable, resizable panels.
     pub panes: pane_grid::State<HexPanel>,
     /// Which pane currently has keyboard focus in the grid.
@@ -224,6 +227,16 @@ impl HexEditorState {
         vanilla: Option<Vec<u8>>,
         path: Option<PathBuf>,
     ) -> Self {
+        Self::from_bytes_with_layout(name, data, vanilla, path, None)
+    }
+
+    pub fn from_bytes_with_layout(
+        name: impl Into<String>,
+        data: Vec<u8>,
+        vanilla: Option<Vec<u8>>,
+        path: Option<PathBuf>,
+        layout: Option<Box<dyn BinaryLayout>>,
+    ) -> Self {
         let name = name.into();
         let path = path.unwrap_or_else(|| PathBuf::from(&name));
         let row_entropies = compute_row_entropies(&data, DEFAULT_BYTES_PER_ROW);
@@ -239,6 +252,7 @@ impl HexEditorState {
         let mut state = Self {
             path,
             name,
+            layout,
             panes,
             pane_focus,
             provider: BufferProvider::from_bytes(data),
@@ -298,6 +312,10 @@ impl HexEditorState {
     }
 
     pub fn load_from_path(path: &Path) -> Self {
+        Self::load_from_path_with_layout(path, None)
+    }
+
+    pub fn load_from_path_with_layout(path: &Path, layout: Option<Box<dyn BinaryLayout>>) -> Self {
         let name = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -330,6 +348,7 @@ impl HexEditorState {
         Self {
             path: path.to_path_buf(),
             name,
+            layout,
             panes,
             pane_focus,
             provider,

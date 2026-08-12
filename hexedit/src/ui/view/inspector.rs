@@ -51,6 +51,11 @@ pub fn view<'a>(
         let bytes = &src_bytes[cursor as usize..read_end as usize];
 
         let mut col = column![].spacing(1).padding([4, 12]);
+        if matches!(editor.inspector_source, InspectorSource::Baseline)
+            && let Some(context) = structure_context(editor)
+        {
+            col = col.push(context);
+        }
         let mut last_category: Option<&str> = None;
 
         for (idx, entry) in ENTRIES.iter().enumerate() {
@@ -103,6 +108,62 @@ pub fn view<'a>(
         .width(Fill)
         .height(Fill)
         .into()
+}
+
+fn structure_context(editor: &HexEditorState) -> Option<Element<'static, HexEditorMessage>> {
+    let layout = editor.layout.as_deref()?;
+    let cursor = editor.selection.cursor;
+    let file_len = editor.provider.len();
+    if let Some(field) = layout.field_at(cursor, file_len) {
+        return Some(
+            container(
+                column![
+                    text("── Structure ──").size(9).font(Font::MONOSPACE),
+                    text(format!(
+                        "{} · record {}",
+                        field.record_type, field.record_index
+                    ))
+                    .size(10)
+                    .font(Font::MONOSPACE),
+                    text(format!(
+                        "{} · {} · bytes {}–{}",
+                        field.name,
+                        field.ty,
+                        field.range.start,
+                        field.range.end - 1
+                    ))
+                    .size(10)
+                    .font(Font::MONOSPACE),
+                ]
+                .spacing(2),
+            )
+            .padding([4, 0])
+            .into(),
+        );
+    }
+    if layout.is_header_at(cursor, file_len) {
+        return Some(
+            container(
+                text("── Structure ──\nfile header")
+                    .size(10)
+                    .font(Font::MONOSPACE),
+            )
+            .padding([4, 0])
+            .into(),
+        );
+    }
+    if layout.is_truncated_at(cursor, file_len) {
+        return Some(
+            container(
+                text("── Structure ──\ntruncated record")
+                    .size(10)
+                    .font(Font::MONOSPACE),
+            )
+            .padding([4, 0])
+            .into(),
+        );
+    }
+    None
 }
 
 /// A/B toggle letting the inspector decode from the main file or the

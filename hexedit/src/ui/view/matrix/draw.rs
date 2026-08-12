@@ -306,6 +306,9 @@ pub fn draw_matrix<'a, Message>(
             let is_dirty = widget.dirty.contains(&addr);
             let is_diff = widget.vanilla_diff.contains(&addr);
             let pat_entry = widget.patterns.get(&addr).copied();
+            let structure_field = widget
+                .layout
+                .and_then(|layout| layout.field_at(addr, widget.bytes.len() as u64));
             let is_editing = edit_addr == Some(addr);
 
             // Background priority: edit > selection-cursor > selection >
@@ -331,7 +334,9 @@ pub fn draw_matrix<'a, Message>(
             } else if is_diff {
                 Some(diff_bg)
             } else {
-                None
+                structure_field
+                    .as_ref()
+                    .map(|field| theme.pattern_bg_palette[field.color_index as usize % 16])
             };
 
             // Default foreground via the shared provider chain.
@@ -348,6 +353,8 @@ pub fn draw_matrix<'a, Message>(
                 dirty_text
             } else if is_diff {
                 diff_text
+            } else if let Some(field) = &structure_field {
+                theme.pattern_fg_palette[field.color_index as usize % 16]
             } else {
                 default_fg
             };
@@ -361,6 +368,8 @@ pub fn draw_matrix<'a, Message>(
                 dirty_text
             } else if is_diff {
                 diff_text
+            } else if let Some(field) = &structure_field {
+                theme.pattern_fg_palette[field.color_index as usize % 16]
             } else if widget.color_scheme != crate::coloring::ColorScheme::Monochrome {
                 default_fg
             } else {
@@ -391,6 +400,15 @@ pub fn draw_matrix<'a, Message>(
             if let Some(c) = bg {
                 fill_cell(renderer, cell_x, y, HEX_CELL_WIDTH, c, cell_clip);
                 fill_cell(renderer, ax, y, ASCII_CELL_WIDTH, c, cell_clip);
+            }
+            if structure_field
+                .as_ref()
+                .is_some_and(|field| field.range.start == addr)
+            {
+                let boundary = theme.pattern_fg_palette
+                    [structure_field.as_ref().unwrap().color_index as usize % 16];
+                fill_cell(renderer, cell_x, y, 1.0, boundary, cell_clip);
+                fill_cell(renderer, ax, y, 1.0, boundary, cell_clip);
             }
 
             if is_editing {

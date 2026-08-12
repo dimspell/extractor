@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::references::enums::{MonsterAiType, PropertyFlag};
 use crate::references::extractor::Extractor;
-use dispel_macros::{Extractor, RecordPatcher};
+use dispel_macros::{Extractor, RecordLayout, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
@@ -95,7 +95,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Defines all monster types with complete combat statistics, behavior patterns,
 /// and reward systems. Used by game engine for monster spawning and combat AI.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Extractor, RecordPatcher)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, Extractor, RecordLayout, RecordPatcher)]
 #[extractor(property_item_size = 160, counter_size = 0)]
 #[patcher(filename = "Monster.db")]
 pub struct Monster {
@@ -207,6 +207,28 @@ pub struct Monster {
     /// Delay ticks between swings.
     #[extractor(primitive(type = "i32"))]
     pub attack_speed: i32,
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::Monster;
+    use crate::references::layout::RecordLayout;
+
+    #[test]
+    fn test_monster_record_layout_matches_documented_offsets() {
+        let layout = Monster::LAYOUT;
+        assert_eq!(layout.header_size, 0);
+        assert_eq!(layout.record_size, 160);
+        assert_eq!(layout.fields[0].name, "name");
+        assert_eq!(layout.fields[0].offset, 0);
+        assert_eq!(layout.fields[0].size, 24);
+        assert_eq!(layout.fields[1].name, "health_points_max");
+        assert_eq!(layout.fields[1].offset, 24);
+        assert_eq!(
+            layout.fields.last().unwrap().offset + layout.fields.last().unwrap().size,
+            160
+        );
+    }
 }
 
 pub fn read_monster_db(source_path: &Path) -> std::io::Result<Vec<Monster>> {

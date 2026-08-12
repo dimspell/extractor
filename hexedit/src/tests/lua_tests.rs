@@ -535,6 +535,7 @@ return { name = "from_dir_b", min_size = 1, decode = function(b) return "B" end 
     let mut state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        layout: None,
         panes,
         pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
@@ -606,6 +607,7 @@ fn test_load_lua_scripts_nonexistent_dir_returns_no_errors() {
     let mut state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        layout: None,
         panes,
         pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0x00]),
@@ -708,6 +710,7 @@ return {
     let state = crate::state::HexEditorState {
         path: std::path::PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        layout: None,
         panes,
         pane_focus,
         provider: crate::provider::BufferProvider::from_bytes(vec![0xAB]),

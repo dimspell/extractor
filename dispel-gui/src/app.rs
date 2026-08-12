@@ -327,7 +327,12 @@ impl App {
                         .editors
                         .hex_editors
                         .entry(tab_id)
-                        .or_insert_with(|| HexEditorState::load_from_path(path));
+                        .or_insert_with(|| {
+                            HexEditorState::load_from_path_with_layout(
+                                path,
+                                crate::binary_layout::layout_for_path(path),
+                            )
+                        });
                     if let Some(ref dir) = scripts_dir {
                         let errors = state.load_lua_scripts(dir);
                         for e in &errors {
@@ -449,7 +454,12 @@ impl App {
                 .editors
                 .hex_editors
                 .entry(tab_id)
-                .or_insert_with(|| HexEditorState::load_from_path(path));
+                .or_insert_with(|| {
+                    HexEditorState::load_from_path_with_layout(
+                        path,
+                        crate::binary_layout::layout_for_path(path),
+                    )
+                });
             if let Some(ref dir) = scripts_dir {
                 let errors = state.load_lua_scripts(dir);
                 for e in &errors {

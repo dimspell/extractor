@@ -8,6 +8,8 @@ pub mod localization;
 pub mod map;
 pub mod modding;
 pub mod references;
+
+pub use references::layout::{FieldDef, FixedRecordLayout, RecordLayout};
 pub mod snf;
 pub mod sprite;
 

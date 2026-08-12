@@ -39,6 +39,7 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
     HexEditorState {
         path: PathBuf::from("test.bin"),
         name: "test.bin".to_string(),
+        layout: None,
         panes,
         pane_focus,
         provider: BufferProvider::from_bytes(data),

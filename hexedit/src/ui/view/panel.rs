@@ -82,6 +82,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
 
     HexMatrix::new(
         state.provider.as_slice(),
+        state.layout.as_deref(),
         state.bytes_per_row,
         state.selection,
         edit,
