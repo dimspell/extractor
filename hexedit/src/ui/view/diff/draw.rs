@@ -19,12 +19,12 @@ use crate::coloring::{ColorScheme, default_byte_colors};
 use crate::ui::theme::HexEditorTheme;
 use crate::ui::view::minimap;
 
-use super::DiffView;
 use super::layout::{
     self, ADDR_COL_WIDTH, ANN_COL_GAP, ASCII_CELL_WIDTH, GROUP_GAP, HEADER_HEIGHT, HEX_CELL_WIDTH,
     MAX_ANN_COL_WIDTH, ROW_HEIGHT, SCROLLBAR_THICKNESS, TEXT_SIZE, visible_row_range,
 };
 use super::state::State;
+use super::{DiffView, DisplayRow};
 
 type Paragraph = GraphicsParagraph;
 
@@ -54,14 +54,14 @@ pub fn draw_diff_view<'a, Message>(
     // ── Geometry ────────────────────────────────────────────────────────
     let bpr = widget.bytes_per_row as usize;
     let bpr64 = widget.bytes_per_row as u64;
-    let total_rows = widget.total_rows();
+    let display_rows = widget.display_rows();
 
     // Use the longer of the two buffers for row count.
     let total_bytes = widget
         .baseline_bytes
         .len()
         .max(widget.comparison_bytes.len());
-    let total_h = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
+    let total_h = display_rows.len() as f32 * ROW_HEIGHT;
 
     let content_top = bounds.y + HEADER_HEIGHT;
     let viewport_h = widget.content_viewport_h(bounds.height, bounds.width);
@@ -126,10 +126,13 @@ pub fn draw_diff_view<'a, Message>(
     let cursor_addr = widget.selection.cursor;
 
     // ── Center-on-scroll request (one-shot, set by ◀▶ nav buttons) ──
-    if let Some(addr) = widget.pending_center_on.take() {
+    if let Some(addr) = widget.pending_center_on.take()
+        && let Some(display_row) = widget.display_row_for_source(addr / bpr64)
+    {
+        let display_addr = display_row as u64 * bpr64;
         let scroll = layout::center_scroll_on(
             state.scroll_offset.get(),
-            addr,
+            display_addr,
             bpr64,
             viewport_h.max(1.0),
             total_h,
@@ -171,18 +174,25 @@ pub fn draw_diff_view<'a, Message>(
     );
 
     // ── Visible row range ─────────────────────────────────────────────
-    let visible = visible_row_range(scroll, viewport_h, ROW_HEIGHT, total_rows, layout::OVERSCAN);
+    let visible = visible_row_range(
+        scroll,
+        viewport_h,
+        ROW_HEIGHT,
+        display_rows.len() as u64,
+        layout::OVERSCAN,
+    );
 
     // ── Data rows ──────────────────────────────────────────────────────
-    for row_idx in visible.clone() {
-        let base_addr = row_idx as u64 * bpr64;
-
-        // "Show Diffs Only" — skip rows with zero differing bytes.
-        if widget.diff_review && !widget.row_has_diff(base_addr) {
+    for display_idx in visible {
+        let y = content_bounds.y + (display_idx as f32 * ROW_HEIGHT) - scroll;
+        let Some(row) = display_rows.get(display_idx) else {
             continue;
-        }
-
-        let y = content_bounds.y + (row_idx as f32 * ROW_HEIGHT) - scroll;
+        };
+        let DisplayRow::Data { source_row } = row else {
+            draw_collapsed_separator(renderer, widget, row, y, bounds, content_clip, font);
+            continue;
+        };
+        let base_addr = source_row * bpr64;
 
         // ── Address gutter ─────────────────────────────────────────────
         let addr_str = if widget.show_decimal {
@@ -319,7 +329,7 @@ pub fn draw_diff_view<'a, Message>(
 
     // ── Minimap overview strip (between content and scrollbar) ──────────
     let needs_vscroll = total_h > viewport_h;
-    if needs_vscroll && widget.show_minimap {
+    if needs_vscroll && widget.show_minimap && !widget.diff_review {
         let total_len = total_bytes as u64;
         let h_px = viewport_h.max(1.0) as u32;
         let empty_dirty = BTreeSet::new();
@@ -416,6 +426,59 @@ pub fn draw_diff_view<'a, Message>(
             widget.theme,
         );
     }
+}
+
+/// Draw one compact marker for a run of unchanged source rows.
+fn draw_collapsed_separator<Message>(
+    renderer: &mut iced::Renderer,
+    widget: &DiffView<'_, Message>,
+    row: DisplayRow,
+    y: f32,
+    bounds: Rectangle,
+    clip: Rectangle,
+    font: Font,
+) {
+    let DisplayRow::Collapsed { first_row, count } = row else {
+        return;
+    };
+    let separator = Rectangle {
+        x: bounds.x,
+        y,
+        width: bounds.width - widget.right_strip(),
+        height: ROW_HEIGHT,
+    };
+    if let Some(rect) = clip.intersection(&separator) {
+        renderer.fill_quad(
+            renderer::Quad {
+                bounds: rect,
+                border: Border::default(),
+                shadow: Shadow::default(),
+                snap: true,
+            },
+            Background::Color(widget.theme.header_separator),
+        );
+    }
+
+    let last_row = first_row + count.saturating_sub(1);
+    let label = format!(
+        "… {count} unchanged rows hidden ({:08X}–{:08X}) …",
+        first_row * widget.bytes_per_row as u64,
+        (last_row + 1) * widget.bytes_per_row as u64 - 1,
+    );
+    draw_glyph_string(
+        renderer,
+        &widget.cache,
+        &label,
+        font,
+        Rectangle {
+            x: bounds.x + 8.0,
+            y,
+            width: (bounds.width - widget.right_strip() - 16.0).max(0.0),
+            height: ROW_HEIGHT,
+        },
+        widget.theme.header_fg,
+        clip,
+    );
 }
 
 // ── Per-byte cell rendering ─────────────────────────────────────────────

@@ -295,7 +295,7 @@ pub enum HexEditorMessage {
     DiffNavNext,
     /// Jump to the previous contiguous diff chunk.
     DiffNavPrev,
-    /// Toggle "show only diff rows" mode in the diff view.
+    /// Toggle compact change-review mode in the diff view.
     ToggleDiffReview,
 
     // ── Export as text ──────────────────────────────────────────────────

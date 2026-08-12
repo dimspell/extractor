@@ -79,8 +79,8 @@ pub struct HexEditorState {
     /// Optional comparison file for side-by-side diff view.
     /// When `Some`, the Diff pane renders both files with diff-coloured cells.
     pub comparison_file: Option<ComparisonFile>,
-    /// When `true`, the matrix (or diff view) only shows rows that contain at
-    /// least one differing address. Toggled via [`ToggleDiffReview`].
+    /// When `true`, the diff view collapses unchanged runs into labelled
+    /// separators around blocks of changed rows. Toggled via [`ToggleDiffReview`].
     pub diff_review: bool,
     /// Highlighted byte ranges for pattern matching/debugging. In-memory only,
     /// not persisted to disk.

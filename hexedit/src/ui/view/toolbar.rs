@@ -112,15 +112,15 @@ pub fn build_toolbar<'a>(
 
     let diff_review_btn = if has_comparison {
         let label = if editor.diff_review {
-            "Full View"
+            "Show Full Diff"
         } else {
-            "Show Diffs Only"
+            "Review Changes"
         };
         button(text(label).size(11).font(Font::MONOSPACE))
             .padding([3, 10])
             .on_press(HexEditorMessage::ToggleDiffReview)
     } else {
-        button(text("Show Diffs Only").size(11).font(Font::MONOSPACE))
+        button(text("Review Changes").size(11).font(Font::MONOSPACE))
             .padding([3, 10])
             .style(button::secondary)
     };

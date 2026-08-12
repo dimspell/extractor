@@ -1389,9 +1389,9 @@ pub fn update(
         HexEditorMessage::ToggleDiffReview => {
             state.diff_review = !state.diff_review;
             state.notify(if state.diff_review {
-                "Showing only diff rows".to_string()
+                "Reviewing change blocks".to_string()
             } else {
-                "Showing all rows".to_string()
+                "Showing full diff".to_string()
             });
         }
 

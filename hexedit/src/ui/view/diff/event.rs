@@ -8,10 +8,10 @@ use iced::{Event, Rectangle};
 
 use crate::ui::view::minimap::{self, MINIMAP_WIDTH};
 
-use super::DiffView;
 use super::draw;
 use super::layout::{self, ROW_HEIGHT, SCROLLBAR_THICKNESS, clamp_scroll};
 use super::state::State;
+use super::{DiffView, DisplayRow};
 
 pub type Cursor = mouse::Cursor;
 
@@ -33,7 +33,8 @@ pub fn handle_event<Message>(
         .baseline_bytes
         .len()
         .max(widget.comparison_bytes.len());
-    let total_h = (total_bytes.div_ceil(bpr) as f32) * ROW_HEIGHT;
+    let display_rows = widget.display_rows();
+    let total_h = display_rows.len() as f32 * ROW_HEIGHT;
 
     match event {
         Event::Mouse(me) => match me {
@@ -143,7 +144,7 @@ pub fn handle_event<Message>(
 
                 // ── Minimap click / drag ──
                 let has_vscroll = total_h > viewport_h;
-                if widget.show_minimap && has_vscroll {
+                if widget.show_minimap && !widget.diff_review && has_vscroll {
                     let cb = Rectangle {
                         x: bounds.x,
                         y: content_top,
@@ -177,8 +178,12 @@ pub fn handle_event<Message>(
                 // ── Click in data area → set cursor ──
                 if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
                     let scroll = state.scroll_offset.get();
-                    let row = (scroll + rel_y) / ROW_HEIGHT;
-                    let base_addr = (row as u64) * bpr64;
+                    let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
+                    let source_row = match display_rows.get(display_row) {
+                        Some(DisplayRow::Data { source_row }) => source_row,
+                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    };
+                    let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
@@ -206,8 +211,12 @@ pub fn handle_event<Message>(
                 // Right-click in data area → context menu.
                 if rel_y >= 0.0 && rel_y <= viewport_h && rel_x >= 0.0 && rel_x <= bounds.width {
                     let scroll = state.scroll_offset.get();
-                    let row = (scroll + rel_y) / ROW_HEIGHT;
-                    let base_addr = (row as u64) * bpr64;
+                    let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
+                    let source_row = match display_rows.get(display_row) {
+                        Some(DisplayRow::Data { source_row }) => source_row,
+                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    };
+                    let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
@@ -294,8 +303,12 @@ pub fn handle_event<Message>(
                     && rel_x <= bounds.width
                 {
                     let scroll = state.scroll_offset.get();
-                    let row = (scroll + rel_y) / ROW_HEIGHT;
-                    let base_addr = (row as u64) * bpr64;
+                    let display_row = ((scroll + rel_y) / ROW_HEIGHT) as usize;
+                    let source_row = match display_rows.get(display_row) {
+                        Some(DisplayRow::Data { source_row }) => source_row,
+                        Some(DisplayRow::Collapsed { .. }) | None => return,
+                    };
+                    let base_addr = source_row * bpr64;
                     let col = draw::col_at_x(rel_x, bpr, state.scroll_x.get());
                     if let Some((byte_col, is_baseline)) = col {
                         let addr = base_addr + byte_col as u64;
@@ -335,7 +348,7 @@ pub fn handle_event<Message>(
                 }
 
                 // ── Hover over minimap ──
-                if widget.show_minimap && total_h > viewport_h {
+                if widget.show_minimap && !widget.diff_review && total_h > viewport_h {
                     let cb = Rectangle {
                         x: bounds.x,
                         y: content_top,
