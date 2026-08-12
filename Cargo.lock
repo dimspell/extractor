@@ -2128,6 +2128,7 @@ dependencies = [
  "encoding_rs",
  "gui-widgets",
  "iced",
+ "iced_renderer",
  "iced_test",
  "lru 0.12.5",
  "lucide-icons",
