@@ -50,7 +50,8 @@ pub use domain::editing::{EditState, InspectorEditState};
 pub use domain::extend_dialog::ExtendDialog;
 pub use domain::fill_dialog::FillDialog;
 pub use domain::layout::{
-    BinaryLayout, FieldSpan, FixedRecordBinaryLayout, FixedRecordField, NamedSpan, SpanBinaryLayout,
+    BinaryLayout, FieldSpan, FixedRecordBinaryLayout, FixedRecordField, LayoutOutlineItem,
+    NamedSpan, SpanBinaryLayout,
 };
 pub use domain::panel::{HexPanel, HexPanelContent};
 pub use domain::pattern::{Pattern, RepeatPatternDialog, RepeatedPatternGroup};

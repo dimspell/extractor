@@ -127,6 +127,13 @@ pub fn update(
             state.edit_mode = None;
             state.refresh_active_patterns();
         }
+        HexEditorMessage::JumpToLayout(addr) => {
+            let addr = addr.min(max_addr);
+            state.selection.select(addr, max_addr);
+            state.pending_center_on.set(Some(addr));
+            state.edit_mode = None;
+            state.refresh_active_patterns();
+        }
         HexEditorMessage::ExtendTo(addr) => {
             state.selection.extend(addr, max_addr);
             state.refresh_active_patterns();

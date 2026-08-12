@@ -49,6 +49,7 @@ pub fn pane_content<'a>(
         HexPanelContent::PatternList => super::patterns::view(state),
         HexPanelContent::Statistics => super::statistics::view(state),
         HexPanelContent::Diff => super::diff::view(state, config),
+        HexPanelContent::Outline => super::outline::view(state),
     }
 }
 
@@ -153,6 +154,7 @@ pub fn title_bar<'a>(
         HexPanelContent::PatternList => "Patterns",
         HexPanelContent::Statistics => "Statistics",
         HexPanelContent::Diff => "Diff",
+        HexPanelContent::Outline => "Structure",
     };
     let structure_label: Element<'a, HexEditorMessage> =
         if matches!(panel.content, HexPanelContent::Matrix) {
@@ -266,6 +268,7 @@ mod tests {
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
             HexPanelContent::Diff => "Diff",
+            HexPanelContent::Outline => "Structure",
         };
         assert_eq!(label, "Hex Dump");
     }
@@ -279,6 +282,7 @@ mod tests {
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
             HexPanelContent::Diff => "Diff",
+            HexPanelContent::Outline => "Structure",
         };
         assert_eq!(label, "Inspector");
     }
@@ -292,6 +296,7 @@ mod tests {
             HexPanelContent::PatternList => "Patterns",
             HexPanelContent::Statistics => "Statistics",
             HexPanelContent::Diff => "Diff",
+            HexPanelContent::Outline => "Structure",
         };
         assert_eq!(label, "Patterns");
     }

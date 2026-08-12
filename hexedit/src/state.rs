@@ -188,6 +188,22 @@ pub struct HexEditorState {
 }
 
 impl HexEditorState {
+    /// Add an outline pane when this tab has binary structure metadata.
+    pub fn ensure_outline_pane(&mut self) {
+        if self.layout.is_none()
+            || self.panes.iter().any(|(_, pane)| {
+                matches!(pane.content, crate::domain::panel::HexPanelContent::Outline)
+            })
+        {
+            return;
+        }
+        let focus = self.pane_focus;
+        let _ = self.panes.split(
+            pane_grid::Axis::Horizontal,
+            focus,
+            crate::domain::panel::HexPanel::new(crate::domain::panel::HexPanelContent::Outline),
+        );
+    }
     /// Queue a short-lived in-editor notification.
     pub fn notify(&mut self, message: impl Into<String>) {
         let message = message.into();

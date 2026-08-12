@@ -21,6 +21,8 @@ pub enum HexPanelContent {
     Statistics,
     /// Side-by-side binary diff view (baseline vs. comparison file).
     Diff,
+    /// Navigable hierarchy of the file's known binary structure.
+    Outline,
 }
 
 /// A single panel in the hex editor's pane grid.

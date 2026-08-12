@@ -13,6 +13,16 @@ pub struct FieldSpan {
     pub color_index: u8,
 }
 
+/// One navigable entry in a structure outline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LayoutOutlineItem {
+    pub range: Range<u64>,
+    pub name: &'static str,
+    pub ty: &'static str,
+    pub record_index: u64,
+    pub depth: u8,
+}
+
 /// A binary layout answers only the addresses Hexedit needs to draw.
 pub trait BinaryLayout: Send + Sync {
     fn field_at(&self, address: u64, file_len: u64) -> Option<FieldSpan>;
@@ -24,6 +34,10 @@ pub trait BinaryLayout: Send + Sync {
 
     fn is_truncated_at(&self, _address: u64, _file_len: u64) -> bool {
         false
+    }
+
+    fn outline(&self, _file_len: u64) -> Vec<LayoutOutlineItem> {
+        Vec::new()
     }
 }
 
@@ -102,6 +116,41 @@ impl BinaryLayout for SpanBinaryLayout {
                 record_type: self.type_name,
                 record_index: span.record_index,
                 color_index: (index % 16) as u8,
+            })
+            .collect()
+    }
+
+    fn outline(&self, file_len: u64) -> Vec<LayoutOutlineItem> {
+        let mut spans: Vec<_> = self
+            .spans
+            .iter()
+            .filter(|span| span.range.end <= file_len)
+            .collect();
+        spans.sort_by(|left, right| {
+            left.range
+                .start
+                .cmp(&right.range.start)
+                .then_with(|| right.range.end.cmp(&left.range.end))
+        });
+        let mut parents: Vec<&NamedSpan> = Vec::new();
+        spans
+            .into_iter()
+            .map(|span| {
+                while parents
+                    .last()
+                    .is_some_and(|parent| span.range.start >= parent.range.end)
+                {
+                    parents.pop();
+                }
+                let item = LayoutOutlineItem {
+                    range: span.range.clone(),
+                    name: span.name,
+                    ty: span.ty,
+                    record_index: span.record_index,
+                    depth: parents.len().min(u8::MAX as usize) as u8,
+                };
+                parents.push(span);
+                item
             })
             .collect()
     }
@@ -263,5 +312,30 @@ mod tests {
         let field = layout.field_at(25, 100).unwrap();
         assert_eq!(field.name, "map");
         assert_eq!(field.record_index, 0);
+    }
+
+    #[test]
+    fn test_span_layout_outline_keeps_nested_record_index() {
+        let layout = SpanBinaryLayout::new(
+            "Save file",
+            vec![
+                NamedSpan {
+                    range: 0..100,
+                    name: "maps",
+                    ty: "section",
+                    record_index: 0,
+                },
+                NamedSpan {
+                    range: 20..40,
+                    name: "monster",
+                    ty: "record",
+                    record_index: 3,
+                },
+            ],
+        );
+        let outline = layout.outline(100);
+        assert_eq!(outline[1].name, "monster");
+        assert_eq!(outline[1].record_index, 3);
+        assert_eq!(outline[1].depth, 1);
     }
 }

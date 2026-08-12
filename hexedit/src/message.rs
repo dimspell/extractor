@@ -33,6 +33,8 @@ pub enum HexEditorMessage {
     BytesPerRowInputInvalid,
     /// Single click on a cell — sets `anchor = cursor = addr`.
     SelectAt(u64),
+    /// Select and centre the matrix on a structure-outline entry.
+    JumpToLayout(u64),
     /// Shift-click or drag — moves cursor only.
     ExtendTo(u64),
     /// Keyboard navigation; `extend = true` for Shift-modified moves.
