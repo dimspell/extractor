@@ -209,6 +209,19 @@ pub struct ExtraObjectRecord {
     pub unknown_38: u32, // unknown27
 }
 
+/// Opaque data between a map's extra-object records and its ground-item sections.
+///
+/// The fixed prefix is 11 bytes and contains a `u16` count at byte offset 4.
+/// Each counted record is 24 bytes. The record format is not yet understood, so
+/// both the prefix and records are retained verbatim for lossless round trips.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MapExtraObjectsTrailer {
+    /// The fixed 11-byte prefix, including the record count at bytes 4–5.
+    pub prefix: [u8; 11],
+    /// Raw counted records (24 bytes each).
+    pub records: Vec<u8>,
+}
+
 /// PartyMember is 321 bytes long
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct PartyMember {
@@ -264,6 +277,8 @@ pub struct MapSectionData {
     pub npcs: Vec<NpcRecord>,
     /// Extra objects (chests, triggers, etc.)
     pub extra_objects: Vec<ExtraObjectRecord>,
+    /// Opaque data after extra objects and before ground items.
+    pub extra_objects_trailer: MapExtraObjectsTrailer,
     /// Ground items — Weapon type (count × 296 bytes each)
     pub draw_items_weapon: Vec<DrawItemWeaponItem>,
     /// Ground items — Heal type (count × 264 bytes each)
@@ -809,6 +824,7 @@ impl SaveFile {
         Ok(SaveFile {
             jump_addr_after_maps: jump_addr_after_maps as u32,
             maps,
+            maps_padding,
             post_maps,
             sprite_paths,
             unknown_before_stats_a: unknown_before_stats,
@@ -844,7 +860,7 @@ impl SaveFile {
     /// Parse all map sections from the reader.
     ///
     /// Each map has:
-    ///   `[map_id: u32][monsters][npcs][sep: u32][extra_objects][sep: 11B]
+    ///   `[map_id: u32][monsters][npcs][sep: u32][extra_objects][trailer]
     ///    [draw_items_weapon][draw_items_heal][draw_items_edit]
     ///    [draw_items_misc][draw_items_event][end_sep: u32]`
     fn parse_maps_section<R: Read + Seek>(
@@ -886,23 +902,16 @@ impl SaveFile {
                 .map(ExtraObjectRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
 
-            // ── 2.5. Separator (11 bytes, unknown meaning) ──
-            let mut _separator = vec![0u8; 4];
-            reader.read_exact(&mut _separator)?;
-            eprintln!("{:?}", _separator);
-
-            let _counter = reader.read_u16::<LittleEndian>()?;
-            eprintln!("{:?}", _counter);
-
-            let mut _separator = vec![0u8; 11 - 4 - 2];
-            reader.read_exact(&mut _separator)?;
-            eprintln!("{:?}", _separator);
-
-            if _counter > 0 {
-                let mut _separator = vec![0u8; _counter as usize * 24];
-                reader.read_exact(&mut _separator)?;
-                eprintln!("{:?}", _separator);
-            }
+            // ── 2.5. Extra-object trailer (11-byte prefix + 24-byte records) ──
+            let mut trailer_prefix = [0u8; 11];
+            reader.read_exact(&mut trailer_prefix)?;
+            let trailer_record_count = u16::from_le_bytes([trailer_prefix[4], trailer_prefix[5]]);
+            let mut trailer_records = vec![0u8; trailer_record_count as usize * 24];
+            reader.read_exact(&mut trailer_records)?;
+            let extra_objects_trailer = MapExtraObjectsTrailer {
+                prefix: trailer_prefix,
+                records: trailer_records,
+            };
 
             // ── 2.6–2.10. Ground items (5 types) ──
             let draw_items_weapon =
@@ -920,6 +929,7 @@ impl SaveFile {
                 monsters,
                 npcs,
                 extra_objects,
+                extra_objects_trailer,
                 draw_items_weapon,
                 draw_items_heal,
                 draw_items_edit,
@@ -1311,8 +1321,25 @@ impl SaveFile {
                 e.write(writer)?;
             }
 
-            // 11-byte separator (unknown meaning)
-            writer.write_all(&[0u8; 11])?;
+            // Opaque extra-object trailer (11-byte prefix + 24-byte records)
+            let record_count = u16::from_le_bytes([
+                map.extra_objects_trailer.prefix[4],
+                map.extra_objects_trailer.prefix[5],
+            ]) as usize;
+            let expected_records_len = record_count.checked_mul(24).ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "map extra-object trailer record count overflows",
+                )
+            })?;
+            if map.extra_objects_trailer.records.len() != expected_records_len {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "map extra-object trailer record data does not match its count",
+                ));
+            }
+            writer.write_all(&map.extra_objects_trailer.prefix)?;
+            writer.write_all(&map.extra_objects_trailer.records)?;
 
             // Ground items (5 types, each u16 count + fixed-size records)
             writer.write_u16::<LittleEndian>(map.draw_items_weapon.len() as u16)?;
@@ -1571,7 +1598,7 @@ impl Extractor for SaveFile {
         // Pre-compute maps section to determine jump_addr_after_maps
         let mut maps_buf = Vec::new();
         Self::write_maps_section(&save.maps, &mut maps_buf)?;
-        let jump_addr = 8u32 + maps_buf.len() as u32;
+        let jump_addr = 8u32 + maps_buf.len() as u32 + save.maps_padding.len() as u32;
 
         // 1. Header: jump address after all maps data
         writer.write_u32::<LittleEndian>(jump_addr)?;
@@ -1579,6 +1606,7 @@ impl Extractor for SaveFile {
         // 2. Map count + maps data
         writer.write_u32::<LittleEndian>(save.maps.len() as u32)?;
         writer.write_all(&maps_buf)?;
+        writer.write_all(&save.maps_padding)?;
 
         // 3. Post-maps data
         Self::write_post_maps_data(&save.post_maps, writer)?;
@@ -1676,5 +1704,32 @@ mod tests {
         assert_eq!(reader.read_i16::<LittleEndian>().unwrap(), 456);
         assert_eq!(&bytes[12..40], &[2; 28]);
         assert_eq!(&bytes[bytes.len() - 9..], &[3; 9]);
+    }
+
+    #[test]
+    fn test_maps_section_round_trips_extra_object_trailer() {
+        let mut prefix = [0u8; 11];
+        prefix[..4].copy_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]);
+        prefix[4..6].copy_from_slice(&2u16.to_le_bytes());
+        prefix[6..].copy_from_slice(&[1, 2, 3, 4, 5]);
+        let map = MapSectionData {
+            map_id: 42,
+            extra_objects_trailer: MapExtraObjectsTrailer {
+                prefix,
+                records: (0..48).collect(),
+            },
+            ..Default::default()
+        };
+        let mut bytes = Vec::new();
+
+        SaveFile::write_maps_section(&[map], &mut bytes).unwrap();
+        let parsed = SaveFile::parse_maps_section(&mut std::io::Cursor::new(bytes), 1).unwrap();
+
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].extra_objects_trailer.prefix, prefix);
+        assert_eq!(
+            parsed[0].extra_objects_trailer.records,
+            (0..48).collect::<Vec<u8>>()
+        );
     }
 }
