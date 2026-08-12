@@ -916,58 +916,54 @@ pub enum InventoryCategory {
 pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
     let mut hex_editors: Vec<RawHexEditorData> = vec![
-        RawHexEditorData {
-            label: "Equipped Equipment".into(),
-            data: save_file
-                .character_identity
-                .equipped_equipment
-                .iter()
-                .flat_map(|s| {
-                    let mut b = Vec::with_capacity(9);
-                    b.push(s.unknown_a);
-                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
-                    b
-                })
-                .collect::<Vec<_>>(),
-        },
-        RawHexEditorData {
-            label: "Belt Potions".into(),
-            data: save_file
-                .character_identity
-                .belt_potions
-                .iter()
-                .flat_map(|s| {
-                    let mut b = Vec::with_capacity(16);
-                    b.extend_from_slice(&s.unknown_a.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_c.to_le_bytes());
-                    b.extend_from_slice(&s.unknown_d.to_le_bytes());
-                    b
-                })
-                .collect(),
-        },
-        RawHexEditorData {
-            label: "Inventory Placement".into(),
-            data: save_file
-                .character_identity
-                .inventory_placement
-                .iter()
-                .flat_map(|e| {
-                    let mut b = Vec::with_capacity(20);
-                    b.extend_from_slice(&e.unknown_a.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_b.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_c.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_d.to_le_bytes());
-                    b.extend_from_slice(&e.unknown_e.to_le_bytes());
-                    b
-                })
-                .collect(),
-        },
-        RawHexEditorData {
-            label: "Learned Spells".into(),
-            data: save_file.character_identity.learned_spells.spells.clone(),
-        },
+        // RawHexEditorData {
+        //     label: "Equipped Equipment".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .equipped_equipment
+        //         .iter()
+        //         .flat_map(|s| {
+        //             let mut b = Vec::with_capacity(9);
+        //             b.push(s.unknown_a);
+        //             b.extend_from_slice(&s.unknown_b.to_le_bytes());
+        //             b.extend_from_slice(&s.unknown_c.to_le_bytes());
+        //             b
+        //         })
+        //         .collect::<Vec<_>>(),
+        // },
+        // RawHexEditorData {
+        //     label: "Belt Potions".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .belt_potions
+        //         .iter()
+        //         .flat_map(|s| {
+        //             let mut b = Vec::with_capacity(16);
+        //             b.extend_from_slice(&s.unknown_a.to_le_bytes());
+        //             b.extend_from_slice(&s.unknown_b.to_le_bytes());
+        //             b.extend_from_slice(&s.unknown_c.to_le_bytes());
+        //             b.extend_from_slice(&s.unknown_d.to_le_bytes());
+        //             b
+        //         })
+        //         .collect(),
+        // },
+        // RawHexEditorData {
+        //     label: "Inventory Placement".into(),
+        //     data: save_file
+        //         .character_identity
+        //         .inventory_placement
+        //         .iter()
+        //         .flat_map(|e| {
+        //             let mut b = Vec::with_capacity(20);
+        //             b.extend_from_slice(&e.unknown_a.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_b.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_c.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_d.to_le_bytes());
+        //             b.extend_from_slice(&e.unknown_e.to_le_bytes());
+        //             b
+        //         })
+        //         .collect(),
+        // },
         RawHexEditorData {
             label: "Belt Data (before stats) - A".into(),
             data: save_file.unknown_before_stats_a.clone(),
@@ -1011,14 +1007,14 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
 
     if let Some(member) = save_file.character_identity.party_members.first() {
         hex_editors.push(RawHexEditorData {
-            label: "Party Member (1)".into(),
+            label: format!("Party member (1): {}", member.name).into(),
             data: member.unknown_1.clone(),
         })
     }
 
     if let Some(member) = save_file.character_identity.party_members.get(1) {
         hex_editors.push(RawHexEditorData {
-            label: "Party Member (2)".into(),
+            label: format!("Party member (2): {}", member.name).into(),
             data: member.unknown_1.clone(),
         })
     }
