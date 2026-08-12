@@ -323,9 +323,21 @@ pub(crate) fn build_pattern_menu_entries(
     entries.push(MenuEntry::separator());
 
     entries.push(MenuEntry::item("Settings", HexEditorMessage::OpenSettings));
-    entries.push(MenuEntry::item("Toggle Inspector pane", HexEditorMessage::ToggleInspector));
-    entries.push(MenuEntry::item("Toggle Patterns list", HexEditorMessage::TogglePatternList));
-    entries.push(MenuEntry::item("Toggle Stats pane", HexEditorMessage::ToggleStats));
-    entries.push(MenuEntry::item("Export TXT", HexEditorMessage::OpenExportConfig));
+    entries.push(MenuEntry::item(
+        "Toggle Inspector pane",
+        HexEditorMessage::ToggleInspector,
+    ));
+    entries.push(MenuEntry::item(
+        "Toggle Patterns list",
+        HexEditorMessage::TogglePatternList,
+    ));
+    entries.push(MenuEntry::item(
+        "Toggle Stats pane",
+        HexEditorMessage::ToggleStats,
+    ));
+    entries.push(MenuEntry::item(
+        "Export TXT",
+        HexEditorMessage::OpenExportConfig,
+    ));
     entries
 }
