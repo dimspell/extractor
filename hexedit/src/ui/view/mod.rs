@@ -241,19 +241,6 @@ pub(crate) fn build_pattern_menu_entries(
 ) -> Vec<MenuEntry<HexEditorMessage>> {
     let mut entries = Vec::new();
     // ── Diff actions ───────────────────────────────────────────────────
-    if has_comparison {
-        entries.push(MenuEntry::item(
-            "Close Diff",
-            HexEditorMessage::CloseComparison,
-        ));
-    } else {
-        entries.push(MenuEntry::item(
-            "Diff Against File…",
-            HexEditorMessage::LoadComparisonFile,
-        ));
-    }
-    entries.push(MenuEntry::separator());
-
     if has_selection_range {
         entries.push(MenuEntry::item(
             "Create Pattern",
@@ -314,5 +301,25 @@ pub(crate) fn build_pattern_menu_entries(
     // "Extend…" needs no selection — a single cursor suffices (the context
     // menu only appears on a right-click over a byte).
     entries.push(MenuEntry::item("Extend…", HexEditorMessage::BeginExtend));
+    entries.push(MenuEntry::separator());
+
+    if has_comparison {
+        entries.push(MenuEntry::item(
+            "Close Diff",
+            HexEditorMessage::CloseComparison,
+        ));
+    } else {
+        entries.push(MenuEntry::item(
+            "Diff Against File…",
+            HexEditorMessage::LoadComparisonFile,
+        ));
+    }
+    entries.push(MenuEntry::separator());
+
+    entries.push(MenuEntry::item("Settings", HexEditorMessage::OpenSettings));
+    entries.push(MenuEntry::item("Toggle Inspector pane", HexEditorMessage::ToggleInspector));
+    entries.push(MenuEntry::item("Toggle Patterns list", HexEditorMessage::TogglePatternList));
+    entries.push(MenuEntry::item("Toggle Stats pane", HexEditorMessage::ToggleStats));
+    entries.push(MenuEntry::item("Export TXT", HexEditorMessage::OpenExportConfig));
     entries
 }
