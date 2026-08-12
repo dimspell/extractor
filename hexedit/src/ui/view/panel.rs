@@ -30,7 +30,7 @@ use iced::{Element, Fill, Font};
 
 use crate::config::HexEditorConfig;
 use crate::domain::panel::HexPanelContent;
-use crate::{HexEditorMessage, HexEditorState};
+use crate::{HexEditorMessage, HexEditorState, HexProvider};
 
 /// Maximum number of panels before we disable splitting to prevent
 /// window-shattering fragmentation.
@@ -141,7 +141,7 @@ fn matrix_content<'a>(state: &'a HexEditorState) -> Element<'a, HexEditorMessage
 /// only), so the title text is always drawn — unlike the no-compact overflow
 /// path which hides the title content.
 pub fn title_bar<'a>(
-    _state: &'a HexEditorState,
+    state: &'a HexEditorState,
     _id: pane_grid::Pane,
     panel: &'a crate::domain::panel::HexPanel,
     pane_count: usize,
@@ -154,6 +154,25 @@ pub fn title_bar<'a>(
         HexPanelContent::Statistics => "Statistics",
         HexPanelContent::Diff => "Diff",
     };
+    let structure_label: Element<'a, HexEditorMessage> =
+        if matches!(panel.content, HexPanelContent::Matrix) {
+            state
+                .layout
+                .as_deref()
+                .and_then(|layout| layout.field_at(state.selection.cursor, state.provider.len()))
+                .map(|field| {
+                    text(format!(
+                        "{} #{} · {} · {}",
+                        field.record_type, field.record_index, field.name, field.ty
+                    ))
+                    .size(10)
+                    .font(Font::MONOSPACE)
+                    .into()
+                })
+                .unwrap_or_else(|| Space::default().into())
+        } else {
+            Space::default().into()
+        };
 
     let can_close = pane_count > 1;
     let can_split = pane_count < MAX_PANELS;
@@ -166,6 +185,7 @@ pub fn title_bar<'a>(
     let title_content = row![
         text("≡").size(12).font(Font::MONOSPACE),
         text(label).size(11).font(Font::MONOSPACE),
+        structure_label,
         Space::default().width(Fill),
     ]
     .spacing(8)

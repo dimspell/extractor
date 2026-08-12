@@ -311,6 +311,8 @@ pub fn draw_matrix<'a, Message>(
                 .and_then(|layout| layout.field_at(addr, widget.bytes.len() as u64));
             let is_editing = edit_addr == Some(addr);
 
+            // Structure overlays deliberately do not paint cell backgrounds:
+            // the data and explicit user overlays remain visually dominant.
             // Background priority: edit > selection-cursor > selection >
             // pattern > dirty (this session) > diff (cumulative vs vanilla).
             let base_bg = if is_editing {
@@ -334,9 +336,7 @@ pub fn draw_matrix<'a, Message>(
             } else if is_diff {
                 Some(diff_bg)
             } else {
-                structure_field
-                    .as_ref()
-                    .map(|field| theme.pattern_bg_palette[field.color_index as usize % 16])
+                None
             };
 
             // Default foreground via the shared provider chain.
@@ -353,8 +353,6 @@ pub fn draw_matrix<'a, Message>(
                 dirty_text
             } else if is_diff {
                 diff_text
-            } else if let Some(field) = &structure_field {
-                theme.pattern_fg_palette[field.color_index as usize % 16]
             } else {
                 default_fg
             };
@@ -368,8 +366,6 @@ pub fn draw_matrix<'a, Message>(
                 dirty_text
             } else if is_diff {
                 diff_text
-            } else if let Some(field) = &structure_field {
-                theme.pattern_fg_palette[field.color_index as usize % 16]
             } else if widget.color_scheme != crate::coloring::ColorScheme::Monochrome {
                 default_fg
             } else {
@@ -405,8 +401,7 @@ pub fn draw_matrix<'a, Message>(
                 .as_ref()
                 .is_some_and(|field| field.range.start == addr)
             {
-                let boundary = theme.pattern_fg_palette
-                    [structure_field.as_ref().unwrap().color_index as usize % 16];
+                let boundary = theme.annotation_separator;
                 fill_cell(renderer, cell_x, y, 1.0, boundary, cell_clip);
                 fill_cell(renderer, ax, y, 1.0, boundary, cell_clip);
             }
