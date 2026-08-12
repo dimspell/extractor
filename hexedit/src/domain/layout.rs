@@ -45,6 +45,68 @@ pub struct FixedRecordBinaryLayout {
     fields: Vec<FixedRecordField>,
 }
 
+/// One named section in a variable-size binary file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedSpan {
+    pub range: Range<u64>,
+    pub name: &'static str,
+    pub ty: &'static str,
+    pub record_index: u64,
+}
+
+/// A layout made from parser-provided spans, for files whose sections are not
+/// fixed records. Spans are immutable and normally represent major sections.
+#[derive(Debug, Clone)]
+pub struct SpanBinaryLayout {
+    type_name: &'static str,
+    spans: Vec<NamedSpan>,
+}
+
+impl SpanBinaryLayout {
+    pub fn new(type_name: &'static str, mut spans: Vec<NamedSpan>) -> Self {
+        spans.sort_by_key(|span| span.range.start);
+        Self { type_name, spans }
+    }
+}
+
+impl BinaryLayout for SpanBinaryLayout {
+    fn field_at(&self, address: u64, file_len: u64) -> Option<FieldSpan> {
+        self.spans
+            .iter()
+            .enumerate()
+            .filter(|(_, span)| span.range.end <= file_len && span.range.contains(&address))
+            .min_by_key(|(_, span)| span.range.end - span.range.start)
+            .map(|(index, span)| FieldSpan {
+                range: span.range.clone(),
+                name: span.name,
+                ty: span.ty,
+                record_type: self.type_name,
+                record_index: span.record_index,
+                color_index: (index % 16) as u8,
+            })
+    }
+
+    fn fields_in(&self, range: Range<u64>, file_len: u64) -> Vec<FieldSpan> {
+        self.spans
+            .iter()
+            .enumerate()
+            .filter(|(_, span)| {
+                span.range.end <= file_len
+                    && span.range.start < range.end
+                    && range.start < span.range.end
+            })
+            .map(|(index, span)| FieldSpan {
+                range: span.range.clone(),
+                name: span.name,
+                ty: span.ty,
+                record_type: self.type_name,
+                record_index: span.record_index,
+                color_index: (index % 16) as u8,
+            })
+            .collect()
+    }
+}
+
 impl FixedRecordBinaryLayout {
     pub fn new(
         type_name: &'static str,
@@ -177,5 +239,29 @@ mod tests {
         assert_eq!(layout.fields_in(10..16, 21).len(), 2);
         assert!(layout.field_at(20, 21).is_none());
         assert!(layout.is_truncated_at(20, 21));
+    }
+
+    #[test]
+    fn test_span_layout_returns_smallest_nested_section() {
+        let layout = SpanBinaryLayout::new(
+            "Save file",
+            vec![
+                NamedSpan {
+                    range: 0..100,
+                    name: "maps",
+                    ty: "section",
+                    record_index: 0,
+                },
+                NamedSpan {
+                    range: 20..40,
+                    name: "map",
+                    ty: "section",
+                    record_index: 0,
+                },
+            ],
+        );
+        let field = layout.field_at(25, 100).unwrap();
+        assert_eq!(field.name, "map");
+        assert_eq!(field.record_index, 0);
     }
 }
