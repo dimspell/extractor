@@ -13,82 +13,177 @@ use super::extractor::{Extractor, read_null_terminated_windows_1250};
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct MonsterRecord {
-    pub monster_state: u32, // 0 = alive, 1 = ???, 8 = dead
+    /// Runtime state. Zero is alive, one appears to be patrolling, and eight is dead.
+    pub monster_state: u32,
+    /// Index of this monster in the map record list.
     pub record_index: u32,
+    /// ID of the current sprite frame.
     pub sprite_frame_id: u32,
+    /// Monster name in Windows-1250 encoding.
     #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
     pub name: String,
+    /// Zero-based ID of the Monster.db record.
     pub monster_db_id: u32,
+    /// Current health points.
     pub hp_current: u16,
+    /// Maximum health points.
     pub hp_maximum: u16,
+    /// Current mana points.
     pub mp_current: u16,
+    /// Maximum mana points.
     pub mp_maximum: u16,
+    /// Movement speed.
     pub walk_speed: u8,
+    /// Hit rate.
     pub hit_rate: u8,
+    /// Dodge rate.
     pub dodge_rate: u8,
+    /// Physical offense rate.
     pub offense_rate: u16,
+    /// Physical defense rate.
     pub defense_rate: u16,
+    /// Magic rate.
     pub magic_rate: u16,
+    /// Set for undead monsters.
     pub is_undead: u8,
+    /// Set for monsters that have blood.
     pub has_blood: u8,
+    /// AI type from Monster.db. MonsterRef can override it for a new monster.
     pub monster_ai_type: u8,
+    /// Experience awarded when this monster dies.
     pub experience_on_kill: u16,
+    /// Gold awarded when this monster dies.
     pub gold_drop_on_kill: u16,
-    pub unknown_1: u8,
-    pub sight_range: u8,
-    pub attack_range: u8,
+    /// Chase distance from Monster.db.
+    pub distance_range_size: u8,
+    /// Detection distance from Monster.db.
+    pub detection_sight_size: u8,
+    /// Computed aggression flag: zero for AI types 5/6, one otherwise.
+    pub aggression_flag: u8,
     pub spell_slot_1: i8,
     pub spell_slot_2: i8,
     pub spell_slot_3: i8,
     pub oversize: u8,
-    pub magic_level: u8,
-    pub unknown_2: u32,
-    pub unknown_3a: i16,
-    pub unknown_3b: i16,
-    pub unknown_3c: i32,
-    pub unknown_3d: i32,
-    pub unknown_3e: [u8; 9],
-    pub unknown_3f: i32,
+    /// Magic level from Monster.db.
+    pub magic_level: u32,
+    /// Countdown used while scanning/patrolling; initialized from MonsterRef padding 1.
+    pub patrol_countdown: u8,
+    /// Behaviour flag; one skips an AI action. Initialized from MonsterRef padding 2.
+    pub behavior_flag: u8,
+    /// Current AI state (`0xff` means not spawned).
+    pub ai_state: u8,
+    /// Current AI sub-state (`0xfc` is a runtime marker).
+    pub ai_sub_state: u8,
+    /// Current movement direction.
+    pub movement_direction: u8,
+    /// Target tile X coordinate.
+    pub target_position_x: u32,
+    /// Target tile Y coordinate.
+    pub target_position_y: u32,
+    pub unknown_runtime_1: u32,
+    pub unknown_runtime_2: u32,
+    /// Active/awake flag, initialized from MonsterRef padding 3.
+    pub awake_flag: u8,
+    pub unknown_runtime_3: u32,
+    /// Event ID that runs when this monster dies.
     pub event_id_on_kill: u32,
-    pub unknown_5: i32, // -1 if [255, 255, 255, 255]
+    /// An unknown constructor field. The constructor initializes it to `-1`.
+    pub unknown_5: i32,
+    /// Current tile X coordinate.
     pub current_position_x: u16,
+    /// Current tile Y coordinate.
     pub current_position_y: u16,
+    /// Spawn tile X coordinate.
     pub spawn_position_x: u16,
+    /// Spawn tile Y coordinate.
     pub spawn_position_y: u16,
-    pub unknown_10_coordinate: u16,
-    pub unknown_11_coordinate: u16,
-    pub unknown_12: u8,
-    pub unknown_13: u8,
-    pub unknown_14: u8,
-    pub unknown_15: u16,
-    pub unknown_16: i16, // -1 if [255]
-    pub unknown_17: u16,
-    pub unknown_18: u32,
-    pub unknown_19: [u8; 18],
-    pub unknown_20: i32,
-    pub unknown_21: u32,
-    pub unknown_22: u32,
+    /// Home tile X coordinate used for respawn.
+    pub home_position_x: u16,
+    /// Home tile Y coordinate used for respawn.
+    pub home_position_y: u16,
+    pub unknown_patrol_flag: u8,
+    /// This value is cleared when the monster dies.
+    pub unknown_cleared_on_death_1: u8,
+    /// This value is cleared when the monster dies.
+    pub unknown_cleared_on_death_2: u8,
+    /// Spawn/group ID.
+    pub spawn_group_id: u16,
+    /// Constructor-initialized to `0xff`.
+    pub constructor_marker: u8,
+    /// This value is cleared when the monster dies.
+    pub unknown_cleared_on_death_3: u8,
+    /// Set when the monster is dead or removed.
+    pub dead_or_removed_flag: u8,
+    pub unknown_runtime_flag_0: u8,
+    /// Unknown value loaded from map data.
+    pub unknown_map_data: u32,
+    pub unknown_runtime_4: u32,
+    pub unknown_runtime_5: u32,
+    pub unknown_runtime_flag_1: u8,
+    pub unknown_runtime_6: u32,
+    pub unknown_runtime_flag_2: u8,
+    pub unknown_runtime_7: u32,
+    /// An unknown constructor field. The constructor initializes it to `-1`.
+    pub constructor_unknown_negative_one: i32,
+    /// Whether the following path-buffer position is present.
+    pub path_buffer_present_flag: u32,
+    /// This value is cleared when the monster dies.
+    pub unknown_cleared_on_death_4: u32,
+    /// First item that this monster can drop.
     #[binary_record(inventory_item(wire_type = "i32"))]
     pub loot_item1: crate::references::enums::InventoryItem,
+    /// Second item that this monster can drop.
     #[binary_record(inventory_item(wire_type = "i32"))]
     pub loot_item2: crate::references::enums::InventoryItem,
+    /// Third item that this monster can drop.
     #[binary_record(inventory_item(wire_type = "i32"))]
     pub loot_item3: crate::references::enums::InventoryItem,
-    pub mon_ref_padding_12: u32,
+    /// MonsterRef padding 13. The save format stores it before padding 12.
     pub mon_ref_padding_13: u32,
-    pub unknown_23: u32,
-    pub unknown_24: u32,
-    pub unknown_25: u32,
-    pub unknown_26: u32,
+    /// MonsterRef padding 12. The save format stores it after padding 13.
+    pub mon_ref_padding_12: u32,
+    /// Initialized to 12,000 by the constructor.
+    pub respawn_timer: u32,
+    pub unknown_runtime_8: u32,
+    pub unknown_runtime_9: u32,
+    /// Special attack ID from Monster.db.
+    pub special_attack: u32,
+    /// Chance that the monster uses its special attack.
     pub special_attack_chance: u32,
+    /// Duration of the special attack.
     pub special_attack_duration: u32,
-    pub unknown_27: [u8; 8],
+    pub unknown_runtime_10: u32,
+    pub unknown_runtime_11: u32,
+    /// Boldness value from Monster.db.
     pub boldness: u32,
+    /// Attack speed from Monster.db.
     pub attack_speed: u32,
-    pub unknown_28: [u8; 6],
-    pub unknown_29: u32,
-    #[binary_record(size = 98)]
-    pub unknown_30: Vec<u8>,
+    /// One for guard monsters.
+    pub guard_flag: u8,
+    pub unknown_runtime_flag_3: u8,
+    pub unknown_runtime_12: u32,
+    pub unknown_runtime_flag_4: u8,
+    pub unknown_runtime_13: u32,
+    pub unknown_runtime_14: u32,
+    pub unknown_runtime_flag_5: u8,
+    pub unknown_runtime_15: u32,
+    /// AI update/tick counter.
+    pub ai_tick_counter: u32,
+    /// Backup of `detection_sight_size`.
+    pub sight_backup: u8,
+    /// Backup of `patrol_countdown`.
+    pub patrol_countdown_backup: u8,
+    /// Hides the monster from the active list when set.
+    pub hidden_or_delisted_flag: u8,
+    /// Path-buffer tile X coordinate.
+    pub path_buffer_position_x: u32,
+    /// Path-buffer tile Y coordinate.
+    pub path_buffer_position_y: u32,
+    /// A nested 72-byte summon record follows when this is non-zero.
+    pub nested_summon_flag: u8,
+    /// Opaque nested summon record. No observed saves contain one yet.
+    #[binary_record(size = 72)]
+    pub nested_summon_record: Vec<u8>,
 }
 
 /// NPC record from save file (349 bytes)
@@ -1673,6 +1768,55 @@ impl Extractor for SaveFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_monster_record_preserves_verified_329_byte_layout() {
+        let mut bytes = [0u8; 329];
+        bytes[68..72].copy_from_slice(&0x0102_0304u32.to_le_bytes());
+        bytes[72] = 5;
+        bytes[73] = 1;
+        bytes[74] = 0xfe;
+        bytes[75] = 0xfc;
+        bytes[76] = 7;
+        bytes[77..81].copy_from_slice(&123u32.to_le_bytes());
+        bytes[81..85].copy_from_slice(&456u32.to_le_bytes());
+        bytes[93] = 1;
+        bytes[121..123].copy_from_slice(&10u16.to_le_bytes());
+        bytes[125] = 1;
+        bytes[173..177].copy_from_slice(&1u32.to_le_bytes());
+        bytes[177..181].copy_from_slice(&(-1i32).to_le_bytes());
+        bytes[181..185].copy_from_slice(&12_000u32.to_le_bytes());
+        bytes[193..197].copy_from_slice(&99u32.to_le_bytes());
+        bytes[245] = 9;
+        bytes[246] = 5;
+        bytes[247] = 1;
+        bytes[248..252].copy_from_slice(&123u32.to_le_bytes());
+        bytes[252..256].copy_from_slice(&456u32.to_le_bytes());
+        bytes[256] = 1;
+        bytes[257..329].fill(0xaa);
+
+        let record = MonsterRecord::parse(&bytes).unwrap();
+
+        assert_eq!(record.magic_level, 0x0102_0304);
+        assert_eq!(record.patrol_countdown, 5);
+        assert_eq!(record.target_position_x, 123);
+        assert_eq!(record.target_position_y, 456);
+        assert_eq!(record.awake_flag, 1);
+        assert_eq!(record.spawn_group_id, 10);
+        assert_eq!(record.dead_or_removed_flag, 1);
+        assert_eq!(record.mon_ref_padding_13, 1);
+        assert_eq!(record.mon_ref_padding_12, u32::MAX);
+        assert_eq!(record.respawn_timer, 12_000);
+        assert_eq!(record.special_attack, 99);
+        assert_eq!(record.path_buffer_position_x, 123);
+        assert_eq!(record.path_buffer_position_y, 456);
+        assert_eq!(record.nested_summon_flag, 1);
+        assert_eq!(record.nested_summon_record, vec![0xaa; 72]);
+
+        let mut serialized = Vec::new();
+        record.write(&mut serialized).unwrap();
+        assert_eq!(serialized, bytes);
+    }
 
     #[test]
     fn test_write_post_maps_data_matches_recognized_header_layout() {
