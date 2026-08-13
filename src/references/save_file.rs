@@ -294,7 +294,7 @@ pub struct ExtraObjectRecord {
     pub runtime_unknown_2: u32,
     /// Save-only runtime value; not present in `ExtraRef`.
     pub runtime_unknown_3: u32,
-    /// Maps to the `ExtraRef.number_in_file` field.
+    /// Maps to the `ExtraRef.map_object_id` field.
     pub extra_ref_record_id: u16,
     /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
     /// extra in the save maps to exactly one Extra.ini record via this value
@@ -303,17 +303,17 @@ pub struct ExtraObjectRecord {
     #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
     pub name: String,
     pub object_type: u8,
-    /// Tile coordinate X — structural parallel to ExtraRef.x_pos
+    /// Tile coordinate X — structural parallel to `ExtraRef.map_x`.
     pub x_pos: u32,
-    /// Tile coordinate Y — structural parallel to ExtraRef.y_pos.
+    /// Tile coordinate Y — structural parallel to `ExtraRef.map_y`.
     pub y_pos: u32,
-    /// Structural parallel to ExtraRef.rotation.
+    /// Structural parallel to `ExtraRef.direction`.
     pub rotation: u8,
     // Always 205, 205, 205
     pub extra_ref_rotation_padding: [u8; 3],
-    /// `ExtraRef.unknown3`; its game meaning is still unknown.
+    /// `ExtraRef.interaction_state`; the object's mutable activation state.
     pub extra_ref_unknown_3: u32,
-    /// Current open/closed state from `ExtraRef.closed`.
+    /// Key/requirement configuration from `ExtraRef.requires_key`.
     pub closed: u32,
     /// Packed `ExtraRef.required_item` followed by its two-byte padding.
     pub required_item_and_padding: u32,
@@ -324,7 +324,7 @@ pub struct ExtraObjectRecord {
     pub extra_ref_unknown_8: u32,
     pub extra_ref_unknown_9: u32,
     pub gold_amount: u32,
-    /// Packed `ExtraRef.item` followed by its two-byte padding.
+    /// Packed `ExtraRef.loot_item` followed by its two-byte padding.
     pub loot_item_and_padding: u32,
     pub item_count: u32,
     pub extra_ref_unknown_11: u32,
@@ -336,7 +336,7 @@ pub struct ExtraObjectRecord {
     pub extra_ref_unknown_15: u32,
     pub extra_ref_unknown_16: u32,
     pub extra_ref_unknown_17: u8,
-    /// `ExtraRef.interactive_element_type`.
+    /// `ExtraRef.interaction_range`.
     pub interactive_element_type: u8,
     pub extra_ref_unknown_18: [u8; 2],
     pub is_quest_element: u32,

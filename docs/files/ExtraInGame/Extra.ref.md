@@ -21,42 +21,42 @@ Binary files that define the placement and configuration of interactive objects 
 - record_count: i32 (number of records)
 
 [Record 1]
-- number_in_file: u8
+- map_object_id: u16 (map-local ID; the engine identifies it as `700 + map_object_id`)
 - unknown1: u8 (padding, always 0)
-- ext_id: u8 (links to Extra.ini)
-- name: 32 bytes (WINDOWS-1250, null-padded)
+- extra_definition_id: u8 (links to Extra.ini)
+- object_name: 32 bytes (WINDOWS-1250, null-padded)
 - object_type: u8
-- x_pos: i32
-- y_pos: i32
-- rotation: u8
+- map_x: i32
+- map_y: i32
+- direction: u8 (sprite-facing/frame index)
 - unknown2: 3 bytes (padding, always [205, 205, 205])
-- unknown3: i32 (padding, always 0)
-- closed: i32 (0=open, 1=closed)
+- interaction_state: i32 (mutable state: 0 before interaction, 1 after activation/opening)
+- requires_key: i32 (enables key/requirement checks; not the open/closed state)
 - required_item_id: u8 (lower key bound)
 - required_item_type_id: u8
 - unknown4: i16 (padding, always 0)
 - required_item_id2: u8 (upper key bound)
 - required_item_type_id2: u8
 - unknown5: i16 (padding, always 0)
-- unknown6: i32 (0 or 9999)
-- unknown7: i32 (0 or 9999)
-- unknown8: i32 (0 or 9999)
-- unknown9: i32 (0 or 9999)
+- requirement_range_2_start: i32 (inclusive start of the second accepted key/item range; 9999 = unused)
+- requirement_range_2_end: i32 (inclusive end of the second accepted key/item range)
+- requirement_range_3_start: i32 (inclusive start of the third accepted key/item range; 9999 = unused)
+- requirement_range_3_end: i32 (inclusive end of the third accepted key/item range)
 - gold_amount: i32
-- item_id: u8
-- item_type_id: u8
+- loot_item_id: u8
+- loot_item_type_id: u8
 - unknown10: i16 (padding, always 0)
-- item_count: i32
-- unknown11: i32 (0, 28, 84, 258, 9999)
-- unknown12: i32 (0 or 1)
-- unknown13: i32 (0 or 9999)
-- unknown14: 28 bytes (padding, always zeros)
-- event_id: i32 (links to Event.ini)
-- message_id: i32 (links to Message.scr)
-- unknown15: i32 (0, 1, 2, 3)
-- unknown16: i32 (0, 1, 2, 3)
-- unknown17: u8 (always 0)
-- interactive_element_type: u8 (0, 1, 2, 3)
+- loot_item_count: i32
+- additional_loot_1: i32 (second loot item identifier; 9999 = unused)
+- additional_loot_1_count: i32 (quantity of the second loot item)
+- additional_loot_2: i32 (third loot item identifier; 9999 = unused)
+- additional_loot_2_count_and_config: 28 bytes (first i32 is the third loot quantity; the remaining 24 bytes are object-specific configuration)
+- interaction_event_id: i32 (links to Event.ini)
+- interaction_message_id: i32 (links to Message.scr)
+- footprint_width: i32 (occupied map-cell width)
+- footprint_height: i32 (occupied map-cell height)
+- footprint_orientation: u8 (normal/reversed footprint traversal)
+- interaction_range: u8 (maximum activation distance)
 - unknown18: 2 bytes (padding, always [205, 205])
 - is_quest_element: i32 (0 or 1)
 - unknown20: i32 (0 or 1)
@@ -75,22 +75,45 @@ Binary files that define the placement and configuration of interactive objects 
 
 ### Field Definitions
 
+### Reverse-engineering notes
+
+The game copies each 184-byte record into its interactive-object runtime
+structure unchanged. The following meanings come from that runtime code rather
+than from value-frequency guesses:
+
+- `map_object_id` is used to identify the object as `700 + map_object_id` in
+  the map-object grid.
+- `interaction_state` is preserved across reloads and is changed by the object
+  interaction handlers. For chests it selects the closed/open sprite sequence.
+- `requires_key` chooses the handler path that validates the three inclusive
+  requirement ranges. A range starting with `9999` is disabled.
+- The engine grants `gold_amount` and processes three `(item, count)` loot
+  pairs. The first pair is `loot_item`/`loot_item_count`; the next two are the
+  `additional_loot_*` fields.
+- `footprint_width`, `footprint_height`, and `footprint_orientation` determine
+  which map cells the object occupies. `interaction_range` limits activation
+  distance.
+
+The remaining opaque configuration bytes and flags are intentionally retained
+without speculative names. Their values may have different meanings for each
+`object_type`.
+
 #### Core Identification
 
 | Field | Type | Description |
 |-------|------|-------------|
-| id | i32 | Record index (0-based, derived from position) |
-| number_in_file | u8 | Sequential index within the file |
-| ext_id | u8 | Links to Extra.ini entry for object definition |
-| name | String (32 bytes) | Object label, WINDOWS-1250 encoded, null-padded |
+| record_index | i32 | Zero-based parser-derived record position; not stored in the file |
+| map_object_id | u16 | Map-local object ID. The engine refers to the object as `700 + map_object_id`. |
+| extra_definition_id | u8 | ID of the visual/behavior definition in `Extra.ini`. |
+| object_name | String (32 bytes) | Author-facing object label, WINDOWS-1250 encoded and null-padded. |
 
 #### Position and Orientation
 
 | Field | Type | Description |
 |-------|------|-------------|
-| x_pos | i32 | Horizontal tile coordinate on the map |
-| y_pos | i32 | Vertical tile coordinate on the map |
-| rotation | u8 | Object facing direction (0-7, 8 directions) |
+| map_x | i32 | Horizontal tile-grid coordinate. |
+| map_y | i32 | Vertical tile-grid coordinate. |
+| direction | u8 | Sprite-facing/frame index; chest rendering uses it with `interaction_state`. |
 
 #### Object Classification
 
@@ -98,14 +121,15 @@ Binary files that define the placement and configuration of interactive objects 
 |-------|------|-------------|
 | object_type | u8 | Object category enum |
 | visibility | u8 | Rendering transparency/visibility type |
-| interactive_element_type | u8 | Interaction behavior modifier |
-| is_quest_element | i32 | Whether object is part of quest logic |
+| interaction_range | u8 | Maximum tile distance at which the engine allows activation. |
+| is_quest_element | i32 | Quest-related interaction flag; the engine uses it after a successful requirement check. |
 
 #### Container State
 
 | Field | Type | Description |
 |-------|------|-------------|
-| closed | i32 | Container state (0=open, 1=closed) |
+| interaction_state | i32 | Current activation/open state (0 before use, 1 after use) |
+| requires_key | i32 | Whether interaction validates the configured key/item ranges |
 
 #### Key Requirements
 
@@ -120,17 +144,17 @@ Binary files that define the placement and configuration of interactive objects 
 
 | Field | Type | Description |
 |-------|------|-------------|
-| gold_amount | i32 | Amount of gold contained in object |
-| item_id | u8 | Static loot item identifier |
-| item_type_id | u8 | Category of loot item |
-| item_count | i32 | Stack quantity of loot |
+| gold_amount | i32 | Gold awarded by the normal loot path. |
+| loot_item | packed u16 | First static loot item (`low byte = item ID`, `high byte = item type`). |
+| loot_item_count | i32 | Quantity of `loot_item`. |
+| additional_loot_1 / additional_loot_2 | i32 | Further loot item IDs; `9999` means unused. |
 
 #### Event Triggers
 
 | Field | Type | Description |
 |-------|------|-------------|
-| event_id | i32 | Event.ini entry triggered on interaction |
-| message_id | i32 | Message.scr entry for sign text display |
+| interaction_event_id | i32 | `Event.ini` logic executed after interaction; zero means none. |
+| interaction_message_id | i32 | `Message.scr` entry used by message/sign-style objects; zero means none. |
 
 ### Enumerations
 
@@ -152,7 +176,7 @@ Binary files that define the placement and configuration of interactive objects 
 | 0 | Visible0 | Standard visibility |
 | 10 | Visible10 | Alternative visibility state |
 
-#### Item Type ID (required_item_type_id, item_type_id)
+#### Item Type ID (required_item_type_id, loot_item_type_id)
 
 | Value | Name | Description |
 |-------|------|-------------|
@@ -184,17 +208,17 @@ These files define interactive object placements with exact coordinates, require
 3. **Interaction Handling**: Game checks requirements (keys, items) before allowing interaction
 4. **Event Triggering**: Interaction triggers events from `Event.ini`
 5. **Content Distribution**: Containers provide gold and items to players
-6. **Quest Integration**: Quest elements are tracked separately via `is_quest_element` flag
+6. **Quest Integration**: Quest-related interactions can set `is_quest_element` after a successful requirement check.
 
 ### Cross-References
 
 | Field | References |
 |-------|------------|
-| ext_id | `Extra.ini` (object definitions) |
-| event_id | `Event.ini` (event logic) |
-| message_id | `Message.scr` (text display) |
+| extra_definition_id | `Extra.ini` (visual/behavior definition) |
+| interaction_event_id | `Event.ini` (event logic) |
+| interaction_message_id | `Message.scr` (text display) |
 | required_item_type_id | Item type enumeration |
-| item_type_id | Item type enumeration |
+| loot_item_type_id | Item type enumeration |
 
 ### Technical Details
 
@@ -230,7 +254,7 @@ These files define interactive object placements with exact coordinates, require
 - Name fields are null-terminated WINDOWS-1250 strings
 - Padding bytes often contain 0xCD (205) or 0x00 patterns
 - The `closed` field primarily applies to chest-type objects
-- Sign objects use `message_id` to display text from `Message.scr`
+- Sign objects use `interaction_message_id` to display text from `Message.scr`.
 - Door objects may require specific keys defined by `required_item_*` fields
 - Magic objects (type 7) likely represent spell-related interactables
 - The dual key system (`required_item_id`/`required_item_id2`) may support key ranges or multiple key types

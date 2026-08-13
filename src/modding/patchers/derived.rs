@@ -187,11 +187,11 @@ mod tests {
             .apply_field(
                 &extra_ref_blob(),
                 0,
-                "name",
+                "object_name",
                 &Value::String("Treasure".into()),
             )
             .unwrap();
-        assert_eq!(parse_extra(&out)[0].name, "Treasure");
+        assert_eq!(parse_extra(&out)[0].object_name, "Treasure");
     }
 
     #[test]
@@ -224,10 +224,10 @@ mod tests {
         use crate::references::enums::BooleanFlag;
         let p = crate::modding::patchers::ExtraRefPatcher;
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "closed", &Value::I64(1))
+            .apply_field(&extra_ref_blob(), 0, "requires_key", &Value::I64(1))
             .unwrap();
         let parsed = &parse_extra(&out)[0];
-        assert_ne!(parsed.closed, BooleanFlag::default());
+        assert_ne!(parsed.requires_key, BooleanFlag::default());
     }
 
     #[test]
@@ -245,7 +245,7 @@ mod tests {
     fn extra_ref_id_field_rejected() {
         let p = crate::modding::patchers::ExtraRefPatcher;
         let err = p
-            .apply_field(&extra_ref_blob(), 0, "id", &Value::I64(7))
+            .apply_field(&extra_ref_blob(), 0, "record_index", &Value::I64(7))
             .unwrap_err();
         assert!(err.to_string().contains("positional"));
     }
