@@ -79,7 +79,7 @@ impl Command for DialogCommand {
                         n.dialog_id,
                         NpcInfo {
                             name: n.name.trim().to_string(),
-                            description: n.description.trim().to_string(),
+                            description: n.role_description.trim().to_string(),
                         },
                     )
                 })

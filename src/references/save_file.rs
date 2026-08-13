@@ -232,12 +232,12 @@ pub struct NpcRecord {
     pub wait_tick_counter: u32,
     pub unknown_runtime_90: u32,
     pub unknown_runtime_94: u32,
-    /// Party script ID from NpcRef.
-    pub npc_ref_party_script_id: u8,
+    /// Party-member slot from NpcRef.
+    pub npc_ref_party_member_slot: u8,
     /// Event ID that controls NPC visibility.
     pub npc_ref_show_on_event_id: u32,
-    /// NpcRef behavior type: static, waypoint, or random.
-    pub npc_ref_behavior_type: u8,
+    /// NpcRef movement mode: static, waypoint, or random-in-rectangle.
+    pub npc_ref_movement_mode: u8,
     pub waypoint1_filled: u32,
     pub waypoint1_x: u32,
     pub waypoint1_y: u32,
@@ -270,12 +270,12 @@ pub struct NpcRecord {
     pub activation_rect_x2: u32,
     /// Activation rectangle, second Y coordinate.
     pub activation_rect_y2: u32,
-    /// NpcRef unknown 17 value.
-    pub npc_ref_unknown_17: u8,
-    /// Packed NpcRef `unknown_item | unknown_18 << 16` value.
-    pub npc_ref_item_and_unknown_18: u32,
-    /// NpcRef unknown 19 value plus one.
-    pub npc_ref_dialogue_modifier: u8,
+    /// NpcRef interaction mode.
+    pub npc_ref_interaction_mode: u8,
+    /// Packed NpcRef interaction result (`item | parameter << 16`).
+    pub npc_ref_interaction_result: u32,
+    /// NpcRef interaction range offset plus one.
+    pub npc_ref_interaction_range: u8,
     pub npc_ref_dialog_id: u32,
     pub dialogue_face_sprite_id: u8,
     /// Zero is normal movement. One moves to the target.
@@ -2058,16 +2058,16 @@ mod tests {
 
         let record = NpcRecord::parse(&bytes).unwrap();
 
-        assert_eq!(record.npc_ref_party_script_id, 9);
+        assert_eq!(record.npc_ref_party_member_slot, 9);
         assert_eq!(record.npc_ref_show_on_event_id, 42);
-        assert_eq!(record.npc_ref_behavior_type, 2);
+        assert_eq!(record.npc_ref_movement_mode, 2);
         assert_eq!(record.waypoint1_wait_time, 30);
         assert_eq!(record.waypoint1_facing_direction, 7);
         assert_eq!(record.activation_rect_x1, 10);
         assert_eq!(record.activation_rect_y2, 40);
-        assert_eq!(record.npc_ref_unknown_17, 1);
-        assert_eq!(record.npc_ref_item_and_unknown_18, 0x0010_0401);
-        assert_eq!(record.npc_ref_dialogue_modifier, 11);
+        assert_eq!(record.npc_ref_interaction_mode, 1);
+        assert_eq!(record.npc_ref_interaction_result, 0x0010_0401);
+        assert_eq!(record.npc_ref_interaction_range, 11);
         assert_eq!(record.npc_ref_dialog_id, 81);
         assert_eq!(record.dialogue_face_sprite_id, 6);
         assert_eq!(record.move_mode, 1);

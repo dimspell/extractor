@@ -478,7 +478,7 @@ pub fn load_entities(
             } else {
                 (dir as usize, false)
             };
-            (n.npc_id, seq, flip)
+            (n.npc_ini_id, seq, flip)
         },
         &npc_id_to_sprite,
         &mut sprite_cache,

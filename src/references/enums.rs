@@ -956,6 +956,90 @@ impl From<Unknown012> for i32 {
     }
 }
 
+/// NPC movement pattern stored in an NPC placement record.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcMovementMode {
+    #[default]
+    Static = 0,
+    Waypoints = 1,
+    RandomInActivationRect = 2,
+}
+
+impl NpcMovementMode {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Static),
+            1 => Some(Self::Waypoints),
+            2 => Some(Self::RandomInActivationRect),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Static" => Some(Self::Static),
+            "Waypoints" => Some(Self::Waypoints),
+            "RandomInActivationRect" => Some(Self::RandomInActivationRect),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcMovementMode> for i32 {
+    fn from(value: NpcMovementMode) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcMovementMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+/// Selects the NPC's special interaction-result behavior.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[repr(i32)]
+pub enum NpcInteractionMode {
+    #[default]
+    Default = 0,
+    RandomResult = 1,
+    ConfiguredThenRandom = 2,
+}
+
+impl NpcInteractionMode {
+    pub fn from_i32(value: i32) -> Option<Self> {
+        match value {
+            0 => Some(Self::Default),
+            1 => Some(Self::RandomResult),
+            2 => Some(Self::ConfiguredThenRandom),
+            _ => None,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "Default" => Some(Self::Default),
+            "RandomResult" => Some(Self::RandomResult),
+            "ConfiguredThenRandom" => Some(Self::ConfiguredThenRandom),
+            _ => None,
+        }
+    }
+}
+
+impl From<NpcInteractionMode> for i32 {
+    fn from(value: NpcInteractionMode) -> Self {
+        value as i32
+    }
+}
+
+impl std::fmt::Display for NpcInteractionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 /// Enum for unknown field with values 0-7
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]

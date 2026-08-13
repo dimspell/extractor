@@ -1,93 +1,21 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    BooleanFlag, InventoryItem, ItemTypeId, NpcLookingDirection, Unknown012, Unknown0110,
+    BooleanFlag, InventoryItem, ItemTypeId, NpcInteractionMode, NpcLookingDirection,
+    NpcMovementMode,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
 use rusqlite::{Connection, Result, params};
 use serde::{Deserialize, Serialize};
 
-/// NPC Reference (NpcInGame/Npccat1.ref) - NPC Placements on Maps
+/// NPC placements (`NpcInGame/*.ref`).
 ///
-/// Stores specific placements and configurations for NPCs on a given map.
-///
-/// Reads file: `NpcInGame/Npccat1.ref` (and other map-specific `.ref` files)
-///
-/// # Binary Format
-///
-/// - **Encoding**: Little-endian for all numeric values
-/// - **Text Encoding**: WINDOWS-1250 for `name` and `description` fields (260 bytes each, null-padded)
-/// - **Record Size**: 672 bytes
-/// - **Header**: 4-byte i32 record count, followed by records
-///
-/// ```text
-/// +--------------------------------------+
-/// | NPC Reference - NPC Placements      |
-/// +--------------------------------------+
-/// | Encoding: Binary (Little-Endian)     |
-/// | Text Encoding: WINDOWS-1250           |
-/// | Record Size: 672 bytes               |
-/// | Header: 4-byte record count          |
-/// +--------------------------------------+
-/// | [Header]                             |
-/// | - record_count: i32                  |
-/// +--------------------------------------+
-/// | [Record 1] - 672 bytes               |
-/// | - index: i32 (auto-generated)        |
-/// | - id: i32 (instance ID)             |
-/// | - npc_id: i32 (-> NpcIni/NpcRef)   |
-/// | - name: 260 bytes (WINDOWS-1250)    |
-/// | - description: 260 bytes (WINDOWS...) |
-/// | - party_script_id: i32                |
-/// | - show_on_event: i32 (-> Event.ini)  |
-/// | - unknown_1: i32 (Unknown012)        |
-/// | - goto1-4_filled: i32 (BooleanFlag) |
-/// | - goto1-4_x/y: i32 (waypoints)      |
-/// | - unknown_2-5: i32 (coordinates?)    |
-/// | - looking_direction: i32 (enum)      |
-/// | - rotation_1-3: i32 (NpcLookingDirection)   |
-/// | - unknown_9-12: i32 (always 0)      |
-/// | - unknown_13-16: i32 (coordinates?)  |
-/// | - unknown_17: i32 (Unknown012)       |
-/// | - unknown_item_id: u8                 |
-/// | - unknown_item_type: u8 (ItemTypeId) |
-/// | - unknown_18: i16 (padding)          |
-/// | - unknown_19: i32 (Unknown0110)      |
-/// | - dialog_id: i32 (-> .dlg files)     |
-/// | - dialogue_face_sprite_id: i32         |
-/// +--------------------------------------+
-/// | [Record 2]                           |
-/// | ... (same structure) ...             |
-/// +--------------------------------------+
-/// ```
-///
-/// # Field Categories
-///
-/// - **Identification**: `id` (instance ID), `npc_id` (links to `NpcIni` or `NpcRef`)
-/// - **Localization**: `name` (260 bytes), `description` (260 bytes), both WINDOWS-1250
-/// - **Event Link**: `show_on_event` (required event to spawn NPC)
-/// - **Party Script**: `party_script_id` (links to `PartyRef` logic)
-/// - **Waypoints**: 4 waypoint slots (`goto1-4_filled`, `goto1-4_x`, `goto1-4_y`)
-/// - **Dialogue**: `dialog_id` (links to `.dlg` files), `dialogue_face_sprite_id` (face sprite)
-/// - **Appearance**: `looking_direction` (compass direction)
-/// - **Unknown**: `unknown_1` through `unknown_19` (need investigation)
-///
-/// # Special Values
-///
-/// - `unknown_1/unknown_17`: Enum = 0, 1, or 2
-/// - `goto1-4_filled`: 0 = waypoint not defined, 1 = waypoint defined
-/// - `looking_direction`: 0 = up, proceeds clockwise (1=right, 2=down, 3=left)
-/// - `rotation_1-3`: Enum = 0-7 (compass rotation)
-/// - `unknown_9-12`: Always observed as 0
-/// - `unknown_19`: Enum = 0, 1, or 10
-/// - `unknown_item_id/type`: Unknown item reference
-///
-/// # File Purpose
-///
-/// Defines NPC placements on specific maps with waypoints,
-/// dialogue triggers, and visual configurations. Used for populating
-/// maps with interactive characters and quest givers.
+/// Each 672-byte little-endian record contains two 260-byte Windows-1250
+/// strings, followed by a 36-word configuration block. The original loader
+/// copies the waypoint block, activation rectangle, movement mode, and
+/// interaction fields directly into the NPC runtime object. See
+/// `docs/files/NpcInGame/NpcMapFiles.ref.md` for the complete offset table.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Extractor, Localizable, RecordPatcher)]
 #[extractor(property_item_size = 672)]
 #[patcher(extension = "ref", stem_prefix = "npc")]
@@ -95,29 +23,29 @@ pub struct NPC {
     /// Internal iteration index mapped from the file array.
     #[extractor(index)]
     pub index: i32,
-    /// Global identifier for this mapping instance.
+    /// File-local ID. The map loader identifies NPCs by record index instead.
     #[extractor(primitive(type = "i32"))]
-    pub id: i32,
-    /// Underlying archetype ID linked from npccat or prtini.
+    pub file_record_id: i32,
+    /// NPC visual-archetype ID linked from `Npc.ini`.
     #[extractor(primitive(type = "i32"))]
-    pub npc_id: i32,
-    /// Fixed 30-byte display descriptor.
+    pub npc_ini_id: i32,
+    /// Display name shown by the game.
     #[translatable(encoding = "WINDOWS_1250", max_bytes = 260)]
     #[extractor(string(encoding = "WINDOWS-1250", size = 260))]
     pub name: String,
-    /// Description of the NPC, usually a role of the NPC (e.g. "guard", "king").
+    /// Role or descriptive text stored with the NPC.
     #[translatable(encoding = "WINDOWS_1250", max_bytes = 260)]
     #[extractor(string(encoding = "WINDOWS-1250", size = 260))]
-    pub description: String,
-    /// Reference script matching PartyRefs logic.
+    pub role_description: String,
+    /// Party-member slot. Values 1–8 use the party/recruitment NPC logic.
     #[extractor(primitive(type = "i32"))]
-    pub party_script_id: i32,
+    pub party_member_slot: i32,
     /// Event ID condition required to spawn NPC.
     #[extractor(primitive(type = "i32"))]
     pub show_on_event: i32,
-    /// Unknown. Enum = 0, 1 or 2.
-    #[extractor(enum_from_i32(type = "Unknown012"))]
-    pub unknown_1: Unknown012,
+    /// Movement pattern: static, waypoint patrol, or random movement in the activation rectangle.
+    #[extractor(enum_from_i32(type = "NpcMovementMode"))]
+    pub movement_mode: NpcMovementMode,
     /// Waypoint 1 definition flag. Enum = 0 or 1.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub goto1_filled: BooleanFlag,
@@ -202,18 +130,18 @@ pub struct NPC {
     /// Activation rectangle Y2 coordinate.
     #[extractor(primitive(type = "i32"))]
     pub activation_rect_y2: i32,
-    /// Unknown. Enum = 0, 1 or 2.
-    #[extractor(enum_from_i32(type = "Unknown012"))]
-    pub unknown_17: Unknown012,
-    /// Unknown item reference.
+    /// Selects special interaction-result behavior.
+    #[extractor(enum_from_i32(type = "NpcInteractionMode"))]
+    pub interaction_mode: NpcInteractionMode,
+    /// Low 16 bits of the packed interaction result.
     #[extractor(inventory_item(wire_type = "i16"))]
-    pub unknown_item: InventoryItem,
-    // Padding
+    pub interaction_result_item: InventoryItem,
+    /// High 16 bits of the packed interaction result, preserved verbatim.
     #[extractor(primitive(type = "i16"))]
-    pub unknown_18: i16,
-    /// Unknown. Enum = 0, 1, 10.
-    #[extractor(enum_from_i32(type = "Unknown0110"))]
-    pub unknown_19: Unknown0110,
+    pub interaction_result_parameter: i16,
+    /// Value added to one by the game for its interaction-distance comparison.
+    #[extractor(primitive(type = "i32"))]
+    pub interaction_range_offset: i32,
     /// Pointer to `Dlgcat` or dialogue node triggering on click.
     #[extractor(primitive(type = "i32"))]
     pub dialog_id: i32,
@@ -241,21 +169,21 @@ pub fn save_npc_refs(
             stmt.execute(params![
                 file_id,
                 npc.index,
-                npc.id,
-                if npc.npc_id == 0 {
+                npc.file_record_id,
+                if npc.npc_ini_id == 0 {
                     None
                 } else {
-                    Some(npc.npc_id)
+                    Some(npc.npc_ini_id)
                 },
                 npc.name,
-                npc.description,
-                npc.party_script_id,
+                npc.role_description,
+                npc.party_member_slot,
                 if npc.show_on_event == 0 {
                     None
                 } else {
                     Some(npc.show_on_event)
                 },
-                i32::from(npc.unknown_1),
+                i32::from(npc.movement_mode),
                 i32::from(npc.goto1_filled),
                 i32::from(npc.goto2_filled),
                 i32::from(npc.goto3_filled),
@@ -284,11 +212,15 @@ pub fn save_npc_refs(
                 npc.activation_rect_y1,
                 npc.activation_rect_x2,
                 npc.activation_rect_y2,
-                i32::from(npc.unknown_17),
-                npc.unknown_item.item_id() as i32,
-                u8::from(npc.unknown_item.item_type().unwrap_or(ItemTypeId::Other)) as i32,
-                npc.unknown_item.raw(),
-                i32::from(npc.unknown_19),
+                i32::from(npc.interaction_mode),
+                npc.interaction_result_item.item_id() as i32,
+                u8::from(
+                    npc.interaction_result_item
+                        .item_type()
+                        .unwrap_or(ItemTypeId::Other),
+                ) as i32,
+                npc.interaction_result_item.raw(),
+                npc.interaction_range_offset,
                 dialog_file_id,
                 if npc.dialog_id == 0 {
                     None
@@ -308,23 +240,17 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn npc_bytes(npc_id: i32, name: &str, dialog_id: i32) -> Vec<u8> {
+    fn npc_bytes(npc_ini_id: i32, name: &str, dialog_id: i32) -> Vec<u8> {
         let mut rec = vec![0u8; 672];
-        // id at 0, npc_id at 4
+        // file_record_id at 0, npc_ini_id at 4
         rec[0..4].copy_from_slice(&0i32.to_le_bytes());
-        rec[4..8].copy_from_slice(&npc_id.to_le_bytes());
+        rec[4..8].copy_from_slice(&npc_ini_id.to_le_bytes());
         // name at 8, 260 bytes
         let nb = name.as_bytes();
         let n = nb.len().min(259);
         rec[8..8 + n].copy_from_slice(&nb[..n]);
-        // description at 268 (8+260), 260 bytes – stays zero
-        // dialog_id at offset 664 (672 - 8 = 664? let me compute)
-        // Total: id(4)+npc_id(4)+name(260)+desc(260)+rest until dialog_id
-        // party_script_id at 528, show_on_event at 532, unknown_1 at 536,
-        // 4 goto_filled at 540-555, 4 goto_x at 556-571, 4 goto_y at 572-587
-        // unknown_2..5 at 588-603, looking_direction at 604
-        // unknown_6..8 at 608-619, unknown_9..12 at 620-635, unknown_13..16 at 636-651
-        // unknown_17 at 652, unknown_18 at 656, unknown_19 at 660, dialog_id at 664
+        // role_description at 268 (8+260), 260 bytes – stays zero.
+        // dialog_id is at offset 664; dialogue_face_sprite_id is at 668.
         rec[664..668].copy_from_slice(&dialog_id.to_le_bytes());
         rec
     }
@@ -338,7 +264,7 @@ mod tests {
         let mut c = Cursor::new(&data[..]);
         let npcs = NPC::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(npcs.len(), 1);
-        assert_eq!(npcs[0].npc_id, 42);
+        assert_eq!(npcs[0].npc_ini_id, 42);
         assert_eq!(npcs[0].name, "Innkeeper");
         assert_eq!(npcs[0].dialog_id, 500);
     }
@@ -357,6 +283,56 @@ mod tests {
     }
 
     #[test]
+    fn parse_runtime_mapped_fields_at_their_wire_offsets() {
+        let mut rec = npc_bytes(42, "Inkeeper", 81);
+        rec[528..532].copy_from_slice(&7i32.to_le_bytes());
+        rec[532..536].copy_from_slice(&42i32.to_le_bytes());
+        rec[536..540].copy_from_slice(&2i32.to_le_bytes());
+        rec[540..544].copy_from_slice(&1i32.to_le_bytes());
+        rec[556..560].copy_from_slice(&100i32.to_le_bytes());
+        rec[572..576].copy_from_slice(&200i32.to_le_bytes());
+        rec[588..592].copy_from_slice(&30i32.to_le_bytes());
+        rec[604..608].copy_from_slice(&7i32.to_le_bytes());
+        rec[636..640].copy_from_slice(&193i32.to_le_bytes());
+        rec[640..644].copy_from_slice(&431i32.to_le_bytes());
+        rec[644..648].copy_from_slice(&202i32.to_le_bytes());
+        rec[648..652].copy_from_slice(&438i32.to_le_bytes());
+        rec[652..656].copy_from_slice(&2i32.to_le_bytes());
+        rec[656..660].copy_from_slice(&0x0010_0401i32.to_le_bytes());
+        rec[660..664].copy_from_slice(&10i32.to_le_bytes());
+        rec[668..672].copy_from_slice(&6i32.to_le_bytes());
+
+        let mut data = 1i32.to_le_bytes().to_vec();
+        data.extend(rec);
+        let npc = NPC::parse(&mut Cursor::new(data), 676).unwrap().remove(0);
+
+        assert_eq!(npc.party_member_slot, 7);
+        assert_eq!(npc.show_on_event, 42);
+        assert_eq!(npc.movement_mode, NpcMovementMode::RandomInActivationRect);
+        assert_eq!(npc.goto1_filled, BooleanFlag::True);
+        assert_eq!((npc.goto1_x, npc.goto1_y), (100, 200));
+        assert_eq!(npc.waypoint1_wait_time, 30);
+        assert_eq!(npc.waypoint1_facing_direction, NpcLookingDirection::UpLeft);
+        assert_eq!(
+            (
+                npc.activation_rect_x1,
+                npc.activation_rect_y1,
+                npc.activation_rect_x2,
+                npc.activation_rect_y2,
+            ),
+            (193, 431, 202, 438),
+        );
+        assert_eq!(
+            npc.interaction_mode,
+            NpcInteractionMode::ConfiguredThenRandom
+        );
+        assert_eq!(npc.interaction_result_item.raw(), 0x0401);
+        assert_eq!(npc.interaction_result_parameter, 0x10);
+        assert_eq!(npc.interaction_range_offset, 10);
+        assert_eq!(npc.dialogue_face_sprite_id, 6);
+    }
+
+    #[test]
     fn serialize_round_trip() {
         let mut data = 1i32.to_le_bytes().to_vec();
         data.extend(npc_bytes(42, "Innkeeper", 500));
@@ -367,7 +343,7 @@ mod tests {
         let mut c2 = Cursor::new(out.as_slice());
         let records2 = NPC::parse(&mut c2, out.len() as u64).unwrap();
         assert_eq!(records.len(), records2.len());
-        assert_eq!(records[0].npc_id, records2[0].npc_id);
+        assert_eq!(records[0].npc_ini_id, records2[0].npc_ini_id);
         assert_eq!(records[0].name, records2[0].name);
         assert_eq!(records[0].dialog_id, records2[0].dialog_id);
     }

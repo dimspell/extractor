@@ -169,7 +169,7 @@ impl MapDataState {
         let Some(npc) = self.npcs.get(idx) else {
             return;
         };
-        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_id) else {
+        let Some(sprite_name) = self.npc_id_to_sprite.get(&npc.npc_ini_id) else {
             return;
         };
 

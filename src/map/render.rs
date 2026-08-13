@@ -744,7 +744,7 @@ pub fn collect_external_entities(
                     (dir as usize, false)
                 };
                 let sprite_path = npc_sprite_map
-                    .get(&n.npc_id)
+                    .get(&n.npc_ini_id)
                     .map(|s| resolve("NpcInGame", s));
 
                 npcs.push(EntityRenderInfo {

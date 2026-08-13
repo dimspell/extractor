@@ -541,7 +541,7 @@ fn collect_npcs(
                         nr.goto4_filled, nr.goto4_x, nr.goto4_y,
                         ni.sprite_filename, nr.looking_direction \
                  FROM npc_refs nr \
-                 LEFT JOIN npc_inis ni ON ni.id = nr.npc_id \
+                 LEFT JOIN npc_inis ni ON ni.id = nr.npc_ini_id \
                  WHERE nr.file_path LIKE '%{}'",
                 name
             );
