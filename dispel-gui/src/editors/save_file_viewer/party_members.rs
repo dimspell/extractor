@@ -90,7 +90,48 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 }
 
 fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
-    container(text(member.name.to_string()).size(11))
-        .padding(8)
-        .into()
+    container(
+        Column::new()
+            .push(text(member.name.to_string()).size(16))
+            .push(label_row("Class ID", member.class_id.to_string()))
+            .push(label_row("Level", member.level.to_string()))
+            .push(label_row(
+                "HP",
+                format!(
+                    "{} / {}",
+                    member.current_health_points, member.maximum_health_points
+                ),
+            ))
+            .push(label_row(
+                "MP",
+                format!(
+                    "{} / {}",
+                    member.current_mana_points, member.maximum_mana_points
+                ),
+            ))
+            .push(label_row("Strength", member.strength.to_string()))
+            .push(label_row("Constitution", member.constitution.to_string()))
+            .push(label_row("Wisdom", member.wisdom.to_string()))
+            .push(label_row("Agility", member.agility.to_string()))
+            .push(label_row("Attack", member.attack.to_string()))
+            .push(label_row(
+                "Spells",
+                format!(
+                    "{}, {}, {}",
+                    member.magic_spell_id_1, member.magic_spell_id_2, member.magic_spell_id_3
+                ),
+            ))
+            .push(label_row("XP", member.experience_points.to_string()))
+            .push(label_row(
+                "Tactical Action Chance",
+                format!("{}%", member.tactical_action_chance),
+            ))
+            .push(label_row(
+                "Pathfinding Mode",
+                member.pathfinding_mode.to_string(),
+            ))
+            .spacing(3),
+    )
+    .padding(8)
+    .into()
 }

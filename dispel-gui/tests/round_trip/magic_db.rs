@@ -7,7 +7,7 @@ use std::path::Path;
 
 #[test]
 fn fixture_magicspell_roundtrip() {
-    let fixture = Path::new("fixtures/Dispel/CharacterInGame/magicSpell.db");
+    let fixture = Path::new("fixtures/Dispel/MagicInGame/Magic.db");
     if !fixture.exists() {
         eprintln!("SKIP: fixture not found: {}", fixture.display());
         return;

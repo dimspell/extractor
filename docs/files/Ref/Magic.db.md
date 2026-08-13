@@ -6,105 +6,44 @@
 - **Record Size**: 88 bytes (22 × u32)
 - **No Header**: Record count derived from file size
 
-## File Structure
+## Record Structure (88 bytes)
 
-### Record Structure (88 bytes)
-- `enabled`: u32 - Spell availability (0=disabled, 1=enabled)
-- `flag1`: u32 - Validation flag (always 1 for valid spells)
-- `mana_cost`: u32 - Mana cost (999=unlimited/special)
-- `success_rate`: u32 - Accuracy percentage (0-100%)
-- `base_damage`: u32 - Primary effect value
-- `reserved1`: u32 - Reserved field (always 0)
-- `reserved2`: u32 - Reserved field (always 0)
-- `flag2`: u32 - Unknown flag (0 or 1)
-- `range`: u32 - Range/duration (999=unlimited)
-- `reserved3`: u32 - Reserved field (always 0)
-- `level_required`: u32 - Minimum level to learn/cast
-- `constant1`: u32 - Constant value (always 1)
-- `effect_value`: u32 - Secondary effect value
-- `effect_type`: u32 - Effect type identifier
-- `effect_modifier`: u32 - Effect modifier value
-- `reserved4`: u32 - Reserved field (always 0)
-- `magic_school`: u32 - School of magic (0-6)
-- `flag3`: u32 - Unknown flag (0 or 1)
-- `animation_id`: u32 - Visual effect identifier
-- `visual_id`: u32 - Sound/visual reference
-- `icon_id`: u32 - UI icon identifier
-- `target_type`: u32 - Targeting mode (1-4)
+All fields are little-endian `u32`; the record ID is its zero-based position.
 
-## Field Details
+| Offset | Field | Meaning |
+|---:|---|---|
+| `0x00` | `enabled` | Spell availability flag |
+| `0x04` | `effect_visual_blends_with_background` | Uses blended rendering for the initial spell visual instead of direct blitting |
+| `0x08` | `base_damage` | Base damage used by the spell-damage calculation |
+| `0x0C` | `base_success_rate` | Base casting-success chance before skill adjustment |
+| `0x10` | `mana_cost` | Base mana cost before skill reduction; effective cost is at least 5 |
+| `0x14`, `0x18` | `reserved_0x14`, `reserved_0x18` | Reserved words; zero in shipped `Magic.db` |
+| `0x1C` | `effect_animation_repeats` | Repeats the target-effect animation while the target remains valid |
+| `0x20` | `range` | Maximum target distance checked by casting code |
+| `0x24` | `reserved_0x24` | Reserved word; zero in shipped `Magic.db` |
+| `0x28` | `cast_duration` | Maximum casting/action progress counter |
+| `0x2C` | `unused_constant_one` | Compatibility constant: always 1 in shipped data and not read by this executable |
+| `0x30–0x38` | `effect_value`, `effect_type`, `effect_modifier` | Effect configuration; exact semantics are not yet established |
+| `0x3C` | `reserved_0x3c` | Reserved word; zero in shipped `Magic.db` |
+| `0x40` | `magic_school` | Magic-school/stat category used in cost and success calculations |
+| `0x44` | `target_animation_blends_with_background` | Uses blended rendering for the target animation instead of direct blitting |
+| `0x48` | `animation_set_id` | Cast-animation set |
+| `0x4C` | `effect_visual_id` | Visual/projectile mapping selected when casting |
+| `0x50` | `icon_id` | UI icon ID (inferred from its use as a UI-facing ID) |
+| `0x54` | `targeting_mode` | Targeting-mode configuration; exact value meanings need confirmation |
 
-### enabled
-- `0`: Spell disabled/unavailable
-- `1`: Spell enabled/available
-- Controls spell accessibility
+## Confirmed runtime behavior
 
-### mana_cost
-- Mana points required to cast
-- `999`: Special/unlimited mana
-- Balances spell power vs. resource cost
-
-### success_rate
-- Accuracy percentage (0-100)
-- Chance of successful casting
-- Affects spell reliability
-
-### base_damage
-- Primary effect magnitude
-- Damage amount for offensive spells
-- Healing amount for restorative spells
-- Effect strength for other spell types
-
-### level_required
-- Minimum character level
-- Prerequisite for learning/casting
-- Controls spell progression
-
-### effect_type
-- Determines spell behavior
-- Links to spell effect system
-- Defines what the spell actually does
-
-### effect_value
-- Secondary effect magnitude
-- Additional effect parameters
-- Modifies primary effect
-
-### effect_modifier
-- Effect adjustment value
-- Fine-tunes spell behavior
-- Context-dependent meaning
-
-### magic_school
-
-### target_type
-- `1`: Single target
-- `2`: Self (caster)
-- `3`: Area of effect (AoE)
-- `4`: Multi-target
-
-### animation_id
-- Visual effect identifier
-- Links to animation system
-- Determines spell visuals
-
-### visual_id
-- Sound and visual reference
-- Audio-visual effects
-- Particle systems
-
-### icon_id
-- UI icon identifier
-- Spell menu representation
-- Quick access icons
+- The game calculates effective mana cost from `mana_cost` and the caster's magic-school skill, clamped to a minimum of 5.
+- It calculates effective success chance from `base_success_rate` and that same skill category.
+- `cast_duration` controls the progress limit used by casting/action state.
+- `effect_visual_id` selects the mapping used to create the spell visual or projectile.
+- The `0x04` and `0x44` flags select the renderer's palette-blending path; clear values use direct pixel copies.
+- `effect_animation_repeats` keeps the target-effect animation alive after its last frame.
 
 ## File Purpose
-Complete spell database defining all magical abilities with statistics, requirements, effects, and visual/audio assets. Used for:
-- Combat magic system
-- Character progression
-- Spellcasting mechanics
-- Magic-based gameplay
-- Balancing and difficulty scaling
+
+Defines spell combat parameters, cast timing, and visual configuration. Several effect-configuration words remain intentionally offset-named until their runtime behavior is confirmed.
 
 
 
@@ -134,7 +73,7 @@ An extractor is available in `src/references/magic_db.rs` to parse this file for
 
 ```bash
 # Extract Magic.db to JSON
-cargo run -- extract -i "fixtures/Dispel/Ref/Magic.db"
+cargo run -- extract -i "fixtures/Dispel/MagicInGame/Magic.db"
 
 # Import to SQLite database
 cargo run -- database import "fixtures/Dispel/" "database.sqlite"

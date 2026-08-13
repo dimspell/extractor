@@ -414,13 +414,136 @@ pub struct MapExtraObjectsTrailer {
     pub automatic_placement_global_item_index: u16,
 }
 
-/// PartyMember is 321 bytes long
-#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+/// Runtime snapshot of a recruited party character (321 bytes).
+///
+/// The game writes the 300-byte state as overlapping four-byte reads from its
+/// in-memory companion object. The named values below are
+/// decoded from the first such snapshots. `serialized_runtime_state` retains
+/// the complete original stream, including the repeated overlap bytes, so a
+/// read/write round trip cannot discard data that has not yet been decoded.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PartyMember {
-    #[binary_record(string(encoding = "WINDOWS-1250", size = 21))]
+    /// Party character display name, stored in a 21-byte Windows-1250 buffer.
     pub name: String,
-    #[binary_record(size = 300)]
-    pub unknown_1: Vec<u8>,
+    /// Maximum health points from the party-level progression record.
+    pub maximum_health_points: u16,
+    /// Maximum mana points from the party-level progression record.
+    pub maximum_mana_points: u16,
+    /// Health points remaining at the time the save was written.
+    pub current_health_points: u16,
+    /// Mana points remaining at the time the save was written.
+    pub current_mana_points: u16,
+    /// Party character class ID from `PrtIni.db` (21–24 in shipped data).
+    pub class_id: u8,
+    /// Current progression level.
+    pub level: u8,
+    /// Class-specific runtime behaviour selected during companion creation.
+    pub class_behaviour: u8,
+    /// Mode supplied to the party member pathfinding logic.
+    pub pathfinding_mode: u8,
+    /// Strength from `PrtLevel.db` for this character and level.
+    pub strength: u32,
+    /// Constitution from `PrtLevel.db` for this character and level.
+    pub constitution: u32,
+    /// Wisdom from `PrtLevel.db` for this character and level.
+    pub wisdom: u32,
+    /// Agility from `PrtLevel.db` for this character and level.
+    pub agility: u8,
+    /// Attack stat from `PrtLevel.db` for this character and level.
+    pub attack: u8,
+    /// First magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_1: u8,
+    /// Second magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_2: u8,
+    /// Third magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_3: u8,
+    /// Zero-based index of this companion in the game's party-character table.
+    pub party_character_index: u8,
+    /// Percentage threshold used after level ten to trigger a tactical action.
+    pub tactical_action_chance: u32,
+    /// Experience points accumulated by this party member.
+    ///
+    /// The game increments this value after combat and compares it with the
+    /// next-level threshold before levelling up.
+    pub experience_points: u32,
+    /// The exact 75-word serialized state stream after the name.
+    ///
+    /// This is authoritative on write because the game serializes overlapping
+    /// windows of its runtime object rather than a conventional packed struct.
+    pub serialized_runtime_state: Vec<u8>,
+}
+
+impl PartyMember {
+    const NAME_SIZE: usize = 21;
+    const RUNTIME_STATE_SIZE: usize = 300;
+
+    /// Parse the game's overlapping companion-state serialization.
+    pub fn parse(data: &[u8]) -> std::io::Result<Self> {
+        if data.len() != Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "PartyMember requires 321 bytes",
+            ));
+        }
+
+        let name = read_null_terminated_windows_1250(&data[..Self::NAME_SIZE])
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let serialized_runtime_state = data[Self::NAME_SIZE..].to_vec();
+        let state = &serialized_runtime_state;
+        let u16_at = |offset| u16::from_le_bytes([state[offset], state[offset + 1]]);
+        let u32_at = |offset| {
+            u32::from_le_bytes([
+                state[offset],
+                state[offset + 1],
+                state[offset + 2],
+                state[offset + 3],
+            ])
+        };
+
+        Ok(Self {
+            name,
+            maximum_health_points: u16_at(0),
+            maximum_mana_points: u16_at(2),
+            current_health_points: u16_at(80),
+            current_mana_points: u16_at(84),
+            class_id: state[6],
+            level: state[7],
+            class_behaviour: state[10],
+            pathfinding_mode: state[11],
+            strength: u32_at(28),
+            constitution: u32_at(32),
+            wisdom: u32_at(36),
+            agility: state[40],
+            attack: state[41],
+            magic_spell_id_1: state[48],
+            magic_spell_id_2: state[49],
+            magic_spell_id_3: state[50],
+            party_character_index: state[51],
+            tactical_action_chance: u32_at(68),
+            experience_points: u32_at(72),
+            serialized_runtime_state,
+        })
+    }
+
+    /// Write the original serialized companion-state stream.
+    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        if self.serialized_runtime_state.len() != Self::RUNTIME_STATE_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "PartyMember runtime state requires 300 bytes",
+            ));
+        }
+
+        let mut name_buf = [0u8; Self::NAME_SIZE];
+        let (encoded, _, _) = encoding_rs::WINDOWS_1250.encode(&self.name);
+        let len = encoded.len().min(Self::NAME_SIZE);
+        name_buf[..len].copy_from_slice(&encoded[..len]);
+        writer.write_all(&name_buf)?;
+        writer.write_all(&self.serialized_runtime_state)
+    }
 }
 
 /// Event script record (save file format: 284 bytes each)
