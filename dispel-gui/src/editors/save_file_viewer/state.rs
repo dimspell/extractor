@@ -803,11 +803,11 @@ impl CharacterTableKind {
                 &["unknown_a", "unknown_b", "unknown_c", "unknown_d"]
             }
             CharacterTableKind::InventoryPlacement => &[
-                "unknown_a",
-                "unknown_b",
-                "unknown_c",
-                "unknown_d",
-                "unknown_e",
+                "item_category",
+                "item_catalog_index",
+                "placement_slot_id",
+                "placement_row",
+                "item_instance_index",
             ],
         };
         labels

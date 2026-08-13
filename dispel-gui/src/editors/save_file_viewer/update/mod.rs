@@ -1337,11 +1337,11 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             .iter()
                             .map(|e| {
                                 vec![
-                                    e.unknown_a.to_string(),
-                                    e.unknown_b.to_string(),
-                                    e.unknown_c.to_string(),
-                                    e.unknown_d.to_string(),
-                                    e.unknown_e.to_string(),
+                                    e.item_category.to_string(),
+                                    e.item_catalog_index.to_string(),
+                                    e.placement_slot_id.to_string(),
+                                    e.placement_row.to_string(),
+                                    e.item_instance_index.to_string(),
                                 ]
                             })
                             .collect(),

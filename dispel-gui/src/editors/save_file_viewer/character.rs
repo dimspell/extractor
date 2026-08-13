@@ -1,6 +1,6 @@
 use iced::mouse::Interaction;
-use iced::widget::{Column, Row, button, container, mouse_area, text};
-use iced::{Element, Fill};
+use iced::widget::{Column, Row, button, container, mouse_area, scrollable, text};
+use iced::{Element, Fill, Length};
 
 use crate::components::filter::{self, ColumnFilterAction, FilterBarExtras, GlobalFilterMode};
 use crate::editors::save_file_viewer::message::{
@@ -45,6 +45,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
 
     // Content: TableWidget for the selected kind
     let body: Element<'a, Message> = match active {
+        Some(CharacterTableKind::InventoryPlacement) => inventory_placement_view(state),
         Some(kind) => character_table(state, kind),
         None => container(text("Select a character table above"))
             .width(Fill)
@@ -54,6 +55,96 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     };
 
     Column::<Message>::new().push(buttons).push(body).into()
+}
+
+/// Render the 189 placement records in their inferred on-disk grid order.
+///
+/// The save serializer writes 21 consecutive 180-byte blocks. Each block
+/// holds nine 20-byte cells, yielding `[3 pages][7 columns][9 rows]`.
+/// The blocks are stored column-major, while this view renders conventional rows.
+fn inventory_placement_view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
+    const PAGES: usize = 3;
+    const COLUMNS: usize = 7;
+    const ROWS: usize = 9;
+    const CELLS_PER_PAGE: usize = ROWS * COLUMNS;
+
+    let Some(save) = state.save_file.as_ref() else {
+        return container(text("Inventory placement data is unavailable"))
+            .width(Fill)
+            .height(Fill)
+            .padding(16)
+            .into();
+    };
+    let cells = &save.character_identity.inventory_placement;
+    let selected = state
+        .character_table_states
+        .get(&CharacterTableKind::InventoryPlacement)
+        .and_then(|table| table.selected_orig);
+
+    let mut content = Column::<Message>::new()
+        .push(text("Inventory Placement Grid").size(16))
+        .push(text(
+            "Save order: 3 pages × 7 columns × 9 rows (column-major). Each cell shows its item reference and placement values. Click a cell to select its row in the table below.",
+        ).size(12))
+        .spacing(8)
+        .padding(12);
+
+    for page in 0..PAGES {
+        let mut page_content = Column::<Message>::new()
+            .push(text(format!("Page {}", page + 1)).size(14))
+            .spacing(3);
+
+        for row_index in 0..ROWS {
+            let mut row_content = Row::<Message>::new().spacing(3);
+            for column_index in 0..COLUMNS {
+                let index = page * CELLS_PER_PAGE + column_index * ROWS + row_index;
+                let cell_label = match cells.get(index) {
+                    Some(cell) => format!(
+                        "#{index} [p{} c{} r{}]\ntype {} · def {}\nslot {} · row {} · inst {}",
+                        page + 1,
+                        column_index + 1,
+                        row_index + 1,
+                        cell.item_category,
+                        cell.item_catalog_index,
+                        cell.placement_slot_id,
+                        cell.placement_row,
+                        cell.item_instance_index,
+                    ),
+                    None => format!(
+                        "#{index} [p{} c{} r{}]\nmissing",
+                        page + 1,
+                        column_index + 1,
+                        row_index + 1,
+                    ),
+                };
+                let mut cell_button = button(text(cell_label).size(10))
+                    .width(Length::Fixed(108.0))
+                    .height(Length::Fixed(62.0))
+                    .padding(3);
+                cell_button = if selected == Some(index) {
+                    cell_button.style(style::active_tab_button)
+                } else {
+                    cell_button.style(style::tab_button)
+                };
+                row_content = row_content.push(cell_button.on_press(Message::save_file_viewer(
+                    SaveFileViewerMessage::CharacterTableSelect {
+                        kind: CharacterTableKind::InventoryPlacement,
+                        visible_idx: index,
+                    },
+                )));
+            }
+            page_content = page_content.push(row_content);
+        }
+        content = content.push(container(page_content).padding(8));
+    }
+
+    Column::<Message>::new()
+        .push(scrollable(content).height(Length::Fixed(470.0)))
+        .push(character_table(
+            state,
+            CharacterTableKind::InventoryPlacement,
+        ))
+        .into()
 }
 
 fn character_table<'a>(

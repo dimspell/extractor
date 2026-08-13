@@ -867,17 +867,23 @@ pub struct BeltPotionSlot {
     pub unknown_d: i32,
 }
 
-/// Single inventory placement entry (20 bytes).
+/// One item reference and its position in the inventory placement grid (20 bytes).
 ///
-/// Part of the 189-entry inventory placement grid (189 × 20 = 3780 bytes total).
-/// Layout: `i32, i32, i32, i32, i32`.
+/// The grid is serialized as three pages, each with seven 9-cell columns:
+/// `[3 pages][7 columns][9 cells]`. Empty cells use category `10` and catalog
+/// index `100`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct InventoryPlacementEntry {
-    pub unknown_a: i32,
-    pub unknown_b: i32,
-    pub unknown_c: i32,
-    pub unknown_d: i32,
-    pub unknown_e: i32,
+    /// Zero-based item category used to select an item collection; `10` marks an empty cell.
+    pub item_category: i32,
+    /// Zero-based index of the item's definition within `item_category`; `100` marks an empty cell.
+    pub item_catalog_index: i32,
+    /// Logical inventory-slot ID. The loader derives the visible page from `(id - 28) / 27`.
+    pub placement_slot_id: i32,
+    /// Starting row in a 9-cell column for this item's occupied placement cells.
+    pub placement_row: i32,
+    /// Category-local index of the instantiated inventory item represented by this placement.
+    pub item_instance_index: i32,
 }
 
 /// Learned spells block (41 bytes).
@@ -906,7 +912,7 @@ pub struct CharacterIdentity {
     pub equipped_equipment: Vec<EquipmentSlot>,
     /// Potions in belt — 6 slots × 16 bytes = 96 bytes.
     pub belt_potions: Vec<BeltPotionSlot>,
-    /// Inventory item placements — 189 entries × 20 bytes = 3780 bytes.
+    /// Inventory item placements — 3 pages × 7 columns × 9 cells × 20 bytes.
     pub inventory_placement: Vec<InventoryPlacementEntry>,
     /// Learned spells — 41 bytes (one flag per spell).
     pub learned_spells: LearnedSpells,
@@ -1489,7 +1495,7 @@ impl SaveFile {
             })
             .collect();
 
-        // Inventory placement: 189 entries × 20 bytes = 3780 bytes (5 × i32 each)
+        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
         let mut inventory_raw = vec![0u8; 189 * 20];
         reader.read_exact(&mut inventory_raw)?;
         let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
@@ -1497,11 +1503,11 @@ impl SaveFile {
             .map(|chunk| {
                 let mut c = std::io::Cursor::new(chunk);
                 InventoryPlacementEntry {
-                    unknown_a: c.read_i32::<LittleEndian>().unwrap(), // item_type_id (0, 1, 2, 3, 4 or 10 when not set)
-                    unknown_b: c.read_i32::<LittleEndian>().unwrap(), // item id from the corresponding file, 100 when not set)
-                    unknown_c: c.read_i32::<LittleEndian>().unwrap(),
-                    unknown_d: c.read_i32::<LittleEndian>().unwrap(),
-                    unknown_e: c.read_i32::<LittleEndian>().unwrap(),
+                    item_category: c.read_i32::<LittleEndian>().unwrap(),
+                    item_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
+                    placement_slot_id: c.read_i32::<LittleEndian>().unwrap(),
+                    placement_row: c.read_i32::<LittleEndian>().unwrap(),
+                    item_instance_index: c.read_i32::<LittleEndian>().unwrap(),
                 }
             })
             .collect();
@@ -1857,13 +1863,13 @@ impl SaveFile {
             writer.write_i32::<LittleEndian>(slot.unknown_d)?;
         }
 
-        // Inventory placement: 189 entries × 20 bytes = 3780 bytes (5 × i32 each)
+        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
         for entry in &identity.inventory_placement {
-            writer.write_i32::<LittleEndian>(entry.unknown_a)?;
-            writer.write_i32::<LittleEndian>(entry.unknown_b)?;
-            writer.write_i32::<LittleEndian>(entry.unknown_c)?;
-            writer.write_i32::<LittleEndian>(entry.unknown_d)?;
-            writer.write_i32::<LittleEndian>(entry.unknown_e)?;
+            writer.write_i32::<LittleEndian>(entry.item_category)?;
+            writer.write_i32::<LittleEndian>(entry.item_catalog_index)?;
+            writer.write_i32::<LittleEndian>(entry.placement_slot_id)?;
+            writer.write_i32::<LittleEndian>(entry.placement_row)?;
+            writer.write_i32::<LittleEndian>(entry.item_instance_index)?;
         }
 
         // Learned spells: 41 bytes
