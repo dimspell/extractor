@@ -100,14 +100,14 @@ fn inventory_placement_view<'a>(state: &'a SaveFileViewerState) -> Element<'a, M
                 let index = page * CELLS_PER_PAGE + column_index * ROWS + row_index;
                 let cell_label = match cells.get(index) {
                     Some(cell) => format!(
-                        "#{index} [p{} c{} r{}]\ntype {} · def {}\nslot {} · row {} · inst {}",
+                        "#{index} [p{} c{} r{}]\ntype {} · def {}\nx {} · y {} · inst {}",
                         page + 1,
                         column_index + 1,
                         row_index + 1,
                         cell.item_category,
                         cell.item_catalog_index,
-                        cell.placement_slot_id,
-                        cell.placement_row,
+                        cell.icon_x,
+                        cell.icon_y,
                         cell.item_instance_index,
                     ),
                     None => format!(

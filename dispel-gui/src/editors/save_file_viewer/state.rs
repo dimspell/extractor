@@ -687,7 +687,7 @@ impl InventoryCategory {
                 ("padding6", 60.0),
                 ("padding7", 60.0),
                 ("padding8", 60.0),
-                ("unknown_1", 60.0),
+                ("inventory_instance_id", 60.0),
                 ("unknown_2", 60.0),
                 ("unknown_3", 60.0),
                 ("unknown_4", 60.0),
@@ -798,15 +798,19 @@ impl CharacterTableKind {
     /// `width_px` from the per-table state and `sort` from the active sort.
     pub fn default_columns(&self) -> Vec<TableColumn> {
         let labels: &[&str] = match self {
-            CharacterTableKind::Equipment => &["unknown_a", "unknown_b", "unknown_c"],
+            CharacterTableKind::Equipment => &[
+                "panel_slot_marker",
+                "weapon_catalog_index",
+                "weapon_inventory_instance_id",
+            ],
             CharacterTableKind::BeltPotions => {
-                &["unknown_a", "unknown_b", "unknown_c", "unknown_d"]
+                &["item_category", "item_catalog_index", "icon_x", "icon_y"]
             }
             CharacterTableKind::InventoryPlacement => &[
                 "item_category",
                 "item_catalog_index",
-                "placement_slot_id",
-                "placement_row",
+                "icon_x",
+                "icon_y",
                 "item_instance_index",
             ],
         };
@@ -977,9 +981,9 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //         .iter()
         //         .flat_map(|s| {
         //             let mut b = Vec::with_capacity(9);
-        //             b.push(s.unknown_a);
-        //             b.extend_from_slice(&s.unknown_b.to_le_bytes());
-        //             b.extend_from_slice(&s.unknown_c.to_le_bytes());
+        //             b.push(s.panel_slot_marker);
+        //             b.extend_from_slice(&s.weapon_catalog_index.to_le_bytes());
+        //             b.extend_from_slice(&s.weapon_inventory_instance_id.to_le_bytes());
         //             b
         //         })
         //         .collect::<Vec<_>>(),
@@ -992,10 +996,10 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //         .iter()
         //         .flat_map(|s| {
         //             let mut b = Vec::with_capacity(16);
-        //             b.extend_from_slice(&s.unknown_a.to_le_bytes());
-        //             b.extend_from_slice(&s.unknown_b.to_le_bytes());
-        //             b.extend_from_slice(&s.unknown_c.to_le_bytes());
-        //             b.extend_from_slice(&s.unknown_d.to_le_bytes());
+        //             b.extend_from_slice(&s.item_category.to_le_bytes());
+        //             b.extend_from_slice(&s.item_catalog_index.to_le_bytes());
+        //             b.extend_from_slice(&s.icon_x.to_le_bytes());
+        //             b.extend_from_slice(&s.icon_y.to_le_bytes());
         //             b
         //         })
         //         .collect(),

@@ -1159,7 +1159,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     item.padding6.to_string(),
                                     item.padding7.to_string(),
                                     item.padding8.to_string(),
-                                    item.unknown_1.to_string(),
+                                    item.inventory_instance_id.to_string(),
                                     item.unknown_2.to_string(),
                                     item.unknown_3.to_string(),
                                     item.unknown_4.to_string(),
@@ -1308,9 +1308,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             .iter()
                             .map(|s| {
                                 vec![
-                                    s.unknown_a.to_string(),
-                                    s.unknown_b.to_string(),
-                                    s.unknown_c.to_string(),
+                                    s.panel_slot_marker.to_string(),
+                                    s.weapon_catalog_index.to_string(),
+                                    s.weapon_inventory_instance_id.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1322,10 +1322,10 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             .iter()
                             .map(|s| {
                                 vec![
-                                    s.unknown_a.to_string(),
-                                    s.unknown_b.to_string(),
-                                    s.unknown_c.to_string(),
-                                    s.unknown_d.to_string(),
+                                    s.item_category.to_string(),
+                                    s.item_catalog_index.to_string(),
+                                    s.icon_x.to_string(),
+                                    s.icon_y.to_string(),
                                 ]
                             })
                             .collect(),
@@ -1339,8 +1339,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 vec![
                                     e.item_category.to_string(),
                                     e.item_catalog_index.to_string(),
-                                    e.placement_slot_id.to_string(),
-                                    e.placement_row.to_string(),
+                                    e.icon_x.to_string(),
+                                    e.icon_y.to_string(),
                                     e.item_instance_index.to_string(),
                                 ]
                             })
