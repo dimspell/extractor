@@ -4,7 +4,7 @@
 
 ### Overview
 
-Text file that defines interactive objects with visual assets, flags, and descriptions for the game's environmental interaction system.
+Text file that defines interactive-object definitions with visual assets, activation-frame settings, and descriptions.
 
 ### File Structure
 
@@ -17,7 +17,7 @@ Text file that defines interactive objects with visual assets, flags, and descri
 
 ```ini
 ; Comment line explaining field structure
-id,sprite_filename,flag,description
+id,sprite_filename,activation_sprite_frame_mode,description
 0,null,0,null
 1,object1.spr,0,Object description
 2,object2.spr,1,Special object description
@@ -28,28 +28,24 @@ id,sprite_filename,flag,description
 
 | Field | Type | Description |
 |-------|------|-------------|
-| id | i32 | Unique interactive object identifier (0-181) |
+| id | i32 | Unique interactive object identifier. |
 | sprite_filename | string | SPR filename or "null" |
-| flag | i32 | Object flag (0 = standard, 1 = special) |
-| description | string | Object description or "null" |
+| activation_sprite_frame_mode | i32 | Selects the sprite frame used after activation for the object handlers that use this setting. |
+| description | string | Editor-facing description or "null". The executable loader does not copy this fourth column into its runtime definition table. |
 
-### Flag System
+### Activation-frame mode
 
-**Standard Objects (flag = 0):**
-- Regular interactive objects
-- Basic containers and doors
-- Standard environmental features
+The game loads this field into the runtime object definition and copies it to
+each placed instance. In the observed activation path for object handlers 5, 6,
+and 8, values greater than `1` choose activated sprite frame `1`; values `0`
+and `1` choose frame `0`. The shipped file contains `0`, `1`, and `2`.
 
-**Special Objects (flag = 1):**
-- Quest-related objects
-- Unique interaction points
-- Special mechanics or behaviors
+The executable does not support interpreting this column as a standard/special
+or quest flag.
 
-### Special Values
+### Text-format details
 
 - **"null"**: Literal string indicating no sprite or description
-- **flag = 0**: Standard interactive object
-- **flag = 1**: Special/quest-related object
 - **;**: Lines starting with semicolon are comments
 - **Empty lines**: Ignored during processing
 
@@ -61,11 +57,11 @@ id,sprite_filename,flag,description
 
 ; Container template
 1,container.spr,0,Storage object
-2,container.spr,0,Loot container
+2,container.spr,2,Loot container
 
-; Special object template
-10,special.spr,1,Quest-related object
-11,unique.spr,1,Story-critical item
+; Object using the alternate activated sprite frame
+10,special.spr,2,Interactive object
+11,unique.spr,1,Interactive object
 ```
 
 ### Technical Details
@@ -94,7 +90,7 @@ The codebase defines the structure for interactive objects:
 pub struct Extra {
     id: i32,                    // Object ID
     sprite_filename: Option<String>, // Visual asset
-    unknown: i32,               // Object flag (0 or 1)
+    activation_sprite_frame_mode: i32, // Activation-frame selector (0, 1, or 2 in shipped data)
     description: Option<String>, // Object description
 }
 ```
@@ -103,7 +99,7 @@ pub struct Extra {
 
 1. **Environment Interaction**: Defines objects players can interact with
 2. **Visual Mapping**: Links object IDs to sprite files
-3. **Quest Integration**: Special objects trigger quest progression
+3. **Activation visuals**: Selects an activated sprite frame for supported object handlers
 4. **Puzzle Systems**: Objects used in environmental puzzles
 5. **Map Placement**: Referenced by Ext*.ref placement files
 
@@ -126,9 +122,9 @@ pub struct Extra {
 
 ### File Characteristics
 
-- **Entry Count**: 182 object definitions
-- **ID Range**: 0-181 (ID 0 = default/null entry)
-- **Flag Distribution**: Mix of standard (0) and special (1) objects
+- **Fixture entry count**: 151 object definitions
+- **Fixture ID range**: 0-150 (ID 0 = default/null entry)
+- **Activation-frame modes**: Values 0, 1, and 2 occur in the shipped data
 - **Comment Organization**: Logical grouping by object type
 - **Encoding**: EUC-KR with Korean descriptions
 

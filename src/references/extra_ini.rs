@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 // | Record Size: Variable (text)         |
 // +--------------------------------------+
 // | ; Comment line                       |
-// | id,sprite_filename,unknown,description|
+// | id,sprite_filename,activation_sprite_frame_mode,description |
 // | 1,chest.spr,0,Wooden Chest           |
 // | 2,door.spr,1,Iron Door               |
 // | ...                                  |
@@ -28,12 +28,8 @@ use serde::{Deserialize, Serialize};
 // FIELD DEFINITIONS:
 // - id: Unique interactive object ID
 // - sprite_filename: SPR filename or "null"
-// - unknown: Flag (0 or 1)
+// - activation_sprite_frame_mode: Selects the sprite frame used after activation
 // - description: Object description or "null"
-//
-// UNKNOWN FLAG MEANINGS:
-// - 0: Standard interactive object
-// - 1: Special/quest-related object
 //
 // SPECIAL VALUES:
 // - "null" literal for missing fields
@@ -57,10 +53,19 @@ pub struct Extra {
     /// Base SPR filename for the object.
     #[extractor(field = 1, parse_null)]
     pub sprite_filename: Option<String>,
-    /// Internal unknown flag.
+    /// Selects the sprite frame used after the object is activated.
+    ///
+    /// The game copies this value into every placement using this definition.
+    /// For object interaction handlers 5, 6, and 8, a value greater than `1`
+    /// selects activated sprite frame `1`; `0` and `1` select frame `0` on
+    /// that path. Shipped definitions use `0`, `1`, and `2`, so this is not a
+    /// boolean or a quest flag.
     #[extractor(field = 2)]
-    pub unknown: i32,
-    /// Optional description for the interactive object.
+    pub activation_sprite_frame_mode: i32,
+    /// Optional editor-facing description for the interactive object.
+    ///
+    /// The executable loader stops after the preceding activation-frame mode,
+    /// so it does not copy this fourth column into the runtime definition table.
     #[extractor(field = 3, parse_null)]
     pub description: Option<String>,
 }
@@ -77,7 +82,7 @@ pub fn save_extras(conn: &mut Connection, extras: &[Extra]) -> Result<()> {
             stmt.execute(params![
                 extra.id,
                 extra.sprite_filename,
-                extra.unknown,
+                extra.activation_sprite_frame_mode,
                 extra.description,
             ])?;
         }
@@ -99,10 +104,10 @@ mod tests {
         assert_eq!(extras.len(), 2);
         assert_eq!(extras[0].id, 1);
         assert_eq!(extras[0].sprite_filename.as_deref(), Some("chest.spr"));
-        assert_eq!(extras[0].unknown, 0);
+        assert_eq!(extras[0].activation_sprite_frame_mode, 0);
         assert_eq!(extras[0].description.as_deref(), Some("Wooden Chest"));
         assert_eq!(extras[1].sprite_filename, None);
-        assert_eq!(extras[1].unknown, 1);
+        assert_eq!(extras[1].activation_sprite_frame_mode, 1);
         assert_eq!(extras[1].description, None);
     }
 
@@ -126,6 +131,14 @@ mod tests {
         assert_eq!(records.len(), records2.len());
         assert_eq!(records[0].id, records2[0].id);
         assert_eq!(records[0].sprite_filename, records2[0].sprite_filename);
+        assert_eq!(
+            records[0].activation_sprite_frame_mode,
+            records2[0].activation_sprite_frame_mode
+        );
         assert_eq!(records[1].sprite_filename, records2[1].sprite_filename);
+        assert_eq!(
+            records[1].activation_sprite_frame_mode,
+            records2[1].activation_sprite_frame_mode
+        );
     }
 }
