@@ -4,24 +4,22 @@ use dispel_core::{HealItem, HealItemFlag};
 use crate::editable_record_fields;
 
 const FLAGS: FieldKind = FieldKind::Enum {
-    variants: &["None", "FullRestoration"],
+    variants: &["None", "Active"],
 };
 
 editable_record_fields!(HealItem, {
     { name = String / "Name:" },
     { description = TextArea / "Description:" },
     { base_price = Integer / "Base Price:" },
-    { padding1 = Integer / "Padding 2:" },
-    { padding2 = Integer / "Padding 3:" },
+    { runtime_item_index_slot = Integer / "Runtime Item Index:" },
     { health_points = Integer / "HP Restore:" },
     { mana_points = Integer / "MP Restore:" },
-    { restore_full_health = Enum(HealItemFlag, Shared(FLAGS)) / "Full HP:" },
-    { restore_full_mana = Enum(HealItemFlag, Shared(FLAGS)) / "Full MP:" },
-    { poison_heal = Enum(HealItemFlag, Shared(FLAGS)) / "Cure Poison:" },
-    { petrif_heal = Enum(HealItemFlag, Shared(FLAGS)) / "Cure Petrify:" },
-    { polimorph_heal = Enum(HealItemFlag, Shared(FLAGS)) / "Cure Polymorph:" },
-    { padding4 = Integer / "Padding 4:" },
-    { padding5 = Integer / "Padding 5:" },
+    { restores_full_health = Enum(HealItemFlag, Shared(FLAGS)) / "Restore Full HP:" },
+    { restores_full_mana = Enum(HealItemFlag, Shared(FLAGS)) / "Restore Full MP:" },
+    { cures_poison = Enum(HealItemFlag, Shared(FLAGS)) / "Cures Poison:" },
+    { cures_petrification = Enum(HealItemFlag, Shared(FLAGS)) / "Cures Petrification:" },
+    { cures_polymorph = Enum(HealItemFlag, Shared(FLAGS)) / "Cures Polymorph:" },
+    { reserved_trailer = HexString / "Reserved Trailer:" },
 });
 
 impl EditableRecord for HealItem {
@@ -41,11 +39,11 @@ impl EditableRecord for HealItem {
                 Err(_) => Some(format!("{field} must be a valid integer")),
                 _ => None,
             },
-            "restore_full_health"
-            | "restore_full_mana"
-            | "poison_heal"
-            | "petrif_heal"
-            | "polimorph_heal" => {
+            "restores_full_health"
+            | "restores_full_mana"
+            | "cures_poison"
+            | "cures_petrification"
+            | "cures_polymorph" => {
                 if HealItemFlag::from_name(value).is_none() {
                     Some(format!("Invalid {field}"))
                 } else {

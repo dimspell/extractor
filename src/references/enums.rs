@@ -1451,22 +1451,22 @@ impl From<SpecialPatternFlag> for i32 {
     }
 }
 
-/// Healing item flags for restoration effects
+/// Enable flags for individual healing-item effects.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 pub enum HealItemFlag {
     /// No effect
     #[default]
     None = 0,
-    /// Full restoration effect
-    FullRestoration = 1,
+    /// The associated healing or cure effect is active.
+    Active = 1,
 }
 
 impl std::fmt::Display for HealItemFlag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             HealItemFlag::None => write!(f, "None"),
-            HealItemFlag::FullRestoration => write!(f, "Full Restoration"),
+            HealItemFlag::Active => write!(f, "Active"),
         }
     }
 }
@@ -1476,7 +1476,7 @@ impl HealItemFlag {
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
             0 => Some(HealItemFlag::None),
-            1 => Some(HealItemFlag::FullRestoration),
+            1 => Some(HealItemFlag::Active),
             _ => None,
         }
     }
@@ -1490,7 +1490,9 @@ impl HealItemFlag {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "None" => Some(HealItemFlag::None),
-            "FullRestoration" | "Full Restoration" => Some(HealItemFlag::FullRestoration),
+            "Active" | "Enabled" | "FullRestoration" | "Full Restoration" => {
+                Some(HealItemFlag::Active)
+            }
             _ => None,
         }
     }
@@ -1512,14 +1514,14 @@ impl From<HealItemFlag> for u8 {
 
 impl From<HealItemFlag> for bool {
     fn from(flag: HealItemFlag) -> Self {
-        flag == HealItemFlag::FullRestoration
+        flag == HealItemFlag::Active
     }
 }
 
 impl From<bool> for HealItemFlag {
     fn from(value: bool) -> Self {
         if value {
-            HealItemFlag::FullRestoration
+            HealItemFlag::Active
         } else {
             HealItemFlag::None
         }
@@ -2198,16 +2200,13 @@ mod tests {
     #[test]
     fn test_heal_item_flag_conversion() {
         assert_eq!(HealItemFlag::from_u8(0), Some(HealItemFlag::None));
-        assert_eq!(
-            HealItemFlag::from_u8(1),
-            Some(HealItemFlag::FullRestoration)
-        );
+        assert_eq!(HealItemFlag::from_u8(1), Some(HealItemFlag::Active));
         assert_eq!(HealItemFlag::from_u8(99), None);
 
-        assert_eq!(u8::from(HealItemFlag::FullRestoration), 1);
-        assert_eq!(HealItemFlag::FullRestoration.value(), 1);
-        assert!(bool::from(HealItemFlag::FullRestoration));
-        assert_eq!(HealItemFlag::from(true), HealItemFlag::FullRestoration);
+        assert_eq!(u8::from(HealItemFlag::Active), 1);
+        assert_eq!(HealItemFlag::Active.value(), 1);
+        assert!(bool::from(HealItemFlag::Active));
+        assert_eq!(HealItemFlag::from(true), HealItemFlag::Active);
     }
 
     #[test]

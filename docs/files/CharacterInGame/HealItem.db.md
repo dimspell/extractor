@@ -12,7 +12,7 @@ Binary database file that defines consumable healing items with restoration effe
 **Encoding**: Binary (Little-Endian)
 **Text Encodings**: Mixed (WINDOWS-1250 and EUC-KR)
 **Header**: 4-byte record count
-**Record Size**: 252 bytes (63 × 4-byte fields)
+**Record Size**: 252 bytes
 **Total Records**: Variable (determined by header)
 
 ### Binary Format
@@ -24,16 +24,16 @@ Binary database file that defines consumable healing items with restoration effe
 [Records: 252 bytes each]
 - name: 30 bytes (WINDOWS-1250, null-padded)
 - description: 202 bytes (EUC-KR, null-padded)
-- base_price: i16 (economic value)
-- padding: i16 × 3 (12 bytes unused)
+- base_price: i32 (economic value)
+- runtime_item_index_slot: i32 (overwritten with the record index at load time)
 - health_points: i16 (HP restore amount)
 - mana_points: i16 (MP restore amount)
-- restore_full_health: u8 (full HP restoration flag)
-- restore_full_mana: u8 (full MP restoration flag)
-- poison_heal: u8 (poison cure flag)
-- petrif_heal: u8 (petrification cure flag)
-- polimorph_heal: u8 (polymorph cure flag)
-- padding: u8 + i16 (3 bytes unused)
+- restores_full_health: u8 (full HP restoration flag)
+- restores_full_mana: u8 (full MP restoration flag)
+- cures_poison: u8 (poison cure flag)
+- cures_petrification: u8 (petrification cure flag)
+- cures_polymorph: u8 (polymorph cure flag)
+- reserved_trailer: 3 bytes (preserved, no use found)
 ```
 
 ### Field Definitions
@@ -43,30 +43,29 @@ Binary database file that defines consumable healing items with restoration effe
 | id | N/A | i32 | Record index (assigned during parsing) |
 | name | 30 | string | Item name (WINDOWS-1250 encoded) |
 | description | 202 | string | Item description (EUC-KR encoded) |
-| base_price | 2 | i16 | Economic value (0 = non-tradable) |
-| padding1-3 | 2×3 | i16 | Unused padding fields |
+| base_price | 4 | i32 | Economic value (0 = non-tradable) |
+| runtime_item_index_slot | 4 | i32 | Replaced by the sequential record index while loading |
 | health_points | 2 | i16 | Health points restored (PZ) |
 | mana_points | 2 | i16 | Mana points restored (PM) |
-| restore_full_health | 1 | u8 | Full health restoration flag |
-| restore_full_mana | 1 | u8 | Full mana restoration flag |
-| poison_heal | 1 | u8 | Poison status cure flag |
-| petrif_heal | 1 | u8 | Petrification status cure flag |
-| polimorph_heal | 1 | u8 | Polymorph status cure flag |
-| padding4 | 1 | u8 | Unused padding byte |
-| padding5 | 2 | i16 | Unused padding field |
+| restores_full_health | 1 | u8 | Full health restoration flag |
+| restores_full_mana | 1 | u8 | Full mana restoration flag |
+| cures_poison | 1 | u8 | Poison status cure flag |
+| cures_petrification | 1 | u8 | Petrification status cure flag |
+| cures_polymorph | 1 | u8 | Polymorph status cure flag |
+| reserved_trailer | 3 | bytes | Reserved data, zero in the bundled fixture |
 
 ### Healing Flag System
 
 **Flag Values (HealItemFlag enum):**
 - **0**: None - No effect
-- **1**: FullRestoration - Complete restoration/cure
+- **1**: Active - The associated restoration or cure is active
 
 **Flag Fields:**
-- `restore_full_health`: Restores health to maximum
-- `restore_full_mana`: Restores mana to maximum
-- `poison_heal`: Cures poison status effect
-- `petrif_heal`: Cures petrification status effect
-- `polimorph_heal`: Cures polymorph status effect
+- `restores_full_health`: Restores health to maximum
+- `restores_full_mana`: Restores mana to maximum
+- `cures_poison`: Cures poison status effect
+- `cures_petrification`: Cures petrification status effect
+- `cures_polymorph`: Cures polymorph status effect
 
 ### Data Structure
 
@@ -77,19 +76,16 @@ pub struct HealItem {
     id: i32,                    // Record index
     name: String,              // Item name (30 chars max)
     description: String,       // Item description (202 chars max)
-    base_price: i16,           // Economic value
-    padding1: i16,            // Unused padding
-    padding2: i16,            // Unused padding
-    padding3: i16,            // Unused padding
+    base_price: i32,           // Economic value
+    runtime_item_index_slot: i32, // Overwritten with record index at load time
     health_points: i16,        // HP restore amount
     mana_points: i16,         // MP restore amount
-    restore_full_health: HealItemFlag, // Full HP restoration
-    restore_full_mana: HealItemFlag,   // Full MP restoration
-    poison_heal: HealItemFlag,        // Poison cure
-    petrif_heal: HealItemFlag,        // Petrification cure
-    polimorph_heal: HealItemFlag,     // Polymorph cure
-    padding4: u8,             // Unused padding
-    padding5: i16,            // Unused padding
+    restores_full_health: HealItemFlag, // Full HP restoration
+    restores_full_mana: HealItemFlag,   // Full MP restoration
+    cures_poison: HealItemFlag,          // Poison cure
+    cures_petrification: HealItemFlag,   // Petrification cure
+    cures_polymorph: HealItemFlag,       // Polymorph cure
+    reserved_trailer: Vec<u8>,            // Three preserved bytes
 }
 ```
 
@@ -100,19 +96,16 @@ Offset | Size | Field | Description
 -------|------|-------|-------------
 0      | 30   | name  | Null-padded WINDOWS-1250 string
 30     | 202  | desc  | Null-padded EUC-KR string
-232    | 2    | price | Economic value (i16)
-234    | 2    | pad1  | Unused padding (i16)
-236    | 2    | pad2  | Unused padding (i16)
-238    | 2    | pad3  | Unused padding (i16)
+232    | 4    | price | Economic value (i32)
+236    | 4    | runtime_item_index_slot | Replaced with record index at load time
 240    | 2    | PZ    | Health restore amount (i16)
 242    | 2    | PM    | Mana restore amount (i16)
 244    | 1    | full_hp | Full HP restoration flag (u8)
 245    | 1    | full_mp | Full MP restoration flag (u8)
 246    | 1    | poison | Poison cure flag (u8)
-247    | 1    | petrif | Petrification cure flag (u8)
-248    | 1    | poly   | Polymorph cure flag (u8)
-249    | 1    | pad4  | Unused padding (u8)
-250    | 2    | pad5  | Unused padding (i16)
+247    | 1    | petrification | Petrification cure flag (u8)
+248    | 1    | polymorph | Polymorph cure flag (u8)
+249    | 3    | reserved_trailer | Reserved bytes; no direct use found
 ```
 
 ### Special Values
@@ -133,14 +126,14 @@ Based on the healing effects, items can be categorized:
 - No special status cures
 
 **Full Restoration Items:**
-- `restore_full_health = 1`: Complete HP recovery
-- `restore_full_mana = 1`: Complete MP recovery
+- `restores_full_health = 1`: Complete HP recovery
+- `restores_full_mana = 1`: Complete MP recovery
 - Often high-value quest items
 
 **Status Cure Items:**
-- `poison_heal = 1`: Cures poison effects
-- `petrif_heal = 1`: Cures petrification
-- `polimorph_heal = 1`: Cures polymorph
+- `cures_poison = 1`: Cures poison effects
+- `cures_petrification = 1`: Cures petrification
+- `cures_polymorph = 1`: Cures polymorph
 - Specialized healing items
 
 
@@ -158,7 +151,8 @@ Based on the healing effects, items can be categorized:
 - **Header**: 4-byte record count
 - **Encoding**: Mixed text encodings
 - **Structure**: Complex healing effect system
-- **Padding**: Multiple unused fields for alignment
+- **Runtime data**: The loader replaces `runtime_item_index_slot` with the record index.
+- **Reserved data**: The final three bytes are preserved verbatim.
 
 ### Technical Details
 

@@ -4,16 +4,13 @@ CREATE TABLE IF NOT EXISTS heal_items
     name           TEXT,
     description    TEXT,
     base_price     INTEGER,
-    padding1       INTEGER,
-    padding2       INTEGER,
-    padding3       INTEGER,
+    runtime_item_index_slot INTEGER,
     health_points  INTEGER,
     mana_points    INTEGER,
-    restore_full_health BOOLEAN,
-    restore_full_mana BOOLEAN,
-    poison_heal    BOOLEAN,
-    petrif_heal    BOOLEAN,
-    polimorph_heal BOOLEAN,
-    padding4       INTEGER,
-    padding5       INTEGER
-)
+    restores_full_health BOOLEAN,
+    restores_full_mana BOOLEAN,
+    cures_poison    BOOLEAN,
+    cures_petrification BOOLEAN,
+    cures_polymorph BOOLEAN,
+    reserved_trailer BLOB
+);
