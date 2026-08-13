@@ -737,7 +737,7 @@ pub fn collect_external_entities(
                     .map(|(_, x, y)| (*x, *y))
                     .unwrap_or((n.goto1_x, n.goto1_y));
 
-                let dir = i32::from(n.looking_direction);
+                let dir = i32::from(n.waypoint1_facing_direction);
                 let (seq, flip) = if dir > 4 {
                     ((8 - dir) as usize, true)
                 } else {

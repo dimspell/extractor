@@ -154,54 +154,54 @@ pub struct NPC {
     /// Waypoint 4 Y target.
     #[extractor(primitive(type = "i32"))]
     pub goto4_y: i32,
-    /// Unknown coordinate (X).
+    /// Wait time before the NPC moves from waypoint 1.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_2: i32,
-    /// Unknown coordinate (Y).
+    pub waypoint1_wait_time: i32,
+    /// Wait time before the NPC moves from waypoint 2.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_3: i32,
-    /// Unknown coordinate (X).
+    pub waypoint2_wait_time: i32,
+    /// Wait time before the NPC moves from waypoint 3.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_4: i32,
-    /// Unknown coordinate (Y).
+    pub waypoint3_wait_time: i32,
+    /// Wait time before the NPC moves from waypoint 4.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_5: i32,
-    /// Compass rotation (0=up, proceeds clockwise).
+    pub waypoint4_wait_time: i32,
+    /// Facing direction at waypoint 1.
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
-    pub looking_direction: NpcLookingDirection,
-    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    pub waypoint1_facing_direction: NpcLookingDirection,
+    /// Facing direction at waypoint 2.
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
-    pub rotation_1: NpcLookingDirection,
-    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    pub waypoint2_facing_direction: NpcLookingDirection,
+    /// Facing direction at waypoint 3.
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
-    pub rotation_2: NpcLookingDirection,
-    /// Unknown. Compass rotation (0=up, proceeds clockwise).
+    pub waypoint3_facing_direction: NpcLookingDirection,
+    /// Facing direction at waypoint 4.
     #[extractor(enum_from_i32(type = "NpcLookingDirection"))]
-    pub rotation_3: NpcLookingDirection,
-    /// Unknown. Always zero (0).
+    pub waypoint4_facing_direction: NpcLookingDirection,
+    /// Reserved value for waypoint 1. Observed as zero.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_9: i32,
-    /// Unknown. Always zero (0).
+    pub waypoint1_reserved: i32,
+    /// Reserved value for waypoint 2. Observed as zero.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_10: i32,
-    /// Unknown. Always zero (0).
+    pub waypoint2_reserved: i32,
+    /// Reserved value for waypoint 3. Observed as zero.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_11: i32,
-    /// Unknown. Always zero (0).
+    pub waypoint3_reserved: i32,
+    /// Reserved value for waypoint 4. Observed as zero.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_12: i32,
-    /// Unknown coordinate (X).
+    pub waypoint4_reserved: i32,
+    /// Activation rectangle X1 coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_13: i32,
-    /// Unknown coordinate (Y).
+    pub activation_rect_x1: i32,
+    /// Activation rectangle Y1 coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_14: i32,
-    /// Unknown coordinate (X).
+    pub activation_rect_y1: i32,
+    /// Activation rectangle X2 coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_15: i32,
-    /// Unknown coordinate (Y).
+    pub activation_rect_x2: i32,
+    /// Activation rectangle Y2 coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub unknown_16: i32,
+    pub activation_rect_y2: i32,
     /// Unknown. Enum = 0, 1 or 2.
     #[extractor(enum_from_i32(type = "Unknown012"))]
     pub unknown_17: Unknown012,
@@ -268,22 +268,22 @@ pub fn save_npc_refs(
                 npc.goto2_y,
                 npc.goto3_y,
                 npc.goto4_y,
-                npc.unknown_2,
-                npc.unknown_3,
-                npc.unknown_4,
-                npc.unknown_5,
-                i32::from(npc.looking_direction),
-                i32::from(npc.rotation_1),
-                i32::from(npc.rotation_2),
-                i32::from(npc.rotation_3),
-                npc.unknown_9,
-                npc.unknown_10,
-                npc.unknown_11,
-                npc.unknown_12,
-                npc.unknown_13,
-                npc.unknown_14,
-                npc.unknown_15,
-                npc.unknown_16,
+                npc.waypoint1_wait_time,
+                npc.waypoint2_wait_time,
+                npc.waypoint3_wait_time,
+                npc.waypoint4_wait_time,
+                i32::from(npc.waypoint1_facing_direction),
+                i32::from(npc.waypoint2_facing_direction),
+                i32::from(npc.waypoint3_facing_direction),
+                i32::from(npc.waypoint4_facing_direction),
+                npc.waypoint1_reserved,
+                npc.waypoint2_reserved,
+                npc.waypoint3_reserved,
+                npc.waypoint4_reserved,
+                npc.activation_rect_x1,
+                npc.activation_rect_y1,
+                npc.activation_rect_x2,
+                npc.activation_rect_y2,
                 i32::from(npc.unknown_17),
                 npc.unknown_item.item_id() as i32,
                 u8::from(npc.unknown_item.item_type().unwrap_or(ItemTypeId::Other)) as i32,

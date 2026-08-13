@@ -517,7 +517,7 @@ mod map_editor_entity_tests {
         let mut map_state = MapEditorState::default();
         map_state.data.npcs = vec![dispel_core::NPC {
             npc_id: 1,
-            looking_direction: dispel_core::NpcLookingDirection::Right,
+            waypoint1_facing_direction: dispel_core::NpcLookingDirection::Right,
             ..Default::default()
         }];
         app.state.editors.map_editors.insert(tab_id, map_state);

@@ -83,7 +83,7 @@ pub struct MapDataState {
     pub npc_sprites: Vec<Option<EntitySpriteHandle>>,
     pub extra_sprites: Vec<Option<EntitySpriteHandle>>,
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
-    /// when the looking_direction field changes.
+    /// when the waypoint1_facing_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// Draw items (item placements from Ref/DRAWITEM.ref) for this map.
     pub draw_items: Vec<dispel_core::DrawItem>,
@@ -159,7 +159,7 @@ impl MapDataState {
         !self.is_saving && !self.is_exporting
     }
 
-    /// Recompute the sprite for NPC at `idx` based on its current `looking_direction`.
+    /// Recompute the sprite for NPC at `idx` from its waypoint 1 facing direction.
     ///
     /// Called after a direction field change so the canvas displays the new
     /// orientation without requiring a full entity reload.
@@ -174,7 +174,7 @@ impl MapDataState {
         };
 
         // Direction → (sequence_index, flip) — same logic as load_entities().
-        let dir = i32::from(npc.looking_direction);
+        let dir = i32::from(npc.waypoint1_facing_direction);
         let (seq, flip) = if dir > 4 {
             ((8 - dir) as usize, true)
         } else {

@@ -74,7 +74,7 @@ pub struct EntityBundle {
     pub npc_ref_path: Option<PathBuf>,
     pub extra_ref_path: Option<PathBuf>,
     /// NPC ID → sprite filename lookup (from Npc.ini), for re-resolving sprites
-    /// when the looking_direction field changes.
+    /// when the waypoint1_facing_direction field changes.
     pub npc_id_to_sprite: HashMap<i32, String>,
     /// The current map's AllMap.ini ID (for DrawItem filter/save).
     /// `None` if the map isn't listed in AllMap.ini.

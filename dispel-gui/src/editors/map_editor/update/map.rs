@@ -472,7 +472,7 @@ pub fn load_entities(
         "NpcInGame",
         &resolve,
         |n: &NPC| {
-            let dir = i32::from(n.looking_direction);
+            let dir = i32::from(n.waypoint1_facing_direction);
             let (seq, flip) = if dir > 4 {
                 ((8 - dir) as usize, true)
             } else {
