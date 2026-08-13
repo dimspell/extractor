@@ -25,7 +25,8 @@ Binary database file that defines generic miscellaneous items with names, descri
 - name: 30 bytes (WINDOWS-1250, null-padded)
 - description: 202 bytes (EUC-KR, null-padded)
 - base_price: i32 (economic value)
-- padding: 20 bytes (unused)
+- reserved_bytes: 16 bytes (preserved raw data)
+- runtime_record_index_slot: i32 (overwritten with the sequential record index at load time)
 ```
 
 ### Field Definitions
@@ -36,7 +37,8 @@ Binary database file that defines generic miscellaneous items with names, descri
 | name | 30 | string | Item name (WINDOWS-1250 encoded) |
 | description | 202 | string | Item description (EUC-KR encoded) |
 | base_price | 4 | i32 | Economic value (0 = non-tradable, -1 = quest item) |
-| padding | 20 | bytes | Unused padding field |
+| reserved_bytes | 16 | bytes | Raw reserved bytes at offsets 236–251. No direct semantic use was identified; preserve them verbatim. |
+| runtime_record_index_slot | 4 | i32 | Slot at offsets 252–255. The game overwrites it in memory with the sequential record index. |
 
 ### Data Structure
 
@@ -59,7 +61,8 @@ Offset | Size | Field | Description
 0      | 30   | name  | Null-padded WINDOWS-1250 string
 30     | 202  | desc  | Null-padded EUC-KR string
 232    | 4    | price | Economic value (i32)
-236    | 20   | pad   | Unused padding bytes
+236    | 16   | reserved_bytes | Raw reserved bytes
+252    | 4    | runtime_record_index_slot | Replaced with the record index in memory
 ```
 
 ### Special Values
@@ -68,7 +71,8 @@ Offset | Size | Field | Description
 - **base_price = -1**: Quest-related items
 - **Positive base_price**: Tradable items with economic value
 - **Null-padded strings**: Fixed-size fields with null termination
-- **20-byte padding**: Unused space for alignment
+- **Reserved bytes**: Preserve the first 16 bytes verbatim
+- **Runtime record-index slot**: The last 4 bytes are overwritten after loading
 
 
 
@@ -86,7 +90,7 @@ Offset | Size | Field | Description
 - **Header**: 4-byte record count
 - **Encoding**: Mixed text encodings
 - **Structure**: Simple name/description/price system
-- **Padding**: 20-byte alignment padding
+- **Reserved region**: 16 raw bytes plus a 4-byte runtime record-index slot
 
 ### Technical Details
 

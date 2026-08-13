@@ -7,7 +7,8 @@ editable_record_fields!(MiscItem, {
     { name = String / "Name:" },
     { description = TextArea / "Description:" },
     { base_price = Integer / "Base Price:" },
-    { padding = String / "Padding:" },
+    { reserved_bytes = HexString / "Reserved bytes:" },
+    { runtime_record_index_slot = Integer / "Runtime record index slot:" },
 });
 
 impl EditableRecord for MiscItem {
