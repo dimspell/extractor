@@ -114,7 +114,7 @@ pub fn field_changed(
             new_value: value,
         });
 
-        // When an NPC's waypoint1_facing_direction or npc_id changes, re-resolve its
+        // When an NPC's waypoint1_facing_direction or npc_ini_id changes, re-resolve its
         // sprite so the map canvas reflects the new state immediately.
         if (field == "waypoint1_facing_direction" || field == "npc_ini_id")
             && let SelectedEntity::Npc(i) = entity

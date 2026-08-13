@@ -498,7 +498,7 @@ mod map_editor_entity_tests {
     }
 
     #[test]
-    fn entity_field_changed_npc_id_updates_value_and_undo_stack() {
+    fn entity_field_changed_npc_ini_id_updates_value_and_undo_stack() {
         let mut app = App::test_new(Workspace::new());
         let tab_id = 0;
 
@@ -516,7 +516,7 @@ mod map_editor_entity_tests {
 
         let mut map_state = MapEditorState::default();
         map_state.data.npcs = vec![dispel_core::NPC {
-            npc_id: 1,
+            npc_ini_id: 1,
             waypoint1_facing_direction: dispel_core::NpcLookingDirection::Right,
             ..Default::default()
         }];
@@ -526,7 +526,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Npc(0),
-                "npc_id".into(),
+                "npc_ini_id".into(),
                 "5".into(),
             ),
             &mut app,
@@ -534,8 +534,8 @@ mod map_editor_entity_tests {
 
         assert_eq!(task.units(), 0, "EntityFieldChanged produces no task");
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.npcs[0].npc_id, 5,
-            "NPC npc_id updated"
+            app.state.editors.map_editors[&tab_id].data.npcs[0].npc_ini_id, 5,
+            "NPC INI ID updated"
         );
         assert_eq!(
             app.state.editors.map_editors[&tab_id].data.undo_stack.len(),

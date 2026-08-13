@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS weapons
     name          TEXT,
     description   TEXT,
     base_price    INTEGER,
+    weapon_item_id INTEGER,
     health_points INTEGER,
     mana_points  INTEGER,
     strength      INTEGER,
@@ -16,7 +17,14 @@ CREATE TABLE IF NOT EXISTS weapons
     defense       INTEGER,
     magical_strength           INTEGER,
     durability    INTEGER,
+    reserved_0x108 INTEGER,
+    reserved_0x10a INTEGER,
     req_strength  INTEGER,
+    reserved_0x10e INTEGER,
     req_agility        INTEGER,
-    req_wisdom    INTEGER
+    reserved_0x112 INTEGER,
+    req_wisdom    INTEGER,
+    reserved_0x116 INTEGER,
+    reserved_0x118 INTEGER,
+    reserved_0x11a INTEGER
 )
