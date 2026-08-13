@@ -63,12 +63,10 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                 sf.post_maps.ref_map_ini_id.to_string(),
             ))
             .push(label_row(
-                "Unknowns A",
+                "Unknown Header Values",
                 format!(
-                    "{}, {}, {}",
-                    sf.post_maps.unknowns_a[0],
-                    sf.post_maps.unknowns_a[1],
-                    sf.post_maps.unknowns_a[2]
+                    "{}, {}",
+                    sf.post_maps.unknown_header_value_1, sf.post_maps.unknown_header_value_2
                 ),
             ))
             .push(label_row(

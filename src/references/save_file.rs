@@ -10,6 +10,9 @@ use std::io::{Read, Seek, Write};
 // use proptest::char::range;
 use super::extractor::{Extractor, read_null_terminated_windows_1250};
 
+/// Fixed size of the player runtime-state snapshot stored after the map-ID list.
+pub const PLAYER_RUNTIME_STATE_SIZE: usize = 10_148;
+
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct MonsterRecord {
@@ -913,32 +916,40 @@ pub struct CharacterIdentity {
     pub party_members: Vec<PartyMember>,
 }
 
-/// Unknown data block between map data and sprite paths (section 3).
+/// Save-world header and the player runtime-state snapshot after map data.
 ///
-/// Layout: `[10 × 4-byte header values][visited map IDs][10,148-byte remainder]`.
-/// The fixed portion, including the visited map IDs, is `10,188 + 4 * num_visited_maps` bytes.
-/// The header values may encode sizes of sub-sections within the remainder
-/// (monster_block_size, npc_block_size, extra_object_block_size observed as 329, 349, 200).
+/// Layout: `[map-section terminator: u32][8 × 4-byte header values]
+/// [visited-map count][visited map IDs][player runtime state: 10,148 bytes]`.
+///
+/// The three record-size fields are 329, 349, and 200 in known saves; they
+/// match the monster, NPC, and extra-object record sizes in the map section.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PostMapsData {
-    /// Possibly a Win32 timestamp of when this save was created.
+    /// Terminator after the final map section. Known saves store zero.
+    pub map_section_terminator: u32,
+    /// Save-format version, observed as 1.45.
     pub game_version: f32,
-    // ID reference in the AllMap.ini
+    /// Unknown header value. Preserve it verbatim.
+    pub unknown_header_value_1: u32,
+    /// ID reference in AllMap.ini.
     pub all_map_ini_id: u32,
-    // ID reference in the Ref/Map.ini
+    /// ID reference in Ref/Map.ini.
     pub ref_map_ini_id: u32,
-    /// 3 unknown u32 values
-    pub unknowns_a: [u32; 3],
-    /// Possibly the size of the monster data block within the remainder.
+    /// Size of a MonsterRecord in the map section.
     pub monster_block_size: u32,
-    /// Possibly the size of the NPC data block within the remainder.
+    /// Size of an NpcRecord in the map section.
     pub npc_block_size: u32,
-    /// Possibly the size of the extra object data block within the remainder.
+    /// Unknown header value. Preserve it verbatim.
+    pub unknown_header_value_2: u32,
+    /// Size of an ExtraObjectRecord in the map section.
     pub extra_object_block_size: u32,
-    /// The rest of the section after the header.
-    pub unknown_block: Vec<u8>,
+    /// Number of visited maps, which must match the preceding map section.
     pub number_of_visited_maps: u32,
+    /// IDs of the visited maps.
     pub map_ids: Vec<u32>,
+    /// Fixed-size serialized player runtime state. Its internal fields remain
+    /// to be decoded, but its boundary is confirmed by every known fixture.
+    pub player_runtime_state: Vec<u8>,
 }
 
 /// Unknown data block between events and journal sections.
@@ -1188,47 +1199,55 @@ impl SaveFile {
         Ok(maps)
     }
 
-    /// Parse the unknown data block between maps and sprite paths.
+    /// Parse the save-world header and player runtime-state snapshot.
     ///
-    /// Layout: `[10 × 4-byte header values][visited map IDs][10,148-byte remainder]`
+    /// Layout: `[map-section terminator: u32][8 × 4-byte header values]
+    /// [visited-map count][visited map IDs][player runtime state: 10,148 bytes]`.
     fn parse_post_maps_data<R: Read>(
         reader: &mut R,
         num_visited_maps: u32,
     ) -> std::io::Result<PostMapsData> {
-        let unknown_1 = reader.read_u32::<LittleEndian>()?;
+        let map_section_terminator = reader.read_u32::<LittleEndian>()?;
         let game_version = reader.read_f32::<LittleEndian>()?;
+        let unknown_header_value_1 = reader.read_u32::<LittleEndian>()?;
         let all_map_ini_id = reader.read_u32::<LittleEndian>()?;
         let ref_map_ini_id = reader.read_u32::<LittleEndian>()?;
-        let unknown_2 = reader.read_u32::<LittleEndian>()?;
         let monster_block_size = reader.read_u32::<LittleEndian>()?;
         let npc_block_size = reader.read_u32::<LittleEndian>()?;
-        let unknown_3 = reader.read_u32::<LittleEndian>()?;
+        let unknown_header_value_2 = reader.read_u32::<LittleEndian>()?;
         let extra_object_block_size = reader.read_u32::<LittleEndian>()?;
 
         let number_of_visited_maps = reader.read_u32::<LittleEndian>()?;
+        if number_of_visited_maps != num_visited_maps {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "post-maps visited-map count is {number_of_visited_maps}, expected {num_visited_maps}"
+                ),
+            ));
+        }
 
-        let mut map_ids = vec![0u32; num_visited_maps as usize];
+        let mut map_ids = vec![0u32; number_of_visited_maps as usize];
         for map_id in &mut map_ids {
             *map_id = reader.read_u32::<LittleEndian>()?;
         }
 
-        let unknowns_a: [u32; 3] = [unknown_1, unknown_2, unknown_3];
-
-        let remainder = 10_148;
-        let mut unknown_block = vec![0u8; remainder];
-        reader.read_exact(&mut unknown_block)?;
+        let mut player_runtime_state = vec![0u8; PLAYER_RUNTIME_STATE_SIZE];
+        reader.read_exact(&mut player_runtime_state)?;
 
         Ok(PostMapsData {
+            map_section_terminator,
             game_version,
+            unknown_header_value_1,
             all_map_ini_id,
             ref_map_ini_id,
             monster_block_size,
             npc_block_size,
+            unknown_header_value_2,
             extra_object_block_size,
             number_of_visited_maps,
-            unknowns_a,
             map_ids,
-            unknown_block,
+            player_runtime_state,
         })
     }
 
@@ -1657,20 +1676,45 @@ impl SaveFile {
 
     /// Write post-maps data block.
     fn write_post_maps_data<W: Write>(data: &PostMapsData, writer: &mut W) -> std::io::Result<()> {
-        writer.write_u32::<LittleEndian>(data.unknowns_a[0])?;
+        writer.write_u32::<LittleEndian>(data.map_section_terminator)?;
         writer.write_f32::<LittleEndian>(data.game_version)?;
+        writer.write_u32::<LittleEndian>(data.unknown_header_value_1)?;
         writer.write_u32::<LittleEndian>(data.all_map_ini_id)?;
         writer.write_u32::<LittleEndian>(data.ref_map_ini_id)?;
-        writer.write_u32::<LittleEndian>(data.unknowns_a[1])?;
         writer.write_u32::<LittleEndian>(data.monster_block_size)?;
         writer.write_u32::<LittleEndian>(data.npc_block_size)?;
-        writer.write_u32::<LittleEndian>(data.unknowns_a[2])?;
+        writer.write_u32::<LittleEndian>(data.unknown_header_value_2)?;
         writer.write_u32::<LittleEndian>(data.extra_object_block_size)?;
+        let map_id_count = u32::try_from(data.map_ids.len()).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "post-maps has more than u32::MAX map IDs",
+            )
+        })?;
+        if data.number_of_visited_maps != map_id_count {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "post-maps visited-map count is {}, but {} map IDs were provided",
+                    data.number_of_visited_maps,
+                    data.map_ids.len()
+                ),
+            ));
+        }
+        if data.player_runtime_state.len() != PLAYER_RUNTIME_STATE_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "player runtime state is {} bytes, expected {PLAYER_RUNTIME_STATE_SIZE}",
+                    data.player_runtime_state.len()
+                ),
+            ));
+        }
         writer.write_u32::<LittleEndian>(data.number_of_visited_maps)?;
         for id in &data.map_ids {
             writer.write_u32::<LittleEndian>(*id)?;
         }
-        writer.write_all(&data.unknown_block)?;
+        writer.write_all(&data.player_runtime_state)?;
         Ok(())
     }
 
@@ -2040,27 +2084,29 @@ mod tests {
     #[test]
     fn test_write_post_maps_data_matches_recognized_header_layout() {
         let post_maps = PostMapsData {
+            map_section_terminator: 0,
             game_version: 1.5,
+            unknown_header_value_1: 1,
             all_map_ini_id: 2,
             ref_map_ini_id: 3,
-            unknowns_a: [1, 4, 7],
             monster_block_size: 5,
             npc_block_size: 6,
+            unknown_header_value_2: 7,
             extra_object_block_size: 8,
             number_of_visited_maps: 2,
             map_ids: vec![9, 10],
-            unknown_block: vec![11, 12],
+            player_runtime_state: vec![11; PLAYER_RUNTIME_STATE_SIZE],
         };
         let mut bytes = Vec::new();
 
         SaveFile::write_post_maps_data(&post_maps, &mut bytes).unwrap();
 
         let mut reader = std::io::Cursor::new(bytes);
-        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 1);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 0);
         assert_eq!(reader.read_f32::<LittleEndian>().unwrap(), 1.5);
+        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 1);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 3);
-        assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 4);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 5);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 6);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 7);
@@ -2068,8 +2114,10 @@ mod tests {
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 9);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 10);
-        assert_eq!(reader.read_u8().unwrap(), 11);
-        assert_eq!(reader.read_u8().unwrap(), 12);
+        let mut player_runtime_state = vec![0u8; PLAYER_RUNTIME_STATE_SIZE];
+        reader.read_exact(&mut player_runtime_state).unwrap();
+        assert_eq!(player_runtime_state, vec![11; PLAYER_RUNTIME_STATE_SIZE]);
+    }
     }
 
     #[test]

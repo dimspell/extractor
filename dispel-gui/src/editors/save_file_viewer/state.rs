@@ -1037,8 +1037,8 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             data: save_file.unknown_after_stats.clone(),
         },
         RawHexEditorData {
-            label: "Post-Maps unknown remainder".into(),
-            data: save_file.post_maps.unknown_block.clone(),
+            label: "Player Runtime State".into(),
+            data: save_file.post_maps.player_runtime_state.clone(),
         },
         RawHexEditorData {
             label: "Post-Events Block A".into(),
