@@ -2118,7 +2118,6 @@ mod tests {
         reader.read_exact(&mut player_runtime_state).unwrap();
         assert_eq!(player_runtime_state, vec![11; PLAYER_RUNTIME_STATE_SIZE]);
     }
-    }
 
     #[test]
     fn test_write_character_stats_preserves_position_and_surrounding_blocks() {
