@@ -189,60 +189,100 @@ pub struct MonsterRecord {
 /// NPC record from save file (349 bytes)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct NpcRecord {
+    /// NPC name in Windows-1250 encoding.
     #[binary_record(string(encoding = "WINDOWS-1250", size = 64))]
     pub name: String,
+    /// NPC role or description in Windows-1250 encoding.
     #[binary_record(string(encoding = "WINDOWS-1250", size = 64))]
     pub role_description: String,
-    pub unknown1: u32,
-    pub unknown2: u32,
-    pub unknown3: u32,
-    pub unknown4: u16,
-    pub unknown5: u16,
-    pub unknown6: u16,
-    pub unknown7: u16,
-    pub unknown8: u16,
-    pub unknown9: u16,
-    pub unknown10: u16,
-    pub unknown11: u16,
-    pub unknown12: [u8; 15],
+    pub movement_state: u32,
+    pub tile_data_entry: u32,
+    pub path_progress: u32,
+    pub current_position_x: u16,
+    pub current_position_y: u16,
+    pub last_position_x: u16,
+    pub last_position_y: u16,
+    pub target_position_x: u16,
+    pub target_position_y: u16,
+    pub path_destination_x: u16,
+    pub path_destination_y: u16,
+    /// Runtime render parameter.
+    pub render_direction_flag: u8,
+    pub cell_offset_x: u8,
+    pub cell_offset_y: u8,
+    /// Persistent NPC index plus 500.
+    pub map_npc_index_plus_500: u16,
+    pub runtime_state_78: u8,
+    pub runtime_state_79: u8,
+    pub path_handle: u32,
+    pub path_step_counter: u32,
+    /// NPC ID from the NpcRef record.
     pub npc_ini_id: u8,
-    pub unknown13: [u8; 20],
-    pub npc_ref_party_script_id: u16,
-    pub npc_ref_show_on_event_id: u16,
-    pub unknown14: u8,
-    pub npc_ref_unknown_1: u8,
-    pub npc_ref_waypoint1filled: u32,
-    pub npc_ref_waypoint1x: u32,
-    pub npc_ref_waypoint1y: u32,
-    pub npc_ref_unknown_2: u32,
-    pub npc_ref_look_direction: u32,
-    pub npc_ref_unknown_9: u32,
-    pub npc_ref_waypoint2filled: u32,
-    pub npc_ref_waypoint2x: u32,
-    pub npc_ref_waypoint2y: u32,
-    pub npc_ref_unknown_3: u32,
-    pub npc_ref_unknown_6: u32,
-    pub npc_ref_unknown_10: u32,
-    pub npc_ref_waypoint3filled: u32,
-    pub npc_ref_waypoint3x: u32,
-    pub npc_ref_waypoint3y: u32,
-    pub npc_ref_unknown_4: u32,
-    pub npc_ref_unknown_7: u32,
-    pub npc_ref_unknown_11: u32,
-    pub npc_ref_waypoint4filled: u32,
-    pub npc_ref_waypoint4x: u32,
-    pub npc_ref_waypoint4y: u32,
-    pub npc_ref_unknown_5: u32,
-    pub npc_ref_unknown_8: u32,
-    pub npc_ref_unknown_12: u32,
-    pub npc_ref_unknown_13: u32,
-    pub npc_ref_unknown_14: u32,
-    pub npc_ref_unknown_15: u32,
-    pub npc_ref_unknown_16: u32,
-    pub npc_ref_unknown_17: u32,
-    pub unknown15: u16,
+    pub patrol_waypoint_count: u8,
+    pub current_patrol_waypoint_index: u8,
+    pub unknown_runtime_7d: u8,
+    pub unknown_runtime_7e: u8,
+    pub unknown_runtime_7f: u8,
+    pub unknown_runtime_80: u8,
+    pub current_waypoint_index: u8,
+    pub unknown_runtime_82: u8,
+    pub wait_tick_counter: u32,
+    pub unknown_runtime_90: u32,
+    pub unknown_runtime_94: u32,
+    /// Party script ID from NpcRef.
+    pub npc_ref_party_script_id: u8,
+    /// Event ID that controls NPC visibility.
+    pub npc_ref_show_on_event_id: u32,
+    /// NpcRef behavior type: static, waypoint, or random.
+    pub npc_ref_behavior_type: u8,
+    pub waypoint1_filled: u32,
+    pub waypoint1_x: u32,
+    pub waypoint1_y: u32,
+    pub waypoint1_wait_time: u32,
+    pub waypoint1_facing_direction: u32,
+    pub waypoint1_reserved: u32,
+    pub waypoint2_filled: u32,
+    pub waypoint2_x: u32,
+    pub waypoint2_y: u32,
+    pub waypoint2_wait_time: u32,
+    pub waypoint2_facing_direction: u32,
+    pub waypoint2_reserved: u32,
+    pub waypoint3_filled: u32,
+    pub waypoint3_x: u32,
+    pub waypoint3_y: u32,
+    pub waypoint3_wait_time: u32,
+    pub waypoint3_facing_direction: u32,
+    pub waypoint3_reserved: u32,
+    pub waypoint4_filled: u32,
+    pub waypoint4_x: u32,
+    pub waypoint4_y: u32,
+    pub waypoint4_wait_time: u32,
+    pub waypoint4_facing_direction: u32,
+    pub waypoint4_reserved: u32,
+    /// Activation rectangle, first X coordinate.
+    pub activation_rect_x1: u32,
+    /// Activation rectangle, first Y coordinate.
+    pub activation_rect_y1: u32,
+    /// Activation rectangle, second X coordinate.
+    pub activation_rect_x2: u32,
+    /// Activation rectangle, second Y coordinate.
+    pub activation_rect_y2: u32,
+    /// NpcRef unknown 17 value.
+    pub npc_ref_unknown_17: u8,
+    /// Packed NpcRef `unknown_item | unknown_18 << 16` value.
+    pub npc_ref_item_and_unknown_18: u32,
+    /// NpcRef unknown 19 value plus one.
+    pub npc_ref_dialogue_modifier: u8,
     pub npc_ref_dialog_id: u32,
-    pub unknown16: [u8; 29],
+    pub dialogue_face_sprite_id: u8,
+    /// Zero is normal movement. One moves to the target.
+    pub move_mode: u32,
+    pub unknown_runtime_1ac: u32,
+    pub runtime_target_position_x: u32,
+    pub runtime_target_position_y: u32,
+    pub unknown_runtime_1b8: u32,
+    pub freeze_flag: u32,
+    pub freeze_counter: u32,
 }
 
 /// Extra object record (200-byte data per record)
@@ -1812,6 +1852,57 @@ mod tests {
         assert_eq!(record.path_buffer_position_y, 456);
         assert_eq!(record.nested_summon_flag, 1);
         assert_eq!(record.nested_summon_record, vec![0xaa; 72]);
+
+        let mut serialized = Vec::new();
+        record.write(&mut serialized).unwrap();
+        assert_eq!(serialized, bytes);
+    }
+
+    #[test]
+    fn test_npc_record_preserves_verified_349_byte_layout() {
+        let mut bytes = [0u8; 349];
+        bytes[192] = 9;
+        bytes[193..197].copy_from_slice(&42u32.to_le_bytes());
+        bytes[197] = 2;
+        bytes[198..202].copy_from_slice(&1u32.to_le_bytes());
+        bytes[202..206].copy_from_slice(&100u32.to_le_bytes());
+        bytes[206..210].copy_from_slice(&200u32.to_le_bytes());
+        bytes[210..214].copy_from_slice(&30u32.to_le_bytes());
+        bytes[214..218].copy_from_slice(&7u32.to_le_bytes());
+        bytes[294..298].copy_from_slice(&10u32.to_le_bytes());
+        bytes[298..302].copy_from_slice(&20u32.to_le_bytes());
+        bytes[302..306].copy_from_slice(&30u32.to_le_bytes());
+        bytes[306..310].copy_from_slice(&40u32.to_le_bytes());
+        bytes[310] = 1;
+        bytes[311..315].copy_from_slice(&0x0010_0401u32.to_le_bytes());
+        bytes[315] = 11;
+        bytes[316..320].copy_from_slice(&81u32.to_le_bytes());
+        bytes[320] = 6;
+        bytes[321..325].copy_from_slice(&1u32.to_le_bytes());
+        bytes[329..333].copy_from_slice(&300u32.to_le_bytes());
+        bytes[333..337].copy_from_slice(&400u32.to_le_bytes());
+        bytes[341..345].copy_from_slice(&1u32.to_le_bytes());
+        bytes[345..349].copy_from_slice(&99u32.to_le_bytes());
+
+        let record = NpcRecord::parse(&bytes).unwrap();
+
+        assert_eq!(record.npc_ref_party_script_id, 9);
+        assert_eq!(record.npc_ref_show_on_event_id, 42);
+        assert_eq!(record.npc_ref_behavior_type, 2);
+        assert_eq!(record.waypoint1_wait_time, 30);
+        assert_eq!(record.waypoint1_facing_direction, 7);
+        assert_eq!(record.activation_rect_x1, 10);
+        assert_eq!(record.activation_rect_y2, 40);
+        assert_eq!(record.npc_ref_unknown_17, 1);
+        assert_eq!(record.npc_ref_item_and_unknown_18, 0x0010_0401);
+        assert_eq!(record.npc_ref_dialogue_modifier, 11);
+        assert_eq!(record.npc_ref_dialog_id, 81);
+        assert_eq!(record.dialogue_face_sprite_id, 6);
+        assert_eq!(record.move_mode, 1);
+        assert_eq!(record.runtime_target_position_x, 300);
+        assert_eq!(record.runtime_target_position_y, 400);
+        assert_eq!(record.freeze_flag, 1);
+        assert_eq!(record.freeze_counter, 99);
 
         let mut serialized = Vec::new();
         record.write(&mut serialized).unwrap();
