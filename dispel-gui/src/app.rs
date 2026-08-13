@@ -10,7 +10,7 @@ use crate::message::SystemMessage;
 use crate::state::AppState;
 use crate::workspace::EditorType;
 use dispel_core::Extractor;
-use hexedit::{HexEditorState, HexProvider};
+use hexedit::HexEditorState;
 use iced::Task;
 use std::path::Path;
 
