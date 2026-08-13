@@ -90,6 +90,7 @@ pub struct MonsterRef {
     /// File identifier / record number.
     #[extractor(primitive(type = "i32"))]
     pub file_id: i32,
+    /// TODO: Rename to `monster_db_id_1_based`; save records store this value minus one.
     /// ID of the monster type from Monster.db.
     #[extractor(primitive(type = "i32"))]
     pub mon_id: i32,
@@ -99,20 +100,24 @@ pub struct MonsterRef {
     /// Position on the map (tile Y coordinate).
     #[extractor(primitive(type = "i32"))]
     pub pos_y: i32,
+    /// TODO: Rename to `patrol_countdown`.
     /// Unknown flag (observed values: 0 or 1).
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub padding1: BooleanFlag,
+    /// TODO: Rename to `behavior_flag`; one skips an AI action.
     /// Unknown flag (observed values: 0 or 1).
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub padding2: BooleanFlag,
+    /// TODO: Rename to `awake_flag`.
     /// Unknown flag (observed values: always 0).
     #[extractor(primitive(type = "i32"))]
     pub padding3: i32,
+    /// TODO: Rename to `ai_type_override`; `-1` means no override.
     /// Unknown flag (observed values: -1, 0, or 1).
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
     pub padding4: TriStateFlag,
+    /// TODO: Rename to `event_id_on_kill`.
     /// Event trigger ID on kill, links to Event.ini.
-    /// Todo: rename field to event_id_on_kill
     #[extractor(primitive(type = "i32"))]
     pub event_id: i32,
     /// First loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
