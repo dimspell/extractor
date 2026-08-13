@@ -414,7 +414,74 @@ pub struct MapExtraObjectsTrailer {
     pub automatic_placement_global_item_index: u16,
 }
 
-/// Runtime snapshot of a recruited party character (321 bytes).
+/// Combat-only snapshot appended to a party-member record.
+///
+/// This 48-byte stream is followed by a four-byte terminator. The game writes
+/// it only when the companion has an active combat object.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PartyMemberCombatSnapshot {
+    /// Current health points in the active combat object.
+    pub current_health_points: u16,
+    /// Maximum health points in the active combat object.
+    pub maximum_health_points: u16,
+    /// Agility copied into the active combat object.
+    pub agility: u8,
+    /// Attack stat copied into the active combat object.
+    pub attack: u8,
+    /// Strength copied into the active combat object.
+    pub strength: u16,
+    /// Constitution copied into the active combat object.
+    pub constitution: u16,
+    /// Wisdom copied into the active combat object.
+    pub wisdom: u16,
+    /// Class-specific combat AI behaviour.
+    pub class_behaviour: u8,
+    /// Combat AI target-search range.
+    pub ai_target_search_range: u8,
+    /// First combat spell ID.
+    pub magic_spell_id_1: u8,
+    /// Second combat spell ID.
+    pub magic_spell_id_2: u8,
+    /// Third combat spell ID.
+    pub magic_spell_id_3: u8,
+    /// Exact 48-byte combat snapshot stream.
+    pub serialized_snapshot: Vec<u8>,
+    /// Four-byte terminator written after the combat snapshot.
+    pub terminator: u32,
+}
+
+impl PartyMemberCombatSnapshot {
+    const SERIALIZED_SIZE: usize = 48;
+
+    fn parse(data: &[u8], terminator: u32) -> std::io::Result<Self> {
+        if data.len() != Self::SERIALIZED_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "PartyMember combat snapshot requires 48 bytes",
+            ));
+        }
+
+        let u16_at = |offset| u16::from_le_bytes([data[offset], data[offset + 1]]);
+        Ok(Self {
+            current_health_points: u16_at(0),
+            maximum_health_points: u16_at(4),
+            agility: data[8],
+            attack: data[12],
+            strength: u16_at(16),
+            constitution: u16_at(20),
+            wisdom: u16_at(24),
+            class_behaviour: data[28],
+            ai_target_search_range: data[32],
+            magic_spell_id_1: data[36],
+            magic_spell_id_2: data[40],
+            magic_spell_id_3: data[44],
+            serialized_snapshot: data.to_vec(),
+            terminator,
+        })
+    }
+}
+
+/// Runtime snapshot of a recruited party character (321 bytes plus an optional combat tail).
 ///
 /// The game writes the 300-byte state as overlapping four-byte reads from its
 /// in-memory companion object. The named values below are
@@ -563,13 +630,18 @@ pub struct PartyMember {
     /// This is authoritative on write because the game serializes overlapping
     /// windows of its runtime object rather than a conventional packed struct.
     pub serialized_runtime_state: Vec<u8>,
+    /// Combat-only state appended after the base record when present.
+    pub combat_snapshot: Option<PartyMemberCombatSnapshot>,
 }
 
 impl PartyMember {
     const NAME_SIZE: usize = 21;
     const RUNTIME_STATE_SIZE: usize = 300;
 
-    /// Parse the game's overlapping companion-state serialization.
+    /// Parse a normal, non-combat 321-byte companion record.
+    ///
+    /// Use [`Self::read_from`] for a record inside a save stream because it
+    /// also consumes the optional combat snapshot.
     pub fn parse(data: &[u8]) -> std::io::Result<Self> {
         if data.len() != Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE {
             return Err(std::io::Error::new(
@@ -578,6 +650,37 @@ impl PartyMember {
             ));
         }
 
+        Self::parse_base(data, None)
+    }
+
+    /// Read one variable-length companion record from a save stream.
+    pub fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut base_data = vec![0u8; Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE];
+        reader.read_exact(&mut base_data)?;
+
+        // The last word of the base record is a marker for the optional
+        // combat-object snapshot. When set, the writer appends twelve
+        // four-byte snapshot windows and a four-byte terminator.
+        let marker_offset = Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE - 4;
+        let combat_snapshot = if base_data[marker_offset] != 0 {
+            let mut snapshot_data = [0u8; PartyMemberCombatSnapshot::SERIALIZED_SIZE];
+            reader.read_exact(&mut snapshot_data)?;
+            let terminator = reader.read_u32::<LittleEndian>()?;
+            Some(PartyMemberCombatSnapshot::parse(
+                &snapshot_data,
+                terminator,
+            )?)
+        } else {
+            None
+        };
+
+        Self::parse_base(&base_data, combat_snapshot)
+    }
+
+    fn parse_base(
+        data: &[u8],
+        combat_snapshot: Option<PartyMemberCombatSnapshot>,
+    ) -> std::io::Result<Self> {
         let name = read_null_terminated_windows_1250(&data[..Self::NAME_SIZE])
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         let serialized_runtime_state = data[Self::NAME_SIZE..].to_vec();
@@ -658,6 +761,7 @@ impl PartyMember {
             level_up_animation_frame: u32_at(228),
             level_up_animation_variant: u32_at(232),
             serialized_runtime_state,
+            combat_snapshot,
         })
     }
 
@@ -675,7 +779,18 @@ impl PartyMember {
         let len = encoded.len().min(Self::NAME_SIZE);
         name_buf[..len].copy_from_slice(&encoded[..len]);
         writer.write_all(&name_buf)?;
-        writer.write_all(&self.serialized_runtime_state)
+        writer.write_all(&self.serialized_runtime_state)?;
+        if let Some(snapshot) = &self.combat_snapshot {
+            if snapshot.serialized_snapshot.len() != PartyMemberCombatSnapshot::SERIALIZED_SIZE {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "PartyMember combat snapshot requires 48 bytes",
+                ));
+            }
+            writer.write_all(&snapshot.serialized_snapshot)?;
+            writer.write_u32::<LittleEndian>(snapshot.terminator)?;
+        }
+        Ok(())
     }
 }
 
@@ -1183,7 +1298,7 @@ pub struct CharacterIdentity {
     pub learned_spells: LearnedSpells,
     /// Number of NPCs that accompany the player on their adventures.
     pub party_members_count: u32,
-    /// Party members (321 bytes each).
+    /// Party members (321 bytes each, with an optional 52-byte combat tail).
     pub party_members: Vec<PartyMember>,
 }
 
@@ -1785,12 +1900,8 @@ impl SaveFile {
         // ── 7.5. Party members ──
         let party_members_count = reader.read_u32::<LittleEndian>()?;
         let mut party_members = Vec::with_capacity(party_members_count as usize);
-        for _i in 0..party_members_count {
-            let mut party_member_data = vec![0u8; 321];
-            reader.read_exact(&mut party_member_data)?;
-
-            let entry = PartyMember::parse(&party_member_data)?;
-            party_members.push(entry);
+        for _ in 0..party_members_count {
+            party_members.push(PartyMember::read_from(reader)?);
         }
 
         Ok(CharacterIdentity {
@@ -2489,5 +2600,44 @@ mod tests {
                 .automatic_placement_global_item_index,
             780
         );
+    }
+
+    #[test]
+    fn test_party_member_round_trips_combat_snapshot_tail() {
+        let mut base = vec![0u8; PartyMember::NAME_SIZE + PartyMember::RUNTIME_STATE_SIZE];
+        base[..4].copy_from_slice(b"Test");
+        let state_start = PartyMember::NAME_SIZE;
+        base[state_start + 296] = 1;
+
+        let mut snapshot = [0u8; PartyMemberCombatSnapshot::SERIALIZED_SIZE];
+        snapshot[0..2].copy_from_slice(&37u16.to_le_bytes());
+        snapshot[4..6].copy_from_slice(&55u16.to_le_bytes());
+        snapshot[8] = 14;
+        snapshot[12] = 9;
+        snapshot[16..18].copy_from_slice(&21u16.to_le_bytes());
+        snapshot[20..22].copy_from_slice(&18u16.to_le_bytes());
+        snapshot[24..26].copy_from_slice(&12u16.to_le_bytes());
+        snapshot[28] = 5;
+        snapshot[32] = 7;
+        snapshot[36] = 1;
+        snapshot[40] = 2;
+        snapshot[44] = 3;
+
+        let terminator: u32 = 0xdec0_adde;
+        let mut bytes = base;
+        bytes.extend_from_slice(&snapshot);
+        bytes.extend_from_slice(&terminator.to_le_bytes());
+
+        let member = PartyMember::read_from(&mut std::io::Cursor::new(&bytes)).unwrap();
+        let combat = member.combat_snapshot.as_ref().unwrap();
+        assert_eq!(combat.current_health_points, 37);
+        assert_eq!(combat.maximum_health_points, 55);
+        assert_eq!(combat.strength, 21);
+        assert_eq!(combat.magic_spell_id_3, 3);
+        assert_eq!(combat.terminator, terminator);
+
+        let mut written = Vec::new();
+        member.write(&mut written).unwrap();
+        assert_eq!(written, bytes);
     }
 }
