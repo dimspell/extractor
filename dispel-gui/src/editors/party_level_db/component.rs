@@ -55,15 +55,25 @@ impl EditableRecord for PartyLevelNpc {
 }
 
 editable_record_fields!(PartyLevelRecord, {
+    { magic_spell_id_1 = Integer / "Magic Spell ID 1:" },
+    { magic_spell_id_2 = Integer / "Magic Spell ID 2:" },
+    { magic_spell_id_3 = Integer / "Magic Spell ID 3:" },
+    { reserved_0x03 = Integer / "Reserved (0x03):" },
     { strength = Integer / "Strength:" },
     { constitution = Integer / "Constitution:" },
     { wisdom = Integer / "Wisdom:" },
     { health_points = Integer / "HP:" },
     { mana_points = Integer / "MP:" },
     { agility = Integer / "Agility:" },
+    { reserved_0x15 = Integer / "Reserved (0x15):" },
+    { reserved_0x16 = Integer / "Reserved (0x16):" },
+    { reserved_0x17 = Integer / "Reserved (0x17):" },
     { attack = Integer / "Attack:" },
-    { mana_recharge = Integer / "MP Recharge:" },
-    { defense = Integer / "Defense:" },
+    { reserved_0x19 = Integer / "Reserved (0x19):" },
+    { reserved_0x1a = Integer / "Reserved (0x1A):" },
+    { reserved_0x1b = Integer / "Reserved (0x1B):" },
+    { weapon_skill_level = Integer / "Weapon Skill Level:" },
+    { tactical_action_chance = Integer / "Tactical Action Chance (%):" },
 });
 
 impl EditableRecord for PartyLevelRecord {

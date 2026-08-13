@@ -7,16 +7,14 @@ use std::path::Path;
 
 #[test]
 fn fixture_partylevel_roundtrip() {
-    let fixture = Path::new("fixtures/Dispel/NpcInGame/PrtLevel.db");
-    if !fixture.exists() {
-        eprintln!("SKIP: fixture not found: {}", fixture.display());
-        return;
-    }
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../fixtures/Dispel/NpcInGame/PrtLevel.db");
+    assert!(fixture.is_file(), "missing fixture: {}", fixture.display());
 
     round_trip_from_fixture(
         PartyLevelNpc::read_file,
         PartyLevelNpc::save_file,
-        fixture,
+        &fixture,
         "PartyLevelNpc",
     )
     .unwrap();

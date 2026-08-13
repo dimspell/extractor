@@ -71,15 +71,25 @@ impl RecordPatcher for PartyLevelDbPatcher {
             .ok_or_else(|| out_of_range(Self::RECORD_NAME, record_id, total as usize))?;
 
         match field {
+            "magic_spell_id_1" => set_u8(&mut rec.magic_spell_id_1, field, new)?,
+            "magic_spell_id_2" => set_u8(&mut rec.magic_spell_id_2, field, new)?,
+            "magic_spell_id_3" => set_u8(&mut rec.magic_spell_id_3, field, new)?,
+            "reserved_0x03" => set_u8(&mut rec.reserved_0x03, field, new)?,
             "strength" => set_u32(&mut rec.strength, field, new)?,
             "constitution" => set_u32(&mut rec.constitution, field, new)?,
             "wisdom" => set_u32(&mut rec.wisdom, field, new)?,
             "health_points" => set_u16(&mut rec.health_points, field, new)?,
             "mana_points" => set_u16(&mut rec.mana_points, field, new)?,
-            "agility" => set_u32(&mut rec.agility, field, new)?,
-            "attack" => set_u32(&mut rec.attack, field, new)?,
-            "mana_recharge" => set_u32(&mut rec.mana_recharge, field, new)?,
-            "defense" => set_u16(&mut rec.defense, field, new)?,
+            "agility" => set_u8(&mut rec.agility, field, new)?,
+            "reserved_0x15" => set_u8(&mut rec.reserved_0x15, field, new)?,
+            "reserved_0x16" => set_u8(&mut rec.reserved_0x16, field, new)?,
+            "reserved_0x17" => set_u8(&mut rec.reserved_0x17, field, new)?,
+            "attack" => set_u8(&mut rec.attack, field, new)?,
+            "reserved_0x19" => set_u8(&mut rec.reserved_0x19, field, new)?,
+            "reserved_0x1a" => set_u8(&mut rec.reserved_0x1a, field, new)?,
+            "reserved_0x1b" => set_u8(&mut rec.reserved_0x1b, field, new)?,
+            "weapon_skill_level" => set_u32(&mut rec.weapon_skill_level, field, new)?,
+            "tactical_action_chance" => set_u32(&mut rec.tactical_action_chance, field, new)?,
             "level" | "npc_index" => {
                 return Err(ModdingError::Malformed(format!(
                     "{}.{} is positional and cannot be patched",
@@ -103,6 +113,11 @@ fn set_u32(slot: &mut u32, field: &str, new: &Value) -> Result<()> {
 
 fn set_u16(slot: &mut u16, field: &str, new: &Value) -> Result<()> {
     *slot = parse_numeric::<u16>(field, new)?;
+    Ok(())
+}
+
+fn set_u8(slot: &mut u8, field: &str, new: &Value) -> Result<()> {
+    *slot = parse_numeric::<u8>(field, new)?;
     Ok(())
 }
 
@@ -175,9 +190,14 @@ mod tests {
     fn last_record_id_is_npc7_level20() {
         let p = PartyLevelDbPatcher;
         let out = p
-            .apply_field(&empty_file(), 159, "defense", &Value::I64(99))
+            .apply_field(
+                &empty_file(),
+                159,
+                "tactical_action_chance",
+                &Value::I64(99),
+            )
             .unwrap();
-        assert_eq!(parse_back(&out)[7].records[19].defense, 99);
+        assert_eq!(parse_back(&out)[7].records[19].tactical_action_chance, 99);
     }
 
     #[test]
@@ -259,11 +279,10 @@ mod tests {
             .unwrap();
         assert_eq!(out.len(), original.len());
         // Every byte should still be zero except where we wrote.
-        // Block 100 starts at offset 100 * 36 = 3600; agility lives
-        // at sub-offset 4+4+4+4+2+2 = 20 within the block as a u32,
-        // so bytes 3620..3624 carry `7u32.to_le_bytes() == [7, 0, 0, 0]`.
+        // Block 100 starts at offset 100 * 36 = 3600; agility is the u8
+        // at sub-offset 20.
         let mut expected = vec![0u8; original.len()];
-        expected[3620..3624].copy_from_slice(&7u32.to_le_bytes());
+        expected[3620] = 7;
         assert_eq!(out, expected);
     }
 }

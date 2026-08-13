@@ -442,6 +442,10 @@ check_record!(
         // Level-progression stats live in PartyLevelRecord children,
         // not directly on PartyLevelNpc — editing them requires a nested editor.
         "level",
+        "magic_spell_id_1",
+        "magic_spell_id_2",
+        "magic_spell_id_3",
+        "reserved_0x03",
         "strength",
         "constitution",
         "wisdom",
@@ -449,8 +453,14 @@ check_record!(
         "mana_points",
         "agility",
         "attack",
-        "mana_recharge",
-        "defense",
+        "reserved_0x15",
+        "reserved_0x16",
+        "reserved_0x17",
+        "reserved_0x19",
+        "reserved_0x1a",
+        "reserved_0x1b",
+        "weapon_skill_level",
+        "tactical_action_chance",
         "records" // Vec<PartyLevelRecord> — nested, handled separately
     ]
 );
