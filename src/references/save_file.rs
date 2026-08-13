@@ -601,8 +601,11 @@ pub struct PartyMember {
     pub status_effect_ticks_remaining: u32,
     /// Countdown to the next poison-damage tick while poisoned.
     pub poison_damage_tick_countdown: u32,
-    /// Party slot that originated a targeted status effect; `-1` means no saved source.
-    pub status_effect_source_party_slot_index: i32,
+    /// Auxiliary value for a timed status effect; `-1` means inactive.
+    ///
+    /// Depending on the effect phase, the game uses this as a countdown or a
+    /// party-slot value, so it is not consistently an effect source.
+    pub status_effect_auxiliary_value: i32,
     /// Number of attempts made to find a nearby walkable cell when the path is blocked.
     pub blocked_path_reposition_attempts: u32,
     /// X coordinate of the temporary target used by blocked-path recovery.
@@ -780,7 +783,7 @@ impl PartyMember {
             active_status_effect_id: u32_at(184),
             status_effect_ticks_remaining: u32_at(188),
             poison_damage_tick_countdown: u32_at(192),
-            status_effect_source_party_slot_index: u32_at(172) as i32,
+            status_effect_auxiliary_value: u32_at(172) as i32,
             blocked_path_reposition_attempts: u32_at(196),
             blocked_path_target_x: u32_at(200) as i32,
             blocked_path_target_y: u32_at(204) as i32,

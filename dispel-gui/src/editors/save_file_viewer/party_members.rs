@@ -212,11 +212,11 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
             .push(label_row(
                 "Status Effect",
                 format!(
-                    "{} ({} ticks; poison tick {}; source slot {})",
+                    "{} ({} ticks; poison tick {}; auxiliary {})",
                     member.active_status_effect_id,
                     member.status_effect_ticks_remaining,
                     member.poison_damage_tick_countdown,
-                    member.status_effect_source_party_slot_index
+                    member.status_effect_auxiliary_value
                 ),
             ))
             .push(label_row(
