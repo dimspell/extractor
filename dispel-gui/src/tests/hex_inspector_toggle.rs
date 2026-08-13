@@ -39,6 +39,10 @@ mod hex_inspector_toggle_tests {
         HexEditorState {
             path: PathBuf::from("test.bin"),
             name: "test.bin".to_string(),
+            layout: None,
+            outline: gui_widgets::sweeten::list::Content::new(),
+            outline_all: Vec::new(),
+            collapsed_outline: BTreeSet::new(),
             panes,
             pane_focus,
             provider: BufferProvider::from_bytes(baseline),
@@ -67,6 +71,7 @@ mod hex_inspector_toggle_tests {
             goto: None,
             search: SearchState::new(),
             show_decimal: false,
+            notifications: Vec::new(),
             status_msg: String::new(),
             error: None,
             cache: ParagraphCache::default(),
