@@ -26,15 +26,13 @@
 | `0xF6` | 1 | `cures_poison` | flag | Poison cure. |
 | `0xF7` | 1 | `cures_petrification` | flag | Petrification cure. |
 | `0xF8` | 1 | `cures_polymorph` | flag | Polymorph cure. |
-| `0xF9` | 3 | `reserved_trailer` | bytes | Preserved opaque data. |
+| `0xF9` | 3 | `reserved_trailer` | bytes | Preserved opaque data. Unused. |
 
 ## Runtime Behavior
 
 The loader replaces `runtime_item_index_slot` with the sequential record index. Do not use this field as item data.
 
-Each effect flag uses `HealItemFlag`. `None` disables the effect. `Active` enables the effect.
-
-The executable has no direct use for `reserved_trailer`. Preserve these bytes when you read and write the file.
+Each effect flag uses `HealItemFlag`. `0` disables the effect. `1` enables the effect.
 
 ## Parser
 
@@ -43,5 +41,3 @@ The Rust parser is [heal_item_db.rs](../../../src/references/heal_item_db.rs).
 ## Legal Notice
 
 This document describes a file format. It contains no game records, asset names, or other game-content data.
-
-**DISPEL®** is a registered trademark. This project is not affiliated with, endorsed by, or sponsored by the trademark owner.

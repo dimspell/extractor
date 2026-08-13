@@ -1,7 +1,7 @@
 # Magic.db - Spell Database
 
 ## File Information
-- **Location**: `MagicInGame/Magic.db` or `MulMagic.db`
+- **Location**: `MagicInGame/Magic.db`
 - **Format**: Binary (Little-Endian)
 - **Record Size**: 88 bytes (22 × u32)
 - **No Header**: Record count derived from file size
