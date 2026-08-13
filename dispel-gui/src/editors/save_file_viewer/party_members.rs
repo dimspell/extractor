@@ -94,6 +94,10 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
         Column::new()
             .push(text(member.name.to_string()).size(16))
             .push(label_row("Class ID", member.class_id.to_string()))
+            .push(label_row(
+                "Class Variant",
+                member.party_class_variant.to_string(),
+            ))
             .push(label_row("Level", member.level.to_string()))
             .push(label_row(
                 "HP",
@@ -122,13 +126,168 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 ),
             ))
             .push(label_row("XP", member.experience_points.to_string()))
+            .push(label_row("Party Slot", member.party_slot_index.to_string()))
             .push(label_row(
                 "Tactical Action Chance",
                 format!("{}%", member.tactical_action_chance),
             ))
             .push(label_row(
-                "Pathfinding Mode",
-                member.pathfinding_mode.to_string(),
+                "Map Position",
+                format!("{}, {}", member.map_x, member.map_y),
+            ))
+            .push(label_row(
+                "Movement State",
+                member.movement_state.to_string(),
+            ))
+            .push(label_row(
+                "Path",
+                format!(
+                    "node {} of {}",
+                    member.path_node_index, member.path_node_count
+                ),
+            ))
+            .push(label_row(
+                "Weapon Skill",
+                member.weapon_skill_level.to_string(),
+            ))
+            .push(label_row(
+                "Facing Direction",
+                member.facing_direction.to_string(),
+            ))
+            .push(label_row(
+                "Map Occupancy ID",
+                member.map_occupancy_id.to_string(),
+            ))
+            .push(label_row(
+                "Movement Sprite Direction",
+                member.movement_sprite_direction.to_string(),
+            ))
+            .push(label_row(
+                "Animation",
+                format!(
+                    "frame {} ({} ticks)",
+                    member.animation_frame_index, member.animation_tick_count
+                ),
+            ))
+            .push(label_row(
+                "Sprite Offset",
+                format!("{}, {}", member.sprite_offset_x, member.sprite_offset_y),
+            ))
+            .push(label_row(
+                "Follow Target",
+                format!("{}, {}", member.follow_target_x, member.follow_target_y),
+            ))
+            .push(label_row(
+                "Combat Action",
+                member.selected_combat_action_id.to_string(),
+            ))
+            .push(label_row(
+                "Map-object Target",
+                member.selected_map_object_id.to_string(),
+            ))
+            .push(label_row(
+                "Hit Reaction Pending",
+                if member.hit_animation_pending {
+                    "yes"
+                } else {
+                    "no"
+                },
+            ))
+            .push(label_row(
+                "Automatic Restorations",
+                format!(
+                    "{} health, {} mana",
+                    member.automatic_health_restorations_remaining,
+                    member.automatic_mana_restorations_remaining
+                ),
+            ))
+            .push(label_row(
+                "Status Effect",
+                format!(
+                    "{} ({} ticks; poison tick {}; source slot {})",
+                    member.active_status_effect_id,
+                    member.status_effect_ticks_remaining,
+                    member.poison_damage_tick_countdown,
+                    member.status_effect_source_party_slot_index
+                ),
+            ))
+            .push(label_row(
+                "Blocked-path Recovery Target",
+                format!(
+                    "{} attempts toward {}, {}",
+                    member.blocked_path_reposition_attempts,
+                    member.blocked_path_target_x,
+                    member.blocked_path_target_y
+                ),
+            ))
+            .push(label_row(
+                "AI Target Search Range",
+                member.ai_target_search_range.to_string(),
+            ))
+            .push(label_row(
+                "Combat Action Delay",
+                if member.combat_action_delay_active {
+                    format!(
+                        "{} ticks{}",
+                        member.combat_action_delay_ticks_remaining,
+                        if member.combat_action_ready {
+                            " (ready)"
+                        } else {
+                            ""
+                        }
+                    )
+                } else {
+                    "inactive".to_owned()
+                },
+            ))
+            .push(label_row(
+                "Combat Action Animation",
+                format!(
+                    "delay frame {}, resolution frame{}{}",
+                    member.combat_action_delay_animation_frame,
+                    member.combat_action_resolution_animation_frame,
+                    if member.combat_action_completion_latched {
+                        " (complete)"
+                    } else {
+                        ""
+                    }
+                ),
+            ))
+            .push(label_row(
+                "Blocked-path Recovery",
+                if member.blocked_path_recovery_active {
+                    "active"
+                } else {
+                    "inactive"
+                },
+            ))
+            .push(label_row(
+                "Rejoin Leader",
+                match (
+                    member.rejoin_leader_requested,
+                    member.rejoin_leader_in_progress,
+                ) {
+                    (_, true) => "in progress",
+                    (true, false) => "requested",
+                    (false, false) => "inactive",
+                },
+            ))
+            .push(label_row(
+                "Level-up",
+                if member.level_up_pending {
+                    format!(
+                        "pending; {} frame {} ({})",
+                        if member.level_up_animation_active {
+                            "animation"
+                        } else {
+                            "no animation"
+                        },
+                        member.level_up_animation_frame,
+                        member.level_up_animation_variant
+                    )
+                } else {
+                    "not pending".to_owned()
+                },
             ))
             .spacing(3),
     )

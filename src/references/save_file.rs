@@ -439,8 +439,8 @@ pub struct PartyMember {
     pub level: u8,
     /// Class-specific runtime behaviour selected during companion creation.
     pub class_behaviour: u8,
-    /// Mode supplied to the party member pathfinding logic.
-    pub pathfinding_mode: u8,
+    /// Range used by the companion AI when searching for a combat target.
+    pub ai_target_search_range: u8,
     /// Strength from `PrtLevel.db` for this character and level.
     pub strength: u32,
     /// Constitution from `PrtLevel.db` for this character and level.
@@ -462,13 +462,102 @@ pub struct PartyMember {
     pub magic_spell_id_3: u8,
     /// Zero-based index of this companion in the game's party-character table.
     pub party_character_index: u8,
-    /// Percentage threshold used after level ten to trigger a tactical action.
-    pub tactical_action_chance: u32,
+    /// Visual/class variant selected for this companion from the party-character table.
+    pub party_class_variant: u32,
+    /// Weapon-skill level from `PrtLevel.db` for this character and level.
+    pub weapon_skill_level: u32,
     /// Experience points accumulated by this party member.
     ///
     /// The game increments this value after combat and compares it with the
     /// next-level threshold before levelling up.
     pub experience_points: u32,
+    /// Position of this companion in the active two-member party UI.
+    pub party_slot_index: u32,
+    /// Percentage threshold used after level ten to trigger a tactical action.
+    pub tactical_action_chance: u32,
+    /// Index of the next node in the active movement path.
+    pub path_node_index: u32,
+    /// Current map-cell X coordinate.
+    pub map_x: u16,
+    /// Current map-cell Y coordinate.
+    pub map_y: u16,
+    /// Previous map-cell X coordinate, used by movement and formation logic.
+    pub previous_map_x: u16,
+    /// Previous map-cell Y coordinate, used by movement and formation logic.
+    pub previous_map_y: u16,
+    /// Runtime movement state for the companion.
+    pub movement_state: u32,
+    /// Number of nodes in the active movement path.
+    pub path_node_count: u32,
+    /// Horizontal screen-pixel offset used while drawing the companion sprite.
+    pub sprite_offset_x: i8,
+    /// Vertical screen-pixel offset used while drawing the companion sprite.
+    pub sprite_offset_y: i8,
+    /// Current frame within the companion's active animation.
+    pub animation_frame_index: u8,
+    /// Current facing direction; `-1` means that no directional animation is active.
+    pub facing_direction: i8,
+    /// Map occupancy ID written into tiles and supplied to pathfinding for this companion.
+    pub map_occupancy_id: u8,
+    /// Direction index of the sprite's current movement state.
+    pub movement_sprite_direction: u32,
+    /// Number of animation frames processed in the current action.
+    pub animation_tick_count: u32,
+    /// Map-cell X coordinate the companion is currently following.
+    pub follow_target_x: i32,
+    /// Map-cell Y coordinate the companion is currently following.
+    pub follow_target_y: i32,
+    /// Selected combat action or spell. Negative values are runtime sentinels.
+    pub selected_combat_action_id: i32,
+    /// ID of the map object currently selected as this companion's movement or action target.
+    /// A negative value means that no map object is selected.
+    pub selected_map_object_id: i16,
+    /// Whether the companion's one-frame hit reaction still needs to be drawn.
+    pub hit_animation_pending: bool,
+    /// Remaining automatic full-health restorations available to this companion.
+    pub automatic_health_restorations_remaining: u32,
+    /// Remaining automatic full-mana restorations available to this companion.
+    pub automatic_mana_restorations_remaining: u32,
+    /// Active status-effect kind. One denotes poison; zero denotes no active timed effect.
+    pub active_status_effect_id: u32,
+    /// Ticks remaining before the active status effect is processed or expires.
+    pub status_effect_ticks_remaining: u32,
+    /// Countdown to the next poison-damage tick while poisoned.
+    pub poison_damage_tick_countdown: u32,
+    /// Party slot that originated a targeted status effect; `-1` means no saved source.
+    pub status_effect_source_party_slot_index: i32,
+    /// Number of attempts made to find a nearby walkable cell when the path is blocked.
+    pub blocked_path_reposition_attempts: u32,
+    /// X coordinate of the temporary target used by blocked-path recovery.
+    pub blocked_path_target_x: i32,
+    /// Y coordinate of the temporary target used by blocked-path recovery.
+    pub blocked_path_target_y: i32,
+    /// Whether the selected combat action is waiting for its execution delay.
+    pub combat_action_delay_active: bool,
+    /// Ticks remaining before the delayed combat action is executed.
+    pub combat_action_delay_ticks_remaining: u32,
+    /// Whether a delayed combat action has become ready for execution.
+    pub combat_action_ready: bool,
+    /// Current visual frame while the combat action waits for execution.
+    pub combat_action_delay_animation_frame: u32,
+    /// Current visual frame while the ready combat action is resolved.
+    pub combat_action_resolution_animation_frame: u32,
+    /// Whether the combat action's completion frame has been reached.
+    pub combat_action_completion_latched: bool,
+    /// Whether the companion is actively recovering from a blocked path.
+    pub blocked_path_recovery_active: bool,
+    /// Whether the companion has been instructed to rejoin the party leader.
+    pub rejoin_leader_requested: bool,
+    /// Whether the companion is currently moving to rejoin the party leader.
+    pub rejoin_leader_in_progress: bool,
+    /// Whether this companion has earned a level and awaits the level-up sequence.
+    pub level_up_pending: bool,
+    /// Whether the level-up animation is currently active.
+    pub level_up_animation_active: bool,
+    /// Current frame of the level-up animation.
+    pub level_up_animation_frame: u32,
+    /// Variant of the level-up animation selected for this companion's class.
+    pub level_up_animation_variant: u32,
     /// The exact 75-word serialized state stream after the name.
     ///
     /// This is authoritative on write because the game serializes overlapping
@@ -512,7 +601,7 @@ impl PartyMember {
             class_id: state[6],
             level: state[7],
             class_behaviour: state[10],
-            pathfinding_mode: state[11],
+            ai_target_search_range: state[11],
             strength: u32_at(28),
             constitution: u32_at(32),
             wisdom: u32_at(36),
@@ -521,9 +610,53 @@ impl PartyMember {
             magic_spell_id_1: state[48],
             magic_spell_id_2: state[49],
             magic_spell_id_3: state[50],
-            party_character_index: state[51],
-            tactical_action_chance: u32_at(68),
+            party_character_index: state[60],
+            party_class_variant: u32_at(64),
+            weapon_skill_level: u32_at(68),
             experience_points: u32_at(72),
+            party_slot_index: u32_at(76),
+            path_node_index: u32_at(244),
+            map_x: u16_at(248),
+            map_y: u16_at(250),
+            previous_map_x: u16_at(256),
+            previous_map_y: u16_at(258),
+            movement_state: u32_at(268),
+            path_node_count: u32_at(272),
+            tactical_action_chance: u32_at(276),
+            sprite_offset_x: state[88] as i8,
+            sprite_offset_y: state[92] as i8,
+            animation_frame_index: state[96],
+            facing_direction: state[104] as i8,
+            map_occupancy_id: state[100],
+            movement_sprite_direction: u32_at(128),
+            animation_tick_count: u32_at(124),
+            follow_target_x: u32_at(132) as i32,
+            follow_target_y: u32_at(136) as i32,
+            selected_combat_action_id: u32_at(164) as i32,
+            selected_map_object_id: u16_at(116) as i16,
+            hit_animation_pending: state[140] != 0,
+            automatic_health_restorations_remaining: u32_at(176),
+            automatic_mana_restorations_remaining: u32_at(180),
+            active_status_effect_id: u32_at(184),
+            status_effect_ticks_remaining: u32_at(188),
+            poison_damage_tick_countdown: u32_at(192),
+            status_effect_source_party_slot_index: u32_at(172) as i32,
+            blocked_path_reposition_attempts: u32_at(200),
+            blocked_path_target_x: u32_at(204) as i32,
+            blocked_path_target_y: u32_at(208) as i32,
+            combat_action_delay_active: state[148] != 0,
+            combat_action_delay_ticks_remaining: u32_at(152),
+            combat_action_ready: state[156] != 0,
+            combat_action_delay_animation_frame: u32_at(144),
+            combat_action_resolution_animation_frame: u32_at(160),
+            combat_action_completion_latched: state[168] != 0,
+            blocked_path_recovery_active: state[212] != 0,
+            rejoin_leader_requested: state[213] != 0,
+            rejoin_leader_in_progress: state[214] != 0,
+            level_up_pending: state[220] != 0,
+            level_up_animation_active: state[224] != 0,
+            level_up_animation_frame: u32_at(228),
+            level_up_animation_variant: u32_at(232),
             serialized_runtime_state,
         })
     }
