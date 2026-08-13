@@ -288,9 +288,12 @@ pub struct NpcRecord {
 /// Extra object record (200-byte data per record)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct ExtraObjectRecord {
-    pub unknown_1: u32,
-    pub unknown_2: u32,
-    pub unknown_3: u32,
+    /// Save-only runtime value; not present in `ExtraRef`.
+    pub runtime_unknown_1: u32,
+    /// Save-only runtime value; not present in `ExtraRef`.
+    pub runtime_unknown_2: u32,
+    /// Save-only runtime value; not present in `ExtraRef`.
+    pub runtime_unknown_3: u32,
     /// Maps to the `ExtraRef.number_in_file` field.
     pub extra_ref_record_id: u16,
     /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
@@ -307,54 +310,90 @@ pub struct ExtraObjectRecord {
     /// Structural parallel to ExtraRef.rotation.
     pub rotation: u8,
     // Always 205, 205, 205
-    #[binary_record(size = 3)]
-    pub unknown_10_rotation_padding: Vec<u8>,
-    #[binary_record(size = 8)]
-    pub unknown_10: Vec<u8>, // likely extra_ref.unknown3 (chest opened) and unknown3.closed (initial open status / openable).
-    pub unknown_11: u32, // required_item
-    pub unknown_12: u32, // required_item2
-    pub unknown_13: u32, // unknown6
-    pub unknown_14: u32, // unknown7
-    pub unknown_15: u32, // unknown8
-    pub unknown_16: u32, // unknown9
-    pub unknown_17: u32, // gold_amount
-    pub unknown_18: u32, // loot_item
-    pub unknown_19: u32, // item_count
-    pub unknown_20: u32, // unknown11
-    pub unknown_21: u32, // unknown12
-    pub unknown_22: u32, // unknown13
-    #[binary_record(size = 24)]
-    pub unknown_23: Vec<u8>, // unknown14
-    pub unknown_24: u32, // unknown14 (last 4 bytes)
-    pub event_ini_id: u32,
-    pub message_scr_id: u32,
-    pub unknown_27: u32, // unknown15
-    pub unknown_28: u32, // unknown16
-    pub unknown_29: u8,  // unknown17
-    #[binary_record(size = 3)]
-    pub unknown_30: Vec<u8>, // interactive_element_type + unknown18
-    #[binary_record(size = 8)]
-    pub unknown_31: Vec<u8>, // is_quest_element + unknown20
-    pub unknown_32: u32, // unknown21
-    pub unknown_33: u32, // unknown22
-    pub unknown_34: u32, // unknown23
-    pub unknown_35: u32, // visibility
-    pub unknown_36: u32, // unknown24 + unknown25
-    pub unknown_37: u32, // unknown26
-    pub unknown_38: u32, // unknown27
+    pub extra_ref_rotation_padding: [u8; 3],
+    /// `ExtraRef.unknown3`; its game meaning is still unknown.
+    pub extra_ref_unknown_3: u32,
+    /// Current open/closed state from `ExtraRef.closed`.
+    pub closed: u32,
+    /// Packed `ExtraRef.required_item` followed by its two-byte padding.
+    pub required_item_and_padding: u32,
+    /// Packed `ExtraRef.required_item2` followed by its two-byte padding.
+    pub required_item2_and_padding: u32,
+    pub extra_ref_unknown_6: u32,
+    pub extra_ref_unknown_7: u32,
+    pub extra_ref_unknown_8: u32,
+    pub extra_ref_unknown_9: u32,
+    pub gold_amount: u32,
+    /// Packed `ExtraRef.item` followed by its two-byte padding.
+    pub loot_item_and_padding: u32,
+    pub item_count: u32,
+    pub extra_ref_unknown_11: u32,
+    pub extra_ref_unknown_12: u32,
+    pub extra_ref_unknown_13: u32,
+    pub extra_ref_unknown_14: [u8; 28],
+    pub event_id: u32,
+    pub message_id: u32,
+    pub extra_ref_unknown_15: u32,
+    pub extra_ref_unknown_16: u32,
+    pub extra_ref_unknown_17: u8,
+    /// `ExtraRef.interactive_element_type`.
+    pub interactive_element_type: u8,
+    pub extra_ref_unknown_18: [u8; 2],
+    pub is_quest_element: u32,
+    pub extra_ref_unknown_20: u32,
+    pub extra_ref_unknown_21: u32,
+    pub extra_ref_unknown_22: u32,
+    pub extra_ref_unknown_23: u32,
+    pub visibility: u8,
+    pub extra_ref_unknown_24: u8,
+    pub extra_ref_unknown_25: i16,
+    pub extra_ref_unknown_26: u32,
+    pub extra_ref_unknown_27: u32,
+    /// Save-only trailing runtime value; `ExtraRef` has no corresponding field.
+    pub runtime_unknown_4: u32,
 }
 
-/// Opaque data between a map's extra-object records and its ground-item sections.
+/// A deferred ground-item spawn from a map's extra-object state (24 bytes).
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct ExtraObjectTrailerRecord {
+    /// Ground-item category: 1 weapon, 2 heal, 3 edit, 4 misc, or 5 event.
+    pub item_category: u8,
+    /// This byte is not initialized by the constructor and must be preserved.
+    pub unknown_1: u8,
+    /// Item ID used when the deferred item is spawned.
+    pub item_id: u16,
+    /// Progress through the deferred spawn sequence.
+    pub current_count: u8,
+    /// Spawn-sequence threshold. The constructor initializes this to three.
+    pub target_count: u8,
+    /// These bytes are not initialized by the constructor and must be preserved.
+    pub unknown_6_7: [u8; 2],
+    /// Index into the selected category's ground-item section.
+    pub category_item_index: u32,
+    /// Associated value passed by the spawning code; its meaning is not known.
+    pub unknown_associated_value: u16,
+    /// These bytes are not initialized by the constructor and must be preserved.
+    pub unknown_14_15: [u8; 2],
+    /// Map X coordinate of the deferred item.
+    pub map_x: i32,
+    /// Map Y coordinate of the deferred item.
+    pub map_y: i32,
+}
+
+/// Data between a map's extra-object records and its ground-item sections.
 ///
-/// The fixed prefix is 11 bytes and contains a `u16` count at byte offset 4.
-/// Each counted record is 24 bytes. The record format is not yet understood, so
-/// both the prefix and records are retained verbatim for lossless round trips.
+/// On disk it is `[tail_size][record_count][records][controls]`. `tail_size`
+/// excludes its own four bytes and covers everything through the five item sections.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MapExtraObjectsTrailer {
-    /// The fixed 11-byte prefix, including the record count at bytes 4–5.
-    pub prefix: [u8; 11],
-    /// Raw counted records (24 bytes each).
-    pub records: Vec<u8>,
+    pub tail_size: u32,
+    pub records: Vec<ExtraObjectTrailerRecord>,
+    /// Meaning has not yet been determined.
+    pub control_byte: u8,
+    /// Meaning has not yet been determined.
+    pub control_value_1: u16,
+    /// Meaning has not yet been determined.
+    pub control_value_2: u16,
 }
 
 /// PartyMember is 321 bytes long
@@ -1049,15 +1088,24 @@ impl SaveFile {
                 .map(ExtraObjectRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
 
-            // ── 2.5. Extra-object trailer (11-byte prefix + 24-byte records) ──
-            let mut trailer_prefix = [0u8; 11];
-            reader.read_exact(&mut trailer_prefix)?;
-            let trailer_record_count = u16::from_le_bytes([trailer_prefix[4], trailer_prefix[5]]);
-            let mut trailer_records = vec![0u8; trailer_record_count as usize * 24];
-            reader.read_exact(&mut trailer_records)?;
+            // ── 2.5. Extra-object trailer ──
+            let tail_size = reader.read_u32::<LittleEndian>()?;
+            let trailer_record_count = reader.read_u16::<LittleEndian>()? as usize;
+            let mut trailer_records_data = vec![0u8; trailer_record_count * 24];
+            reader.read_exact(&mut trailer_records_data)?;
+            let records = trailer_records_data
+                .chunks_exact(24)
+                .map(ExtraObjectTrailerRecord::parse)
+                .collect::<std::io::Result<Vec<_>>>()?;
+            let control_byte = reader.read_u8()?;
+            let control_value_1 = reader.read_u16::<LittleEndian>()?;
+            let control_value_2 = reader.read_u16::<LittleEndian>()?;
             let extra_objects_trailer = MapExtraObjectsTrailer {
-                prefix: trailer_prefix,
-                records: trailer_records,
+                tail_size,
+                records,
+                control_byte,
+                control_value_1,
+                control_value_2,
             };
 
             // ── 2.6–2.10. Ground items (5 types) ──
@@ -1067,6 +1115,23 @@ impl SaveFile {
             let draw_items_edit = Self::read_item_section(reader, 280, DrawItemEditItem::parse)?;
             let draw_items_misc = Self::read_item_section(reader, 268, DrawItemMiscItem::parse)?;
             let draw_items_event = Self::read_item_section(reader, 252, DrawItemEventItem::parse)?;
+
+            let expected_tail_size = 17usize
+                + extra_objects_trailer.records.len() * 24
+                + draw_items_weapon.len() * 296
+                + draw_items_heal.len() * 264
+                + draw_items_edit.len() * 280
+                + draw_items_misc.len() * 268
+                + draw_items_event.len() * 252;
+            if extra_objects_trailer.tail_size as usize != expected_tail_size {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!(
+                        "map extra-object trailer size is {}, expected {expected_tail_size}",
+                        extra_objects_trailer.tail_size
+                    ),
+                ));
+            }
 
             // ── 2.11. End-of-map separator (always 0) ──
             let _separator = reader.read_u32::<LittleEndian>()?;
@@ -1480,25 +1545,38 @@ impl SaveFile {
                 e.write(writer)?;
             }
 
-            // Opaque extra-object trailer (11-byte prefix + 24-byte records)
-            let record_count = u16::from_le_bytes([
-                map.extra_objects_trailer.prefix[4],
-                map.extra_objects_trailer.prefix[5],
-            ]) as usize;
-            let expected_records_len = record_count.checked_mul(24).ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "map extra-object trailer record count overflows",
-                )
-            })?;
-            if map.extra_objects_trailer.records.len() != expected_records_len {
+            // Extra-object trailer: size, count, records, then controls.
+            let record_count =
+                u16::try_from(map.extra_objects_trailer.records.len()).map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "map extra-object trailer has more than u16::MAX records",
+                    )
+                })?;
+            let expected_tail_size = 17usize
+                + map.extra_objects_trailer.records.len() * 24
+                + map.draw_items_weapon.len() * 296
+                + map.draw_items_heal.len() * 264
+                + map.draw_items_edit.len() * 280
+                + map.draw_items_misc.len() * 268
+                + map.draw_items_event.len() * 252;
+            if map.extra_objects_trailer.tail_size as usize != expected_tail_size {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "map extra-object trailer record data does not match its count",
+                    format!(
+                        "map extra-object trailer size is {}, expected {expected_tail_size}",
+                        map.extra_objects_trailer.tail_size
+                    ),
                 ));
             }
-            writer.write_all(&map.extra_objects_trailer.prefix)?;
-            writer.write_all(&map.extra_objects_trailer.records)?;
+            writer.write_u32::<LittleEndian>(map.extra_objects_trailer.tail_size)?;
+            writer.write_u16::<LittleEndian>(record_count)?;
+            for record in &map.extra_objects_trailer.records {
+                record.write(writer)?;
+            }
+            writer.write_u8(map.extra_objects_trailer.control_byte)?;
+            writer.write_u16::<LittleEndian>(map.extra_objects_trailer.control_value_1)?;
+            writer.write_u16::<LittleEndian>(map.extra_objects_trailer.control_value_2)?;
 
             // Ground items (5 types, each u16 count + fixed-size records)
             writer.write_u16::<LittleEndian>(map.draw_items_weapon.len() as u16)?;
@@ -1985,15 +2063,33 @@ mod tests {
 
     #[test]
     fn test_maps_section_round_trips_extra_object_trailer() {
-        let mut prefix = [0u8; 11];
-        prefix[..4].copy_from_slice(&[0xAA, 0xBB, 0xCC, 0xDD]);
-        prefix[4..6].copy_from_slice(&2u16.to_le_bytes());
-        prefix[6..].copy_from_slice(&[1, 2, 3, 4, 5]);
+        assert_eq!(ExtraObjectTrailerRecord::record_size(), 24);
         let map = MapSectionData {
             map_id: 42,
             extra_objects_trailer: MapExtraObjectsTrailer {
-                prefix,
-                records: (0..48).collect(),
+                tail_size: 65,
+                records: vec![
+                    ExtraObjectTrailerRecord {
+                        item_category: 4,
+                        unknown_1: 0x80,
+                        item_id: 780,
+                        current_count: 0,
+                        target_count: 3,
+                        unknown_6_7: [0xAA, 0xBB],
+                        category_item_index: 7,
+                        unknown_associated_value: 631,
+                        unknown_14_15: [0xCC, 0xDD],
+                        map_x: -1120,
+                        map_y: -80,
+                    },
+                    ExtraObjectTrailerRecord {
+                        item_category: 1,
+                        ..Default::default()
+                    },
+                ],
+                control_byte: 0,
+                control_value_1: 773,
+                control_value_2: 780,
             },
             ..Default::default()
         };
@@ -2003,10 +2099,13 @@ mod tests {
         let parsed = SaveFile::parse_maps_section(&mut std::io::Cursor::new(bytes), 1).unwrap();
 
         assert_eq!(parsed.len(), 1);
-        assert_eq!(parsed[0].extra_objects_trailer.prefix, prefix);
-        assert_eq!(
-            parsed[0].extra_objects_trailer.records,
-            (0..48).collect::<Vec<u8>>()
-        );
+        assert_eq!(parsed[0].extra_objects_trailer.tail_size, 65);
+        assert_eq!(parsed[0].extra_objects_trailer.records.len(), 2);
+        assert_eq!(parsed[0].extra_objects_trailer.records[0].item_category, 4);
+        assert_eq!(parsed[0].extra_objects_trailer.records[0].item_id, 780);
+        assert_eq!(parsed[0].extra_objects_trailer.records[0].target_count, 3);
+        assert_eq!(parsed[0].extra_objects_trailer.records[0].map_x, -1120);
+        assert_eq!(parsed[0].extra_objects_trailer.control_value_1, 773);
+        assert_eq!(parsed[0].extra_objects_trailer.control_value_2, 780);
     }
 }

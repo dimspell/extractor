@@ -63,7 +63,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
             + 4
             + map.extra_objects.len().checked_mul(200)?
             + 11
-            + map.extra_objects_trailer.records.len()
+            + map.extra_objects_trailer.records.len().checked_mul(24)?
             + 2
             + map.draw_items_weapon.len().checked_mul(296)?
             + 2
@@ -121,8 +121,8 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
             &mut spans,
             &mut nested,
             "Extra-object trailer",
-            "opaque",
-            11 + map.extra_objects_trailer.records.len(),
+            "u32 + u16 + records + controls",
+            11 + map.extra_objects_trailer.records.len().checked_mul(24)?,
             0,
         )?;
         push_counted_records(

@@ -2,6 +2,7 @@ use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 use crate::editors::save_file_viewer::RawHexEditorData;
 use crate::editors::save_file_viewer::message::TableKey;
 use dispel_core::SaveFile;
+use dispel_core::references::extractor::Extractor;
 use gui_widgets::TableColumn;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use hexedit::HexEditorState;
@@ -273,9 +274,9 @@ impl MapsTableKind {
                 ("freeze_counter", 60.0),
             ],
             ExtraObjects => &[
-                ("unknown_1", 60.0),
-                ("unknown_2", 60.0),
-                ("unknown_3", 60.0),
+                ("runtime_unknown_1", 60.0),
+                ("runtime_unknown_2", 60.0),
+                ("runtime_unknown_3", 60.0),
                 ("extra_ref_record_id", 60.0),
                 ("extra_ini_id", 60.0),
                 ("name", 160.0),
@@ -283,35 +284,39 @@ impl MapsTableKind {
                 ("x_pos", 60.0),
                 ("y_pos", 60.0),
                 ("rotation", 60.0),
-                ("unknown_10", 200.0),
-                ("unknown_11", 60.0),
-                ("unknown_12", 60.0),
-                ("unknown_13", 60.0),
-                ("unknown_14", 60.0),
-                ("unknown_15", 60.0),
-                ("unknown_16", 60.0),
-                ("unknown_17", 60.0),
-                ("unknown_18", 60.0),
-                ("unknown_19", 60.0),
-                ("unknown_20", 60.0),
-                ("unknown_21", 60.0),
-                ("unknown_22", 60.0),
-                ("unknown_23", 320.0),
-                ("unknown_24", 60.0),
-                ("event_ini_id", 60.0),
-                ("message_scr_id", 60.0),
-                ("unknown_27", 60.0),
-                ("unknown_28", 60.0),
-                ("unknown_29", 60.0),
-                ("unknown_30", 200.0),
-                ("unknown_31", 200.0),
-                ("unknown_32", 60.0),
-                ("unknown_33", 60.0),
-                ("unknown_34", 60.0),
-                ("unknown_35", 60.0),
-                ("unknown_36", 60.0),
-                ("unknown_37", 60.0),
-                ("unknown_38", 60.0),
+                ("extra_ref_unknown_3", 60.0),
+                ("closed", 60.0),
+                ("required_item_and_padding", 60.0),
+                ("required_item2_and_padding", 60.0),
+                ("extra_ref_unknown_6", 60.0),
+                ("extra_ref_unknown_7", 60.0),
+                ("extra_ref_unknown_8", 60.0),
+                ("extra_ref_unknown_9", 60.0),
+                ("gold_amount", 60.0),
+                ("loot_item_and_padding", 60.0),
+                ("item_count", 60.0),
+                ("extra_ref_unknown_11", 60.0),
+                ("extra_ref_unknown_12", 60.0),
+                ("extra_ref_unknown_13", 60.0),
+                ("extra_ref_unknown_14", 320.0),
+                ("event_id", 60.0),
+                ("message_id", 60.0),
+                ("extra_ref_unknown_15", 60.0),
+                ("extra_ref_unknown_16", 60.0),
+                ("extra_ref_unknown_17", 60.0),
+                ("interactive_element_type", 60.0),
+                ("extra_ref_unknown_18", 200.0),
+                ("is_quest_element", 60.0),
+                ("extra_ref_unknown_20", 60.0),
+                ("extra_ref_unknown_21", 60.0),
+                ("extra_ref_unknown_22", 60.0),
+                ("extra_ref_unknown_23", 60.0),
+                ("visibility", 60.0),
+                ("extra_ref_unknown_24", 60.0),
+                ("extra_ref_unknown_25", 60.0),
+                ("extra_ref_unknown_26", 60.0),
+                ("extra_ref_unknown_27", 60.0),
+                ("runtime_unknown_4", 60.0),
             ],
             Weapon => &[
                 ("name", 160.0),
@@ -1069,9 +1074,18 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     }
 
     for map in &save_file.maps {
-        let mut data = Vec::with_capacity(11 + map.extra_objects_trailer.records.len());
-        data.extend_from_slice(&map.extra_objects_trailer.prefix);
-        data.extend_from_slice(&map.extra_objects_trailer.records);
+        let trailer = &map.extra_objects_trailer;
+        let mut data = Vec::with_capacity(11 + trailer.records.len() * 24);
+        data.extend_from_slice(&trailer.tail_size.to_le_bytes());
+        data.extend_from_slice(&(trailer.records.len() as u16).to_le_bytes());
+        for record in &trailer.records {
+            record
+                .write(&mut data)
+                .expect("writing a trailer record to memory cannot fail");
+        }
+        data.push(trailer.control_byte);
+        data.extend_from_slice(&trailer.control_value_1.to_le_bytes());
+        data.extend_from_slice(&trailer.control_value_2.to_le_bytes());
         hex_editors.push(RawHexEditorData {
             label: format!("Map {} Extra-Object Trailer", map.map_id),
             data,
