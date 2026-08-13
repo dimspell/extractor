@@ -4,13 +4,14 @@ use std::path::{Path, PathBuf};
 
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use gui_widgets::components::toast::Toast;
+use gui_widgets::sweeten::list::Content;
 use iced::widget::pane_grid;
 
 use super::domain::byte_stats::{ByteStatistics, RowEntropyCache, compute_row_entropies};
 use super::domain::export_config::ExportConfig;
 use super::domain::extend_dialog::ExtendDialog;
 use super::domain::fill_dialog::FillDialog;
-use super::domain::layout::BinaryLayout;
+use super::domain::layout::{BinaryLayout, LayoutOutlineItem};
 use super::domain::panel::{HexPanel, default_pane_grid};
 use super::domain::write_mode::{EncodingEntry, WriteMode};
 use super::editing::{EditState, InspectorEditState};
@@ -58,6 +59,12 @@ pub struct HexEditorState {
     pub name: String,
     /// Immutable, per-tab metadata that describes this file's binary structure.
     pub layout: Option<Box<dyn BinaryLayout>>,
+    /// Stable backing data for the virtualized structure-outline pane.
+    pub outline: Content<LayoutOutlineItem>,
+    /// Complete hierarchy retained while `outline` contains only visible rows.
+    pub outline_all: Vec<LayoutOutlineItem>,
+    /// IDs of collapsed branches in the structure outline.
+    pub collapsed_outline: BTreeSet<usize>,
     /// Halloy-style pane grid: movable, splittable, resizable panels.
     pub panes: pane_grid::State<HexPanel>,
     /// Which pane currently has keyboard focus in the grid.
@@ -188,6 +195,66 @@ pub struct HexEditorState {
 }
 
 impl HexEditorState {
+    /// Replace the tab's layout and prepare its virtualized outline data.
+    pub fn set_layout(&mut self, layout: Option<Box<dyn BinaryLayout>>) {
+        self.layout = layout;
+        self.collapsed_outline.clear();
+        self.rebuild_outline();
+    }
+
+    fn rebuild_outline(&mut self) {
+        self.outline_all = self
+            .layout
+            .as_deref()
+            .map(|layout| layout.outline(self.provider.len()).into_iter().collect())
+            .unwrap_or_default();
+        self.annotate_outline();
+        self.refresh_visible_outline();
+    }
+
+    /// Toggle one branch and materialize just the rows that should be visible.
+    pub fn toggle_outline(&mut self, id: usize) {
+        if !self
+            .outline_all
+            .get(id)
+            .is_some_and(|item| item.has_children)
+        {
+            return;
+        }
+        if !self.collapsed_outline.insert(id) {
+            self.collapsed_outline.remove(&id);
+        }
+        self.refresh_visible_outline();
+    }
+
+    fn annotate_outline(&mut self) {
+        for index in 0..self.outline_all.len() {
+            let depth = self.outline_all[index].depth;
+            self.outline_all[index].id = index;
+            self.outline_all[index].has_children = self
+                .outline_all
+                .get(index + 1)
+                .is_some_and(|next| next.depth > depth);
+            self.outline_all[index].expanded = !self.collapsed_outline.contains(&index);
+        }
+    }
+
+    fn refresh_visible_outline(&mut self) {
+        self.annotate_outline();
+        let mut hidden_at: Option<u8> = None;
+        let visible = self.outline_all.iter().filter(|item| {
+            if hidden_at.is_some_and(|depth| item.depth > depth) {
+                return false;
+            }
+            hidden_at = None;
+            if item.has_children && !item.expanded {
+                hidden_at = Some(item.depth);
+            }
+            true
+        });
+        self.outline = visible.cloned().collect();
+    }
+
     /// Add an outline pane when this tab has binary structure metadata.
     pub fn ensure_outline_pane(&mut self) {
         if self.layout.is_none()
@@ -269,6 +336,9 @@ impl HexEditorState {
             path,
             name,
             layout,
+            outline: Content::new(),
+            outline_all: Vec::new(),
+            collapsed_outline: BTreeSet::new(),
             panes,
             pane_focus,
             provider: BufferProvider::from_bytes(data),
@@ -324,6 +394,7 @@ impl HexEditorState {
             theme_variant: ThemeVariant::Dark,
         };
         state.recompute_vanilla_diff();
+        state.rebuild_outline();
         state
     }
 
@@ -361,10 +432,13 @@ impl HexEditorState {
             .map(|(id, _)| id)
             .expect("default_pane_grid always has at least one pane");
 
-        Self {
+        let mut state = Self {
             path: path.to_path_buf(),
             name,
             layout,
+            outline: Content::new(),
+            outline_all: Vec::new(),
+            collapsed_outline: BTreeSet::new(),
             panes,
             pane_focus,
             provider,
@@ -419,7 +493,9 @@ impl HexEditorState {
             pending_center_on: Cell::new(None),
             theme: &DARK_THEME,
             theme_variant: ThemeVariant::Dark,
-        }
+        };
+        state.rebuild_outline();
+        state
     }
 
     /// Largest valid byte address, or 0 for an empty file.

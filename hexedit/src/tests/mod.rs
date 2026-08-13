@@ -41,6 +41,8 @@ pub fn make_state(data: Vec<u8>) -> HexEditorState {
         name: "test.bin".to_string(),
         layout: None,
         outline: gui_widgets::sweeten::list::Content::new(),
+        outline_all: Vec::new(),
+        collapsed_outline: BTreeSet::new(),
         panes,
         pane_focus,
         provider: BufferProvider::from_bytes(data),
@@ -187,6 +189,39 @@ fn test_hex_matrix_uses_paragraph_cache() {
     let config = default_config();
     // Just verify the element can be created without errors
     let _element = view(&state, &config);
+}
+
+#[test]
+fn test_outline_collapses_descendants_without_removing_siblings() {
+    use crate::domain::layout::{NamedSpan, SpanBinaryLayout};
+
+    let mut state = make_state(vec![0; 100]);
+    state.set_layout(Some(Box::new(SpanBinaryLayout::new(
+        "test",
+        vec![
+            NamedSpan {
+                range: 0..60,
+                name: "parent",
+                ty: "section",
+                record_index: 0,
+            },
+            NamedSpan {
+                range: 0..20,
+                name: "child",
+                ty: "record",
+                record_index: 0,
+            },
+            NamedSpan {
+                range: 60..100,
+                name: "sibling",
+                ty: "section",
+                record_index: 0,
+            },
+        ],
+    ))));
+    assert_eq!(state.outline.len(), 3);
+    state.toggle_outline(0);
+    assert_eq!(state.outline.len(), 2);
 }
 
 pub mod pane_grid;

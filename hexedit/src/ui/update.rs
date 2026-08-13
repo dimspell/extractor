@@ -134,6 +134,7 @@ pub fn update(
             state.edit_mode = None;
             state.refresh_active_patterns();
         }
+        HexEditorMessage::ToggleOutline(id) => state.toggle_outline(id),
         HexEditorMessage::ExtendTo(addr) => {
             state.selection.extend(addr, max_addr);
             state.refresh_active_patterns();

@@ -35,6 +35,8 @@ pub enum HexEditorMessage {
     SelectAt(u64),
     /// Select and centre the matrix on a structure-outline entry.
     JumpToLayout(u64),
+    /// Expand or collapse a branch in the structure outline.
+    ToggleOutline(usize),
     /// Shift-click or drag — moves cursor only.
     ExtendTo(u64),
     /// Keyboard navigation; `extend = true` for Shift-modified moves.

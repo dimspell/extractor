@@ -16,11 +16,15 @@ pub struct FieldSpan {
 /// One navigable entry in a structure outline.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LayoutOutlineItem {
+    /// Stable identity within one layout, assigned when the outline is built.
+    pub id: usize,
     pub range: Range<u64>,
     pub name: &'static str,
     pub ty: &'static str,
     pub record_index: u64,
     pub depth: u8,
+    pub has_children: bool,
+    pub expanded: bool,
 }
 
 /// A binary layout answers only the addresses Hexedit needs to draw.
@@ -143,11 +147,14 @@ impl BinaryLayout for SpanBinaryLayout {
                     parents.pop();
                 }
                 let item = LayoutOutlineItem {
+                    id: 0,
                     range: span.range.clone(),
                     name: span.name,
                     ty: span.ty,
                     record_index: span.record_index,
                     depth: parents.len().min(u8::MAX as usize) as u8,
+                    has_children: false,
+                    expanded: false,
                 };
                 parents.push(span);
                 item
