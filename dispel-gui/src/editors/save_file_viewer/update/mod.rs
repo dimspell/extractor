@@ -449,21 +449,21 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                         });
                     }
                 }
-                // Extra objects — use unknown_7/8 which map structurally to
-                // ExtraRef.x_pos/y_pos (both appear right after name + type byte
+                // Extra objects — use map_x/map_y, which structurally map to
+                // ExtraRef.map_x/map_y (both appear right after name + type byte
                 // in their respective struct layouts).  Keep confirmed:false
                 // pending empirical verification against real save files.
                 for e in &map_data.extra_objects {
-                    let x = to_tile(e.x_pos);
-                    let y = to_tile(e.y_pos);
+                    let x = to_tile(e.map_x);
+                    let y = to_tile(e.map_y);
                     if x != 0 || y != 0 {
                         entities.push(PreviewEntity {
                             kind: EntityKind::Extra,
-                            label: e.name.clone(),
+                            label: e.object_name.clone(),
                             tile_x: x,
                             tile_y: y,
                             confirmed: false,
-                            db_id: Some(e.extra_ini_id as i32),
+                            db_id: Some(e.extra_definition_id as i32),
                             is_dead: false,
                             look_direction: 0,
                         });
@@ -1626,45 +1626,45 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.runtime_unknown_1.to_string(),
                                             e.runtime_unknown_2.to_string(),
                                             e.runtime_unknown_3.to_string(),
-                                            e.extra_ref_record_id.to_string(),
-                                            e.extra_ini_id.to_string(),
-                                            e.name.clone(),
+                                            e.map_object_id.to_string(),
+                                            e.extra_definition_id.to_string(),
+                                            e.object_name.clone(),
                                             e.object_type.to_string(),
-                                            e.x_pos.to_string(),
-                                            e.y_pos.to_string(),
-                                            e.rotation.to_string(),
-                                            e.extra_ref_unknown_3.to_string(),
-                                            e.closed.to_string(),
+                                            e.map_x.to_string(),
+                                            e.map_y.to_string(),
+                                            e.direction.to_string(),
+                                            e.interaction_state.to_string(),
+                                            e.requires_key.to_string(),
                                             e.required_item_and_padding.to_string(),
                                             e.required_item2_and_padding.to_string(),
-                                            e.extra_ref_unknown_6.to_string(),
-                                            e.extra_ref_unknown_7.to_string(),
-                                            e.extra_ref_unknown_8.to_string(),
-                                            e.extra_ref_unknown_9.to_string(),
+                                            e.requirement_range_2_start.to_string(),
+                                            e.requirement_range_2_end.to_string(),
+                                            e.requirement_range_3_start.to_string(),
+                                            e.requirement_range_3_end.to_string(),
                                             e.gold_amount.to_string(),
                                             e.loot_item_and_padding.to_string(),
-                                            e.item_count.to_string(),
-                                            e.extra_ref_unknown_11.to_string(),
-                                            e.extra_ref_unknown_12.to_string(),
-                                            e.extra_ref_unknown_13.to_string(),
-                                            hex_bytes(&e.extra_ref_unknown_14),
-                                            e.event_id.to_string(),
-                                            e.message_id.to_string(),
-                                            e.extra_ref_unknown_15.to_string(),
-                                            e.extra_ref_unknown_16.to_string(),
-                                            e.extra_ref_unknown_17.to_string(),
-                                            e.interactive_element_type.to_string(),
-                                            hex_bytes(&e.extra_ref_unknown_18),
+                                            e.loot_item_count.to_string(),
+                                            e.additional_loot_1.to_string(),
+                                            e.additional_loot_1_count.to_string(),
+                                            e.additional_loot_2.to_string(),
+                                            hex_bytes(&e.additional_loot_2_count_and_config),
+                                            e.interaction_event_id.to_string(),
+                                            e.interaction_message_id.to_string(),
+                                            e.footprint_width.to_string(),
+                                            e.footprint_height.to_string(),
+                                            e.footprint_orientation.to_string(),
+                                            e.interaction_range.to_string(),
+                                            hex_bytes(&e.interaction_range_padding),
                                             e.is_quest_element.to_string(),
-                                            e.extra_ref_unknown_20.to_string(),
-                                            e.extra_ref_unknown_21.to_string(),
-                                            e.extra_ref_unknown_22.to_string(),
-                                            e.extra_ref_unknown_23.to_string(),
-                                            e.visibility.to_string(),
-                                            e.extra_ref_unknown_24.to_string(),
-                                            e.extra_ref_unknown_25.to_string(),
-                                            e.extra_ref_unknown_26.to_string(),
-                                            e.extra_ref_unknown_27.to_string(),
+                                            e.post_activation_tile_flag.to_string(),
+                                            e.post_activation_footprint_mode.to_string(),
+                                            e.preserve_final_sprite_frame.to_string(),
+                                            e.alternate_render_mode.to_string(),
+                                            e.activation_effect_id.to_string(),
+                                            e.unresolved_activation_effect_flag.to_string(),
+                                            e.activation_effect_padding.to_string(),
+                                            e.active_overlay_enabled.to_string(),
+                                            e.map_object_active.to_string(),
                                             e.runtime_unknown_4.to_string(),
                                         ]
                                     })

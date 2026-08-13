@@ -443,7 +443,7 @@ mod map_editor_entity_tests {
 
         let mut map_state = MapEditorState::default();
         map_state.data.extra_refs = vec![dispel_core::ExtraRef {
-            id: 1,
+            record_index: 1,
             ..Default::default()
         }];
         app.state.editors.map_editors.insert(tab_id, map_state);
@@ -452,7 +452,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Extra(0),
-                "id".into(),
+                "record_index".into(),
                 "99".into(),
             ),
             &mut app,
@@ -460,8 +460,8 @@ mod map_editor_entity_tests {
 
         assert_eq!(task.units(), 0);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.extra_refs[0].id, 99,
-            "ExtraRef id updated"
+            app.state.editors.map_editors[&tab_id].data.extra_refs[0].record_index, 99,
+            "ExtraRef record index updated"
         );
     }
 

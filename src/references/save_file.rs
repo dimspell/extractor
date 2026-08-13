@@ -294,61 +294,62 @@ pub struct ExtraObjectRecord {
     pub runtime_unknown_2: u32,
     /// Save-only runtime value; not present in `ExtraRef`.
     pub runtime_unknown_3: u32,
-    /// Maps to the `ExtraRef.map_object_id` field.
-    pub extra_ref_record_id: u16,
+    /// Maps to `ExtraRef.map_object_id`.
+    pub map_object_id: u16,
     /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
     /// extra in the save maps to exactly one Extra.ini record via this value
-    /// (e.g. extra_ini_id=1 -> chest1.spr, 2 -> door.spr)
-    pub extra_ini_id: u8,
+    /// (e.g. extra_definition_id=1 -> chest1.spr, 2 -> door.spr)
+    pub extra_definition_id: u8,
     #[binary_record(string(encoding = "WINDOWS-1250", size = 32))]
-    pub name: String,
+    pub object_name: String,
     pub object_type: u8,
     /// Tile coordinate X — structural parallel to `ExtraRef.map_x`.
-    pub x_pos: u32,
+    pub map_x: u32,
     /// Tile coordinate Y — structural parallel to `ExtraRef.map_y`.
-    pub y_pos: u32,
+    pub map_y: u32,
     /// Structural parallel to `ExtraRef.direction`.
-    pub rotation: u8,
+    pub direction: u8,
     // Always 205, 205, 205
-    pub extra_ref_rotation_padding: [u8; 3],
+    pub direction_padding: [u8; 3],
     /// `ExtraRef.interaction_state`; the object's mutable activation state.
-    pub extra_ref_unknown_3: u32,
+    pub interaction_state: u32,
     /// Key/requirement configuration from `ExtraRef.requires_key`.
-    pub closed: u32,
+    pub requires_key: u32,
     /// Packed `ExtraRef.required_item` followed by its two-byte padding.
     pub required_item_and_padding: u32,
     /// Packed `ExtraRef.required_item2` followed by its two-byte padding.
     pub required_item2_and_padding: u32,
-    pub extra_ref_unknown_6: u32,
-    pub extra_ref_unknown_7: u32,
-    pub extra_ref_unknown_8: u32,
-    pub extra_ref_unknown_9: u32,
+    pub requirement_range_2_start: u32,
+    pub requirement_range_2_end: u32,
+    pub requirement_range_3_start: u32,
+    pub requirement_range_3_end: u32,
     pub gold_amount: u32,
     /// Packed `ExtraRef.loot_item` followed by its two-byte padding.
     pub loot_item_and_padding: u32,
-    pub item_count: u32,
-    pub extra_ref_unknown_11: u32,
-    pub extra_ref_unknown_12: u32,
-    pub extra_ref_unknown_13: u32,
-    pub extra_ref_unknown_14: [u8; 28],
-    pub event_id: u32,
-    pub message_id: u32,
-    pub extra_ref_unknown_15: u32,
-    pub extra_ref_unknown_16: u32,
-    pub extra_ref_unknown_17: u8,
+    pub loot_item_count: u32,
+    pub additional_loot_1: u32,
+    pub additional_loot_1_count: u32,
+    pub additional_loot_2: u32,
+    /// Third loot quantity plus interaction configuration. See `ExtraRef`.
+    pub additional_loot_2_count_and_config: [u8; 28],
+    pub interaction_event_id: u32,
+    pub interaction_message_id: u32,
+    pub footprint_width: u32,
+    pub footprint_height: u32,
+    pub footprint_orientation: u8,
     /// `ExtraRef.interaction_range`.
-    pub interactive_element_type: u8,
-    pub extra_ref_unknown_18: [u8; 2],
+    pub interaction_range: u8,
+    pub interaction_range_padding: [u8; 2],
     pub is_quest_element: u32,
-    pub extra_ref_unknown_20: u32,
-    pub extra_ref_unknown_21: u32,
-    pub extra_ref_unknown_22: u32,
-    pub extra_ref_unknown_23: u32,
-    pub visibility: u8,
-    pub extra_ref_unknown_24: u8,
-    pub extra_ref_unknown_25: i16,
-    pub extra_ref_unknown_26: u32,
-    pub extra_ref_unknown_27: u32,
+    pub post_activation_tile_flag: u32,
+    pub post_activation_footprint_mode: u32,
+    pub preserve_final_sprite_frame: u32,
+    pub alternate_render_mode: u32,
+    pub activation_effect_id: u8,
+    pub unresolved_activation_effect_flag: u8,
+    pub activation_effect_padding: i16,
+    pub active_overlay_enabled: u32,
+    pub map_object_active: u32,
     /// Save-only trailing runtime value; `ExtraRef` has no corresponding field.
     pub runtime_unknown_4: u32,
 }

@@ -29,12 +29,12 @@ Binary files that define the placement and configuration of interactive objects 
 - map_x: i32
 - map_y: i32
 - direction: u8 (sprite-facing/frame index)
-- unknown2: 3 bytes (padding, always [205, 205, 205])
+- direction_padding: 3 bytes (padding, normally [205, 205, 205])
 - interaction_state: i32 (mutable state: 0 before interaction, 1 after activation/opening)
 - requires_key: i32 (enables key/requirement checks; not the open/closed state)
 - required_item_id: u8 (lower key bound)
 - required_item_type_id: u8
-- unknown4: i16 (padding, always 0)
+- requirement_range_1_padding: i16 (padding, normally 0)
 - required_item_id2: u8 (upper key bound)
 - required_item_type_id2: u8
 - unknown5: i16 (padding, always 0)
@@ -45,7 +45,7 @@ Binary files that define the placement and configuration of interactive objects 
 - gold_amount: i32
 - loot_item_id: u8
 - loot_item_type_id: u8
-- unknown10: i16 (padding, always 0)
+- loot_item_padding: i16 (padding, normally 0)
 - loot_item_count: i32
 - additional_loot_1: i32 (second loot item identifier; 9999 = unused)
 - additional_loot_1_count: i32 (quantity of the second loot item)
@@ -57,17 +57,17 @@ Binary files that define the placement and configuration of interactive objects 
 - footprint_height: i32 (occupied map-cell height)
 - footprint_orientation: u8 (normal/reversed footprint traversal)
 - interaction_range: u8 (maximum activation distance)
-- unknown18: 2 bytes (padding, always [205, 205])
-- is_quest_element: i32 (0 or 1)
-- unknown20: i32 (0 or 1)
-- unknown21: i32 (0 or 1)
-- unknown22: i32 (always 0)
-- unknown23: i32 (0 or 1)
-- visibility: u8
-- unknown24: u8 (0 or 1)
-- unknown25: i16 (always 0)
-- unknown26: i32 (0 or 1)
-- unknown27: i32 (0 or 1)
+- interaction_range_padding: 2 bytes (padding, normally [205, 205])
+- is_quest_element: i32 (requests a quest-state refresh after a successful requirement check)
+- post_activation_tile_flag: i32 (enables a post-activation map-grid tile flag)
+- post_activation_footprint_mode: i32 (selects the post-activation map-grid footprint update mode)
+- preserve_final_sprite_frame: i32 (prevents the terminal sprite frame from being reset after interaction)
+- alternate_render_mode: i32 (selects the alternative object renderer)
+- activation_effect_id: u8 (index passed to the activation-effect dispatcher; observed values 0 and 10)
+- unresolved_activation_effect_flag: u8 (no read found in the identified interactive-object handlers)
+- activation_effect_padding: i16 (padding, normally 0)
+- active_overlay_enabled: i32 (enables the active-object overlay render path)
+- map_object_active: i32 (marks the object active in the map-object grid and update loop)
 
 [Record 2]
 ... (same structure) ...
@@ -94,9 +94,10 @@ than from value-frequency guesses:
   which map cells the object occupies. `interaction_range` limits activation
   distance.
 
-The remaining opaque configuration bytes and flags are intentionally retained
-without speculative names. Their values may have different meanings for each
-`object_type`.
+The 28-byte `additional_loot_2_count_and_config` field still contains mixed
+configuration: its first `i32` is the third loot quantity, its second `i32`
+selects the loot-delivery mode, and its final `i32` is a remaining-use counter.
+The intervening 16 bytes vary by object type and remain deliberately opaque.
 
 #### Core Identification
 
@@ -120,9 +121,21 @@ without speculative names. Their values may have different meanings for each
 | Field | Type | Description |
 |-------|------|-------------|
 | object_type | u8 | Object category enum |
-| visibility | u8 | Rendering transparency/visibility type |
+| activation_effect_id | u8 | Index passed to the activation-effect dispatcher (observed: 0, 10). |
 | interaction_range | u8 | Maximum tile distance at which the engine allows activation. |
 | is_quest_element | i32 | Quest-related interaction flag; the engine uses it after a successful requirement check. |
+
+#### Runtime and Rendering Controls
+
+| Field | Type | Description |
+|-------|------|-------------|
+| post_activation_tile_flag | BooleanFlag | Enables the post-activation tile flag written to the map-object grid. |
+| post_activation_footprint_mode | BooleanFlag | Selects the footprint update mode after activation. |
+| preserve_final_sprite_frame | i32 | Non-zero keeps the terminal sprite frame after interaction. |
+| alternate_render_mode | BooleanFlag | Selects the alternate renderer. |
+| active_overlay_enabled | BooleanFlag | Enables the active-object overlay render path. |
+| map_object_active | BooleanFlag | Makes the object participate in the map-object grid and update loop. |
+| unresolved_activation_effect_flag | BooleanFlag | Adjacent to the effect ID; no use was found in the identified handlers. |
 
 #### Container State
 
@@ -169,12 +182,12 @@ without speculative names. Their values may have different meanings for each
 | 6 | Interactive | General interactive element |
 | 7 | Magic | Magical object |
 
-#### Visibility Type (visibility)
+#### Activation Effect ID (activation_effect_id)
 
 | Value | Name | Description |
 |-------|------|-------------|
-| 0 | Visible0 | Standard visibility |
-| 10 | Visible10 | Alternative visibility state |
+| 0 | None | No activation effect dispatched. |
+| 10 | Effect10 | Effect index 10; the exact effect asset is not yet identified. |
 
 #### Item Type ID (required_item_type_id, loot_item_type_id)
 

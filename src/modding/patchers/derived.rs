@@ -211,11 +211,11 @@ mod tests {
             .apply_field(
                 &extra_ref_blob(),
                 0,
-                "unknown2",
+                "direction_padding",
                 &Value::Bytes(bytes.clone()),
             )
             .unwrap();
-        assert_eq!(parse_extra(&out)[0].unknown2, bytes);
+        assert_eq!(parse_extra(&out)[0].direction_padding, bytes);
     }
 
     #[test]
@@ -232,10 +232,10 @@ mod tests {
 
     #[test]
     fn extra_ref_enum_from_i32_from_u8() {
-        // visibility uses enum_from_i32_from_u8(VisibilityType) — wire is u8.
+        // activation_effect_id uses enum_from_i32_from_u8(ActivationEffectId) — wire is u8.
         let p = crate::modding::patchers::ExtraRefPatcher;
         let out = p
-            .apply_field(&extra_ref_blob(), 0, "visibility", &Value::I64(1))
+            .apply_field(&extra_ref_blob(), 0, "activation_effect_id", &Value::I64(1))
             .unwrap();
         // Round-trip should not panic; just verify parse succeeds.
         assert!(!parse_extra(&out).is_empty());

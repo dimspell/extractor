@@ -616,25 +616,25 @@ impl std::fmt::Display for ExtraObjectType {
     }
 }
 
-/// Visibility types for map objects
+/// Activation-effect indices for interactive map objects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u8)]
 #[derive(Default)]
-pub enum VisibilityType {
+pub enum ActivationEffectId {
     #[default]
-    Visible0 = 0,
-    Visible10 = 10,
-    /// Unknown visibility type
+    None = 0,
+    Effect10 = 10,
+    /// An activation-effect index not yet identified.
     Unknown = 255,
 }
 
-impl VisibilityType {
+impl ActivationEffectId {
     /// Convert from a variant name string
     pub fn from_name(s: &str) -> Option<Self> {
         match s {
-            "Visible0" => Some(VisibilityType::Visible0),
-            "Visible10" => Some(VisibilityType::Visible10),
-            "Unknown" => Some(VisibilityType::Unknown),
+            "None" => Some(ActivationEffectId::None),
+            "Effect10" => Some(ActivationEffectId::Effect10),
+            "Unknown" => Some(ActivationEffectId::Unknown),
             _ => None,
         }
     }
@@ -642,9 +642,9 @@ impl VisibilityType {
     /// Convert from u8 with validation
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(VisibilityType::Visible0),
-            10 => Some(VisibilityType::Visible10),
-            _ => Some(VisibilityType::Unknown),
+            0 => Some(ActivationEffectId::None),
+            10 => Some(ActivationEffectId::Effect10),
+            _ => Some(ActivationEffectId::Unknown),
         }
     }
 
@@ -654,26 +654,26 @@ impl VisibilityType {
     }
 }
 
-impl TryFrom<u8> for VisibilityType {
+impl TryFrom<u8> for ActivationEffectId {
     type Error = &'static str;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        VisibilityType::from_u8(value).ok_or("Invalid visibility type value")
+        ActivationEffectId::from_u8(value).ok_or("Invalid activation effect ID")
     }
 }
 
-impl From<VisibilityType> for u8 {
-    fn from(visibility: VisibilityType) -> Self {
-        visibility.value()
+impl From<ActivationEffectId> for u8 {
+    fn from(effect_id: ActivationEffectId) -> Self {
+        effect_id.value()
     }
 }
 
-impl std::fmt::Display for VisibilityType {
+impl std::fmt::Display for ActivationEffectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VisibilityType::Visible0 => write!(f, "Visible0"),
-            VisibilityType::Visible10 => write!(f, "Visible10"),
-            VisibilityType::Unknown => write!(f, "Unknown"),
+            ActivationEffectId::None => write!(f, "None"),
+            ActivationEffectId::Effect10 => write!(f, "Effect10"),
+            ActivationEffectId::Unknown => write!(f, "Unknown"),
         }
     }
 }
@@ -2080,13 +2080,22 @@ mod tests {
     }
 
     #[test]
-    fn test_visibility_type_conversion() {
-        assert_eq!(VisibilityType::from_u8(0), Some(VisibilityType::Visible0));
-        assert_eq!(VisibilityType::from_u8(10), Some(VisibilityType::Visible10));
-        assert_eq!(VisibilityType::from_u8(99), Some(VisibilityType::Unknown));
+    fn test_activation_effect_id_conversion() {
+        assert_eq!(
+            ActivationEffectId::from_u8(0),
+            Some(ActivationEffectId::None)
+        );
+        assert_eq!(
+            ActivationEffectId::from_u8(10),
+            Some(ActivationEffectId::Effect10)
+        );
+        assert_eq!(
+            ActivationEffectId::from_u8(99),
+            Some(ActivationEffectId::Unknown)
+        );
 
-        assert_eq!(u8::from(VisibilityType::Visible10), 10);
-        assert_eq!(VisibilityType::Visible10.value(), 10);
+        assert_eq!(u8::from(ActivationEffectId::Effect10), 10);
+        assert_eq!(ActivationEffectId::Effect10.value(), 10);
     }
 
     #[test]

@@ -353,9 +353,9 @@ impl MapRenderSource for MapEditorState {
             let extra_idx = idx - monster_count - npc_count;
             let e = &self.data.extra_refs[extra_idx];
             Some(EntityRenderData {
-                tile_x: e.x_pos,
-                tile_y: e.y_pos,
-                sort_key: entity_pos(e.x_pos, e.y_pos),
+                tile_x: e.map_x,
+                tile_y: e.map_y,
+                sort_key: entity_pos(e.map_x, e.map_y),
                 sprite: self.data.extra_sprites.get(extra_idx)?.as_ref(),
                 kind: EntityKind::Extra,
                 visible: self.view.show_objects,

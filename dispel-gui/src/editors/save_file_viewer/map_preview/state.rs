@@ -32,7 +32,7 @@ pub struct PreviewEntity {
     /// False when the mapping is speculative (monsters, extras).
     pub confirmed: bool,
     /// Entity DB ID for sprite lookup (monster_db_id for monsters,
-    /// npc_ini_id for NPCs, extra_ini_id for Extra objects).
+    /// npc_ini_id for NPCs, extra_definition_id for Extra objects).
     /// None for draw items (no sprite).
     pub db_id: Option<i32>,
     /// True when the entity is dead (e.g. monster with hp_current == 0).

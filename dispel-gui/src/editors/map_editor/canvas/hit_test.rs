@@ -42,7 +42,7 @@ pub fn find_hovered_entity_impl(
         }
     }
     for (i, e) in state.data.extra_refs.iter().enumerate() {
-        let (wx, wy) = tile_world_center(e.x_pos, e.y_pos, diagonal);
+        let (wx, wy) = tile_world_center(e.map_x, e.map_y, diagonal);
         let d2 = (world_x - wx).powi(2) + (world_y - wy).powi(2);
         if d2 < r2 && best.as_ref().is_none_or(|(bd, _)| d2 < *bd) {
             best = Some((d2, SelectedEntity::Extra(i)));
@@ -136,7 +136,7 @@ pub fn entity_tile(sel: SelectedEntity, state: &MapEditorState) -> Option<(i32, 
             let (x, y) = npc_pos(n);
             (x, y)
         }),
-        SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.x_pos, e.y_pos)),
+        SelectedEntity::Extra(i) => state.data.extra_refs.get(i).map(|e| (e.map_x, e.map_y)),
         SelectedEntity::DrawItem(i) => state.data.draw_items.get(i).map(|d| (d.x_coord, d.y_coord)),
         SelectedEntity::CollisionTile(tx, ty) | SelectedEntity::EventTile(tx, ty) => Some((tx, ty)),
     }

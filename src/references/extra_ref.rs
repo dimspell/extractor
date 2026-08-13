@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::references::enums::{
-    BooleanFlag, ExtraObjectType, InventoryItem, ItemTypeId, SmallRange0to3, VisibilityType,
+    ActivationEffectId, BooleanFlag, ExtraObjectType, InventoryItem, ItemTypeId, SmallRange0to3,
 };
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, Localizable, RecordPatcher};
@@ -45,9 +45,9 @@ pub struct ExtraRef {
     /// Sprite-facing direction/frame index.
     #[extractor(primitive(type = "u8"))]
     pub direction: u8,
-    /// Unrecognized (always [205, 205, 205])
+    /// Padding after [`Self::direction`] (normally `[0xCD; 3]`).
     #[extractor(vec_u8(size = 3))]
-    pub unknown2: Vec<u8>,
+    pub direction_padding: Vec<u8>,
     /// Mutable interaction state: `0` before use and `1` after activation/opening.
     ///
     /// The game preserves this field while reloading the reference record and
@@ -64,9 +64,9 @@ pub struct ExtraRef {
     /// First accepted key/item identifier (inclusive).
     #[extractor(inventory_item(wire_type = "i16"))]
     pub required_item: InventoryItem,
-    /// Unrecognized (always zero)
+    /// Padding after the packed first requirement item identifier.
     #[extractor(primitive(type = "i16"))]
-    pub unknown4: i16,
+    pub requirement_range_1_padding: i16,
     /// Last accepted key/item identifier for the first requirement range (inclusive).
     #[extractor(inventory_item(wire_type = "i32"))]
     pub required_item2: InventoryItem,
@@ -92,9 +92,9 @@ pub struct ExtraRef {
     /// First static loot item.
     #[extractor(inventory_item(wire_type = "i16"))]
     pub loot_item: InventoryItem,
-    /// Unrecognized (always zero)
+    /// Padding after the packed first loot item identifier.
     #[extractor(primitive(type = "i16"))]
-    pub unknown10: i16,
+    pub loot_item_padding: i16,
     /// Quantity of [`Self::loot_item`].
     #[extractor(primitive(type = "i32"))]
     pub loot_item_count: i32,
@@ -131,39 +131,40 @@ pub struct ExtraRef {
     /// Maximum distance at which the object can be activated.
     #[extractor(enum_from_i32_from_u8(type = "SmallRange0to3"))]
     pub interaction_range: SmallRange0to3,
-    /// Unrecognized (always array [205, 205])
+    /// Padding after [`Self::interaction_range`] (normally `[0xCD; 2]`).
     #[extractor(vec_u8(size = 2))]
-    pub unknown18: Vec<u8>,
-    /// Unrecognized (0 or 1)
+    pub interaction_range_padding: Vec<u8>,
+    /// Requests a quest-state refresh after a successful requirement check.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
     pub is_quest_element: BooleanFlag,
-    /// Unrecognized (0 or 1)
+    /// Enables the post-activation tile flag used by the map-object grid.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub unknown20: BooleanFlag,
-    /// Unrecognized (0 or 1)
+    pub post_activation_tile_flag: BooleanFlag,
+    /// Selects the post-activation footprint update mode in the map-object grid.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub unknown21: BooleanFlag,
-    /// Unrecognized (always zero)
+    pub post_activation_footprint_mode: BooleanFlag,
+    /// Keeps the object's terminal sprite frame instead of resetting it after interaction.
     #[extractor(primitive(type = "i32"))]
-    pub unknown22: i32,
-    /// Unrecognized (0 or 1)
+    pub preserve_final_sprite_frame: i32,
+    /// Selects the alternate renderer used for this object.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub unknown23: BooleanFlag,
-    /// Determines alpha transparency on render.
-    #[extractor(enum_from_i32_from_u8(type = "VisibilityType"))]
-    pub visibility: VisibilityType,
-    /// Unrecognized (0 or 1)
+    pub alternate_render_mode: BooleanFlag,
+    /// Activation-effect index passed to the engine's effect dispatcher.
+    #[extractor(enum_from_i32_from_u8(type = "ActivationEffectId"))]
+    pub activation_effect_id: ActivationEffectId,
+    /// Flag adjacent to [`Self::activation_effect_id`]; its use was not found in the
+    /// identified interactive-object handlers.
     #[extractor(enum_from_i32_from_u8(type = "BooleanFlag"))]
-    pub unknown24: BooleanFlag,
-    /// Unrecognized (always zero)
+    pub unresolved_activation_effect_flag: BooleanFlag,
+    /// Padding following the activation-effect fields.
     #[extractor(primitive(type = "i16"))]
-    pub unknown25: i16,
-    /// Unrecognized (0 or 1)
+    pub activation_effect_padding: i16,
+    /// Enables the active-object overlay render path.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub unknown26: BooleanFlag,
-    /// Unrecognized (0 or 1)
+    pub active_overlay_enabled: BooleanFlag,
+    /// Whether this object is active in the map-object grid and update loop.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub unknown27: BooleanFlag,
+    pub map_object_active: BooleanFlag,
 }
 
 pub fn read_extra_ref(source_path: &Path) -> std::io::Result<Vec<ExtraRef>> {
@@ -189,7 +190,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 extra_ref.map_x,         // 8
                 extra_ref.map_y,         // 9
                 extra_ref.direction,     // 10
-                extra_ref.unknown2,      // 11
+                extra_ref.direction_padding, // 11
                 extra_ref.interaction_state, // 12
                 i32::from(extra_ref.requires_key), // 13
                 extra_ref.required_item.item_id() as i32, // 14
@@ -200,7 +201,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                         .unwrap_or(ItemTypeId::Other)
                 ) as i32, // 15
                 extra_ref.required_item.raw(), // 16 — raw
-                extra_ref.unknown4,      // 17
+                extra_ref.requirement_range_1_padding, // 17
                 extra_ref.required_item2.item_id() as i32, // 18
                 u8::from(
                     extra_ref
@@ -218,7 +219,7 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 extra_ref.loot_item.item_id() as i32, // 27
                 u8::from(extra_ref.loot_item.item_type().unwrap_or(ItemTypeId::Other)) as i32, // 28
                 extra_ref.loot_item.raw(),            // 29 — raw
-                extra_ref.unknown10,                  // 30
+                extra_ref.loot_item_padding,          // 30
                 extra_ref.loot_item_count,            // 31
                 extra_ref.additional_loot_1,          // 32
                 extra_ref.additional_loot_1_count,    // 33
@@ -238,17 +239,17 @@ pub fn save_extra_refs(conn: &mut Connection, file_id: i32, extra_refs: &[ExtraR
                 i32::from(extra_ref.footprint_height), // 39
                 extra_ref.footprint_orientation,      // 40
                 u8::from(extra_ref.interaction_range), // 41
-                extra_ref.unknown18,                  // 42
+                extra_ref.interaction_range_padding,  // 42
                 i32::from(extra_ref.is_quest_element), // 43
-                i32::from(extra_ref.unknown20),       // 44
-                i32::from(extra_ref.unknown21),       // 45
-                extra_ref.unknown22,                  // 46
-                i32::from(extra_ref.unknown23),       // 47
-                u8::from(extra_ref.visibility),       // 48
-                i32::from(extra_ref.unknown24),       // 49
-                extra_ref.unknown25,                  // 50
-                i32::from(extra_ref.unknown26),       // 51
-                i32::from(extra_ref.unknown27),       // 52
+                i32::from(extra_ref.post_activation_tile_flag), // 44
+                i32::from(extra_ref.post_activation_footprint_mode), // 45
+                extra_ref.preserve_final_sprite_frame, // 46
+                i32::from(extra_ref.alternate_render_mode), // 47
+                u8::from(extra_ref.activation_effect_id), // 48
+                i32::from(extra_ref.unresolved_activation_effect_flag), // 49
+                extra_ref.activation_effect_padding,  // 50
+                i32::from(extra_ref.active_overlay_enabled), // 51
+                i32::from(extra_ref.map_object_active), // 52
             ])?;
         }
     }

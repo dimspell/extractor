@@ -490,14 +490,14 @@ pub fn load_entities(
         "ExtraInGame",
         &resolve,
         |e: &ExtraRef| {
-            let rotation = e.rotation as usize;
+            let direction = e.direction as usize;
             let obj_type = u8::from(e.object_type) as usize;
             let seq = if obj_type == 0 {
-                2 * e.closed as usize + rotation
+                2 * e.interaction_state as usize + direction
             } else {
-                rotation
+                direction
             };
-            (e.ext_id as i32, seq, false)
+            (e.extra_definition_id as i32, seq, false)
         },
         &extra_id_to_sprite,
         &mut sprite_cache,

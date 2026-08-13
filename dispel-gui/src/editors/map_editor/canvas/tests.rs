@@ -400,8 +400,8 @@ fn test_entity_tile_extra() {
         vec![],
         vec![],
         vec![ExtraRef {
-            x_pos: 22,
-            y_pos: 33,
+            map_x: 22,
+            map_y: 33,
             ..Default::default()
         }],
         vec![],
@@ -502,8 +502,8 @@ fn test_hovered_entity_identifies_extra() {
         vec![],
         vec![],
         vec![ExtraRef {
-            x_pos: 12,
-            y_pos: 34,
+            map_x: 12,
+            map_y: 34,
             ..Default::default()
         }],
         vec![],
@@ -640,8 +640,8 @@ fn test_hovered_element_entity_over_event() {
         vec![],
         vec![],
         vec![ExtraRef {
-            x_pos: 10,
-            y_pos: 10,
+            map_x: 10,
+            map_y: 10,
             ..Default::default()
         }],
         vec![],
