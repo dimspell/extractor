@@ -1,4 +1,4 @@
 INSERT OR REPLACE INTO wave_inis(id,
                       snf_filename,
-                      unknown_flag)
+                      max_simultaneous_plays)
 VALUES (?1, ?2, ?3)

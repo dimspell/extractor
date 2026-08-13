@@ -7,8 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Wave.ini - Audio/Sound References
 ///
-/// Maps sound IDs to SNF audio files with playback
-/// behavior flags.
+/// Maps sound IDs to SNF audio files and their simultaneous-playback limits.
 ///
 /// Reads file: `Wave.ini`
 ///
@@ -23,9 +22,9 @@ use serde::{Deserialize, Serialize};
 /// | Record Size: Variable (text)        |
 /// +--------------------------------------+
 /// | ; Comment line                       |
-/// | id,snf_filename,unknown_flag           |
-/// | 1,music1.snf,loop                     |
-/// | 2,effect1.snf,once                    |
+/// | id,snf_filename,max_simultaneous_plays |
+/// | 1,music1.snf,5                        |
+/// | 2,effect1.snf,1                       |
 /// | ...                                   |
 /// +--------------------------------------+
 /// ```
@@ -34,20 +33,22 @@ use serde::{Deserialize, Serialize};
 ///
 /// - `id`: Unique sound/audio identifier
 /// - `snf_filename`: SNF audio file (or "null")
-/// - `unknown_flag`: Playback behavior flag (or "null")
+/// - `max_simultaneous_plays`: Number of copies allocated for concurrent
+///   playback of this sound
 ///
 ///
 /// # Special Values
 ///
-/// - `"null"` literal for missing SNF filenames or flags
+/// - `"null"` literal for missing SNF filenames
+/// - `max_simultaneous_plays`: `5` is the usual limit; `1` prevents overlap
 /// - Lines starting with `;` are comments
 /// - CSV format with comma delimiter
 ///
 /// # File Purpose
 ///
 /// Maps sound IDs to SNF audio files with playback
-/// behavior flags. Used for audio system initialization
-/// and sound effect management.
+/// simultaneous-playback limits. Used for audio system initialization and
+/// sound effect management.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TextExtractor, TextRecordPatcher)]
 #[extractor(encoding = "EUC_KR")]
 #[patcher(filename = "Wave.ini")]
@@ -58,9 +59,13 @@ pub struct WaveIni {
     /// Raw audio filename in .SNF format.
     #[extractor(field = 1, parse_null)]
     pub snf_filename: Option<String>,
-    /// Internal unknown string or flag parameter.
-    #[extractor(field = 2, parse_null)]
-    pub unknown_flag: Option<String>,
+    /// Maximum number of simultaneous instances of this sound.
+    ///
+    /// The loader stores this value as the number of DirectSound buffer copies
+    /// for the entry. Playback uses the first free copy, so a value of `1`
+    /// prevents the sound from overlapping with itself.
+    #[extractor(field = 2)]
+    pub max_simultaneous_plays: i32,
 }
 
 /// Stores audio references and SNF file mappings.
@@ -70,7 +75,7 @@ pub struct WaveIni {
 ///
 /// Text file, EUC-KR encoded. One record per line, CSV format:
 /// ```text
-/// id,snf_filename,unknown_flag
+/// id,snf_filename,max_simultaneous_plays
 /// ```
 /// - `snf_filename` use literal `null` when absent.
 pub fn read_wave_ini(source_path: &Path) -> std::io::Result<Vec<WaveIni>> {
@@ -85,7 +90,7 @@ pub fn save_wave_inis(conn: &mut Connection, wave_inis: &[WaveIni]) -> Result<()
             stmt.execute(params![
                 wave_ini.id,
                 wave_ini.snf_filename,
-                wave_ini.unknown_flag,
+                wave_ini.max_simultaneous_plays,
             ])?;
         }
     }
@@ -100,20 +105,20 @@ mod tests {
 
     #[test]
     fn parse_entries() {
-        let data = b"1,music.snf,loop\n2,null,null\n";
+        let data = b"1,music.snf,5\n2,null,1\n";
         let mut c = Cursor::new(data.as_ref());
         let waves = WaveIni::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(waves.len(), 2);
         assert_eq!(waves[0].id, 1);
         assert_eq!(waves[0].snf_filename.as_deref(), Some("music.snf"));
-        assert_eq!(waves[0].unknown_flag.as_deref(), Some("loop"));
+        assert_eq!(waves[0].max_simultaneous_plays, 5);
         assert_eq!(waves[1].snf_filename, None);
-        assert_eq!(waves[1].unknown_flag, None);
+        assert_eq!(waves[1].max_simultaneous_plays, 1);
     }
 
     #[test]
     fn serialize_round_trip() {
-        let data = b"1,music.snf,loop\r\n2,null,null\r\n";
+        let data = b"1,music.snf,5\r\n2,null,1\r\n";
         let mut c = Cursor::new(data.as_ref());
         let records = WaveIni::parse(&mut c, data.len() as u64).unwrap();
         let mut out = Vec::new();
@@ -123,6 +128,10 @@ mod tests {
         assert_eq!(records.len(), records2.len());
         assert_eq!(records[0].id, records2[0].id);
         assert_eq!(records[0].snf_filename, records2[0].snf_filename);
+        assert_eq!(
+            records[0].max_simultaneous_plays,
+            records2[0].max_simultaneous_plays
+        );
         assert_eq!(records[1].snf_filename, records2[1].snf_filename);
     }
 }

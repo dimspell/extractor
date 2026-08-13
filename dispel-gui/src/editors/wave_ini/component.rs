@@ -6,7 +6,7 @@ use crate::editable_record_fields;
 editable_record_fields!(WaveIni, {
     { id = Integer / "ID:" },
     { snf_filename = OptStr / "SNF Filename:" },
-    { unknown_flag = OptStr / "Flag:" },
+    { max_simultaneous_plays = Integer / "Max Simultaneous Plays:" },
 });
 
 impl EditableRecord for WaveIni {
@@ -17,7 +17,7 @@ impl EditableRecord for WaveIni {
             "[{}] {} - {}",
             self.id,
             self.snf_filename.as_deref().unwrap_or("null"),
-            self.unknown_flag.as_deref().unwrap_or("null")
+            self.max_simultaneous_plays
         )
     }
 
