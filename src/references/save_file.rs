@@ -508,6 +508,8 @@ pub struct PartyMember {
     pub class_behaviour: u8,
     /// Range used by the companion AI when searching for a combat target.
     pub ai_target_search_range: u8,
+    /// Inferred AI action-state value saved between target-selection updates.
+    pub ai_runtime_state: u32,
     /// Strength from `PrtLevel.db` for this character and level.
     pub strength: u32,
     /// Constitution from `PrtLevel.db` for this character and level.
@@ -554,6 +556,8 @@ pub struct PartyMember {
     pub previous_map_y: u16,
     /// Runtime movement state for the companion.
     pub movement_state: u32,
+    /// Whether the companion sprite is rendered horizontally flipped.
+    pub sprite_horizontal_flip: bool,
     /// Number of nodes in the active movement path.
     pub path_node_count: u32,
     /// Horizontal screen-pixel offset used while drawing the companion sprite.
@@ -564,12 +568,18 @@ pub struct PartyMember {
     pub animation_frame_index: u8,
     /// Current facing direction; `-1` means that no directional animation is active.
     pub facing_direction: i8,
+    /// Inferred movement-transition state, stored beside the direction bytes.
+    pub movement_transition_state: u32,
+    /// Inferred substate for the current movement transition.
+    pub movement_transition_substate: u32,
     /// Map occupancy ID written into tiles and supplied to pathfinding for this companion.
     pub map_occupancy_id: u8,
     /// Direction index of the sprite's current movement state.
     pub movement_sprite_direction: u32,
     /// Number of animation frames processed in the current action.
     pub animation_tick_count: u32,
+    /// Inferred phase value for the active movement animation.
+    pub movement_animation_phase: u32,
     /// Map-cell X coordinate the companion is currently following.
     pub follow_target_x: i32,
     /// Map-cell Y coordinate the companion is currently following.
@@ -625,6 +635,22 @@ pub struct PartyMember {
     pub level_up_animation_frame: u32,
     /// Variant of the level-up animation selected for this companion's class.
     pub level_up_animation_variant: u32,
+    /// X coordinate of the first node in the saved active-path buffer.
+    pub active_path_node_x: u16,
+    /// Y coordinate of the first node in the saved active-path buffer.
+    pub active_path_node_y: u16,
+    /// Base actor lifecycle state saved alongside the active-path buffer.
+    pub base_actor_state: u32,
+    /// Current health in the inherited base-actor state.
+    pub base_actor_current_health_points: u16,
+    /// Maximum health in the inherited base-actor state.
+    pub base_actor_maximum_health_points: u16,
+    /// Last render-buffer address saved by the runtime. It is not stable across sessions.
+    pub last_render_buffer_address: u32,
+    /// Last render parameter saved by the runtime. It is not stable gameplay data.
+    pub last_render_parameter: i32,
+    /// Marker for an optional combat snapshot appended after the base record.
+    pub combat_snapshot_marker: u32,
     /// The exact 75-word serialized state stream after the name.
     ///
     /// This is authoritative on write because the game serializes overlapping
@@ -662,7 +688,13 @@ impl PartyMember {
         // combat-object snapshot. When set, the writer appends twelve
         // four-byte snapshot windows and a four-byte terminator.
         let marker_offset = Self::NAME_SIZE + Self::RUNTIME_STATE_SIZE - 4;
-        let combat_snapshot = if base_data[marker_offset] != 0 {
+        let combat_snapshot_marker = u32::from_le_bytes([
+            base_data[marker_offset],
+            base_data[marker_offset + 1],
+            base_data[marker_offset + 2],
+            base_data[marker_offset + 3],
+        ]);
+        let combat_snapshot = if combat_snapshot_marker != 0 {
             let mut snapshot_data = [0u8; PartyMemberCombatSnapshot::SERIALIZED_SIZE];
             reader.read_exact(&mut snapshot_data)?;
             let terminator = reader.read_u32::<LittleEndian>()?;
@@ -705,6 +737,7 @@ impl PartyMember {
             level: state[7],
             class_behaviour: state[10],
             ai_target_search_range: state[11],
+            ai_runtime_state: u32_at(24),
             strength: u32_at(28),
             constitution: u32_at(32),
             wisdom: u32_at(36),
@@ -724,15 +757,19 @@ impl PartyMember {
             previous_map_x: u16_at(256),
             previous_map_y: u16_at(258),
             movement_state: u32_at(268),
+            sprite_horizontal_flip: state[264] != 0,
             path_node_count: u32_at(272),
             tactical_action_chance: u32_at(276),
             sprite_offset_x: state[88] as i8,
             sprite_offset_y: state[92] as i8,
             animation_frame_index: state[96],
             facing_direction: state[104] as i8,
+            movement_transition_state: u32_at(108),
+            movement_transition_substate: u32_at(112),
             map_occupancy_id: state[100],
             movement_sprite_direction: u32_at(128),
             animation_tick_count: u32_at(124),
+            movement_animation_phase: u32_at(120),
             follow_target_x: u32_at(132) as i32,
             follow_target_y: u32_at(136) as i32,
             selected_combat_action_id: u32_at(164) as i32,
@@ -744,22 +781,30 @@ impl PartyMember {
             status_effect_ticks_remaining: u32_at(188),
             poison_damage_tick_countdown: u32_at(192),
             status_effect_source_party_slot_index: u32_at(172) as i32,
-            blocked_path_reposition_attempts: u32_at(200),
-            blocked_path_target_x: u32_at(204) as i32,
-            blocked_path_target_y: u32_at(208) as i32,
+            blocked_path_reposition_attempts: u32_at(196),
+            blocked_path_target_x: u32_at(200) as i32,
+            blocked_path_target_y: u32_at(204) as i32,
             combat_action_delay_active: state[148] != 0,
             combat_action_delay_ticks_remaining: u32_at(152),
             combat_action_ready: state[156] != 0,
             combat_action_delay_animation_frame: u32_at(144),
             combat_action_resolution_animation_frame: u32_at(160),
             combat_action_completion_latched: state[168] != 0,
-            blocked_path_recovery_active: state[212] != 0,
+            blocked_path_recovery_active: state[208] != 0,
             rejoin_leader_requested: state[213] != 0,
             rejoin_leader_in_progress: state[214] != 0,
             level_up_pending: state[220] != 0,
             level_up_animation_active: state[224] != 0,
             level_up_animation_frame: u32_at(228),
             level_up_animation_variant: u32_at(232),
+            active_path_node_x: u16_at(280),
+            active_path_node_y: u16_at(284),
+            base_actor_state: u32_at(288),
+            base_actor_current_health_points: u16_at(292),
+            base_actor_maximum_health_points: u16_at(294),
+            last_render_buffer_address: u32_at(236),
+            last_render_parameter: u32_at(240) as i32,
+            combat_snapshot_marker: u32_at(296),
             serialized_runtime_state,
             combat_snapshot,
         })
@@ -2607,6 +2652,11 @@ mod tests {
         let mut base = vec![0u8; PartyMember::NAME_SIZE + PartyMember::RUNTIME_STATE_SIZE];
         base[..4].copy_from_slice(b"Test");
         let state_start = PartyMember::NAME_SIZE;
+        base[state_start + 196..state_start + 200].copy_from_slice(&3u32.to_le_bytes());
+        base[state_start + 200..state_start + 204].copy_from_slice(&44i32.to_le_bytes());
+        base[state_start + 204..state_start + 208].copy_from_slice(&55i32.to_le_bytes());
+        base[state_start + 208] = 1;
+        base[state_start + 264] = 1;
         base[state_start + 296] = 1;
 
         let mut snapshot = [0u8; PartyMemberCombatSnapshot::SERIALIZED_SIZE];
@@ -2635,6 +2685,11 @@ mod tests {
         assert_eq!(combat.strength, 21);
         assert_eq!(combat.magic_spell_id_3, 3);
         assert_eq!(combat.terminator, terminator);
+        assert_eq!(member.blocked_path_reposition_attempts, 3);
+        assert_eq!(member.blocked_path_target_x, 44);
+        assert_eq!(member.blocked_path_target_y, 55);
+        assert!(member.blocked_path_recovery_active);
+        assert!(member.sprite_horizontal_flip);
 
         let mut written = Vec::new();
         member.write(&mut written).unwrap();

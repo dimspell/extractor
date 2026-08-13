@@ -140,6 +140,14 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 member.movement_state.to_string(),
             ))
             .push(label_row(
+                "Sprite Flip",
+                if member.sprite_horizontal_flip {
+                    "horizontal"
+                } else {
+                    "normal"
+                },
+            ))
+            .push(label_row(
                 "Path",
                 format!(
                     "node {} of {}",
@@ -225,6 +233,19 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 member.ai_target_search_range.to_string(),
             ))
             .push(label_row(
+                "AI Runtime State",
+                member.ai_runtime_state.to_string(),
+            ))
+            .push(label_row(
+                "Movement Transition",
+                format!(
+                    "state {}, substate {}, animation phase {}",
+                    member.movement_transition_state,
+                    member.movement_transition_substate,
+                    member.movement_animation_phase
+                ),
+            ))
+            .push(label_row(
                 "Combat Action Delay",
                 if member.combat_action_delay_active {
                     format!(
@@ -288,6 +309,32 @@ fn party_member_block(member: &PartyMember) -> Element<'static, Message> {
                 } else {
                     "not pending".to_owned()
                 },
+            ))
+            .push(label_row(
+                "Active Path Node",
+                format!(
+                    "{}, {} (base actor state {})",
+                    member.active_path_node_x, member.active_path_node_y, member.base_actor_state
+                ),
+            ))
+            .push(label_row(
+                "Base Actor HP",
+                format!(
+                    "{} / {}",
+                    member.base_actor_current_health_points,
+                    member.base_actor_maximum_health_points
+                ),
+            ))
+            .push(label_row(
+                "Render Runtime",
+                format!(
+                    "buffer 0x{:08x}, parameter {}",
+                    member.last_render_buffer_address, member.last_render_parameter
+                ),
+            ))
+            .push(label_row(
+                "Combat Snapshot Marker",
+                member.combat_snapshot_marker.to_string(),
             ))
             .spacing(3),
     )
