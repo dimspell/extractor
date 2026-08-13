@@ -1840,20 +1840,20 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                 // let hex_rest: Vec<String> =
                                 //     entry.rest.iter().map(|b| format!("{:02X}", b)).collect();
                                 vec![
-                                    format!("{}", entry.index),
-                                    entry.name.clone(),
-                                    entry.unknown_1.to_string(),
-                                    entry.unknown_2a.to_string(),
-                                    entry.unknown_2b.to_string(),
-                                    entry.unknown_3a.to_string(),
-                                    entry.unknown_3b.to_string(),
-                                    entry.unknown_4a.to_string(),
-                                    entry.unknown_4b.to_string(),
-                                    entry.unknown_5a.to_string(),
-                                    entry.quest_scr_id.to_string(),
-                                    entry.quest_scr_id_progress1.to_string(),
-                                    entry.quest_scr_id_progress2.to_string(),
                                     entry.is_completed.to_string(),
+                                    entry.entry_index.to_string(),
+                                    entry.quest_title.clone(),
+                                    entry.quest_state[0].to_string(),
+                                    entry.quest_state[1].to_string(),
+                                    entry.quest_state[2].to_string(),
+                                    entry.quest_state[3].to_string(),
+                                    entry.quest_state[4].to_string(),
+                                    entry.quest_state[5].to_string(),
+                                    entry.quest_state[6].to_string(),
+                                    entry.quest_state[7].to_string(),
+                                    entry.quest_id.to_string(),
+                                    entry.progress_quest_id_1.to_string(),
+                                    entry.progress_quest_id_2.to_string(),
                                     // hex_rest.join(" "),
                                 ]
                             })

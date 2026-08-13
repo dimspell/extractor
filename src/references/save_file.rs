@@ -428,23 +428,41 @@ pub struct EventScript {
 /// Journal entry (37 bytes each)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct JournalEntry {
-    pub index: u8,
+    /// Zero-based slot within this journal section.
+    pub entry_index: u8,
+    /// Title copied from the corresponding `Quest.scr` entry.
     #[binary_record(string(encoding = "WINDOWS-1250", size = 24))]
-    pub name: String,
-    pub unknown_1: u8,
-    pub unknown_2a: u8,
-    pub unknown_2b: u8,
-    pub unknown_3a: u8,
-    pub unknown_3b: u8,
-    pub unknown_4a: u8,
-    pub unknown_4b: u8,
-    pub unknown_5a: u8,
-    /// ID to the quest from ExtraInGame/Quest.scr
-    pub quest_scr_id: u8,
-    /// When the quest is more complex (has multiple stages), then it is non-zero when some additional stage has been completed. Otherwise it is zero. It makes possible the description of next quest story.
-    pub quest_scr_id_progress1: u8,
-    pub quest_scr_id_progress2: u8,
+    pub quest_title: String,
+    /// Eight bytes of quest-specific state. The game does not access them in the
+    /// journal code path, so their individual meanings are not yet known.
+    pub quest_state: [u8; 8],
+    /// ID of the quest from `ExtraInGame/Quest.scr`.
+    pub quest_id: u8,
+    /// Quest ID recorded when this quest advances to its first follow-up stage (multi-stage quest).
+    pub progress_quest_id_1: u8,
+    /// Quest ID recorded when this quest advances to its second follow-up stage (multi-stage quest).
+    pub progress_quest_id_2: u8,
+    /// Set when the game marks this journal entry as completed.
     pub is_completed: u8,
+}
+
+/// The 42-byte journal header before the three 100-entry journal sections.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct JournalHeader {
+    /// Runtime flag controlled by the journal UI; the game meaning is unknown.
+    pub runtime_unknown_flag: u8,
+    /// Journal section selected by the UI (zero-based).
+    pub selected_section: u8,
+    /// Per-section, per-visible-row selection flags (three sections × ten rows).
+    pub visible_entry_selection_flags: [u8; 30],
+    /// Journal section currently being displayed (zero-based).
+    pub active_section: u8,
+    /// Page offset in each journal section.
+    pub section_page_offsets: [u8; 3],
+    /// Selected entry offset in each journal section.
+    pub section_selected_entry_offsets: [u8; 3],
+    /// Number of active entries in main, side, and trade sections respectively.
+    pub section_entry_counts: [u8; 3],
 }
 
 /// Data for one map section in a save file.
@@ -790,9 +808,11 @@ pub struct DrawItemWeaponItem {
     pub unknown_1: u32,        // 296
 }
 
-/// Journal data from a save file (3 sections × 100 entries).
+/// Journal data from a save file (42-byte header + 3 sections × 100 entries).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct JournalData {
+    /// Journal UI state and per-section entry counts.
+    pub header: JournalHeader,
     /// Main quest entries (100 × 37 bytes)
     pub main: Vec<JournalEntry>,
     /// Side quest entries (100 × 37 bytes)
@@ -918,14 +938,14 @@ pub struct PostMapsData {
 
 /// Unknown data block between events and journal sections.
 ///
-/// Structure: fixed 12 bytes + counter-prefixed 24-byte records + fixed 98 bytes.
+/// Structure: fixed 12 bytes + counter-prefixed 24-byte records + fixed 56 bytes.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PostEventsData {
     /// Unknown fixed block (12 bytes).
     pub block_a: Vec<u8>,
     /// Unknown records (counter × 24 bytes each).
     pub records: Vec<u8>,
-    /// Unknown fixed block (98 bytes).
+    /// Unknown fixed block (56 bytes).
     pub block_b: Vec<u8>,
 }
 
@@ -1015,7 +1035,7 @@ impl SaveFile {
         // ── 9. Unknown data between events and journal ──
         let post_events = Self::parse_post_events_data(&mut reader)?;
 
-        // ── 10. Journal (3 sections × 100 × 37 bytes) ──
+        // ── 10. Journal (42-byte header + 3 sections × 100 × 37 bytes) ──
         let journal = Self::parse_journal_section(&mut reader)?;
 
         Ok(SaveFile {
@@ -1335,11 +1355,16 @@ impl SaveFile {
         })
     }
 
-    /// Parse the journal section (3 × 100 × 37-byte entries).
+    /// Parse the journal section (42-byte header + 3 × 100 × 37-byte entries).
     fn parse_journal_section<R: Read>(reader: &mut R) -> std::io::Result<JournalData> {
+        const HEADER_SIZE: usize = 42;
         const ENTRY_SIZE: usize = 37;
         const ENTRIES_PER_SECTION: usize = 100;
         const SECTION_SIZE: usize = ENTRY_SIZE * ENTRIES_PER_SECTION; // 3700
+
+        let mut header_data = [0u8; HEADER_SIZE];
+        reader.read_exact(&mut header_data)?;
+        let header = JournalHeader::parse(&header_data)?;
 
         let mut raw = vec![0u8; SECTION_SIZE];
         reader.read_exact(&mut raw)?;
@@ -1353,7 +1378,12 @@ impl SaveFile {
         reader.read_exact(&mut raw)?;
         let trade = Self::parse_journal_entries(&raw, ENTRIES_PER_SECTION)?;
 
-        Ok(JournalData { main, side, trade })
+        Ok(JournalData {
+            header,
+            main,
+            side,
+            trade,
+        })
     }
 
     /// Parse the events section (2251 × 284-byte event records).
@@ -1485,7 +1515,7 @@ impl SaveFile {
 
     /// Parse the unknown section between events and journal.
     ///
-    /// Layout: `[block_a: 12B][count: u32][count × 24B records][block_b: 98B]`
+    /// Layout: `[block_a: 12B][count: u32][count × 24B records][block_b: 56B]`
     fn parse_post_events_data<R: Read>(reader: &mut R) -> std::io::Result<PostEventsData> {
         let mut block_a = vec![0u8; 12];
         reader.read_exact(&mut block_a)?;
@@ -1494,7 +1524,7 @@ impl SaveFile {
         let mut records = vec![0u8; count * 24];
         reader.read_exact(&mut records)?;
 
-        let mut block_b = vec![0u8; 98];
+        let mut block_b = vec![0u8; 56];
         reader.read_exact(&mut block_b)?;
 
         Ok(PostEventsData {
@@ -1814,6 +1844,7 @@ impl SaveFile {
 
     /// Write journal (3 sections × entries in order).
     fn write_journal<W: Write>(journal: &JournalData, writer: &mut W) -> std::io::Result<()> {
+        journal.header.write(writer)?;
         for entry in &journal.main {
             entry.write(writer)?;
         }

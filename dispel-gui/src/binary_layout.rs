@@ -412,7 +412,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         &mut offset,
         "Post-events data",
         "section",
-        12 + 4 + save.post_events.records.len() + 98,
+        12 + 4 + save.post_events.records.len() + 56,
         0,
     )?;
     let mut nested = post_events_start;
@@ -444,14 +444,14 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         &mut nested,
         "Post-events block B",
         "opaque",
-        98,
+        56,
         0,
     )?;
     if nested != offset {
         return None;
     }
-    let journal_len =
-        (save.journal.main.len() + save.journal.side.len() + save.journal.trade.len())
+    let journal_len = 42
+        + (save.journal.main.len() + save.journal.side.len() + save.journal.trade.len())
             .checked_mul(37)?;
     let journal_start = offset;
     push_span(
@@ -460,6 +460,15 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         "Journal",
         "section",
         journal_len,
+        0,
+    )?;
+    let mut journal_nested = journal_start;
+    push_span(
+        &mut spans,
+        &mut journal_nested,
+        "Journal header",
+        "42 bytes",
+        42,
         0,
     )?;
     for (section_index, name) in [
@@ -478,7 +487,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         for index in 0..entries.len() {
             add_span(
                 &mut spans,
-                journal_start + (section_index * 3_700 + index * 37) as u64,
+                journal_start + 42 + (section_index * 3_700 + index * 37) as u64,
                 37,
                 name,
                 "record",
