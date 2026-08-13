@@ -363,25 +363,28 @@ pub struct ExtraObjectRecord {
     pub interaction_pending: u32,
 }
 
-/// A deferred ground-item spawn from a map's extra-object state (24 bytes).
+/// A pending ground-item placement (24 bytes).
+///
+/// The game creates these records when an entity drops an item. It later
+/// materializes them in one of the five ground-item sections.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct ExtraObjectTrailerRecord {
     /// Ground-item category: 1 weapon, 2 heal, 3 edit, 4 misc, or 5 event.
     pub item_category: u8,
-    /// This byte is not initialized by the constructor and must be preserved.
-    pub unknown_1: u8,
-    /// Item ID used when the deferred item is spawned.
-    pub item_id: u16,
-    /// Progress through the deferred spawn sequence.
-    pub current_count: u8,
-    /// Spawn-sequence threshold. The constructor initializes this to three.
-    pub target_count: u8,
+    /// Reserved constructor byte. Preserve it verbatim.
+    pub reserved_1: u8,
+    /// Index across all five ground-item categories.
+    pub global_item_index: u16,
+    /// Number of placement attempts already made.
+    pub placement_attempt_count: u8,
+    /// Maximum placement attempts; the constructor initializes it to three.
+    pub placement_attempt_limit: u8,
     /// These bytes are not initialized by the constructor and must be preserved.
     pub unknown_6_7: [u8; 2],
     /// Index into the selected category's ground-item section.
     pub category_item_index: u32,
-    /// Associated value passed by the spawning code; its meaning is not known.
-    pub unknown_associated_value: u16,
+    /// ID of the entity that created this pending item placement.
+    pub source_entity_id: u16,
     /// These bytes are not initialized by the constructor and must be preserved.
     pub unknown_14_15: [u8; 2],
     /// Map X coordinate of the deferred item.
@@ -390,20 +393,22 @@ pub struct ExtraObjectTrailerRecord {
     pub map_y: i32,
 }
 
-/// Data between a map's extra-object records and its ground-item sections.
+/// Ground-item manager data after a map's extra-object records.
 ///
-/// On disk it is `[tail_size][record_count][records][controls]`. `tail_size`
-/// excludes its own four bytes and covers everything through the five item sections.
+/// Its seven-byte header contains a pending-placement count and five runtime
+/// control bytes. Including the five empty ground-item section counts, its
+/// smallest payload is 17 bytes. `tail_size` excludes its own four bytes and
+/// covers everything through the five item sections.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MapExtraObjectsTrailer {
     pub tail_size: u32,
     pub records: Vec<ExtraObjectTrailerRecord>,
-    /// Meaning has not yet been determined.
-    pub control_byte: u8,
-    /// Meaning has not yet been determined.
-    pub control_value_1: u16,
-    /// Meaning has not yet been determined.
-    pub control_value_2: u16,
+    /// Runtime flag used while placing an item automatically.
+    pub automatic_placement_active: u8,
+    /// Runtime value used while placing an item automatically.
+    pub automatic_placement_value: u16,
+    /// Global item index used while placing an item automatically.
+    pub automatic_placement_global_item_index: u16,
 }
 
 /// PartyMember is 321 bytes long
@@ -1127,15 +1132,15 @@ impl SaveFile {
                 .chunks_exact(24)
                 .map(ExtraObjectTrailerRecord::parse)
                 .collect::<std::io::Result<Vec<_>>>()?;
-            let control_byte = reader.read_u8()?;
-            let control_value_1 = reader.read_u16::<LittleEndian>()?;
-            let control_value_2 = reader.read_u16::<LittleEndian>()?;
+            let automatic_placement_active = reader.read_u8()?;
+            let automatic_placement_value = reader.read_u16::<LittleEndian>()?;
+            let automatic_placement_global_item_index = reader.read_u16::<LittleEndian>()?;
             let extra_objects_trailer = MapExtraObjectsTrailer {
                 tail_size,
                 records,
-                control_byte,
-                control_value_1,
-                control_value_2,
+                automatic_placement_active,
+                automatic_placement_value,
+                automatic_placement_global_item_index,
             };
 
             // ── 2.6–2.10. Ground items (5 types) ──
@@ -1614,9 +1619,13 @@ impl SaveFile {
             for record in &map.extra_objects_trailer.records {
                 record.write(writer)?;
             }
-            writer.write_u8(map.extra_objects_trailer.control_byte)?;
-            writer.write_u16::<LittleEndian>(map.extra_objects_trailer.control_value_1)?;
-            writer.write_u16::<LittleEndian>(map.extra_objects_trailer.control_value_2)?;
+            writer.write_u8(map.extra_objects_trailer.automatic_placement_active)?;
+            writer
+                .write_u16::<LittleEndian>(map.extra_objects_trailer.automatic_placement_value)?;
+            writer.write_u16::<LittleEndian>(
+                map.extra_objects_trailer
+                    .automatic_placement_global_item_index,
+            )?;
 
             // Ground items (5 types, each u16 count + fixed-size records)
             writer.write_u16::<LittleEndian>(map.draw_items_weapon.len() as u16)?;
@@ -2112,13 +2121,13 @@ mod tests {
                 records: vec![
                     ExtraObjectTrailerRecord {
                         item_category: 4,
-                        unknown_1: 0x80,
-                        item_id: 780,
-                        current_count: 0,
-                        target_count: 3,
+                        reserved_1: 0x80,
+                        global_item_index: 780,
+                        placement_attempt_count: 0,
+                        placement_attempt_limit: 3,
                         unknown_6_7: [0xAA, 0xBB],
                         category_item_index: 7,
-                        unknown_associated_value: 631,
+                        source_entity_id: 631,
                         unknown_14_15: [0xCC, 0xDD],
                         map_x: -1120,
                         map_y: -80,
@@ -2128,9 +2137,9 @@ mod tests {
                         ..Default::default()
                     },
                 ],
-                control_byte: 0,
-                control_value_1: 773,
-                control_value_2: 780,
+                automatic_placement_active: 0,
+                automatic_placement_value: 773,
+                automatic_placement_global_item_index: 780,
             },
             ..Default::default()
         };
@@ -2143,10 +2152,24 @@ mod tests {
         assert_eq!(parsed[0].extra_objects_trailer.tail_size, 65);
         assert_eq!(parsed[0].extra_objects_trailer.records.len(), 2);
         assert_eq!(parsed[0].extra_objects_trailer.records[0].item_category, 4);
-        assert_eq!(parsed[0].extra_objects_trailer.records[0].item_id, 780);
-        assert_eq!(parsed[0].extra_objects_trailer.records[0].target_count, 3);
+        assert_eq!(
+            parsed[0].extra_objects_trailer.records[0].global_item_index,
+            780
+        );
+        assert_eq!(
+            parsed[0].extra_objects_trailer.records[0].placement_attempt_limit,
+            3
+        );
         assert_eq!(parsed[0].extra_objects_trailer.records[0].map_x, -1120);
-        assert_eq!(parsed[0].extra_objects_trailer.control_value_1, 773);
-        assert_eq!(parsed[0].extra_objects_trailer.control_value_2, 780);
+        assert_eq!(
+            parsed[0].extra_objects_trailer.automatic_placement_value,
+            773
+        );
+        assert_eq!(
+            parsed[0]
+                .extra_objects_trailer
+                .automatic_placement_global_item_index,
+            780
+        );
     }
 }

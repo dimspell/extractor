@@ -1074,7 +1074,9 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
 
     for map in &save_file.maps {
         let trailer = &map.extra_objects_trailer;
-        let mut data = Vec::with_capacity(11 + trailer.records.len() * 24);
+        // `tail_size` (4 bytes) plus the seven-byte trailer header; the five
+        // ground-item sections are exposed separately below.
+        let mut data = Vec::with_capacity(4 + 7 + trailer.records.len() * 24);
         data.extend_from_slice(&trailer.tail_size.to_le_bytes());
         data.extend_from_slice(&(trailer.records.len() as u16).to_le_bytes());
         for record in &trailer.records {
@@ -1082,9 +1084,9 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
                 .write(&mut data)
                 .expect("writing a trailer record to memory cannot fail");
         }
-        data.push(trailer.control_byte);
-        data.extend_from_slice(&trailer.control_value_1.to_le_bytes());
-        data.extend_from_slice(&trailer.control_value_2.to_le_bytes());
+        data.push(trailer.automatic_placement_active);
+        data.extend_from_slice(&trailer.automatic_placement_value.to_le_bytes());
+        data.extend_from_slice(&trailer.automatic_placement_global_item_index.to_le_bytes());
         hex_editors.push(RawHexEditorData {
             label: format!("Map {} Extra-Object Trailer", map.map_id),
             data,
