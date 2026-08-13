@@ -461,7 +461,7 @@ pub fn load_entities(
         map_ini.monsters_filename,
         "MonsterInGame",
         &resolve,
-        |m: &MonsterRef| (m.mon_id, 3, false),
+        |m: &MonsterRef| (m.monster_db_id, 3, false),
         &monster_id_to_sprite,
         &mut sprite_cache,
     );

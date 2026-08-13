@@ -92,7 +92,7 @@ mod map_editor_entity_tests {
         for i in 0..200 {
             state.push_undo(MapEditAction {
                 entity: SelectedEntity::Monster(i),
-                field: "pos_x".into(),
+                field: "map_x".into(),
                 old_value: format!("{i}"),
                 new_value: format!("{}", i + 1),
             });
@@ -138,7 +138,7 @@ mod map_editor_entity_tests {
         let mut state = MapEditorState::default();
         state.push_undo(MapEditAction {
             entity: SelectedEntity::Monster(0),
-            field: "pos_x".into(),
+            field: "map_x".into(),
             old_value: "10".into(),
             new_value: "20".into(),
         });
@@ -173,9 +173,9 @@ mod map_editor_entity_tests {
         let mut map_state = MapEditorState::default();
         map_state.data.monsters = vec![MonsterRef {
             index: 0,
-            mon_id: 1,
-            pos_x: 100,
-            pos_y: 200,
+            monster_db_id: 1,
+            map_x: 100,
+            map_y: 200,
             ..Default::default()
         }];
         app.state.editors.map_editors.insert(tab_id, map_state);
@@ -192,7 +192,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
@@ -200,8 +200,8 @@ mod map_editor_entity_tests {
 
         assert_eq!(task.units(), 0, "EntityFieldChanged produces no task");
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 150,
-            "monster pos_x updated"
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
+            "monster map_x updated"
         );
         assert!(
             !app.state.editors.map_editors[&tab_id]
@@ -221,7 +221,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 999,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
@@ -240,7 +240,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "100".into(),
             ),
             &mut app,
@@ -270,7 +270,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(5),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
@@ -296,7 +296,7 @@ mod map_editor_entity_tests {
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
@@ -307,8 +307,8 @@ mod map_editor_entity_tests {
         let task = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(task.units(), 0);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 100,
-            "pos_x reverted to original"
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 100,
+            "map_x reverted to original"
         );
         assert!(
             app.state.editors.map_editors[&tab_id]
@@ -329,12 +329,12 @@ mod map_editor_entity_tests {
         let mut app = app_with_map_editor();
         let tab_id = 0;
 
-        // Edit: pos_x 100 → 150
+        // Edit: map_x 100 → 150
         let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
@@ -343,7 +343,7 @@ mod map_editor_entity_tests {
         // Undo: 150 → 100
         let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x,
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x,
             100
         );
 
@@ -351,8 +351,8 @@ mod map_editor_entity_tests {
         let task = map_editor::handle(MapEditorMessage::Redo(tab_id), &mut app);
         assert_eq!(task.units(), 0);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 150,
-            "pos_x restored to edited value"
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
+            "map_x restored to edited value"
         );
         assert!(
             app.state.editors.map_editors[&tab_id]
@@ -550,23 +550,23 @@ mod map_editor_entity_tests {
         let mut app = app_with_map_editor();
         let tab_id = 0;
 
-        // Edit 1: pos_x 100 → 150
+        // Edit 1: map_x 100 → 150
         let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "150".into(),
             ),
             &mut app,
         );
 
-        // Edit 2: pos_x 150 → 200
+        // Edit 2: map_x 150 → 200
         let _ = map_editor::handle(
             MapEditorMessage::EntityFieldChanged(
                 tab_id,
                 SelectedEntity::Monster(0),
-                "pos_x".into(),
+                "map_x".into(),
                 "200".into(),
             ),
             &mut app,
@@ -575,21 +575,21 @@ mod map_editor_entity_tests {
         // Undo 1: 200 → 150
         let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 150,
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
             "first undo: 200 → 150"
         );
 
         // Undo 2: 150 → 100
         let _ = map_editor::handle(MapEditorMessage::Undo(tab_id), &mut app);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 100,
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 100,
             "second undo: 150 → 100"
         );
 
         // Redo 1: 100 → 150
         let _ = map_editor::handle(MapEditorMessage::Redo(tab_id), &mut app);
         assert_eq!(
-            app.state.editors.map_editors[&tab_id].data.monsters[0].pos_x, 150,
+            app.state.editors.map_editors[&tab_id].data.monsters[0].map_x, 150,
             "first redo: 100 → 150"
         );
     }

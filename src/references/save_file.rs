@@ -138,10 +138,10 @@ pub struct MonsterRecord {
     /// Third item that this monster can drop.
     #[binary_record(inventory_item(wire_type = "i32"))]
     pub loot_item3: crate::references::enums::InventoryItem,
-    /// MonsterRef padding 13. The save format stores it before padding 12.
-    pub mon_ref_padding_13: u32,
-    /// MonsterRef padding 12. The save format stores it after padding 13.
-    pub mon_ref_padding_12: u32,
+    /// MonsterRef `force_ai_update`. The save format stores it before `drop_all_loot`.
+    pub force_ai_update: u32,
+    /// MonsterRef `drop_all_loot`. The save format stores it after `force_ai_update`.
+    pub drop_all_loot: u32,
     /// Initialized to 12,000 by the constructor.
     pub respawn_timer: u32,
     pub unknown_runtime_8: u32,
@@ -1963,8 +1963,8 @@ mod tests {
         assert_eq!(record.awake_flag, 1);
         assert_eq!(record.spawn_group_id, 10);
         assert_eq!(record.dead_or_removed_flag, 1);
-        assert_eq!(record.mon_ref_padding_13, 1);
-        assert_eq!(record.mon_ref_padding_12, u32::MAX);
+        assert_eq!(record.force_ai_update, 1);
+        assert_eq!(record.drop_all_loot, u32::MAX);
         assert_eq!(record.respawn_timer, 12_000);
         assert_eq!(record.special_attack, 99);
         assert_eq!(record.path_buffer_position_x, 123);

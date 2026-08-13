@@ -330,9 +330,9 @@ impl MapRenderSource for MapEditorState {
         if idx < monster_count {
             let m = &self.data.monsters[idx];
             Some(EntityRenderData {
-                tile_x: m.pos_x,
-                tile_y: m.pos_y,
-                sort_key: entity_pos(m.pos_x, m.pos_y),
+                tile_x: m.map_x,
+                tile_y: m.map_y,
+                sort_key: entity_pos(m.map_x, m.map_y),
                 sprite: self.data.monster_sprites.get(idx)?.as_ref(),
                 kind: EntityKind::Monster,
                 visible: self.view.show_monsters,

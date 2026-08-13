@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 /// # Binary Format
 ///
 /// - **Encoding**: Little-endian for all numeric values
-/// - **Record Size**: 56 bytes (11 × i32 + 12 × u8)
+/// - **Record Size**: 56 bytes (14 × i32)
 /// - **Header**: 4-byte i32 record count, followed by records
 ///
 /// ```text
@@ -30,29 +30,17 @@ use serde::{Deserialize, Serialize};
 /// | - record_count: i32                  |
 /// +--------------------------------------+
 /// | [Record 1] - 56 bytes               |
-/// | - file_id: i32                       |
-/// | - mon_id: i32 (-> Monster.db)       |
-/// | - pos_x: i32 (tile X)               |
-/// | - pos_y: i32 (tile Y)               |
-/// | - padding1: i32 (BooleanFlag)       |
-/// | - padding2: i32 (BooleanFlag)       |
-/// | - padding3: i32                     |
-/// | - padding4: i32 (TriStateFlag)      |
-/// | - event_id: i32 (-> Event.ini)      |
-/// | - loot1_item_id: u8                 |
-/// | - loot1_item_type: u8 (ItemTypeId) |
-/// | - padding6: u8 (ByteFlag)           |
-/// | - padding7: u8 (ByteFlag)           |
-/// | - loot2_item_id: u8                 |
-/// | - loot2_item_type: u8 (ItemTypeId) |
-/// | - padding8: u8 (ByteFlag)           |
-/// | - padding9: u8 (ByteFlag)           |
-/// | - loot3_item_id: u8                 |
-/// | - loot3_item_type: u8 (ItemTypeId) |
-/// | - padding10: u8 (ByteFlag)          |
-/// | - padding11: u8 (ByteFlag)          |
-/// | - padding12: i32 (TriStateFlag)     |
-/// | - padding13: i32 (BooleanFlag)      |
+/// | - placement_id: i32                  |
+/// | - monster_db_id: i32 (-> Monster.db) |
+/// | - map_x, map_y: i32                  |
+/// | - initial_patrol_countdown: i32      |
+/// | - skip_ai_action: i32                 |
+/// | - initial_active_flag: i32            |
+/// | - ai_type_override: i32               |
+/// | - event_id_on_kill: i32               |
+/// | - loot_item_1..3: i32                 |
+/// | - drop_all_loot: i32                  |
+/// | - force_ai_update: i32                |
 /// +--------------------------------------+
 /// | [Record 2]                           |
 /// | ... (same structure) ...             |
@@ -61,19 +49,16 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Field Categories
 ///
-/// - **Identification**: `file_id`, `mon_id` (links to `Monster.db`)
-/// - **Position**: `pos_x`, `pos_y` (tile coordinates)
-/// - **Event Link**: `event_id` (links to `Event.ini`)
-/// - **Loot Drops**: 3 loot slots (`loot1/2/3_item_id` + `item_type`)
-/// - **Unknown**: `padding1` through `padding13` (need investigation)
+/// - **Identification**: `placement_id`, `monster_db_id` (links to `Monster.db`)
+/// - **Position**: `map_x`, `map_y` (tile coordinates)
+/// - **Event Link**: `event_id_on_kill` (links to `Event.ini`)
+/// - **Loot Drops**: 3 packed `InventoryItem` values.
 ///
 /// # Special Values
 ///
-/// - `padding1/padding2`: Usually 0 or 1 (boolean flags)
-/// - `padding3`: Always observed as 0
-/// - `padding4/padding12`: -1, 0, or 1 (tri-state flags)
-/// - `padding6-11`: 0 or 255 (byte flags)
-/// - `padding13`: 0 or 1 (boolean flag)
+/// - `ai_type_override`: `-1` uses the AI type from `Monster.db`; 0 or 1 overrides it.
+/// - `drop_all_loot`: `1` drops every populated loot slot; other observed values select one.
+/// - `force_ai_update`: `1` runs the AI update path even when `initial_active_flag` is clear.
 ///
 /// # File Purpose
 ///
@@ -87,54 +72,48 @@ pub struct MonsterRef {
     /// Record index relative to the file (0-based).
     #[extractor(index)]
     pub index: i32,
-    /// File identifier / record number.
+    /// Map-local monster placement identifier, distinct from the record index.
     #[extractor(primitive(type = "i32"))]
-    pub file_id: i32,
-    /// TODO: Rename to `monster_db_id_1_based`; save records store this value minus one.
-    /// ID of the monster type from Monster.db.
+    pub placement_id: i32,
+    /// One-based ID of the monster type from `Monster.db` and `Monster.ini`.
     #[extractor(primitive(type = "i32"))]
-    pub mon_id: i32,
-    /// Position on the map (tile X coordinate).
+    pub monster_db_id: i32,
+    /// Spawn tile X coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub pos_x: i32,
-    /// Position on the map (tile Y coordinate).
+    pub map_x: i32,
+    /// Spawn tile Y coordinate.
     #[extractor(primitive(type = "i32"))]
-    pub pos_y: i32,
-    /// TODO: Rename to `patrol_countdown`.
-    /// Unknown flag (observed values: 0 or 1).
+    pub map_y: i32,
+    /// Initial countdown used by the patrol/scan behavior.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub padding1: BooleanFlag,
-    /// TODO: Rename to `behavior_flag`; one skips an AI action.
-    /// Unknown flag (observed values: 0 or 1).
+    pub initial_patrol_countdown: BooleanFlag,
+    /// Skips one branch of the monster AI action logic when set.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub padding2: BooleanFlag,
-    /// TODO: Rename to `awake_flag`.
-    /// Unknown flag (observed values: always 0).
+    pub skip_ai_action: BooleanFlag,
+    /// Initial monster active flag. The original maps observed so far use zero.
     #[extractor(primitive(type = "i32"))]
-    pub padding3: i32,
-    /// TODO: Rename to `ai_type_override`; `-1` means no override.
-    /// Unknown flag (observed values: -1, 0, or 1).
+    pub initial_active_flag: i32,
+    /// Overrides the AI type from `Monster.db`; `-1` leaves it unchanged.
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
-    pub padding4: TriStateFlag,
-    /// TODO: Rename to `event_id_on_kill`.
-    /// Event trigger ID on kill, links to Event.ini.
+    pub ai_type_override: TriStateFlag,
+    /// Event trigger ID run after this monster is killed.
     #[extractor(primitive(type = "i32"))]
-    pub event_id: i32,
+    pub event_id_on_kill: i32,
     /// First loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
     #[extractor(inventory_item(wire_type = "i32"))]
-    pub loot_item1: InventoryItem,
+    pub loot_item_1: InventoryItem,
     /// Second loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
     #[extractor(inventory_item(wire_type = "i32"))]
-    pub loot_item2: InventoryItem,
+    pub loot_item_2: InventoryItem,
     /// Third loot drop (encoded as i32: low 16 bits = item, high 16 bits = padding).
     #[extractor(inventory_item(wire_type = "i32"))]
-    pub loot_item3: InventoryItem,
-    /// Unknown flag (observed values: -1, 0, or 1).
+    pub loot_item_3: InventoryItem,
+    /// When one, drop every populated loot slot rather than selecting one slot.
     #[extractor(enum_from_i32(type = "TriStateFlag"))]
-    pub padding12: TriStateFlag,
-    /// Unknown flag (observed values: 0 or 1).
+    pub drop_all_loot: TriStateFlag,
+    /// Forces the AI update path, including when the normal active flag is clear.
     #[extractor(enum_from_i32(type = "BooleanFlag"))]
-    pub padding13: BooleanFlag,
+    pub force_ai_update: BooleanFlag,
 }
 
 pub fn read_monster_ref(source_path: &Path) -> std::io::Result<Vec<MonsterRef>> {
@@ -153,45 +132,45 @@ pub fn save_monster_refs(
             stmt.execute(params![
                 file_id,
                 monster_ref.index,
-                monster_ref.file_id,
-                if monster_ref.mon_id == 0 {
+                monster_ref.placement_id,
+                if monster_ref.monster_db_id == 0 {
                     None
                 } else {
-                    Some(monster_ref.mon_id)
+                    Some(monster_ref.monster_db_id)
                 },
-                monster_ref.pos_x,
-                monster_ref.pos_y,
-                i32::from(monster_ref.padding1),
-                i32::from(monster_ref.padding2),
-                monster_ref.padding3,
-                i32::from(monster_ref.padding4),
-                monster_ref.event_id,
-                monster_ref.loot_item1.item_id() as i32,
+                monster_ref.map_x,
+                monster_ref.map_y,
+                i32::from(monster_ref.initial_patrol_countdown),
+                i32::from(monster_ref.skip_ai_action),
+                monster_ref.initial_active_flag,
+                i32::from(monster_ref.ai_type_override),
+                monster_ref.event_id_on_kill,
+                monster_ref.loot_item_1.item_id() as i32,
                 u8::from(
                     monster_ref
-                        .loot_item1
+                        .loot_item_1
                         .item_type()
                         .unwrap_or(ItemTypeId::Other)
                 ) as i32,
-                monster_ref.loot_item1.raw(),
-                monster_ref.loot_item2.item_id() as i32,
+                monster_ref.loot_item_1.raw(),
+                monster_ref.loot_item_2.item_id() as i32,
                 u8::from(
                     monster_ref
-                        .loot_item2
+                        .loot_item_2
                         .item_type()
                         .unwrap_or(ItemTypeId::Other)
                 ) as i32,
-                monster_ref.loot_item2.raw(),
-                monster_ref.loot_item3.item_id() as i32,
+                monster_ref.loot_item_2.raw(),
+                monster_ref.loot_item_3.item_id() as i32,
                 u8::from(
                     monster_ref
-                        .loot_item3
+                        .loot_item_3
                         .item_type()
                         .unwrap_or(ItemTypeId::Other)
                 ) as i32,
-                monster_ref.loot_item3.raw(),
-                i32::from(monster_ref.padding12),
-                i32::from(monster_ref.padding13),
+                monster_ref.loot_item_3.raw(),
+                i32::from(monster_ref.drop_all_loot),
+                i32::from(monster_ref.force_ai_update),
             ])?;
         }
     }
@@ -204,10 +183,25 @@ mod tests {
     use super::*;
     use std::io::Cursor;
 
-    fn ref_bytes(file_id: i32, mon_id: i32, pos_x: i32, pos_y: i32) -> Vec<u8> {
+    fn ref_bytes(placement_id: i32, monster_db_id: i32, map_x: i32, map_y: i32) -> Vec<u8> {
         // 14 × i32 = 56 bytes; remaining 10 fields are zero
         let mut buf: Vec<u8> = Vec::with_capacity(56);
-        for &v in &[file_id, mon_id, pos_x, pos_y, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] {
+        for &v in &[
+            placement_id,
+            monster_db_id,
+            map_x,
+            map_y,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ] {
             buf.extend_from_slice(&v.to_le_bytes());
         }
         buf
@@ -223,10 +217,10 @@ mod tests {
         let mut c = Cursor::new(&data[..]);
         let refs = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(refs.len(), 1);
-        assert_eq!(refs[0].file_id, 1);
-        assert_eq!(refs[0].mon_id, 5);
-        assert_eq!(refs[0].pos_x, 10);
-        assert_eq!(refs[0].pos_y, 20);
+        assert_eq!(refs[0].placement_id, 1);
+        assert_eq!(refs[0].monster_db_id, 5);
+        assert_eq!(refs[0].map_x, 10);
+        assert_eq!(refs[0].map_y, 20);
     }
 
     #[test]
@@ -238,7 +232,7 @@ mod tests {
         let mut c = Cursor::new(&data[..]);
         let refs = MonsterRef::parse(&mut c, data.len() as u64).unwrap();
         assert_eq!(refs.len(), 2);
-        assert_eq!(refs[1].mon_id, 6);
+        assert_eq!(refs[1].monster_db_id, 6);
     }
 
     #[test]
@@ -252,9 +246,9 @@ mod tests {
         let mut c2 = Cursor::new(out.as_slice());
         let records2 = MonsterRef::parse(&mut c2, out.len() as u64).unwrap();
         assert_eq!(records.len(), records2.len());
-        assert_eq!(records[0].file_id, records2[0].file_id);
-        assert_eq!(records[0].mon_id, records2[0].mon_id);
-        assert_eq!(records[0].pos_x, records2[0].pos_x);
-        assert_eq!(records[0].pos_y, records2[0].pos_y);
+        assert_eq!(records[0].placement_id, records2[0].placement_id);
+        assert_eq!(records[0].monster_db_id, records2[0].monster_db_id);
+        assert_eq!(records[0].map_x, records2[0].map_x);
+        assert_eq!(records[0].map_y, records2[0].map_y);
     }
 }

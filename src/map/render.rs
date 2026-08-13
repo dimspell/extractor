@@ -706,11 +706,11 @@ pub fn collect_external_entities(
         if let Ok(data) = MonsterRef::read_file(&p) {
             for m in data {
                 let sprite_path = monster_sprite_map
-                    .get(&m.mon_id)
+                    .get(&m.monster_db_id)
                     .map(|s| resolve("MonsterInGame", s));
                 monsters.push(EntityRenderInfo {
-                    x: m.pos_x,
-                    y: m.pos_y,
+                    x: m.map_x,
+                    y: m.map_y,
                     fallback_color: [220, 50, 50],
                     sprite_path,
                     sequence: 3,

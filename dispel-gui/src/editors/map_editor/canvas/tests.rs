@@ -357,8 +357,8 @@ fn test_entity_tile_monster() {
         50,
         50,
         vec![MonsterRef {
-            pos_x: 7,
-            pos_y: 13,
+            map_x: 7,
+            map_y: 13,
             ..Default::default()
         }],
         vec![],
@@ -457,8 +457,8 @@ fn test_hovered_entity_identifies_monster() {
         50,
         50,
         vec![MonsterRef {
-            pos_x: 20,
-            pos_y: 20,
+            map_x: 20,
+            map_y: 20,
             ..Default::default()
         }],
         vec![],
@@ -544,13 +544,13 @@ fn test_hovered_entity_returns_closest() {
         50,
         vec![
             MonsterRef {
-                pos_x: 20,
-                pos_y: 20,
+                map_x: 20,
+                map_y: 20,
                 ..Default::default()
             },
             MonsterRef {
-                pos_x: 20,
-                pos_y: 21,
+                map_x: 20,
+                map_y: 21,
                 ..Default::default()
             },
         ],
@@ -578,8 +578,8 @@ fn test_hovered_entity_none_when_far() {
         50,
         50,
         vec![MonsterRef {
-            pos_x: 5,
-            pos_y: 5,
+            map_x: 5,
+            map_y: 5,
             ..Default::default()
         }],
         vec![],
@@ -604,8 +604,8 @@ fn test_hovered_element_entity_over_collision() {
         50,
         50,
         vec![MonsterRef {
-            pos_x: 10,
-            pos_y: 10,
+            map_x: 10,
+            map_y: 10,
             ..Default::default()
         }],
         vec![],

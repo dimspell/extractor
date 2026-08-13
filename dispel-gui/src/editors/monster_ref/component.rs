@@ -4,20 +4,20 @@ use dispel_core::{BooleanFlag, MonsterRef};
 use crate::editable_record_fields;
 
 editable_record_fields!(MonsterRef, {
-    { file_id = Integer / "File ID:" },
-    { mon_id = Lookup("monster_names") / "Monster ID:" },
-    { pos_x = Integer / "Position X:" },
-    { pos_y = Integer / "Position Y:" },
-    { padding1 = DispEnum(BooleanFlag, ["True", "False"]) / "Flag 1:" },
-    { padding2 = DispEnum(BooleanFlag, ["True", "False"]) / "Flag 2:" },
-    { padding3 = Integer / "Flag 3 (0):" },
-    { padding4 = Integer / "Flag 4:" },
-    { event_id = Integer / "Event ID:" },
-    { loot_item1 = CompositeItem("items") / "Loot 1:" },
-    { loot_item2 = CompositeItem("items") / "Loot 2:" },
-    { loot_item3 = CompositeItem("items") / "Loot 3:" },
-    { padding12 = Integer / "Padding 12:" },
-    { padding13 = DispEnum(BooleanFlag, ["True", "False"]) / "Padding 13:" },
+    { placement_id = Integer / "Placement ID:" },
+    { monster_db_id = Lookup("monster_names") / "Monster ID:" },
+    { map_x = Integer / "Spawn X:" },
+    { map_y = Integer / "Spawn Y:" },
+    { initial_patrol_countdown = DispEnum(BooleanFlag, ["True", "False"]) / "Initial Patrol Countdown:" },
+    { skip_ai_action = DispEnum(BooleanFlag, ["True", "False"]) / "Skip AI Action:" },
+    { initial_active_flag = Integer / "Initial Active Flag:" },
+    { ai_type_override = Integer / "AI Type Override:" },
+    { event_id_on_kill = Integer / "Event on Kill:" },
+    { loot_item_1 = CompositeItem("items") / "Loot 1:" },
+    { loot_item_2 = CompositeItem("items") / "Loot 2:" },
+    { loot_item_3 = CompositeItem("items") / "Loot 3:" },
+    { drop_all_loot = Integer / "Drop All Loot:" },
+    { force_ai_update = DispEnum(BooleanFlag, ["True", "False"]) / "Force AI Update:" },
 });
 
 impl EditableRecord for MonsterRef {
@@ -26,7 +26,7 @@ impl EditableRecord for MonsterRef {
     fn list_label(&self) -> String {
         format!(
             "[{}] File:{} Monster:{} Pos:({},{})",
-            self.index, self.file_id, self.mon_id, self.pos_x, self.pos_y
+            self.index, self.placement_id, self.monster_db_id, self.map_x, self.map_y
         )
     }
 
@@ -39,13 +39,13 @@ impl EditableRecord for MonsterRef {
             .and_then(|entries| {
                 entries
                     .iter()
-                    .find(|(id, _)| id == &self.mon_id.to_string())
+                    .find(|(id, _)| id == &self.monster_db_id.to_string())
             })
             .map(|(_, name)| name.as_str())
             .unwrap_or("???");
         format!(
             "[{}] File:{} Monster:{} Pos:({},{})",
-            self.index, self.file_id, monster_name, self.pos_x, self.pos_y
+            self.index, self.placement_id, monster_name, self.map_x, self.map_y
         )
     }
 

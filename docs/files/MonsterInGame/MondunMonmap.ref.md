@@ -21,30 +21,24 @@ Binary files that define monster placements, coordinates, event triggers, and lo
 [Header: 4 bytes]
 - record_count: i32 (number of monster entries)
 
-[Records: 56 bytes each]
-- file_id: i32 (file identifier / record number)
-- mon_id: i32 (monster type ID, links to Monster.db)
-- pos_x: i32 (tile X coordinate)
-- pos_y: i32 (tile Y coordinate)
-- padding1: i32 (flag, values: 0 or 1)
-- padding2: i32 (flag, values: 0 or 1)
-- padding3: i32 (flag, values: always 0)
-- padding4: i32 (flag, values: -1, 0, or 1)
-- event_id: i32 (event trigger ID, links to Event.ini)
-- loot1_item_id: u8 (first loot item ID)
-- loot1_item_type: u8 (first loot item type)
-- padding6: u8 (values: 0 or 255)
-- padding7: u8 (values: 0 or 255)
-- loot2_item_id: u8 (second loot item ID)
-- loot2_item_type: u8 (second loot item type)
-- padding8: u8 (values: 0 or 255)
-- padding9: u8 (values: 0 or 255)
-- loot3_item_id: u8 (third loot item ID)
-- loot3_item_type: u8 (third loot item type)
-- padding10: u8 (values: 0 or 255)
-- padding11: u8 (values: 0 or 255)
-- padding12: i32 (flag, values: -1, 0, or 1)
-- padding13: i32 (flag, values: 0 or 1)
+[Records: 56 bytes each: 14 little-endian i32 values]
+
+| Offset | Field | Meaning |
+|---:|---|---|
+| 0x00 | placement_id | Map-local monster-placement identifier. |
+| 0x04 | monster_db_id | One-based monster ID, used by `Monster.db` and `Monster.ini`. |
+| 0x08 | map_x | Spawn tile X coordinate. |
+| 0x0c | map_y | Spawn tile Y coordinate. |
+| 0x10 | initial_patrol_countdown | Initial patrol/scan countdown. |
+| 0x14 | skip_ai_action | When set, skips an AI action branch. |
+| 0x18 | initial_active_flag | Initial active/awake runtime flag. Original map files observed so far use zero. |
+| 0x1c | ai_type_override | `-1` uses the `Monster.db` AI type; 0 or 1 overrides it. |
+| 0x20 | event_id_on_kill | Event ID triggered after this monster dies. |
+| 0x24 | loot_item_1 | First packed `InventoryItem` loot slot. |
+| 0x28 | loot_item_2 | Second packed `InventoryItem` loot slot. |
+| 0x2c | loot_item_3 | Third packed `InventoryItem` loot slot. |
+| 0x30 | drop_all_loot | `1` drops all populated loot slots; other observed values select a slot. |
+| 0x34 | force_ai_update | `1` runs the AI update path even when the normal active flag is clear. |
 ```
 
 ## Example Files
@@ -69,19 +63,13 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 
 ## Field Details
 
-**mon_id**: Links to monster definitions in `Monster.db`. Determines monster type, stats, and appearance.
+**monster_db_id**: Links to monster definitions in `Monster.db`. Determines monster type, stats, and appearance.
 
-**pos_x, pos_y**: Tile coordinates where the monster spawns on the map.
+**map_x, map_y**: Tile coordinates where the monster spawns on the map.
 
-**event_id**: Links to event definitions in `Event.ini`. Triggers events when the monster is interacted with or defeated.
+**event_id_on_kill**: Links to the event triggered when the monster dies.
 
-**padding1–4, padding12–13**: Unknown flag fields with constrained value ranges. Likely control monster behavior (patrol, chase, spawn conditions).
-
-**padding6–11**: Byte-sized padding fields, typically 0 or 255 (0xFF). May be alignment or unused flags.
-
-**loot*_item_id**: Item IDs that the monster can drop when defeated.
-
-**loot*_item_type**: Item type from the ItemTypeId enum (Weapon=1, Healing=2, Edit=3, Event=4, Misc=5, Other=255).
+**loot_item_1..3**: Packed 32-bit `InventoryItem` values. The low bytes contain the item ID and type; the upper bits are preserved when writing.
 
 ## Usage in Game
 
@@ -89,8 +77,8 @@ These files are referenced in `Ref/Map.ini` to associate monster placements with
 2. References the associated monster file (Mondun*.ref or Monmap*.ref)
 3. Spawns monsters at specified coordinates
 4. Configures loot drops based on item IDs and types
-5. Links monster behavior to `mon_id` definitions
-6. Triggers events via `event_id` when conditions are met
+5. Links monster behavior to `monster_db_id` definitions
+6. Triggers `event_id_on_kill` when the monster dies
 
 ## Monster Type IDs
 - Links to `Monster.db` entries
@@ -123,7 +111,7 @@ Defines monster placements on specific maps with exact coordinates, event trigge
 ## Related Files
 - `Monster.db` - Monster definitions and statistics
 - `Monster.ini` - Monster visual/sprite data
-- `Event.ini` - Event definitions referenced by `event_id`
+- `Event.ini` - Event definitions referenced by `event_id_on_kill`
 - `*.map` files - Map geometry and tiles
 - `AllMap.ini` - Map metadata and associations
 
