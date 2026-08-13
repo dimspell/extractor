@@ -1623,9 +1623,9 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                     .iter()
                                     .map(|e| {
                                         vec![
-                                            e.runtime_unknown_1.to_string(),
-                                            e.runtime_unknown_2.to_string(),
-                                            e.runtime_unknown_3.to_string(),
+                                            e.render_state_slot.to_string(),
+                                            e.render_variant_index.to_string(),
+                                            e.current_sprite_frame.to_string(),
                                             e.map_object_id.to_string(),
                                             e.extra_definition_id.to_string(),
                                             e.object_name.clone(),
@@ -1665,7 +1665,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                                             e.activation_effect_padding.to_string(),
                                             e.active_overlay_enabled.to_string(),
                                             e.map_object_active.to_string(),
-                                            e.runtime_unknown_4.to_string(),
+                                            e.interaction_pending.to_string(),
                                         ]
                                     })
                                     .collect(),

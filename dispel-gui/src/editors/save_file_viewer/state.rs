@@ -273,9 +273,9 @@ impl MapsTableKind {
                 ("freeze_counter", 60.0),
             ],
             ExtraObjects => &[
-                ("runtime_unknown_1", 60.0),
-                ("runtime_unknown_2", 60.0),
-                ("runtime_unknown_3", 60.0),
+                ("render_state_slot", 60.0),
+                ("render_variant_index", 60.0),
+                ("current_sprite_frame", 60.0),
                 ("map_object_id", 60.0),
                 ("extra_definition_id", 60.0),
                 ("object_name", 160.0),
@@ -315,7 +315,7 @@ impl MapsTableKind {
                 ("activation_effect_padding", 60.0),
                 ("active_overlay_enabled", 60.0),
                 ("map_object_active", 60.0),
-                ("runtime_unknown_4", 60.0),
+                ("interaction_pending", 60.0),
             ],
             Weapon => &[
                 ("name", 160.0),

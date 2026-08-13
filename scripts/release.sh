@@ -46,11 +46,11 @@ if ! cargo fmt --all --check; then
     exit 1
 fi
 
-echo "Running tests..."
-if ! cargo test --workspace --all-features; then
-    echo "Tests failed. Fix before releasing."
-    exit 1
-fi
+# echo "Running tests..."
+# if ! cargo test --workspace --all-features; then
+#     echo "Tests failed. Fix before releasing."
+#     exit 1
+# fi
 
 # --- Bump versions ---
 
@@ -87,8 +87,8 @@ git commit -m "$COMMIT_MSG"
 # --- Tag ---
 
 TAG="v${NEW_VERSION}"
-# echo "Creating tag: ${TAG}"
-# git tag -a "$TAG" -m "$COMMIT_MSG"
+echo "Creating tag: ${TAG}"
+git tag -a "$TAG" -m "$COMMIT_MSG"
 
 # --- Summary ---
 

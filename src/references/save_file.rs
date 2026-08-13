@@ -288,12 +288,18 @@ pub struct NpcRecord {
 /// Extra object record (200-byte data per record)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct ExtraObjectRecord {
-    /// Save-only runtime value; not present in `ExtraRef`.
-    pub runtime_unknown_1: u32,
-    /// Save-only runtime value; not present in `ExtraRef`.
-    pub runtime_unknown_2: u32,
-    /// Save-only runtime value; not present in `ExtraRef`.
-    pub runtime_unknown_3: u32,
+    /// Active render-state slot (0–2).
+    ///
+    /// The engine selects this from the object type and activation state, then
+    /// uses it to index the object's render-state table.
+    pub render_state_slot: u32,
+    /// Render variant selected from [`Self::render_state_slot`].
+    ///
+    /// This is the table value that chooses the sprite/renderer variant saved
+    /// for the active render-state slot.
+    pub render_variant_index: u32,
+    /// Current frame index in the object's sprite animation.
+    pub current_sprite_frame: u32,
     /// Maps to `ExtraRef.map_object_id`.
     pub map_object_id: u16,
     /// Extra.ini ID - Extra.ini stores the canonical `id` field; every named
@@ -350,8 +356,11 @@ pub struct ExtraObjectRecord {
     pub activation_effect_padding: i16,
     pub active_overlay_enabled: u32,
     pub map_object_active: u32,
-    /// Save-only trailing runtime value; `ExtraRef` has no corresponding field.
-    pub runtime_unknown_4: u32,
+    /// Pending interaction latch.
+    ///
+    /// The engine sets this when activation is requested, processes the
+    /// object-specific interaction on the next update, then clears it.
+    pub interaction_pending: u32,
 }
 
 /// A deferred ground-item spawn from a map's extra-object state (24 bytes).
