@@ -3,7 +3,7 @@ use iced::Task;
 use crate::app::App;
 use crate::editors::save_file_viewer::map_preview::state::EntityKind;
 use crate::editors::save_file_viewer::message::{SaveFileViewerMessage, TableKey};
-use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileViewerState};
+use crate::editors::save_file_viewer::state::{ResizeDrag, SaveFileSection, SaveFileViewerState};
 use crate::message::{Message, MessageExt};
 
 pub(crate) mod csv_export;
@@ -234,7 +234,31 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
     match msg {
         SaveFileViewerMessage::SelectSection(section) => {
+            if state.active_section == SaveFileSection::SavedViewport
+                && section != SaveFileSection::SavedViewport
+            {
+                state.show_preview = false;
+                state.map_preview = None;
+            }
             state.active_section = section;
+            if section == SaveFileSection::SavedViewport {
+                let active_map_index = state.save_file.as_ref().and_then(|save| {
+                    save.maps
+                        .iter()
+                        .position(|map| map.map_id == save.post_maps.ref_map_ini_id)
+                });
+                let Some(map_idx) = active_map_index else {
+                    return Task::done(Message::System(crate::message::SystemMessage::ShowError(
+                        "The active map is not present in this save file.".to_string(),
+                    )));
+                };
+                state.selected_map = Some(map_idx);
+                state.show_preview = false;
+                state.map_preview = None;
+                return Task::done(Message::save_file_viewer(
+                    SaveFileViewerMessage::TogglePreview,
+                ));
+            }
             Task::none()
         }
         SaveFileViewerMessage::SelectCategory(cat) => {
@@ -357,6 +381,21 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
 
             let game_path = app.state.workspace.game_path.clone();
 
+            // The 500-cell cache is the active map's viewport. Other map
+            // sections remain renderable, but do not receive this overlay.
+            let saved_viewport_cells = state
+                .save_file
+                .as_ref()
+                .filter(|save| {
+                    state.active_section == SaveFileSection::SavedViewport
+                        && save
+                            .maps
+                            .get(map_idx)
+                            .is_some_and(|map| map.map_id == save.post_maps.ref_map_ini_id)
+                })
+                .map(|save| save.post_maps.map_viewport_state.cells.clone())
+                .unwrap_or_default();
+
             use crate::components::map_render::MapViewState;
             use crate::editors::map_editor::message::MapDataHandle;
             use crate::editors::save_file_viewer::map_preview::state::{
@@ -369,6 +408,8 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                 view: MapViewState::default(),
                 loading: MapPreviewLoading::Loaded,
                 entity_markers: Vec::new(),
+                saved_viewport_cells,
+                show_saved_viewport: true,
                 gtl_handles: std::collections::HashMap::new(),
                 btl_handles: std::collections::HashMap::new(),
                 tiles_ready: false,

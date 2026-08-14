@@ -50,7 +50,7 @@ pub use references::{
     quest_scr::Quest,
     save_file::{
         CharacterIdentity, CharacterStats, InventoryData, JournalData, JournalEntry,
-        MapSectionData, PostEventsData, PostMapsData, SaveFile,
+        MapSectionData, MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
     },
     store_db::Store,
     wave_ini::WaveIni,

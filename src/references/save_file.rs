@@ -10,8 +10,11 @@ use std::io::{Read, Seek, Write};
 // use proptest::char::range;
 use super::extractor::{Extractor, read_null_terminated_windows_1250};
 
-/// Fixed size of the player runtime-state snapshot stored after the map-ID list.
-pub const PLAYER_RUNTIME_STATE_SIZE: usize = 10_148;
+/// Number of isometric viewport cells stored in each save.
+pub const MAP_VIEWPORT_CELL_COUNT: usize = 500;
+
+/// Fixed size of the serialized map viewport state stored after the map-ID list.
+pub const MAP_VIEWPORT_STATE_SIZE: usize = 10_148;
 
 /// Monster record from save file (surface or dungeon)
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -1350,10 +1353,155 @@ pub struct CharacterIdentity {
     pub party_members: Vec<PartyMember>,
 }
 
-/// Save-world header and the player runtime-state snapshot after map data.
+/// A cached correspondence between an isometric screen position and a map tile.
+///
+/// The game rebuilds records of this shape: screen positions
+/// advance in 32- and 16-pixel isometric steps, while `map_tile_index` is
+/// `map_y * map_width + map_x`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MapViewportCell {
+    pub screen_x: u32,
+    pub screen_y: u32,
+    pub map_x: u32,
+    pub map_y: u32,
+    pub map_tile_index: u32,
+}
+
+/// Serialized state of the game's isometric map viewport.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MapViewportState {
+    /// Four viewport/render-bound values from object offsets `0x68..=0x74`.
+    pub render_bounds: [u32; 4],
+    /// Four viewport-bound values from object offsets `0x44..=0x50`.
+    pub viewport_bounds: [u32; 4],
+    /// Geometry values from object offsets `0xB4..=0x110`.
+    pub geometry: [u32; 24],
+    /// Cached screen-to-map lookup cells.
+    pub cells: Vec<MapViewportCell>,
+    /// Value at object offset `0x11C`; initialized to `-1` by the game.
+    pub selected_tile_index: u32,
+    /// Two renderer-global values written between object fields.
+    pub renderer_global_state: [u32; 2],
+    /// Values at object offsets `0x114` and `0x118`.
+    pub runtime_state: [u32; 2],
+}
+
+impl Default for MapViewportState {
+    fn default() -> Self {
+        Self {
+            render_bounds: [0; 4],
+            viewport_bounds: [0; 4],
+            geometry: [0; 24],
+            cells: vec![MapViewportCell::default(); MAP_VIEWPORT_CELL_COUNT],
+            selected_tile_index: u32::MAX,
+            renderer_global_state: [0; 2],
+            runtime_state: [0; 2],
+        }
+    }
+}
+
+impl MapViewportState {
+    fn read_from<R: Read>(reader: &mut R) -> std::io::Result<Self> {
+        let mut state = Self::default();
+        for value in &mut state.render_bounds {
+            *value = reader.read_u32::<LittleEndian>()?;
+        }
+        for value in &mut state.viewport_bounds {
+            *value = reader.read_u32::<LittleEndian>()?;
+        }
+        for value in &mut state.geometry {
+            *value = reader.read_u32::<LittleEndian>()?;
+        }
+        for cell in &mut state.cells {
+            cell.screen_x = reader.read_u32::<LittleEndian>()?;
+            cell.screen_y = reader.read_u32::<LittleEndian>()?;
+            cell.map_x = reader.read_u32::<LittleEndian>()?;
+            cell.map_y = reader.read_u32::<LittleEndian>()?;
+            cell.map_tile_index = reader.read_u32::<LittleEndian>()?;
+        }
+        state.selected_tile_index = reader.read_u32::<LittleEndian>()?;
+        for value in &mut state.renderer_global_state {
+            *value = reader.read_u32::<LittleEndian>()?;
+        }
+        for value in &mut state.runtime_state {
+            *value = reader.read_u32::<LittleEndian>()?;
+        }
+        Ok(state)
+    }
+
+    fn write_to<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        if self.cells.len() != MAP_VIEWPORT_CELL_COUNT {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!(
+                    "map viewport has {} cells, expected {MAP_VIEWPORT_CELL_COUNT}",
+                    self.cells.len()
+                ),
+            ));
+        }
+        for value in self.render_bounds {
+            writer.write_u32::<LittleEndian>(value)?;
+        }
+        for value in self.viewport_bounds {
+            writer.write_u32::<LittleEndian>(value)?;
+        }
+        for value in self.geometry {
+            writer.write_u32::<LittleEndian>(value)?;
+        }
+        for cell in &self.cells {
+            writer.write_u32::<LittleEndian>(cell.screen_x)?;
+            writer.write_u32::<LittleEndian>(cell.screen_y)?;
+            writer.write_u32::<LittleEndian>(cell.map_x)?;
+            writer.write_u32::<LittleEndian>(cell.map_y)?;
+            writer.write_u32::<LittleEndian>(cell.map_tile_index)?;
+        }
+        writer.write_u32::<LittleEndian>(self.selected_tile_index)?;
+        for value in self.renderer_global_state {
+            writer.write_u32::<LittleEndian>(value)?;
+        }
+        for value in self.runtime_state {
+            writer.write_u32::<LittleEndian>(value)?;
+        }
+        Ok(())
+    }
+
+    /// Serialize this state for inspection in the raw-hex viewer.
+    ///
+    /// Unlike [`Self::write_to`], this retains every supplied cell so the
+    /// viewer can show malformed in-memory data before serialization rejects it.
+    pub fn raw_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(148 + self.cells.len() * 20);
+        for value in self.render_bounds {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in self.viewport_bounds {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in self.geometry {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        for cell in &self.cells {
+            bytes.extend_from_slice(&cell.screen_x.to_le_bytes());
+            bytes.extend_from_slice(&cell.screen_y.to_le_bytes());
+            bytes.extend_from_slice(&cell.map_x.to_le_bytes());
+            bytes.extend_from_slice(&cell.map_y.to_le_bytes());
+            bytes.extend_from_slice(&cell.map_tile_index.to_le_bytes());
+        }
+        bytes.extend_from_slice(&self.selected_tile_index.to_le_bytes());
+        for value in self.renderer_global_state {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        for value in self.runtime_state {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes
+    }
+}
+
+/// Save-world header and the map viewport state after map data.
 ///
 /// Layout: `[map-section terminator: u32][8 × 4-byte header values]
-/// [visited-map count][visited map IDs][player runtime state: 10,148 bytes]`.
+/// [visited-map count][visited map IDs][map viewport state: 10,148 bytes]`.
 ///
 /// The three record-size fields are 329, 349, and 200 in known saves; they
 /// match the monster, NPC, and extra-object record sizes in the map section.
@@ -1381,9 +1529,8 @@ pub struct PostMapsData {
     pub number_of_visited_maps: u32,
     /// IDs of the visited maps.
     pub map_ids: Vec<u32>,
-    /// Fixed-size serialized player runtime state. Its internal fields remain
-    /// to be decoded, but its boundary is confirmed by every known fixture.
-    pub player_runtime_state: Vec<u8>,
+    /// Fixed-size serialized isometric map viewport state.
+    pub map_viewport_state: MapViewportState,
 }
 
 /// Unknown data block between events and journal sections.
@@ -1666,8 +1813,7 @@ impl SaveFile {
             *map_id = reader.read_u32::<LittleEndian>()?;
         }
 
-        let mut player_runtime_state = vec![0u8; PLAYER_RUNTIME_STATE_SIZE];
-        reader.read_exact(&mut player_runtime_state)?;
+        let map_viewport_state = MapViewportState::read_from(reader)?;
 
         Ok(PostMapsData {
             map_section_terminator,
@@ -1681,7 +1827,7 @@ impl SaveFile {
             extra_object_block_size,
             number_of_visited_maps,
             map_ids,
-            player_runtime_state,
+            map_viewport_state,
         })
     }
 
@@ -2131,20 +2277,11 @@ impl SaveFile {
                 ),
             ));
         }
-        if data.player_runtime_state.len() != PLAYER_RUNTIME_STATE_SIZE {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!(
-                    "player runtime state is {} bytes, expected {PLAYER_RUNTIME_STATE_SIZE}",
-                    data.player_runtime_state.len()
-                ),
-            ));
-        }
         writer.write_u32::<LittleEndian>(data.number_of_visited_maps)?;
         for id in &data.map_ids {
             writer.write_u32::<LittleEndian>(*id)?;
         }
-        writer.write_all(&data.player_runtime_state)?;
+        data.map_viewport_state.write_to(writer)?;
         Ok(())
     }
 
@@ -2525,7 +2662,24 @@ mod tests {
             extra_object_block_size: 8,
             number_of_visited_maps: 2,
             map_ids: vec![9, 10],
-            player_runtime_state: vec![11; PLAYER_RUNTIME_STATE_SIZE],
+            map_viewport_state: MapViewportState {
+                render_bounds: [0x0b0b_0b0b; 4],
+                viewport_bounds: [0x0b0b_0b0b; 4],
+                geometry: [0x0b0b_0b0b; 24],
+                cells: vec![
+                    MapViewportCell {
+                        screen_x: 0x0b0b_0b0b,
+                        screen_y: 0x0b0b_0b0b,
+                        map_x: 0x0b0b_0b0b,
+                        map_y: 0x0b0b_0b0b,
+                        map_tile_index: 0x0b0b_0b0b,
+                    };
+                    MAP_VIEWPORT_CELL_COUNT
+                ],
+                selected_tile_index: 0x0b0b_0b0b,
+                renderer_global_state: [0x0b0b_0b0b; 2],
+                runtime_state: [0x0b0b_0b0b; 2],
+            },
         };
         let mut bytes = Vec::new();
 
@@ -2544,9 +2698,91 @@ mod tests {
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 9);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 10);
-        let mut player_runtime_state = vec![0u8; PLAYER_RUNTIME_STATE_SIZE];
-        reader.read_exact(&mut player_runtime_state).unwrap();
-        assert_eq!(player_runtime_state, vec![11; PLAYER_RUNTIME_STATE_SIZE]);
+        let mut map_viewport_state = vec![0u8; MAP_VIEWPORT_STATE_SIZE];
+        reader.read_exact(&mut map_viewport_state).unwrap();
+        assert_eq!(map_viewport_state, vec![11; MAP_VIEWPORT_STATE_SIZE]);
+    }
+
+    #[test]
+    fn test_map_viewport_state_round_trips_documented_layout() {
+        let mut state = MapViewportState {
+            render_bounds: [1, 2, 3, 4],
+            viewport_bounds: [5, 6, 7, 8],
+            geometry: std::array::from_fn(|index| 100 + index as u32),
+            ..Default::default()
+        };
+        state.cells[0] = MapViewportCell {
+            screen_x: 10,
+            screen_y: 20,
+            map_x: 30,
+            map_y: 40,
+            map_tile_index: 50,
+        };
+        state.cells[MAP_VIEWPORT_CELL_COUNT - 1] = MapViewportCell {
+            screen_x: 60,
+            screen_y: 70,
+            map_x: 80,
+            map_y: 90,
+            map_tile_index: 100,
+        };
+        state.selected_tile_index = u32::MAX;
+        state.renderer_global_state = [101, 102];
+        state.runtime_state = [103, 104];
+
+        let mut bytes = Vec::new();
+        state.write_to(&mut bytes).unwrap();
+
+        assert_eq!(bytes.len(), MAP_VIEWPORT_STATE_SIZE);
+        assert_eq!(
+            &bytes[0..16],
+            &[1, 0, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 4, 0, 0, 0]
+        );
+        assert_eq!(u32::from_le_bytes(bytes[128..132].try_into().unwrap()), 10);
+        assert_eq!(u32::from_le_bytes(bytes[144..148].try_into().unwrap()), 50);
+        assert_eq!(
+            u32::from_le_bytes(bytes[10_108..10_112].try_into().unwrap()),
+            60
+        );
+        assert_eq!(
+            u32::from_le_bytes(bytes[10_128..10_132].try_into().unwrap()),
+            u32::MAX
+        );
+        assert_eq!(
+            u32::from_le_bytes(bytes[10_132..10_136].try_into().unwrap()),
+            101
+        );
+        assert_eq!(
+            u32::from_le_bytes(bytes[10_144..10_148].try_into().unwrap()),
+            104
+        );
+
+        let parsed = MapViewportState::read_from(&mut std::io::Cursor::new(&bytes)).unwrap();
+        assert_eq!(parsed.cells[0].map_tile_index, 50);
+        assert_eq!(parsed.cells[MAP_VIEWPORT_CELL_COUNT - 1].map_y, 90);
+        assert_eq!(parsed.renderer_global_state, [101, 102]);
+        assert_eq!(parsed.runtime_state, [103, 104]);
+    }
+
+    #[test]
+    fn test_parse_viewport_state_from_fixture() {
+        let original = std::fs::read("fixtures/Dispel/0.sav").unwrap();
+        let game_tmp_size = u32::from_le_bytes(original[0..4].try_into().unwrap()) as usize;
+        let metadata_start = game_tmp_size + 4;
+        let map_id_count = u32::from_le_bytes(
+            original[metadata_start + 32..metadata_start + 36]
+                .try_into()
+                .unwrap(),
+        ) as usize;
+        let viewport_start = metadata_start + 36 + map_id_count * 4;
+        let viewport_end = viewport_start + MAP_VIEWPORT_STATE_SIZE;
+        let state = MapViewportState::read_from(&mut std::io::Cursor::new(
+            &original[viewport_start..viewport_end],
+        ))
+        .unwrap();
+
+        assert_eq!(state.raw_bytes(), original[viewport_start..viewport_end]);
+        assert_eq!(state.cells.len(), MAP_VIEWPORT_CELL_COUNT);
+        assert_eq!(state.cells[0].map_tile_index, 16_777);
     }
 
     #[test]

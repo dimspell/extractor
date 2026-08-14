@@ -14,6 +14,7 @@ use std::time::Instant;
 pub enum SaveFileSection {
     Overview,
     Maps,
+    SavedViewport,
     Stats,
     Inventory,
     PartyMembers,
@@ -29,6 +30,7 @@ impl SaveFileSection {
         match self {
             SaveFileSection::Overview => "Overview",
             SaveFileSection::Maps => "Maps",
+            SaveFileSection::SavedViewport => "Saved Viewport",
             SaveFileSection::Stats => "Stats",
             SaveFileSection::Inventory => "Inventory",
             SaveFileSection::PartyMembers => "Party Members",
@@ -45,6 +47,7 @@ impl SaveFileSection {
         &[
             Overview,
             Maps,
+            SavedViewport,
             Stats,
             Inventory,
             PartyMembers,
@@ -1055,8 +1058,8 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             data: save_file.unknown_after_stats.clone(),
         },
         RawHexEditorData {
-            label: "Player Runtime State".into(),
-            data: save_file.post_maps.player_runtime_state.clone(),
+            label: "Map Viewport State".into(),
+            data: save_file.post_maps.map_viewport_state.raw_bytes(),
         },
         RawHexEditorData {
             label: "Post-Events Block A".into(),

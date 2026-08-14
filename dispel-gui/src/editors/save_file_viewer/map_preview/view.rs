@@ -60,7 +60,7 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
                 .into();
             }
 
-            let layer_row = row![
+            let mut layer_row = row![
                 text("Layers:").size(11),
                 layer_toggle("Ground", state.view.show_ground, PreviewLayer::Ground),
                 layer_toggle(
@@ -82,6 +82,13 @@ pub fn view<'a>(state: &'a MapPreviewState) -> Element<'a, Message> {
             .spacing(12)
             .padding([6, 16])
             .align_y(iced::Alignment::Center);
+            if !state.saved_viewport_cells.is_empty() {
+                layer_row = layer_row.push(layer_toggle(
+                    "Saved viewport",
+                    state.show_saved_viewport,
+                    PreviewLayer::SavedViewport,
+                ));
+            }
 
             let zoom_label = format!("{:.0}%", state.view.zoom * 100.0);
 

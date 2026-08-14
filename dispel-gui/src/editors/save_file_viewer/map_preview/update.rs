@@ -110,6 +110,9 @@ pub fn handle(msg: PreviewMessage, state: &mut MapPreviewState) -> Task<Message>
                 PreviewLayer::Npcs => state.view.show_npcs = !state.view.show_npcs,
                 PreviewLayer::Extras => state.view.show_objects = !state.view.show_objects,
                 PreviewLayer::DrawItems => state.view.show_draw_items = !state.view.show_draw_items,
+                PreviewLayer::SavedViewport => {
+                    state.show_saved_viewport = !state.show_saved_viewport;
+                }
             }
             state.view.tile_layer_cache.clear();
             Task::none()
