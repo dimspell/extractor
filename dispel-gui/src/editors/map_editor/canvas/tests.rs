@@ -39,6 +39,7 @@ fn make_state(
     events: HashMap<(i32, i32), EventBlock>,
 ) -> MapEditorState {
     let model = MapModel {
+        border_count: 2,
         tiled_map_width: map_w,
         tiled_map_height: map_h,
         map_width_in_pixels: (map_w + map_h) * 32,

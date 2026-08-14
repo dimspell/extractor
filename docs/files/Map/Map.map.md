@@ -3,21 +3,23 @@
 ## File Information
 - **Location**: `Map/*.map` files
 - **Format**: Binary (Little-Endian)
-- **Coordinate System**: Isometric with 25×25 tile chunks
-- **Tile Size**: 32×32 pixels
+- **Coordinate System**: Isometric
+- **Tile Size**: 62×32 pixels (diamond)
 
 ## File Structure
 
-### Header (8 bytes)
+### Header (12 bytes)
 - `width_in_chunks`: i32 - Map width in 25-tile chunks
 - `height_in_chunks`: i32 - Map height in 25-tile chunks
+- `border_count`: i32 - Border chunk count (always 2)
 
 ### Blocks (in order)
 
 #### First Block (variable size)
-- `multiplier`: i32
-- `size`: i32
-- `data`: multiplier × size × 4 bytes (unknown purpose, skipped)
+- `count`: i32 - Record count
+- `data`: (count − 1) × 8 bytes - `count − 1` records of 2 × i32 each (purpose unknown, skipped)
+
+Skipping `(count-1)*8` lands exactly on the second block's size field.
 
 #### Second Block (variable size)
 - `size`: i32

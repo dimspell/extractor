@@ -19,15 +19,17 @@
 // ASCII Diagram of File Structure:
 //
 // +------------------------------+
-// | MAP FILE HEADER (8 bytes)   |
+// | MAP FILE HEADER (12 bytes)  |
 // | - Width in chunks (i32)     |
 // | - Height in chunks (i32)    |
+// | - Border count (i32)        |
+// |  (always 2 in practice)     |
 // +------------------------------+
 // | FIRST BLOCK (variable)      |
-// | - Multiplier (i32)           |
-// | - Size (i32)                 |
-// | - Data: multiplier*size*4    |
-// |  (unknown purpose, skipped)  |
+// | - Count (i32)               |
+// | - Data: (count-1)*8 bytes   |
+// |  (count-1 records of 2×i32, |
+// |   purpose unknown, skipped) |
 // +------------------------------+
 // | SECOND BLOCK (variable)      |
 // | - Size (i32)                 |
@@ -227,8 +229,8 @@ impl MapData {
     pub fn to_json(&self) -> MapDataJson {
         MapDataJson {
             metadata: MapMetadataJson {
-                chunk_width: 0, // Not stored in MapModel, compute from tiled_width
-                chunk_height: 0,
+                chunk_width: (self.model.tiled_map_width + 1) / 25,
+                chunk_height: (self.model.tiled_map_height + 1) / 25,
                 tiled_width: self.model.tiled_map_width,
                 tiled_height: self.model.tiled_map_height,
                 map_width_in_pixels: self.model.map_width_in_pixels,
