@@ -50,7 +50,7 @@ impl RecordPatcher for StorePatcher {
             "haggle_success" => rec.haggle_success = parse_string(field, new)?,
             "haggle_fail" => rec.haggle_fail = parse_string(field, new)?,
             "inn_night_cost" => rec.inn_night_cost = parse_i32(field, new)?,
-            "some_unknown_number" => rec.some_unknown_number = parse_i16(field, new)?,
+            "price_modifier" => rec.price_modifier = parse_i16(field, new)?,
             "index" => {
                 return Err(ModdingError::Malformed(format!(
                     "{}.index is positional and cannot be patched",

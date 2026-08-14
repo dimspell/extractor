@@ -7,7 +7,7 @@ editable_record_fields!(Store, {
     { index = Integer / "Index:" },
     { store_name = String / "Store Name:" },
     { inn_night_cost = Integer / "Inn Cost:" },
-    { some_unknown_number = Integer / "Unknown Number:" },
+    { price_modifier = Integer / "Price Modifier (%):" },
     { invitation = String / "Invitation:" },
     { haggle_success = String / "Haggle Success:" },
     { haggle_fail = String / "Haggle Fail:" },

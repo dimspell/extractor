@@ -23,28 +23,26 @@ use dispel_macros::Localizable;
 /// - **Encoding**: Little-endian for all numeric values
 /// - **Text Encoding**: WINDOWS-1250 for `store_name` (32 bytes), `invitation` (512 bytes),
 ///   `haggle_success` (128 bytes), `haggle_fail` (128 bytes)
-/// - **Record Size**: 948 bytes (237 × i32)
+/// - **Record Size**: 948 bytes
 /// - **Header**: 4-byte i32 record count, followed by records
 ///
 /// ```text
 /// +--------------------------------------+
-/// | STORE.DB - Shop & Inn Database      |
+/// | STORE.DB - Shop & Inn Database       |
 /// +--------------------------------------+
 /// | Encoding: Binary (Little-Endian)     |
 /// | Text Encoding: WINDOWS-1250          |
-/// | Record Size: 948 bytes (237 × i32)   |
+/// | Record Size: 948 bytes               |
 /// +--------------------------------------+
-/// | [Header]                            |
+/// | [Header]                             |
 /// | - record_count: i32                  |
 /// +--------------------------------------+
 /// | [Record 1] - 948 bytes               |
 /// | - store_name: 32 bytes (WINDOWS-1250)|
 /// | - inn_night_cost: i32                |
-/// | - IF inn_night_cost >0:              |
-/// |     - 144 bytes padding (inn only)    |
-/// | - ELSE:                              |
-/// |     - some_unknown_number: i16         |
-/// |     - products: up to 71 × (type, id) |
+/// | - price_modifier: i16 (shops only)   |
+/// | - products: 15 × (type, id)          |
+/// | - padding: 82 bytes                  |
 /// | - invitation: 512 bytes (WINDOWS-1250)|
 /// | - haggle_success: 128 bytes           |
 /// | - haggle_fail: 128 bytes              |
@@ -56,27 +54,28 @@ use dispel_macros::Localizable;
 ///
 /// # Store Types
 ///
-/// - `inn_night_cost > 0`: Inn (no products, 144 bytes padding)
-/// - `inn_night_cost = 0`: Shop (with products)
+/// - `inn_night_cost > 0`: Inn (no products; the 2-byte price modifier and
+///   15 product slots are all zero, i.e. 144 bytes of padding)
+/// - `inn_night_cost = 0`: Shop (with price modifier + products)
 ///
 /// # Product Types
 ///
-/// - `1`: Bronze/Weapons
-/// - `2`: Equipment
-/// - `3`: Edibles/Consumables
-/// - `4`: Magical Items
+/// - `1`: Weapon
+/// - `2`: Healing
+/// - `3`: EditItem
+/// - `4`: MiscItem
 ///
 /// # Product Structure
 ///
-/// - Format: `(order: i16, type: ProductType, item_id: i16)`
+/// - Format: `(type: i16, item_id: i16)` per slot, 4 bytes each
 /// - Terminated by `type == 0`
-/// - Max 71 products per shop
+/// - Max 15 products per shop (the game iterates `iVar4 < 0xf`)
 ///
 /// # Field Categories
 ///
 /// - **Identification**: `index`, `store_name` (32 bytes, WINDOWS-1250)
-/// - **Economy**: `inn_night_cost` (0 = shop, >0 = inn), `some_unknown_number` (i16)
-/// - **Inventory**: `products` (up to 71 items as `(order, type, id)`)
+/// - **Economy**: `inn_night_cost` (0 = shop, >0 = inn), `price_modifier` (i16)
+/// - **Inventory**: `products` (up to 15 items as `(type, id)`)
 /// - **Dialogue**: `invitation` (512 bytes), `haggle_success` (128 bytes), `haggle_fail` (128 bytes)
 ///
 /// # Special Values
@@ -99,8 +98,13 @@ pub struct Store {
     pub store_name: String,
     /// Price to rest; dictates physical structure padding in save format.
     pub inn_night_cost: i32,
-    /// Modifies global economy or prices locally.
-    pub some_unknown_number: i16,
+    /// Price modifier (percentage) applied to item prices. Only meaningful for shops
+    /// (`inn_night_cost == 0`); for inns it is always 0.
+    ///
+    /// Used by the game as a signed percentage markup on an item's base price:
+    /// `buy_price = base + (modifier * base) / 100` and
+    /// `sell_price = base/2 + (modifier * (base/2)) / 100`
+    pub price_modifier: i16,
     /// Ordered list of distinct item parameters available for purchase.
     pub products: Vec<StoreProduct>,
     /// 512-byte text shown on interacting with the merchant.
@@ -130,19 +134,20 @@ impl Extractor for Store {
             let name = read_null_terminated_windows_1250(&buffer).unwrap();
 
             let inn_night_cost = reader.read_i32::<LittleEndian>()?;
-            let mut some_unknown_number = 0;
+            let mut price_modifier = 0;
             let mut products: Vec<StoreProduct> = vec![];
 
             if inn_night_cost > 0 {
                 reader.seek(SeekFrom::Current(144))?;
             } else {
-                some_unknown_number = reader.read_i16::<LittleEndian>()?; // price modifier?
+                price_modifier = reader.read_i16::<LittleEndian>()?; // price modifier
 
+                // 15 product slots (4 bytes each) + 82 bytes padding
                 let mut buffer = [0u8; 142];
                 reader.read_exact(&mut buffer)?;
                 let mut cursor = Cursor::new(&buffer);
 
-                for i in 0..buffer.len() / 2 {
+                for i in 0..15 {
                     let item_type_raw = cursor.read_i16::<LittleEndian>().unwrap();
                     if item_type_raw == 0 {
                         break;
@@ -175,7 +180,7 @@ impl Extractor for Store {
                 index: i as i32,
                 store_name: name.to_string(),
                 inn_night_cost,
-                some_unknown_number,
+                price_modifier,
                 products,
                 invitation: invitation.to_string(),
                 haggle_success: haggle_success.to_string(),
@@ -203,7 +208,7 @@ impl Extractor for Store {
             if record.inn_night_cost > 0 {
                 writer.write_all(&[0u8; 144])?;
             } else {
-                writer.write_i16::<LittleEndian>(record.some_unknown_number)?;
+                writer.write_i16::<LittleEndian>(record.price_modifier)?;
                 let mut prod_buf = [0u8; 142];
                 let mut cursor = Cursor::new(&mut prod_buf[..]);
                 for prod in &record.products {
@@ -246,7 +251,7 @@ pub fn save_stores(conn: &mut Connection, stores: &[Store]) -> Result<()> {
                 store.index,
                 store.store_name,
                 store.inn_night_cost,
-                store.some_unknown_number,
+                store.price_modifier,
                 store.invitation,
                 store.haggle_success,
                 store.haggle_fail,

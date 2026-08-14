@@ -12,7 +12,7 @@ Binary database file that defines shops and inns with inventories, prices, merch
 **Encoding**: Binary (Little-Endian)
 **Text Encoding**: WINDOWS-1250
 **Header**: 4-byte record count
-**Record Size**: 948 bytes (237 × 4-byte fields)
+**Record Size**: 948 bytes
 **Total Records**: Variable (determined by header)
 
 ### Binary Format
@@ -25,10 +25,11 @@ Binary database file that defines shops and inns with inventories, prices, merch
 - name: 32 bytes (WINDOWS-1250, null-padded)
 - inn_night_cost: i32 (determines record type)
 - IF inn_night_cost > 0 (Inn):
-  - 144 bytes padding
+  - 144 bytes padding (price modifier + 15 product slots, all zero)
 - ELSE (Shop):
-  - some_unknown_number: i16 (price modifier?)
-  - products: 71 × (i16, i16) pairs (order, type, item_id)
+  - price_modifier: i16 (percentage applied to item prices)
+  - products: 15 × (i16, i16) slots (type, item_id), terminated by type = 0
+  - 82 bytes padding
 - invitation: 512 bytes (WINDOWS-1250, null-padded)
 - haggle_success: 128 bytes (WINDOWS-1250, null-padded)
 - haggle_fail: 128 bytes (WINDOWS-1250, null-padded)
@@ -41,8 +42,9 @@ Binary database file that defines shops and inns with inventories, prices, merch
 | index | N/A | i32 | Record index (assigned during parsing) |
 | store_name | 32 | string | Shop/Inn name (WINDOWS-1250 encoded) |
 | inn_night_cost | 4 | i32 | Night cost (>0 = inn, 0 = shop) |
-| some_unknown_number | 2 | i16 | Price modifier (shops only) |
-| products | 142 | array | Product list (shops only) |
+| price_modifier | 2 | i16 | Percentage applied to item prices (shops only) |
+| products | 60 | array | Product list (shops only, up to 15 slots) |
+| padding | 82 | bytes | Always zero (shops) |
 | invitation | 512 | string | Merchant greeting (WINDOWS-1250) |
 | haggle_success | 128 | string | Successful haggle response |
 | haggle_fail | 128 | string | Failed haggle response |
@@ -56,7 +58,7 @@ Binary database file that defines shops and inns with inventories, prices, merch
 - Dialogue for innkeeper
 
 **Shop (inn_night_cost = 0):**
-- Product inventory (up to 71 items)
+- Product inventory (up to 15 items)
 - Sells goods and equipment
 - Price modifier affects economy
 - Merchant dialogue and haggling
@@ -68,13 +70,27 @@ Binary database file that defines shops and inns with inventories, prices, merch
 - **2**: Healing - Healing items (potions, etc.)
 - **3**: EditItem - Editable/modifiable equipment
 - **4**: MiscItem - Miscellaneous items
-- **5**: EventItem - Event items
 
 **Product Format:**
-- `(order: i16, type: i16, item_id: i16)`
+- `(type: i16, item_id: i16)` per slot (4 bytes each)
 - Terminated by `type = 0`
-- Max 71 products per shop
-- Order determines display sequence
+- Max 15 products per shop (the game iterates `iVar4 < 0xf`)
+- Slot index is the display order
+
+### Price Modifier & Pricing Formulas
+
+The `price_modifier` field is a signed percentage applied to an item's base price:
+
+```
+buy_price  = base_price + (price_modifier * base_price) / 100
+sell_price = base_price/2 + (price_modifier * (base_price/2)) / 100
+```
+
+- **Buy price**: the player pays `base_price * (1 + price_modifier/100)`.
+- **Sell price**: the shop pays the player `(base_price/2) * (1 + price_modifier/100)`
+  (items sell at half their base price, then the modifier is applied).
+- A positive modifier raises prices (e.g. `10` → +10%); a negative modifier lowers them.
+- A value of `0` means the shop sells at the item's unmodified base price.
 
 ### Data Structure
 
@@ -85,10 +101,10 @@ pub struct Store {
     index: i32,                    // Record index
     store_name: String,            // Shop name (32 chars max)
     inn_night_cost: i32,           // >0 = inn, 0 = shop
-    some_unknown_number: i16,      // Price modifier (shops)
+    price_modifier: i16,           // Price modifier (shops)
     products: Vec<StoreProduct>,   // Product inventory
-    invitation: String,           // Greeting text (512 chars)
-    haggle_success: String,       // Success text (128 chars)
+    invitation: String,            // Greeting text (512 chars)
+    haggle_success: String,        // Success text (128 chars)
     haggle_fail: String,           // Failure text (128 chars)
 }
 
@@ -102,10 +118,12 @@ Offset | Size | Field | Description
 -------|------|-------|-------------
 0      | 32   | name  | Null-padded WINDOWS-1250 string
 32     | 4    | cost  | inn_night_cost (i32)
-36     | VAR  | data  | Variable data (inn=padding, shop=products)
-VAR    | 512  | invit | Invitation text (WINDOWS-1250)
-VAR+512| 128  | succ  | Haggle success text
-VAR+640| 128  | fail  | Haggle fail text
+36     | 2    | mod   | price_modifier (i16, shops only)
+38     | 60   | prods | 15 × (type, item_id) slots (shops only)
+98     | 82   | pad   | Always zero
+180    | 512  | invit | Invitation text (WINDOWS-1250)
+692    | 128  | succ  | Haggle success text
+820    | 128  | fail  | Haggle fail text
 ```
 
 ### Special Values
@@ -129,107 +147,10 @@ haggle_fail: "That's my best price!" (128 bytes)
 ```
 name: "Weapon Shop" (32 bytes)
 inn_night_cost: 0 (i32)
-some_unknown_number: 10 (i16 - price modifier)
-products: [(1, Weapon, 101), (2, Healing, 205), ...]
+price_modifier: 10 (i16)
+products: [(Weapon, 101), (Healing, 205), ...]
+82 bytes padding
 invitation: "Welcome to my shop!" (512 bytes)
 haggle_success: "Great deal!" (128 bytes)
 haggle_fail: "No discounts!" (128 bytes)
-```
-
-### Usage in Game
-
-1. **Commerce System**: Shop inventory and pricing
-2. **Inn System**: Rest and healing services
-3. **Dialogue System**: Merchant interactions
-4. **Economy System**: Price modifiers and haggling
-5. **Quest System**: Special shop/inn locations
-
-### File Characteristics
-
-- **Record Size**: 948 bytes (fixed)
-- **Header**: 4-byte record count
-- **Encoding**: WINDOWS-1250 for all text
-- **Structure**: Union type (inn vs shop)
-- **Complexity**: Mixed record formats
-
-### Technical Analysis
-
-**Efficiency:**
-- Fixed record size enables random access
-- Union structure optimizes space
-- Large text fields for dialogue
-- Complex parsing logic required
-
-**Limitations:**
-- Fixed product limit (71 items)
-- Mixed record types complicate parsing
-- Large padding for inns
-- Complex binary format
-
-**Performance:**
-- Moderate parsing complexity
-- Efficient database storage
-- Separate product table
-- Dialogue text optimization
-
-### Notes
-
-- File uses complex binary format with union types
-- Mixed inn/shop records require conditional parsing
-- Fixed record size enables efficient access
-- Integrated with commerce and dialogue systems
-- **No copyrighted game content** is reproduced or distributed
-
-### Comparison with Other Databases
-
-**Store.db vs HealItem.db:**
-- **Store.db**: Commerce system with dialogue
-- **HealItem.db**: Consumable items only
-- **Store.db**: Complex inventory system
-- **HealItem.db**: Simple healing effects
-
-**Store.db vs MiscItem.db:**
-- **Store.db**: Shops with inventories
-- **MiscItem.db**: Individual utility items
-- **Store.db**: Economic system
-- **MiscItem.db**: Simple item list
-
-### File Purpose Summary
-
-Store.db serves as a comprehensive database for:
-- Shop inventories and pricing
-- Inn services and accommodation
-- Merchant dialogue and haggling
-- Economic system integration
-- Quest-related commerce locations
-
-The file provides a sophisticated system for managing all commerce-related entities in the game, supporting both simple inns and complex shops with extensive inventories and interactive dialogue.
-
-## Legal Notice
-
-⚠️ **DISCLAIMER**: This documentation describes technical file format specifications only. It does not distribute any copyrighted game content, shop data, or proprietary assets. All references to commerce systems are for **educational and research purposes** to document file organization and data structures.
-
-**DISPEL®** is a registered trademark. This documentation is **not affiliated with, endorsed by, or sponsored by** the trademark owner.
-
-## Legal Compliance
-
-This documentation:
-- Describes **file format specifications only**
-- Does **not** distribute any shop data or game content
-- Focuses on **technical organization and commerce systems**
-- Explains **store mechanics and economic structures**
-- Maintains **nominal fair use** for trademark references
-
-## Extractor
-
-An extractor is available in `src/references/store_db.rs` to parse this file format.
-
-### How to Run
-
-```bash
-# Extract Store.db to JSON
-cargo run -- extract -i "fixtures/Dispel/CharacterInGame/Store.db"
-
-# Import to SQLite database
-cargo run -- database import "fixtures/Dispel/" "database.sqlite"
 ```
