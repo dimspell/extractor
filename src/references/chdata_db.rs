@@ -71,22 +71,21 @@ pub struct ChData {
     #[extractor(primitive(type = "i16"))]
     pub reserved_stat: i16,
 
-    /// Extra attribute points during character creation for the Warrior class (unused)
+    /// Derived-stat bonus for the Warrior class: added to offense (STR-derived).
     #[extractor(primitive(type = "i32"))]
-    pub warrior_extra_points: i32,
-    /// Extra attribute points during character creation for the Knight class (unused)
+    pub warrior_offense_bonus: i32,
+    /// Derived-stat bonus for the Knight class: added to defense (AGI-derived).
     #[extractor(primitive(type = "i32"))]
-    pub knight_extra_points: i32,
-    /// Extra attribute points during character creation for theArcher class (unused)
+    pub knight_defense_bonus: i32,
+    /// Derived-stat bonus for the Archer class: added to dodge_rate (CON-derived).
     #[extractor(primitive(type = "i32"))]
-    pub archer_extra_points: i32,
-    /// Extra attribute points during character creation for the Mage class (unused)
+    pub archer_dodge_bonus: i32,
+    /// Derived-stat bonus for the Archer class: added to hit_rate (CON-derived).
     #[extractor(primitive(type = "i32"))]
-    pub mage_extra_points: i32,
-
-    /// Extra attribute points received after leveling up (in-game) (unused)
+    pub archer_hit_bonus: i32,
+    /// Derived-stat bonus for the Mage class: added to magic_power (WIS-derived).
     #[extractor(primitive(type = "i32"))]
-    pub extra_points_per_level: i32,
+    pub mage_magic_power_bonus: i32,
 }
 
 pub fn read_chdata(source_path: &Path) -> std::io::Result<Vec<ChData>> {
@@ -113,8 +112,8 @@ mod tests {
         assert_eq!(r.unused_name, "");
         assert_eq!(r.warrior_strength, 0);
         assert_eq!(r.reserved_stat, 0);
-        assert_eq!(r.warrior_extra_points, 0);
-        assert_eq!(r.extra_points_per_level, 0);
+        assert_eq!(r.warrior_offense_bonus, 0);
+        assert_eq!(r.mage_magic_power_bonus, 0);
     }
 
     #[test]
@@ -133,9 +132,9 @@ mod tests {
         buf[60..62].copy_from_slice(&40i16.to_le_bytes());
         // reserved_stat at offset 62 (i16, after 16 class attrs)
         buf[62..64].copy_from_slice(&99i16.to_le_bytes());
-        // warrior_extra_points at offset 64 (i32)
+        // warrior_offense_bonus at offset 64 (i32)
         buf[64..68].copy_from_slice(&5i32.to_le_bytes());
-        // extra_points_per_level at offset 80 (i32)
+        // mage_magic_power_bonus at offset 80 (i32)
         buf[80..84].copy_from_slice(&42i32.to_le_bytes());
 
         let mut c = Cursor::new(buf);
@@ -148,11 +147,11 @@ mod tests {
         assert_eq!(r.archer_wisdom, 30);
         assert_eq!(r.mage_agility, 40);
         assert_eq!(r.reserved_stat, 99);
-        assert_eq!(r.warrior_extra_points, 5);
-        assert_eq!(r.extra_points_per_level, 42);
+        assert_eq!(r.warrior_offense_bonus, 5);
+        assert_eq!(r.mage_magic_power_bonus, 42);
         // default-zero fields
         assert_eq!(r.warrior_constitution, 0);
-        assert_eq!(r.knight_extra_points, 0);
+        assert_eq!(r.knight_defense_bonus, 0);
     }
 
     #[test]
@@ -164,8 +163,8 @@ mod tests {
             archer_wisdom: 30,
             mage_agility: 40,
             reserved_stat: 99,
-            warrior_extra_points: 5,
-            extra_points_per_level: 42,
+            warrior_offense_bonus: 5,
+            mage_magic_power_bonus: 42,
             ..Default::default()
         }];
 
@@ -183,7 +182,7 @@ mod tests {
         assert_eq!(p.archer_wisdom, 30);
         assert_eq!(p.mage_agility, 40);
         assert_eq!(p.reserved_stat, 99);
-        assert_eq!(p.warrior_extra_points, 5);
-        assert_eq!(p.extra_points_per_level, 42);
+        assert_eq!(p.warrior_offense_bonus, 5);
+        assert_eq!(p.mage_magic_power_bonus, 42);
     }
 }

@@ -22,11 +22,11 @@ editable_record_fields!(ChData, {
     { mage_wisdom = Integer / "Mage WIS:" },
     { mage_agility = Integer / "Mage AGI:" },
     { reserved_stat = Integer / "Reserved:" },
-    { warrior_extra_points = Integer / "Warrior Extra:" },
-    { knight_extra_points = Integer / "Knight Extra:" },
-    { archer_extra_points = Integer / "Archer Extra:" },
-    { mage_extra_points = Integer / "Mage Extra:" },
-    { extra_points_per_level = Integer / "Per Level:" },
+    { warrior_offense_bonus = Integer / "Warrior Offense:" },
+    { knight_defense_bonus = Integer / "Knight Defense:" },
+    { archer_dodge_bonus = Integer / "Archer Dodge:" },
+    { archer_hit_bonus = Integer / "Archer Hit:" },
+    { mage_magic_power_bonus = Integer / "Mage Magic Power:" },
 });
 
 impl EditableRecord for ChData {
