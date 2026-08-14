@@ -87,10 +87,7 @@ pub struct MiscItem {
     /// Value retrieved when standard bartering.
     #[extractor(primitive(type = "i32"))]
     pub base_price: i32,
-    /// Reserved on-disk bytes at offsets `0xEC..0xFB`.
-    ///
-    /// The game loads and carries these bytes with the record, but no direct
-    /// semantic use was identified in the executable. Preserve them verbatim.
+    /// Unused bytes.
     #[extractor(vec_u8(size = 16))]
     pub reserved_bytes: Vec<u8>,
     /// On-disk slot at offset `0xFC` for the runtime record index.
