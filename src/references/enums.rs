@@ -1903,52 +1903,6 @@ impl From<PartyRootMapId> for i32 {
     }
 }
 
-/// Ghost face identifiers for party members
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i32)]
-pub enum GhostFaceId {
-    /// No ghost face/unknown
-    #[default]
-    None = 0,
-}
-
-impl GhostFaceId {
-    /// Convert from i32 with validation
-    pub fn from_i32(value: i32) -> Option<Self> {
-        match value {
-            0 => Some(GhostFaceId::None),
-            _ => None,
-        }
-    }
-
-    /// Get the numeric value
-    pub fn value(&self) -> i32 {
-        *self as i32
-    }
-}
-
-impl std::fmt::Display for GhostFaceId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GhostFaceId::None => write!(f, "None"),
-        }
-    }
-}
-
-impl TryFrom<i32> for GhostFaceId {
-    type Error = &'static str;
-
-    fn try_from(value: i32) -> Result<Self, Self::Error> {
-        GhostFaceId::from_i32(value).ok_or("Invalid ghost face ID value")
-    }
-}
-
-impl From<GhostFaceId> for i32 {
-    fn from(face_id: GhostFaceId) -> Self {
-        face_id.value()
-    }
-}
-
 /// Product types for store inventory items
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(i32)]
@@ -2314,14 +2268,5 @@ mod tests {
 
         assert_eq!(i32::from(NpcLookingDirection::UpLeft), 7);
         assert_eq!(NpcLookingDirection::UpLeft.value(), 7);
-    }
-
-    #[test]
-    fn test_ghost_face_id_conversion() {
-        assert_eq!(GhostFaceId::from_i32(0), Some(GhostFaceId::None));
-        assert_eq!(GhostFaceId::from_i32(99), None);
-
-        assert_eq!(i32::from(GhostFaceId::None), 0);
-        assert_eq!(GhostFaceId::None.value(), 0);
     }
 }

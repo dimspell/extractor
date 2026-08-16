@@ -1,6 +1,5 @@
 use std::path::Path;
 
-use crate::references::enums::GhostFaceId;
 use crate::references::extractor::Extractor;
 use dispel_macros::{Localizable, TextExtractor, TextRecordPatcher};
 use rusqlite::{Connection, Result, params};
@@ -23,9 +22,9 @@ use serde::{Deserialize, Serialize};
 /// | Record Size: Variable (text)        |
 /// +--------------------------------------+
 /// | ; Comment line                      |
-/// | id,name,job,map_id,npc_id,dlg_out,dlg_in,ghost|
+/// | id,name,job,map_id,npc_id,dlg_out,dlg_in,in_party|
 /// | 1,Hero,null,1,1,100,101,1           |
-/// | 2,Warrior,Fighter,1,2,102,103,2     |
+/// | 2,Warrior,Fighter,1,2,102,103,0     |
 /// | ...                                 |
 /// +--------------------------------------+
 /// ```
@@ -39,7 +38,9 @@ use serde::{Deserialize, Serialize};
 /// - `npc_id`: Linked NPC record ID
 /// - `dlg_when_not_in_party`: Dialog ID when not in party (shown as `dlg_out` in file)
 /// - `dlg_when_in_party`: Dialog ID when in party (shown as `dlg_in` in file)
-/// - `ghost_face_id`: Ghost face/sprite ID for UI (shown as `ghost` in file)
+/// - `is_in_party`: Boolean flag (0/1) marking the character as currently in the party
+///   (shown as `in_party` in file). The game reads this as a single byte and uses it to
+///   highlight the character's name in the party member list when non-zero.
 ///
 /// # Special Values
 ///
@@ -81,9 +82,11 @@ pub struct PartyRef {
     /// Dialog topic when the character is actively grouped.
     #[extractor(field = 6)]
     pub dlg_when_in_party: i32,
-    /// Sprite ID for their UI portrait or ghost form.
-    #[extractor(field = 7, enum_from_i32(type = "GhostFaceId"))]
-    pub ghost_face_id: GhostFaceId,
+    /// Boolean flag (0/1) marking the character as currently in the party.
+    /// The game reads this as a single byte and highlights the character's name
+    /// in the party member list when non-zero.
+    #[extractor(field = 7)]
+    pub is_in_party: i32,
 }
 
 pub fn read_part_refs(source_path: &Path) -> std::io::Result<Vec<PartyRef>> {
@@ -120,7 +123,7 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
                 } else {
                     Some(party_ref.dlg_when_in_party)
                 },
-                i32::from(party_ref.ghost_face_id),
+                i32::from(party_ref.is_in_party),
             ])?;
         }
     }
@@ -131,7 +134,6 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::references::enums::GhostFaceId;
     use std::io::Cursor;
 
     #[test]
@@ -147,7 +149,7 @@ mod tests {
         assert_eq!(refs[0].npc_id, 5);
         assert_eq!(refs[0].dlg_when_not_in_party, 100);
         assert_eq!(refs[0].dlg_when_in_party, 101);
-        assert_eq!(refs[0].ghost_face_id, GhostFaceId::None);
+        assert_eq!(refs[0].is_in_party, 0);
     }
 
     #[test]
