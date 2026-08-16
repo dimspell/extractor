@@ -1081,14 +1081,14 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
 
     if let Some(member) = save_file.character_identity.party_members.first() {
         hex_editors.push(RawHexEditorData {
-            label: format!("Party member (1): {}", member.name).into(),
+            label: format!("Party member (1): {}", member.name),
             data: party_member_runtime_bytes(member),
         })
     }
 
     if let Some(member) = save_file.character_identity.party_members.get(1) {
         hex_editors.push(RawHexEditorData {
-            label: format!("Party member (2): {}", member.name).into(),
+            label: format!("Party member (2): {}", member.name),
             data: party_member_runtime_bytes(member),
         })
     }
