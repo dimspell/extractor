@@ -123,7 +123,7 @@ pub fn save_party_refs(conn: &mut Connection, party_refs: &[PartyRef]) -> Result
                 } else {
                     Some(party_ref.dlg_when_in_party)
                 },
-                i32::from(party_ref.is_in_party),
+                party_ref.is_in_party,
             ])?;
         }
     }

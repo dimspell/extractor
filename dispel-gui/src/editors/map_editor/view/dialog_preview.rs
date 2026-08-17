@@ -10,7 +10,7 @@ use iced::Element;
 use iced::widget::{button, column, container, row, scrollable, text};
 
 use super::super::message::MapEditorMessage;
-use super::super::state::{DialogPreviewState, MapEditorState};
+use super::super::state::{ConversationState, DialogPreviewState, MapEditorState};
 use gui_widgets::lucide::{LUCIDE_FONT, icon_char};
 use lucide_icons::Icon;
 
@@ -138,12 +138,195 @@ fn build_tree_lines(
     }
 }
 
+// ── Conversation view ─────────────────────────────────────────────────────────
+
+/// Render the interactive conversation display.
+fn view_conversation<'a>(tab_id: usize, conv: &'a ConversationState) -> Element<'a, Message> {
+    let header_row: Element<'a, Message> = row![
+        text("Conversation").size(14).style(style::primary_text),
+        text(format!(" — {}", conv.npc_name))
+            .size(12)
+            .style(style::subtle_text),
+        horizontal_space(),
+        button(text(icon_char(Icon::RotateCcw)).font(LUCIDE_FONT).size(12))
+            .on_press(Message::map_editor(MapEditorMessage::ResetConversation(
+                tab_id,
+            )))
+            .padding([2, 6])
+            .style(style::browse_button),
+        button(text(icon_char(Icon::ListTree)).font(LUCIDE_FONT).size(12))
+            .on_press(Message::map_editor(MapEditorMessage::CloseConversation(
+                tab_id,
+            )))
+            .padding([2, 6])
+            .style(style::browse_button),
+        button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
+            .on_press(Message::map_editor(MapEditorMessage::HideDialogPreview(
+                tab_id,
+            )))
+            .padding([2, 8])
+            .style(style::browse_button),
+    ]
+    .spacing(8)
+    .align_y(iced::Alignment::Center)
+    .into();
+
+    // Build conversation lines
+    let mut lines: Vec<Element<'a, Message>> = Vec::new();
+
+    for line in &conv.history {
+        let is_npc = line.speaker != "Player";
+
+        if line.is_system {
+            // System/event notification — show as a small italic-style note
+            let speaker_text = text(format!("{}:", line.speaker))
+                .size(10)
+                .font(iced::Font::MONOSPACE)
+                .style(style::subtle_text);
+
+            let body_text = text(&line.text)
+                .size(11)
+                .style(move |_theme: &iced::Theme| iced::widget::text::Style {
+                    color: Some(iced::Color::from_rgb(0.55, 0.6, 0.5)),
+                });
+
+            let bubble = container(column![speaker_text, body_text].spacing(1))
+                .padding([3, 10])
+                .width(iced::Length::Fill)
+                .style(style::toolbar_container);
+
+            lines.push(bubble.into());
+        } else if line.locked {
+            // Locked node — show dimmed with event requirement
+            let event_label = line
+                .locked_event_id
+                .map(|e| format!(" [requires event {e}]"))
+                .unwrap_or_default();
+            let speaker_text = text(format!("{}: (locked)", line.speaker))
+                .size(11)
+                .font(iced::Font::MONOSPACE)
+                .style(style::subtle_text);
+
+            let body_text = text(format!("{}{}", line.text, event_label))
+                .size(12)
+                .style(move |_theme: &iced::Theme| iced::widget::text::Style {
+                    color: Some(iced::Color::from_rgb(0.45, 0.45, 0.4)),
+                });
+
+            let bubble = container(column![speaker_text, body_text].spacing(2))
+                .padding([6, 10])
+                .width(iced::Length::Fill)
+                .style(style::toolbar_container);
+
+            lines.push(bubble.into());
+        } else {
+            // Normal (unlocked) node
+            let speaker_text = text(format!("{}:", line.speaker))
+                .size(11)
+                .font(iced::Font::MONOSPACE)
+                .style(if is_npc {
+                    style::primary_text
+                } else {
+                    style::subtle_text
+                });
+
+            let body_text = text(&line.text)
+                .size(12)
+                .style(move |_theme: &iced::Theme| iced::widget::text::Style {
+                    color: Some(if is_npc {
+                        iced::Color::from_rgb(0.85, 0.85, 0.75)
+                    } else {
+                        iced::Color::from_rgb(0.7, 0.75, 0.85)
+                    }),
+                });
+
+            let bubble = container(column![speaker_text, body_text].spacing(2))
+                .padding([6, 10])
+                .width(iced::Length::Fill)
+                .style(if is_npc {
+                    style::inspector_container
+                } else {
+                    style::toolbar_container
+                });
+
+            lines.push(bubble.into());
+        }
+    }
+
+    // Show choices or advance prompt
+    if !conv.choices.is_empty() {
+        let choice_label = text("Choose:").size(11).style(style::subtle_text);
+        lines.push(horizontal_rule(1).into());
+        lines.push(choice_label.into());
+
+        for (i, choice) in conv.choices.iter().enumerate() {
+            let idx = i;
+            let btn = button(text(&choice.label).size(11))
+                .on_press(Message::map_editor(MapEditorMessage::SelectChoice(
+                    tab_id, idx,
+                )))
+                .padding([6, 12])
+                .width(iced::Length::Fill)
+                .style(style::browse_button);
+            lines.push(btn.into());
+        }
+    } else if conv.waiting_for_advance {
+        lines.push(horizontal_rule(1).into());
+        lines.push(
+            button(
+                text("Click to continue…")
+                    .size(11)
+                    .style(style::subtle_text),
+            )
+            .on_press(Message::map_editor(MapEditorMessage::AdvanceConversation(
+                tab_id,
+            )))
+            .padding([6, 12])
+            .width(iced::Length::Fill)
+            .style(style::browse_button)
+            .into(),
+        );
+    } else if conv.finished {
+        lines.push(horizontal_rule(1).into());
+        lines.push(
+            text("[Conversation ended]")
+                .size(11)
+                .style(style::subtle_text)
+                .into(),
+        );
+    }
+
+    let content = column(lines).spacing(6);
+
+    container(
+        column![
+            header_row,
+            horizontal_rule(1),
+            scrollable(content).height(iced::Length::Fill),
+        ]
+        .spacing(8)
+        .padding(16)
+        .width(iced::Length::Fixed(500.0))
+        .height(iced::Length::Shrink),
+    )
+    .style(style::toolbar_container)
+    .height(550.0)
+    .into()
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────────
+
 /// Render the dialog preview modal.
 pub fn view_dialog_preview<'a>(
     state: &'a MapEditorState,
     tab_id: usize,
     preview: &DialogPreviewState,
 ) -> Element<'a, Message> {
+    // If a conversation is active, show it instead of the tree view
+    if let Some(ref conv) = state.view.conversation {
+        return view_conversation(tab_id, conv);
+    }
+
     let entry_id = state
         .data
         .npcs
@@ -181,9 +364,16 @@ pub fn view_dialog_preview<'a>(
         .into();
     }
 
-    let header_row: Element<'_, Message> = row![
+    let header_row: Element<'a, Message> = row![
         text(npc_label).size(14).style(style::primary_text),
         horizontal_space(),
+        button(text("Conversation").size(11))
+            .on_press(Message::map_editor(MapEditorMessage::StartConversation(
+                tab_id,
+                preview.npc_index,
+            )))
+            .padding([3, 10])
+            .style(style::browse_button),
         button(text(icon_char(Icon::X)).font(LUCIDE_FONT).size(14))
             .on_press(Message::map_editor(MapEditorMessage::HideDialogPreview(
                 tab_id,
@@ -195,7 +385,7 @@ pub fn view_dialog_preview<'a>(
     .align_y(iced::Alignment::Center)
     .into();
 
-    let entries: Element<'_, Message> = column(lines.into_iter().map(|line| {
+    let entries: Element<'a, Message> = column(lines.into_iter().map(|line| {
         let left_pad = line.depth as f32 * 24.0;
 
         // Build label prefix (option letter or empty)
@@ -226,7 +416,7 @@ pub fn view_dialog_preview<'a>(
             text = display_text,
         );
 
-        let mut line_parts: Vec<Element<'_, Message>> = vec![text(base_text).size(11).into()];
+        let mut line_parts: Vec<Element<'a, Message>> = vec![text(base_text).size(11).into()];
 
         if line.has_prereq {
             line_parts.push(

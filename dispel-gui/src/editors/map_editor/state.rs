@@ -1,8 +1,10 @@
 use super::message::{MapDataHandle, SelectedEntity};
 use crate::components::loading_state::LoadingState;
 pub use crate::components::map_render::{EntitySpriteHandle, InternalSpriteHandle, MapViewState};
+use dispel_core::references::dialogue_paragraph::DialogueParagraph;
+use dispel_core::references::dialogue_script::DialogueScript;
 use iced::widget::image::Handle;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 
 const MAX_MAP_HISTORY: usize = 100;
@@ -50,8 +52,68 @@ pub struct MapEditAction {
 /// Loaded dialog data for the NPC dialog preview modal.
 pub struct DialogPreviewState {
     pub npc_index: usize,
-    pub dialog_scripts: Vec<dispel_core::references::dialogue_script::DialogueScript>,
-    pub dialog_paragraphs: Vec<dispel_core::references::dialogue_paragraph::DialogueParagraph>,
+    pub dialog_scripts: Vec<DialogueScript>,
+    pub dialog_paragraphs: Vec<DialogueParagraph>,
+}
+
+// ── Interactive conversation state ─────────────────────────────────────────────
+
+/// A single displayed line in the conversation.
+#[derive(Debug, Clone)]
+pub struct ConversationLine {
+    /// "NPC name" or "Player"
+    pub speaker: String,
+    /// Decoded PGP text (`$` → newlines)
+    pub text: String,
+    /// Whether this line was a choice option the player picked
+    pub is_choice: bool,
+    /// Whether this line is locked (event gate not satisfied)
+    pub locked: bool,
+    /// The event ID required to unlock this line (if locked)
+    pub locked_event_id: Option<i32>,
+    /// Whether this is a system/event notification (not a dialog line)
+    pub is_system: bool,
+}
+
+/// One selectable option in a choice dialog.
+#[derive(Debug, Clone)]
+pub struct ChoiceOption {
+    /// Label shown to the user ("A", "B", "C" or text preview)
+    pub label: String,
+    /// DLG node to follow if selected
+    pub target_node_id: i32,
+    /// Event to fire when this choice is taken
+    pub triggered_event_id: i32,
+}
+
+/// State for the interactive conversation display.
+///
+/// Walks the DLG graph sequentially, checking event gates and following
+/// branches, exactly as the game engine would.
+#[derive(Debug, Clone)]
+pub struct ConversationState {
+    /// Index of the NPC being conversed with.
+    pub npc_index: usize,
+    /// NPC display name (for speaker labels).
+    pub npc_name: String,
+    /// All DLG nodes for this map.
+    pub scripts: Vec<DialogueScript>,
+    /// All PGP paragraphs for this map.
+    pub paragraphs: Vec<DialogueParagraph>,
+    /// The NPC's entry dialog_id.
+    pub entry_dialog_id: i32,
+    /// Current DLG node id being displayed.
+    pub current_node_id: Option<i32>,
+    /// Conversation history.
+    pub history: Vec<ConversationLine>,
+    /// Events triggered during this conversation.
+    pub executed_events: HashSet<i32>,
+    /// Available choices (when current node is Choice type).
+    pub choices: Vec<ChoiceOption>,
+    /// Whether waiting for a click to advance (normal dialog).
+    pub waiting_for_advance: bool,
+    /// Conversation finished (no next node).
+    pub finished: bool,
 }
 
 // ── MapDataState ──────────────────────────────────────────────────────────────

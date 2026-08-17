@@ -6,6 +6,7 @@ use crate::message::{Message, MessageExt};
 use iced::Task;
 use std::sync::Arc;
 
+mod conversation;
 mod dialog;
 mod entity;
 mod map;
@@ -121,6 +122,18 @@ pub fn handle(message: MapEditorMessage, app: &mut App) -> Task<Message> {
             dialog::preview_loaded(app, tab_id, result)
         }
         MapEditorMessage::HideDialogPreview(tab_id) => dialog::hide_preview(app, tab_id),
+        MapEditorMessage::StartConversation(tab_id, npc_idx) => {
+            conversation::start(app, tab_id, npc_idx)
+        }
+        MapEditorMessage::ConversationLoaded(tab_id, result) => {
+            conversation::loaded(app, tab_id, result)
+        }
+        MapEditorMessage::AdvanceConversation(tab_id) => conversation::advance(app, tab_id),
+        MapEditorMessage::SelectChoice(tab_id, idx) => {
+            conversation::select_choice(app, tab_id, idx)
+        }
+        MapEditorMessage::ResetConversation(tab_id) => conversation::reset(app, tab_id),
+        MapEditorMessage::CloseConversation(tab_id) => conversation::close(app, tab_id),
         MapEditorMessage::ShowSpriteExportDialog(tab_id) => sprite_export::show_dialog(app, tab_id),
         MapEditorMessage::CloseSpriteExportDialog(tab_id) => {
             sprite_export::close_dialog(app, tab_id)
