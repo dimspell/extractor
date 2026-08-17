@@ -9,17 +9,9 @@ Text file that defines event scripts with execution conditions, prerequisites, a
 ### File Structure
 
 **Location**: `Event.ini`
-**Encoding**: WINDOWS-1250 (Polish) — the comment header is written in Polish
+**Encoding**: EUC-KR (Korean character encoding)
 **Format**: CSV (Comma-Separated Values) with comments
-**Total Entries**: 2,251 event mappings (verified: IDs 0–2250)
-
-> **Note on encoding**: The file's comment header is Polish text encoded in
-> WINDOWS-1250 (e.g. `poprzedzający`, `wykonywane`). The parser declares
-> `EUC_KR` in `src/references/event_ini.rs`, but this is harmless because all
-> data fields are pure ASCII (numeric IDs, ASCII script filenames, `null`).
-> Only the comment lines carry non-ASCII bytes, and comments are skipped
-> during parsing. If the comment header were ever parsed, the encoding would
-> need to be corrected to WINDOWS-1250.
+**Total Entries**: 2,251 event mappings
 
 ### Format Specification
 
@@ -44,24 +36,21 @@ event_id,required_event_id,event_type,script_filename,counter
 
 ### Event Type System
 
-The file includes a detailed comment header (in Polish) explaining the event type system:
+The file includes a detailed comment header explaining the event type system:
 
 ```ini
-; Numer zdarzenia, poprzedzający identyfikator zdarzenia, typ:
-; 0 - wykonuje bezwarunkowo jeden raz (ignoruje poprzedzające zdarzenie)
-; 1 - wykonuje N razy bezwarunkowo (ignoruje poprzedzające zdarzenie)
-; 2 - wykonuje bezwarunkowo (ignoruje poprzedzające zdarzenie)
-; 3 - wykonywane raz, gdy poprzedzające zdarzenie jest niezadowalające
-; 4 - wykonaj N razy w przypadku niezadowolenia
-; 5 - kontynuuj wykonywanie, gdy zdarzenie poprzedzające nie jest spełnione
-; 6 - wykonaj 1 raz, gdy zdarzenie poprzedzające jest spełnione
-; 7 - wykonaj N razy, gdy zdarzenie poprzedzające jest spełnione
-; 8 - kontynuuj wykonywanie, gdy zdarzenie poprzedzające jest spełnione
-; skrypt nazwa pliku, ilość razy do wykonania (N)
+; Event number, preceding event identifier, type:
+; 0 - Execute once unconditionally (ignores preceding event)
+; 1 - Execute N times unconditionally (ignores preceding event)
+; 2 - Execute unconditionally (ignores preceding event)
+; 3 - Execute once if preceding event is unsatisfied
+; 4 - Execute N times if preceding event is unsatisfied
+; 5 - Continue executing if preceding event is unsatisfied
+; 6 - Execute once if preceding event is satisfied
+; 7 - Execute N times if preceding event is satisfied
+; 8 - Continue executing if preceding event is satisfied
+; Script filename, number of times to execute (N)
 ```
-
-The comment header documents the full 0–8 type range, but the codebase
-`EventType` enum only maps the four values actually present in the file.
 
 ### Event Type Details
 
@@ -76,23 +65,6 @@ The comment header documents the full 0–8 type range, but the codebase
 - Types 3-5: Execute when previous event unsatisfied
 - Types 6-8: Execute when previous event satisfied
 - Types 4, 7, 8: Use counter for repetition limits
-
-### Verified Event Type Distribution
-
-The `EventType` enum (`src/references/enums.rs`) maps only the values that
-actually occur in the file:
-
-| Value | Enum variant | Meaning | Count |
-|-------|--------------|---------|-------|
-| 0 | `Unknown` | Default / no condition | 1,729 |
-| 2 | `Conditional` | Execute N times unconditionally | 504 |
-| 5 | `ContinueOnUnsatisfied` | Continue when previous unsatisfied | 10 |
-| 6 | `ExecuteOnSatisfied` | Execute once when previous satisfied | 8 |
-
-**Verified facts:**
-- All 2,251 entries have `counter = 0` (no repetition limit used in this file).
-- 1,503 entries use the literal `null` script filename.
-- No data field contains non-ASCII bytes.
 
 ### Special Values
 
@@ -119,11 +91,9 @@ actually occur in the file:
 
 ### Technical Details
 
-**Encoding**: WINDOWS-1250 (Polish)
-- Supports Polish characters in comments
-- Data fields are pure ASCII, so the parser's declared `EUC_KR` encoding
-  does not affect parsing (comments are skipped)
-- Requires proper encoding handling if the comment header is ever read
+**Encoding**: EUC-KR (Extended Unix Code Korea)
+- Supports Korean characters in comments
+- Requires proper encoding handling for reading/writing
 
 **File Processing**:
 - Comments (lines starting with ";") are ignored
@@ -139,15 +109,20 @@ actually occur in the file:
 
 ### Event Type Enum
 
-The codebase defines a type-safe enum for event types. Only the four values
-present in the file are mapped; all others fall back to `Unknown`:
+The codebase defines a type-safe enum for event types:
 
 ```rust
 pub enum EventType {
-    Unknown,               // 0 - Default / no condition
-    Conditional,           // 2 - Execute N times unconditionally
-    ContinueOnUnsatisfied, // 5 - Continue when previous unsatisfied
-    ExecuteOnSatisfied,    // 6 - Execute once when previous satisfied
+    ExecuteOnce,           // Type 0
+    ExecuteNTimes,         // Type 1
+    ExecuteUnconditionally, // Type 2
+    ExecuteOnceIfFailed,   // Type 3
+    ExecuteNTimesIfFailed, // Type 4
+    ContinueIfFailed,      // Type 5
+    ExecuteOnceIfSucceeded, // Type 6
+    ExecuteNTimesIfSucceeded, // Type 7
+    ContinueIfSucceeded,  // Type 8
+    Unknown,               // Fallback
 }
 ```
 
@@ -169,16 +144,16 @@ The system supports complex event sequences:
 
 ### File Characteristics
 
-- **Entry Count**: 2,251 event mappings (verified)
-- **ID Range**: 0-2250 (contiguous, no gaps)
-- **Comment Organization**: Logical grouping by function (Polish comments)
-- **Encoding**: WINDOWS-1250 (Polish comments); data fields are ASCII
+- **Entry Count**: 2,251 event mappings
+- **ID Range**: 0-2250+ (some gaps in sequence)
+- **Comment Organization**: Logical grouping by function
+- **Encoding**: EUC-KR with Korean comments
 - **Format**: Strict CSV structure
 
 ### Notes
 
 - File uses Windows-style line endings (\r\n)
-- Comments provide detailed explanations in Polish
+- Comments provide detailed explanations in Korean
 - Event system forms core of game progression mechanics
 - Integrated with multiple game subsystems
 - **No copyrighted game content** is reproduced or distributed
