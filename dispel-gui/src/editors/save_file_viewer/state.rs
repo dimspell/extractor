@@ -1040,7 +1040,7 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         // },
         RawHexEditorData {
             label: "Belt Data (before stats) - A".into(),
-            data: save_file.unknown_before_stats_a.clone(),
+            data: save_file.unknown_before_stats.clone(),
         },
         RawHexEditorData {
             label: "Character Stats Header".into(),

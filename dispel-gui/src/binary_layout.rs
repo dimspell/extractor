@@ -176,7 +176,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         ty: "section",
         record_index: 0,
     });
-    let jump = u64::from(save.jump_addr_after_maps);
+    let jump = u64::from(save.game_tmp_blob_size);
     if jump < offset || jump > bytes.len() as u64 {
         return None;
     }

@@ -1553,15 +1553,15 @@ pub struct PostEventsData {
 pub struct SaveFile {
     /// Jump address after all map data (first 4 bytes of the file).
     /// The maps section is followed by alignment to this address.
-    pub jump_addr_after_maps: u32,
-    /// Per-map world state.
+    pub game_tmp_blob_size: u32,
+    /// Per-map world state (game.tmp blob length-prefixed by [Self.game_tmp_blob_size]).
     pub maps: Vec<MapSectionData>,
     /// Unknown data between maps and sprite paths (header + variable-size remainder).
     pub post_maps: PostMapsData,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
     /// Unknown 8 bytes
-    pub unknown_before_stats_a: Vec<u8>,
+    pub unknown_before_stats: Vec<u8>,
     pub character_position_x: i16,
     pub character_position_y: i16,
     /// Header before character stats, including the currently selected spell.
@@ -1636,11 +1636,11 @@ impl SaveFile {
         let journal = Self::parse_journal_section(&mut reader)?;
 
         Ok(SaveFile {
-            jump_addr_after_maps: jump_addr_after_maps as u32,
+            game_tmp_blob_size: jump_addr_after_maps as u32,
             maps,
             post_maps,
             sprite_paths,
-            unknown_before_stats_a: unknown_before_stats,
+            unknown_before_stats,
             character_position_x,
             character_position_y,
             character_stats_header,
@@ -2516,7 +2516,7 @@ impl Extractor for SaveFile {
 
         // 5. Belt data + character stats + trailing bytes
         Self::write_character_stats(
-            &save.unknown_before_stats_a,
+            &save.unknown_before_stats,
             save.character_position_x,
             save.character_position_y,
             &save.character_stats_header,
