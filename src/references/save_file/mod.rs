@@ -13,8 +13,7 @@ pub mod tests;
 
 use super::extractor::{Extractor, read_null_terminated_windows_1250};
 pub use crate::references::save_file::character::{
-    BeltPotionSlot, CharacterDataHeader, CharacterStatsHeader, EquipmentSlot,
-    InventoryPlacementEntry, LearnedSpells,
+    CharacterDataHeader, CharacterStatsHeader, LearnedSpells,
 };
 pub use crate::references::save_file::character::{CharacterIdentity, CharacterStats};
 pub use crate::references::save_file::events::{EventRecord, PostEventsData};
@@ -23,9 +22,12 @@ pub use crate::references::save_file::game_tmp::{
     ExtraObjectRecord, ExtraObjectTrailerRecord, MapExtraObjectsTrailer, MapSectionData,
     MonsterRecord, NpcRecord,
 };
+use crate::references::save_file::inventory::{
+    BELT_BYTES_SIZE, EQUIPPED_ITEM_BYTES, INVENTORY_BYTES_SIZE, InventoryPlacements,
+};
 pub use crate::references::save_file::inventory::{
-    InventoryData, InventoryEditItem, InventoryEventItem, InventoryHealItem, InventoryMiscItem,
-    InventoryWeaponItem,
+    BeltPotionSlot, InventoryData, InventoryEditItem, InventoryEventItem, InventoryHealItem,
+    InventoryMiscItem, InventoryWeaponItem,
 };
 pub use crate::references::save_file::journal::{JournalData, JournalEntry, JournalHeader};
 pub use crate::references::save_file::map_viewport::{
@@ -503,53 +505,12 @@ impl SaveFile {
         reader.read_exact(&mut header_buf)?;
         let character_data_header = CharacterDataHeader::parse(&header_buf)?;
 
-        // Equipped weapon items: 12 slots × 9 bytes = 108 bytes.
-        let mut equipment_raw = vec![0u8; 12 * 9];
-        reader.read_exact(&mut equipment_raw)?;
-        let equipped_equipment: Vec<EquipmentSlot> = equipment_raw
-            .chunks_exact(9)
-            .map(|chunk| {
-                let mut c = std::io::Cursor::new(chunk);
-                EquipmentSlot {
-                    panel_slot_marker: c.read_u8().unwrap(),
-                    weapon_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
-                    weapon_inventory_instance_id: c.read_i32::<LittleEndian>().unwrap(),
-                }
-            })
-            .collect();
-
-        // Belt item placements: 6 cells × 16 bytes = 96 bytes.
-        let mut belt_raw = vec![0u8; 6 * 16];
-        reader.read_exact(&mut belt_raw)?;
-        let belt_potions: Vec<BeltPotionSlot> = belt_raw
-            .chunks_exact(16)
-            .map(|chunk| {
-                let mut c = std::io::Cursor::new(chunk);
-                BeltPotionSlot {
-                    item_category: c.read_i32::<LittleEndian>().unwrap(),
-                    item_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
-                    icon_x: c.read_i32::<LittleEndian>().unwrap(),
-                    icon_y: c.read_i32::<LittleEndian>().unwrap(),
-                }
-            })
-            .collect();
-
-        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
-        let mut inventory_raw = vec![0u8; 189 * 20];
-        reader.read_exact(&mut inventory_raw)?;
-        let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
-            .chunks_exact(20)
-            .map(|chunk| {
-                let mut c = std::io::Cursor::new(chunk);
-                InventoryPlacementEntry {
-                    item_category: c.read_i32::<LittleEndian>().unwrap(),
-                    item_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
-                    icon_x: c.read_i32::<LittleEndian>().unwrap(),
-                    icon_y: c.read_i32::<LittleEndian>().unwrap(),
-                    item_instance_index: c.read_i32::<LittleEndian>().unwrap(),
-                }
-            })
-            .collect();
+        let inventory_placements = {
+            let bytes = [0u8; INVENTORY_BYTES_SIZE + BELT_BYTES_SIZE + EQUIPPED_ITEM_BYTES];
+            reader.read_exact(&mut header_buf)?;
+            let inventory_placement = InventoryPlacements::parse(&bytes)?;
+            inventory_placement
+        };
 
         // Learned spells: 41 bytes (one flag per spell)
         let mut spells_buf = vec![0u8; 41];
@@ -562,9 +523,7 @@ impl SaveFile {
             player_class_id,
             player_class_name,
             character_data_header,
-            equipped_equipment,
-            belt_potions,
-            inventory_placement,
+            inventory_placements,
             learned_spells,
         })
     }
@@ -828,29 +787,7 @@ impl SaveFile {
         // Header: u32 + u16 + u16 + u8 + u8 + u8 = 11 bytes
         identity.character_data_header.write(writer)?;
 
-        // Equipped weapon items: 12 slots × 9 bytes = 108 bytes.
-        for slot in &identity.equipped_equipment {
-            writer.write_u8(slot.panel_slot_marker)?;
-            writer.write_i32::<LittleEndian>(slot.weapon_catalog_index)?;
-            writer.write_i32::<LittleEndian>(slot.weapon_inventory_instance_id)?;
-        }
-
-        // Belt item placements: 6 cells × 16 bytes = 96 bytes.
-        for slot in &identity.belt_potions {
-            writer.write_i32::<LittleEndian>(slot.item_category)?;
-            writer.write_i32::<LittleEndian>(slot.item_catalog_index)?;
-            writer.write_i32::<LittleEndian>(slot.icon_x)?;
-            writer.write_i32::<LittleEndian>(slot.icon_y)?;
-        }
-
-        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
-        for entry in &identity.inventory_placement {
-            writer.write_i32::<LittleEndian>(entry.item_category)?;
-            writer.write_i32::<LittleEndian>(entry.item_catalog_index)?;
-            writer.write_i32::<LittleEndian>(entry.icon_x)?;
-            writer.write_i32::<LittleEndian>(entry.icon_y)?;
-            writer.write_i32::<LittleEndian>(entry.item_instance_index)?;
-        }
+        identity.inventory_placements.write(writer)?;
 
         // Learned spells: 41 bytes
         writer.write_all(&identity.learned_spells.spells)?;

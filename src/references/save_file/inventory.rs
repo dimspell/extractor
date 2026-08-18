@@ -1,5 +1,165 @@
-use serde::{Deserialize, Serialize};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
+use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
+
+/// Stores information what has been equipped and which slots the items occupies in the inventory.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryPlacements {
+    /// Equipped weapon items — 12 slots × 9 bytes = 108 bytes.
+    pub equipped_equipment: Vec<EquipmentSlot>,
+    /// Belt item placements — 6 cells × 16 bytes = 96 bytes.
+    pub belt_potions: Vec<BeltPotionSlot>,
+    /// Inventory item placements — 3 pages × 7 columns × 9 cells × 20 bytes.
+    pub inventory_placement: Vec<InventoryPlacementEntry>,
+}
+
+/// Equipped weapon items: 12 slots × 9 bytes = 108 bytes.
+pub const EQUIPPED_ITEM_BYTES: usize = 12 * 9;
+
+/// Belt item placements: 6 cells × 16 bytes = 96 bytes.
+pub const BELT_BYTES_SIZE: usize = 6 * 16;
+
+/// Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes = 3780 bytes.
+pub const INVENTORY_BYTES_SIZE: usize = 3 * 7 * 9 * 20;
+
+impl InventoryPlacements {
+    pub(crate) fn parse(data: &[u8]) -> std::io::Result<Self> {
+        let mut reader = std::io::Cursor::new(data);
+
+        // Equipped weapon items: 12 slots × 9 bytes = 108 bytes.
+        let mut equipment_raw = vec![0u8; 12 * 9];
+        reader.read_exact(&mut equipment_raw)?;
+        let equipped_equipment: Vec<EquipmentSlot> = equipment_raw
+            .chunks_exact(9)
+            .map(|chunk| {
+                let mut c = std::io::Cursor::new(chunk);
+                EquipmentSlot {
+                    panel_slot_marker: c.read_u8().unwrap(),
+                    weapon_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
+                    weapon_inventory_instance_id: c.read_i32::<LittleEndian>().unwrap(),
+                }
+            })
+            .collect();
+
+        // Belt item placements: 6 cells × 16 bytes = 96 bytes.
+        let mut belt_raw = vec![0u8; 6 * 16];
+        reader.read_exact(&mut belt_raw)?;
+        let belt_potions: Vec<BeltPotionSlot> = belt_raw
+            .chunks_exact(16)
+            .map(|chunk| {
+                let mut c = std::io::Cursor::new(chunk);
+                BeltPotionSlot {
+                    item_category: c.read_i32::<LittleEndian>().unwrap(),
+                    item_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
+                    icon_x: c.read_i32::<LittleEndian>().unwrap(),
+                    icon_y: c.read_i32::<LittleEndian>().unwrap(),
+                }
+            })
+            .collect();
+
+        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
+        let mut inventory_raw = vec![0u8; 189 * 20];
+        reader.read_exact(&mut inventory_raw)?;
+        let inventory_placement: Vec<InventoryPlacementEntry> = inventory_raw
+            .chunks_exact(20)
+            .map(|chunk| {
+                let mut c = std::io::Cursor::new(chunk);
+                InventoryPlacementEntry {
+                    item_category: c.read_i32::<LittleEndian>().unwrap(),
+                    item_catalog_index: c.read_i32::<LittleEndian>().unwrap(),
+                    icon_x: c.read_i32::<LittleEndian>().unwrap(),
+                    icon_y: c.read_i32::<LittleEndian>().unwrap(),
+                    item_instance_index: c.read_i32::<LittleEndian>().unwrap(),
+                }
+            })
+            .collect();
+
+        Ok(Self {
+            inventory_placement,
+            belt_potions,
+            equipped_equipment,
+        })
+    }
+
+    pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        // Equipped weapon items: 12 slots × 9 bytes = 108 bytes.
+        for slot in &self.equipped_equipment {
+            writer.write_u8(slot.panel_slot_marker)?;
+            writer.write_i32::<LittleEndian>(slot.weapon_catalog_index)?;
+            writer.write_i32::<LittleEndian>(slot.weapon_inventory_instance_id)?;
+        }
+
+        // Belt item placements: 6 cells × 16 bytes = 96 bytes.
+        for slot in &self.belt_potions {
+            writer.write_i32::<LittleEndian>(slot.item_category)?;
+            writer.write_i32::<LittleEndian>(slot.item_catalog_index)?;
+            writer.write_i32::<LittleEndian>(slot.icon_x)?;
+            writer.write_i32::<LittleEndian>(slot.icon_y)?;
+        }
+
+        // Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes.
+        for entry in &self.inventory_placement {
+            writer.write_i32::<LittleEndian>(entry.item_category)?;
+            writer.write_i32::<LittleEndian>(entry.item_catalog_index)?;
+            writer.write_i32::<LittleEndian>(entry.icon_x)?;
+            writer.write_i32::<LittleEndian>(entry.icon_y)?;
+            writer.write_i32::<LittleEndian>(entry.item_instance_index)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// One equipped weapon-item reference (9 bytes).
+///
+/// Part of the 12-slot equipment array (12 × 9 = 108 bytes total).
+/// An empty entry has catalog index `100` and panel marker `0xff`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EquipmentSlot {
+    /// Equipment-panel marker used by the game to restore this slot's UI state; `0xff` is empty.
+    pub panel_slot_marker: u8,
+    /// Zero-based index in the weapon-item catalog; `100` is empty.
+    pub weapon_catalog_index: i32,
+    /// `InventoryWeaponItem::inventory_instance_id` of the equipped weapon; zero is empty.
+    pub weapon_inventory_instance_id: i32,
+}
+
+/// One belt item placement cell (16 bytes).
+///
+/// Part of the 6-cell belt array (6 × 16 = 96 bytes total). Larger items can
+/// occupy consecutive cells with the same catalog index and icon position.
+/// Empty cells use category `10` and catalog index `100`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BeltPotionSlot {
+    /// Item category; the belt uses category `1` for an occupied item.
+    pub item_category: i32,
+    /// Zero-based index in that category's catalog; `100` is empty.
+    pub item_catalog_index: i32,
+    /// Horizontal pixel coordinate at which the belt icon is drawn.
+    pub icon_x: i32,
+    /// Vertical pixel coordinate at which the belt icon is drawn.
+    pub icon_y: i32,
+}
+
+/// One item reference and its position in the inventory placement grid (20 bytes).
+///
+/// The grid is serialized as three pages, each with seven 9-cell columns:
+/// `[3 pages][7 columns][9 cells]`. Empty cells use category `10` and catalog
+/// index `100`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InventoryPlacementEntry {
+    /// Zero-based item category used to select an item collection; `10` marks an empty cell.
+    pub item_category: i32,
+    /// Zero-based index of the item's definition within `item_category`; `100` marks an empty cell.
+    pub item_catalog_index: i32,
+    /// Horizontal pixel coordinate at which the inventory icon is drawn.
+    pub icon_x: i32,
+    /// Vertical pixel coordinate at which the inventory icon is drawn.
+    pub icon_y: i32,
+    /// Category-local index of the instantiated inventory item represented by this placement.
+    pub item_instance_index: i32,
+}
 
 /// Raw inventory data from a save file (5 item categories).
 ///
@@ -48,7 +208,6 @@ pub struct InventoryEventItem {
     pub unknown_4: u16,     // 244
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryEditItem {
     // 272
@@ -80,7 +239,6 @@ pub struct InventoryEditItem {
     pub unknown_6: u16,  // 272
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryHealItem {
     // 256
@@ -103,7 +261,6 @@ pub struct InventoryHealItem {
     pub unknown_4: u8,           // inventory position 255
     pub unknown_5: u8,           // 6c 6c (108, 108) for the first row 256
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct InventoryWeaponItem {
@@ -142,4 +299,3 @@ pub struct InventoryWeaponItem {
     pub unknown_3: u8,         // inventory position 290
     pub unknown_4: u16,        // 292
 }
-
