@@ -2,7 +2,6 @@ use crate::components::filter::{ColumnFilterOption, GlobalFilterMode};
 use crate::editors::save_file_viewer::RawHexEditorData;
 use crate::editors::save_file_viewer::message::TableKey;
 use dispel_core::SaveFile;
-use dispel_core::references::save_file::PartyMember;
 use gui_widgets::TableColumn;
 use gui_widgets::components::paragraph_cache::ParagraphCache;
 use hexedit::HexEditorState;
@@ -974,19 +973,6 @@ pub enum InventoryCategory {
     Heal,
 }
 
-/// Return the exact post-name bytes emitted for a party member.
-///
-/// The base runtime state is always present; the combat snapshot and its
-/// terminator are present only for a companion with an active combat object.
-fn party_member_runtime_bytes(member: &PartyMember) -> Vec<u8> {
-    let mut bytes = member.serialized_runtime_state.clone();
-    if let Some(snapshot) = &member.combat_snapshot {
-        bytes.extend_from_slice(&snapshot.serialized_snapshot);
-        bytes.extend_from_slice(&snapshot.terminator.to_le_bytes());
-    }
-    bytes
-}
-
 pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
     let mut hex_editors: Vec<RawHexEditorData> = vec![
@@ -1078,20 +1064,6 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             data: save_file.character_identity.unknown_block.clone(),
         },
     ];
-
-    if let Some(member) = save_file.character_identity.party_members.first() {
-        hex_editors.push(RawHexEditorData {
-            label: format!("Party member (1): {}", member.name),
-            data: party_member_runtime_bytes(member),
-        })
-    }
-
-    if let Some(member) = save_file.character_identity.party_members.get(1) {
-        hex_editors.push(RawHexEditorData {
-            label: format!("Party member (2): {}", member.name),
-            data: party_member_runtime_bytes(member),
-        })
-    }
 
     for map in &save_file.maps {
         let trailer = &map.extra_objects_trailer;

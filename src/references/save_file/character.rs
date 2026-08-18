@@ -167,6 +167,257 @@ pub struct CharacterIdentity {
     pub party_members: Vec<PartyMember>,
 }
 
+/// Fixed 321-byte party-member record as it appears on disk.
+///
+/// The runtime state contains many unknown bytes between the decoded values.
+/// Keep those gaps in the derived record so `BinaryRecord` still consumes the
+/// exact layout while the public [`PartyMember`] type exposes only named data.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
+pub struct PartyMemberBinaryRecord {
+    /// Maximum health points from the party-level progression record.
+    pub maximum_health_points: u16,
+    /// Maximum mana points from the party-level progression record.
+    pub maximum_mana_points: u16,
+    #[binary_record(size = 2)]
+    pub unknown_04: Vec<u8>,
+    /// Party character class ID from `PrtIni.db` (21–24 in shipped data).
+    pub class_id: u8,
+    /// Current progression level.
+    pub level: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_08: Vec<u8>,
+    /// Class-specific runtime behaviour selected during companion creation.
+    pub class_behaviour: u8,
+    /// Range used by the companion AI when searching for a combat target.
+    pub ai_target_search_range: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 12)]
+    pub unknown_12: Vec<u8>,
+    /// Inferred AI action-state value saved between target-selection updates.
+    pub ai_runtime_state: u32,
+    /// Strength from `PrtLevel.db` for this character and level.
+    pub strength: u32,
+    /// Constitution from `PrtLevel.db` for this character and level.
+    pub constitution: u32,
+    /// Wisdom from `PrtLevel.db` for this character and level.
+    pub wisdom: u32,
+    /// Agility from `PrtLevel.db` for this character and level.
+    pub agility: u8,
+    /// Attack stat from `PrtLevel.db` for this character and level.
+    pub attack: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 6)]
+    pub unknown_42: Vec<u8>,
+    /// First magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_1: u8,
+    /// Second magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_2: u8,
+    /// Third magic spell unlocked at the member's current level.
+    /// A value of `0xff` means that the slot is empty.
+    pub magic_spell_id_3: u8,
+    #[binary_record(size = 9)]
+    // TODO: Recognise the unknown bytes
+    pub unknown_51: Vec<u8>,
+    /// Zero-based index of this companion in the game's party-character table.
+    pub party_character_index: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_61: Vec<u8>,
+    /// Visual/class variant selected for this companion from the party-character table.
+    pub party_class_variant: u32,
+    /// Weapon-skill level from `PrtLevel.db` for this character and level.
+    pub weapon_skill_level: u32,
+    /// Experience points accumulated by this party member.
+    ///
+    /// The game increments this value after combat and compares it with the
+    /// next-level threshold before levelling up.
+    pub experience_points: u32,
+    /// Position of this companion in the active two-member party UI.
+    pub party_slot_index: u32,
+    /// Health points remaining at the time the save was written.
+    pub current_health_points: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_82: Vec<u8>,
+    /// Mana points remaining at the time the save was written.
+    pub current_mana_points: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_86: Vec<u8>,
+    /// Horizontal screen-pixel offset used while drawing the companion sprite.
+    pub sprite_offset_x: i8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_89: Vec<u8>,
+    /// Vertical screen-pixel offset used while drawing the companion sprite.
+    pub sprite_offset_y: i8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_93: Vec<u8>,
+    /// Current frame within the companion's active animation.
+    pub animation_frame_index: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_97: Vec<u8>,
+    /// Map occupancy ID written into tiles and supplied to pathfinding for this companion.
+    pub map_occupancy_id: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_101: Vec<u8>,
+    /// Current facing direction; `-1` means that no directional animation is active.
+    pub facing_direction: i8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_105: Vec<u8>,
+    /// Inferred movement-transition state, stored beside the direction bytes.
+    pub movement_transition_state: u32,
+    /// Inferred substate for the current movement transition.
+    pub movement_transition_substate: u32,
+    /// ID of the map object currently selected as this companion's movement or action target.
+    /// A negative value means that no map object is selected.
+    pub selected_map_object_id: i16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_118: Vec<u8>,
+    /// Inferred phase value for the active movement animation.
+    pub movement_animation_phase: u32,
+    /// Number of animation frames processed in the current action.
+    pub animation_tick_count: u32,
+    /// Direction index of the sprite's current movement state.
+    pub movement_sprite_direction: u32,
+    /// Map-cell X coordinate the companion is currently following.
+    pub follow_target_x: i32,
+    /// Map-cell Y coordinate the companion is currently following.
+    pub follow_target_y: i32,
+    /// Whether the companion's one-frame hit reaction still needs to be drawn.
+    pub hit_animation_pending: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_141: Vec<u8>,
+    /// Current visual frame while the combat action waits for execution.
+    pub combat_action_delay_animation_frame: u32,
+    /// Whether the selected combat action is waiting for its execution delay (boolean).
+    pub combat_action_delay_active: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_149: Vec<u8>,
+    /// Ticks remaining before the delayed combat action is executed.
+    pub combat_action_delay_ticks_remaining: u32,
+    /// Whether a delayed combat action has become ready for execution (boolean).
+    pub combat_action_ready: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_157: Vec<u8>,
+    /// Current visual frame while the ready combat action is resolved.
+    pub combat_action_resolution_animation_frame: u32,
+    /// Selected combat action or spell. Negative values are runtime sentinels.
+    pub selected_combat_action_id: i32,
+    /// Whether the combat action's completion frame has been reached (boolean).
+    pub combat_action_completion_latched: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_169: Vec<u8>,
+    /// Auxiliary value for a timed status effect; `-1` means inactive.
+    ///
+    /// Depending on the effect phase, the game uses this as a countdown or a
+    /// party-slot value, so it is not consistently an effect source.
+    pub status_effect_auxiliary_value: i32,
+    /// Remaining automatic full-health restorations available to this companion.
+    pub automatic_health_restorations_remaining: u32,
+    /// Remaining automatic full-mana restorations available to this companion.
+    pub automatic_mana_restorations_remaining: u32,
+    /// Active status-effect kind. One denotes poison; zero denotes no active timed effect.
+    pub active_status_effect_id: u32,
+    /// Ticks remaining before the active status effect is processed or expires.
+    pub status_effect_ticks_remaining: u32,
+    /// Countdown to the next poison-damage tick while poisoned.
+    pub poison_damage_tick_countdown: u32,
+    /// Number of attempts made to find a nearby walkable cell when the path is blocked.
+    pub blocked_path_reposition_attempts: u32,
+    /// X coordinate of the temporary target used by blocked-path recovery.
+    pub blocked_path_target_x: i32,
+    /// Y coordinate of the temporary target used by blocked-path recovery.
+    pub blocked_path_target_y: i32,
+    /// Whether the companion is actively recovering from a blocked path (boolean).
+    pub blocked_path_recovery_active: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 4)]
+    pub unknown_209: Vec<u8>,
+    /// Whether the companion has been instructed to rejoin the party leader (boolean).
+    pub rejoin_leader_requested: u8,
+    /// Whether the companion is currently moving to rejoin the party leader (boolean).
+    pub rejoin_leader_in_progress: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 5)]
+    pub unknown_215: Vec<u8>,
+    /// Whether this companion has earned a level and awaits the level-up sequence (boolean).
+    pub level_up_pending: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_221: Vec<u8>,
+    /// Whether the level-up animation is currently active (boolean.
+    pub level_up_animation_active: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_225: Vec<u8>,
+    /// Current frame of the level-up animation.
+    pub level_up_animation_frame: u32,
+    /// Variant of the level-up animation selected for this companion's class.
+    pub level_up_animation_variant: u32,
+    /// Last render-buffer address saved by the runtime. It is not stable across sessions.
+    pub last_render_buffer_address: u32,
+    /// Last render parameter saved by the runtime. It is not stable gameplay data.
+    pub last_render_parameter: i32,
+    /// Index of the next node in the active movement path.
+    pub path_node_index: u32,
+    /// Current map-cell X coordinate.
+    pub map_x: u16,
+    /// Current map-cell Y coordinate.
+    pub map_y: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 4)]
+    pub unknown_252: Vec<u8>,
+    /// Previous map-cell X coordinate, used by movement and formation logic.
+    pub previous_map_x: u16,
+    /// Previous map-cell Y coordinate, used by movement and formation logic.
+    pub previous_map_y: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 4)]
+    pub unknown_260: Vec<u8>,
+    /// Whether the companion sprite is rendered horizontally flipped (boolean).
+    pub sprite_horizontal_flip: u8,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 3)]
+    pub unknown_265: Vec<u8>,
+    /// Runtime movement state for the companion.
+    pub movement_state: u32,
+    /// Number of nodes in the active movement path.
+    pub path_node_count: u32,
+    /// Percentage threshold used after level ten to trigger a tactical action.
+    pub tactical_action_chance: u32,
+    /// X coordinate of the first node in the saved active-path buffer.
+    pub active_path_node_x: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_282: Vec<u8>,
+    /// Y coordinate of the first node in the saved active-path buffer.
+    pub active_path_node_y: u16,
+    // TODO: Recognise the unknown bytes
+    #[binary_record(size = 2)]
+    pub unknown_286: Vec<u8>,
+    /// Base actor lifecycle state saved alongside the active-path buffer.
+    pub base_actor_state: u32,
+    /// Current health in the inherited base-actor state.
+    pub base_actor_current_health_points: u16,
+    /// Maximum health in the inherited base-actor state.
+    pub base_actor_maximum_health_points: u16,
+    /// Marker for an optional combat snapshot appended after the base record.
+    pub combat_snapshot_marker: u32,
+}
+
 /// Combat-only snapshot appended to a party-member record.
 ///
 /// This 48-byte stream is followed by a four-byte terminator. The game writes
@@ -235,183 +486,12 @@ impl PartyMemberCombatSnapshot {
 }
 
 /// Runtime snapshot of a recruited party character (321 bytes plus an optional combat tail).
-///
-/// The game writes the 300-byte state as overlapping four-byte reads from its
-/// in-memory companion object. The named values below are
-/// decoded from the first such snapshots. `serialized_runtime_state` retains
-/// the complete original stream, including the repeated overlap bytes, so a
-/// read/write round trip cannot discard data that has not yet been decoded.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PartyMember {
     /// Party character display name, stored in a 21-byte Windows-1250 buffer.
     pub name: String,
-    /// Maximum health points from the party-level progression record.
-    pub maximum_health_points: u16,
-    /// Maximum mana points from the party-level progression record.
-    pub maximum_mana_points: u16,
-    /// Health points remaining at the time the save was written.
-    pub current_health_points: u16,
-    /// Mana points remaining at the time the save was written.
-    pub current_mana_points: u16,
-    /// Party character class ID from `PrtIni.db` (21–24 in shipped data).
-    pub class_id: u8,
-    /// Current progression level.
-    pub level: u8,
-    /// Class-specific runtime behaviour selected during companion creation.
-    pub class_behaviour: u8,
-    /// Range used by the companion AI when searching for a combat target.
-    pub ai_target_search_range: u8,
-    /// Inferred AI action-state value saved between target-selection updates.
-    pub ai_runtime_state: u32,
-    /// Strength from `PrtLevel.db` for this character and level.
-    pub strength: u32,
-    /// Constitution from `PrtLevel.db` for this character and level.
-    pub constitution: u32,
-    /// Wisdom from `PrtLevel.db` for this character and level.
-    pub wisdom: u32,
-    /// Agility from `PrtLevel.db` for this character and level.
-    pub agility: u8,
-    /// Attack stat from `PrtLevel.db` for this character and level.
-    pub attack: u8,
-    /// First magic spell unlocked at the member's current level.
-    /// A value of `0xff` means that the slot is empty.
-    pub magic_spell_id_1: u8,
-    /// Second magic spell unlocked at the member's current level.
-    /// A value of `0xff` means that the slot is empty.
-    pub magic_spell_id_2: u8,
-    /// Third magic spell unlocked at the member's current level.
-    /// A value of `0xff` means that the slot is empty.
-    pub magic_spell_id_3: u8,
-    /// Zero-based index of this companion in the game's party-character table.
-    pub party_character_index: u8,
-    /// Visual/class variant selected for this companion from the party-character table.
-    pub party_class_variant: u32,
-    /// Weapon-skill level from `PrtLevel.db` for this character and level.
-    pub weapon_skill_level: u32,
-    /// Experience points accumulated by this party member.
-    ///
-    /// The game increments this value after combat and compares it with the
-    /// next-level threshold before levelling up.
-    pub experience_points: u32,
-    /// Position of this companion in the active two-member party UI.
-    pub party_slot_index: u32,
-    /// Percentage threshold used after level ten to trigger a tactical action.
-    pub tactical_action_chance: u32,
-    /// Index of the next node in the active movement path.
-    pub path_node_index: u32,
-    /// Current map-cell X coordinate.
-    pub map_x: u16,
-    /// Current map-cell Y coordinate.
-    pub map_y: u16,
-    /// Previous map-cell X coordinate, used by movement and formation logic.
-    pub previous_map_x: u16,
-    /// Previous map-cell Y coordinate, used by movement and formation logic.
-    pub previous_map_y: u16,
-    /// Runtime movement state for the companion.
-    pub movement_state: u32,
-    /// Whether the companion sprite is rendered horizontally flipped.
-    pub sprite_horizontal_flip: bool,
-    /// Number of nodes in the active movement path.
-    pub path_node_count: u32,
-    /// Horizontal screen-pixel offset used while drawing the companion sprite.
-    pub sprite_offset_x: i8,
-    /// Vertical screen-pixel offset used while drawing the companion sprite.
-    pub sprite_offset_y: i8,
-    /// Current frame within the companion's active animation.
-    pub animation_frame_index: u8,
-    /// Current facing direction; `-1` means that no directional animation is active.
-    pub facing_direction: i8,
-    /// Inferred movement-transition state, stored beside the direction bytes.
-    pub movement_transition_state: u32,
-    /// Inferred substate for the current movement transition.
-    pub movement_transition_substate: u32,
-    /// Map occupancy ID written into tiles and supplied to pathfinding for this companion.
-    pub map_occupancy_id: u8,
-    /// Direction index of the sprite's current movement state.
-    pub movement_sprite_direction: u32,
-    /// Number of animation frames processed in the current action.
-    pub animation_tick_count: u32,
-    /// Inferred phase value for the active movement animation.
-    pub movement_animation_phase: u32,
-    /// Map-cell X coordinate the companion is currently following.
-    pub follow_target_x: i32,
-    /// Map-cell Y coordinate the companion is currently following.
-    pub follow_target_y: i32,
-    /// Selected combat action or spell. Negative values are runtime sentinels.
-    pub selected_combat_action_id: i32,
-    /// ID of the map object currently selected as this companion's movement or action target.
-    /// A negative value means that no map object is selected.
-    pub selected_map_object_id: i16,
-    /// Whether the companion's one-frame hit reaction still needs to be drawn.
-    pub hit_animation_pending: bool,
-    /// Remaining automatic full-health restorations available to this companion.
-    pub automatic_health_restorations_remaining: u32,
-    /// Remaining automatic full-mana restorations available to this companion.
-    pub automatic_mana_restorations_remaining: u32,
-    /// Active status-effect kind. One denotes poison; zero denotes no active timed effect.
-    pub active_status_effect_id: u32,
-    /// Ticks remaining before the active status effect is processed or expires.
-    pub status_effect_ticks_remaining: u32,
-    /// Countdown to the next poison-damage tick while poisoned.
-    pub poison_damage_tick_countdown: u32,
-    /// Auxiliary value for a timed status effect; `-1` means inactive.
-    ///
-    /// Depending on the effect phase, the game uses this as a countdown or a
-    /// party-slot value, so it is not consistently an effect source.
-    pub status_effect_auxiliary_value: i32,
-    /// Number of attempts made to find a nearby walkable cell when the path is blocked.
-    pub blocked_path_reposition_attempts: u32,
-    /// X coordinate of the temporary target used by blocked-path recovery.
-    pub blocked_path_target_x: i32,
-    /// Y coordinate of the temporary target used by blocked-path recovery.
-    pub blocked_path_target_y: i32,
-    /// Whether the selected combat action is waiting for its execution delay.
-    pub combat_action_delay_active: bool,
-    /// Ticks remaining before the delayed combat action is executed.
-    pub combat_action_delay_ticks_remaining: u32,
-    /// Whether a delayed combat action has become ready for execution.
-    pub combat_action_ready: bool,
-    /// Current visual frame while the combat action waits for execution.
-    pub combat_action_delay_animation_frame: u32,
-    /// Current visual frame while the ready combat action is resolved.
-    pub combat_action_resolution_animation_frame: u32,
-    /// Whether the combat action's completion frame has been reached.
-    pub combat_action_completion_latched: bool,
-    /// Whether the companion is actively recovering from a blocked path.
-    pub blocked_path_recovery_active: bool,
-    /// Whether the companion has been instructed to rejoin the party leader.
-    pub rejoin_leader_requested: bool,
-    /// Whether the companion is currently moving to rejoin the party leader.
-    pub rejoin_leader_in_progress: bool,
-    /// Whether this companion has earned a level and awaits the level-up sequence.
-    pub level_up_pending: bool,
-    /// Whether the level-up animation is currently active.
-    pub level_up_animation_active: bool,
-    /// Current frame of the level-up animation.
-    pub level_up_animation_frame: u32,
-    /// Variant of the level-up animation selected for this companion's class.
-    pub level_up_animation_variant: u32,
-    /// X coordinate of the first node in the saved active-path buffer.
-    pub active_path_node_x: u16,
-    /// Y coordinate of the first node in the saved active-path buffer.
-    pub active_path_node_y: u16,
-    /// Base actor lifecycle state saved alongside the active-path buffer.
-    pub base_actor_state: u32,
-    /// Current health in the inherited base-actor state.
-    pub base_actor_current_health_points: u16,
-    /// Maximum health in the inherited base-actor state.
-    pub base_actor_maximum_health_points: u16,
-    /// Last render-buffer address saved by the runtime. It is not stable across sessions.
-    pub last_render_buffer_address: u32,
-    /// Last render parameter saved by the runtime. It is not stable gameplay data.
-    pub last_render_parameter: i32,
-    /// Marker for an optional combat snapshot appended after the base record.
-    pub combat_snapshot_marker: u32,
-    /// The exact 75-word serialized state stream after the name.
-    ///
-    /// This is authoritative on write because the game serializes overlapping
-    /// windows of its runtime object rather than a conventional packed struct.
-    pub serialized_runtime_state: Vec<u8>,
+    // TODO: Rename the field and document it.
+    pub record: PartyMemberBinaryRecord,
     /// Combat-only state appended after the base record when present.
     pub combat_snapshot: Option<PartyMemberCombatSnapshot>,
 }
@@ -469,118 +549,25 @@ impl PartyMember {
         data: &[u8],
         combat_snapshot: Option<PartyMemberCombatSnapshot>,
     ) -> std::io::Result<Self> {
-        let name = read_null_terminated_windows_1250(&data[..Self::NAME_SIZE])
+        let name = read_null_terminated_windows_1250(&data[0..Self::NAME_SIZE])
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-        let serialized_runtime_state = data[Self::NAME_SIZE..].to_vec();
-        let state = &serialized_runtime_state;
-        let u16_at = |offset| u16::from_le_bytes([state[offset], state[offset + 1]]);
-        let u32_at = |offset| {
-            u32::from_le_bytes([
-                state[offset],
-                state[offset + 1],
-                state[offset + 2],
-                state[offset + 3],
-            ])
-        };
+        let parsed = PartyMemberBinaryRecord::parse(&data[Self::NAME_SIZE..])?;
 
         Ok(Self {
             name,
-            maximum_health_points: u16_at(0),
-            maximum_mana_points: u16_at(2),
-            current_health_points: u16_at(80),
-            current_mana_points: u16_at(84),
-            class_id: state[6],
-            level: state[7],
-            class_behaviour: state[10],
-            ai_target_search_range: state[11],
-            ai_runtime_state: u32_at(24),
-            strength: u32_at(28),
-            constitution: u32_at(32),
-            wisdom: u32_at(36),
-            agility: state[40],
-            attack: state[41],
-            magic_spell_id_1: state[48],
-            magic_spell_id_2: state[49],
-            magic_spell_id_3: state[50],
-            party_character_index: state[60],
-            party_class_variant: u32_at(64),
-            weapon_skill_level: u32_at(68),
-            experience_points: u32_at(72),
-            party_slot_index: u32_at(76),
-            path_node_index: u32_at(244),
-            map_x: u16_at(248),
-            map_y: u16_at(250),
-            previous_map_x: u16_at(256),
-            previous_map_y: u16_at(258),
-            movement_state: u32_at(268),
-            sprite_horizontal_flip: state[264] != 0,
-            path_node_count: u32_at(272),
-            tactical_action_chance: u32_at(276),
-            sprite_offset_x: state[88] as i8,
-            sprite_offset_y: state[92] as i8,
-            animation_frame_index: state[96],
-            facing_direction: state[104] as i8,
-            movement_transition_state: u32_at(108),
-            movement_transition_substate: u32_at(112),
-            map_occupancy_id: state[100],
-            movement_sprite_direction: u32_at(128),
-            animation_tick_count: u32_at(124),
-            movement_animation_phase: u32_at(120),
-            follow_target_x: u32_at(132) as i32,
-            follow_target_y: u32_at(136) as i32,
-            selected_combat_action_id: u32_at(164) as i32,
-            selected_map_object_id: u16_at(116) as i16,
-            hit_animation_pending: state[140] != 0,
-            automatic_health_restorations_remaining: u32_at(176),
-            automatic_mana_restorations_remaining: u32_at(180),
-            active_status_effect_id: u32_at(184),
-            status_effect_ticks_remaining: u32_at(188),
-            poison_damage_tick_countdown: u32_at(192),
-            status_effect_auxiliary_value: u32_at(172) as i32,
-            blocked_path_reposition_attempts: u32_at(196),
-            blocked_path_target_x: u32_at(200) as i32,
-            blocked_path_target_y: u32_at(204) as i32,
-            combat_action_delay_active: state[148] != 0,
-            combat_action_delay_ticks_remaining: u32_at(152),
-            combat_action_ready: state[156] != 0,
-            combat_action_delay_animation_frame: u32_at(144),
-            combat_action_resolution_animation_frame: u32_at(160),
-            combat_action_completion_latched: state[168] != 0,
-            blocked_path_recovery_active: state[208] != 0,
-            rejoin_leader_requested: state[213] != 0,
-            rejoin_leader_in_progress: state[214] != 0,
-            level_up_pending: state[220] != 0,
-            level_up_animation_active: state[224] != 0,
-            level_up_animation_frame: u32_at(228),
-            level_up_animation_variant: u32_at(232),
-            active_path_node_x: u16_at(280),
-            active_path_node_y: u16_at(284),
-            base_actor_state: u32_at(288),
-            base_actor_current_health_points: u16_at(292),
-            base_actor_maximum_health_points: u16_at(294),
-            last_render_buffer_address: u32_at(236),
-            last_render_parameter: u32_at(240) as i32,
-            combat_snapshot_marker: u32_at(296),
-            serialized_runtime_state,
+            record: parsed,
             combat_snapshot,
         })
     }
 
     /// Write the original serialized companion-state stream.
     pub fn write<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        if self.serialized_runtime_state.len() != Self::RUNTIME_STATE_SIZE {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "PartyMember runtime state requires 300 bytes",
-            ));
-        }
-
         let mut name_buf = [0u8; Self::NAME_SIZE];
         let (encoded, _, _) = encoding_rs::WINDOWS_1250.encode(&self.name);
         let len = encoded.len().min(Self::NAME_SIZE);
         name_buf[..len].copy_from_slice(&encoded[..len]);
         writer.write_all(&name_buf)?;
-        writer.write_all(&self.serialized_runtime_state)?;
+        self.record.write(writer)?;
         if let Some(snapshot) = &self.combat_snapshot {
             if snapshot.serialized_snapshot.len() != PartyMemberCombatSnapshot::SERIALIZED_SIZE {
                 return Err(std::io::Error::new(

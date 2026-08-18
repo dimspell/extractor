@@ -391,11 +391,11 @@ mod tests {
         assert_eq!(combat.strength, 21);
         assert_eq!(combat.magic_spell_id_3, 3);
         assert_eq!(combat.terminator, terminator);
-        assert_eq!(member.blocked_path_reposition_attempts, 3);
-        assert_eq!(member.blocked_path_target_x, 44);
-        assert_eq!(member.blocked_path_target_y, 55);
-        assert!(member.blocked_path_recovery_active);
-        assert!(member.sprite_horizontal_flip);
+        assert_eq!(member.record.blocked_path_reposition_attempts, 3);
+        assert_eq!(member.record.blocked_path_target_x, 44);
+        assert_eq!(member.record.blocked_path_target_y, 55);
+        assert_ne!(member.record.blocked_path_recovery_active, 0);
+        assert_ne!(member.record.sprite_horizontal_flip, 0);
 
         let mut written = Vec::new();
         member.write(&mut written).unwrap();
