@@ -43,30 +43,6 @@ use dispel_macros::{Extractor, Localizable, RecordPatcher};
 /// | ... (same structure) ...             |
 /// +--------------------------------------+
 /// ```
-///
-/// # Field Categories
-///
-/// - **Identification**: `id` (auto-generated from position)
-/// - **Localization**: `name` (30 bytes, WINDOWS-1250, null-padded)
-/// - **Description**: `description` (202 bytes, WINDOWS-1250, null-padded)
-/// - **Economy**: `base_price` (i32, economic valuation)
-/// - **Reserved data**: `reserved_bytes` (16 bytes preserved verbatim)
-/// - **Runtime bookkeeping**: `runtime_record_index_slot` (overwritten with
-///   the sequential record index when the game loads the file)
-///
-/// # Special Values
-///
-/// - `name`: 30 bytes max, null-padded (WINDOWS-1250)
-/// - `description`: 202 bytes max, null-padded (WINDOWS-1250)
-/// - `reserved_bytes`: 16 bytes, all zero in the bundled fixture
-/// - `runtime_record_index_slot`: The bundled file stores zero, but the game
-///   replaces it in memory with the record index at offset `0xFC`.
-///
-/// # File Purpose
-///
-/// Defines miscellaneous items with names, descriptions,
-/// and prices. Used for consumables, quest items,
-/// and generic inventory objects.
 #[derive(
     Debug, Clone, Default, PartialEq, Serialize, Deserialize, Extractor, Localizable, RecordPatcher,
 )]

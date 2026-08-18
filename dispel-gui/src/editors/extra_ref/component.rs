@@ -18,7 +18,6 @@ editable_record_fields!(ExtraRef, {
     { required_item = CompositeItem("items") / "Required Item:" },
     { requirement_range_1_padding = Integer / "Requirement padding:" },
     { required_item2 = CompositeItem("items") / "Required Item 2:" },
-    // { unknown5 = Integer / "Unknown 5:" },
     { requirement_range_2_start = Integer / "Requirement range 2 start:" },
     { requirement_range_2_end = Integer / "Requirement range 2 end:" },
     { requirement_range_3_start = Integer / "Requirement range 3 start:" },

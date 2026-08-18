@@ -70,9 +70,6 @@ pub struct ExtraRef {
     /// Last accepted key/item identifier for the first requirement range (inclusive).
     #[extractor(inventory_item(wire_type = "i32"))]
     pub required_item2: InventoryItem,
-    /// Unrecognized (always zero)
-    // #[extractor(primitive(type = "i16"))]
-    // pub unknown5: i16,
     /// First accepted identifier in the second requirement range (inclusive).
     /// `9999` marks an unused range.
     #[extractor(primitive(type = "i32"))]
