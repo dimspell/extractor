@@ -329,12 +329,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         return None;
     }
 
-    let identity_len = 4_160
-        + save
-            .character_identity
-            .party_members
-            .len()
-            .checked_mul(321)?;
+    let identity_len = 4_160 + save.party_members.len().checked_mul(321)?;
     let identity_start = offset;
     push_span(
         &mut spans,
@@ -380,7 +375,7 @@ fn save_file_layout(bytes: &[u8]) -> Option<Box<dyn BinaryLayout>> {
         &mut nested,
         "Party member",
         321,
-        save.character_identity.party_members.len(),
+        save.party_members.len(),
     )?;
     if nested != offset {
         return None;

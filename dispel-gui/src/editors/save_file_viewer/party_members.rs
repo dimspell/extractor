@@ -13,7 +13,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
     };
 
     let identity = &sf.character_identity;
-    let party_members = &sf.character_identity.party_members;
+    let party_members = &sf.party_members;
 
     let character_header = &identity.character_data_header;
 
@@ -73,7 +73,7 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             .push(section_header("Player Identity"))
             .push(label_row(
                 "Party Members Count",
-                identity.party_members_count.to_string(),
+                &sf.party_members_count.to_string(),
             ))
             .push(Column::new().spacing(4).push(match party_members.first() {
                 Some(member) => party_member_block(member),

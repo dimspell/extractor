@@ -8,12 +8,13 @@ pub mod game_tmp;
 pub mod inventory;
 pub mod journal;
 pub mod map_viewport;
+pub mod party_members;
 pub mod tests;
 
 use super::extractor::{Extractor, read_null_terminated_windows_1250};
 pub use crate::references::save_file::character::{
     BeltPotionSlot, CharacterDataHeader, CharacterStatsHeader, EquipmentSlot,
-    InventoryPlacementEntry, LearnedSpells, PartyMember,
+    InventoryPlacementEntry, LearnedSpells,
 };
 pub use crate::references::save_file::character::{CharacterIdentity, CharacterStats};
 pub use crate::references::save_file::events::{EventRecord, PostEventsData};
@@ -30,6 +31,7 @@ pub use crate::references::save_file::journal::{JournalData, JournalEntry, Journ
 pub use crate::references::save_file::map_viewport::{
     MapViewportCell, MapViewportState, PostMapsData,
 };
+pub use crate::references::save_file::party_members::PartyMember;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
@@ -42,7 +44,7 @@ pub struct SaveFile {
     /// Jump address after all map data (first 4 bytes of the file).
     /// The maps section is followed by alignment to this address.
     pub game_tmp_blob_size: u32,
-    /// Per-map world state (game.tmp blob length-prefixed by [Self.game_tmp_blob_size]).
+    /// Per-map world state (game.tmp blob length-prefixed by [`Self.game_tmp_blob_size`]).
     pub maps: Vec<MapSectionData>,
     /// Unknown data between maps and sprite paths (header + variable-size remainder).
     pub post_maps: PostMapsData,
@@ -64,6 +66,10 @@ pub struct SaveFile {
     pub inventory: InventoryData,
     /// Character identity (name, class, unknown blocks).
     pub character_identity: CharacterIdentity,
+    /// Number of NPCs that accompany the player on their adventures.
+    pub party_members_count: u32,
+    /// Party members (321 bytes each, with an optional 52-byte combat tail).
+    pub party_members: Vec<PartyMember>,
     /// Event scripts (2251 × 284 bytes).
     pub events: Vec<EventRecord>,
     /// Unknown data between events and journal (3 sub-blocks).
@@ -111,6 +117,13 @@ impl SaveFile {
         // ── 7. Character identity (unknown block + name + class + large unknown) ──
         let character_identity = Self::parse_character_identity(&mut reader)?;
 
+        // ── 7.5. Party members ──
+        let party_members_count = reader.read_u32::<LittleEndian>()?;
+        let mut party_members = Vec::with_capacity(party_members_count as usize);
+        for _ in 0..party_members_count {
+            party_members.push(PartyMember::read_from(&mut reader)?);
+        }
+
         // ── 8. Events (2251 × 284 bytes) ──
         let events = Self::parse_events_section(&mut reader)?;
 
@@ -134,6 +147,8 @@ impl SaveFile {
             unknown_after_stats,
             inventory,
             character_identity,
+            party_members_count,
+            party_members,
             events,
             post_events,
             journal,
@@ -541,13 +556,6 @@ impl SaveFile {
         reader.read_exact(&mut spells_buf)?;
         let learned_spells = LearnedSpells { spells: spells_buf };
 
-        // ── 7.5. Party members ──
-        let party_members_count = reader.read_u32::<LittleEndian>()?;
-        let mut party_members = Vec::with_capacity(party_members_count as usize);
-        for _ in 0..party_members_count {
-            party_members.push(PartyMember::read_from(reader)?);
-        }
-
         Ok(CharacterIdentity {
             unknown_block,
             player_name,
@@ -558,8 +566,6 @@ impl SaveFile {
             belt_potions,
             inventory_placement,
             learned_spells,
-            party_members_count,
-            party_members,
         })
     }
 
@@ -848,12 +854,6 @@ impl SaveFile {
 
         // Learned spells: 41 bytes
         writer.write_all(&identity.learned_spells.spells)?;
-
-        // ── Party members ──
-        writer.write_u32::<LittleEndian>(identity.party_members_count)?;
-        for member in &identity.party_members {
-            member.write(writer)?;
-        }
         Ok(())
     }
 
@@ -944,6 +944,12 @@ impl Extractor for SaveFile {
 
         // 7. Character identity
         Self::write_character_identity(&save.character_identity, writer)?;
+
+        // ── Party members ──
+        writer.write_u32::<LittleEndian>(save.party_members_count)?;
+        for member in &save.party_members {
+            member.write(writer)?;
+        }
 
         // 8. Events
         Self::write_events(&save.events, writer)?;
