@@ -1067,27 +1067,28 @@ pub struct InventoryEditItem {
     pub name: String, // 30
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String, // 232
-    pub base_price: u32,            // 236
-    pub unknown_1: u16,             // 238
-    pub unknown_2: u16,             // 240
-    pub health_points: i16,         // 242
-    pub mana_points: i16,           // 244
-    pub strength: i16,              // 246
-    pub agility: i16,               // 248
-    pub wisdom: i16,                // 250
-    pub constitution: i16,          // 252
-    pub to_dodge: i16,              // 254
-    pub to_hit: i16,                // 256
-    pub offense: i16,               // 258
-    pub defense: i16,               // 260
-    pub magical_power: i16,         // 262
-    pub item_destroying_power: i16, // 264
-    pub unknown_3: u8,              // 265
-    pub modifies_item: u8,          // 266
-    pub additional_effect: i16,     // 268
-    pub item_type_id: u8,           // inventory position 269
-    pub unknown_5: u8,              // inventory position 270
-    pub unknown_6: u16,             // 272
+    pub base_price: u32, // 236
+    /// Runtime index of the corresponding EditItem database definition.
+    pub edit_item_id: u32, // 240
+    pub health_points: i16, // 242
+    pub mana_points: i16, // 244
+    pub strength: i16,   // 246
+    pub agility: i16,    // 248
+    pub wisdom: i16,     // 250
+    pub constitution: i16, // 252
+    pub to_dodge: i16,   // 254
+    pub to_hit: i16,     // 256
+    pub offense: i16,    // 258
+    pub defense: i16,    // 260
+    pub magical_power: i16, // 262
+    pub modification_resistance: i16, // 264
+    /// Reserved byte; observed as zero and not used by the game.
+    pub reserved_byte: u8, // 265
+    pub modifies_item: u8, // 266
+    pub additional_effect: i16, // 268
+    pub item_type_id: u8, // inventory position 269
+    pub unknown_5: u8,   // inventory position 270
+    pub unknown_6: u16,  // 272
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
@@ -1097,26 +1098,27 @@ pub struct DrawItemEditItem {
     pub name: String, // 30
     #[binary_record(string(encoding = "WINDOWS-1250", size = 202))]
     pub description: String, // 232
-    pub base_price: u32,            // 236
-    pub edit_item_id: u32,          // 240
-    pub health_points: i16,         // 242
-    pub mana_points: i16,           // 244
-    pub strength: i16,              // 246
-    pub agility: i16,               // 248
-    pub wisdom: i16,                // 250
-    pub constitution: i16,          // 252
-    pub to_dodge: i16,              // 254
-    pub to_hit: i16,                // 256
-    pub offense: i16,               // 258
-    pub defense: i16,               // 260
-    pub magical_power: i16,         // 262
-    pub item_destroying_power: i16, // 264
-    pub unknown_3: u8,              // 265
-    pub modifies_item: u8,          // 266
-    pub additional_effect: i16,     // 268
-    pub map_coordinate_x: u32,      // 272
-    pub map_coordinate_y: u32,      // 276
-    pub unknown_4: u32,             // 280
+    pub base_price: u32,              // 236
+    pub edit_item_id: u32,            // 240
+    pub health_points: i16,           // 242
+    pub mana_points: i16,             // 244
+    pub strength: i16,                // 246
+    pub agility: i16,                 // 248
+    pub wisdom: i16,                  // 250
+    pub constitution: i16,            // 252
+    pub to_dodge: i16,                // 254
+    pub to_hit: i16,                  // 256
+    pub offense: i16,                 // 258
+    pub defense: i16,                 // 260
+    pub magical_power: i16,           // 262
+    pub modification_resistance: i16, // 264
+    /// Reserved byte; observed as zero and not used by the game.
+    pub reserved_byte: u8, // 265
+    pub modifies_item: u8,            // 266
+    pub additional_effect: i16,       // 268
+    pub map_coordinate_x: u32,        // 272
+    pub map_coordinate_y: u32,        // 276
+    pub unknown_4: u32,               // 280
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]

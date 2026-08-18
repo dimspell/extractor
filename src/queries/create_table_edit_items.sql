@@ -4,10 +4,8 @@ CREATE TABLE IF NOT EXISTS edit_items
     name                  TEXT,
     description           TEXT,
     base_price            INTEGER,
+    runtime_item_id       INTEGER,
     health_points         INTEGER,
-    padding1              INTEGER,
-    padding2              INTEGER,
-    padding3              INTEGER,
     mana_points           INTEGER,
     strength              INTEGER,
     agility               INTEGER,
@@ -18,8 +16,8 @@ CREATE TABLE IF NOT EXISTS edit_items
     offense               INTEGER,
     defense               INTEGER,
     magical_power         INTEGER,
-    item_destroying_power INTEGER,
-    padding4              INTEGER,
+    modification_resistance INTEGER,
+    reserved_byte         INTEGER,
     modifies_item         BOOLEAN,
     additional_effect     INTEGER
 )
