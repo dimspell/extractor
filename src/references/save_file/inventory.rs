@@ -3,9 +3,9 @@ use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 
-/// Stores information what has been equipped and which slots the items occupies in the inventory.
+/// Information what is equipped, which slots the items in inventory are occupied.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct InventoryPlacements {
+pub struct InventorySlots {
     /// Equipped weapon items — 12 slots × 9 bytes = 108 bytes.
     pub equipped_equipment: Vec<EquipmentSlot>,
     /// Belt item placements — 6 cells × 16 bytes = 96 bytes.
@@ -23,7 +23,7 @@ pub const BELT_BYTES_SIZE: usize = 6 * 16;
 /// Inventory placement: 3 pages × 7 columns × 9 cells × 20 bytes = 3780 bytes.
 pub const INVENTORY_BYTES_SIZE: usize = 3 * 7 * 9 * 20;
 
-impl InventoryPlacements {
+impl InventorySlots {
     pub(crate) fn parse(data: &[u8]) -> std::io::Result<Self> {
         let mut reader = std::io::Cursor::new(data);
 

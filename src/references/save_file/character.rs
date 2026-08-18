@@ -1,29 +1,30 @@
-use crate::references::extractor::read_null_terminated_windows_1250;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
-use std::io::{Read, Write};
-use crate::references::save_file::inventory::InventoryPlacements;
 
-/// Data immediately before the character stats block (28 bytes).
+/// Parse actual position, character stats, and some unknown bytes (112 bytes)
 ///
-/// Layout: `[unknown_a: u8][unknown_b: u32][selected_spell_id: u32][unknown_block: 19 bytes]`.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct CharacterStatsHeader {
-    pub unknown_a: u8,
-    pub unknown_b: u32,
-    /// ID of the spell currently selected by the player.
-    pub selected_spell_id: u32,
-    /// Remaining unknown bytes in the header.
-    pub unknown_block: [u8; 19],
-}
-
-/// Parsed character stats from a save file.
-///
-/// Maps the binary stats block (~68 bytes of structured data) that follows
-/// the belt-data section and precedes the inventory section.
+/// Layout:
+///   `[unknown_01: 8B][position_x: i16][position_y: i16]
+///    [unknown_02: 5B][selected_spell_id: u32][unknown_03: 19BB]
+///    [strength u16][agility u16][wisdom u16][constitution u16]
+///    [morale u16][hp_cur u16][hp_max u16][mp_cur u16][mp_max u16]
+///    [xp u32][level u16][gold u32][offense u16][defense u16]
+///    [dodge u8][hit u8][magic_power u16][attack_mod u8]
+///    [thievery u8][lockpick u8][haggle u8][perception u8][traps u8]
+///    [sword_lv u8][sword_kills u16][axe_lv u8][axe_kills u16]
+///    [archery_lv u8][archery_kills u16][polearm_lv u8][polearm_kills u16]
+///    [magic_lv u8][magic_kills u16][holy_lv u8][holy_kills u16]
+///    [dark_lv u8][dark_kills u16][unknown: 9B]`
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
-pub struct CharacterStats {
+pub struct CharacterData {
+    pub unknown_01: [u8; 8], // TODO: Recognise them
+    pub character_position_x: i16,
+    pub character_position_y: i16,
+    pub unknown_02: [u8; 5],    // TODO: Recognise them
+    pub selected_spell_id: u32, // TODO: Verify me
+    pub unknown_03: [u8; 19],   // TODO: Recognise them
+
+    // Parsed character stats (core, combat, skills, weapon skills) (63 bytes).
     // ── Core attributes ──
     pub strength: u16,
     pub agility: u16,
@@ -37,6 +38,7 @@ pub struct CharacterStats {
     pub experience: u32,
     pub level: u16,
     pub gold: u32,
+
     // ── Combat stats ──
     pub offense: u16,
     pub defense: u16,
@@ -44,12 +46,14 @@ pub struct CharacterStats {
     pub hit_rate: u8,
     pub magic_power: u16,
     pub attack_modifier: u8,
+
     // ── Skills (5 × u8) ──
     pub pickpocketing: u8,
     pub lockpicking: u8,
     pub haggling: u8,
     pub perception: u8,
     pub traps: u8,
+
     // ── Weapon skills (7 types × {level: u8, kills: u16}) ──
     pub swords_level: u8,
     pub swords_kills: u16,
@@ -65,41 +69,34 @@ pub struct CharacterStats {
     pub holy_magic_kills: u16,
     pub dark_magic_level: u8,
     pub dark_magic_kills: u16,
+
+    /// Unknown bytes after stats block (9 bytes).
+    pub unknown_04: [u8; 9],
 }
 
-/// Character data header block (11 bytes).
-///
-/// Read immediately after the player class name and before the
-/// equipment/belt/inventory/spells blocks. Internal field meanings are
-/// not yet decoded.
+/// Character identity data (name, class, unknown bytes) - 131 bytes.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
-pub struct CharacterDataHeader {
-    pub unknown_a: u32,
-    pub unknown_b: u16,
-    pub unknown_c: u8, // TODO: It is likely strength attribute (maybe after modificators/curses)
-    pub unknown_c2: u8,
-    pub unknown_d: u8, // TODO: It is likely agility attribute (maybe after modificators/curses)
-    pub unknown_e: u8,
-    pub unknown_f: u8,
-}
-
-/// Character identity data (name, class, equipment, spells, party).
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CharacterIdentity {
     /// Unknown block before player name (96 bytes).
-    pub unknown_block: Vec<u8>,
-    /// Player name (11-byte WINDOWS-1250 null-terminated).
+    #[binary_record(size = 96)]
+    pub unknown_00: Vec<u8>,
+    /// Player name (11 bytes, null-terminated string).
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 11))]
     pub player_name: String,
     /// Player class ID.
     pub player_class_id: u16,
     /// Player class name (11-byte WINDOWS-1250 null-terminated).
+    #[binary_record(string(encoding = "WINDOWS-1250", size = 11))]
     pub player_class_name: String,
-    /// Header block before equipment data (11 bytes).
-    pub character_data_header: CharacterDataHeader,
 
-    pub inventory_placements: InventoryPlacements,
-    /// Learned spells — 41 bytes (one flag per spell).
-    pub learned_spells: LearnedSpells,
+    // -- Header block before equipment data (11 bytes).
+    #[binary_record(size = 6)]
+    pub unknown_02: Vec<u8>,
+    pub unknown_03: u8, // TODO: It is likely strength attribute (maybe after modificators/curses)
+    pub unknown_04: u8,
+    pub unknown_05: u8, // TODO: It is likely agility attribute (maybe after modificators/curses)
+    pub unknown_06: u8,
+    pub unknown_07: u8,
 }
 
 /// Learned spells block (41 bytes).

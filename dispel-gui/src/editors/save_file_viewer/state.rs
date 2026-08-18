@@ -1024,63 +1024,75 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //         })
         //         .collect(),
         // },
+        // RawHexEditorData {
+        //     label: "Character Stats Header".into(),
+        //     data: {
+        //         let header = &save_file.character;
+        //         let mut bytes = Vec::with_capacity(24);
+        //         bytes.push(header.unknown_a);
+        //         bytes.extend_from_slice(&header.unknown_b.to_le_bytes());
+        //         bytes.extend_from_slice(&header.unknown_block);
+        //         bytes
+        //     },
+        // },
         RawHexEditorData {
-            label: "Belt Data (before stats) - A".into(),
-            data: save_file.unknown_before_stats.clone(),
+            label: "Character.unknown_01".into(),
+            data: save_file.character.unknown_01.to_vec().clone(),
         },
         RawHexEditorData {
-            label: "Character Stats Header".into(),
-            data: {
-                let header = &save_file.character_stats_header;
-                let mut bytes = Vec::with_capacity(24);
-                bytes.push(header.unknown_a);
-                bytes.extend_from_slice(&header.unknown_b.to_le_bytes());
-                bytes.extend_from_slice(&header.unknown_block);
-                bytes
-            },
+            label: "Character.unknown_02".into(),
+            data: save_file.character.unknown_02.to_vec().clone(),
         },
         RawHexEditorData {
-            label: "Unknown After Stats".into(),
-            data: save_file.unknown_after_stats.clone(),
+            label: "Character.unknown_03".into(),
+            data: save_file.character.unknown_03.to_vec().clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Block A".into(),
+            label: "Character.unknown_03".into(),
+            data: save_file.character.unknown_04.to_vec().clone(),
+        },
+        RawHexEditorData {
+            label: "character_identity.unknown_00".into(),
+            data: save_file.character_identity.unknown_00.clone(),
+        },
+        RawHexEditorData {
+            label: "character_identity.unknown_02".into(),
+            data: save_file.character_identity.unknown_02.clone(),
+        },
+        RawHexEditorData {
+            label: "post_events.block_a".into(),
             data: save_file.post_events.block_a.clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Records".into(),
+            label: "post_events.records".into(),
             data: save_file.post_events.records.clone(),
         },
         RawHexEditorData {
-            label: "Post-Events Block B".into(),
+            label: "post_events.block_b".into(),
             data: save_file.post_events.block_b.clone(),
-        },
-        RawHexEditorData {
-            label: "Identity Unknown Block".into(),
-            data: save_file.character_identity.unknown_block.clone(),
         },
     ];
 
-    for map in &save_file.maps {
-        let trailer = &map.extra_objects_trailer;
-        // `tail_size` (4 bytes) plus the seven-byte trailer header; the five
-        // ground-item sections are exposed separately below.
-        let mut data = Vec::with_capacity(4 + 7 + trailer.records.len() * 24);
-        data.extend_from_slice(&trailer.tail_size.to_le_bytes());
-        data.extend_from_slice(&(trailer.records.len() as u16).to_le_bytes());
-        for record in &trailer.records {
-            record
-                .write(&mut data)
-                .expect("writing a trailer record to memory cannot fail");
-        }
-        data.push(trailer.automatic_placement_active);
-        data.extend_from_slice(&trailer.automatic_placement_value.to_le_bytes());
-        data.extend_from_slice(&trailer.automatic_placement_global_item_index.to_le_bytes());
-        hex_editors.push(RawHexEditorData {
-            label: format!("Map {} Extra-Object Trailer", map.map_id),
-            data,
-        });
-    }
+    // for map in &save_file.maps {
+    //     let trailer = &map.extra_objects_trailer;
+    //     // `tail_size` (4 bytes) plus the seven-byte trailer header; the five
+    //     // ground-item sections are exposed separately below.
+    //     let mut data = Vec::with_capacity(4 + 7 + trailer.records.len() * 24);
+    //     data.extend_from_slice(&trailer.tail_size.to_le_bytes());
+    //     data.extend_from_slice(&(trailer.records.len() as u16).to_le_bytes());
+    //     for record in &trailer.records {
+    //         record
+    //             .write(&mut data)
+    //             .expect("writing a trailer record to memory cannot fail");
+    //     }
+    //     data.push(trailer.automatic_placement_active);
+    //     data.extend_from_slice(&trailer.automatic_placement_value.to_le_bytes());
+    //     data.extend_from_slice(&trailer.automatic_placement_global_item_index.to_le_bytes());
+    //     hex_editors.push(RawHexEditorData {
+    //         label: format!("Map {} Extra-Object Trailer", map.map_id),
+    //         data,
+    //     });
+    // }
 
     hex_editors
 }

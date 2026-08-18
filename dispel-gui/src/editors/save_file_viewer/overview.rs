@@ -26,21 +26,15 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
                     sf.character_identity.player_class_name, sf.character_identity.player_class_id
                 ),
             ))
-            .push(label_row("Level", sf.character_stats.level.to_string()))
-            .push(label_row("Gold", sf.character_stats.gold.to_string()))
+            .push(label_row("Level", sf.character.level.to_string()))
+            .push(label_row("Gold", sf.character.gold.to_string()))
             .push(label_row(
                 "HP",
-                format!(
-                    "{}/{}",
-                    sf.character_stats.hp_current, sf.character_stats.hp_maximum
-                ),
+                format!("{}/{}", sf.character.hp_current, sf.character.hp_maximum),
             ))
             .push(label_row(
                 "MP",
-                format!(
-                    "{}/{}",
-                    sf.character_stats.mp_current, sf.character_stats.mp_maximum
-                ),
+                format!("{}/{}", sf.character.mp_current, sf.character.mp_maximum),
             ))
             .push(section_header("Sprite Paths"))
             .extend(
@@ -87,15 +81,15 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
             ))
             .push(label_row(
                 "Position X (tile)",
-                sf.character_position_x.to_string(),
+                sf.character.character_position_x.to_string(),
             ))
             .push(label_row(
                 "Position Y (tile)",
-                sf.character_position_y.to_string(),
+                sf.character.character_position_y.to_string(),
             ))
             .push(label_row(
                 "Selected Spell ID",
-                sf.character_stats_header.selected_spell_id.to_string(),
+                sf.character.selected_spell_id.to_string(),
             ))
             .push(label_row(
                 "Map IDs",

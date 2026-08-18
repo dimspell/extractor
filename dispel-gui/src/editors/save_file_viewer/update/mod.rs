@@ -1336,14 +1336,14 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     // Build character display caches (equipment / belt potions /
                     // inventory placement) from the character identity.
                     use crate::editors::save_file_viewer::state::CharacterTableKind;
-                    let identity = &loaded.save_file.character_identity;
+                    let slots = &loaded.save_file.inventory_slots;
                     let mut char_caches: std::collections::HashMap<
                         CharacterTableKind,
                         Vec<Vec<String>>,
                     > = std::collections::HashMap::new();
                     char_caches.insert(
                         CharacterTableKind::Equipment,
-                        identity
+                        slots
                             .equipped_equipment
                             .iter()
                             .map(|s| {
@@ -1357,7 +1357,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     );
                     char_caches.insert(
                         CharacterTableKind::BeltPotions,
-                        identity
+                        slots
                             .belt_potions
                             .iter()
                             .map(|s| {
@@ -1372,7 +1372,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                     );
                     char_caches.insert(
                         CharacterTableKind::InventoryPlacement,
-                        identity
+                        slots
                             .inventory_placement
                             .iter()
                             .map(|e| {

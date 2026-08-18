@@ -12,10 +12,9 @@ pub mod party_members;
 pub mod tests;
 
 use super::extractor::{Extractor, read_null_terminated_windows_1250};
-pub use crate::references::save_file::character::{
-    CharacterDataHeader, CharacterStatsHeader, LearnedSpells,
-};
-pub use crate::references::save_file::character::{CharacterIdentity, CharacterStats};
+use crate::references::save_file::character::CharacterData;
+pub use crate::references::save_file::character::CharacterIdentity;
+pub use crate::references::save_file::character::LearnedSpells;
 pub use crate::references::save_file::events::{EventRecord, PostEventsData};
 pub use crate::references::save_file::game_tmp::{
     DrawItemEditItem, DrawItemEventItem, DrawItemHealItem, DrawItemMiscItem, DrawItemWeaponItem,
@@ -23,7 +22,7 @@ pub use crate::references::save_file::game_tmp::{
     MonsterRecord, NpcRecord,
 };
 use crate::references::save_file::inventory::{
-    BELT_BYTES_SIZE, EQUIPPED_ITEM_BYTES, INVENTORY_BYTES_SIZE, InventoryPlacements,
+    BELT_BYTES_SIZE, EQUIPPED_ITEM_BYTES, INVENTORY_BYTES_SIZE, InventorySlots,
 };
 pub use crate::references::save_file::inventory::{
     BeltPotionSlot, InventoryData, InventoryEditItem, InventoryEventItem, InventoryHealItem,
@@ -54,20 +53,16 @@ pub struct SaveFile {
     pub map_viewport_state: MapViewportState,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
-    /// Unknown 8 bytes
-    pub unknown_before_stats: Vec<u8>,
-    pub character_position_x: i16,
-    pub character_position_y: i16,
-    /// Header before character stats, including the currently selected spell.
-    pub character_stats_header: CharacterStatsHeader,
-    /// Parsed character stats (core, combat, skills, weapon skills).
-    pub character_stats: CharacterStats,
-    /// Unknown bytes after stats block (9 bytes).
-    pub unknown_after_stats: Vec<u8>,
-    /// Raw inventory data (5 item categories).
+    /// Character actual attributtes, stats and position on the map.
+    pub character: CharacterData,
+    /// List of items in the inventory by the cateogry (5 item categories).
     pub inventory: InventoryData,
     /// Character identity (name, class, unknown blocks).
     pub character_identity: CharacterIdentity,
+    /// Fixed-size serialization of the inventory slot use and items placements.
+    pub inventory_slots: InventorySlots,
+    /// Learned spells - 41 bytes (one flag per spell).
+    pub learned_spells: LearnedSpells,
     /// Number of NPCs that accompany the player on their adventures.
     pub party_members_count: u32,
     /// Party members (321 bytes each, with an optional 52-byte combat tail).
@@ -104,20 +99,25 @@ impl SaveFile {
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
 
         // ── 5 Character stats ──
-        let (
-            unknown_before_stats,
-            character_position_x,
-            character_position_y,
-            character_stats_header,
-            character_stats,
-            unknown_after_stats,
-        ) = Self::parse_character_stats(&mut reader)?;
+        let character = Self::parse_character_stats(&mut reader)?;
 
         // ── 6. Inventory (5 categories, each count-prefixed) ──
         let inventory = Self::parse_inventory_section(&mut reader)?;
 
         // ── 7. Character identity (unknown block + name + class + large unknown) ──
         let character_identity = Self::parse_character_identity(&mut reader)?;
+
+        let inventory_slots = {
+            let mut bytes = [0u8; INVENTORY_BYTES_SIZE + BELT_BYTES_SIZE + EQUIPPED_ITEM_BYTES];
+            reader.read_exact(&mut bytes)?;
+            let inventory_placement = InventorySlots::parse(&bytes)?;
+            inventory_placement
+        };
+
+        // Learned spells: 41 bytes (one flag per spell)
+        let mut spells_buf = vec![0u8; 41];
+        reader.read_exact(&mut spells_buf)?;
+        let learned_spells = LearnedSpells { spells: spells_buf };
 
         // ── 7.5. Party members ──
         let party_members_count = reader.read_u32::<LittleEndian>()?;
@@ -141,14 +141,11 @@ impl SaveFile {
             post_maps,
             map_viewport_state,
             sprite_paths,
-            unknown_before_stats,
-            character_position_x,
-            character_position_y,
-            character_stats_header,
-            character_stats,
-            unknown_after_stats,
+            character,
             inventory,
             character_identity,
+            inventory_slots,
+            learned_spells,
             party_members_count,
             party_members,
             events,
@@ -348,69 +345,10 @@ impl SaveFile {
         Ok(paths)
     }
 
-    /// Parse belt data, character stats, and trailing unknown bytes.
-    ///
-    /// Layout:
-    ///   `[unknown_before_stats_a: 8B][position_x: i16][position_y: i16]
-    ///    [character_stats_header: 28B][strength u16][agility u16][wisdom u16][constitution u16]
-    ///    [morale u16][hp_cur u16][hp_max u16][mp_cur u16][mp_max u16]
-    ///    [xp u32][level u16][gold u32][offense u16][defense u16]
-    ///    [dodge u8][hit u8][magic_power u16][attack_mod u8]
-    ///    [thievery u8][lockpick u8][haggle u8][perception u8][traps u8]
-    ///    [sword_lv u8][sword_kills u16][axe_lv u8][axe_kills u16]
-    ///    [archery_lv u8][archery_kills u16][polearm_lv u8][polearm_kills u16]
-    ///    [magic_lv u8][magic_kills u16][holy_lv u8][holy_kills u16]
-    ///    [dark_lv u8][dark_kills u16][unknown: 9B]`
-    #[allow(clippy::type_complexity)]
-    fn parse_character_stats<R: Read>(
-        reader: &mut R,
-    ) -> std::io::Result<(
-        Vec<u8>,
-        i16,
-        i16,
-        CharacterStatsHeader,
-        CharacterStats,
-        Vec<u8>,
-    )> {
-        // ── Leading data (8 bytes, purpose unknown) ──
-        let mut unknown_before_stats = vec![0u8; 8];
-        reader.read_exact(&mut unknown_before_stats)?;
-
-        let character_position_x = reader.read_i16::<LittleEndian>()?;
-        let character_position_y = reader.read_i16::<LittleEndian>()?;
-
-        // ── Character stats header (28 bytes) ──
-        let character_stats_header = CharacterStatsHeader {
-            unknown_a: reader.read_u8()?,
-            unknown_b: reader.read_u32::<LittleEndian>()?,
-            selected_spell_id: reader.read_u32::<LittleEndian>()?,
-            unknown_block: {
-                let mut bytes = [0u8; 19];
-                reader.read_exact(&mut bytes)?;
-                bytes
-            },
-        };
-
-        // ── Structured stats block ──
-        let character_stats = {
-            let mut bytes = [0u8; 63];
-            reader.read_exact(&mut bytes)?;
-            let character_stats = CharacterStats::parse(&bytes)?;
-            character_stats
-        };
-
-        // ── Trailing unknown bytes ──
-        let mut unknown_after_stats = vec![0u8; 9];
-        reader.read_exact(&mut unknown_after_stats)?;
-
-        Ok((
-            unknown_before_stats,
-            character_position_x,
-            character_position_y,
-            character_stats_header,
-            character_stats,
-            unknown_after_stats,
-        ))
+    fn parse_character_stats<R: Read>(reader: &mut R) -> std::io::Result<CharacterData> {
+        let mut buf = [0u8; 112];
+        reader.read_exact(&mut buf)?;
+        CharacterData::parse(&buf)
     }
 
     /// Parse the inventory section (5 count-prefixed item categories).
@@ -471,61 +409,17 @@ impl SaveFile {
         Ok(events)
     }
 
-    /// Parse character identity (name, class, equipment, spells, party).
+    /// Parse character identity (131 bytes).
     ///
     /// Layout:
-    ///   `[unknown_96B][name: 11B][class_id: u16][class_name: 11B]
-    ///    [header: 11B][equipment: 108B][belt: 96B][inventory: 3780B][spells: 41B]
-    ///    [party_count: u32][party_members]`
+    ///   `[unknown_96B][name: 11B][class_id: u16][class_name: 11B][unknown_11B]`
     fn parse_character_identity<R: Read + Seek>(
         reader: &mut R,
     ) -> std::io::Result<CharacterIdentity> {
-        // ── 7.1. Unknown block (96 bytes before name) ──
-        let mut unknown_block = vec![0u8; 96];
-        reader.read_exact(&mut unknown_block)?;
-
-        // ── 7.2. Player name (11-byte WINDOWS-1250 null-terminated) ──
-        let mut name_raw = vec![0u8; 11];
-        reader.read_exact(&mut name_raw)?;
-        let player_name = read_null_terminated_windows_1250(&name_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        // ── 7.3. Player class ──
-        let player_class_id = reader.read_u16::<LittleEndian>()?;
-        let mut class_raw = vec![0u8; 11];
-        reader.read_exact(&mut class_raw)?;
-        let player_class_name = read_null_terminated_windows_1250(&class_raw)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-        // ── 7.4. Character data blocks ──
-        // TODO: Add writer method for these blocks
-
-        // Header: u32 + u16 + u16 + u8 + u8 + u8 = 11 bytes
-        let mut header_buf = [0u8; 11];
+        let mut header_buf = [0u8; 131];
         reader.read_exact(&mut header_buf)?;
-        let character_data_header = CharacterDataHeader::parse(&header_buf)?;
-
-        let inventory_placements = {
-            let bytes = [0u8; INVENTORY_BYTES_SIZE + BELT_BYTES_SIZE + EQUIPPED_ITEM_BYTES];
-            reader.read_exact(&mut header_buf)?;
-            let inventory_placement = InventoryPlacements::parse(&bytes)?;
-            inventory_placement
-        };
-
-        // Learned spells: 41 bytes (one flag per spell)
-        let mut spells_buf = vec![0u8; 41];
-        reader.read_exact(&mut spells_buf)?;
-        let learned_spells = LearnedSpells { spells: spells_buf };
-
-        Ok(CharacterIdentity {
-            unknown_block,
-            player_name,
-            player_class_id,
-            player_class_name,
-            character_data_header,
-            inventory_placements,
-            learned_spells,
-        })
+        let character_data_header = CharacterIdentity::parse(&header_buf)?;
+        Ok(character_data_header)
     }
 
     /// Parse the unknown section between events and journal.
@@ -714,23 +608,10 @@ impl SaveFile {
 
     /// Write position data, character stats, and trailing unknown bytes.
     fn write_character_stats<W: Write>(
-        unknown_before_a: &[u8],
-        character_position_x: i16,
-        character_position_y: i16,
-        character_stats_header: &CharacterStatsHeader,
-        stats: &CharacterStats,
-        unknown_after: &[u8],
+        stats: &CharacterData,
         writer: &mut W,
     ) -> std::io::Result<()> {
-        writer.write_all(unknown_before_a)?;
-        writer.write_i16::<LittleEndian>(character_position_x)?;
-        writer.write_i16::<LittleEndian>(character_position_y)?;
-        writer.write_u8(character_stats_header.unknown_a)?;
-        writer.write_u32::<LittleEndian>(character_stats_header.unknown_b)?;
-        writer.write_u32::<LittleEndian>(character_stats_header.selected_spell_id)?;
-        writer.write_all(&character_stats_header.unknown_block)?;
         stats.write(writer)?;
-        writer.write_all(unknown_after)?;
         Ok(())
     }
 
@@ -759,38 +640,20 @@ impl SaveFile {
         Ok(())
     }
 
-    /// Write character identity (96B unknown + 11B name + u16 class + 11B class name + character data blocks + party).
+    /// Write character identity (96B unknown + 11B name + u16 class + 11B class name + 11B unknown).
     fn write_character_identity<W: Write>(
         identity: &CharacterIdentity,
         writer: &mut W,
     ) -> std::io::Result<()> {
-        writer.write_all(&identity.unknown_block)?;
+        identity.write(writer)?;
+        Ok(())
+    }
 
-        // Player name: 11-byte WINDOWS-1250 fixed buffer
-        let mut name_buf = [0u8; 11];
-        let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(&identity.player_name);
-        let len = std::cmp::min(cow.len(), 11);
-        name_buf[..len].copy_from_slice(&cow[..len]);
-        writer.write_all(&name_buf)?;
-
-        writer.write_u16::<LittleEndian>(identity.player_class_id)?;
-
-        // Class name: 11-byte WINDOWS-1250 fixed buffer
-        let mut class_buf = [0u8; 11];
-        let (cow, _, _) = encoding_rs::WINDOWS_1250.encode(&identity.player_class_name);
-        let len = std::cmp::min(cow.len(), 11);
-        class_buf[..len].copy_from_slice(&cow[..len]);
-        writer.write_all(&class_buf)?;
-
-        // ── Character data blocks ──
-
-        // Header: u32 + u16 + u16 + u8 + u8 + u8 = 11 bytes
-        identity.character_data_header.write(writer)?;
-
-        identity.inventory_placements.write(writer)?;
-
-        // Learned spells: 41 bytes
-        writer.write_all(&identity.learned_spells.spells)?;
+    fn write_inventory_slots<W: Write>(
+        slots: &InventorySlots,
+        writer: &mut W,
+    ) -> std::io::Result<()> {
+        slots.write(writer)?;
         Ok(())
     }
 
@@ -866,15 +729,7 @@ impl Extractor for SaveFile {
         Self::write_sprite_paths(&save.sprite_paths, writer)?;
 
         // 5. Belt data + character stats + trailing bytes
-        Self::write_character_stats(
-            &save.unknown_before_stats,
-            save.character_position_x,
-            save.character_position_y,
-            &save.character_stats_header,
-            &save.character_stats,
-            &save.unknown_after_stats,
-            writer,
-        )?;
+        Self::write_character_stats(&save.character, writer)?;
 
         // 6. Inventory (5 categories)
         Self::write_inventory(&save.inventory, writer)?;
@@ -882,7 +737,13 @@ impl Extractor for SaveFile {
         // 7. Character identity
         Self::write_character_identity(&save.character_identity, writer)?;
 
-        // ── Party members ──
+        // -- Inventory slots
+        Self::write_inventory_slots(&save.inventory_slots, writer)?;
+
+        // -- Learned spells
+        writer.write_all(&save.learned_spells.spells)?;
+
+        // -- Party members --
         writer.write_u32::<LittleEndian>(save.party_members_count)?;
         for member in &save.party_members {
             member.write(writer)?;

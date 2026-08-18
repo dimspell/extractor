@@ -49,8 +49,8 @@ pub use references::{
     party_ref::PartyRef,
     quest_scr::Quest,
     save_file::{
-        CharacterIdentity, CharacterStats, InventoryData, JournalData, JournalEntry,
-        MapSectionData, MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
+        CharacterIdentity, InventoryData, JournalData, JournalEntry, MapSectionData,
+        MapViewportCell, MapViewportState, PostEventsData, PostMapsData, SaveFile,
     },
     store_db::Store,
     wave_ini::WaveIni,

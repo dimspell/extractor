@@ -12,56 +12,33 @@ pub fn view<'a>(state: &'a SaveFileViewerState) -> Element<'a, Message> {
         None => return container(text("No save file loaded")).into(),
     };
 
-    let identity = &sf.character_identity;
     let party_members = &sf.party_members;
-
-    let character_header = &identity.character_data_header;
 
     scrollable(
         Column::new()
             .push(section_header("Character Data Header"))
             .push(label_row(
-                "unknown_a",
-                character_header.unknown_a.to_string(),
+                "unknown_03",
+                sf.character_identity.unknown_03.to_string(),
             ))
             .push(label_row(
-                "unknown_b",
-                character_header.unknown_b.to_string(),
+                "unknown_4",
+                sf.character_identity.unknown_04.to_string(),
             ))
             .push(label_row(
-                "unknown_c",
-                character_header.unknown_c.to_string(),
+                "unknown_5",
+                sf.character_identity.unknown_05.to_string(),
             ))
             .push(label_row(
-                "unknown_d",
-                character_header.unknown_d.to_string(),
+                "unknown_6",
+                sf.character_identity.unknown_06.to_string(),
             ))
             .push(label_row(
-                "unknown_e",
-                character_header.unknown_e.to_string(),
-            ))
-            .push(label_row(
-                "unknown_f",
-                character_header.unknown_f.to_string(),
-            ))
-            .push(label_row(
-                "Equipment Slots",
-                identity.equipped_equipment.len().to_string(),
-            ))
-            .push(label_row(
-                "Belt Potions",
-                identity.belt_potions.len().to_string(),
-            ))
-            .push(label_row(
-                "Inventory Placements",
-                identity.inventory_placement.len().to_string(),
-            ))
-            .push(label_row(
-                "Learned Spells",
-                identity.learned_spells.spells.len().to_string(),
+                "unknown_7",
+                sf.character_identity.unknown_07.to_string(),
             ))
             .push(section_header("Learned Spells"))
-            .push(identity.learned_spells.spells.iter().enumerate().fold(
+            .push(sf.learned_spells.spells.iter().enumerate().fold(
                 Column::new().spacing(4),
                 |col, (i, flag)| {
                     col.push(label_row(

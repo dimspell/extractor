@@ -75,7 +75,7 @@ fn inventory_placement_view<'a>(state: &'a SaveFileViewerState) -> Element<'a, M
             .padding(16)
             .into();
     };
-    let cells = &save.character_identity.inventory_placement;
+    let cells = &save.inventory_slots.inventory_placement;
     let selected = state
         .character_table_states
         .get(&CharacterTableKind::InventoryPlacement)
