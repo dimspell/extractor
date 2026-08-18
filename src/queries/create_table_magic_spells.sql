@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS magic_spells (
     effect_type INTEGER,
     effect_modifier INTEGER,
     reserved_0x3c INTEGER,
-    magic_school INTEGER,
+    magic_type INTEGER,
     target_animation_blends_with_background INTEGER,
     animation_set_id INTEGER,
     effect_visual_id INTEGER,

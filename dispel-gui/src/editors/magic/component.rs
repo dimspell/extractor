@@ -1,5 +1,5 @@
 use crate::components::editable::EditableRecord;
-use dispel_core::{MagicSchool, MagicSpell, MagicSpellFlag, SpellTargetType};
+use dispel_core::{MagicSpell, MagicSpellFlag, MagicType, SpellTargetType};
 
 use crate::editable_record_fields;
 
@@ -20,7 +20,7 @@ editable_record_fields!(MagicSpell, {
     { effect_type = Integer / "Effect Type:" },
     { effect_modifier = Integer / "Effect Modifier:" },
     { reserved_0x3c = Integer / "Reserved (0x3C):" },
-    { magic_school = Enum(MagicSchool, ["Unknown", "School1", "School2", "School3", "School4", "School5", "School6"]) / "Magic School:" },
+    { magic_type = Enum(MagicType, ["Magic", "LightMagic", "BlackMagic"]) / "Magic Type:" },
     { target_animation_blends_with_background = Boolean / "Target Animation Blends:" },
     { animation_set_id = Integer / "Animation Set ID:" },
     { effect_visual_id = Integer / "Effect Visual ID:" },
@@ -34,7 +34,7 @@ impl EditableRecord for MagicSpell {
     fn list_label(&self) -> String {
         format!(
             "[{}] School:{:?} Mana:{} DMG:{} Duration:{}",
-            self.id, self.magic_school, self.mana_cost, self.base_damage, self.cast_duration
+            self.id, self.magic_type, self.mana_cost, self.base_damage, self.cast_duration
         )
     }
 

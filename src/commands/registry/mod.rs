@@ -118,7 +118,7 @@ pub fn get_type_fields(key: &str) -> Vec<String> {
             "mana_cost",
             "range",
             "cast_duration",
-            "magic_school",
+            "magic_type",
             "animation_set_id",
             "effect_visual_id",
             "targeting_mode",

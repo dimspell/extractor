@@ -16,7 +16,7 @@ INSERT INTO magic_spells (
     effect_type,
     effect_modifier,
     reserved_0x3c,
-    magic_school,
+    magic_type,
     target_animation_blends_with_background,
     animation_set_id,
     effect_visual_id,

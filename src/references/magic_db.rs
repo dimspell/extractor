@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::references::enums::{MagicSchool, MagicSpellFlag, SpellTargetType};
+use crate::references::enums::{MagicSpellFlag, MagicType, SpellTargetType};
 use crate::references::extractor::Extractor;
 use dispel_macros::{Extractor, RecordPatcher};
 use rusqlite::{Connection, Result, params};
@@ -44,7 +44,7 @@ use serde::{Deserialize, Serialize};
 /// | - effect_type: u32                   |
 /// | - effect_modifier: u32                |
 /// | - reserved_0x3c: u32                  |
-/// | - magic_school: u32 (MagicSchool)     |
+/// | - magic_type: u32 (MagicType)          |
 /// | - target_animation_blends_with_background: u32 (0=Off, 1=On) |
 /// | - animation_set_id: u32               |
 /// | - effect_visual_id: u32               |
@@ -59,7 +59,7 @@ use serde::{Deserialize, Serialize};
 /// # Reverse-engineered behavior
 ///
 /// The combat code reads `base_damage`, `base_success_rate`, `mana_cost`,
-/// `range`, `cast_duration`, `magic_school`, `animation_set_id`, and
+/// `range`, `cast_duration`, `magic_type`, `animation_set_id`, and
 /// `effect_visual_id`. Effective mana cost is reduced by the caster's
 /// magic-school skill, with a minimum of 5; effective success chance also
 /// includes that skill. Offset-based names are retained only for effect
@@ -146,9 +146,10 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub reserved_0x3c: u32,
 
-    /// Magic-school/stat category used in cost and success calculations.
-    #[extractor(enum_from_u32(type = "MagicSchool"))]
-    pub magic_school: MagicSchool,
+    /// Magic type (Magic=0, LightMagic=1, BlackMagic=2) — selects which character
+    /// magic-skill attribute drives damage, success, and mana-cost calculations.
+    #[extractor(enum_from_u32(type = "MagicType"))]
+    pub magic_type: MagicType,
 
     /// Selects blended rendering (`1`) rather than direct blitting (`0`) for
     /// the target animation.
@@ -199,7 +200,7 @@ pub fn save_magic_spells(conn: &mut Connection, spells: &[MagicSpell]) -> Result
                 spell.effect_type,
                 spell.effect_modifier,
                 spell.reserved_0x3c,
-                u32::from(spell.magic_school),
+                u32::from(spell.magic_type),
                 spell.target_animation_blends_with_background,
                 spell.animation_set_id,
                 spell.effect_visual_id,
@@ -225,7 +226,7 @@ impl std::fmt::Display for MagicSpell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::references::enums::{MagicSchool, SpellTargetType};
+    use crate::references::enums::{MagicType, SpellTargetType};
 
     use std::io::Cursor;
 
@@ -247,7 +248,7 @@ mod tests {
             1,  // effect_type
             0,  // effect_modifier
             0,  // reserved_0x3c
-            0,  // magic_school (Unknown)
+            1,  // magic_type (LightMagic)
             0,  // target_animation_blends_with_background
             1,  // animation_set_id
             2,  // effect_visual_id
@@ -270,7 +271,7 @@ mod tests {
         assert_eq!(spells[0].enabled, MagicSpellFlag::Enabled);
         assert_eq!(spells[0].base_damage, 20);
         assert_eq!(spells[0].mana_cost, 50);
-        assert_eq!(spells[0].magic_school, MagicSchool::Unknown);
+        assert_eq!(spells[0].magic_type, MagicType::LightMagic);
         assert_eq!(spells[0].targeting_mode, SpellTargetType::Single);
     }
 

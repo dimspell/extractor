@@ -1528,38 +1528,29 @@ impl From<bool> for HealItemFlag {
     }
 }
 
-/// Magic school types for spell classification
+/// Magic type classification for spells.
+///
+/// Each spell belongs to one of three types. The player's proficiency in a
+/// type rises as they cast spells of that type.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u32)]
-pub enum MagicSchool {
-    /// Unknown or unclassified magic school
+pub enum MagicType {
+    /// Normal magic (healing, basic spells)
     #[default]
-    Unknown = 0,
-    /// School 1 (specific type unknown)
-    School1 = 1,
-    /// School 2 (specific type unknown)
-    School2 = 2,
-    /// School 3 (specific type unknown)
-    School3 = 3,
-    /// School 4 (specific type unknown)
-    School4 = 4,
-    /// School 5 (specific type unknown)
-    School5 = 5,
-    /// School 6 (specific type unknown)
-    School6 = 6,
+    Magic = 0,
+    /// Light/Holy magic (protection, buffs)
+    LightMagic = 1,
+    /// Black magic (poison, curses)
+    BlackMagic = 2,
 }
 
-impl MagicSchool {
+impl MagicType {
     /// Convert from u32 with validation
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
-            0 => Some(MagicSchool::Unknown),
-            1 => Some(MagicSchool::School1),
-            2 => Some(MagicSchool::School2),
-            3 => Some(MagicSchool::School3),
-            4 => Some(MagicSchool::School4),
-            5 => Some(MagicSchool::School5),
-            6 => Some(MagicSchool::School6),
+            0 => Some(MagicType::Magic),
+            1 => Some(MagicType::LightMagic),
+            2 => Some(MagicType::BlackMagic),
             _ => None,
         }
     }
@@ -1572,29 +1563,25 @@ impl MagicSchool {
     /// Convert from display name
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
-            "Unknown" => Some(MagicSchool::Unknown),
-            "School1" => Some(MagicSchool::School1),
-            "School2" => Some(MagicSchool::School2),
-            "School3" => Some(MagicSchool::School3),
-            "School4" => Some(MagicSchool::School4),
-            "School5" => Some(MagicSchool::School5),
-            "School6" => Some(MagicSchool::School6),
+            "Magic" => Some(MagicType::Magic),
+            "LightHoly" => Some(MagicType::LightMagic),
+            "BlackMagic" => Some(MagicType::BlackMagic),
             _ => None,
         }
     }
 }
 
-impl TryFrom<u32> for MagicSchool {
+impl TryFrom<u32> for MagicType {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
-        MagicSchool::from_u32(value).ok_or("Invalid magic school value")
+        MagicType::from_u32(value).ok_or("Invalid magic type value")
     }
 }
 
-impl From<MagicSchool> for u32 {
-    fn from(school: MagicSchool) -> Self {
-        school.value()
+impl From<MagicType> for u32 {
+    fn from(magic_type: MagicType) -> Self {
+        magic_type.value()
     }
 }
 
@@ -2164,18 +2151,15 @@ mod tests {
     }
 
     #[test]
-    fn test_magic_school_conversion() {
-        assert_eq!(MagicSchool::from_u32(0), Some(MagicSchool::Unknown));
-        assert_eq!(MagicSchool::from_u32(1), Some(MagicSchool::School1));
-        assert_eq!(MagicSchool::from_u32(2), Some(MagicSchool::School2));
-        assert_eq!(MagicSchool::from_u32(3), Some(MagicSchool::School3));
-        assert_eq!(MagicSchool::from_u32(4), Some(MagicSchool::School4));
-        assert_eq!(MagicSchool::from_u32(5), Some(MagicSchool::School5));
-        assert_eq!(MagicSchool::from_u32(6), Some(MagicSchool::School6));
-        assert_eq!(MagicSchool::from_u32(99), None);
+    fn test_magic_type_conversion() {
+        assert_eq!(MagicType::from_u32(0), Some(MagicType::Magic));
+        assert_eq!(MagicType::from_u32(1), Some(MagicType::LightMagic));
+        assert_eq!(MagicType::from_u32(2), Some(MagicType::BlackMagic));
+        assert_eq!(MagicType::from_u32(3), None);
+        assert_eq!(MagicType::from_u32(99), None);
 
-        assert_eq!(u32::from(MagicSchool::School6), 6);
-        assert_eq!(MagicSchool::School6.value(), 6);
+        assert_eq!(u32::from(MagicType::BlackMagic), 2);
+        assert_eq!(MagicType::BlackMagic.value(), 2);
     }
 
     #[test]
