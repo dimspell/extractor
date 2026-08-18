@@ -121,7 +121,7 @@ mod tests {
         let mut buf = empty_record();
 
         // unused_name at offset 0 (30 bytes, WINDOWS-1250)
-        buf[..5].copy_from_slice(b"Item\0");
+        buf[..5].copy_from_slice(b"Test\0");
         // warrior_strength at offset 30 (i16)
         buf[30..32].copy_from_slice(&10i16.to_le_bytes());
         // knight_constitution at offset 40 (i16)
@@ -141,7 +141,7 @@ mod tests {
         let records = ChData::parse(&mut c, 84).unwrap();
         assert_eq!(records.len(), 1);
         let r = &records[0];
-        assert_eq!(r.unused_name, "Item");
+        assert_eq!(r.unused_name, "Test");
         assert_eq!(r.warrior_strength, 10);
         assert_eq!(r.knight_constitution, 20);
         assert_eq!(r.archer_wisdom, 30);
