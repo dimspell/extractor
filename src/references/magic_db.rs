@@ -29,23 +29,23 @@ use serde::{Deserialize, Serialize};
 /// | [Record 1] - 88 bytes               |
 /// | - id: i32 (auto-generated)           |
 /// | - enabled: u32 (MagicSpellFlag)      |
-/// | - effect_visual_blends_with_background: u32 |
+/// | - effect_visual_blends_with_background: u32 (0=Off, 1=On) |
 /// | - base_damage: u32                    |
 /// | - base_success_rate: u32              |
 /// | - mana_cost: u32                      |
 /// | - reserved_0x14: u32                  |
 /// | - reserved_0x18: u32                  |
-/// | - effect_animation_repeats: u32       |
+/// | - effect_animation_repeats: u32 (0=Off, 1=On)       |
 /// | - range: u32                          |
 /// | - reserved_0x24: u32                  |
 /// | - cast_duration: u32                  |
-/// | - unused_constant_one: u32            |
+/// | - animation_data_index: u32            |
 /// | - effect_value: u32                   |
 /// | - effect_type: u32                   |
 /// | - effect_modifier: u32                |
 /// | - reserved_0x3c: u32                  |
 /// | - magic_school: u32 (MagicSchool)     |
-/// | - target_animation_blends_with_background: u32 |
+/// | - target_animation_blends_with_background: u32 (0=Off, 1=On) |
 /// | - animation_set_id: u32               |
 /// | - effect_visual_id: u32               |
 /// | - icon_id: u32                       |
@@ -84,8 +84,8 @@ pub struct MagicSpell {
 
     /// Selects blended rendering (`1`) rather than direct blitting (`0`) for
     /// the spell's initial visual effect.
-    #[extractor(enum_from_u32(type = "MagicSpellFlag"))]
-    pub effect_visual_blends_with_background: MagicSpellFlag,
+    #[extractor(primitive(type = "u32"))]
+    pub effect_visual_blends_with_background: u32,
 
     /// Base damage used in the spell-damage calculation.
     #[extractor(primitive(type = "u32"))]
@@ -109,8 +109,8 @@ pub struct MagicSpell {
 
     /// Repeats the target-effect animation after its final frame while the
     /// target remains valid. When clear, the effect stops at the final frame.
-    #[extractor(enum_from_u32(type = "MagicSpellFlag"))]
-    pub effect_animation_repeats: MagicSpellFlag,
+    #[extractor(primitive(type = "u32"))]
+    pub effect_animation_repeats: u32,
 
     /// Maximum target distance checked by the casting code.
     #[extractor(primitive(type = "u32"))]
@@ -124,10 +124,11 @@ pub struct MagicSpell {
     #[extractor(primitive(type = "u32"))]
     pub cast_duration: u32,
 
-    /// Compatibility constant at record offset `0x2c` (always 1 in shipped
-    /// data and not read by this executable).
+    /// Index into the animation data table, resolved to a pointer by the
+    /// game loader after reading the file. The raw value (typically 1)
+    /// is reinterpreted as a runtime pointer by the combat engine.
     #[extractor(primitive(type = "u32"))]
-    pub unused_constant_one: u32,
+    pub animation_data_index: u32,
 
     /// Secondary effect value
     #[extractor(primitive(type = "u32"))]
@@ -151,8 +152,8 @@ pub struct MagicSpell {
 
     /// Selects blended rendering (`1`) rather than direct blitting (`0`) for
     /// the target animation.
-    #[extractor(enum_from_u32(type = "MagicSpellFlag"))]
-    pub target_animation_blends_with_background: MagicSpellFlag,
+    #[extractor(primitive(type = "u32"))]
+    pub target_animation_blends_with_background: u32,
 
     /// Animation-set ID used for this spell's cast animation.
     #[extractor(primitive(type = "u32"))]
@@ -183,23 +184,23 @@ pub fn save_magic_spells(conn: &mut Connection, spells: &[MagicSpell]) -> Result
             stmt.execute(params![
                 spell.id,
                 u32::from(spell.enabled),
-                u32::from(spell.effect_visual_blends_with_background),
+                spell.effect_visual_blends_with_background,
                 spell.base_damage,
                 spell.base_success_rate,
                 spell.mana_cost,
                 spell.reserved_0x14,
                 spell.reserved_0x18,
-                u32::from(spell.effect_animation_repeats),
+                spell.effect_animation_repeats,
                 spell.range,
                 spell.reserved_0x24,
                 spell.cast_duration,
-                spell.unused_constant_one,
+                spell.animation_data_index,
                 spell.effect_value,
                 spell.effect_type,
                 spell.effect_modifier,
                 spell.reserved_0x3c,
                 u32::from(spell.magic_school),
-                u32::from(spell.target_animation_blends_with_background),
+                spell.target_animation_blends_with_background,
                 spell.animation_set_id,
                 spell.effect_visual_id,
                 spell.icon_id,
@@ -224,7 +225,8 @@ impl std::fmt::Display for MagicSpell {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::references::enums::{MagicSchool, MagicSpellFlag, SpellTargetType};
+    use crate::references::enums::{MagicSchool, SpellTargetType};
+
     use std::io::Cursor;
 
     fn spell_bytes(base_damage: u32, mana_cost: u32, targeting_mode: u32) -> Vec<u8> {
@@ -240,7 +242,7 @@ mod tests {
             10, // range
             0,  // reserved_0x24
             1,  // cast_duration
-            1,  // unused_constant_one
+            1,  // animation_data_index
             0,  // effect_value
             1,  // effect_type
             0,  // effect_modifier

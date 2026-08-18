@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS magic_spells (
     range INTEGER,
     reserved_0x24 INTEGER,
     cast_duration INTEGER,
-    unused_constant_one INTEGER,
+    animation_data_index INTEGER,
     effect_value INTEGER,
     effect_type INTEGER,
     effect_modifier INTEGER,

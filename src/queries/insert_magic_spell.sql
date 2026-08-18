@@ -11,7 +11,7 @@ INSERT INTO magic_spells (
     range,
     reserved_0x24,
     cast_duration,
-    unused_constant_one,
+    animation_data_index,
     effect_value,
     effect_type,
     effect_modifier,
