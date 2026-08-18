@@ -72,12 +72,13 @@ pub struct PartyIniNpc {
     #[extractor(primitive(type = "u8"))]
     pub reserved_0x14: u8,
     /// Character class identifier. Shipped values are 21–24.
+    /// TODO: Create an enum, which maps: 21 = Knight, 22 = Mage, 23 = Mage, 24 = Warrior.
     #[extractor(primitive(type = "u8"))]
     pub class_id: u8,
     /// Initial level used when the party character is created.
     #[extractor(primitive(type = "u8"))]
     pub starting_level: u8,
-    /// Mode passed to the game's map/path queries; all shipped records use 7.
+    /// Mode passed to the game's map/path queries; likely an eagerness to combat (range).
     #[extractor(primitive(type = "u8"))]
     pub pathfinding_mode: u8,
     /// Class-specific variant selector. The game uses values 0 and 1 to choose
