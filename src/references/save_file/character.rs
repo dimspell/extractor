@@ -8,7 +8,7 @@ use std::io::{Read, Write};
 ///
 /// Maps the binary stats block (~68 bytes of structured data) that follows
 /// the belt-data section and precedes the inventory section.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, BinaryRecord)]
 pub struct CharacterStats {
     // ── Core attributes ──
     pub strength: u16,

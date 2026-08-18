@@ -31,7 +31,6 @@ pub use crate::references::save_file::map_viewport::{
     MapViewportCell, MapViewportState, PostMapsData,
 };
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-// use dispel_macros::BinaryRecord;
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Seek, Write};
 
@@ -381,44 +380,11 @@ impl SaveFile {
         };
 
         // ── Structured stats block ──
-        let character_stats = CharacterStats {
-            strength: reader.read_u16::<LittleEndian>()?,
-            agility: reader.read_u16::<LittleEndian>()?,
-            wisdom: reader.read_u16::<LittleEndian>()?,
-            constitution: reader.read_u16::<LittleEndian>()?,
-            morale: reader.read_u16::<LittleEndian>()?,
-            hp_current: reader.read_u16::<LittleEndian>()?,
-            hp_maximum: reader.read_u16::<LittleEndian>()?,
-            mp_current: reader.read_u16::<LittleEndian>()?,
-            mp_maximum: reader.read_u16::<LittleEndian>()?,
-            experience: reader.read_u32::<LittleEndian>()?,
-            level: reader.read_u16::<LittleEndian>()?,
-            gold: reader.read_u32::<LittleEndian>()?,
-            offense: reader.read_u16::<LittleEndian>()?,
-            defense: reader.read_u16::<LittleEndian>()?,
-            dodge_rate: reader.read_u8()?,
-            hit_rate: reader.read_u8()?,
-            magic_power: reader.read_u16::<LittleEndian>()?,
-            attack_modifier: reader.read_u8()?,
-            pickpocketing: reader.read_u8()?,
-            lockpicking: reader.read_u8()?,
-            haggling: reader.read_u8()?,
-            perception: reader.read_u8()?,
-            traps: reader.read_u8()?,
-            swords_level: reader.read_u8()?,
-            swords_kills: reader.read_u16::<LittleEndian>()?,
-            axes_level: reader.read_u8()?,
-            axes_kills: reader.read_u16::<LittleEndian>()?,
-            archery_level: reader.read_u8()?,
-            archery_kills: reader.read_u16::<LittleEndian>()?,
-            polearm_level: reader.read_u8()?,
-            polearm_kills: reader.read_u16::<LittleEndian>()?,
-            magic_level: reader.read_u8()?,
-            magic_kills: reader.read_u16::<LittleEndian>()?,
-            holy_magic_level: reader.read_u8()?,
-            holy_magic_kills: reader.read_u16::<LittleEndian>()?,
-            dark_magic_level: reader.read_u8()?,
-            dark_magic_kills: reader.read_u16::<LittleEndian>()?,
+        let character_stats = {
+            let mut bytes = [0u8; 63];
+            reader.read_exact(&mut bytes)?;
+            let character_stats = CharacterStats::parse(&bytes)?;
+            character_stats
         };
 
         // ── Trailing unknown bytes ──
@@ -804,43 +770,7 @@ impl SaveFile {
         writer.write_u32::<LittleEndian>(character_stats_header.unknown_b)?;
         writer.write_u32::<LittleEndian>(character_stats_header.selected_spell_id)?;
         writer.write_all(&character_stats_header.unknown_block)?;
-        writer.write_u16::<LittleEndian>(stats.strength)?;
-        writer.write_u16::<LittleEndian>(stats.agility)?;
-        writer.write_u16::<LittleEndian>(stats.wisdom)?;
-        writer.write_u16::<LittleEndian>(stats.constitution)?;
-        writer.write_u16::<LittleEndian>(stats.morale)?;
-        writer.write_u16::<LittleEndian>(stats.hp_current)?;
-        writer.write_u16::<LittleEndian>(stats.hp_maximum)?;
-        writer.write_u16::<LittleEndian>(stats.mp_current)?;
-        writer.write_u16::<LittleEndian>(stats.mp_maximum)?;
-        writer.write_u32::<LittleEndian>(stats.experience)?;
-        writer.write_u16::<LittleEndian>(stats.level)?;
-        writer.write_u32::<LittleEndian>(stats.gold)?;
-        writer.write_u16::<LittleEndian>(stats.offense)?;
-        writer.write_u16::<LittleEndian>(stats.defense)?;
-        writer.write_u8(stats.dodge_rate)?;
-        writer.write_u8(stats.hit_rate)?;
-        writer.write_u16::<LittleEndian>(stats.magic_power)?;
-        writer.write_u8(stats.attack_modifier)?;
-        writer.write_u8(stats.pickpocketing)?;
-        writer.write_u8(stats.lockpicking)?;
-        writer.write_u8(stats.haggling)?;
-        writer.write_u8(stats.perception)?;
-        writer.write_u8(stats.traps)?;
-        writer.write_u8(stats.swords_level)?;
-        writer.write_u16::<LittleEndian>(stats.swords_kills)?;
-        writer.write_u8(stats.axes_level)?;
-        writer.write_u16::<LittleEndian>(stats.axes_kills)?;
-        writer.write_u8(stats.archery_level)?;
-        writer.write_u16::<LittleEndian>(stats.archery_kills)?;
-        writer.write_u8(stats.polearm_level)?;
-        writer.write_u16::<LittleEndian>(stats.polearm_kills)?;
-        writer.write_u8(stats.magic_level)?;
-        writer.write_u16::<LittleEndian>(stats.magic_kills)?;
-        writer.write_u8(stats.holy_magic_level)?;
-        writer.write_u16::<LittleEndian>(stats.holy_magic_kills)?;
-        writer.write_u8(stats.dark_magic_level)?;
-        writer.write_u16::<LittleEndian>(stats.dark_magic_kills)?;
+        stats.write(writer)?;
         writer.write_all(unknown_after)?;
         Ok(())
     }
