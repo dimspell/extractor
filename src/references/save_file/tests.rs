@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::references::save_file::character::PartyMemberCombatSnapshot;
     use crate::references::save_file::map_viewport::{
         MAP_VIEWPORT_CELL_COUNT, MAP_VIEWPORT_STATE_SIZE,
@@ -13,7 +12,6 @@ mod tests {
         CharacterStats, MapSectionData, MapViewportCell, MapViewportState, PostMapsData, SaveFile,
     };
     use byteorder::{LittleEndian, ReadBytesExt};
-    use std::io::Read;
 
     #[test]
     fn test_monster_record_preserves_verified_329_byte_layout() {
@@ -129,24 +127,6 @@ mod tests {
             extra_object_block_size: 8,
             number_of_visited_maps: 2,
             map_ids: vec![9, 10],
-            map_viewport_state: MapViewportState {
-                render_bounds: [0x0b0b_0b0b; 4],
-                viewport_bounds: [0x0b0b_0b0b; 4],
-                geometry: [0x0b0b_0b0b; 24],
-                cells: vec![
-                    MapViewportCell {
-                        screen_x: 0x0b0b_0b0b,
-                        screen_y: 0x0b0b_0b0b,
-                        map_x: 0x0b0b_0b0b,
-                        map_y: 0x0b0b_0b0b,
-                        map_tile_index: 0x0b0b_0b0b,
-                    };
-                    MAP_VIEWPORT_CELL_COUNT
-                ],
-                selected_tile_index: 0x0b0b_0b0b,
-                renderer_global_state: [0x0b0b_0b0b; 2],
-                runtime_state: [0x0b0b_0b0b; 2],
-            },
         };
         let mut bytes = Vec::new();
 
@@ -165,9 +145,6 @@ mod tests {
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 2);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 9);
         assert_eq!(reader.read_u32::<LittleEndian>().unwrap(), 10);
-        let mut map_viewport_state = vec![0u8; MAP_VIEWPORT_STATE_SIZE];
-        reader.read_exact(&mut map_viewport_state).unwrap();
-        assert_eq!(map_viewport_state, vec![11; MAP_VIEWPORT_STATE_SIZE]);
     }
 
     #[test]

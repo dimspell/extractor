@@ -40,8 +40,6 @@ pub struct PostMapsData {
     pub number_of_visited_maps: u32,
     /// IDs of the visited maps.
     pub map_ids: Vec<u32>,
-    /// Fixed-size serialized isometric map viewport state.
-    pub map_viewport_state: MapViewportState,
 }
 
 /// A cached correspondence between an isometric screen position and a map tile.

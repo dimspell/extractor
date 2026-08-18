@@ -1044,10 +1044,6 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
             data: save_file.unknown_after_stats.clone(),
         },
         RawHexEditorData {
-            label: "Map Viewport State".into(),
-            data: save_file.post_maps.map_viewport_state.raw_bytes(),
-        },
-        RawHexEditorData {
             label: "Post-Events Block A".into(),
             data: save_file.post_events.block_a.clone(),
         },

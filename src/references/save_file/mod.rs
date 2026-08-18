@@ -46,6 +46,8 @@ pub struct SaveFile {
     pub maps: Vec<MapSectionData>,
     /// Unknown data between maps and sprite paths (header + variable-size remainder).
     pub post_maps: PostMapsData,
+    /// Fixed-size serialized isometric map viewport state (10148 bytes).
+    pub map_viewport_state: MapViewportState,
     /// Character sprite paths (4 × 60-byte WINDOWS-1250 strings).
     pub sprite_paths: Vec<String>,
     /// Unknown 8 bytes
@@ -76,24 +78,19 @@ impl SaveFile {
         let mut reader = std::io::Cursor::new(data);
 
         // ── 1. HEADER (4 bytes) ──
-        let jump_addr_after_maps = reader.read_u32::<LittleEndian>()? as usize;
+        let jump_addr_after_maps = reader.read_u32::<LittleEndian>()?;
 
         // ── 2. Maps ──
         let number_of_visited_map = reader.read_u32::<LittleEndian>()?;
         let maps = Self::parse_maps_section(&mut reader, number_of_visited_map)?;
 
-        if jump_addr_after_maps != reader.position() as usize {
-            eprintln!(
-                "jump_addr_after_maps ({:?}) != reader.position() {:?}",
-                jump_addr_after_maps,
-                reader.position() as usize
-            );
-
+        if jump_addr_after_maps as usize != reader.position() as usize {
             reader.set_position(jump_addr_after_maps as u64);
         }
 
         // ── 3. Unknown data between maps and sprite paths ──
         let post_maps = Self::parse_post_maps_data(&mut reader, number_of_visited_map)?;
+        let map_viewport_state = MapViewportState::read_from(&mut reader)?;
 
         // ── 4. Character sprite paths (4 × 60-byte WINDOWS-1250 strings) ──
         let sprite_paths = Self::parse_sprite_paths(&mut reader)?;
@@ -124,9 +121,10 @@ impl SaveFile {
         let journal = Self::parse_journal_section(&mut reader)?;
 
         Ok(SaveFile {
-            game_tmp_blob_size: jump_addr_after_maps as u32,
+            game_tmp_blob_size: jump_addr_after_maps,
             maps,
             post_maps,
+            map_viewport_state,
             sprite_paths,
             unknown_before_stats,
             character_position_x,
@@ -271,7 +269,7 @@ impl SaveFile {
     /// Parse the save-world header and player runtime-state snapshot.
     ///
     /// Layout: `[map-section terminator: u32][8 × 4-byte header values]
-    /// [visited-map count][visited map IDs][player runtime state: 10,148 bytes]`.
+    /// [visited-map count][visited map IDs]`.
     fn parse_post_maps_data<R: Read>(
         reader: &mut R,
         num_visited_maps: u32,
@@ -301,8 +299,6 @@ impl SaveFile {
             *map_id = reader.read_u32::<LittleEndian>()?;
         }
 
-        let map_viewport_state = MapViewportState::read_from(reader)?;
-
         Ok(PostMapsData {
             map_section_terminator,
             game_version,
@@ -315,7 +311,6 @@ impl SaveFile {
             extra_object_block_size,
             number_of_visited_maps,
             map_ids,
-            map_viewport_state,
         })
     }
 
@@ -736,7 +731,6 @@ impl SaveFile {
         for id in &data.map_ids {
             writer.write_u32::<LittleEndian>(*id)?;
         }
-        data.map_viewport_state.write_to(writer)?;
         Ok(())
     }
 
@@ -929,6 +923,7 @@ impl Extractor for SaveFile {
 
         // 3. Post-maps data
         Self::write_post_maps_data(&save.post_maps, writer)?;
+        save.map_viewport_state.write_to(writer)?;
 
         // 4. Sprite paths (always 4 × 60-byte fixed buffers)
         Self::write_sprite_paths(&save.sprite_paths, writer)?;

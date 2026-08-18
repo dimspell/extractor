@@ -393,7 +393,7 @@ pub fn handle(msg: SaveFileViewerMessage, app: &mut App) -> Task<Message> {
                             .get(map_idx)
                             .is_some_and(|map| map.map_id == save.post_maps.ref_map_ini_id)
                 })
-                .map(|save| save.post_maps.map_viewport_state.cells.clone())
+                .map(|save| save.map_viewport_state.cells.clone())
                 .unwrap_or_default();
 
             use crate::components::map_render::MapViewState;
