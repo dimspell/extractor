@@ -975,7 +975,7 @@ pub enum InventoryCategory {
 
 pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
     // Build embedded hex viewers for unknown/raw blocks
-    let mut hex_editors: Vec<RawHexEditorData> = vec![
+    let hex_editors: Vec<RawHexEditorData> = vec![
         // RawHexEditorData {
         //     label: "Equipped Equipment".into(),
         //     data: save_file
@@ -1035,22 +1035,6 @@ pub fn get_hex_editors(save_file: &SaveFile) -> Vec<RawHexEditorData> {
         //         bytes
         //     },
         // },
-        RawHexEditorData {
-            label: "Character.unknown_01".into(),
-            data: save_file.character.unknown_01.to_vec().clone(),
-        },
-        RawHexEditorData {
-            label: "Character.unknown_02".into(),
-            data: save_file.character.unknown_02.to_vec().clone(),
-        },
-        RawHexEditorData {
-            label: "Character.unknown_03".into(),
-            data: save_file.character.unknown_03.to_vec().clone(),
-        },
-        RawHexEditorData {
-            label: "Character.unknown_03".into(),
-            data: save_file.character.unknown_04.to_vec().clone(),
-        },
         RawHexEditorData {
             label: "character_identity.unknown_00".into(),
             data: save_file.character_identity.unknown_00.clone(),

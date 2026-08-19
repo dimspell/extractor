@@ -55,7 +55,7 @@ pub struct SaveFile {
     pub sprite_paths: Vec<String>,
     /// Character actual attributtes, stats and position on the map.
     pub character: CharacterData,
-    /// List of items in the inventory by the cateogry (5 item categories).
+    /// List of items in the inventory by the category (5 item categories).
     pub inventory: InventoryData,
     /// Character identity (name, class, unknown blocks).
     pub character_identity: CharacterIdentity,
